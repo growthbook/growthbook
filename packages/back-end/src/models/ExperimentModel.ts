@@ -1,4 +1,4 @@
-import { each, flatten, isEqual, omit, uniqBy, uniqWith } from "lodash";
+import { each, flatten, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
@@ -6,6 +6,7 @@ import {
   Changeset,
   ExperimentInterface,
   LegacyExperimentInterface,
+  Variation,
 } from "../../types/experiment";
 import { OrganizationInterface } from "../../types/organization";
 import { VisualChange } from "../../types/visual-changeset";
@@ -278,7 +279,7 @@ export async function createExperiment({
     nextSnapshotAttempt: nextUpdate,
   });
 
-  await _onExperimentCreate({
+  await onExperimentCreate({
     organization,
     experiment: exp,
     bypassWebhooks,
@@ -308,7 +309,7 @@ export async function updateExperimentById(
 
   const updated = { ...experiment, ...changes };
 
-  await _onExperimentUpdate({
+  await onExperimentUpdate({
     organization,
     oldExperiment: experiment,
     newExperiment: updated,
@@ -537,7 +538,7 @@ export async function deleteExperimentSegment(
     const current = cloneDeep(previous);
     current.segment = "";
 
-    _onExperimentUpdate({
+    onExperimentUpdate({
       organization,
       oldExperiment: previous,
       newExperiment: current,
@@ -593,7 +594,7 @@ export const findExperiment = async ({
  * @param experiment
  * @return event.id
  */
-const _logExperimentCreated = async (
+const logExperimentCreated = async (
   organization: OrganizationInterface,
   experiment: ExperimentInterface
 ): Promise<string> => {
@@ -616,7 +617,7 @@ const _logExperimentCreated = async (
  * @param experiment
  * @return event.id
  */
-const _logExperimentUpdated = async ({
+const logExperimentUpdated = async ({
   organization,
   current,
   previous,
@@ -655,7 +656,7 @@ export async function deleteExperimentByIdForOrganization(
       organization: organization.id,
     });
 
-    await _onExperimentDelete(organization, experiment);
+    await onExperimentDelete(organization, experiment);
   } catch (e) {
     logger.error(e);
   }
@@ -685,7 +686,7 @@ export const removeTagFromExperiments = async ({
     const current = cloneDeep(previous);
     current.tags = current.tags.filter((t) => t != tag);
 
-    _onExperimentUpdate({
+    onExperimentUpdate({
       organization,
       oldExperiment: previous,
       newExperiment: current,
@@ -763,7 +764,7 @@ export async function removeMetricFromExperiments(
   each(oldExperiments, async (changeSet) => {
     const { previous, current } = changeSet;
     if (current && previous) {
-      await _onExperimentUpdate({
+      await onExperimentUpdate({
         organization,
         oldExperiment: previous,
         newExperiment: current,
@@ -786,7 +787,7 @@ export async function removeProjectFromExperiments(
     const current = cloneDeep(previous);
     current.project = "";
 
-    _onExperimentUpdate({
+    onExperimentUpdate({
       organization,
       oldExperiment: previous,
       newExperiment: current,
@@ -806,7 +807,7 @@ export async function getExperimentsUsingSegment(id: string, orgId: string) {
  * @param experiment
  * @return event.id
  */
-export const _logExperimentDeleted = async (
+export const logExperimentDeleted = async (
   organization: OrganizationInterface,
   experiment: ExperimentInterface
 ): Promise<string> => {
@@ -824,6 +825,7 @@ export const _logExperimentDeleted = async (
   return emittedEvent.id;
 };
 
+// type guard
 const _isValidVisualExperiment = (
   e: Partial<VisualExperiment>
 ): e is VisualExperiment => !!e.experiment && !!e.visualChangeset;
@@ -831,13 +833,6 @@ const _isValidVisualExperiment = (
 export const getAllVisualExperiments = async (
   organization: string
 ): Promise<Array<VisualExperiment>> => {
-  // TODO encryption
-  // if (!encryptionKey) {
-  //   return {
-  //     features,
-  //     dateUpdated,
-  //   };
-  // }
   const visualChangesets = await findVisualChangesets(organization);
 
   if (!visualChangesets.length) return [];
@@ -894,7 +889,7 @@ export const getPayloadKeys = (
   }));
 };
 
-const _getAllVisualChanges = async (
+const getAllVisualChanges = async (
   organization: OrganizationInterface,
   experiment: ExperimentInterface
 ) => {
@@ -905,39 +900,92 @@ const _getAllVisualChanges = async (
 
   if (!visualChangesets.length) return [];
 
-  return flatten(visualChangesets.map((vc) => vc.visualChanges));
+  const importantKeys: Array<keyof VisualChange> = [
+    "css",
+    "domMutations",
+    "variation",
+  ];
+
+  const visualChanges = flatten(visualChangesets.map((vc) => vc.visualChanges));
+
+  return visualChanges.map((vc) => pick(vc, importantKeys));
 };
 
-const _hasVisualChanges = async (
-  organization: OrganizationInterface,
+const getExperimentChanges = (
   experiment: ExperimentInterface
-) => {
-  const visualChanges = await _getAllVisualChanges(organization, experiment);
-  return visualChanges.some((vc) => !!vc.css || !!vc.domMutations.length);
+): Omit<ExperimentInterface, "variations"> & {
+  variations: Partial<Variation>[];
+} => {
+  const importantKeys: Array<keyof ExperimentInterface> = [
+    "trackingKey",
+    "project",
+    "hashAttribute",
+    "name",
+    "archived",
+    "status",
+    "releasedVariationId",
+    "autoAssign",
+    "variations",
+    "phases",
+  ];
+
+  return {
+    ...pick(experiment, importantKeys),
+    variations: experiment.variations.map((v) =>
+      pick(v, ["id", "name", "key"])
+    ),
+  };
 };
 
-const _onExperimentCreate = async ({
+const hasChangesForSDKPayloadRefresh = async ({
+  organization,
+  oldExperiment,
+  newExperiment,
+}: {
+  organization: OrganizationInterface;
+  oldExperiment: ExperimentInterface;
+  newExperiment: ExperimentInterface;
+}): Promise<boolean> => {
+  const oldChanges = getExperimentChanges(oldExperiment);
+  const newChanges = getExperimentChanges(newExperiment);
+
+  const hasExperimentChanges = !isEqual(oldChanges, newChanges);
+
+  if (hasExperimentChanges) return true;
+
+  const oldVisualChanges = await getAllVisualChanges(
+    organization,
+    oldExperiment
+  );
+  const newVisualChanges = await getAllVisualChanges(
+    organization,
+    newExperiment
+  );
+
+  const hasVisualChanges = !isEqual(oldVisualChanges, newVisualChanges);
+
+  return hasVisualChanges;
+};
+
+const onExperimentCreate = async ({
   organization,
   experiment,
-  bypassWebhooks = false,
+  bypassWebhooks,
 }: {
   organization: OrganizationInterface;
   experiment: ExperimentInterface;
   bypassWebhooks?: boolean;
 }) => {
-  await _logExperimentCreated(organization, experiment);
+  await logExperimentCreated(organization, experiment);
 
   if (bypassWebhooks) return;
-
-  // if no visual changes, return early
-  if (!(await _hasVisualChanges(organization, experiment))) return;
 
   const payloadKeys = getPayloadKeys(organization, experiment);
 
   refreshSDKPayloadCache(organization, payloadKeys);
 };
 
-const _onExperimentUpdate = async ({
+const onExperimentUpdate = async ({
   organization,
   oldExperiment,
   newExperiment,
@@ -948,7 +996,7 @@ const _onExperimentUpdate = async ({
   newExperiment: ExperimentInterface;
   bypassWebhooks?: boolean;
 }) => {
-  await _logExperimentUpdated({
+  await logExperimentUpdated({
     organization,
     current: newExperiment,
     previous: oldExperiment,
@@ -956,13 +1004,13 @@ const _onExperimentUpdate = async ({
 
   if (bypassWebhooks) return;
 
-  // if no delta in visual changes, return early
-  const oldChanges = oldExperiment
-    ? await _getAllVisualChanges(organization, oldExperiment)
-    : [];
-  const newChanges = await _getAllVisualChanges(organization, newExperiment);
+  const hasChanges = await hasChangesForSDKPayloadRefresh({
+    organization,
+    oldExperiment,
+    newExperiment,
+  });
 
-  if (isEqual(oldChanges, newChanges)) return;
+  if (!hasChanges) return;
 
   const oldPayloadKeys = oldExperiment
     ? getPayloadKeys(organization, oldExperiment)
@@ -973,14 +1021,11 @@ const _onExperimentUpdate = async ({
   refreshSDKPayloadCache(organization, payloadKeys);
 };
 
-const _onExperimentDelete = async (
+const onExperimentDelete = async (
   organization: OrganizationInterface,
   experiment: ExperimentInterface
 ) => {
-  await _logExperimentDeleted(organization, experiment);
-
-  // if no visual changes, return early
-  if (!(await _hasVisualChanges(organization, experiment))) return;
+  await logExperimentDeleted(organization, experiment);
 
   const payloadKeys = getPayloadKeys(organization, experiment);
 

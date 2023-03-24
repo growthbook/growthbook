@@ -144,7 +144,6 @@ export async function getSavedGroupMap(
   return groupMap;
 }
 
-// TODO consider renaming this
 export async function refreshSDKPayloadCache(
   organization: OrganizationInterface,
   payloadKeys: SDKPayloadKey[],
