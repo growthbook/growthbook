@@ -170,15 +170,17 @@ const DataSourcePage: FC = () => {
                   >
                     <FaExternalLinkAlt /> View Documentation
                   </DocLink>
-                  <button
-                    className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setViewSchema(true);
-                    }}
-                  >
-                    <FaDatabase /> View Schema Browser
-                  </button>
+                  {d.properties.supportsInformationSchema && (
+                    <button
+                      className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setViewSchema(true);
+                      }}
+                    >
+                      <FaDatabase /> View Schema Browser
+                    </button>
+                  )}
                 </div>
 
                 <div>
