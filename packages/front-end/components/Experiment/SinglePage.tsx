@@ -174,7 +174,7 @@ export default function SinglePage({
   const hasPermission = permissions.check("createAnalyses", experiment.project);
 
   const canEdit = hasPermission && !experiment.archived;
-  
+
   const ignoreConversionEnd =
     experiment.attributionModel === "experimentDuration";
 

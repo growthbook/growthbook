@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { FaInfoCircle } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -17,6 +18,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Toggle from "@/components/Forms/Toggle";
 import { isCloud } from "@/services/env";
 import track from "@/services/track";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import { languageMapping } from "./SDKLanguageLogo";
 
@@ -181,22 +183,47 @@ export default function SDKConnectionForm({
                 <Toggle
                   id="sdk-connection-visual-experiments-toggle"
                   value={form.watch("includeVisualExperiments")}
-                  setValue={(val) => form.setValue("includeVisualExperiments", val)}
+                  setValue={(val) =>
+                    form.setValue("includeVisualExperiments", val)
+                  }
                 />
               </div>
             </div>
-            <div className="mt-3" style={{display: form.watch("includeVisualExperiments") ? "block" : "none" }}>
-              <label htmlFor="sdk-connection-include-draft-experiments-toggle">
-                Include draft experiments
-              </label>
-              <div>
-                <Toggle
-                  id="sdk-connection-include-draft-experiments-toggle"
-                  value={form.watch("includeDraftExperiments")}
-                  setValue={(val) => form.setValue("includeDraftExperiments", val)}
-                />
+            {form.watch("includeVisualExperiments") && (
+              <div className="mt-3">
+                <Tooltip
+                  body={
+                    <>
+                      <p>
+                        In-development visual experiments will be sent to the
+                        SDK. We recommend only enabling this for non-production
+                        environments.
+                      </p>
+                      <p className="mb-0">
+                        To force into a variation, use a URL query string such
+                        as{" "}
+                        <div className="text-monospace">
+                          ?my-experiment-id=2
+                        </div>
+                      </p>
+                    </>
+                  }
+                >
+                  <label htmlFor="sdk-connection-include-draft-experiments-toggle">
+                    Include draft experiments <FaInfoCircle />
+                  </label>
+                </Tooltip>
+                <div>
+                  <Toggle
+                    id="sdk-connection-include-draft-experiments-toggle"
+                    value={form.watch("includeDraftExperiments")}
+                    setValue={(val) =>
+                      form.setValue("includeDraftExperiments", val)
+                    }
+                  />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </>
       )}
