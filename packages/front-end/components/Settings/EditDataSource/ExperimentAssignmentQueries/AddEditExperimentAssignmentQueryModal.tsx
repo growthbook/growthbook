@@ -6,8 +6,8 @@ import {
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
-import SchemaBrowser from "@/components/SchemaBrowser";
 import { CursorData } from "@/components/Segments/SegmentForm";
+import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import SQLInputField from "../../../SQLInputField";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";

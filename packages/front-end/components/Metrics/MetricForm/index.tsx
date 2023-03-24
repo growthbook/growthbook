@@ -29,7 +29,7 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SQLInputField from "@/components/SQLInputField";
 import GoogleAnalyticsMetrics from "@/components/Metrics/GoogleAnalyticsMetrics";
 import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
-import SchemaBrowser from "@/components/SchemaBrowser";
+import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import { CursorData } from "@/components/Segments/SegmentForm";
 
 const weekAgo = new Date();

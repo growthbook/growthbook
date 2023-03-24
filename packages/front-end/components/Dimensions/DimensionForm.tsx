@@ -9,8 +9,8 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import useMembers from "@/hooks/useMembers";
 import SQLInputField from "@/components/SQLInputField";
-import SchemaBrowser from "../SchemaBrowser";
 import { CursorData } from "../Segments/SegmentForm";
+import SchemaBrowser from "../SchemaBrowser/SchemaBrowser";
 
 const DimensionForm: FC<{
   close: () => void;

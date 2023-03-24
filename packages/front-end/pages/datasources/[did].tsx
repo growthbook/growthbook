@@ -25,7 +25,7 @@ import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
-import SchemaBrowser from "@/components/SchemaBrowser";
+import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
