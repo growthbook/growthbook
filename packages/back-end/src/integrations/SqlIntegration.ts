@@ -814,7 +814,7 @@ export default abstract class SqlIntegration
     // where RA is actually possible
     const isRegressionAdjusted =
       (metric.regressionAdjustmentDays ?? 0) > 0 &&
-      (metric.regressionAdjustmentEnabled ?? false) &&
+      !!metric.regressionAdjustmentEnabled &&
       !isRatio &&
       !metric.aggregation;
 
@@ -833,7 +833,7 @@ export default abstract class SqlIntegration
     const metricStart = this.getMetricStart(
       phase.dateStarted,
       minMetricDelay,
-      regressionAdjustmentHours || 0
+      regressionAdjustmentHours
     );
     const metricEnd = this.getMetricEnd(
       orderedMetrics,
