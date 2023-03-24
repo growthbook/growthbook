@@ -4,6 +4,13 @@ import Field from "../Forms/Field";
 import { GBAddCircle } from "../Icons";
 import Modal from "../Modal";
 
+const genDefaultUrlPattern = (
+  editorUrl: string
+): VisualChangesetURLPattern => ({
+  pattern: editorUrl,
+  type: "regex",
+});
+
 const VisualChangesetModal: FC<{
   onClose: () => void;
   onSubmit: (args: {
@@ -14,7 +21,7 @@ const VisualChangesetModal: FC<{
   urlPatterns?: VisualChangesetURLPattern[];
 }> = ({
   onClose,
-  onSubmit,
+  onSubmit: _onSubmit,
   editorUrl: _editorUrl,
   urlPatterns: _urlPatterns,
 }) => {
@@ -41,34 +48,45 @@ const VisualChangesetModal: FC<{
     setUrlPatterns(newUrlPatterns);
   };
 
+  const onSubmit = () => {
+    const validPatterns = urlPatterns.filter((p) => p.pattern.length > 0);
+    _onSubmit({
+      editorUrl,
+      urlPatterns:
+        validPatterns.length > 0
+          ? validPatterns
+          : [genDefaultUrlPattern(editorUrl)],
+    });
+  };
+
   return (
     <Modal
       open
       close={() => onClose()}
       size="lg"
       header="Add Visual Changes"
-      submit={() => onSubmit({ editorUrl, urlPatterns })}
+      submit={onSubmit}
     >
       <Field
         required
-        label="Visual Editor Target URL"
+        label="Visual Editor URL"
         helpText={
-          "The web page the Visual Editor will make changes to. These changes can be applied to any site that matches your URL targeting rule."
+          "The web page to edit with the Visual Editor. Will not affect users."
         }
         value={editorUrl}
         onChange={(e) => setEditorUrl(e.currentTarget.value)}
       />
+      <label>URL Targeting</label>
       {urlPatterns.map((p, i) => (
-        <div key={i} className="d-flex align-items-center">
+        <div key={i} className="d-flex align-items-start mb-2">
           <div className="flex-1">
             <Field
-              required
-              label="URL Targeting"
               helpText={
                 <>
-                  Target multiple URLs using regular expression. e.g.{" "}
+                  Apply changes to all URLs matching this pattern for users. Use
+                  regular expression to target multiple e.g.{" "}
                   <code>https://example.com/pricing</code> or{" "}
-                  <code>^/post/[0-9]+</code>
+                  <code>^/post/[0-9]+</code>.
                 </>
               }
               value={p.pattern}
@@ -89,12 +107,13 @@ const VisualChangesetModal: FC<{
         </div>
       ))}
       <button
-        className="btn btn-primary"
-        onClick={() =>
-          setUrlPatterns([...urlPatterns, { pattern: "", type: "regex" }])
-        }
+        className="btn btn-primary mt-4"
+        onClick={(e) => {
+          e.preventDefault();
+          setUrlPatterns([...urlPatterns, { pattern: "", type: "regex" }]);
+        }}
       >
-        <GBAddCircle /> Add URL pattern
+        <GBAddCircle /> Add URL Target
       </button>
     </Modal>
   );
