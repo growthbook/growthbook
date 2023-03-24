@@ -942,12 +942,13 @@ pre {
       font-weight: 600;
 
       &.head-last-row {
-        border-bottom: 0 transparent;
         border-top: 0 transparent;
+        border-bottom: 0 transparent;
       }
 
       &.head-bottom-border {
         border-top: 0 transparent;
+        border-bottom: 0 transparent;
         background: #999;
         padding: 0;
         height: 7px;
@@ -980,12 +981,14 @@ pre {
 
   .value {
     border-left: 3px solid var(--border-color-300);
+    min-width: 80px;
+
     .label {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 20px;
-      height: 20px;
+      width: 24px;
+      height: 24px;
       color: #999;
       font-weight: 600;
       border: 1.5px solid transparentize(#999, 0.35);

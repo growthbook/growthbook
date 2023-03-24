@@ -111,7 +111,7 @@ export default function ResultsTable({
           {variations.map((v, i) => (
             <th
               colSpan={i ? (fullStats ? 3 : 2) : 1}
-              className={`value variation${i}`}
+              className={`value variation${i} pb-2`}
               key={i}
               style={{ whiteSpace: i == 0 ? "nowrap" : "initial" }}
             >
@@ -125,7 +125,7 @@ export default function ResultsTable({
             <React.Fragment key={i}>
               <th
                 className={clsx(
-                  "value",
+                  "value pt-2",
                   `variation${i} head-last-row text-center`
                 )}
               >
@@ -133,7 +133,7 @@ export default function ResultsTable({
               </th>
               {i > 0 && fullStats && (
                 <th
-                  className={`variation${i} head-last-row text-center`}
+                  className={`variation${i} head-last-row text-center pt-2`}
                   style={{ minWidth: 110 }}
                 >
                   {statsEngine === "frequentist"
@@ -142,7 +142,7 @@ export default function ResultsTable({
                 </th>
               )}
               {i > 0 && (
-                <th className={`variation${i} head-last-row text-center`}>
+                <th className={`variation${i} head-last-row text-center pt-2`}>
                   Percent Change{" "}
                   {fullStats && (
                     <>
