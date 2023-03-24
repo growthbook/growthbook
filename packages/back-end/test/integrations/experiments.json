@@ -5,7 +5,7 @@
   },
   {
     "id": "base_allExposures",
-    "attributionModel": "allExposures"
+    "attributionModel": "experimentDuration"
   },
   {
     "id": "activation",
@@ -15,7 +15,7 @@
   {
     "id": "activation_allExposures",
     "activationMetric": "cart_loaded",
-    "attributionModel": "allExposures"
+    "attributionModel": "experimentDuration"
   },
   {
     "id": "negativeconversion",
@@ -23,7 +23,7 @@
       {
         "id": "OVERRWITTENINSCRIPT",
         "conversionWindowHours": 48,
-        "conversionDelayHour": -24
+        "conversionDelayHours": -24
       }
     ],
     "attributionModel": "firstExposure"
@@ -34,10 +34,10 @@
       {
         "id": "OVERRWITTENINSCRIPT",
         "conversionWindowHours": 48,
-        "conversionDelayHour": -24
+        "conversionDelayHours": -24
       }
     ],
-    "attributionModel": "allExposures"
+    "attributionModel": "experimentDuration"
   },
   {
     "id": "activation_negativeconversion",
@@ -45,7 +45,7 @@
       {
         "id": "OVERRWITTENINSCRIPT",
         "conversionWindowHours": 48,
-        "conversionDelayHour": -24
+        "conversionDelayHours": -24
       }
     ],
     "activationMetric": "cart_loaded",
@@ -57,11 +57,57 @@
       {
         "id": "OVERRWITTENINSCRIPT",
         "conversionWindowHours": 48,
-        "conversionDelayHour": -24
+        "conversionDelayHours": -24
       }
     ],
     "activationMetric": "cart_loaded",
-    "attributionModel": "allExposures"
+    "attributionModel": "experimentDuration"
+  },
+  {
+    "id": "positiveconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "conversionWindowHours": 48,
+        "conversionDelayHours": 24
+      }
+    ],
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "base_allExposures_positiveconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "conversionWindowHours": 48,
+        "conversionDelayHours": 24
+      }
+    ],
+    "attributionModel": "experimentDuration"
+  },
+  {
+    "id": "activation_positiveconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "conversionWindowHours": 48,
+        "conversionDelayHours": 24
+      }
+    ],
+    "activationMetric": "cart_loaded",
+    "attributionModel": "firstExposure"
+  },
+  {
+    "id": "activation_allExposures_positiveconversion",
+    "metricOverrides": [
+      {
+        "id": "OVERRWITTENINSCRIPT",
+        "conversionWindowHours": 48,
+        "conversionDelayHours": 24
+      }
+    ],
+    "activationMetric": "cart_loaded",
+    "attributionModel": "experimentDuration"
   },
   {
     "id": "dimension_date",
@@ -89,10 +135,5 @@
     "id": "filter_segment",
     "attributionModel": "firstExposure",
     "segment": "chrome_only"
-  },
-  {
-    "id": "keepmultipleexposures",
-    "attributionModel": "firstExposure",
-    "removeMultipleExposures": false
   }
 ]

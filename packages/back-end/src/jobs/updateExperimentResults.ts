@@ -1,16 +1,17 @@
 import Agenda, { Job } from "agenda";
-import { ExperimentModel } from "../models/ExperimentModel";
+import {
+  getExperimentById,
+  getExperimentsToUpdate,
+  getExperimentsToUpdateLegacy,
+  updateExperimentById,
+} from "../models/ExperimentModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
-import {
-  createSnapshot,
-  getExperimentWatchers,
-  getLatestSnapshot,
-} from "../services/experiments";
+import { createSnapshot, getExperimentWatchers } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
 import {
-  ExperimentSnapshotDocument,
-  ExperimentSnapshotModel,
+  updateSnapshot,
+  getLatestSnapshot,
 } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
@@ -20,6 +21,7 @@ import { analyzeExperimentResults } from "../services/stats";
 import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
+import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -28,6 +30,7 @@ const QUEUE_EXPERIMENT_UPDATES = "queueExperimentUpdates";
 
 const UPDATE_SINGLE_EXP = "updateSingleExperiment";
 type UpdateSingleExpJob = Job<{
+  organization: string;
   experimentId: string;
 }>;
 
@@ -38,35 +41,13 @@ export default async function (agenda: Agenda) {
     const ids = await legacyQueueExperimentUpdates();
 
     // New way, based on dynamic schedules
-    const experimentIds = (
-      await ExperimentModel.find(
-        {
-          datasource: {
-            $exists: true,
-            $ne: "",
-          },
-          status: "running",
-          autoSnapshots: true,
-          nextSnapshotAttempt: {
-            $exists: true,
-            $lte: new Date(),
-          },
-          id: {
-            $nin: ids,
-          },
-        },
-        {
-          id: true,
-        }
-      )
-        .limit(100)
-        .sort({
-          nextSnapshotAttempt: 1,
-        })
-    ).map((e) => e.id);
+    const experiments = await getExperimentsToUpdate(ids);
 
-    for (let i = 0; i < experimentIds.length; i++) {
-      await queueExerimentUpdate(experimentIds[i]);
+    for (let i = 0; i < experiments.length; i++) {
+      await queueExerimentUpdate(
+        experiments[i].organization,
+        experiments[i].id
+      );
     }
   });
 
@@ -84,37 +65,16 @@ export default async function (agenda: Agenda) {
     // All experiments that haven't been updated in at least UPDATE_EVERY ms
     const latestDate = new Date(Date.now() - UPDATE_EVERY);
 
-    const experimentIds = (
-      await ExperimentModel.find(
-        {
-          datasource: {
-            $exists: true,
-            $ne: "",
-          },
-          status: "running",
-          autoSnapshots: true,
-          nextSnapshotAttempt: {
-            $exists: false,
-          },
-          lastSnapshotAttempt: {
-            $lte: latestDate,
-          },
-        },
-        {
-          id: true,
-        }
-      )
-        .limit(100)
-        .sort({
-          lastSnapshotAttempt: 1,
-        })
-    ).map((e) => e.id);
+    const experiments = await await getExperimentsToUpdateLegacy(latestDate);
 
-    for (let i = 0; i < experimentIds.length; i++) {
-      await queueExerimentUpdate(experimentIds[i]);
+    for (let i = 0; i < experiments.length; i++) {
+      await queueExerimentUpdate(
+        experiments[i].organization,
+        experiments[i].id
+      );
     }
 
-    return experimentIds;
+    return experiments.map((e) => e.id);
   }
 
   async function startUpdateJob() {
@@ -124,13 +84,18 @@ export default async function (agenda: Agenda) {
     await updateResultsJob.save();
   }
 
-  async function queueExerimentUpdate(experimentId: string) {
+  async function queueExerimentUpdate(
+    organization: string,
+    experimentId: string
+  ) {
     const job = agenda.create(UPDATE_SINGLE_EXP, {
+      organization,
       experimentId,
     }) as UpdateSingleExpJob;
 
     job.unique({
       experimentId,
+      organization,
     });
     job.schedule(new Date());
     await job.save();
@@ -139,20 +104,19 @@ export default async function (agenda: Agenda) {
 
 async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
-  if (!experimentId) return;
+  const organization = job.attrs.data?.organization;
+  if (!experimentId || !organization) return;
 
   const log = logger.child({
     cron: "updateSingleExperiment",
     experimentId,
   });
 
-  const experiment = await ExperimentModel.findOne({
-    id: experimentId,
-  });
+  const experiment = await getExperimentById(organization, experimentId);
   if (!experiment) return;
 
-  let lastSnapshot: ExperimentSnapshotDocument;
-  let currentSnapshot: ExperimentSnapshotDocument;
+  let lastSnapshot: ExperimentSnapshotInterface | null;
+  let currentSnapshot: ExperimentSnapshotInterface;
 
   try {
     log.info("Start Refreshing Results");
@@ -199,18 +163,13 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
             );
           },
           async (updates, results, error) => {
-            await ExperimentSnapshotModel.updateOne(
-              { id: currentSnapshot.id },
-              {
-                $set: {
-                  ...updates,
-                  unknownVariations: results?.unknownVariations || [],
-                  multipleExposures: results?.multipleExposures || 0,
-                  results: results?.dimensions || currentSnapshot.results,
-                  error,
-                },
-              }
-            );
+            await updateSnapshot(experiment.organization, currentSnapshot.id, {
+              ...updates,
+              unknownVariations: results?.unknownVariations || [],
+              multipleExposures: results?.multipleExposures || 0,
+              results: results?.dimensions || currentSnapshot.results,
+              error,
+            });
           },
           currentSnapshot.error
         );
@@ -231,14 +190,16 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     log.info("Success");
 
-    await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
+    if (lastSnapshot) {
+      await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
+    }
   } catch (e) {
     log.error("Failure - " + e.message);
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
-      experiment.autoSnapshots = false;
-      experiment.markModified("autoSnapshots");
-      await experiment.save();
+      await updateExperimentById(organization, experiment, {
+        autoSnapshots: false,
+      });
       // TODO: email user and let them know it failed
     } catch (e) {
       log.error("Failed to turn off autoSnapshots - " + e.message);
@@ -248,8 +209,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
 async function sendSignificanceEmail(
   experiment: ExperimentInterface,
-  lastSnapshot: ExperimentSnapshotDocument,
-  currentSnapshot: ExperimentSnapshotDocument
+  lastSnapshot: ExperimentSnapshotInterface,
+  currentSnapshot: ExperimentSnapshotInterface
 ) {
   const log = logger.child({
     cron: "sendSignificanceEmail",

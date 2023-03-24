@@ -77,8 +77,18 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "guide/GA4-google-analytics",
+          label: "Google Analytics (GA4)",
+        },
+        {
+          type: "doc",
           id: "guide/GA-universal-analytics",
           label: "Google Analytics (UA)",
+        },
+        {
+          type: "doc",
+          id: "guide/google-tag-manager-and-growthbook",
+          label: "Google Tag Manager (GTM)",
         },
         { type: "doc", id: "guide/mixpanel", label: "Mixpanel" },
         { type: "doc", id: "guide/matomo", label: "Matomo" },
@@ -130,10 +140,45 @@ const sidebars = {
           id: "tools/vscode-extension",
           label: "Visual Studio Code Extension",
         },
+        {
+          type: "doc",
+          id: "tools/cli",
+          className: "pill-new",
+          label: "Command Line Interface (CLI)",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Statistics",
+      collapsed: false,
+      items: [
+        {
+          type: "doc",
+          id: "statistics/overview",
+          label: "Statistics Overview",
+        },
+        {
+          type: "doc",
+          id: "statistics/aggregation",
+          label: "Aggregate Data",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Integrations",
+      collapsed: false,
+      items: [
+        {
+          type: "doc",
+          id: "integrations/slack",
+          label: "Slack alerts",
+          className: "pill-new",
+        },
       ],
     },
     { type: "doc", id: "faq", label: "FAQ" },
-    { type: "doc", id: "statistics", label: "Statistics" },
 
     //     href: "/self-host",
     //     name: "Self-Host",

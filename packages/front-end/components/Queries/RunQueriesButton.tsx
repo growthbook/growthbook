@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import { FC, ReactElement, useEffect, useState } from "react";
 import { QueryStatus, Queries } from "back-end/types/query";
 import clsx from "clsx";
 import { FaPlay } from "react-icons/fa";
@@ -46,6 +46,7 @@ const RunQueriesButton: FC<{
   icon?: "run" | "refresh";
   onReady: () => void;
   color?: string;
+  position?: "left" | "right";
 }> = ({
   cta = "Run Queries",
   loadingText = "Running",
@@ -55,6 +56,7 @@ const RunQueriesButton: FC<{
   onReady,
   icon = "run",
   color = "primary",
+  position = "right",
 }) => {
   const { data, error, mutate } = useApi<{
     queryStatus: QueryStatus;
@@ -119,7 +121,7 @@ const RunQueriesButton: FC<{
     setCounter(data?.elapsed || 0);
   }, [data?.elapsed]);
 
-  let buttonIcon: React.ReactElement;
+  let buttonIcon: ReactElement;
   if (status === "running") {
     buttonIcon = <LoadingSpinner />;
   } else if (icon === "refresh") {
@@ -130,7 +132,11 @@ const RunQueriesButton: FC<{
 
   return (
     <>
-      <div className="d-flex justify-content-end">
+      <div
+        className={`d-flex ${
+          position === "right" ? "justify-content-end" : "justify-content-start"
+        }`}
+      >
         {status === "running" && (
           <div>
             <button

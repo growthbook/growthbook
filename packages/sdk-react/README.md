@@ -4,7 +4,7 @@
 
 This is the React client library that lets you evaluate feature flags and run experiments (A/B tests) within a React application. It is a thin wrapper around the [Javascript SDK](https://docs.growthbook.io/lib/js), so you might want to view those docs first to familiarize yourself with the basic classes and methods.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-5.4KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-5.7KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -44,7 +44,7 @@ import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
-  // Enable easier debugging of feature flags during development
+  // Enable easier debugging during development
   enableDevMode: true,
 });
 
@@ -223,7 +223,7 @@ const gb = new GrowthBook({
     // Example using Segment
     analytics.track("Experiment Viewed", {
       experimentId: experiment.key,
-      variationId: result.variationId,
+      variationId: result.key,
     });
   },
 });
@@ -457,6 +457,8 @@ To avoid exposing all of your internal feature flags and experiments to users, w
 Depending on how you configure feature flags, they may run A/B tests behind the scenes to determine which value gets assigned to the user.
 
 Sometimes though, you want to run an inline experiment without going through a feature flag first. For this, you can use either the `useExperiment` hook or the Higher Order Component `withRunExperiment`:
+
+View the [Javascript SDK Docs](https://docs.growthbook.io/lib/js) for all of the options available for inline experiments
 
 #### useExperiment hook
 

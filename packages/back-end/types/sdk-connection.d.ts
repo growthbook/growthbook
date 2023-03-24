@@ -66,7 +66,7 @@ export interface SDKConnectionInterface {
 
   // Set to true when it's used for the first time
   connected: boolean;
-
+  sseEnabled?: boolean;
   proxy: ProxyConnection;
 }
 

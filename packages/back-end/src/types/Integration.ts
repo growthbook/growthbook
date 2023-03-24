@@ -4,10 +4,34 @@ import {
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { MetricInterface, MetricStats } from "../../types/metric";
+import { MetricInterface, MetricType } from "../../types/metric";
+import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { SegmentInterface } from "../../types/segment";
 
-export type VariationMetricResult = MetricStats & {
+export class MissingDatasourceParamsError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "MissingDatasourceParamsError";
+  }
+}
+
+export class DataSourceNotSupportedError extends Error {
+  constructor() {
+    super("This data source is not supported yet.");
+    this.name = "DataSourceNotSupportedError";
+  }
+}
+
+export type MetricAggregationType = "pre" | "post" | "noWindow";
+
+export interface ExperimentMetricStats {
+  metric_type: MetricType;
+  count: number;
+  main_sum: number;
+  main_sum_squares: number;
+}
+
+export type VariationMetricResult = ExperimentMetricStats & {
   metric: string;
 };
 
@@ -18,7 +42,7 @@ export type ExperimentResults = {
       variation: number;
       users: number;
       metrics: {
-        [key: string]: MetricStats;
+        [key: string]: ExperimentMetricStats;
       };
     }[];
   }[];
@@ -61,6 +85,8 @@ export type ExperimentMetricQueryParams = {
   denominatorMetrics: MetricInterface[];
   dimension: Dimension | null;
   segment: SegmentInterface | null;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatus?: MetricRegressionAdjustmentStatus;
 };
 
 export type PastExperimentParams = {
@@ -106,8 +132,8 @@ export type PastExperimentResult = {
 export type MetricValueQueryResponseRow = {
   date: string;
   count: number;
-  mean: number;
-  stddev: number;
+  main_sum: number;
+  main_sum_squares: number;
 };
 export type MetricValueQueryResponse = MetricValueQueryResponseRow[];
 export type PastExperimentResponse = {
@@ -125,8 +151,18 @@ export type ExperimentMetricQueryResponse = {
   variation: string;
   users: number;
   count: number;
-  mean: number;
-  stddev: number;
+  statistic_type: "ratio" | "mean" | "mean_ra";
+  main_metric_type: MetricType;
+  main_sum: number;
+  main_sum_squares: number;
+  denominator_metric_type?: MetricType;
+  denominator_sum?: number;
+  denominator_sum_squares?: number;
+  main_denominator_sum_product?: number;
+  covariate_metric_type?: MetricType;
+  covariate_sum?: number;
+  covariate_sum_squares?: number;
+  main_covariate_sum_product?: number;
 }[];
 export interface SourceIntegrationConstructor {
   new (
@@ -142,6 +178,72 @@ export interface TestQueryRow {
 export interface TestQueryResult {
   results: TestQueryRow[];
   duration: number;
+}
+
+export interface RawInformationSchema {
+  table_name: string;
+  table_catalog: string;
+  table_schema: string;
+  column_count: string;
+}
+
+export interface Column {
+  columnName: string;
+  path?: string;
+  dataType: string;
+}
+
+export interface Table {
+  tableName: string;
+  path: string;
+  id: string;
+  numOfColumns: number;
+  dateCreated: Date;
+  dateUpdated: Date;
+}
+
+export interface Schema {
+  schemaName: string;
+  tables: Table[];
+  path?: string;
+  dateCreated: Date;
+  dateUpdated: Date;
+}
+
+export interface InformationSchema {
+  databaseName: string;
+  path?: string;
+  schemas: Schema[];
+  dateCreated: Date;
+  dateUpdated: Date;
+}
+
+export interface InformationSchemaError {
+  errorType: "generic" | "not_supported" | "missing_params";
+  message: string;
+}
+
+export interface InformationSchemaInterface {
+  id: string;
+  datasourceId: string;
+  databases: InformationSchema[];
+  organization: string;
+  status: "PENDING" | "COMPLETE";
+  error?: InformationSchemaError;
+  dateCreated: Date;
+  dateUpdated: Date;
+}
+
+export interface InformationSchemaTablesInterface {
+  id: string;
+  datasourceId: string;
+  organization: string;
+  tableName: string;
+  tableSchema: string;
+  databaseName: string;
+  columns: Column[];
+  dateCreated: Date;
+  dateUpdated: Date;
 }
 
 export interface SourceIntegrationInterface {
@@ -168,6 +270,7 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
+  getInformationSchema?(): Promise<InformationSchema[]>;
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;

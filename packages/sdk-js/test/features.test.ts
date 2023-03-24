@@ -1,4 +1,4 @@
-import { Context, GrowthBook } from "../src";
+import { Context, Experiment, GrowthBook } from "../src";
 
 /* eslint-disable */
 const { webcrypto } = require("node:crypto");
@@ -479,5 +479,57 @@ describe("features", () => {
 
     expect(mock.mock.calls.length).toEqual(0);
     window.fetch = f;
+  });
+
+  it("fires remote tracking calls", async () => {
+    const onExperimentViewed = jest.fn((a) => a);
+
+    const exp: Experiment<number | null> = {
+      key: "test",
+      variations: [null, 1],
+      name: "Test",
+      phase: "1",
+    };
+    const result = {
+      featureId: "feature",
+      hashAttribute: "id",
+      hashValue: "123",
+      inExperiment: true,
+      key: "v1",
+      value: 1,
+      variationId: 1,
+      bucket: 0.1234,
+      hashUsed: true,
+      name: "variation 1",
+    };
+
+    const growthbook = new GrowthBook({
+      trackingCallback: onExperimentViewed,
+      features: {
+        feature: {
+          defaultValue: 0,
+          rules: [
+            {
+              force: 1,
+              tracks: [
+                {
+                  experiment: exp,
+                  result: result,
+                },
+              ],
+            },
+          ],
+        },
+      },
+    });
+
+    const res = growthbook.evalFeature("feature");
+    expect(res.value).toEqual(1);
+    expect(res.source).toEqual("force");
+
+    expect(onExperimentViewed.mock.calls.length).toEqual(1);
+    expect(onExperimentViewed.mock.calls[0]).toEqual([exp, result]);
+
+    growthbook.destroy();
   });
 });

@@ -2,11 +2,15 @@ import { useRouter } from "next/router";
 import React, { FC, useState, useEffect, Fragment } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
-import { FaAngleLeft, FaChevronRight } from "react-icons/fa";
+import {
+  FaAngleLeft,
+  FaArchive,
+  FaChevronRight,
+  FaQuestionCircle,
+} from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
-import clsx from "clsx";
 import { IdeaInterface } from "back-end/types/idea";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -51,6 +55,8 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import ProjectBadges from "@/components/ProjectBadges";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBEdit } from "@/components/Icons";
+import Toggle from "@/components/Forms/Toggle";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -71,11 +77,21 @@ const MetricPage: FC = () => {
   const [editProjects, setEditProjects] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
-  const storageKey = `metric_groupby`; // to make metric-specific, include `${mid}`
-  const [groupby, setGroupby] = useLocalStorage<"day" | "week">(
-    storageKey,
+  const storageKeyAvg = `metric_smoothBy_avg`; // to make metric-specific, include `${mid}`
+  const storageKeySum = `metric_smoothBy_sum`;
+  const [smoothByAvg, setSmoothByAvg] = useLocalStorage<"day" | "week">(
+    storageKeyAvg,
     "day"
   );
+  const [smoothBySum, setSmoothBySum] = useLocalStorage<"day" | "week">(
+    storageKeySum,
+    "day"
+  );
+
+  const [hoverDate, setHoverDate] = useState<number | null>(null);
+  const onHoverCallback = (ret: { d: number | null }) => {
+    setHoverDate(ret.d);
+  };
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
@@ -343,7 +359,7 @@ const MetricPage: FC = () => {
           <div className="col-auto">
             <MoreMenu>
               <DeleteButton
-                className="dropdown-item"
+                className="btn dropdown-item py-2"
                 text="Delete"
                 title="Delete this metric"
                 getConfirmationContent={getMetricUsage(metric)}
@@ -354,11 +370,11 @@ const MetricPage: FC = () => {
                   mutateDefinitions({});
                   router.push("/metrics");
                 }}
-                useIcon={false}
+                useIcon={true}
                 displayName={"Metric '" + metric.name + "'"}
               />
               <Button
-                className="dropdown-item"
+                className="btn dropdown-item py-2"
                 color=""
                 onClick={async () => {
                   const newStatus =
@@ -373,6 +389,7 @@ const MetricPage: FC = () => {
                   mutate();
                 }}
               >
+                <FaArchive />{" "}
                 {metric.status === "archived" ? "Unarchive" : "Archive"}
               </Button>
             </MoreMenu>
@@ -558,7 +575,21 @@ const MetricPage: FC = () => {
                       </div>
                       {hasQueries && status === "failed" && (
                         <div className="alert alert-danger my-3">
-                          Error running the analysis. View Queries for more info
+                          Error running the analysis.{" "}
+                          <ViewAsyncQueriesButton
+                            queries={metric.queries.map((q) => q.query)}
+                            error={metric.analysisError}
+                            ctaCommponent={(onClick) => (
+                              <a
+                                className="alert-link"
+                                href="#"
+                                onClick={onClick}
+                              >
+                                View Queries
+                              </a>
+                            )}
+                          />{" "}
+                          for more info
                         </div>
                       )}
                       {hasQueries && status === "running" && (
@@ -594,7 +625,7 @@ const MetricPage: FC = () => {
                       )}
                       {analysis?.dates && analysis.dates.length > 0 && (
                         <div className="mb-4">
-                          <div className="row mb-3">
+                          <div className="row mt-3">
                             <div className="col-auto">
                               <h5 className="mb-1 mt-1">
                                 {metric.type === "binomial"
@@ -603,40 +634,148 @@ const MetricPage: FC = () => {
                                 Over Time
                               </h5>
                             </div>
-                            <div className="col-auto">
-                              <a
-                                className={clsx("badge badge-pill mr-2", {
-                                  "badge-light": groupby === "week",
-                                  "badge-primary": groupby === "day",
-                                })}
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setGroupby("day");
-                                }}
-                              >
-                                day
-                              </a>
-                              <a
-                                className={clsx("badge badge-pill", {
-                                  "badge-light": groupby === "day",
-                                  "badge-primary": groupby === "week",
-                                })}
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setGroupby("week");
-                                }}
-                              >
-                                week
-                              </a>
-                            </div>
                           </div>
 
+                          {metric.type !== "binomial" && (
+                            <>
+                              <div className="row mt-4 mb-1">
+                                <div className="col">
+                                  <Tooltip
+                                    body={
+                                      <>
+                                        <p>
+                                          This figure shows the average metric
+                                          value on a day divided by number of
+                                          unique units (e.g. users) in the
+                                          metric source on that day.
+                                        </p>
+                                        <p>
+                                          The standard deviation shows the
+                                          spread of the daily user metric
+                                          values.
+                                        </p>
+                                        <p>
+                                          When smoothing is turned on, we simply
+                                          average values and standard deviations
+                                          over the 7 trailing days (including
+                                          the selected day).
+                                        </p>
+                                      </>
+                                    }
+                                  >
+                                    <strong className="ml-4 align-bottom">
+                                      Daily Average <FaQuestionCircle />
+                                    </strong>
+                                  </Tooltip>
+                                </div>
+                                <div className="col">
+                                  <div className="float-right mr-2">
+                                    <label
+                                      className="small my-0 mr-2 text-right align-middle"
+                                      htmlFor="toggle-group-by-avg"
+                                    >
+                                      Smoothing
+                                      <br />
+                                      (7 day trailing)
+                                    </label>
+                                    <Toggle
+                                      value={smoothByAvg === "week"}
+                                      setValue={() =>
+                                        setSmoothByAvg(
+                                          smoothByAvg === "week"
+                                            ? "day"
+                                            : "week"
+                                        )
+                                      }
+                                      id="toggle-group-by-avg"
+                                      className="align-middle"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              <DateGraph
+                                type={metric.type}
+                                method="avg"
+                                dates={analysis.dates}
+                                smoothBy={smoothByAvg}
+                                onHover={onHoverCallback}
+                                hoverDate={hoverDate}
+                              />
+                            </>
+                          )}
+
+                          <div className="row mt-4 mb-1">
+                            <div className="col">
+                              <Tooltip
+                                body={
+                                  <>
+                                    {metric.type !== "binomial" ? (
+                                      <>
+                                        <p>
+                                          This figure shows the daily sum of
+                                          values in the metric source on that
+                                          day.
+                                        </p>
+                                        <p>
+                                          When smoothing is turned on, we simply
+                                          average values over the 7 trailing
+                                          days (including the selected day).
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p>
+                                          This figure shows the total count of
+                                          units (e.g. users) in the metric
+                                          source on that day.
+                                        </p>
+                                        <p>
+                                          When smoothing is turned on, we simply
+                                          average counts over the 7 trailing
+                                          days (including the selected day).
+                                        </p>
+                                      </>
+                                    )}
+                                  </>
+                                }
+                              >
+                                <strong className="ml-4 align-bottom">
+                                  Daily{" "}
+                                  {metric.type !== "binomial" ? "Sum" : "Count"}{" "}
+                                  <FaQuestionCircle />
+                                </strong>
+                              </Tooltip>
+                            </div>
+                            <div className="col">
+                              <div className="float-right mr-2">
+                                <label
+                                  className="small my-0 mr-2 text-right align-middle"
+                                  htmlFor="toggle-group-by-sum"
+                                >
+                                  Smoothing
+                                  <br />
+                                  (7 day trailing)
+                                </label>
+                                <Toggle
+                                  value={smoothBySum === "week"}
+                                  setValue={() =>
+                                    setSmoothBySum(
+                                      smoothBySum === "week" ? "day" : "week"
+                                    )
+                                  }
+                                  id="toggle-group-by-sum"
+                                  className="align-middle"
+                                />
+                              </div>
+                            </div>
+                          </div>
                           <DateGraph
                             type={metric.type}
+                            method="sum"
                             dates={analysis.dates}
-                            groupby={groupby}
+                            smoothBy={smoothBySum}
+                            onHover={onHoverCallback}
+                            hoverDate={hoverDate}
                           />
                         </div>
                       )}

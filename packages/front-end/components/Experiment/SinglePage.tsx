@@ -6,6 +6,7 @@ import {
   FaArrowDown,
   FaExternalLinkAlt,
   FaLink,
+  FaPalette,
   FaQuestionCircle,
 } from "react-icons/fa";
 import { IdeaInterface } from "back-end/types/idea";
@@ -15,8 +16,6 @@ import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
-import { phaseSummary } from "@/services/utils";
-import { date } from "@/services/dates";
 import { getDefaultConversionWindowHours } from "@/services/env";
 import { applyMetricOverrides } from "@/services/experiments";
 import MoreMenu from "../Dropdown/MoreMenu";
@@ -26,7 +25,7 @@ import MarkdownInlineEdit from "../Markdown/MarkdownInlineEdit";
 import DiscussionThread from "../DiscussionThread";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import DeleteButton from "../DeleteButton/DeleteButton";
-import { GBAddCircle, GBEdit } from "../Icons";
+import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../Icons";
 import RightRailSection from "../Layout/RightRailSection";
 import RightRailSectionGroup from "../Layout/RightRailSectionGroup";
 import Modal from "../Modal";
@@ -43,6 +42,7 @@ import AnalysisForm from "./AnalysisForm";
 import VariationBox from "./VariationBox";
 import Results from "./Results";
 import StatusIndicator from "./StatusIndicator";
+import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
 
 function getColWidth(v: number) {
   // 2 across
@@ -58,12 +58,24 @@ function getColWidth(v: number) {
 function drawMetricRow(
   m: string,
   metric: MetricInterface,
-  experiment: ExperimentInterfaceStringDates
+  experiment: ExperimentInterfaceStringDates,
+  ignoreConversionEnd: boolean
 ) {
   const { newMetric, overrideFields } = applyMetricOverrides(
     metric,
     experiment.metricOverrides
   );
+  if (!newMetric) return null;
+
+  const conversionStart = newMetric.conversionDelayHours || 0;
+  const conversionEnd =
+    (newMetric.conversionDelayHours || 0) +
+    (newMetric.conversionWindowHours || getDefaultConversionWindowHours());
+
+  const hasOverrides =
+    overrideFields.includes("conversionDelayHours") ||
+    (!ignoreConversionEnd && overrideFields.includes("conversionWindowHours"));
+
   return (
     <div className="row align-items-top" key={m}>
       <div className="col-sm-5">
@@ -79,13 +91,10 @@ function drawMetricRow(
       <div className="col-sm-5 ml-2">
         {newMetric && (
           <div className="small">
-            {newMetric.conversionDelayHours || 0} to{" "}
-            {(newMetric.conversionDelayHours || 0) +
-              (newMetric.conversionWindowHours ||
-                getDefaultConversionWindowHours())}{" "}
+            {conversionStart}{" "}
+            {ignoreConversionEnd ? "" : "to " + conversionEnd + " "}
             hours{" "}
-            {(overrideFields.includes("conversionDelayHours") ||
-              overrideFields.includes("conversionWindowHours")) && (
+            {hasOverrides && (
               <span className="font-italic text-purple">(override)</span>
             )}
           </div>
@@ -117,6 +126,7 @@ export interface Props {
   editProject?: () => void;
   newPhase?: () => void;
   editPhases?: () => void;
+  editPhase?: (i: number | null) => void;
 }
 
 export default function SinglePage({
@@ -131,6 +141,7 @@ export default function SinglePage({
   editProject,
   newPhase,
   editPhases,
+  editPhase,
 }: Props) {
   const {
     getProjectById,
@@ -175,6 +186,9 @@ export default function SinglePage({
 
   const variationCols = getColWidth(experiment.variations.length);
 
+  const ignoreConversionEnd =
+    experiment.attributionModel === "experimentDuration";
+
   // Get name or email of all active users watching this experiment
   const usersWatching = (watcherIds?.data?.userIds || [])
     .map((id) => users.get(id))
@@ -183,6 +197,21 @@ export default function SinglePage({
 
   return (
     <div className="container-fluid experiment-details pagecontents">
+      <div className="mb-2 mt-1">
+        <Link
+          href={`/experiments${
+            experiment.status === "draft"
+              ? "#drafts"
+              : experiment.status === "stopped"
+              ? "#stopped"
+              : ""
+          }`}
+        >
+          <a>
+            <GBCircleArrowLeft /> Back to all experiments
+          </a>
+        </Link>
+      </div>
       {reportSettingsOpen && (
         <AnalysisForm
           cancel={() => setReportSettingsOpen(false)}
@@ -453,7 +482,7 @@ export default function SinglePage({
         <div className="col-md-8">
           <div className="appbox p-3 h-100">
             <MarkdownInlineEdit
-              value={experiment.description || experiment.observations}
+              value={experiment.description}
               save={async (description) => {
                 await apiCall(`/experiment/${experiment.id}`, {
                   method: "POST",
@@ -482,6 +511,16 @@ export default function SinglePage({
               header="Hypothesis"
             />
             <HeaderWithEdit edit={editVariations}>Variations</HeaderWithEdit>
+            {experiment.implementation === "visual" && (
+              <div className="alert alert-info">
+                <FaPalette /> This is a <strong>Visual Experiment</strong>.{" "}
+                {experiment.status === "draft" && canEdit && (
+                  <Link href={`/experiments/designer/${experiment.id}`}>
+                    <a className="d-none d-md-inline">Open the Editor</a>
+                  </Link>
+                )}
+              </div>
+            )}
             <div className="row">
               {experiment.variations.map((v, i) => (
                 <div key={i} className={`col-md-${variationCols} mb-2`}>
@@ -499,7 +538,7 @@ export default function SinglePage({
         </div>
         <div className="col-md-4">
           <RightRailSection
-            title="Analysis Settings"
+            title="Experiment Settings"
             open={() => setReportSettingsOpen(true)}
             canOpen={canEdit}
           >
@@ -510,18 +549,21 @@ export default function SinglePage({
                 titleClassName="align-top"
               >
                 {datasource && (
-                  <div className="d-inline-block" style={{ maxWidth: 300 }}>
-                    <div>
-                      <Link href={`/datasources/${datasource?.id}`}>
-                        {datasource?.name}
-                      </Link>
-                    </div>
-                    <div className="text-gray font-weight-normal small text-ellipsis">
-                      {datasource?.description}
-                    </div>
-                  </div>
+                  <Tooltip body={datasource?.description || ""}>
+                    <Link href={`/datasources/${datasource?.id}`}>
+                      {datasource?.name}
+                    </Link>
+                  </Tooltip>
                 )}
               </RightRailSectionGroup>
+              {experiment.hashAttribute && (
+                <RightRailSectionGroup
+                  title="Assignment Attribute"
+                  type="commaList"
+                >
+                  {experiment.hashAttribute}
+                </RightRailSectionGroup>
+              )}
               {exposureQuery && (
                 <RightRailSectionGroup
                   title="Assignment Query"
@@ -537,7 +579,7 @@ export default function SinglePage({
               )}
               {datasource?.properties?.segments && (
                 <RightRailSectionGroup
-                  title="Segment"
+                  title="Analysis Segment"
                   type="commaList"
                   empty="All Users"
                 >
@@ -564,8 +606,8 @@ export default function SinglePage({
               <RightRailSectionGroup title="Attribution Model" type="custom">
                 <AttributionModelTooltip>
                   <strong>
-                    {experiment.attributionModel === "allExposures"
-                      ? "All Exposures"
+                    {experiment.attributionModel === "experimentDuration"
+                      ? "Experiment Duration"
                       : "First Exposure"}
                   </strong>{" "}
                   <FaQuestionCircle />
@@ -583,10 +625,14 @@ export default function SinglePage({
               <div className="row mb-1 text-muted">
                 <div className="col-5">Goals</div>
                 <div className="col-5">
-                  Conversion Window{" "}
+                  Conversion {ignoreConversionEnd ? "Delay" : "Window"}{" "}
                   <Tooltip
-                    body={`After a user sees the experiment, only include
-                          metric conversions within the specified time window.`}
+                    body={
+                      ignoreConversionEnd
+                        ? `Wait this long after viewing the experiment before we start counting conversions for a user.`
+                        : `After a user sees the experiment, only include
+                          metric conversions within the specified time window.`
+                    }
                   >
                     <FaQuestionCircle />
                   </Tooltip>
@@ -596,18 +642,30 @@ export default function SinglePage({
               <>
                 {experiment.metrics.map((m) => {
                   const metric = getMetricById(m);
-                  return drawMetricRow(m, metric, experiment);
+                  return drawMetricRow(
+                    m,
+                    metric,
+                    experiment,
+                    ignoreConversionEnd
+                  );
                 })}
                 {experiment.guardrails?.length > 0 && (
                   <>
                     <div className="row mb-1 mt-3 text-muted">
                       <div className="col-5">Guardrails</div>
-                      <div className="col-5">Conversion Window</div>
+                      <div className="col-5">
+                        Conversion {ignoreConversionEnd ? "Delay" : "Window"}
+                      </div>
                       <div className="col-sm-2">Behavior</div>
                     </div>
                     {experiment.guardrails.map((m) => {
                       const metric = getMetricById(m);
-                      return drawMetricRow(m, metric, experiment);
+                      return drawMetricRow(
+                        m,
+                        metric,
+                        experiment,
+                        ignoreConversionEnd
+                      );
                     })}
                   </>
                 )}
@@ -615,13 +673,16 @@ export default function SinglePage({
                   <>
                     <div className="row mb-1 mt-3 text-muted">
                       <div className="col-5">Activation Metric</div>
-                      <div className="col-5">Conversion Window</div>
+                      <div className="col-5">
+                        Conversion {ignoreConversionEnd ? "Delay" : "Window"}
+                      </div>
                       <div className="col-sm-2">Behavior</div>
                     </div>
                     {drawMetricRow(
                       experiment.activationMetric,
                       getMetricById(experiment.activationMetric),
-                      experiment
+                      experiment,
+                      ignoreConversionEnd
                     )}
                   </>
                 )}
@@ -634,27 +695,20 @@ export default function SinglePage({
             open={editPhases}
             canOpen={!!editPhases}
           >
-            <div className="appbox p-3 mb-0">
+            <div className="appbox mb-0">
               {experiment.phases?.length > 0 ? (
                 <div>
                   {experiment.phases.map((phase, i) => (
-                    <div key={i} className={`${i ? "mt-2" : ""} d-flex`}>
-                      <div className="mr-2">{i + 1}:</div>
-                      <div className="small">
-                        <div>{phaseSummary(phase)}</div>
-                        <div>
-                          <strong>{date(phase.dateStarted)}</strong> to{" "}
-                          <strong>
-                            {phase.dateEnded ? date(phase.dateEnded) : "now"}
-                          </strong>
-                        </div>
-                      </div>
-                      <div></div>
-                    </div>
+                    <ExpandablePhaseSummary
+                      key={i}
+                      phase={phase}
+                      i={i}
+                      editPhase={editPhase}
+                    />
                   ))}
                 </div>
               ) : (
-                <div className="text-center">
+                <div className="text-center p-3">
                   <em>No experiment phases defined.</em>
                   {newPhase && (
                     <div className="mt-2">

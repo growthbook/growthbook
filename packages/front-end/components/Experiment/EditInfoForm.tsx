@@ -23,7 +23,7 @@ const EditInfoForm: FC<{
       name: experiment.name || "",
       implementation: experiment.implementation || "code",
       hypothesis: experiment.hypothesis || "",
-      description: experiment.description || experiment.observations || "",
+      description: experiment.description || "",
     },
   });
   const { apiCall } = useAuth();

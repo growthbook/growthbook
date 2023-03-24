@@ -1,7 +1,7 @@
 import { createHmac } from "crypto";
 import Agenda, { Job } from "agenda";
 import { getFeatureDefinitions } from "../services/features";
-import { CRON_ENABLED } from "../util/secrets";
+import { CRON_ENABLED, IS_CLOUD } from "../util/secrets";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import {
   findSDKConnectionById,
@@ -28,8 +28,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
 
     const connection = await findSDKConnectionById(connectionId);
     if (!connection) return;
-    if (!connection.proxy.enabled) return;
-    if (!connection.proxy.host) return;
+    if (!connectionSupportsProxyUpdate(connection)) return;
 
     const defs = await getFeatureDefinitions(
       connection.organization,
@@ -40,12 +39,17 @@ export default function addProxyUpdateJob(ag: Agenda) {
 
     const payload = JSON.stringify(defs);
 
+    // note: Cloud Proxy users will have proxy.enabled === false, but will still have a valid proxy.signingKey
     const signature = createHmac("sha256", connection.proxy.signingKey)
       .update(payload)
       .digest("hex");
 
+    const url = IS_CLOUD
+      ? `https://proxy.growthbook.io/proxy/features`
+      : `${connection.proxy.host}/proxy/features`;
+
     const { responseWithoutBody: res } = await cancellableFetch(
-      `${connection.proxy.host}/proxy/features`,
+      url,
       {
         headers: {
           "Content-Type": "application/json",
@@ -96,7 +100,8 @@ export default function addProxyUpdateJob(ag: Agenda) {
 export async function queueSingleProxyUpdate(
   connection: SDKConnectionInterface
 ) {
-  if (!connection.proxy.enabled || !connection.proxy.host) return;
+  if (!connectionSupportsProxyUpdate(connection)) return;
+
   const job = agenda.create(PROXY_UPDATE_JOB_NAME, {
     connectionId: connection.id,
     retryCount: 0,
@@ -135,4 +140,11 @@ export async function queueProxyUpdate(
 
     await queueSingleProxyUpdate(connection);
   }
+}
+
+function connectionSupportsProxyUpdate(connection: SDKConnectionInterface) {
+  // note: sseEnabled indicates that we are using Cloud Proxy behind the scenes
+  if (IS_CLOUD) return !!connection.sseEnabled;
+
+  return !!(connection.proxy.enabled && connection.proxy.host);
 }

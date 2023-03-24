@@ -5,14 +5,17 @@ import intersection from "lodash/intersection";
 import { logger } from "../../../util/logger";
 import { cancellableFetch } from "../../../util/http.util";
 import {
+  ExperimentCreatedNotificationEvent,
+  ExperimentDeletedNotificationEvent,
+  ExperimentUpdatedNotificationEvent,
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
   NotificationEvent,
-} from "../../base-events";
+} from "../../notification-events";
 import { SlackIntegrationInterface } from "../../../../types/slack-integration";
-import { FeatureInterface } from "../../../../types/feature";
 import { APP_ORIGIN } from "../../../util/secrets";
+import { ApiFeature } from "../../../../types/openapi";
 
 // region Filtering
 
@@ -20,7 +23,6 @@ type DataForNotificationEvent = {
   filterData: {
     tags: string[];
     projects: string[];
-    environments: string[];
   };
   slackMessage: SlackMessage;
 };
@@ -37,7 +39,6 @@ export const getDataForNotificationEvent = (
           projects: event.data.current.project
             ? [event.data.current.project]
             : [],
-          environments: Object.keys(event.data.current.environmentSettings),
         },
         slackMessage: buildSlackMessageForFeatureCreatedEvent(event, eventId),
       };
@@ -58,11 +59,6 @@ export const getDataForNotificationEvent = (
               event.data.previous.project ? [event.data.previous.project] : []
             )
           ),
-          environments: uniq(
-            Object.keys(event.data.current.environmentSettings).concat(
-              Object.keys(event.data.previous.environmentSettings)
-            )
-          ),
         },
         slackMessage: buildSlackMessageForFeatureUpdatedEvent(event, eventId),
       };
@@ -74,16 +70,60 @@ export const getDataForNotificationEvent = (
           projects: event.data.previous.project
             ? [event.data.previous.project]
             : [],
-          environments: Object.keys(event.data.previous.environmentSettings),
         },
         slackMessage: buildSlackMessageForFeatureDeletedEvent(event, eventId),
       };
 
     case "experiment.created":
+      return {
+        filterData: {
+          tags: event.data.current.tags || [],
+          projects: event.data.current.project
+            ? [event.data.current.project]
+            : [],
+        },
+        slackMessage: buildSlackMessageForExperimentCreatedEvent(
+          event,
+          eventId
+        ),
+      };
+
     case "experiment.updated":
+      return {
+        filterData: {
+          tags: uniq(
+            (event.data.current.tags || []).concat(
+              event.data.previous.tags || []
+            )
+          ),
+          projects: uniq(
+            (event.data.current.project
+              ? [event.data.current.project]
+              : []
+            ).concat(
+              event.data.previous.project ? [event.data.previous.project] : []
+            )
+          ),
+        },
+        slackMessage: buildSlackMessageForExperimentUpdatedEvent(
+          event,
+          eventId
+        ),
+      };
+
     case "experiment.deleted":
-      // TODO: https://linear.app/growthbook/issue/GB-19
-      return null;
+      return {
+        filterData: {
+          tags: event.data.previous.tags || [],
+          projects: event.data.previous.project
+            ? [event.data.previous.project]
+            : [],
+        },
+        slackMessage: buildSlackMessageForExperimentDeletedEvent(
+          event,
+          eventId
+        ),
+      };
   }
 };
 
@@ -106,8 +146,7 @@ export const filterSlackIntegrationForRelevance = (
     case "experiment.created":
     case "experiment.updated":
     case "experiment.deleted":
-      // TODO: https://linear.app/growthbook/issue/GB-19
-      return false;
+      return true;
 
     case "feature.created":
     case "feature.deleted":
@@ -141,12 +180,11 @@ const filterFeatureUpdateEventForRelevance = (
   const changedEnvironments = new Set<string>();
 
   // Some of the feature keys that change affect all enabled environments
-  const relevantKeysForAllEnvs: (keyof FeatureInterface)[] = [
+  const relevantKeysForAllEnvs: (keyof ApiFeature)[] = [
     "archived",
     "defaultValue",
     "project",
     "valueType",
-    "nextScheduledUpdate",
   ];
   if (relevantKeysForAllEnvs.some((k) => !isEqual(previous[k], current[k]))) {
     // Some of the relevant keys for all environments has changed.
@@ -154,14 +192,14 @@ const filterFeatureUpdateEventForRelevance = (
   }
 
   const allEnvs = new Set([
-    ...Object.keys(previous.environmentSettings),
-    ...Object.keys(current.environmentSettings),
+    ...Object.keys(previous.environments),
+    ...Object.keys(current.environments),
   ]);
 
   // Add in environments if their specific settings changed
   allEnvs.forEach((env) => {
-    const previousEnvSettings = previous.environmentSettings[env];
-    const currentEnvSettings = current.environmentSettings[env];
+    const previousEnvSettings = previous.environments[env];
+    const currentEnvSettings = current.environments[env];
 
     // If the environment is disabled both before and after the change, ignore changes
     if (!previousEnvSettings?.enabled && !currentEnvSettings?.enabled) {
@@ -300,6 +338,86 @@ const buildSlackMessageForFeatureDeletedEvent = (
 };
 
 // endregion Event-specific messages -> Feature
+
+// region Event-specific messages -> Experiment
+
+const getExperimentUrlFormatted = (experimentId: string): string =>
+  `\n• <${APP_ORIGIN}/experiment/${experimentId}|View Experiment>`;
+
+const buildSlackMessageForExperimentCreatedEvent = (
+  experimentEvent: ExperimentCreatedNotificationEvent,
+  eventId: string
+): SlackMessage => {
+  const experimentId = experimentEvent.data.current.id;
+  const experimentName = experimentEvent.data.current.name;
+  const text = `The experiment ${experimentName} has been created`;
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The experiment *${experimentName}* has been created.` +
+            getExperimentUrlFormatted(experimentId) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForExperimentUpdatedEvent = (
+  experimentEvent: ExperimentUpdatedNotificationEvent,
+  eventId: string
+): SlackMessage => {
+  const experimentId = experimentEvent.data.previous.id;
+  const experimentName = experimentEvent.data.previous.name;
+  const text = `The experiment ${experimentName} has been updated`;
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The experiment *${experimentName}* has been updated.` +
+            getExperimentUrlFormatted(experimentId) +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+const buildSlackMessageForExperimentDeletedEvent = (
+  experimentEvent: ExperimentDeletedNotificationEvent,
+  eventId: string
+): SlackMessage => {
+  const experimentName = experimentEvent.data.previous.name;
+  const text = `The experiment ${experimentName} has been deleted`;
+
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text:
+            `The experiment *${experimentName}* has been deleted.` +
+            getEventUrlFormatted(eventId),
+        },
+      },
+    ],
+  };
+};
+
+// endregion Event-specific messages -> Experiment
 
 // endregion Event-specific messages
 

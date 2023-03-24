@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import omit from "lodash/omit";
 import { ReportInterface } from "../../types/report";
-import { getExperimentsByOrganization } from "../services/experiments";
+import { getAllExperiments } from "./ExperimentModel";
 import { queriesSchema } from "./QueryModel";
 
 const reportSchema = new mongoose.Schema({
@@ -26,6 +27,14 @@ type ReportDocument = mongoose.Document & ReportInterface;
 
 const ReportModel = mongoose.model<ReportDocument>("Report", reportSchema);
 
+const toInterface = (doc: ReportDocument): ReportInterface => {
+  const json: ReportInterface = omit(doc.toJSON(), ["__v", "_id"]);
+  if ((json.args.attributionModel as string) === "allExposures") {
+    json.args.attributionModel = "experimentDuration";
+  }
+  return json;
+};
+
 export async function createReport(
   organization: string,
   initialValue: Partial<ReportInterface>
@@ -39,7 +48,7 @@ export async function createReport(
     dateUpdated: new Date(),
   });
 
-  return report.toJSON();
+  return toInterface(report);
 }
 
 export async function getReportById(
@@ -51,22 +60,23 @@ export async function getReportById(
     id,
   });
 
-  return report ? report.toJSON() : null;
+  return report ? toInterface(report) : null;
 }
 
 export async function getReportsByOrg(
   organization: string,
   project: string
 ): Promise<ReportInterface[]> {
-  let reports = await ReportModel.find({ organization });
+  let reports = (await ReportModel.find({ organization })).map((r) =>
+    toInterface(r)
+  );
   // filter by project assigned to the experiment:
-  if (reports && project) {
-    const allExperiments = await getExperimentsByOrganization(
-      organization,
-      project
-    );
+  if (reports.length > 0 && project) {
+    const allExperiments = await getAllExperiments(organization, project);
     const expIds = new Set(allExperiments.map((e) => e.id));
-    reports = reports.filter((r) => expIds.has(r.experimentId));
+    reports = reports.filter(
+      (r) => r.experimentId && expIds.has(r.experimentId)
+    );
   }
   return reports;
 }
@@ -75,7 +85,9 @@ export async function getReportsByExperimentId(
   organization: string,
   experimentId: string
 ): Promise<ReportInterface[]> {
-  return ReportModel.find({ organization, experimentId });
+  return (await ReportModel.find({ organization, experimentId })).map((r) =>
+    toInterface(r)
+  );
 }
 
 export async function updateReport(

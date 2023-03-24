@@ -6,6 +6,22 @@
     "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\nqty as value\nFROM orders"
   },
   {
+    "id": "nonbinomcustom__purchased_items",
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\nqty as value\nFROM orders",
+    "aggregation": "COUNT(*)"
+  },
+  {
+    "id": "nonbinomcustom__purchased_items_regressionadjusted",
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\nqty as value\nFROM orders",
+    "aggregation": "COUNT(*)",
+    "regressionAdjustmentDays": 4,
+    "regressionAdjustmentEnabled": true
+  },
+  {
     "id": "nonbinom_null__purchased_value",
     "type": "count",
     "ignoreNulls": false,
@@ -16,6 +32,30 @@
     "type": "binomial",
     "ignoreNulls": false,
     "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Add to Cart'"
+  },
+  {
+    "id": "nonbinom__purchased_items_regressionadjusted",
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\nqty as value\nFROM orders",
+    "regressionAdjustmentDays": 4,
+    "regressionAdjustmentEnabled": true
+  },
+  {
+    "id": "nonbinom_null__purchased_value_regressionadjusted",
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\namount as value\nFROM orders",
+    "regressionAdjustmentDays": 4,
+    "regressionAdjustmentEnabled": true
+  },
+  {
+    "id": "binomial__any_item_in_cart_regressionadjusted",
+    "type": "binomial",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp\nFROM events\nWHERE event = 'Add to Cart'",
+    "regressionAdjustmentDays": 4,
+    "regressionAdjustmentEnabled": true
   },
   {
     "id": "ratio_binom_binom__any_purchase_over_any_item_in_cart",
@@ -37,5 +77,13 @@
     "ignoreNulls": false,
     "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\namount as value\nFROM orders",
     "denominator": "nonbinom__purchased_items"
+  },
+  {
+    "id": "ratio_nonbinomcustom_nonbinomcustom__purchased_value_over_purchased_items",
+    "type": "count",
+    "ignoreNulls": false,
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\namount as value\nFROM orders",
+    "denominator": "nonbinomcustom__purchased_items",
+    "aggregation": "COUNT(*)"
   }
 ]

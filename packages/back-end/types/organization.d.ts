@@ -5,6 +5,7 @@ import {
   PROJECT_SCOPED_PERMISSIONS,
 } from "../src/util/organization.util";
 import { ImplementationType } from "./experiment";
+import type { StatsEngine } from "./stats";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -60,6 +61,13 @@ export interface Invite extends MemberRoleWithProjects {
   dateCreated: Date;
 }
 
+export interface PendingMember extends MemberRoleWithProjects {
+  id: string;
+  name: string;
+  email: string;
+  dateCreated: Date;
+}
+
 export interface Member extends MemberRoleWithProjects {
   id: string;
   dateCreated?: Date;
@@ -68,6 +76,7 @@ export interface Member extends MemberRoleWithProjects {
 export interface ExpandedMember extends Member {
   email: string;
   name: string;
+  verified: boolean;
 }
 
 export interface NorthStarMetric {
@@ -143,7 +152,7 @@ export interface OrganizationSettings {
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
   defaultRole?: MemberRoleInfo;
-  statsEngine?: "bayesian" | "frequentist";
+  statsEngine?: StatsEngine;
   pValueThreshold?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
@@ -180,6 +189,7 @@ export interface OrganizationInterface {
   id: string;
   url: string;
   dateCreated: Date;
+  verifiedDomain?: string;
   name: string;
   ownerEmail: string;
   stripeCustomerId?: string;
@@ -203,8 +213,10 @@ export interface OrganizationInterface {
     priceId?: string;
   };
   licenseKey?: string;
+  autoApproveMembers?: boolean;
   members: Member[];
   invites: Invite[];
+  pendingMembers?: PendingMember[];
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
 }
@@ -212,7 +224,9 @@ export interface OrganizationInterface {
 export type NamespaceUsage = Record<
   string,
   {
-    featureId: string;
+    link: string;
+    name: string;
+    id: string;
     trackingKey: string;
     environment: string;
     start: number;

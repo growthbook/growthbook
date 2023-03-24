@@ -1,6 +1,6 @@
 import React, { FC } from "react";
 import { EventWebHookLogInterface } from "back-end/types/event-webhook-log";
-import { NotificationEvent } from "back-end/src/events/base-events";
+import { NotificationEvent } from "back-end/src/events/notification-events";
 import { useIconForState } from "../../utils";
 import Code from "../../../SyntaxHighlighting/Code";
 

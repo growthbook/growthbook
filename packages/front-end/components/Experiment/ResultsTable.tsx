@@ -4,6 +4,7 @@ import { FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
+import { StatsEngine } from "back-end/types/stats";
 import { ExperimentTableRow, useDomain } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "../Tooltip/Tooltip";
@@ -33,6 +34,7 @@ export type ResultsTableProps = {
   fullStats?: boolean;
   riskVariation: number;
   setRiskVariation: (riskVariation: number) => void;
+  statsEngine?: StatsEngine;
 };
 
 const numberFormatter = new Intl.NumberFormat();
@@ -56,9 +58,11 @@ export default function ResultsTable({
   hasRisk,
   riskVariation,
   setRiskVariation,
+  statsEngine: _statsEngine,
 }: ResultsTableProps) {
   const domain = useDomain(variations, rows);
-  const settings = useOrgSettings();
+  const orgSettings = useOrgSettings();
+  const statsEngine = _statsEngine ? _statsEngine : orgSettings.statsEngine;
 
   return (
     <table
@@ -117,7 +121,7 @@ export default function ResultsTable({
                   className={`variation${i} text-center`}
                   style={{ minWidth: 110 }}
                 >
-                  {settings.statsEngine === "frequentist"
+                  {statsEngine === "frequentist"
                     ? "P-value"
                     : "Chance to Beat Control"}
                 </th>
@@ -125,10 +129,19 @@ export default function ResultsTable({
               {i > 0 && (
                 <th className={`variation${i} text-center`}>
                   Percent Change{" "}
-                  {hasRisk && fullStats && (
-                    <Tooltip body="The true value is more likely to be in the thicker parts of the graph">
-                      <FaQuestionCircle />
-                    </Tooltip>
+                  {fullStats && (
+                    <>
+                      {hasRisk && statsEngine === "bayesian" && (
+                        <Tooltip body="This is a 95% credible interval. The true value is more likely to be in the thicker parts of the graph.">
+                          <FaQuestionCircle />
+                        </Tooltip>
+                      )}
+                      {statsEngine === "frequentist" && (
+                        <Tooltip body="This is a 95% confidence interval. If you re-ran the experiment 100 times, the true value would be in this range 95% of the time.">
+                          <FaQuestionCircle />
+                        </Tooltip>
+                      )}
+                    </>
                   )}
                 </th>
               )}
@@ -208,7 +221,7 @@ export default function ResultsTable({
                     />
                     {i > 0 &&
                       fullStats &&
-                      (settings.statsEngine === "frequentist" ? (
+                      (statsEngine === "frequentist" ? (
                         <PValueColumn
                           baseline={baseline}
                           stats={stats}
@@ -233,9 +246,7 @@ export default function ResultsTable({
                       (fullStats ? (
                         <PercentGraphColumn
                           barType={
-                            settings.statsEngine === "frequentist"
-                              ? "pill"
-                              : null
+                            statsEngine === "frequentist" ? "pill" : null
                           }
                           baseline={baseline}
                           domain={domain}

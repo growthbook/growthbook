@@ -6,11 +6,12 @@ import {
 } from "../../types/report";
 import { getMetricsByOrganization } from "../models/MetricModel";
 import { QueryDocument } from "../models/QueryModel";
-import { SegmentModel } from "../models/SegmentModel";
+import { findSegmentById } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
-import { OrganizationSettings } from "../../types/organization";
+import { StatsEngine } from "../../types/stats";
+import { OrganizationInterface } from "../../types/organization";
 import { updateReport } from "../models/ReportModel";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { expandDenominatorMetrics } from "../util/sql";
@@ -56,7 +57,6 @@ export function reportArgsFromSnapshot(
     activationMetric: snapshot.activationMetric,
     queryFilter: snapshot.queryFilter,
     skipPartialData: snapshot.skipPartialData,
-    removeMultipleExposures: !!experiment.removeMultipleExposures,
     attributionModel: experiment.attributionModel || "firstExposure",
   };
 }
@@ -65,7 +65,7 @@ export async function startExperimentAnalysis(
   organization: string,
   args: ExperimentReportArgs,
   useCache: boolean,
-  statsEngine: OrganizationSettings["statsEngine"]
+  statsEngine: StatsEngine | undefined
 ) {
   const metricObjs = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -99,11 +99,7 @@ export async function startExperimentAnalysis(
 
   let segmentObj: SegmentInterface | null = null;
   if (args.segment) {
-    segmentObj =
-      (await SegmentModel.findOne({
-        id: args.segment,
-        organization,
-      })) || null;
+    segmentObj = await findSegmentById(args.segment, organization);
   }
 
   const integration = getSourceIntegrationObject(datasourceObj);
@@ -116,16 +112,24 @@ export async function startExperimentAnalysis(
   const queryDocs: { [key: string]: Promise<QueryDocument> } = {};
 
   const experimentPhaseObj: ExperimentPhase = {
+    name: "Report",
     dateStarted: args.startDate,
     dateEnded: args.endDate,
-    phase: "main",
     coverage: 1,
     reason: "",
     variationWeights: args.variations.map((v) => v.weight),
+    condition: "",
+    namespace: {
+      enabled: false,
+      name: "",
+      range: [0, 1],
+    },
   };
   const experimentObj: ExperimentInterface = {
     exposureQueryId: args.exposureQueryId,
     userIdType: args.userIdType,
+    hashAttribute: "",
+    releasedVariationId: "",
     organization,
     skipPartialData: args.skipPartialData,
     trackingKey: args.trackingKey,
@@ -136,7 +140,6 @@ export async function startExperimentAnalysis(
     metrics: args.metrics,
     metricOverrides: args.metricOverrides,
     guardrails: args.guardrails,
-    removeMultipleExposures: !!args.removeMultipleExposures,
     attributionModel: args.attributionModel || "firstExposure",
     id: "",
     name: "",
@@ -154,6 +157,7 @@ export async function startExperimentAnalysis(
     archived: false,
     variations: args.variations.map((v) => {
       return {
+        id: v.id,
         name: v.name,
         key: v.id,
         screenshots: [],
@@ -217,9 +221,11 @@ export async function startExperimentAnalysis(
 export async function runReport(
   report: ReportInterface,
   useCache: boolean = true,
-  statsEngine: OrganizationSettings["statsEngine"]
+  organization: OrganizationInterface
 ) {
   const updates: Partial<ReportInterface> = {};
+  const statsEngine =
+    report.args.statsEngine || organization.settings?.statsEngine;
 
   if (report.type === "experiment") {
     const { queries, results } = await startExperimentAnalysis(

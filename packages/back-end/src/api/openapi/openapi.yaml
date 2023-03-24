@@ -1,0 +1,163 @@
+openapi: 3.1.0
+info:
+  version: "1.0.0"
+  title: "GrowthBook REST API"
+  description: |
+    GrowthBook offers a full REST API for interacting with the GrowthBook application. This is currently in **beta** as we add more authenticated API routes and features.
+
+    Request data can use either JSON or Form data encoding (with proper `Content-Type` headers). All response bodies are JSON-encoded.
+
+    The API base URL for GrowthBook Cloud is `https://api.growthbook.io`. For self-hosted deployments, it is the same as your API_HOST environment variable (defaults to `http://localhost:3100`). The rest of these docs will assume you are using GrowthBook Cloud.
+
+    ## Authentication
+
+    We support both the HTTP Basic and Bearer authentication schemes for convenience.
+
+    You first need to generate a new Secret Key in GrowthBook by going to `Settings -> API Keys`.
+
+    If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank:
+
+    ```bash
+    curl https://api.growthbook.io/api/v1 \
+      -u secret_abc123DEF456:
+    # The ":" at the end stops curl from asking for a password
+    ```
+
+    If using Bearer auth, pass the Secret Key as the token:
+
+    ```bash
+    curl https://api.growthbook.io/api/v1 \
+    -H "Authorization: Bearer secret_abc123DEF456"
+    ```
+
+    ## Errors
+
+    The API may return the following error status codes:
+
+    - **400** - Bad Request - Often due to a missing required parameter
+    - **401** - Unauthorized - No valid API key provided
+    - **402** - Request Failed - The parameters are valid, but the request failed
+    - **403** - Forbidden - Provided API key does not have the required access
+    - **404** - Not Found - Unknown API route or requested resource
+    - **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
+    - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
+
+    The response body will be a JSON object with the following properties:
+
+    - **message** - Information about the error
+servers:
+  - url: "https://api.growthbook.io/api/v1"
+    description: GrowthBook Cloud
+  - url: "{domain}/api/v1"
+    description: Self-hosted GrowthBook
+    variables:
+      domain:
+        default: http://localhost:3100
+tags:
+  - name: projects
+    x-displayName: Projects
+    description: Projects are used to organize your feature flags and experiments
+  - name: features
+    x-displayName: Feature Flags
+    description: Control your feature flags programatically
+  - name: data-sources
+    x-displayName: Data Sources
+    description: How GrowthBook connects and queries your data
+  - name: metrics
+    x-displayName: Metrics
+    description: Metrics used as goals and guardrails for experiments
+  - name: experiments
+    x-displayName: Experiments
+    description: Experiments (A/B Tests)
+  - name: dimensions
+    x-displayName: Dimensions
+    description: Dimensions used during experiment analysis
+  - name: segments
+    x-displayName: Segments
+    description: Segments used during experiment analysis
+  - name: sdk-connections
+    x-displayName: SDK Connections
+    description: Client keys and settings for connecting SDKs to a GrowthBook instance
+  - name: visual-changesets
+    x-displayName: Visual Changesets
+    description: Groups of visual changes made by the visual editor to a single page
+paths:
+  /features:
+    $ref: "./paths/listFeatures.yaml"
+  /features/{id}:
+    $ref: "./paths/getFeature.yaml"
+  /features/{id}/toggle:
+    $ref: "./paths/toggleFeature.yaml"
+  /projects:
+    $ref: "./paths/listProjects.yaml"
+  /projects/{id}:
+    $ref: "./paths/getProject.yaml"
+  /dimensions:
+    $ref: "./paths/listDimensions.yaml"
+  /dimensions/{id}:
+    $ref: "./paths/getDimension.yaml"
+  /segments:
+    $ref: "./paths/listSegments.yaml"
+  /segments/{id}:
+    $ref: "./paths/getSegment.yaml"
+  /metrics:
+    $ref: "./paths/listMetrics.yaml"
+  /metrics/{id}:
+    $ref: "./paths/getMetric.yaml"
+  /sdk-connections:
+    $ref: "./paths/listSdkConnections.yaml"
+  /sdk-connections/{id}:
+    $ref: "./paths/getSdkConnection.yaml"
+  /data-sources:
+    $ref: "./paths/listDataSources.yaml"
+  /data-sources/{id}:
+    $ref: "./paths/getDataSource.yaml"
+  /experiments:
+    $ref: "./paths/listExperiments.yaml"
+  /experiments/{id}:
+    $ref: "./paths/getExperiment.yaml"
+  /experiments/{id}/results:
+    $ref: "./paths/getExperimentResults.yaml"
+  # PLOP_INSERT_PATHS_HERE
+  /experiments/{id}/visual-changesets:
+    $ref: "./paths/listVisualChangesets.yaml"
+  /visual-changesets/{id}:
+    $ref: "./paths/getVisualChangeset.yaml"
+components:
+  parameters:
+    $ref: "./parameters.yaml"
+  schemas:
+    $ref: "./schemas/_index.yaml"
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        If using Bearer auth, pass the Secret Key as the token:
+
+        ```bash
+        curl https://api.growthbook.io/api/v1 \
+          -H "Authorization: Bearer secret_abc123DEF456"
+        ```
+    basicAuth:
+      type: http
+      scheme: basic
+      description: |
+        If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank:
+
+        ```bash
+        curl https://api.growthbook.io/api/v1 \
+          -u secret_abc123DEF456:
+        # The ":" at the end stops curl from asking for a password
+        ```
+  responses:
+    Error:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+security:
+  - bearerAuth: []
+  - basicAuth: []

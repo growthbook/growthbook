@@ -10,10 +10,13 @@ import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics"
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
   encryptParams,
+  getSourceIntegrationObject,
   testDataSourceConnection,
 } from "../services/datasource";
 import { usingFileConfig, getConfigDatasources } from "../init/config";
 import { upgradeDatasourceObject } from "../util/migrations";
+import { ApiDataSource } from "../../types/openapi";
+import { queueCreateInformationSchema } from "../jobs/informationSchema";
 
 const dataSourceSchema = new mongoose.Schema({
   id: String,
@@ -161,9 +164,16 @@ export async function createDataSource(
     projects,
   };
 
-  // Test the connection and create in the database
   await testDataSourceConnection(datasource);
   const model = await DataSourceModel.create(datasource);
+
+  const integration = getSourceIntegrationObject(datasource);
+  if (
+    integration.getInformationSchema &&
+    integration.getSourceProperties().supportsInformationSchema
+  ) {
+    await queueCreateInformationSchema(datasource.id, organization);
+  }
 
   return toInterface(model);
 }
@@ -204,4 +214,53 @@ export async function _dangerousGetAllDatasources(): Promise<
 > {
   const all = await DataSourceModel.find();
   return all.map(toInterface);
+}
+
+export function toDataSourceApiInterface(
+  datasource: DataSourceInterface
+): ApiDataSource {
+  const settings = datasource.settings;
+  const obj: ApiDataSource = {
+    id: datasource.id,
+    dateCreated: datasource.dateCreated?.toISOString() || "",
+    dateUpdated: datasource.dateUpdated?.toISOString() || "",
+    type: datasource.type,
+    name: datasource.name || "",
+    description: datasource.description || "",
+    projectIds: datasource.projects || [],
+    identifierTypes: (settings?.userIdTypes || []).map((identifier) => ({
+      id: identifier.userIdType,
+      description: identifier.description || "",
+    })),
+    assignmentQueries: (settings?.queries?.exposure || []).map((q) => ({
+      id: q.id,
+      name: q.name,
+      description: q.description || "",
+      identifierType: q.userIdType,
+      sql: q.query,
+      includesNameColumns: !!q.hasNameCol,
+      dimensionColumns: q.dimensions,
+    })),
+    identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
+      (q) => ({
+        identifierTypes: q.ids,
+        sql: q.query,
+      })
+    ),
+    eventTracker: settings?.schemaFormat || "custom",
+  };
+
+  if (datasource.type === "mixpanel") {
+    obj.mixpanelSettings = {
+      viewedExperimentEventName:
+        settings?.events?.experimentEvent || "$experiment_started",
+      experimentIdProperty:
+        settings?.events?.experimentIdProperty || "Experiment name",
+      variationIdProperty:
+        settings?.events?.variationIdProperty || "Variant name",
+      extraUserIdProperty: settings?.events?.extraUserIdProperty || "",
+    };
+  }
+
+  return obj;
 }

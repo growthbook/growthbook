@@ -2,13 +2,15 @@ import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   createMetric,
-  removeMetricFromExperiments,
   getMetricAnalysis,
   refreshMetric,
-  getExperimentsByMetric,
 } from "../services/experiments";
 import { MetricAnalysis, MetricInterface } from "../../types/metric";
-import { ExperimentModel } from "../models/ExperimentModel";
+import {
+  getRecentExperimentsUsingMetric,
+  getExperimentsByMetric,
+  removeMetricFromExperiments,
+} from "../models/ExperimentModel";
 import { addTagsDiff } from "../models/TagModel";
 import { getOrgFromReq } from "../services/organizations";
 import { getStatusEndpoint, cancelRun } from "../services/queries";
@@ -28,10 +30,11 @@ import {
   auditDetailsUpdate,
   auditDetailsDelete,
 } from "../services/audit";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
 
 export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response<unknown, EventAuditUserForResponseLocals>
 ) {
   req.checkPermissions("createAnalyses", "");
 
@@ -63,7 +66,7 @@ export async function deleteMetric(
   );
 
   // Experiments
-  await removeMetricFromExperiments(metric.id, org);
+  await removeMetricFromExperiments(metric.id, org, res.locals.eventAudit);
 
   // now remove the metric itself:
   await deleteMetricById(metric.id, org.id);
@@ -253,35 +256,7 @@ export async function getMetric(
     });
   }
 
-  const experiments = await ExperimentModel.find(
-    {
-      organization: org.id,
-      $or: [
-        {
-          metrics: metric.id,
-        },
-        {
-          guardrails: metric.id,
-        },
-      ],
-      archived: {
-        $ne: true,
-      },
-    },
-    {
-      _id: false,
-      id: true,
-      name: true,
-      status: true,
-      phases: true,
-      results: true,
-      analysis: true,
-    }
-  )
-    .sort({
-      _id: -1,
-    })
-    .limit(10);
+  const experiments = await getRecentExperimentsUsingMetric(org.id, metric.id);
 
   res.status(200).json({
     status: 200,

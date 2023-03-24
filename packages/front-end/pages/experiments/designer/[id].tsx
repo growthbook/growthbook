@@ -18,7 +18,10 @@ import {
   FaTrash,
 } from "react-icons/fa";
 import { useRouter } from "next/router";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  LegacyVariation,
+} from "back-end/types/experiment";
 import { BsArrowClockwise, BsGear } from "react-icons/bs";
 import TextareaAutosize from "react-textarea-autosize";
 import Link from "next/link";
@@ -127,8 +130,8 @@ const EditorPage: FC = () => {
       url: data.experiment.previewURL || "",
       variations: data.experiment.variations.map((v) => {
         return {
-          dom: v.dom || [],
-          css: v.css || "",
+          dom: (v as LegacyVariation).dom || [],
+          css: (v as LegacyVariation).css || "",
           screenshot: v.screenshots?.[0]?.path || "",
         };
       }),
@@ -678,7 +681,6 @@ const EditorPage: FC = () => {
                 label: v.name,
               }))}
             />
-            `
           </div>
           <div className="col text-left d-flex">
             <div className="mr-2 d-none d-lg-block">{data.experiment.name}</div>
@@ -773,12 +775,12 @@ const EditorPage: FC = () => {
                   return;
                 }
 
-                const variationsClone = [...variations];
+                const variationsClone: LegacyVariation[] = [...variations];
                 variationData.variations.forEach((val, i) => {
                   variationsClone[i] = {
                     ...variationsClone[i],
-                    dom: val.dom,
-                    css: val.css,
+                    dom: (val as LegacyVariation).dom,
+                    css: (val as LegacyVariation).css,
                   };
                 });
 

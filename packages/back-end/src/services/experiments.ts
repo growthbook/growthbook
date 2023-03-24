@@ -1,17 +1,6 @@
 import uniqid from "uniqid";
-import { FilterQuery } from "mongoose";
-import uniqBy from "lodash/uniqBy";
-import each from "lodash/each";
-import cloneDeep from "lodash/cloneDeep";
 import cronParser from "cron-parser";
-import {
-  ExperimentDocument,
-  ExperimentModel,
-  findExperiment,
-  logExperimentCreated,
-  logExperimentDeleted,
-  logExperimentUpdated,
-} from "../models/ExperimentModel";
+import { updateExperimentById } from "../models/ExperimentModel";
 import {
   SnapshotVariation,
   ExperimentSnapshotInterface,
@@ -21,7 +10,7 @@ import {
   insertMetric,
   updateMetric,
 } from "../models/MetricModel";
-import { checkSrm } from "../util/stats";
+import { checkSrm, sumSquaresFromStats } from "../util/stats";
 import { addTags } from "../models/TagModel";
 import { WatchModel } from "../models/WatchModel";
 import {
@@ -31,10 +20,7 @@ import {
   MetricValueResult,
   MetricValueParams,
 } from "../types/Integration";
-import {
-  ExperimentSnapshotDocument,
-  ExperimentSnapshotModel,
-} from "../models/ExperimentSnapshotModel";
+import { createExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import {
   MetricInterface,
   MetricStats,
@@ -49,15 +35,25 @@ import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
 import { getValidDate } from "../util/dates";
 import { getDataSourceById } from "../models/DataSourceModel";
-import { SegmentModel } from "../models/SegmentModel";
-import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
+import { findSegmentById } from "../models/SegmentModel";
+import {
+  DEFAULT_CONVERSION_WINDOW_HOURS,
+  EXPERIMENT_REFRESH_FREQUENCY,
+} from "../util/secrets";
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
-  OrganizationSettings,
 } from "../../types/organization";
+import { StatsEngine } from "../../types/stats";
 import { logger } from "../util/logger";
 import { getSDKPayloadKeys } from "../util/features";
+import { DataSourceInterface } from "../../types/datasource";
+import {
+  ApiExperiment,
+  ApiMetric,
+  ApiExperimentResults,
+  ApiExperimentMetric,
+} from "../../types/openapi";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -68,251 +64,6 @@ import { getSourceIntegrationObject } from "./datasource";
 import { analyzeExperimentMetric } from "./stats";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
-
-export function getExperimentsByOrganization(
-  organization: string,
-  project?: string
-) {
-  const query: FilterQuery<ExperimentDocument> = {
-    organization,
-  };
-
-  if (project) {
-    query.project = project;
-  }
-
-  return ExperimentModel.find(query);
-}
-export async function getExperimentById(id: string) {
-  const experiment = await ExperimentModel.findOne({
-    id,
-  });
-  return experiment;
-}
-
-export function getExperimentByTrackingKey(
-  organization: string,
-  trackingKey: string
-) {
-  return ExperimentModel.findOne({
-    organization,
-    trackingKey,
-  });
-}
-
-export async function getExperimentsByIds(ids: string[]) {
-  return ExperimentModel.find({
-    id: { $in: ids },
-  });
-}
-
-export async function getExperimentsByMetric(
-  orgId: string,
-  metricId: string
-): Promise<{ id: string; name: string }[]> {
-  const experiments: { id: string; name: string }[] = [];
-
-  const cols = {
-    _id: false,
-    id: true,
-    name: true,
-  };
-
-  // Using as a goal metric
-  const goals = await ExperimentModel.find(
-    {
-      organization: orgId,
-      metrics: metricId,
-    },
-    cols
-  );
-  goals.forEach((exp) => {
-    experiments.push({
-      id: exp.id,
-      name: exp.name,
-    });
-  });
-
-  // Using as a guardrail metric
-  const guardrails = await ExperimentModel.find(
-    {
-      organization: orgId,
-      guardrails: metricId,
-    },
-    cols
-  );
-  guardrails.forEach((exp) => {
-    experiments.push({
-      id: exp.id,
-      name: exp.name,
-    });
-  });
-
-  // Using as an activation metric
-  const activations = await ExperimentModel.find(
-    {
-      organization: orgId,
-      activationMetric: metricId,
-    },
-    cols
-  );
-  activations.forEach((exp) => {
-    experiments.push({
-      id: exp.id,
-      name: exp.name,
-    });
-  });
-
-  return uniqBy(experiments, "id");
-}
-
-export async function removeMetricFromExperiments(
-  metricId: string,
-  organization: OrganizationInterface
-) {
-  const oldExperiments: Record<
-    string,
-    {
-      previous: ExperimentInterface | null;
-      current: ExperimentInterface | null;
-    }
-  > = {};
-
-  const orgId = organization.id;
-
-  const metricQuery = { organization: orgId, metrics: metricId };
-  const guardRailsQuery = { organization: orgId, guardrails: metricId };
-  const activationMetricQuery = {
-    organization: orgId,
-    activationMetric: metricId,
-  };
-  const docsToTrackChanges = await ExperimentModel.find({
-    $or: [metricQuery, guardRailsQuery, activationMetricQuery],
-  });
-  docsToTrackChanges.forEach((experiment: ExperimentDocument) => {
-    if (!oldExperiments[experiment.id]) {
-      oldExperiments[experiment.id] = {
-        previous: experiment,
-        current: null,
-      };
-    }
-  });
-
-  // Remove from metrics
-  await ExperimentModel.updateMany(metricQuery, {
-    $pull: { metrics: metricId },
-  });
-
-  // Remove from guardrails
-  await ExperimentModel.updateMany(guardRailsQuery, {
-    $pull: { guardrails: metricId },
-  });
-
-  // Remove from activationMetric
-  await ExperimentModel.updateMany(activationMetricQuery, {
-    $set: { activationMetric: "" },
-  });
-
-  const ids = Object.keys(oldExperiments);
-  const updatedExperiments = await ExperimentModel.find({ id: { $in: ids } });
-  // Populate updated experiments
-  updatedExperiments.forEach((experiment) => {
-    const changeSet = oldExperiments[experiment.id];
-    if (changeSet) {
-      changeSet.current = experiment;
-    }
-  });
-
-  // Log all the changes
-  each(oldExperiments, async (changeSet) => {
-    const { previous, current } = changeSet;
-    if (current && previous) {
-      await logExperimentUpdated({
-        organization,
-        current,
-        previous,
-      });
-    }
-  });
-}
-
-export async function removeProjectFromExperiments(
-  project: string,
-  organization: OrganizationInterface
-) {
-  const query = { organization: organization.id, project };
-  const previousExperiments = await ExperimentModel.find(query);
-
-  await ExperimentModel.updateMany(query, { $set: { project: "" } });
-
-  previousExperiments.forEach((previous) => {
-    const current = cloneDeep(previous);
-    current.project = "";
-
-    logExperimentUpdated({
-      organization,
-      previous,
-      current,
-    });
-  });
-}
-
-/**
- * Deletes an experiment by ID and logs the event for the organization
- * @param id
- * @param organization
- */
-export async function deleteExperimentByIdForOrganization(
-  id: string,
-  organization: OrganizationInterface
-) {
-  try {
-    const previous = await findExperiment({
-      experimentId: id,
-      organizationId: organization.id,
-    });
-    if (previous) {
-      await logExperimentDeleted(organization, previous);
-    }
-  } catch (e) {
-    logger.error(e);
-  }
-
-  return ExperimentModel.deleteOne({
-    id,
-  });
-}
-
-export async function getExperimentsUsingSegment(id: string, orgId: string) {
-  return ExperimentModel.find({
-    organization: orgId,
-    segment: id,
-  });
-}
-
-export async function getLatestSnapshot(
-  experiment: string,
-  phase: number,
-  dimension?: string,
-  withResults: boolean = true
-) {
-  const query: FilterQuery<ExperimentSnapshotDocument> = {
-    experiment,
-    phase,
-    dimension: dimension || null,
-  };
-
-  if (withResults) {
-    query.results = { $exists: true, $type: "array", $ne: [] };
-  }
-
-  const all = await ExperimentSnapshotModel.find(query, null, {
-    sort: { dateCreated: -1 },
-    limit: 1,
-  }).exec();
-
-  return all[0];
-}
 
 export async function createMetric(data: Partial<MetricInterface>) {
   const metric = insertMetric({
@@ -398,12 +149,8 @@ export async function refreshMetric(
 
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
-      segment =
-        (await SegmentModel.findOne({
-          id: metric.segment,
-          datasource: metric.datasource,
-        })) || undefined;
-      if (!segment) {
+      segment = (await findSegmentById(metric.segment, orgId)) || undefined;
+      if (!segment || segment.datasource !== metric.datasource) {
         throw new Error("Invalid user segment chosen");
       }
     }
@@ -452,7 +199,7 @@ export async function refreshMetric(
   }
 }
 
-function generateTrackingKey(name: string, n: number): string {
+export function generateTrackingKey(name: string, n: number): string {
   let key = ("-" + name)
     .toLowerCase()
     // Replace whitespace with hyphen
@@ -475,67 +222,6 @@ function generateTrackingKey(name: string, n: number): string {
   }
 
   return key;
-}
-
-export async function getSampleExperiment(
-  organization: string
-): Promise<ExperimentInterface | null> {
-  const exp = await ExperimentModel.findOne({
-    organization,
-    id: /^exp_sample_/,
-  });
-
-  return exp ? exp.toJSON() : null;
-}
-
-export async function createExperiment(
-  data: Partial<ExperimentInterface>,
-  organization: OrganizationInterface
-) {
-  if (!data.organization) {
-    throw new Error("Missing organization");
-  }
-  if (data.organization !== organization.id) {
-    throw new Error("Experiment and Organization must match");
-  }
-
-  if (!data.trackingKey) {
-    // Try to generate a unique tracking key based on the experiment name
-    let n = 1;
-    let found = null;
-    while (n < 10 && !found) {
-      const key = generateTrackingKey(data.name || data.id || "", n);
-      if (!(await getExperimentByTrackingKey(data.organization, key))) {
-        found = key;
-      }
-      n++;
-    }
-
-    // Fall back to uniqid if couldn't generate
-    data.trackingKey = found || uniqid();
-  }
-
-  const nextUpdate = determineNextDate(
-    organization.settings?.updateSchedule || null
-  );
-
-  const exp = await ExperimentModel.create({
-    ...data,
-    id: uniqid("exp_"),
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    autoSnapshots: nextUpdate !== null,
-    lastSnapshotAttempt: new Date(),
-    nextSnapshotAttempt: nextUpdate,
-  });
-
-  await logExperimentCreated(organization, exp);
-
-  if (data.tags) {
-    await addTags(data.organization, data.tags);
-  }
-
-  return exp;
 }
 
 export async function getManualSnapshotData(
@@ -568,9 +254,18 @@ export async function getManualSnapshotData(
         if (!metric) return;
         const rows: ExperimentMetricQueryResponse = stats.map((s, i) => {
           return {
-            ...s,
             dimension: "All",
             variation: experiment.variations[i].key || i + "",
+            users: s.count,
+            count: s.count,
+            statistic_type: "mean", // ratio not supported for now
+            main_metric_type: metric.type,
+            main_sum: s.mean * s.count,
+            main_sum_squares: sumSquaresFromStats(
+              s.mean * s.count,
+              Math.pow(s.stddev, 2),
+              s.count
+            ),
           };
         });
 
@@ -605,7 +300,7 @@ export async function createManualSnapshot(
   metrics: {
     [key: string]: MetricStats[];
   },
-  statsEngine?: OrganizationSettings["statsEngine"]
+  statsEngine?: StatsEngine
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
@@ -634,7 +329,7 @@ export async function createManualSnapshot(
     statsEngine,
   };
 
-  const snapshot = await ExperimentSnapshotModel.create(data);
+  const snapshot = await createExperimentSnapshotModel(data);
 
   return snapshot;
 }
@@ -667,7 +362,7 @@ export async function parseDimensionId(
   return null;
 }
 
-function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
+export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   // Default to every X hours if no organization-specific schedule is set
   let hours = EXPERIMENT_REFRESH_FREQUENCY;
 
@@ -701,10 +396,8 @@ export async function createSnapshot(
   organization: OrganizationInterface,
   dimensionId: string | null,
   useCache: boolean = false,
-  statsEngine: OrganizationSettings["statsEngine"]
+  statsEngine: StatsEngine | undefined
 ) {
-  const previousExperiment = cloneDeep(experiment);
-
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
     throw new Error("Invalid snapshot phase");
@@ -737,36 +430,11 @@ export async function createSnapshot(
     determineNextDate(organization.settings?.updateSchedule || null) ||
     undefined;
 
-  await ExperimentModel.updateOne(
-    {
-      id: experiment.id,
-      organization: experiment.organization,
-    },
-    {
-      $set: {
-        lastSnapshotAttempt: new Date(),
-        nextSnapshotAttempt: nextUpdate,
-        autoSnapshots: nextUpdate !== null,
-      },
-    }
-  );
-
-  try {
-    const updatedExperiment = await findExperiment({
-      organizationId: experiment.organization,
-      experimentId: experiment.id,
-    });
-
-    if (updatedExperiment) {
-      await logExperimentUpdated({
-        organization,
-        previous: previousExperiment,
-        current: updatedExperiment,
-      });
-    }
-  } catch (e) {
-    logger.error(e);
-  }
+  await updateExperimentById(organization.id, experiment, {
+    lastSnapshotAttempt: new Date(),
+    nextSnapshotAttempt: nextUpdate,
+    autoSnapshots: nextUpdate !== null,
+  });
 
   const { queries, results } = await startExperimentAnalysis(
     experiment.organization,
@@ -781,7 +449,9 @@ export async function createSnapshot(
   data.multipleExposures = results?.multipleExposures || 0;
   data.hasCorrectedStats = true;
 
-  const snapshot = await ExperimentSnapshotModel.create(data);
+  const snapshot = await createExperimentSnapshotModel(data);
+
+  // TODO: https://linear.app/growthbook/issue/GB-20/[be]-create-events-for-experiment-snapshots-experiment-results
 
   return snapshot;
 }
@@ -936,34 +606,301 @@ export async function experimentUpdated(
   });
 }
 
-/**
- * Removes the tag from any experiments that have it
- * and logs the experiment.updated event
- * @param organization
- * @param tag
- */
-export const removeTagFromExperiments = async ({
-  organization,
-  tag,
-}: {
-  organization: OrganizationInterface;
-  tag: string;
-}): Promise<void> => {
-  const query = { organization: organization.id, tags: tag };
-  const previousExperiments = await ExperimentModel.find(query);
+function getExperimentMetric(
+  experiment: ExperimentInterface,
+  id: string
+): ApiExperimentMetric {
+  const overrides = experiment.metricOverrides?.find((o) => o.id === id);
+  const ret: ApiExperimentMetric = {
+    metricId: id,
+    overrides: {},
+  };
 
-  await ExperimentModel.updateMany(query, {
-    $pull: { tags: tag },
-  });
+  if (overrides?.conversionDelayHours) {
+    ret.overrides.conversionWindowStart = overrides.conversionDelayHours;
+  }
+  if (overrides?.conversionWindowHours) {
+    ret.overrides.conversionWindowEnd =
+      overrides.conversionWindowHours + (overrides?.conversionDelayHours || 0);
+  }
+  if (overrides?.winRisk) {
+    ret.overrides.winRiskThreshold = overrides.winRisk;
+  }
+  if (overrides?.loseRisk) {
+    ret.overrides.loseRiskThreshold = overrides.loseRisk;
+  }
 
-  previousExperiments.forEach((previous) => {
-    const current = cloneDeep(previous);
-    current.tags = current.tags.filter((t) => t != tag);
+  return ret;
+}
 
-    logExperimentUpdated({
-      organization,
-      previous,
-      current,
-    });
-  });
-};
+export function toExperimentApiInterface(
+  organization: OrganizationInterface,
+  experiment: ExperimentInterface
+): ApiExperiment {
+  const activationMetric = experiment.activationMetric;
+  return {
+    id: experiment.id,
+    name: experiment.name || "",
+    project: experiment.project || "",
+    hypothesis: experiment.hypothesis || "",
+    description: experiment.description || "",
+    tags: experiment.tags || [],
+    owner: experiment.owner || "",
+    dateCreated: experiment.dateCreated.toISOString(),
+    dateUpdated: experiment.dateUpdated.toISOString(),
+    archived: !!experiment.archived,
+    status: experiment.status,
+    autoRefresh: !!experiment.autoSnapshots,
+    hashAttribute: experiment.hashAttribute || "id",
+    variations: experiment.variations.map((v) => ({
+      variationId: v.id,
+      key: v.key,
+      name: v.name || "",
+      description: v.description || "",
+      screenshots: v.screenshots.map((s) => s.path),
+    })),
+    phases: experiment.phases.map((p) => ({
+      name: p.name,
+      dateStarted: p.dateStarted.toISOString(),
+      dateEnded: p.dateEnded ? p.dateEnded.toISOString() : "",
+      reasonForStopping: p.reason || "",
+      seed: p.seed || experiment.trackingKey,
+      coverage: p.coverage,
+      trafficSplit: experiment.variations.map((v, i) => ({
+        variationId: v.id,
+        weight: p.variationWeights[i] || 0,
+      })),
+      targetingCondition: p.condition || "",
+      namespace: p.namespace?.enabled
+        ? {
+            namespaceId: p.namespace.name,
+            range: p.namespace.range,
+          }
+        : undefined,
+    })),
+    settings: {
+      datasourceId: experiment.datasource || "",
+      assignmentQueryId: experiment.exposureQueryId || "",
+      experimentId: experiment.trackingKey,
+      segmentId: experiment.segment || "",
+      queryFilter: experiment.queryFilter || "",
+      inProgressConversions: experiment.skipPartialData ? "exclude" : "include",
+      attributionModel: experiment.attributionModel || "firstExposure",
+      statsEngine: organization.settings?.statsEngine || "bayesian",
+      goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
+      guardrails: (experiment.guardrails || []).map((m) =>
+        getExperimentMetric(experiment, m)
+      ),
+      ...(activationMetric
+        ? {
+            activationMetric: getExperimentMetric(experiment, activationMetric),
+          }
+        : null),
+    },
+    ...(experiment.status === "stopped" && experiment.results
+      ? {
+          resultSummary: {
+            status: experiment.results,
+            winner: experiment.variations[experiment.winner ?? 0]?.id || "",
+            conclusions: experiment.analysis || "",
+            releasedVariationId: experiment.releasedVariationId || "",
+          },
+        }
+      : null),
+  };
+}
+
+export function toSnapshotApiInterface(
+  experiment: ExperimentInterface,
+  snapshot: ExperimentSnapshotInterface
+): ApiExperimentResults {
+  const dimension = !snapshot.dimension
+    ? {
+        type: "none",
+      }
+    : snapshot.dimension.match(/^exp:/)
+    ? {
+        type: "experiment",
+        id: snapshot.dimension.substring(4),
+      }
+    : snapshot.dimension.match(/^pre:/)
+    ? {
+        type: snapshot.dimension.substring(4),
+      }
+    : {
+        type: "user",
+        id: snapshot.dimension,
+      };
+
+  const phase = experiment.phases[snapshot.phase];
+
+  const metricIds = new Set([
+    ...experiment.metrics,
+    ...(experiment.guardrails || []),
+  ]);
+  if (experiment.activationMetric) {
+    metricIds.add(experiment.activationMetric);
+  }
+
+  const activationMetric = experiment.activationMetric;
+
+  const variationIds = experiment.variations.map((v) => v.id);
+
+  return {
+    id: snapshot.id,
+    dateUpdated: snapshot.dateCreated.toISOString(),
+    experimentId: snapshot.experiment,
+    phase: snapshot.phase + "",
+    dimension: dimension,
+    dateStart: phase?.dateStarted?.toISOString() || "",
+    dateEnd:
+      phase?.dateEnded?.toISOString() ||
+      snapshot.runStarted?.toISOString() ||
+      "",
+    settings: {
+      datasourceId: experiment.datasource || "",
+      assignmentQueryId: experiment.exposureQueryId || "",
+      experimentId: experiment.trackingKey,
+      segmentId: snapshot.segment || "",
+      queryFilter: snapshot.queryFilter || "",
+      inProgressConversions: snapshot.skipPartialData ? "exclude" : "include",
+      attributionModel: experiment.attributionModel || "firstExposure",
+      statsEngine: snapshot.statsEngine || "bayesian",
+      goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
+      guardrails: (experiment.guardrails || []).map((m) =>
+        getExperimentMetric(experiment, m)
+      ),
+      ...(activationMetric
+        ? {
+            activationMetric: getExperimentMetric(experiment, activationMetric),
+          }
+        : null),
+    },
+    queryIds: snapshot.queries.map((q) => q.query),
+    results: (snapshot.results || []).map((s) => {
+      return {
+        dimension: s.name,
+        totalUsers: s.variations.reduce((sum, v) => sum + v.users, 0),
+        checks: {
+          srm: s.srm,
+        },
+        metrics: Array.from(metricIds).map((m) => ({
+          metricId: m,
+          variations: s.variations.map((v, i) => {
+            const data = v.metrics[m];
+            return {
+              variationId: variationIds[i],
+              analyses: [
+                {
+                  engine: snapshot.statsEngine || "bayesian",
+                  numerator: data?.value || 0,
+                  denominator: data?.denominator || data?.users || 0,
+                  mean: data?.stats?.mean || 0,
+                  stddev: data?.stats?.stddev || 0,
+                  percentChange: data?.expected || 0,
+                  ciLow: data?.ci?.[0] ?? 0,
+                  ciHigh: data?.ci?.[1] ?? 0,
+                  pValue: data?.pValue || 0,
+                  risk: data?.risk?.[1] || 0,
+                  chanceToBeatControl: data?.chanceToWin || 0,
+                },
+              ],
+            };
+          }),
+        })),
+      };
+    }),
+  };
+}
+
+export function toMetricApiInterface(
+  organization: OrganizationInterface,
+  metric: MetricInterface,
+  datasource: DataSourceInterface | null
+): ApiMetric {
+  const metricDefaults = organization.settings?.metricDefaults;
+
+  let conversionStart = metric.conversionDelayHours || 0;
+  const conversionEnd =
+    conversionStart +
+    (metric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS);
+  if (!conversionStart && metric.earlyStart) {
+    conversionStart = -0.5;
+  }
+
+  const obj: ApiMetric = {
+    id: metric.id,
+    name: metric.name,
+    description: metric.description || "",
+    dateCreated: metric.dateCreated?.toISOString() || "",
+    dateUpdated: metric.dateUpdated?.toISOString() || "",
+    archived: metric.status === "archived",
+    datasourceId: datasource?.id || "",
+    owner: metric.owner || "",
+    projects: metric.projects || [],
+    tags: metric.tags || [],
+    type: metric.type,
+    behavior: {
+      goal: metric.inverse ? "decrease" : "increase",
+      cap: metric.cap || 0,
+      minPercentChange:
+        metric.minPercentChange ?? metricDefaults?.minPercentageChange ?? 0.005,
+      maxPercentChange:
+        metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0.5,
+      minSampleSize:
+        metric.minSampleSize ?? metricDefaults?.minimumSampleSize ?? 150,
+      riskThresholdDanger: metric.loseRisk ?? 0.0125,
+      riskThresholdSuccess: metric.winRisk ?? 0.0025,
+      conversionWindowStart: conversionStart,
+      conversionWindowEnd: conversionEnd,
+    },
+  };
+
+  if (datasource) {
+    if (datasource.type === "mixpanel") {
+      obj.mixpanel = {
+        eventName: metric.table || "",
+        eventValue: metric.column || "",
+        userAggregation: metric.aggregation || "sum(values)",
+        conditions: (metric.conditions || []).map((c) => ({
+          property: c.column,
+          operator: c.operator,
+          value: c.value,
+        })),
+      };
+    } else if (datasource.type !== "google_analytics") {
+      const identifierTypes = metric.userIdTypes ?? [
+        metric.userIdType ?? "user_id",
+      ];
+      obj.sql = {
+        identifierTypes,
+        // TODO: if builder mode is selected, use that to generate the SQL here
+        conversionSQL: metric.sql || "",
+        userAggregationSQL: metric.aggregation || "SUM(value)",
+        denominatorMetricId: metric.denominator || "",
+      };
+
+      if (metric.queryFormat === "builder") {
+        obj.sql.builder = {
+          identifierTypeColumns: identifierTypes.map((t) => ({
+            identifierType: t,
+            columnName:
+              metric.userIdColumns?.[t] ||
+              (t === "user_id"
+                ? metric.userIdColumn
+                : t === "anonymous_id"
+                ? metric.anonymousIdColumn
+                : t) ||
+              t,
+          })),
+          tableName: metric.table || "",
+          valueColumnName: metric.column || "",
+          timestampColumnName: metric.timestampColumn || "timestamp",
+          conditions: metric.conditions || [],
+        };
+      }
+    }
+  }
+
+  return obj;
+}

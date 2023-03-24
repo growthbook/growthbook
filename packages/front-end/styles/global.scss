@@ -5,7 +5,6 @@
 @import "bootstrap-variable-overrides";
 
 @import "bootstrap/scss/bootstrap.scss";
-@import "react-bootstrap-typeahead/css/Typeahead.scss";
 @import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap");
 
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
@@ -143,6 +142,7 @@ pre {
   background-color: rgba(154, 110, 248, 0.2);
   color: inherit;
 }
+
 .badge {
   line-height: 1em;
   font-size: 85.72%; //12px
@@ -151,6 +151,15 @@ pre {
   .badge {
     margin-bottom: 0;
   }
+}
+
+.badge-red {
+  @include badge-variant(colors.$red);
+  border: 1px solid colors.$red;
+}
+.badge-green {
+  @include badge-variant(colors.$green);
+  border: 1px solid colors.$green;
 }
 .badge-primary {
   @include badge-variant(#00ace5);
@@ -668,6 +677,12 @@ pre {
   min-height: 100vh;
   font-size: 1rem;
   font-family: Poppins, "Helvetica Neue", Arial, sans-serif;
+
+  .welcomemodal {
+    @media (max-width: 575px) {
+      padding-top: 50px !important;
+    }
+  }
 
   .h1 {
     font-size: 1.9rem;

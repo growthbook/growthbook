@@ -1,5 +1,4 @@
-import { z } from "zod";
-import { ApiFeatureInterface } from "../../../types/api";
+import { ToggleFeatureResponse } from "../../../types/openapi";
 import {
   getFeature,
   toggleMultipleEnvironments,
@@ -8,34 +7,11 @@ import { auditDetailsUpdate } from "../../services/audit";
 import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
 import { getEnvironments } from "../../services/organizations";
 import { createApiRequestHandler } from "../../util/handler";
+import { toggleFeatureValidator } from "../../validators/openapi";
 
-export const toggleFeature = createApiRequestHandler({
-  paramsSchema: z
-    .object({
-      key: z.string(),
-    })
-    .strict(),
-  bodySchema: z
-    .object({
-      environments: z.record(
-        z.string(),
-        z.union([
-          z.boolean(),
-          z.literal("true"),
-          z.literal("false"),
-          z.literal("1"),
-          z.literal("0"),
-          z.literal(""),
-          z.literal(0),
-          z.literal(1),
-        ])
-      ),
-      reason: z.string().optional(),
-    })
-    .strict(),
-})(
-  async (req): Promise<{ feature: ApiFeatureInterface }> => {
-    const feature = await getFeature(req.organization.id, req.params.key);
+export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
+  async (req): Promise<ToggleFeatureResponse> => {
+    const feature = await getFeature(req.organization.id, req.params.id);
     if (!feature) {
       throw new Error("Could not find a feature with that key");
     }
@@ -56,6 +32,7 @@ export const toggleFeature = createApiRequestHandler({
 
     const updatedFeature = await toggleMultipleEnvironments(
       req.organization,
+      req.eventAudit,
       feature,
       toggles
     );

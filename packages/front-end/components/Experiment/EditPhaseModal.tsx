@@ -2,13 +2,13 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-  ExperimentPhaseType,
 } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
-import SelectField from "@/components/Forms/SelectField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
-import VariationsInput from "../Features/VariationsInput";
+import FeatureVariationsInput from "../Features/FeatureVariationsInput";
+import ConditionInput from "../Features/ConditionInput";
+import NamespaceSelector from "../Features/NamespaceSelector";
 
 export interface Props {
   close: () => void;
@@ -48,19 +48,7 @@ export default function EditPhaseModal({
       })}
       size="lg"
     >
-      <SelectField
-        label="Type of Phase"
-        value={form.watch("phase")}
-        onChange={(v) => {
-          const phaseType = v as ExperimentPhaseType;
-          form.setValue("phase", phaseType);
-        }}
-        options={[
-          { label: "ramp", value: "ramp" },
-          { value: "main", label: "main (default)" },
-          { label: "holdout", value: "holdout" },
-        ]}
-      />
+      <Field label="Phase Name" {...form.register("name")} required />
       <Field
         label="Start Time (UTC)"
         type="datetime-local"
@@ -94,7 +82,12 @@ export default function EditPhaseModal({
         />
       )}
 
-      <VariationsInput
+      <ConditionInput
+        defaultValue={form.watch("condition")}
+        onChange={(condition) => form.setValue("condition", condition)}
+      />
+
+      <FeatureVariationsInput
         valueType={"string"}
         coverage={form.watch("coverage")}
         setCoverage={(coverage) => form.setValue("coverage", coverage)}
@@ -108,11 +101,17 @@ export default function EditPhaseModal({
               value: v.key || i + "",
               name: v.name,
               weight: form.watch(`variationWeights.${i}`),
+              id: v.id,
             };
           }) || []
         }
-        coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
         showPreview={false}
+      />
+
+      <NamespaceSelector
+        form={form}
+        featureId={experiment.trackingKey}
+        trackingKey={experiment.trackingKey}
       />
     </Modal>
   );

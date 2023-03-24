@@ -4,6 +4,12 @@ import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
+import {
+  InformationSchema,
+  MissingDatasourceParamsError,
+} from "../types/Integration";
+import { formatInformationSchema } from "../util/integrations";
+import { DataSourceProperties } from "../../types/datasource";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -14,6 +20,12 @@ export default class BigQuery extends SqlIntegration {
     this.params = decryptDataSourceParams<BigQueryConnectionParams>(
       encryptedParams
     );
+  }
+  getSourceProperties(): DataSourceProperties {
+    return {
+      ...super.getSourceProperties(),
+      supportsInformationSchema: true,
+    };
   }
   getFormatDialect(): FormatDialect {
     return "bigquery";
@@ -77,5 +89,37 @@ export default class BigQuery extends SqlIntegration {
   }
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
+  }
+
+  async getInformationSchema(): Promise<InformationSchema[]> {
+    const projectId = this.params.projectId;
+
+    if (!projectId)
+      throw new Error(
+        "No projectId provided. In order to get the information schema, you must provide a projectId."
+      );
+    if (!this.params.defaultDataset)
+      throw new MissingDatasourceParamsError(
+        "To view the information schema for a BigQuery dataset, you must define a default dataset. Please add a default dataset by editing the datasource's connection settings."
+      );
+
+    const queryString = `SELECT
+    table_name,
+    '${projectId}' as table_catalog,
+    table_schema,
+    COUNT(column_name) as column_count
+  FROM
+    \`${projectId}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\`
+    GROUP BY table_name, table_schema`;
+
+    const results = await this.runQuery(queryString);
+
+    if (!results.length) {
+      throw new Error(
+        `No tables found for projectId "${projectId}" and dataset "${this.params.defaultDataset}".`
+      );
+    }
+
+    return formatInformationSchema(results, "bigquery");
   }
 }

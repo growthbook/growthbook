@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { ReportInterface } from "back-end/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
@@ -6,6 +7,7 @@ import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -22,9 +24,11 @@ export default function ConfigureReport({
   mutate: () => void;
   viewResults: () => void;
 }) {
+  const settings = useOrgSettings();
   const { apiCall } = useAuth();
   const { metrics, segments, getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(report.args.datasource);
+  const [usingStatsEngineDefault, setUsingStatsEngineDefault] = useState(false);
 
   const form = useForm({
     defaultValues: {
@@ -35,12 +39,12 @@ export default function ConfigureReport({
           report.args.exposureQueryId,
           report.args.userIdType
         )?.id || "",
-      removeMultipleExposures: !!report.args.removeMultipleExposures,
       attributionModel: report.args.attributionModel || "firstExposure",
       startDate: getValidDate(report.args.startDate)
         .toISOString()
         .substr(0, 16),
       endDate: getValidDate(report.args.endDate).toISOString().substr(0, 16),
+      statsEngine: report.args.statsEngine || settings.statsEngine,
     },
   });
 
@@ -62,6 +66,16 @@ export default function ConfigureReport({
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
 
+  const setStatsEngineToDefault = useCallback(
+    (enable: boolean) => {
+      if (enable) {
+        form.setValue("statsEngine", settings.statsEngine);
+      }
+      setUsingStatsEngineDefault(enable);
+    },
+    [form, setUsingStatsEngineDefault, settings.statsEngine]
+  );
+
   return (
     <Modal
       inline={true}
@@ -73,7 +87,6 @@ export default function ConfigureReport({
         const args = {
           ...value,
           skipPartialData: !!value.skipPartialData,
-          removeMultipleExposures: !!value.removeMultipleExposures,
         };
 
         await apiCall(`/report/${report.id}`, {
@@ -265,27 +278,6 @@ export default function ConfigureReport({
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
-          label="Users in Multiple Variations"
-          labelClassName="font-weight-bold"
-          value={form.watch("removeMultipleExposures") ? "remove" : "keep"}
-          onChange={(v) => {
-            form.setValue("removeMultipleExposures", v === "remove");
-          }}
-          options={[
-            {
-              label: "Include in both variations",
-              value: "keep",
-            },
-            {
-              label: "Remove from analysis",
-              value: "remove",
-            },
-          ]}
-          helpText="How to treat users who were exposed to more than 1 variation"
-        />
-      )}
-      {datasourceProperties?.separateExperimentResultQueries && (
-        <SelectField
           label={
             <AttributionModelTooltip>
               <strong>Attribution Model</strong> <FaQuestionCircle />
@@ -302,12 +294,48 @@ export default function ConfigureReport({
               value: "firstExposure",
             },
             {
-              label: "All Exposures",
-              value: "allExposures",
+              label: "Experiment Duration",
+              value: "experimentDuration",
             },
           ]}
         />
       )}
+
+      <div className="d-flex flex-row no-gutters align-items-center">
+        <div className="col-2">
+          <SelectField
+            disabled={usingStatsEngineDefault}
+            label={<strong>Stats Engine</strong>}
+            value={form.watch("statsEngine")}
+            onChange={(value) =>
+              form.setValue(
+                "statsEngine",
+                value === "frequentist" ? "frequentist" : "bayesian"
+              )
+            }
+            options={[
+              {
+                label: "Bayesian",
+                value: "bayesian",
+              },
+              {
+                label: "Frequentist",
+                value: "frequentist",
+              },
+            ]}
+          />
+        </div>
+        <label className="ml-5 mt-3">
+          <input
+            type="checkbox"
+            className="form-check-input"
+            checked={usingStatsEngineDefault}
+            onChange={(e) => setStatsEngineToDefault(e.target.checked)}
+          />
+          Use Organization Default
+        </label>
+      </div>
+
       {datasourceProperties?.queryLanguage === "sql" && (
         <div className="row">
           <div className="col">

@@ -80,7 +80,11 @@ export default function ChanceToWinColumn({
     )} threshold`;
     className = "lost";
   }
-  if (belowMinChange && (chanceToWin > ciUpper || chanceToWin < ciLower)) {
+  if (
+    enoughData &&
+    belowMinChange &&
+    (chanceToWin > ciUpper || chanceToWin < ciLower)
+  ) {
     sigText =
       "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
     className += " draw";

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ApiDimension } from "../../types/openapi";
 import { DimensionInterface } from "../../types/dimension";
 import { getConfigDimensions, usingFileConfig } from "../init/config";
 
@@ -94,4 +95,19 @@ export async function deleteDimensionById(id: string, organization: string) {
     id,
     organization,
   });
+}
+
+export function toDimensionApiInterface(
+  dimension: DimensionInterface
+): ApiDimension {
+  return {
+    id: dimension.id,
+    name: dimension.name,
+    owner: dimension.owner || "",
+    identifierType: dimension.userIdType || "user_id",
+    query: dimension.sql,
+    datasourceId: dimension.datasource || "",
+    dateCreated: dimension.dateCreated?.toISOString() || "",
+    dateUpdated: dimension.dateUpdated?.toISOString() || "",
+  };
 }
