@@ -1047,7 +1047,10 @@ export default abstract class SqlIntegration
           d.variation,
           d.dimension,
           d.${baseIdType},
-          ${this.getAggregateMetricColumn(metric, "post")} as value
+          ${this.getAggregateMetricColumn(
+            metric,
+            isRegressionAdjusted ? "post" : "noWindow"
+          )} as value
           ${
             isRegressionAdjusted
               ? `, ${this.getAggregateMetricColumn(
