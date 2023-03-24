@@ -6,11 +6,11 @@ import {
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "back-end/types/visual-changeset";
-import { FC, useEffect, useState } from "react";
+import { FC, Fragment, useEffect, useState } from "react";
 import { useAuth } from "@/services/auth";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
-import { GBAddCircle } from "../Icons";
+import { GBAddCircle, GBEdit } from "../Icons";
 import VisualChanges from "./VisualChanges";
 import VisualChangesetModal from "./VisualChangesetModal";
 
@@ -30,6 +30,7 @@ const ScreenshotCarousel: FC<{
   mutate: () => void;
 }> = ({ canEdit, experiment, index, variation, mutate }) => {
   const { apiCall } = useAuth();
+
   return (
     <Carousel
       deleteImage={
@@ -135,111 +136,145 @@ const VariationsTable: FC<Props> = ({
     }
   };
 
+  const hasDescriptions = variations.some((v) => !!v.description?.trim());
+
+  console.log(visualChangesets);
+
   return (
-    <table className="table">
-      <thead>
-        <tr>
-          <th scope="col">Name</th>
+    <div className="w-100">
+      <div
+        className="w-100"
+        style={{
+          overflowX: "auto",
+        }}
+      >
+        <table className="table gbtable">
+          <thead>
+            <tr>
+              {variations.map((v, i) => (
+                <th key={i} scope="col">
+                  {v.name}
+                </th>
+              ))}
+            </tr>
+          </thead>
 
-          {variations.map((v, i) => (
-            <th key={i} scope="col">
-              {v.name}
-            </th>
-          ))}
-        </tr>
-      </thead>
+          <tbody>
+            <tr>
+              {variations.map((v, i) => (
+                <td key={i} scope="col">
+                  <span className="text-muted">Id:</span> {v.key}
+                </td>
+              ))}
+            </tr>
 
-      <tbody>
-        <tr>
-          <td scope="row">
-            <strong>Description</strong>
-          </td>
-          {variations.map((v, i) => (
-            <td key={i} scope="col">
-              {v.description}
-            </td>
-          ))}
-        </tr>
+            {hasDescriptions && (
+              <tr>
+                {variations.map((v, i) => (
+                  <td key={i} scope="col">
+                    {v.description}
+                  </td>
+                ))}
+              </tr>
+            )}
 
-        <tr>
-          <td scope="row">
-            <strong>Screenshots</strong>
-          </td>
-          {variations.map((v, i) => (
-            <td key={i} scope="col" style={{ minWidth: "18rem" }}>
-              {v.screenshots.length > 0 ? (
-                <ScreenshotCarousel
+            <tr style={{ height: 1 }}>
+              {variations.map((v, i) => (
+                <td
                   key={i}
-                  index={i}
-                  variation={v}
-                  canEdit={canEdit}
-                  experiment={experiment}
-                  mutate={mutate}
-                />
-              ) : null}
-              {canEdit && (
-                <ScreenshotUpload
-                  variation={i}
-                  experiment={experiment.id}
-                  onSuccess={() => mutate()}
-                />
-              )}
-            </td>
-          ))}
-        </tr>
-
-        {!visualChangesets.length ? (
-          <tr>
-            <td colSpan={variations.length + 1}>
-              {showVisualChangesetForm ? (
-                <VisualChangesetModal
-                  onClose={() => setShowVisualChangesetForm(false)}
-                  onSubmit={createVisualChangeset}
-                />
-              ) : (
-                <button
-                  className="btn btn-primary"
-                  onClick={() => setShowVisualChangesetForm(true)}
+                  scope="col"
+                  style={{ minWidth: "18rem", height: "inherit" }}
                 >
-                  <GBAddCircle /> Add Visual Changes
-                </button>
-              )}
-            </td>
-          </tr>
-        ) : null}
+                  <div className="d-flex flex-column h-100">
+                    {v.screenshots.length > 0 ? (
+                      <ScreenshotCarousel
+                        key={i}
+                        index={i}
+                        variation={v}
+                        canEdit={canEdit}
+                        experiment={experiment}
+                        mutate={mutate}
+                      />
+                    ) : null}
+                    {canEdit && (
+                      <div className="mt-auto">
+                        <ScreenshotUpload
+                          variation={i}
+                          experiment={experiment.id}
+                          onSuccess={() => mutate()}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </td>
+              ))}
+            </tr>
 
-        {isEditingVisualChangeset ? (
-          <VisualChangesetModal
-            editorUrl={visualChangesets[0].editorUrl}
-            urlPatterns={visualChangesets[0].urlPatterns}
-            onSubmit={updateVisualChangeset}
-            onClose={() => setIsEditingVisualChangeset(false)}
-          />
-        ) : null}
-
-        {visualChangesets.map((vc, i) => (
-          <tr key={i}>
-            <td>
-              <strong>Visual Changes</strong>
-              <div>
-                <a
-                  className="cursor-pointer"
-                  onClick={() => setIsEditingVisualChangeset(true)}
-                >
-                  Edit URLs
-                </a>
-              </div>
-            </td>
-
-            {vc.visualChanges.map((_v, j) => (
-              <td key={j}>
-                <VisualChanges changeIndex={j} visualChangeset={vc} />
-              </td>
+            {visualChangesets.map((vc, i) => (
+              <Fragment key={i}>
+                <tr className="bg-light">
+                  <td colSpan={variations.length}>
+                    <strong>Visual Changes</strong>
+                    <a
+                      href="#"
+                      className="small ml-2"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setIsEditingVisualChangeset(true);
+                      }}
+                    >
+                      <GBEdit />
+                    </a>
+                    <div className="pl-2 pt-2">
+                      {vc.urlPatterns.map((p, j) => (
+                        <div key={j} className="small">
+                          {p.include === false ? "Exclude" : "Include"} URL:{" "}
+                          <code>{p.pattern}</code>
+                        </div>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  {variations.map((_v, j) => (
+                    <td key={j}>
+                      <VisualChanges changeIndex={j} visualChangeset={vc} />
+                    </td>
+                  ))}
+                </tr>
+              </Fragment>
             ))}
-          </tr>
-        ))}
-      </tbody>
-    </table>
+          </tbody>
+        </table>
+      </div>
+
+      {isEditingVisualChangeset ? (
+        <VisualChangesetModal
+          editorUrl={visualChangesets[0].editorUrl}
+          urlPatterns={visualChangesets[0].urlPatterns}
+          onSubmit={updateVisualChangeset}
+          onClose={() => setIsEditingVisualChangeset(false)}
+        />
+      ) : null}
+
+      {!visualChangesets.length && experiment.status === "draft" && (
+        <div className="mt-3">
+          {showVisualChangesetForm ? (
+            <VisualChangesetModal
+              onClose={() => setShowVisualChangesetForm(false)}
+              onSubmit={createVisualChangeset}
+            />
+          ) : (
+            <button
+              className="btn btn-link"
+              onClick={() => setShowVisualChangesetForm(true)}
+            >
+              <GBAddCircle /> Add Visual Changes
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 };
 

@@ -10,13 +10,12 @@ export default function VisualChanges({
   visualChangeset: VisualChangesetInterface;
 }) {
   const permissions = usePermissions();
-  const isControl = changeIndex === 0;
   const visualChanges = visualChangeset.visualChanges[changeIndex];
   const changeCount =
     visualChanges.domMutations.length + (visualChanges.css ? 1 : 0);
 
   if (permissions.check("createAnalyses", "")) {
-    return isControl ? null : (
+    return (
       <div className="my-2">
         <OpenVisualEditorLink
           id={visualChangeset.id}
