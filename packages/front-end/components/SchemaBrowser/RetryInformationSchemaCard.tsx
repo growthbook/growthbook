@@ -37,7 +37,14 @@ export default function RetryInformationSchemaCard({
 
   useEffect(() => {
     if (fetching) {
-      if (retryCount > 8) {
+      if (
+        retryCount > 1 &&
+        retryCount < 8 &&
+        informationSchema.status === "COMPLETE"
+      ) {
+        setFetching(false);
+        setRetryCount(1);
+      } else if (retryCount > 8) {
         setFetching(false);
         setError(
           "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes."
@@ -53,7 +60,7 @@ export default function RetryInformationSchemaCard({
         };
       }
     }
-  }, [fetching, mutate, retryCount]);
+  }, [fetching, mutate, retryCount, informationSchema]);
 
   return (
     <div>
@@ -65,18 +72,20 @@ export default function RetryInformationSchemaCard({
               This may take a minute, depending on the size of the datasource.
             </span>
           ) : (
-            <span>{informationSchema.error.message}</span>
+            <span>{error ? error : informationSchema.error.message}</span>
           )}
         </div>
         <button
-          disabled={fetching}
+          disabled={!!error || fetching}
           className="btn btn-link"
-          onClick={async () => onClick()}
+          onClick={async (e) => {
+            e.preventDefault();
+            onClick();
+          }}
         >
           {fetching && <LoadingSpinner />} Retry
         </button>
       </div>
-      {error && <div className="alert alert-danger">{error}</div>}
     </div>
   );
 }
