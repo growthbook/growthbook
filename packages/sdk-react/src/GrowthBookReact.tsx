@@ -131,7 +131,7 @@ export function useGrowthBook<
 
 export function FeaturesReady({
   children,
-  timeout,
+  timeout = 0,
   fallback,
 }: {
   children: React.ReactNode;
@@ -139,17 +139,22 @@ export function FeaturesReady({
   fallback?: React.ReactNode;
 }) {
   const gb = useGrowthBook();
-  const [ready, setReady] = React.useState(gb ? gb.ready : false);
-  React.useEffect(() => {
-    if (timeout && !ready) {
-      const timer = setTimeout(() => {
-        setReady(true);
-      }, timeout);
-      return () => clearTimeout(timer);
-    }
-  }, [timeout, ready]);
+  const [display, setDisplay] = React.useState(gb?.ready ?? false);
 
-  return ready ? children : fallback || null;
+  React.useEffect(() => {
+    setDisplay(gb?.ready ?? false);
+    const timer = setTimeout(() => {
+      setDisplay(true);
+    }, timeout);
+    return () => clearTimeout(timer);
+  }, [timeout, gb?.ready]);
+
+  return (
+    <>
+      {display && children}
+      {!display && fallback}
+    </>
+  );
 }
 
 export function IfFeatureEnabled({
