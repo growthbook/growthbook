@@ -69,6 +69,7 @@ async function getPayloadParamsFromApiKey(
   sseEnabled?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
+  forceDraftExperimentsToActive?: boolean;
 }> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
@@ -95,6 +96,7 @@ async function getPayloadParamsFromApiKey(
       sseEnabled: connection.sseEnabled,
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
+      forceDraftExperimentsToActive: connection.forceDraftExperimentsToActive,
     };
   }
   // Old, legacy API Key
@@ -152,6 +154,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       sseEnabled,
       includeVisualExperiments,
       includeDraftExperiments,
+      forceDraftExperimentsToActive,
     } = await getPayloadParamsFromApiKey(key, req);
 
     const defs = await getFeatureDefinitions(
@@ -160,7 +163,8 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       project,
       encrypted ? encryptionKey : "",
       includeVisualExperiments,
-      includeDraftExperiments
+      includeDraftExperiments,
+      forceDraftExperimentsToActive
     );
 
     // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)

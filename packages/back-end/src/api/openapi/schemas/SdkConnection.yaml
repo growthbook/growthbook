@@ -40,6 +40,8 @@ properties:
     type: boolean
   includeDraftExperiments:
     type: boolean
+  forceDraftExperimentsToActive:
+    type: boolean
   key:
     type: string
   proxyEnabled:

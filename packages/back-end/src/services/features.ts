@@ -218,10 +218,17 @@ async function getFeatureDefinitionsResponse(
   dateUpdated: Date | null,
   encryptionKey?: string,
   includeVisualExperiments?: boolean,
-  includeDraftExperiments?: boolean
+  includeDraftExperiments?: boolean,
+  forceDraftExperimentsToActive?: boolean
 ) {
   if (!includeDraftExperiments) {
     experiments = experiments.filter((e) => e.status !== "draft");
+  } else if (forceDraftExperimentsToActive) {
+    experiments.forEach((e) => {
+      if (e.status === "draft") {
+        e.status = "active";
+      }
+    });
   }
 
   if (!encryptionKey) {
@@ -256,7 +263,8 @@ export async function getFeatureDefinitions(
   project?: string,
   encryptionKey?: string,
   includeVisualExperiments?: boolean,
-  includeDraftExperiments?: boolean
+  includeDraftExperiments?: boolean,
+  forceDraftExperimentsToActive?: boolean
 ): Promise<{
   features: Record<string, FeatureDefinition>;
   experiments?: SDKExperiment[];
@@ -279,7 +287,8 @@ export async function getFeatureDefinitions(
         cached.dateUpdated,
         encryptionKey,
         includeVisualExperiments,
-        includeDraftExperiments
+        includeDraftExperiments,
+        forceDraftExperimentsToActive
       );
     }
   } catch (e) {
@@ -294,7 +303,8 @@ export async function getFeatureDefinitions(
       null,
       encryptionKey,
       includeVisualExperiments,
-      includeDraftExperiments
+      includeDraftExperiments,
+      forceDraftExperimentsToActive
     );
   }
 
@@ -327,7 +337,8 @@ export async function getFeatureDefinitions(
     new Date(),
     encryptionKey,
     includeVisualExperiments,
-    includeDraftExperiments
+    includeDraftExperiments,
+    forceDraftExperimentsToActive
   );
 }
 
