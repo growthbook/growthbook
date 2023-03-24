@@ -820,7 +820,6 @@ export function toSnapshotApiInterface(
  * e.g. specifying only one of mixpanel, sql, sql.builder
  * @param organization
  * @param apiMetric
- * @param datasource
  * @return metric Partial<MetricInterface>
  */
 export type RequiredApiMetricFields = Pick<
@@ -829,8 +828,7 @@ export type RequiredApiMetricFields = Pick<
 >;
 export function partialFromMetricApiInterface(
   organization: OrganizationInterface,
-  apiMetric: Partial<ApiMetric> & RequiredApiMetricFields,
-  datasource: DataSourceInterface
+  apiMetric: Partial<ApiMetric> & RequiredApiMetricFields
 ): Partial<MetricInterface> {
   const {
     datasourceId,
@@ -839,7 +837,6 @@ export function partialFromMetricApiInterface(
     type,
     behavior,
     sql,
-    // builder: sqlBuilder,
     mixpanel,
     owner,
     tags = [],
@@ -857,16 +854,20 @@ export function partialFromMetricApiInterface(
 
   const now = new Date();
   const metric: MetricInterface = {
-    queryFormat,
     dateCreated: now,
     dateUpdated: now,
-    runStarted: null,
-    type: type as MetricType,
     datasource: datasourceId,
+    type: type as MetricType,
+    organization: organization.id,
+    name,
+    queryFormat,
+    description: description || "",
+    runStarted: null,
+    owner: owner || "",
+    tags,
+    projects,
     // TODO: Fill these out
     aggregation: "",
-    analysis: undefined,
-    analysisError: "",
     anonymousIdColumn: "",
     cap: 0,
     column: "",
@@ -874,25 +875,14 @@ export function partialFromMetricApiInterface(
     conversionDelayHours: 0,
     conversionWindowHours: 0,
     denominator: "",
-    description: "",
-    earlyStart: false,
-    id: "",
-    ignoreNulls: false,
-    inverse: false,
     loseRisk: 0,
     maxPercentChange: 0,
     minPercentChange: 0,
     minSampleSize: 0,
-    name: "",
-    organization: "",
-    owner: "",
-    projects: [],
     queries: [],
-    segment: "",
     sql: "",
     status: undefined,
     table: "",
-    tags: [],
     timestampColumn: "",
     userIdColumn: "",
     userIdColumns: undefined,
@@ -939,13 +929,15 @@ export function partialFromMetricApiInterface(
       cap,
       conversionWindowEnd,
       conversionWindowStart,
-      goal: inverse,
+      goal,
       maxPercentChange,
       minPercentChange,
       riskThresholdDanger: loseRisk, // loseRisk
       riskThresholdSuccess: winRisk, // winRisk
       minSampleSize,
     } = behavior;
+
+    metric.inverse = goal === "decrease";
   }
 
   return metric;

@@ -64,6 +64,7 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
       projects,
       // We are mapping the request shape for the user to simplify sql, sqlBuilder & mixpanel,
       // which requires us to re-map it here
+      // We must add defaults since we are making these fields optional
       sql: sql
         ? {
             ...sql,
@@ -99,12 +100,7 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
         : undefined,
     };
 
-    const metric = partialFromMetricApiInterface(
-      req.organization,
-      apiMetric,
-      datasource
-    );
-
+    const metric = partialFromMetricApiInterface(req.organization, apiMetric);
     const createdMetric = await createMetric(metric);
 
     return {

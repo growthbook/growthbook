@@ -1,12 +1,19 @@
 import { ApiMetric } from "../../types/openapi";
-import { partialFromMetricApiInterface } from "../../src/services/experiments";
+import {
+  partialFromMetricApiInterface,
+  RequiredApiMetricFields,
+} from "../../src/services/experiments";
 import { OrganizationInterface } from "../../types/organization";
 import { DataSourceInterface } from "../../types/datasource";
 
 describe("experiment services", () => {
   describe("fromMetricApiInterface", () => {
-    it("should convert an ApiMetric to a MetricInterface", () => {
-      const input: Partial<ApiMetric> = {};
+    it("should convert a mostly empty ApiMetric to a MetricInterface", () => {
+      const input: Partial<ApiMetric> & RequiredApiMetricFields = {
+        datasourceId: "ds_abc123",
+        name: "The best datasource",
+        type: "count",
+      };
       const org: OrganizationInterface = {
         autoApproveMembers: false,
         connections: undefined,
