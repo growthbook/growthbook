@@ -161,7 +161,6 @@ ZERO_DENOM_RATIO_STATISTICS_DF = pd.DataFrame(
     statistic_type="ratio", main_metric_type="count", denominator_metric_type="count"
 )
 
-
 RA_STATISTICS_DF = pd.DataFrame(
     [
         {
