@@ -4,6 +4,7 @@ import { postMetricValidator } from "../../validators/openapi";
 import {
   createMetric,
   partialFromMetricApiInterface,
+  RequiredApiMetricFields,
   toMetricApiInterface,
 } from "../../services/experiments";
 import { getDataSourceById } from "../../models/DataSourceModel";
@@ -16,10 +17,10 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
       description,
       type,
       behavior,
+      owner,
       sql,
       sqlBuilder,
       mixpanel,
-
       tags = [],
       projects = [],
     } = req.body;
@@ -39,6 +40,10 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
       throw new Error("Can only specify one of: sql, sqlBuilder, mixpanel");
     }
 
+    if (type === "binomial" && sql?.userAggregationSQL) {
+      throw new Error("Binomial metrics cannot have userAggregationSQL");
+    }
+
     const datasource = await getDataSourceById(
       datasourceId,
       req.organization.id
@@ -47,15 +52,51 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
       throw new Error(`Invalid data source: ${datasourceId}`);
     }
 
-    // Build API metric
-    const apiMetric: Partial<ApiMetric> = {
+    // Build API metric from postMetric request
+    const apiMetric: Partial<ApiMetric> & RequiredApiMetricFields = {
       datasourceId,
       name,
       description,
+      owner,
       type,
       behavior,
       tags,
       projects,
+      // We are mapping the request shape for the user to simplify sql, sqlBuilder & mixpanel,
+      // which requires us to re-map it here
+      sql: sql
+        ? {
+            ...sql,
+            denominatorMetricId: sql.denominatorMetricId || "",
+            userAggregationSQL: sql.userAggregationSQL || "",
+            identifierTypes: sql.identifierTypes || [],
+            builder: sqlBuilder
+              ? {
+                  ...sqlBuilder,
+                  conditions: sqlBuilder.conditions || [],
+                  valueColumnName: sqlBuilder.valueColumnName || "",
+                }
+              : undefined,
+          }
+        : sqlBuilder
+        ? {
+            denominatorMetricId: "",
+            userAggregationSQL: "",
+            identifierTypes: [],
+            conversionSQL: "",
+            builder: {
+              ...sqlBuilder,
+              conditions: sqlBuilder.conditions || [],
+              valueColumnName: sqlBuilder.valueColumnName || "",
+            },
+          }
+        : undefined,
+      mixpanel: mixpanel
+        ? {
+            ...mixpanel,
+            conditions: mixpanel?.conditions || [],
+          }
+        : undefined,
     };
 
     const metric = partialFromMetricApiInterface(
@@ -63,45 +104,6 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
       apiMetric,
       datasource
     );
-
-    // if (behavior) {
-    //   const {
-    //     cap,
-    //     conversionWindowEnd,
-    //     conversionWindowStart,
-    //     goal: inverse,
-    //     maxPercentChange,
-    //     minPercentChange,
-    //     riskThresholdDanger: loseRisk, // loseRisk
-    //     riskThresholdSuccess: winRisk, // winRisk
-    //     minSampleSize,
-    //   } = behavior;
-    // }
-
-    // if (mixpanel) {
-    //   const { conditions, userAggregation, eventName, eventValue } = mixpanel;
-    // }
-
-    // if (sql) {
-    //   const {
-    //     denominatorMetricId,
-    //     conversionSQL,
-    //     identifierTypes,
-    //     userAggregationSQL,
-    //   } = sql;
-    // }
-
-    // if (sqlBuilder) {
-    //   const {
-    //     conditions,
-    //     identifierTypeColumns: userIdTypes,
-    //     timestampColumnName,
-    //     valueColumnName,
-    //     tableName,
-    //   } = sqlBuilder;
-    // }
-
-    // TODO: Validate: binomial metrics can't have userAggregationSQL
 
     const createdMetric = await createMetric(metric);
 

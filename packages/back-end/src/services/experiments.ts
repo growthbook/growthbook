@@ -25,6 +25,7 @@ import {
   MetricInterface,
   MetricStats,
   MetricAnalysis,
+  MetricType,
 } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
 import { ExperimentInterface } from "../../types/experiment";
@@ -822,9 +823,13 @@ export function toSnapshotApiInterface(
  * @param datasource
  * @return metric Partial<MetricInterface>
  */
+export type RequiredApiMetricFields = Pick<
+  ApiMetric,
+  "datasourceId" | "type" | "name"
+>;
 export function partialFromMetricApiInterface(
   organization: OrganizationInterface,
-  apiMetric: Partial<ApiMetric>,
+  apiMetric: Partial<ApiMetric> & RequiredApiMetricFields,
   datasource: DataSourceInterface
 ): Partial<MetricInterface> {
   const {
@@ -841,17 +846,63 @@ export function partialFromMetricApiInterface(
     projects = [],
   } = apiMetric;
 
-  const metricDefaults = organization.settings?.metricDefaults;
-  // todo:
+  let queryFormat: undefined | "builder" | "sql" = undefined;
 
   const sqlBuilder = sql?.builder;
-
-  let queryFormat: undefined | "builder" | "sql" = undefined;
   if (sqlBuilder) {
     queryFormat = "builder";
   } else if (sql) {
     queryFormat = "sql";
   }
+
+  const now = new Date();
+  const metric: MetricInterface = {
+    queryFormat,
+    dateCreated: now,
+    dateUpdated: now,
+    runStarted: null,
+    type: type as MetricType,
+    datasource: datasourceId,
+    // TODO: Fill these out
+    aggregation: "",
+    analysis: undefined,
+    analysisError: "",
+    anonymousIdColumn: "",
+    cap: 0,
+    column: "",
+    conditions: [],
+    conversionDelayHours: 0,
+    conversionWindowHours: 0,
+    denominator: "",
+    description: "",
+    earlyStart: false,
+    id: "",
+    ignoreNulls: false,
+    inverse: false,
+    loseRisk: 0,
+    maxPercentChange: 0,
+    minPercentChange: 0,
+    minSampleSize: 0,
+    name: "",
+    organization: "",
+    owner: "",
+    projects: [],
+    queries: [],
+    segment: "",
+    sql: "",
+    status: undefined,
+    table: "",
+    tags: [],
+    timestampColumn: "",
+    userIdColumn: "",
+    userIdColumns: undefined,
+    userIdType: undefined,
+    userIdTypes: [],
+    winRisk: 0,
+  };
+
+  const metricDefaults = organization.settings?.metricDefaults;
+  // todo:
 
   if (mixpanel) {
     const { conditions, userAggregation, eventName, eventValue } = mixpanel;
@@ -866,6 +917,13 @@ export function partialFromMetricApiInterface(
     } = sql;
   }
 
+  // Only used for builder
+  /*
+  userIdColumns,
+    userIdColumn, // deprecated field still being used by private API
+    userIdTypes, // deprecated field still being used by private API
+    anonymousIdColumn, // deprecated field still being used by private API
+    */
   if (sqlBuilder) {
     const {
       conditions,
@@ -889,18 +947,6 @@ export function partialFromMetricApiInterface(
       minSampleSize,
     } = behavior;
   }
-
-  // Only used for builder
-  /*
-  userIdColumns,
-    userIdColumn, // deprecated field still being used by private API
-    userIdTypes, // deprecated field still being used by private API
-    anonymousIdColumn, // deprecated field still being used by private API
-    */
-
-  const metric: MetricInterface = {
-    queryFormat,
-  };
 
   return metric;
 }
