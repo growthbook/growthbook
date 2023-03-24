@@ -12,8 +12,6 @@ import React, { FC, Fragment, useEffect, useState } from "react";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
 import { GBAddCircle, GBEdit } from "../Icons";
@@ -84,7 +82,6 @@ const VariationsTable: FC<Props> = ({
 
   const { hasCommercialFeature } = useUser();
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
-  const [upgradeModal, setUpgradeModal] = useState(false);
 
   const [visualChangesets, setVisualChangesets] = useState<
     VisualChangesetInterface[]
@@ -318,7 +315,7 @@ const VariationsTable: FC<Props> = ({
                   <GBAddCircle /> Add Visual Changes
                 </button>
               ) : (
-                <div className="ml-4">
+                <div className="ml-3">
                   <PremiumTooltip commercialFeature={"visual-editor"}>
                     <div className="ml-1 btn btn-outline-primary disabled">
                       <GBAddCircle /> Add Visual Changes
@@ -326,23 +323,9 @@ const VariationsTable: FC<Props> = ({
                   </PremiumTooltip>
                 </div>
               )}
-              <div className="mt-4 px-3">
-                <UpgradeMessage
-                  showUpgradeModal={() => setUpgradeModal(true)}
-                  commercialFeature="visual-editor"
-                  upgradeMessage="use the Visual Editor"
-                />
-              </div>
             </>
           )}
         </div>
-      )}
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          reason="To use the Visual Editor,"
-          source="experiments"
-        />
       )}
     </div>
   );
