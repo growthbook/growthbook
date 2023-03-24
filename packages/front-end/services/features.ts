@@ -255,7 +255,6 @@ export function validateFeatureRule(
     ruleValues.forEach((val, i) => {
       if (val.weight < 0)
         throw new Error("Variation weights cannot be negative");
-      val.weight = roundVariationWeight(val.weight);
       totalWeight += val.weight;
       const newValue = validateFeatureValue(
         valueType,
