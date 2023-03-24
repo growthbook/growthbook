@@ -827,16 +827,6 @@ export default abstract class SqlIntegration
     // that have no denominator values
     const ratioIsFunnel = true; // @todo: allow this to be configured
 
-    // Apply regression adjustments
-    metric.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
-    if (metricRegressionAdjustmentStatus) {
-      metric.regressionAdjustmentEnabled =
-        regressionAdjustmentEnabled &&
-        metricRegressionAdjustmentStatus.regressionAdjustmentEnabled;
-      metric.regressionAdjustmentDays =
-        metricRegressionAdjustmentStatus.regressionAdjustmentDays ?? 14;
-    }
-
     // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
     // where RA is actually possible
     const isRegressionAdjusted =
