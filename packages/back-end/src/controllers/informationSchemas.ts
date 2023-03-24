@@ -148,6 +148,34 @@ export async function getTableData(
   res.status(200).json({ status: 200, table: newTable });
 }
 
+export async function putTableData(
+  req: AuthRequest<
+    null,
+    {
+      datasourceId: string;
+      tableId: string;
+    }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { tableId } = req.params;
+
+  const table = await getInformationSchemaTableById(org.id, tableId);
+
+  if (!table) {
+    res.status(404).json({
+      status: 404,
+      message: "Unable to find table to update.",
+    });
+    return;
+  }
+
+  await queueUpdateStaleInformationSchemaTable(org.id, table.id);
+
+  res.status(200).json({ message: "Job scheduled successfully" });
+}
+
 export async function postInformationSchema(
   req: AuthRequest<null, { datasourceId: string }>,
   res: Response
