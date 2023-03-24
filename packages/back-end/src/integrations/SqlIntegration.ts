@@ -982,7 +982,7 @@ export default abstract class SqlIntegration
       , __distinctUsers as (
         -- One row per user
         SELECT
-          e.${baseIdType},
+          e.${baseIdType} as ${baseIdType},
           ${dimensionCol} as dimension,
           ${
             isRegressionAdjusted
