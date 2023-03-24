@@ -178,9 +178,9 @@ export default function SDKConnectionForm({
               <div className="alert px-2 py-1 ml-2 my-0 alert-warning">
                 <FaExclamationTriangle />{" "}
                 { languages.length === 1 ? (
-                  <>Your selected SDK does not support visual experiments.</>
+                  <>Your selected language does not support visual experiments</>
                 ): (
-                  <>None of your selected SDKs support visual experiments.</>
+                  <>None of your selected languages support visual experiments</>
                 )}
               </div>
             )}
