@@ -1138,6 +1138,9 @@ export default abstract class SqlIntegration
               )`
             : `__userMetric m`
         }
+        ${
+          isRegressionAdjusted && metric.ignoreNulls ? `WHERE m.value != 0` : ""
+        }
         GROUP BY
           ${isRatio ? `d` : `m`}.variation,
           ${isRatio ? `d` : `m`}.dimension
@@ -1186,7 +1189,7 @@ export default abstract class SqlIntegration
             : ""
         }
       FROM
-      __overallUsers u
+      __overallusers u
       LEFT JOIN
         __stats s ON (
           u.variation = s.variation
