@@ -813,8 +813,96 @@ export function toSnapshotApiInterface(
   };
 }
 
-export function fromMetricApiInterface(apiMetric: ApiMetric): MetricInterface {
+/**
+ * Get a Partial<MetricInterface> from a Partial<ApiMetric>
+ * This method does not perform any validation; it is expected that valid data be passed in,
+ * e.g. specifying only one of mixpanel, sql, sql.builder
+ * @param organization
+ * @param apiMetric
+ * @param datasource
+ * @return metric Partial<MetricInterface>
+ */
+export function partialFromMetricApiInterface(
+  organization: OrganizationInterface,
+  apiMetric: Partial<ApiMetric>,
+  datasource: DataSourceInterface
+): Partial<MetricInterface> {
+  const {
+    datasourceId,
+    name,
+    description,
+    type,
+    behavior,
+    sql,
+    // builder: sqlBuilder,
+    mixpanel,
+    owner,
+    tags = [],
+    projects = [],
+  } = apiMetric;
+
+  const metricDefaults = organization.settings?.metricDefaults;
   // todo:
+
+  const sqlBuilder = sql?.builder;
+
+  let queryFormat: undefined | "builder" | "sql" = undefined;
+  if (sqlBuilder) {
+    queryFormat = "builder";
+  } else if (sql) {
+    queryFormat = "sql";
+  }
+
+  if (mixpanel) {
+    const { conditions, userAggregation, eventName, eventValue } = mixpanel;
+  }
+
+  if (sql) {
+    const {
+      denominatorMetricId,
+      conversionSQL,
+      identifierTypes,
+      userAggregationSQL,
+    } = sql;
+  }
+
+  if (sqlBuilder) {
+    const {
+      conditions,
+      identifierTypeColumns: userIdTypes,
+      timestampColumnName,
+      valueColumnName,
+      tableName,
+    } = sqlBuilder;
+  }
+
+  if (behavior) {
+    const {
+      cap,
+      conversionWindowEnd,
+      conversionWindowStart,
+      goal: inverse,
+      maxPercentChange,
+      minPercentChange,
+      riskThresholdDanger: loseRisk, // loseRisk
+      riskThresholdSuccess: winRisk, // winRisk
+      minSampleSize,
+    } = behavior;
+  }
+
+  // Only used for builder
+  /*
+  userIdColumns,
+    userIdColumn, // deprecated field still being used by private API
+    userIdTypes, // deprecated field still being used by private API
+    anonymousIdColumn, // deprecated field still being used by private API
+    */
+
+  const metric: MetricInterface = {
+    queryFormat,
+  };
+
+  return metric;
 }
 
 export function toMetricApiInterface(

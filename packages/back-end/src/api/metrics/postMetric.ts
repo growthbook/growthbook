@@ -1,7 +1,11 @@
-import { PostMetricResponse } from "../../../types/openapi";
+import { ApiMetric, PostMetricResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { postMetricValidator } from "../../validators/openapi";
-import { createMetric, toMetricApiInterface } from "../../services/experiments";
+import {
+  createMetric,
+  partialFromMetricApiInterface,
+  toMetricApiInterface,
+} from "../../services/experiments";
 import { getDataSourceById } from "../../models/DataSourceModel";
 
 export const postMetric = createApiRequestHandler(postMetricValidator)(
@@ -18,18 +22,22 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
 
       tags = [],
       projects = [],
-
-      // TODO: find out where these go
-      userIdColumns,
-      userIdColumn,
-      userIdTypes,
-      anonymousIdColumn,
     } = req.body;
 
-    // TODO: xor between 3 values: sql, sqlBuilder, mixpanel
-    // TODO: queryFormat = 'builder' | 'sql' | 'mixpanel' // ??? or maybe no mixpanel
-    const queryFormat: null | "builder" | "sql" = null;
-    // const queryFormat = builder ? "builder" : "sql";
+    let queryFormatCount = 0;
+    if (sqlBuilder) {
+      queryFormatCount++;
+    }
+    if (sql) {
+      queryFormatCount++;
+    }
+    if (mixpanel) {
+      queryFormatCount++;
+    }
+
+    if (queryFormatCount !== 1) {
+      throw new Error("Can only specify one of: sql, sqlBuilder, mixpanel");
+    }
 
     const datasource = await getDataSourceById(
       datasourceId,
@@ -39,49 +47,66 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
       throw new Error(`Invalid data source: ${datasourceId}`);
     }
 
-    if (behavior) {
-      const {
-        cap,
-        conversionWindowEnd,
-        conversionWindowStart,
-        goal: inverse,
-        maxPercentChange,
-        minPercentChange,
-        riskThresholdDanger: loseRisk, // loseRisk
-        riskThresholdSuccess: winRisk, // winRisk
-        minSampleSize,
-      } = behavior;
-    }
+    // Build API metric
+    const apiMetric: Partial<ApiMetric> = {
+      datasourceId,
+      name,
+      description,
+      type,
+      behavior,
+      tags,
+      projects,
+    };
 
-    if (mixpanel) {
-      const { conditions, userAggregation, eventName, eventValue } = mixpanel;
-    }
+    const metric = partialFromMetricApiInterface(
+      req.organization,
+      apiMetric,
+      datasource
+    );
 
-    if (sql) {
-      const {
-        denominatorMetricId,
-        conversionSQL,
-        identifierTypes,
-        userAggregationSQL,
-      } = sql;
-    }
+    // if (behavior) {
+    //   const {
+    //     cap,
+    //     conversionWindowEnd,
+    //     conversionWindowStart,
+    //     goal: inverse,
+    //     maxPercentChange,
+    //     minPercentChange,
+    //     riskThresholdDanger: loseRisk, // loseRisk
+    //     riskThresholdSuccess: winRisk, // winRisk
+    //     minSampleSize,
+    //   } = behavior;
+    // }
 
-    if (sqlBuilder) {
-      const {
-        conditions,
-        identifierTypeColumns: userIdTypes,
-        timestampColumnName,
-        valueColumnName,
-        tableName,
-      } = sqlBuilder;
-    }
+    // if (mixpanel) {
+    //   const { conditions, userAggregation, eventName, eventValue } = mixpanel;
+    // }
 
-    // TODO: There's also a bunch of hidden logic in this interface (e.g. you shouldnt be able to set mixpanel and sql fields; binomial metrics can't have userAggregationSQL)
+    // if (sql) {
+    //   const {
+    //     denominatorMetricId,
+    //     conversionSQL,
+    //     identifierTypes,
+    //     userAggregationSQL,
+    //   } = sql;
+    // }
 
-    const metric = await createMetric(/* */);
+    // if (sqlBuilder) {
+    //   const {
+    //     conditions,
+    //     identifierTypeColumns: userIdTypes,
+    //     timestampColumnName,
+    //     valueColumnName,
+    //     tableName,
+    //   } = sqlBuilder;
+    // }
+
+    // TODO: Validate: binomial metrics can't have userAggregationSQL
+
+    const createdMetric = await createMetric(metric);
 
     return {
-      metric: toMetricApiInterface(req.organization, metric, datasource),
+      metric: toMetricApiInterface(req.organization, createdMetric, datasource),
     };
   }
 );
