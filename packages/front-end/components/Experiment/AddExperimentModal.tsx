@@ -37,9 +37,9 @@ const AddExperimentModal: FC<{
 
   const ctas: CTA[] = [
     {
-      cta: "Analyze an Existing Experiment",
+      cta: "Import from Data Source",
       description:
-        "Create an experiment by importing existing experiment data from one of your data sources.",
+        "Analyze results of an existing experiment that was run outside of GrowthBook",
       Icon: GoDatabase,
       onClick: () => {
         setMode("import");
@@ -48,7 +48,7 @@ const AddExperimentModal: FC<{
     {
       cta: "Create a New Experiment",
       description:
-        "Create an experiment using feature flags and our visual editor to drive your variations.",
+        "Use Feature Flags or our Visual Editor to build and run a brand new experiment",
       Icon: GoBrowser,
       onClick: () => {
         setMode("new");
@@ -64,7 +64,6 @@ const AddExperimentModal: FC<{
     default:
       return (
         <Modal open close={() => onClose()} size="lg" header="Add Experiment">
-          <h2>Choose your method of creating an Experiment:</h2>
           <div
             style={{
               display: "flex",
