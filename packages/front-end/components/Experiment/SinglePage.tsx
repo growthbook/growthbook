@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import {
   FaArrowDown,
+  FaExclamationTriangle,
   FaExternalLinkAlt,
   FaLink,
   FaQuestionCircle,
@@ -18,6 +19,7 @@ import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import { getDefaultConversionWindowHours } from "@/services/env";
 import { applyMetricOverrides } from "@/services/experiments";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -161,6 +163,8 @@ export default function SinglePage({
   }>(`/experiment/${experiment.id}/watchers`);
   const { users } = useUser();
 
+  const { data: sdkConnectionsData } = useSDKConnections();
+
   const project = getProjectById(experiment.project || "");
   const datasource = getDatasourceById(experiment.datasource);
   const segment = getSegmentById(experiment.segment || "");
@@ -183,6 +187,17 @@ export default function SinglePage({
     .map((id) => users.get(id))
     .filter(Boolean)
     .map((u) => u.name || u.email);
+
+  const hasSDKWithVisualExperimentsEnabled = sdkConnectionsData?.connections.some(
+    (connection) => connection.includeVisualExperiments
+  );
+  let canStartExperiment = true;
+  let startExperimentBlockedReason = "";
+  if (visualChangesets.length > 0 && !hasSDKWithVisualExperimentsEnabled) {
+    canStartExperiment = false;
+    startExperimentBlockedReason =
+      "You do not have any SDK Connections that support Visual Experiments";
+  }
 
   return (
     <div className="container-fluid experiment-details pagecontents">
@@ -508,6 +523,19 @@ export default function SinglePage({
                 canEdit={canEdit}
               />
             </div>
+            {visualChangesets.length > 0 &&
+              !hasSDKWithVisualExperimentsEnabled && (
+                <div className="row">
+                  <div className="w-100 mt-2 mb-0 alert alert-warning">
+                    <FaExclamationTriangle /> You do not have any SDK
+                    Connections that support Visual Experiments.
+                    <br />
+                    Go to <Link href="/sdks">SDK Connections</Link> and set
+                    &quot;Include visual experiments&quot; for at least one SDK
+                    connection.
+                  </div>
+                </div>
+              )}
           </div>
         </div>
         <div className="col-md-4">
@@ -722,6 +750,8 @@ export default function SinglePage({
               editPhases={editPhases}
               alwaysShowPhaseSelector={true}
               reportDetailsLink={false}
+              canStartExperiment={canStartExperiment}
+              startExperimentBlockedReason={startExperimentBlockedReason}
             />
           ) : (
             <div className="text-center my-5">

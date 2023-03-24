@@ -31,6 +31,8 @@ const Results: FC<{
   mutateExperiment: () => void;
   alwaysShowPhaseSelector?: boolean;
   reportDetailsLink?: boolean;
+  canStartExperiment?: boolean;
+  startExperimentBlockedReason?: string;
 }> = ({
   experiment,
   editMetrics,
@@ -39,6 +41,8 @@ const Results: FC<{
   mutateExperiment,
   alwaysShowPhaseSelector = false,
   reportDetailsLink = true,
+  canStartExperiment = true,
+  startExperimentBlockedReason = "",
 }) => {
   const { getMetricById } = useDefinitions();
   const settings = useOrgSettings();
@@ -89,6 +93,8 @@ const Results: FC<{
       <StatusBanner
         mutateExperiment={mutateExperiment}
         editResult={editResult}
+        canStartExperiment={canStartExperiment}
+        startExperimentBlockedReason={startExperimentBlockedReason}
       />
       <AnalysisSettingsBar
         mutateExperiment={mutateExperiment}

@@ -141,6 +141,8 @@ const VariationsTable: FC<Props> = ({
     }
   };
 
+  const hasDescriptions = variations.some((v) => !!v.description?.trim());
+
   return (
     <div className="w-100">
       <div

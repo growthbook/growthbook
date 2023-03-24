@@ -1,6 +1,7 @@
 import clsx from "clsx";
-import { FaPencilAlt } from "react-icons/fa";
+import { FaInfoCircle, FaPencilAlt } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "../Button";
 import Markdown from "../Markdown/Markdown";
 import { useSnapshot } from "./SnapshotProvider";
@@ -8,9 +9,16 @@ import { useSnapshot } from "./SnapshotProvider";
 export interface Props {
   mutateExperiment: () => void;
   editResult: () => void;
+  canStartExperiment: boolean;
+  startExperimentBlockedReason?: string;
 }
 
-export default function StatusBanner({ mutateExperiment, editResult }: Props) {
+export default function StatusBanner({
+  mutateExperiment,
+  editResult,
+  canStartExperiment,
+  startExperimentBlockedReason,
+}: Props) {
   const { experiment } = useSnapshot();
   const { apiCall } = useAuth();
 
@@ -118,24 +126,31 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
   if (experiment.status === "draft") {
     return (
       <div className={clsx("alert mb-0 alert-warning")}>
-        {editResult && (
-          <Button
-            color="link"
-            className="alert-link float-right ml-2 p-0"
-            onClick={async () => {
-              // Already has a phase, just update the status
-              await apiCall(`/experiment/${experiment.id}/status`, {
-                method: "POST",
-                body: JSON.stringify({
-                  status: "running",
-                }),
-              });
-              mutateExperiment();
-            }}
-          >
-            Start Experiment
-          </Button>
-        )}
+        {editResult &&
+          (canStartExperiment ? (
+            <Button
+              color="link"
+              className="alert-link float-right ml-2 p-0"
+              onClick={async () => {
+                // Already has a phase, just update the status
+                await apiCall(`/experiment/${experiment.id}/status`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    status: "running",
+                  }),
+                });
+                mutateExperiment();
+              }}
+            >
+              Start Experiment
+            </Button>
+          ) : (
+            <div className="alert float-right ml-2 p-0">
+              <Tooltip body={startExperimentBlockedReason}>
+                Unable to start experiment <FaInfoCircle />
+              </Tooltip>
+            </div>
+          ))}
         <strong>This is a draft experiment.</strong>
       </div>
     );
