@@ -22,17 +22,6 @@ describe("Mongrule", () => {
       ).toBe(true);
     });
 
-    it("Returns true when the value is undefined", () => {
-      expect(
-        evalCondition(
-          { userId: undefined },
-          {
-            userId: null,
-          }
-        )
-      ).toBe(true);
-    });
-
     it("Returns false when the value is present", () => {
       expect(
         evalCondition(
@@ -63,6 +52,15 @@ describe("Mongrule", () => {
           {
             userId: "",
           },
+          {
+            userId: null,
+          }
+        )
+      ).toBe(false);
+
+      expect(
+        evalCondition(
+          { userId: undefined },
           {
             userId: null,
           }

@@ -73,7 +73,7 @@ function evalConditionValue(condition: ConditionValue, value: any) {
   }
 
   if (condition === null) {
-    return value === null || value === undefined;
+    return value === null;
   }
 
   if (Array.isArray(condition) || !isOperatorObject(condition)) {
