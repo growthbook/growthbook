@@ -75,13 +75,17 @@ export default function ResultsTable({
     >
       <thead>
         <tr>
-          <th rowSpan={2} className="metric" style={{ minWidth: 125 }}>
+          <th
+            rowSpan={2}
+            className="metric head-last-row"
+            style={{ minWidth: 125 }}
+          >
             {labelHeader}
           </th>
           {hasRisk && fullStats && (
             <th
               rowSpan={2}
-              className="metric"
+              className="metric head-last-row"
               style={{ maxWidth: 155, minWidth: 125 }}
             >
               Risk of Choosing&nbsp;
@@ -107,7 +111,7 @@ export default function ResultsTable({
           {variations.map((v, i) => (
             <th
               colSpan={i ? (fullStats ? 3 : 2) : 1}
-              className={`px-2 value variation${i}`}
+              className={`value variation${i}`}
               key={i}
               style={{ whiteSpace: i == 0 ? "nowrap" : "initial" }}
             >
@@ -120,13 +124,16 @@ export default function ResultsTable({
           {variations.map((v, i) => (
             <React.Fragment key={i}>
               <th
-                className={clsx("value", `variation${i} last-row text-center`)}
+                className={clsx(
+                  "value",
+                  `variation${i} head-last-row text-center`
+                )}
               >
                 Value
               </th>
               {i > 0 && fullStats && (
                 <th
-                  className={`variation${i} last-row text-center`}
+                  className={`variation${i} head-last-row text-center`}
                   style={{ minWidth: 110 }}
                 >
                   {statsEngine === "frequentist"
@@ -135,7 +142,7 @@ export default function ResultsTable({
                 </th>
               )}
               {i > 0 && (
-                <th className={`variation${i} last-row text-center`}>
+                <th className={`variation${i} head-last-row text-center`}>
                   Percent Change{" "}
                   {fullStats && (
                     <>
@@ -154,6 +161,19 @@ export default function ResultsTable({
                 </th>
               )}
             </React.Fragment>
+          ))}
+        </tr>
+        <tr>
+          <th className="head-bottom-border sticky"></th>
+          {hasRisk && fullStats && (
+            <th className="empty-td head-bottom-border"></th>
+          )}
+          {variations.map((v, i) => (
+            <th
+              key={i}
+              className={`head-bottom-border variation${i}`}
+              colSpan={i ? (fullStats ? 3 : 2) : 1}
+            ></th>
           ))}
         </tr>
       </thead>

@@ -931,34 +931,48 @@ pre {
   }
 
   thead {
+    tr:first-child {
+      th {
+        border-bottom: 0 transparent;
+      }
+    }
     th {
       background: var(--surface-background-color-alt);
       color: var(--text-color-muted);
       font-weight: 600;
 
-      &.metric {
-        border-bottom: 7px solid #999;
+      &.head-last-row {
+        border-bottom: 0 transparent;
+        border-top: 0 transparent;
       }
 
-      &.last-row {
+      &.head-bottom-border {
+        border-top: 0 transparent;
+        background: #999;
+        padding: 0;
+        height: 7px;
+        &:not(&:first-child) {
+          border-left: 3px solid var(--border-color-300);
+        }
+
         &.variation0,
         &.variation4 {
-          border-bottom: 7px solid #4f69ff;
+          background: #4f69ff;
         }
 
         &.variation1,
         &.variation5 {
-          border-bottom: 7px solid #03d1ca;
+          background: #03d1ca;
         }
 
         &.variation2,
         &.variation6 {
-          border-bottom: 7px solid #fd7e14;
+          background: #fd7e14;
         }
 
         &.variation3,
         &.variation7 {
-          border-bottom: 7px solid #e83e8c;
+          background: #e83e8c;
         }
       }
     }
@@ -976,11 +990,11 @@ pre {
       font-weight: 600;
       border: 1.5px solid transparentize(#999, 0.35);
       border-radius: 20px;
-      margin-left: -2px;
       margin-right: 4px;
     }
     .name {
       color: #999;
+      margin-right: 4px;
     }
 
     &.variation0,
@@ -1029,12 +1043,13 @@ pre {
   }
 
   thead tr:first-child th:first-child,
-  tbody th:first-child {
+  tbody th:first-child,
+  thead .sticky {
     position: sticky;
     left: 0;
     width: auto;
     z-index: 890;
-    border-right: 2px solid var(--border-color-300);
+    box-shadow: -1px 0 0 var(--border-color-300) inset;
   }
 
   tbody {
