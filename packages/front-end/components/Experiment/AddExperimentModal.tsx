@@ -37,9 +37,9 @@ const AddExperimentModal: FC<{
 
   const ctas: CTA[] = [
     {
-      cta: "Import from Data Source",
+      cta: "Analyze Results of an Experiment",
       description:
-        "Analyze results of an existing experiment that was run outside of GrowthBook",
+        "Analyze results of an existing experiment by importing data from a data source.",
       Icon: GoDatabase,
       onClick: () => {
         setMode("import");
