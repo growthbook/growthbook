@@ -7,7 +7,6 @@ import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface, MetricType } from "../../types/metric";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { SegmentInterface } from "../../types/segment";
-import { MetricRegressionAdjustmentStatus } from "../../types/report";
 
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
