@@ -1102,7 +1102,7 @@ export default abstract class SqlIntegration
             : ""
         }
       FROM
-      __overallusers u
+      __overallUsers u
       LEFT JOIN
         __stats s ON (
           u.variation = s.variation
