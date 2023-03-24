@@ -8,8 +8,12 @@ import {
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "back-end/types/visual-changeset";
-import { FC, Fragment, useEffect, useState } from "react";
+import React, { FC, Fragment, useEffect, useState } from "react";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
 import { GBAddCircle, GBEdit } from "../Icons";
@@ -77,6 +81,11 @@ const VariationsTable: FC<Props> = ({
 }) => {
   const { variations } = experiment;
   const { apiCall } = useAuth();
+
+  const { hasCommercialFeature } = useUser();
+  const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
+  const [upgradeModal, setUpgradeModal] = useState(false);
+
   const [visualChangesets, setVisualChangesets] = useState<
     VisualChangesetInterface[]
   >(_visualChangesets ?? []);
@@ -222,37 +231,41 @@ const VariationsTable: FC<Props> = ({
                           <strong className="text-muted">Visual Changes</strong>
                         </div>
                       </div>
-                      {experiment.status === "draft" && (
-                        <div className="col-auto">
-                          <OpenVisualEditorLink
-                            id={vc.id}
-                            changeIndex={1}
-                            visualEditorUrl={vc.editorUrl}
-                          />
-                        </div>
-                      )}
-                      <div className="col-auto">
-                        {vc.urlPatterns.map((p, j) => (
-                          <div key={j}>
-                            <small>
-                              {p.include === false ? "Exclude" : "Include"} URLs
-                              matching:
-                            </small>{" "}
-                            <code>{p.pattern}</code>
+                      {hasVisualEditorFeature && (
+                        <>
+                          {experiment.status === "draft" && (
+                            <div className="col-auto">
+                              <OpenVisualEditorLink
+                                id={vc.id}
+                                changeIndex={1}
+                                visualEditorUrl={vc.editorUrl}
+                              />
+                            </div>
+                          )}
+                          <div className="col-auto">
+                            {vc.urlPatterns.map((p, j) => (
+                              <div key={j}>
+                                <small>
+                                  {p.include === false ? "Exclude" : "Include"}{" "}
+                                  URLs matching:
+                                </small>{" "}
+                                <code>{p.pattern}</code>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                      <div className="col-auto">
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setIsEditingVisualChangeset(true);
-                          }}
-                        >
-                          <GBEdit />
-                        </a>
-                      </div>
+                          <div className="col-auto">
+                            <a
+                              href="#"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setIsEditingVisualChangeset(true);
+                              }}
+                            >
+                              <GBEdit />
+                            </a>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -296,14 +309,40 @@ const VariationsTable: FC<Props> = ({
               onSubmit={createVisualChangeset}
             />
           ) : (
-            <button
-              className="btn btn-link"
-              onClick={() => setShowVisualChangesetForm(true)}
-            >
-              <GBAddCircle /> Add Visual Changes
-            </button>
+            <>
+              {hasVisualEditorFeature ? (
+                <button
+                  className="ml-4 btn btn-outline-primary"
+                  onClick={() => setShowVisualChangesetForm(true)}
+                >
+                  <GBAddCircle /> Add Visual Changes
+                </button>
+              ) : (
+                <div className="ml-4">
+                  <PremiumTooltip commercialFeature={"visual-editor"}>
+                    <div className="ml-1 btn btn-outline-primary disabled">
+                      <GBAddCircle /> Add Visual Changes
+                    </div>
+                  </PremiumTooltip>
+                </div>
+              )}
+              <div className="mt-4 px-3">
+                <UpgradeMessage
+                  showUpgradeModal={() => setUpgradeModal(true)}
+                  commercialFeature="visual-editor"
+                  upgradeMessage="use the Visual Editor"
+                />
+              </div>
+            </>
           )}
         </div>
+      )}
+      {upgradeModal && (
+        <UpgradeModal
+          close={() => setUpgradeModal(false)}
+          reason="To use the Visual Editor,"
+          source="experiments"
+        />
       )}
     </div>
   );

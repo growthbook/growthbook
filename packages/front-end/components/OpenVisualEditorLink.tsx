@@ -55,7 +55,7 @@ const OpenVisualEditorLink: FC<{
           }
         }}
       >
-        Open Editor <FaExternalLinkAlt />
+        Open Visual Editor <FaExternalLinkAlt />
       </a>
 
       {showEditorUrlDialog && openSettings && (

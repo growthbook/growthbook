@@ -145,7 +145,7 @@ export default function StatusBanner({
               Start Experiment
             </Button>
           ) : (
-            <div className="alert float-right ml-2 p-0">
+            <div className="float-right ml-2 p-0">
               <Tooltip body={startExperimentBlockedReason}>
                 Unable to start experiment <FaInfoCircle />
               </Tooltip>

@@ -719,7 +719,7 @@ export default function SinglePage({
       </div>
 
       {visualChangesets.length > 0 && !hasSDKWithVisualExperimentsEnabled && (
-        <div className="row">
+        <div className="row px-2 mb-4">
           <div className="w-100 mt-2 mb-0 alert alert-warning">
             <FaExclamationTriangle /> You do not have any SDK Connections that
             support Visual Experiments.
