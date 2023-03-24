@@ -1,5 +1,6 @@
-import { FC, useCallback, useState } from "react";
+import { FC, useMemo, useState } from "react";
 import qs from "query-string";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import Modal from "./Modal";
 
 const OpenVisualEditorLink: FC<{
@@ -11,23 +12,8 @@ const OpenVisualEditorLink: FC<{
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
 
-  const onClick = useCallback(() => {
-    if (!visualEditorUrl) {
-      setShowEditorUrlDialog(true);
-      return;
-    }
-
-    // check if extension is installed
-    const isExtensionInstalled = !!document.getElementById(
-      "__gb_visual_editor"
-    );
-
-    if (!isExtensionInstalled) {
-      setShowExtensionDialog(true);
-      return;
-    }
-
-    // find or create visual changeset
+  const url = useMemo(() => {
+    if (!visualEditorUrl) return "";
 
     const parsed = qs.parse(
       visualEditorUrl.indexOf("?") > -1 ? visualEditorUrl.split("?")[1] : ""
@@ -42,13 +28,34 @@ const OpenVisualEditorLink: FC<{
 
     const root = visualEditorUrl.split("?")[0];
 
-    window.location.href = `${root}?${qs.stringify(queryParams)}`;
-  }, [visualEditorUrl, changeIndex, id]);
+    return `${root}?${qs.stringify(queryParams)}`;
+  }, [visualEditorUrl, id, changeIndex]);
 
   return (
     <>
-      <a className="d-none d-md-inline cursor-pointer" onClick={onClick}>
-        Preview / Edit
+      <a
+        className="btn btn-sm btn-primary"
+        href={url || "#"}
+        onClick={(e) => {
+          if (!visualEditorUrl) {
+            e.preventDefault();
+            setShowEditorUrlDialog(true);
+            return;
+          }
+
+          // check if extension is installed
+          const isExtensionInstalled = !!document.getElementById(
+            "__gb_visual_editor"
+          );
+
+          if (!isExtensionInstalled) {
+            e.preventDefault();
+            setShowExtensionDialog(true);
+            return;
+          }
+        }}
+      >
+        Open Editor <FaExternalLinkAlt />
       </a>
 
       {showEditorUrlDialog && openSettings && (

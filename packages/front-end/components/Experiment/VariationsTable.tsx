@@ -13,7 +13,7 @@ import { useAuth } from "@/services/auth";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
 import { GBAddCircle, GBEdit } from "../Icons";
-import VisualChanges from "./VisualChanges";
+import OpenVisualEditorLink from "../OpenVisualEditorLink";
 import VisualChangesetModal from "./VisualChangesetModal";
 
 interface Props {
@@ -67,7 +67,7 @@ const ScreenshotCarousel: FC<{
 };
 
 const isLegacyVariation = (v: Partial<LegacyVariation>): v is LegacyVariation =>
-  typeof v.css === "string" || Array.isArray(v.dom);
+  !!v.css || v.dom?.length > 0;
 
 const VariationsTable: FC<Props> = ({
   experiment,
@@ -142,6 +142,7 @@ const VariationsTable: FC<Props> = ({
   };
 
   const hasDescriptions = variations.some((v) => !!v.description?.trim());
+  const hasLegacyVisualChanges = variations.some((v) => isLegacyVariation(v));
 
   return (
     <div className="w-100">
@@ -151,13 +152,11 @@ const VariationsTable: FC<Props> = ({
           overflowX: "auto",
         }}
       >
-        <table className="table gbtable">
+        <table className="table table-bordered">
           <thead>
             <tr>
               {variations.map((v, i) => (
-                <th key={i} scope="col">
-                  {v.name}
-                </th>
+                <th key={i}>{v.name}</th>
               ))}
             </tr>
           </thead>
@@ -171,25 +170,15 @@ const VariationsTable: FC<Props> = ({
               ))}
             </tr>
 
-            <tr>
-              {variations.map((v, i) => {
-                const hasLegacyVisualChanges = isLegacyVariation(v)
-                  ? v.css || v.dom.length > 0
-                  : false;
-                return (
+            {hasDescriptions && (
+              <tr>
+                {variations.map((v, i) => (
                   <td key={i} scope="col">
-                    {v.description && <div>{v.description}</div>}
-                    {hasLegacyVisualChanges && (
-                      <div className="alert alert-warning my-2">
-                        <Link href={`/experiments/designer/${experiment.id}`}>
-                          Open Legacy Visual Editor
-                        </Link>
-                      </div>
-                    )}
+                    <div>{v.description}</div>
                   </td>
-                );
-              })}
-            </tr>
+                ))}
+              </tr>
+            )}
 
             <tr style={{ height: 1 }}>
               {variations.map((v, i) => (
@@ -227,33 +216,54 @@ const VariationsTable: FC<Props> = ({
               <Fragment key={i}>
                 <tr className="bg-light">
                   <td colSpan={variations.length}>
-                    <strong>Visual Changes</strong>
-                    <a
-                      href="#"
-                      className="small ml-2"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setIsEditingVisualChangeset(true);
-                      }}
-                    >
-                      <GBEdit />
-                    </a>
-                    <div className="pl-2 pt-2">
-                      {vc.urlPatterns.map((p, j) => (
-                        <div key={j} className="small">
-                          {p.include === false ? "Exclude" : "Include"} URL:{" "}
-                          <code>{p.pattern}</code>
+                    <div className="row align-items-center">
+                      <div className="col-auto">
+                        <div>
+                          <strong className="text-muted">Visual Changes</strong>
                         </div>
-                      ))}
+                      </div>
+                      {experiment.status === "draft" && (
+                        <div className="col-auto">
+                          <OpenVisualEditorLink
+                            id={vc.id}
+                            changeIndex={1}
+                            visualEditorUrl={vc.editorUrl}
+                          />
+                        </div>
+                      )}
+                      <div className="col-auto">
+                        {vc.urlPatterns.map((p, j) => (
+                          <div key={j}>
+                            <small>
+                              {p.include === false ? "Exclude" : "Include"} URLs
+                              matching:
+                            </small>{" "}
+                            <code>{p.pattern}</code>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="col-auto">
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setIsEditingVisualChangeset(true);
+                          }}
+                        >
+                          <GBEdit />
+                        </a>
+                      </div>
                     </div>
                   </td>
                 </tr>
                 <tr>
-                  {variations.map((_v, j) => (
-                    <td key={j}>
-                      <VisualChanges changeIndex={j} visualChangeset={vc} />
-                    </td>
-                  ))}
+                  {variations.map((_v, j) => {
+                    const changes = vc.visualChanges[j];
+                    const numChanges =
+                      (changes?.css ? 1 : 0) +
+                      (changes?.domMutations?.length || 0);
+                    return <td key={j}>{numChanges} visual changes</td>;
+                  })}
                 </tr>
               </Fragment>
             ))}
@@ -269,6 +279,14 @@ const VariationsTable: FC<Props> = ({
           onClose={() => setIsEditingVisualChangeset(false)}
         />
       ) : null}
+
+      {hasLegacyVisualChanges && (
+        <div className="alert alert-warning mt-3">
+          <Link href={`/experiments/designer/${experiment.id}`}>
+            Open Legacy Visual Editor
+          </Link>
+        </div>
+      )}
 
       {!visualChangesets.length && experiment.status === "draft" && (
         <div className="mt-3">

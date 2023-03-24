@@ -484,58 +484,47 @@ export default function SinglePage({
       )}
       <div className="row mb-4">
         <div className="col-md-8">
-          <div className="appbox p-3 h-100">
-            <MarkdownInlineEdit
-              value={experiment.description}
-              save={async (description) => {
-                await apiCall(`/experiment/${experiment.id}`, {
-                  method: "POST",
-                  body: JSON.stringify({ description }),
-                });
-                mutate();
-              }}
-              canCreate={canEdit}
-              canEdit={canEdit}
-              className="mb-4"
-              header="Description"
-            />
-            <MarkdownInlineEdit
-              value={experiment.hypothesis}
-              save={async (hypothesis) => {
-                await apiCall(`/experiment/${experiment.id}`, {
-                  method: "POST",
-                  body: JSON.stringify({ hypothesis }),
-                });
-                mutate();
-              }}
-              canCreate={canEdit}
-              canEdit={canEdit}
-              className="mb-4"
-              label="hypothesis"
-              header="Hypothesis"
-            />
-            <HeaderWithEdit edit={editVariations}>Variations</HeaderWithEdit>
-            <div className="row">
-              <VariationsTable
-                experiment={experiment}
-                visualChangesets={visualChangesets}
-                mutate={mutate}
+          <div className="appbox h-100">
+            <div className="p-3">
+              <MarkdownInlineEdit
+                value={experiment.description}
+                save={async (description) => {
+                  await apiCall(`/experiment/${experiment.id}`, {
+                    method: "POST",
+                    body: JSON.stringify({ description }),
+                  });
+                  mutate();
+                }}
+                canCreate={canEdit}
                 canEdit={canEdit}
+                className="mb-4"
+                header="Description"
               />
+              <MarkdownInlineEdit
+                value={experiment.hypothesis}
+                save={async (hypothesis) => {
+                  await apiCall(`/experiment/${experiment.id}`, {
+                    method: "POST",
+                    body: JSON.stringify({ hypothesis }),
+                  });
+                  mutate();
+                }}
+                canCreate={canEdit}
+                canEdit={canEdit}
+                className="mb-4"
+                label="hypothesis"
+                header="Hypothesis"
+              />{" "}
             </div>
-            {visualChangesets.length > 0 &&
-              !hasSDKWithVisualExperimentsEnabled && (
-                <div className="row">
-                  <div className="w-100 mt-2 mb-0 alert alert-warning">
-                    <FaExclamationTriangle /> You do not have any SDK
-                    Connections that support Visual Experiments.
-                    <br />
-                    Go to <Link href="/sdks">SDK Connections</Link> and set
-                    &quot;Include visual experiments&quot; for at least one SDK
-                    connection.
-                  </div>
-                </div>
-              )}
+            <div className="px-3">
+              <HeaderWithEdit edit={editVariations}>Variations</HeaderWithEdit>
+            </div>
+            <VariationsTable
+              experiment={experiment}
+              visualChangesets={visualChangesets}
+              mutate={mutate}
+              canEdit={canEdit}
+            />
           </div>
         </div>
         <div className="col-md-4">
@@ -728,6 +717,19 @@ export default function SinglePage({
           </RightRailSection>
         </div>
       </div>
+
+      {visualChangesets.length > 0 && !hasSDKWithVisualExperimentsEnabled && (
+        <div className="row">
+          <div className="w-100 mt-2 mb-0 alert alert-warning">
+            <FaExclamationTriangle /> You do not have any SDK Connections that
+            support Visual Experiments.
+            <br />
+            Go to <Link href="/sdks">SDK Connections</Link> and set
+            &quot;Include visual experiments&quot; for at least one SDK
+            connection.
+          </div>
+        </div>
+      )}
       <div className="mb-4 position-relative">
         <div style={{ position: "absolute", top: -70 }} id="results"></div>
         <h3>
