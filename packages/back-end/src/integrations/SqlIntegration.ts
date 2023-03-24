@@ -810,16 +810,17 @@ export default abstract class SqlIntegration
         metricRegressionAdjustmentStatus.regressionAdjustmentDays ?? 14;
     }
 
-    const regressionAdjustmentHours = metric.regressionAdjustmentEnabled
-      ? (metric.regressionAdjustmentDays ?? 0) * 24
-      : 0;
     // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
     // where RA is actually possible
     const isRegressionAdjusted =
-      regressionAdjustmentHours > 0 &&
+      (metric.regressionAdjustmentDays ?? 0) > 0 &&
       (metric.regressionAdjustmentEnabled ?? false) &&
       !isRatio &&
       !metric.aggregation;
+
+    const regressionAdjustmentHours = isRegressionAdjusted
+      ? (metric.regressionAdjustmentDays ?? 0) * 24
+      : 0;
 
     const ignoreConversionEnd =
       experiment.attributionModel === "experimentDuration";
@@ -1192,7 +1193,7 @@ export default abstract class SqlIntegration
             : ""
         }
       FROM
-      __overallusers u
+      __overallUsers u
       LEFT JOIN
         __stats s ON (
           u.variation = s.variation
