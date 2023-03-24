@@ -158,28 +158,31 @@ export default function SDKConnectionForm({
         options={environments.map((e) => ({ label: e.id, value: e.id }))}
       />
 
-      <div className="mb-3">
-        <label htmlFor="sdk-connection-visual-experiments-toggle">
-          Include visual experiments
-        </label>
+      <label>Visual experiments</label>
+      <div className="border rounded pt-2 pb-3 px-3">
         <div>
-          <Toggle
-            id="sdk-connection-visual-experiments-toggle"
-            value={form.watch("includeVisualExperiments")}
-            setValue={(val) => form.setValue("includeVisualExperiments", val)}
-          />
+          <label htmlFor="sdk-connection-visual-experiments-toggle">
+            Include visual experiments in endpoint&apos;s response?
+          </label>
+          <div>
+            <Toggle
+              id="sdk-connection-visual-experiments-toggle"
+              value={form.watch("includeVisualExperiments")}
+              setValue={(val) => form.setValue("includeVisualExperiments", val)}
+            />
+          </div>
         </div>
-      </div>
-      <div className="mb-3">
-        <label htmlFor="sdk-connection-include-draft-experiments-toggle">
-          Include draft experiments
-        </label>
-        <div>
-          <Toggle
-            id="sdk-connection-include-draft-experiments-toggle"
-            value={form.watch("includeDraftExperiments")}
-            setValue={(val) => form.setValue("includeDraftExperiments", val)}
-          />
+        <div className="mt-3" style={{display: form.watch("includeVisualExperiments") ? "block" : "none" }}>
+          <label htmlFor="sdk-connection-include-draft-experiments-toggle">
+            Include draft experiments
+          </label>
+          <div>
+            <Toggle
+              id="sdk-connection-include-draft-experiments-toggle"
+              value={form.watch("includeDraftExperiments")}
+              setValue={(val) => form.setValue("includeDraftExperiments", val)}
+            />
+          </div>
         </div>
       </div>
 
