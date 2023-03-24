@@ -22,27 +22,25 @@ export default function DatasourceSchema({ table, loading }: Props) {
           )}
         </div>
       </label>
-      <table
-        className="table table-sm border w-100"
-        style={{ maxHeight: "200px", overflowY: "scroll" }}
+      <div
+        className="border rounded"
+        style={{ maxHeight: "250px", overflowY: "scroll" }}
       >
-        <thead>
-          <tr>
-            <th className="pl-3">Column</th>
-            <th className="pr-3 text-right">Data Type</th>
-          </tr>
-        </thead>
-        <tbody>
-          {table?.columns.map((column) => {
-            return (
-              <tr key={table.tableName + column.columnName}>
-                <td className="pl-3">{column.columnName}</td>
-                <td className="pr-3 text-right">{column.dataType}</td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+        <table className="table table-sm">
+          <tbody>
+            {table?.columns.map((column) => {
+              return (
+                <tr key={table.tableName + column.columnName}>
+                  <td className="pl-3">{column.columnName}</td>
+                  <td className="pr-3 text-right text-muted">
+                    {column.dataType}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

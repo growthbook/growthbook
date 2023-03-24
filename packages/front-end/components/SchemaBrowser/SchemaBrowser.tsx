@@ -7,6 +7,7 @@ import React, { useEffect, useState } from "react";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
 import { cloneDeep } from "lodash";
+import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { CursorData } from "../Segments/SegmentForm";
@@ -79,7 +80,6 @@ export default function SchemaBrowser({
 
     try {
       setLoading(true);
-      setCurrentTable(null);
 
       const res = await apiCall<{
         status: number;
@@ -130,111 +130,112 @@ export default function SchemaBrowser({
             mutate={mutate}
           />
         ) : (
-          <>
-            <div
-              key="database"
-              className="border rounded p-1"
-              style={{
-                minHeight: "100px",
-                maxHeight: "210px",
-                overflowY: "scroll",
-              }}
-            >
-              {informationSchema.databases.map((database) => {
-                return (
-                  <>
-                    {database.schemas.map((schema) => {
-                      return (
-                        <div key={schema.schemaName} className="pb-2">
-                          <Collapsible
-                            className="pb-1"
-                            key={database.databaseName + schema.schemaName}
-                            onTriggerOpening={async () => {
-                              const currentDate = new Date();
-                              const dateLastUpdated = new Date(
-                                informationSchema.dateUpdated
-                              );
-                              // To calculate the time difference of two dates
-                              const diffInMilliseconds =
-                                currentDate.getTime() -
-                                dateLastUpdated.getTime();
+          <div
+            key="database"
+            className="border rounded p-1"
+            style={{
+              minHeight: "100px",
+              maxHeight: "210px",
+              overflowY: "scroll",
+            }}
+          >
+            {informationSchema.databases.map((database) => {
+              return (
+                <>
+                  {database.schemas.map((schema) => {
+                    return (
+                      <div key={schema.schemaName}>
+                        <Collapsible
+                          className="pb-1"
+                          key={database.databaseName + schema.schemaName}
+                          onTriggerOpening={async () => {
+                            const currentDate = new Date();
+                            const dateLastUpdated = new Date(
+                              informationSchema.dateUpdated
+                            );
+                            // To calculate the time difference of two dates
+                            const diffInMilliseconds =
+                              currentDate.getTime() - dateLastUpdated.getTime();
 
-                              // To calculate the no. of days between two dates
-                              const diffInDays = Math.floor(
-                                diffInMilliseconds / (1000 * 3600 * 24)
-                              );
+                            // To calculate the no. of days between two dates
+                            const diffInDays = Math.floor(
+                              diffInMilliseconds / (1000 * 3600 * 24)
+                            );
 
-                              if (diffInDays > 30) {
-                                await apiCall<{
-                                  status: number;
-                                  message?: string;
-                                }>(`/datasource/${datasource.id}/schema`, {
-                                  method: "PUT",
-                                  body: JSON.stringify({
-                                    informationSchemaId: informationSchema.id,
-                                  }),
-                                });
-                              }
-                            }}
-                            trigger={
-                              datasource.type === ("bigquery" || "postgres") ? (
-                                <>
-                                  <FaAngleRight />
-                                  {`${database.databaseName}.${schema.schemaName}`}
-                                </>
-                              ) : (
-                                <>
-                                  <FaAngleRight />
-                                  {`${schema.schemaName}`}
-                                </>
-                              )
+                            if (diffInDays > 30) {
+                              await apiCall<{
+                                status: number;
+                                message?: string;
+                              }>(`/datasource/${datasource.id}/schema`, {
+                                method: "PUT",
+                                body: JSON.stringify({
+                                  informationSchemaId: informationSchema.id,
+                                }),
+                              });
                             }
-                            triggerWhenOpen={
-                              datasource.type === ("bigquery" || "postgres") ? (
-                                <>
-                                  <FaAngleDown />
-                                  {`${database.databaseName}.${schema.schemaName}`}
-                                </>
-                              ) : (
-                                <>
-                                  <FaAngleDown />
-                                  {`${schema.schemaName}`}
-                                </>
-                              )
-                            }
-                            triggerStyle={{
-                              fontWeight: "bold",
-                            }}
-                            transitionTime={100}
-                          >
-                            {schema.tables.map((table) => {
-                              return (
-                                <div
-                                  className="pl-3 pb-1"
-                                  style={{ userSelect: "none" }}
-                                  role="button"
-                                  key={
-                                    database.databaseName +
-                                    schema.schemaName +
-                                    table.tableName
-                                  }
-                                  onClick={async (e) =>
-                                    handleTableClick(e, table.path, table.id)
-                                  }
-                                >
-                                  <FaTable /> {table.tableName}
-                                </div>
-                              );
-                            })}
-                          </Collapsible>
-                        </div>
-                      );
-                    })}
-                  </>
-                );
-              })}
-            </div>
-          </>
+                          }}
+                          trigger={
+                            datasource.type === ("bigquery" || "postgres") ? (
+                              <>
+                                <FaAngleRight />
+                                {`${database.databaseName}.${schema.schemaName}`}
+                              </>
+                            ) : (
+                              <>
+                                <FaAngleRight />
+                                {`${schema.schemaName}`}
+                              </>
+                            )
+                          }
+                          triggerWhenOpen={
+                            datasource.type === ("bigquery" || "postgres") ? (
+                              <>
+                                <FaAngleDown />
+                                {`${database.databaseName}.${schema.schemaName}`}
+                              </>
+                            ) : (
+                              <>
+                                <FaAngleDown />
+                                {`${schema.schemaName}`}
+                              </>
+                            )
+                          }
+                          triggerStyle={{
+                            fontWeight: "bold",
+                          }}
+                          transitionTime={100}
+                        >
+                          {schema.tables.map((table) => {
+                            return (
+                              <div
+                                className={clsx(
+                                  table.id === currentTable?.id &&
+                                    "bg-light rounded",
+                                  "pl-3 py-1"
+                                )}
+                                style={{ userSelect: "none" }}
+                                role="button"
+                                key={
+                                  database.databaseName +
+                                  schema.schemaName +
+                                  table.tableName
+                                }
+                                onClick={async (e) =>
+                                  handleTableClick(e, table.path, table.id)
+                                }
+                              >
+                                <FaTable /> {table.tableName}
+                              </div>
+                            );
+                          })}
+                        </Collapsible>
+                      </div>
+                    );
+                  })}
+                </>
+              );
+            })}
+          </div>
         )}
       </SchemaBrowserWrapper>
       {error && <div className="alert alert-danger">{error}</div>}
