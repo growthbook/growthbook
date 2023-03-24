@@ -332,8 +332,6 @@ def main():
     for test_case in test_cases:
         engine = test_case["engine"]
 
-        if engine == 'presto':
-            continue
         if engine not in runners:
             runners[engine] = get_sql_runner(engine)
 
