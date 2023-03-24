@@ -19,6 +19,7 @@ import { isCloud } from "@/services/env";
 import track from "@/services/track";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import { languageMapping } from "./SDKLanguageLogo";
+import { FaExclamationTriangle } from "react-icons/fa";
 
 export default function SDKConnectionForm({
   initialValue = {},
@@ -74,10 +75,13 @@ export default function SDKConnectionForm({
   const hasSDKsWithoutEncryptionSupport = languages.some(
     (l) => !languageMapping[l].supportsEncryption
   );
+  const hasNoSDKsWithVisualExperimentSupport = languages.every(
+    (l) => !languageMapping[l].supportsVisualExperiments
+  );
 
   return (
     <Modal
-      header={edit ? "Edit SDK COnnection" : "New SDK Connection"}
+      header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}
       submit={form.handleSubmit(async (value) => {
         // Make sure encryption is disabled if they selected at least 1 language that's not supported
@@ -164,12 +168,22 @@ export default function SDKConnectionForm({
           <label htmlFor="sdk-connection-visual-experiments-toggle">
             Include visual experiments in endpoint&apos;s response?
           </label>
-          <div>
+          <div className="form-inline">
             <Toggle
               id="sdk-connection-visual-experiments-toggle"
               value={form.watch("includeVisualExperiments")}
               setValue={(val) => form.setValue("includeVisualExperiments", val)}
             />
+            { (form.watch("includeVisualExperiments") && hasNoSDKsWithVisualExperimentSupport) && (
+              <div className="alert px-2 py-1 ml-2 my-0 alert-warning">
+                <FaExclamationTriangle />{" "}
+                { languages.length === 1 ? (
+                  <>Your selected SDK does not support visual experiments.</>
+                ): (
+                  <>None of your selected SDKs support visual experiments.</>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="mt-3" style={{display: form.watch("includeVisualExperiments") ? "block" : "none" }}>
