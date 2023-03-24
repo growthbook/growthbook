@@ -58,7 +58,13 @@ const AddExperimentModal: FC<{
 
   switch (mode) {
     case "new":
-      return <NewExperimentForm onClose={onClose} source={source} />;
+      return (
+        <NewExperimentForm
+          onClose={onClose}
+          source={source}
+          isNewExperiment={true}
+        />
+      );
     case "import":
       return <ImportExperimentModal onClose={onClose} source={source} />;
     default:
