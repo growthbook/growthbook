@@ -1,7 +1,4 @@
-import {
-  InformationSchemaInterface,
-  InformationSchemaTablesInterface,
-} from "@/../back-end/src/types/Integration";
+import { InformationSchemaInterface } from "@/../back-end/src/types/Integration";
 import { DataSourceInterfaceWithParams } from "@/../back-end/types/datasource";
 import React, { useEffect, useState } from "react";
 import Collapsible from "react-collapsible";
@@ -36,11 +33,7 @@ export default function SchemaBrowser({
   const informationSchema = data?.informationSchema;
 
   const { apiCall } = useAuth();
-  const [
-    currentTable,
-    setCurrentTable,
-  ] = useState<InformationSchemaTablesInterface | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [currentTable, setCurrentTable] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   const row = cursorData?.row || 0;
@@ -61,6 +54,7 @@ export default function SchemaBrowser({
   }
 
   const handleTableClick = async (e, path: string, tableId: string) => {
+    setError(null);
     if (e.detail === 2) {
       if (!inputArray || !updateSqlInput) return;
       const updatedStr = pastePathIntoExistingQuery(
@@ -75,34 +69,24 @@ export default function SchemaBrowser({
       updateSqlInput(updatedInputArray.join("\n"));
     }
 
-    // If the table is already fetched, don't fetch it again
-    if (currentTable?.id === tableId) return;
-
-    try {
-      setLoading(true);
-
-      const res = await apiCall<{
-        status: number;
-        table?: InformationSchemaTablesInterface;
-      }>(`/datasource/${datasource.id}/schema/table/${tableId}`, {
-        method: "GET",
-      });
-      setCurrentTable(res.table);
-    } catch (e) {
-      setError(e.message);
-    }
-    setLoading(false);
+    setCurrentTable(tableId);
   };
 
   useEffect(() => {
-    setCurrentTable(null);
+    setCurrentTable("");
   }, [datasource]);
 
   if (!data) return <LoadingSpinner />;
 
   if (informationSchema?.error?.message) {
     return (
-      <SchemaBrowserWrapper datasourceName={datasource.name}>
+      <SchemaBrowserWrapper
+        datasourceName={datasource.name}
+        datasourceId={datasource.id}
+        informationSchema={informationSchema}
+        mutate={mutate}
+        setError={setError}
+      >
         <RetryInformationSchemaCard
           datasourceId={datasource.id}
           mutate={mutate}
@@ -114,7 +98,13 @@ export default function SchemaBrowser({
 
   if (informationSchema?.status === "PENDING") {
     return (
-      <SchemaBrowserWrapper datasourceName={datasource.name}>
+      <SchemaBrowserWrapper
+        datasourceName={datasource.name}
+        datasourceId={datasource.id}
+        informationSchema={informationSchema}
+        mutate={mutate}
+        setError={setError}
+      >
         <PendingInformationSchemaCard mutate={mutate} />
       </SchemaBrowserWrapper>
     );
@@ -122,7 +112,13 @@ export default function SchemaBrowser({
 
   return (
     <>
-      <SchemaBrowserWrapper datasourceName={datasource.name}>
+      <SchemaBrowserWrapper
+        datasourceName={datasource.name}
+        datasourceId={datasource.id}
+        informationSchema={informationSchema}
+        mutate={mutate}
+        setError={setError}
+      >
         {!informationSchema || !informationSchema.databases.length ? (
           <BuildInformationSchemaCard
             informationSchema={informationSchema}
@@ -209,7 +205,7 @@ export default function SchemaBrowser({
                             return (
                               <div
                                 className={clsx(
-                                  table.id === currentTable?.id &&
+                                  table.id === currentTable &&
                                     "bg-light rounded",
                                   "pl-3 py-1"
                                 )}
@@ -238,8 +234,12 @@ export default function SchemaBrowser({
           </div>
         )}
       </SchemaBrowserWrapper>
-      {error && <div className="alert alert-danger">{error}</div>}
-      <DatasourceTableData table={currentTable} loading={loading} />
+      {error && <div className="alert alert-danger mt-2 mb-0">{error}</div>}
+      <DatasourceTableData
+        tableId={currentTable}
+        datasourceId={datasource.id}
+        setError={setError}
+      />
     </>
   );
 }

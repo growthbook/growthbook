@@ -465,6 +465,10 @@ app.get(
   "/datasource/:datasourceId/schema/table/:tableId",
   informationSchemasController.getTableData
 );
+app.put(
+  "/datasource/:datasourceId/schema/table/:tableId",
+  informationSchemasController.putTableData
+);
 app.post(
   "/datasource/:datasourceId/schema",
   informationSchemasController.postInformationSchema
