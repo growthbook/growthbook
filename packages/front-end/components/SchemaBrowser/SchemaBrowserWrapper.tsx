@@ -1,6 +1,5 @@
 import { InformationSchemaInterface } from "@/../back-end/src/types/Integration";
 import { FaDatabase, FaRedo } from "react-icons/fa";
-import { useEffect, useState } from "react";
 import { useAuth } from "@/services/auth";
 import Tooltip from "../Tooltip/Tooltip";
 import LoadingSpinner from "../LoadingSpinner";
@@ -10,46 +9,19 @@ export default function SchemaBrowserWrapper({
   datasourceName,
   datasourceId,
   informationSchema,
-  mutate,
+  setFetching,
   setError,
+  fetching,
 }: {
   children: React.ReactNode;
   datasourceName: string;
   datasourceId: string;
   informationSchema: InformationSchemaInterface;
-  mutate: () => void;
   setError: (error: string) => void;
+  setFetching: (fetching: boolean) => void;
+  fetching: boolean;
 }) {
   const { apiCall } = useAuth();
-  const [fetching, setFetching] = useState(false);
-  const [retryCount, setRetryCount] = useState(1);
-
-  useEffect(() => {
-    if (fetching) {
-      if (
-        retryCount > 1 &&
-        retryCount < 8 &&
-        informationSchema.status === "COMPLETE"
-      ) {
-        setFetching(false);
-        setRetryCount(1);
-      } else if (retryCount > 8) {
-        setFetching(false);
-        setError(
-          "This query is taking quite a while. We're building this in the background. Feel free to leave this page and check back in a few minutes."
-        );
-        setRetryCount(1);
-      } else {
-        const timer = setTimeout(() => {
-          mutate();
-          setRetryCount(retryCount * 2);
-        }, retryCount * 1000);
-        return () => {
-          clearTimeout(timer);
-        };
-      }
-    }
-  }, [fetching, mutate, retryCount, informationSchema, setError]);
 
   return (
     <div className="d-flex flex-column">
