@@ -7,7 +7,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { hasFileConfig } from "@/services/env";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissions from "@/hooks/usePermissions";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -28,7 +27,6 @@ const ExperimentsGetStarted = ({
   const { metrics, datasources, mutateDefinitions, project } = useDefinitions();
   const { apiCall } = useAuth();
 
-  const { visualEditorEnabled } = useOrgSettings();
   const permissions = usePermissions();
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
@@ -294,9 +292,7 @@ const ExperimentsGetStarted = ({
             </div>
           </div>
           <div className="col-12 col-lg-4">
-            <DocumentationLinksSidebar
-              showVisualEditor={!visualEditorEnabled}
-            />
+            <DocumentationLinksSidebar />
           </div>
         </div>
       </div>

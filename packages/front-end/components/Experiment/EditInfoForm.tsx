@@ -14,7 +14,6 @@ const EditInfoForm: FC<{
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       name: experiment.name || "",
-      implementation: experiment.implementation || "code",
       hypothesis: experiment.hypothesis || "",
       description: experiment.description || "",
       visualEditorUrl: experiment.visualEditorUrl || "",

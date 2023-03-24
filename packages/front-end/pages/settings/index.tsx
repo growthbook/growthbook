@@ -6,7 +6,6 @@ import isEqual from "lodash/isEqual";
 import cronstrue from "cronstrue";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
-import track from "@/services/track";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
 import { hasFileConfig, isCloud } from "@/services/env";
@@ -169,9 +168,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const ctaEnabled = hasChanges(value, originalValue);
 
   const saveSettings = async () => {
-    const enabledVisualEditor =
-      !settings?.visualEditorEnabled && value.visualEditorEnabled;
-
     const transformedOrgSettings = {
       ...value,
       metricDefaults: {
@@ -189,11 +185,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       }),
     });
     refreshOrganization();
-
-    // Track usage of the Visual Editor
-    if (enabledVisualEditor) {
-      track("Enable Visual Editor");
-    }
 
     // show the user that the settings have saved:
     setSaveMsg(true);

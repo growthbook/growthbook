@@ -289,9 +289,6 @@ const ExperimentsPage = (): React.ReactElement => {
                       <div className="d-flex flex-column">
                         <div>
                           <span className="testname">{e.name}</span>
-                          {e.implementation === "visual" && (
-                            <small className="text-muted ml-2">(visual)</small>
-                          )}
                         </div>
                         {isFiltered && e.trackingKey && (
                           <span

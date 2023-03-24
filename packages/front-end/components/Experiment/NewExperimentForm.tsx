@@ -103,7 +103,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
-      implementation: initialValue?.implementation || "code",
       trackingKey: initialValue?.trackingKey || "",
       datasource: initialValue?.datasource || datasources?.[0]?.id || "",
       exposureQueryId:
@@ -201,7 +200,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
     track("Create Experiment", {
       source,
-      implementation: data.implementation || "code",
       numTags: data.tags.length,
       numMetrics: data.metrics.length,
       numVariations: data.variations.length,
