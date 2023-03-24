@@ -1,10 +1,11 @@
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 import json
 from decimal import Decimal
-import os
 import sys
 import time
 
+import clickhouse_connect
 from databricks import sql as databricks_sql
 from dotenv import dotenv_values
 from google.oauth2 import service_account
@@ -15,6 +16,7 @@ import psycopg2
 import psycopg2.extras
 import sqlfluff
 import snowflake.connector
+import pandas as pd
 
 CACHE_FILE = "/tmp/json/cache.json"
 QUERIES_FILE = "/tmp/json/queries.json"
@@ -28,6 +30,10 @@ CONNECTION_FAILED_ERROR = "runner configured, but connection failed"
 
 config = {**dotenv_values(ENV_FILE)}
 
+@dataclass
+class QueryResult:
+    rows: list[dict]
+    stats: list[dict] = None
 
 class DecimalEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -47,14 +53,15 @@ class sqlRunner(ABC):
 
     def get_query_result(self, sql: str) -> dict:
         starttime = time.time()
-        rows_dict = self.run_query(sql)
+        query_result = self.run_query(sql)
         return {
             "walltime_seconds": time.time() - starttime,
-            "rows": rows_dict,
+            "rows": query_result.rows,
+            "stats": query_result.stats,
         }
 
     @abstractmethod
-    def run_query(self, sql: str) -> list[dict]:
+    def run_query(self, sql: str) -> QueryResult:
         pass
 
     def close_connection(self):
@@ -71,10 +78,10 @@ class mysqlRunner(sqlRunner):
         )
         self.cursor_kwargs = {"dictionary": True, "buffered": True}
 
-    def run_query(self, sql: str) -> list[dict]:
+    def run_query(self, sql: str) -> QueryResult:
         with self.connection.cursor(**self.cursor_kwargs) as cursor:
             cursor.execute(sql)
-            return cursor.fetchall()
+            return QueryResult(rows=cursor.fetchall())
 
 
 class postgresRunner(sqlRunner):
@@ -86,13 +93,13 @@ class postgresRunner(sqlRunner):
         )
         self.cursor_kwargs = {"cursor_factory": psycopg2.extras.RealDictCursor}
 
-    def run_query(self, sql: str) -> list[dict]:
+    def run_query(self, sql: str) -> QueryResult:
         with self.connection.cursor(**self.cursor_kwargs) as cursor:
             cursor.execute(sql)
             res = []
             for row in cursor.fetchall():
                 res.append(dict(row))
-            return res
+            return QueryResult(rows=res)
 
 
 class snowflakeRunner(sqlRunner):
@@ -106,11 +113,11 @@ class snowflakeRunner(sqlRunner):
         )
         self.cursor_kwargs = {"cursor_class": snowflake.connector.DictCursor}
 
-    def run_query(self, sql: str) -> list[dict]:
+    def run_query(self, sql: str) -> QueryResult:
         with self.connection.cursor(**self.cursor_kwargs) as cursor:
             res = cursor.execute(sql).fetchall()
             # lower case col names
-            return [{k.lower(): v for k, v in row.items()} for row in res]
+            return QueryResult(rows=[{k.lower(): v for k, v in row.items()} for row in res])
 
 
 class prestoRunner(sqlRunner):
@@ -124,13 +131,13 @@ class prestoRunner(sqlRunner):
         )
         self.cursor_kwargs = {}
 
-    def run_query(self, sql: str) -> list:
+    def run_query(self, sql: str) -> QueryResult:
         cursor = self.connection.cursor(**self.cursor_kwargs)
         cursor.execute(sql)
         rows = cursor.fetchall()
         colnames = [col[0] for col in cursor.description]
         res = [dict(zip(colnames, row)) for row in rows]
-        return res
+        return QueryResult(rows=res)
 
 
 class databricksRunner(sqlRunner):
@@ -141,11 +148,11 @@ class databricksRunner(sqlRunner):
             access_token=config["DATABRICKS_TEST_TOKEN"],
         )
 
-    def run_query(self, sql: str) -> list:
+    def run_query(self, sql: str) -> QueryResult:
         cursor = self.connection.cursor()
         cursor.execute(sql)
         rows = cursor.fetchall()
-        return [row.asDict() for row in rows]
+        return QueryResult(rows=[row.asDict() for row in rows])
 
 
 class bigqueryRunner(sqlRunner):
@@ -156,11 +163,36 @@ class bigqueryRunner(sqlRunner):
             )
         )
 
-    def run_query(self, sql: str) -> list:
-        query_job = self.connection.query(query=sql)
-        res = query_job.result()
-        return [dict(row) for row in res]
+    def run_query(self, sql: str, perf_iterations: int = 1) -> QueryResult:
+        stats = []
+        job_config = bigquery.QueryJobConfig(use_query_cache=False)
+        for i in range(perf_iterations):
+            query_job = self.connection.query(query=sql, job_config=job_config)
+            res = query_job.result()
+            stat_dict = query_job._properties['statistics']
+            stat_dict['test_run_i'] = i
+            stats.append(stat_dict)
+        # just keep last result
+        res_rows = [dict(row) for row in res]
+        return QueryResult(rows=res_rows, stats=stats)
 
+
+class clickhouseRunner(sqlRunner):
+    def open_connection(self):
+        self.connection = clickhouse_connect.get_client(
+            host=config['CLICKHOUSE_CLOUD_HOSTNAME'],
+            port=8443, 
+            username=config['CLICKHOUSE_CLOUD_USERNAME'], 
+            password=config['CLICKHOUSE_CLOUD_PASSWORD'],
+        )
+        self.cursor_kwargs = {}
+
+    def run_query(self, sql: str) -> QueryResult:
+        dfs = []
+        with self.connection.query_df_stream(sql) as df_stream:
+            for df in df_stream:
+                dfs.append(df)
+        return QueryResult(rows=pd.concat(dfs).to_dict('records'))
 
 class dummyRunner(sqlRunner):
     def __init__(self, error_message: str):
@@ -225,6 +257,8 @@ def get_sql_runner(engine) -> sqlRunner:
             return prestoRunner()
         #elif engine == "databricks":
         #    return databricksRunner()
+        elif engine == "clickhouse":
+            return clickhouseRunner()
         else:
             return dummyRunner("no runner configured")
     except Exception as e:
@@ -233,8 +267,7 @@ def get_sql_runner(engine) -> sqlRunner:
         return dummyRunner(CONNECTION_FAILED_ERROR)
 
 
-def execute_query(sql, engine) -> dict:
-    runner = get_sql_runner(engine)
+def execute_query(sql: str, runner: sqlRunner) -> dict:
     return runner.get_query_result(sql)
 
 
@@ -314,7 +347,7 @@ def main():
         else:
             if engine not in nonlinted_engines:
                 validate(test_case)
-            result = execute_query(test_case["sql"], engine)
+            result = execute_query(test_case["sql"], runners[engine])
             result.update(test_case)
             cache[key] = result
             write_cache(cache)
