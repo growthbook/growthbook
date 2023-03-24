@@ -20,7 +20,6 @@ export type EditSDKConnectionParams = {
   encryptPayload?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
-  forceDraftExperimentsToActive?: boolean;
 };
 export type CreateSDKConnectionParams = {
   organization: string;
@@ -33,7 +32,6 @@ export type CreateSDKConnectionParams = {
   encryptPayload: boolean;
   includeVisualExperiments: boolean;
   includeDraftExperiments: boolean;
-  forceDraftExperimentsToActive?: boolean;
 };
 
 export type SDKLanguage =
@@ -68,7 +66,6 @@ export interface SDKConnectionInterface {
   encryptionKey: string;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
-  forceDraftExperimentsToActive?: boolean;
 
   // URL slug for fetching features from the API
   key: string;

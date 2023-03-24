@@ -6,7 +6,6 @@ import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -18,7 +17,6 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Toggle from "@/components/Forms/Toggle";
 import { isCloud } from "@/services/env";
 import track from "@/services/track";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import { languageMapping } from "./SDKLanguageLogo";
 
@@ -56,8 +54,6 @@ export default function SDKConnectionForm({
       encryptPayload: initialValue.encryptPayload || false,
       includeVisualExperiments: initialValue.includeVisualExperiments || false,
       includeDraftExperiments: initialValue.includeDraftExperiments || false,
-      forceDraftExperimentsToActive:
-        initialValue.forceDraftExperimentsToActive || false,
       proxyEnabled: initialValue.proxy?.enabled || false,
       proxyHost: initialValue.proxy?.host || "",
     },
@@ -102,10 +98,6 @@ export default function SDKConnectionForm({
         }
         if (!value.includeVisualExperiments) {
           value.includeDraftExperiments = false;
-          value.forceDraftExperimentsToActive = false;
-        }
-        if (!value.includeDraftExperiments) {
-          value.forceDraftExperimentsToActive = false;
         }
 
         const body: Omit<CreateSDKConnectionParams, "organization"> = {
@@ -189,90 +181,21 @@ export default function SDKConnectionForm({
                 <Toggle
                   id="sdk-connection-visual-experiments-toggle"
                   value={form.watch("includeVisualExperiments")}
-                  setValue={(val) =>
-                    form.setValue("includeVisualExperiments", val)
-                  }
+                  setValue={(val) => form.setValue("includeVisualExperiments", val)}
                 />
               </div>
             </div>
-            <div
-              className="mt-3"
-              style={{
-                display: form.watch("includeVisualExperiments")
-                  ? "block"
-                  : "none",
-              }}
-            >
+            <div className="mt-3" style={{display: form.watch("includeVisualExperiments") ? "block" : "none" }}>
               <label htmlFor="sdk-connection-include-draft-experiments-toggle">
-                <Tooltip
-                  body={
-                    <>
-                      <p>
-                        In-development visual experiments will be sent to the
-                        SDK. We recommend only enabling this for non-production
-                        environments.
-                      </p>
-                      <p className="mb-0">
-                        To force into a bucket, use a URL query string such as{" "}
-                        <div className="text-monospace">
-                          ?my-experiment-id=2
-                        </div>
-                      </p>
-                    </>
-                  }
-                >
-                  Include draft experiments <FaInfoCircle />
-                </Tooltip>
+                Include draft experiments
               </label>
               <div>
                 <Toggle
                   id="sdk-connection-include-draft-experiments-toggle"
                   value={form.watch("includeDraftExperiments")}
-                  setValue={(val) =>
-                    form.setValue("includeDraftExperiments", val)
-                  }
+                  setValue={(val) => form.setValue("includeDraftExperiments", val)}
                 />
               </div>
-            </div>
-            <div
-              className="mt-3"
-              style={{
-                display:
-                  form.watch("includeVisualExperiments") &&
-                  form.watch("includeDraftExperiments")
-                    ? "block"
-                    : "none",
-              }}
-            >
-              <label htmlFor="sdk-connection-force-draft-experiments-to-active-toggle">
-                <Tooltip
-                  body={
-                    <>
-                      With this option enabled, draft experiments will be
-                      upgraded to &quot;active&quot; (ON) for all users. You
-                      will not need to use a URL query string to enable the
-                      experiment.
-                    </>
-                  }
-                >
-                  Force draft experiments to active <FaInfoCircle />
-                </Tooltip>
-              </label>
-              <div>
-                <Toggle
-                  id="sdk-connection-force-draft-experiments-to-active-toggle"
-                  value={form.watch("forceDraftExperimentsToActive")}
-                  setValue={(val) =>
-                    form.setValue("forceDraftExperimentsToActive", val)
-                  }
-                />
-              </div>
-              {form.watch("forceDraftExperimentsToActive") && (
-                <div className="d-inline-block alert alert-warning mt-2 mb-0 py-1 px-2">
-                  <FaExclamationCircle /> Draft experiments will be turned ON
-                  for all users. Only enable in a non-production environment.
-                </div>
-              )}
             </div>
           </div>
         </>

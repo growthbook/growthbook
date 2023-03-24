@@ -567,7 +567,6 @@ export interface components {
       encryptionKey: string;
       includeVisualExperiments?: boolean;
       includeDraftExperiments?: boolean;
-      forceDraftExperimentsToActive?: boolean;
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -1611,7 +1610,6 @@ export interface operations {
                 encryptionKey: string;
                 includeVisualExperiments?: boolean;
                 includeDraftExperiments?: boolean;
-                forceDraftExperimentsToActive?: boolean;
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -1649,7 +1647,6 @@ export interface operations {
               encryptionKey: string;
               includeVisualExperiments?: boolean;
               includeDraftExperiments?: boolean;
-              forceDraftExperimentsToActive?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;

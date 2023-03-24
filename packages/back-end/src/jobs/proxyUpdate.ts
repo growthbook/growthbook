@@ -37,8 +37,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
       connection.project,
       connection.encryptPayload ? connection.encryptionKey : undefined,
       connection.includeVisualExperiments,
-      connection.includeDraftExperiments,
-      connection.forceDraftExperimentsToActive
+      connection.includeDraftExperiments
     );
 
     const payload = JSON.stringify(defs);

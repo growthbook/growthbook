@@ -40,7 +40,6 @@ const sdkConnectionSchema = new mongoose.Schema({
   encryptionKey: String,
   includeVisualExperiments: Boolean,
   includeDraftExperiments: Boolean,
-  forceDraftExperimentsToActive: Boolean,
   connected: Boolean,
   sseEnabled: Boolean,
   key: {
@@ -112,7 +111,6 @@ export const createSDKConnectionValidator = z
     encryptPayload: z.boolean(),
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
-    forceDraftExperimentsToActive: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
   })
@@ -177,7 +175,6 @@ export const editSDKConnectionValidator = z
     encryptPayload: z.boolean(),
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
-    forceDraftExperimentsToActive: z.boolean().optional(),
   })
   .strict();
 
@@ -391,7 +388,6 @@ export function toApiSDKConnectionInterface(
     encryptionKey: connection.encryptionKey,
     includeVisualExperiments: connection.includeVisualExperiments,
     includeDraftExperiments: connection.includeDraftExperiments,
-    forceDraftExperimentsToActive: connection.forceDraftExperimentsToActive,
     key: connection.key,
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,
