@@ -37,6 +37,7 @@ const OpenVisualEditorLink: FC<{
       ...parsed,
       "vc-id": id,
       "v-idx": changeIndex,
+      "exp-url": encodeURIComponent(window.location.href),
     };
 
     const root = visualEditorUrl.split("?")[0];
