@@ -1,5 +1,7 @@
+import Link from "next/link";
 import {
   ExperimentInterfaceStringDates,
+  LegacyVariation,
   Variation,
 } from "back-end/types/experiment";
 import {
@@ -63,6 +65,9 @@ const ScreenshotCarousel: FC<{
     </Carousel>
   );
 };
+
+const isLegacyVariation = (v: Partial<LegacyVariation>): v is LegacyVariation =>
+  typeof v.css === "string" || Array.isArray(v.dom);
 
 const VariationsTable: FC<Props> = ({
   experiment,
@@ -136,10 +141,6 @@ const VariationsTable: FC<Props> = ({
     }
   };
 
-  const hasDescriptions = variations.some((v) => !!v.description?.trim());
-
-  console.log(visualChangesets);
-
   return (
     <div className="w-100">
       <div
@@ -168,15 +169,25 @@ const VariationsTable: FC<Props> = ({
               ))}
             </tr>
 
-            {hasDescriptions && (
-              <tr>
-                {variations.map((v, i) => (
+            <tr>
+              {variations.map((v, i) => {
+                const hasLegacyVisualChanges = isLegacyVariation(v)
+                  ? v.css || v.dom.length > 0
+                  : false;
+                return (
                   <td key={i} scope="col">
-                    {v.description}
+                    {v.description && <div>{v.description}</div>}
+                    {hasLegacyVisualChanges && (
+                      <div className="alert alert-warning my-2">
+                        <Link href={`/experiments/designer/${experiment.id}`}>
+                          Open Legacy Visual Editor
+                        </Link>
+                      </div>
+                    )}
                   </td>
-                ))}
-              </tr>
-            )}
+                );
+              })}
+            </tr>
 
             <tr style={{ height: 1 }}>
               {variations.map((v, i) => (
