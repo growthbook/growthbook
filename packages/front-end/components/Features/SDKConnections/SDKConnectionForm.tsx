@@ -19,7 +19,6 @@ import { isCloud } from "@/services/env";
 import track from "@/services/track";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import { languageMapping } from "./SDKLanguageLogo";
-import { FaExclamationTriangle } from "react-icons/fa";
 
 export default function SDKConnectionForm({
   initialValue = {},
@@ -92,6 +91,14 @@ export default function SDKConnectionForm({
         ) {
           value.encryptPayload = false;
         }
+        if (
+          languages.every((l) => !languageMapping[l].supportsVisualExperiments)
+        ) {
+          value.includeVisualExperiments = false;
+        }
+        if (!value.includeVisualExperiments) {
+          value.includeDraftExperiments = false;
+        }
 
         const body: Omit<CreateSDKConnectionParams, "organization"> = {
           ...value,
@@ -162,43 +169,37 @@ export default function SDKConnectionForm({
         options={environments.map((e) => ({ label: e.id, value: e.id }))}
       />
 
-      <label>Visual experiments</label>
-      <div className="border rounded pt-2 pb-3 px-3">
-        <div>
-          <label htmlFor="sdk-connection-visual-experiments-toggle">
-            Include visual experiments in endpoint&apos;s response?
-          </label>
-          <div className="form-inline">
-            <Toggle
-              id="sdk-connection-visual-experiments-toggle"
-              value={form.watch("includeVisualExperiments")}
-              setValue={(val) => form.setValue("includeVisualExperiments", val)}
-            />
-            { (form.watch("includeVisualExperiments") && hasNoSDKsWithVisualExperimentSupport) && (
-              <div className="alert px-2 py-1 ml-2 my-0 alert-warning">
-                <FaExclamationTriangle />{" "}
-                { languages.length === 1 ? (
-                  <>Your selected language does not support visual experiments</>
-                ): (
-                  <>None of your selected languages support visual experiments</>
-                )}
+      {!hasNoSDKsWithVisualExperimentSupport && (
+        <>
+          <label>Visual experiments</label>
+          <div className="border rounded pt-2 pb-3 px-3">
+            <div>
+              <label htmlFor="sdk-connection-visual-experiments-toggle">
+                Include visual experiments in endpoint&apos;s response?
+              </label>
+              <div className="form-inline">
+                <Toggle
+                  id="sdk-connection-visual-experiments-toggle"
+                  value={form.watch("includeVisualExperiments")}
+                  setValue={(val) => form.setValue("includeVisualExperiments", val)}
+                />
               </div>
-            )}
+            </div>
+            <div className="mt-3" style={{display: form.watch("includeVisualExperiments") ? "block" : "none" }}>
+              <label htmlFor="sdk-connection-include-draft-experiments-toggle">
+                Include draft experiments
+              </label>
+              <div>
+                <Toggle
+                  id="sdk-connection-include-draft-experiments-toggle"
+                  value={form.watch("includeDraftExperiments")}
+                  setValue={(val) => form.setValue("includeDraftExperiments", val)}
+                />
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="mt-3" style={{display: form.watch("includeVisualExperiments") ? "block" : "none" }}>
-          <label htmlFor="sdk-connection-include-draft-experiments-toggle">
-            Include draft experiments
-          </label>
-          <div>
-            <Toggle
-              id="sdk-connection-include-draft-experiments-toggle"
-              value={form.watch("includeDraftExperiments")}
-              setValue={(val) => form.setValue("includeDraftExperiments", val)}
-            />
-          </div>
-        </div>
-      </div>
+        </>
+      )}
 
       {isCloud() && gb.isOn("proxy-cloud") && (
         <>
