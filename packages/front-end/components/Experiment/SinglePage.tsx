@@ -12,6 +12,7 @@ import {
 } from "react-icons/fa";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
+import { MdRocketLaunch } from "react-icons/md";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -34,6 +35,8 @@ import Modal from "../Modal";
 import HistoryTable from "../HistoryTable";
 import Code from "../SyntaxHighlighting/Code";
 import Tooltip from "../Tooltip/Tooltip";
+import Button from "../Button";
+import PremiumTooltip from "../Marketing/PremiumTooltip";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import ResultsIndicator from "./ResultsIndicator";
 import EditStatusModal from "./EditStatusModal";
@@ -45,6 +48,7 @@ import Results from "./Results";
 import StatusIndicator from "./StatusIndicator";
 import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
 import VariationsTable from "./VariationsTable";
+import VisualChangesetModal from "./VisualChangesetModal";
 
 function drawMetricRow(
   m: string,
@@ -154,6 +158,7 @@ export default function SinglePage({
   const [auditModal, setAuditModal] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
+  const [visualEditorModal, setVisualEditorModal] = useState(false);
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
@@ -161,7 +166,7 @@ export default function SinglePage({
   const watcherIds = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
-  const { users } = useUser();
+  const { users, hasCommercialFeature } = useUser();
 
   const { data: sdkConnectionsData } = useSDKConnections();
 
@@ -177,6 +182,8 @@ export default function SinglePage({
 
   const hasPermission = permissions.check("createAnalyses", experiment.project);
 
+  const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
+
   const canEdit = hasPermission && !experiment.archived;
 
   const ignoreConversionEnd =
@@ -191,6 +198,7 @@ export default function SinglePage({
   const hasSDKWithVisualExperimentsEnabled = sdkConnectionsData?.connections.some(
     (connection) => connection.includeVisualExperiments
   );
+
   let canStartExperiment = true;
   let startExperimentBlockedReason = "";
   if (visualChangesets.length > 0 && !hasSDKWithVisualExperimentsEnabled) {
@@ -198,6 +206,13 @@ export default function SinglePage({
     startExperimentBlockedReason =
       "You do not have any SDK Connections that support Visual Experiments";
   }
+
+  // See if at least one visual change has been made with the editor
+  const hasSomeVisualChanges = visualChangesets?.some((vc) =>
+    vc.visualChanges.some(
+      (changes) => changes.css || changes.domMutations?.length > 0
+    )
+  );
 
   return (
     <div className="container-fluid experiment-details pagecontents">
@@ -257,6 +272,18 @@ export default function SinglePage({
             ))}
           </ul>
         </Modal>
+      )}
+      {visualEditorModal && (
+        <VisualChangesetModal
+          onClose={() => setVisualEditorModal(false)}
+          onSubmit={async ({ editorUrl, urlPatterns }) => {
+            await apiCall(`/experiments/${experiment.id}/visual-changeset`, {
+              method: "POST",
+              body: JSON.stringify({ editorUrl, urlPatterns }),
+            });
+            mutate();
+          }}
+        />
       )}
       {statusModal && (
         <EditStatusModal
@@ -718,56 +745,124 @@ export default function SinglePage({
         </div>
       </div>
 
-      {visualChangesets.length > 0 && !hasSDKWithVisualExperimentsEnabled && (
-        <div className="row px-2 mb-4">
-          <div className="w-100 mt-2 mb-0 alert alert-warning">
-            <FaExclamationTriangle /> You do not have any SDK Connections that
-            support Visual Experiments.
-            <br />
-            Go to <Link href="/sdks">SDK Connections</Link> and set
-            &quot;Include visual experiments&quot; for at least one SDK
-            connection.
-          </div>
-        </div>
-      )}
-      <div className="mb-4 position-relative">
-        <div style={{ position: "absolute", top: -70 }} id="results"></div>
-        <h3>
-          Results{" "}
-          <a
-            href="#results"
-            className="small"
-            style={{ verticalAlign: "middle" }}
-          >
-            <FaLink />
-          </a>
-        </h3>
-        <div className="appbox">
-          {experiment.phases?.length > 0 ? (
-            <Results
-              experiment={experiment}
-              mutateExperiment={mutate}
-              editMetrics={editMetrics}
-              editResult={editResult}
-              editPhases={editPhases}
-              alwaysShowPhaseSelector={true}
-              reportDetailsLink={false}
-              canStartExperiment={canStartExperiment}
-              startExperimentBlockedReason={startExperimentBlockedReason}
-            />
+      {experiment.status === "draft" && experiment.phases.length > 0 ? (
+        <div>
+          {visualChangesets.length > 0 ? (
+            <div className="mb-4">
+              {!hasSomeVisualChanges ? (
+                <div className="alert alert-info">
+                  Open the Visual Editor above and add at least one change to
+                  your experiment before you start
+                </div>
+              ) : hasSDKWithVisualExperimentsEnabled ? (
+                <div className="appbox text-center  px-3 py-5">
+                  <p>Done setting everything up?</p>
+                  <Button
+                    color="primary"
+                    className="btn-lg"
+                    onClick={async () => {
+                      await apiCall(`/experiment/${experiment.id}/status`, {
+                        method: "POST",
+                        body: JSON.stringify({
+                          status: "running",
+                        }),
+                      });
+                      await mutate();
+                    }}
+                  >
+                    Start Experiment <MdRocketLaunch />
+                  </Button>{" "}
+                  <Button
+                    color="link"
+                    onClick={async () => {
+                      editPhase(experiment.phases.length - 1);
+                    }}
+                  >
+                    Edit Targeting
+                  </Button>
+                </div>
+              ) : (
+                <div className="w-100 mt-2 mb-0 alert alert-warning">
+                  <div className="mb-2">
+                    <strong>
+                      <FaExclamationTriangle /> You must configure one of your
+                      SDK Connections to include Visual Experiments before
+                      starting
+                    </strong>
+                  </div>
+                  Go to <Link href="/sdks">SDK Connections</Link>
+                </div>
+              )}
+            </div>
           ) : (
-            <div className="text-center my-5">
-              <p>There are no experiment phases yet.</p>
-              <button className="btn btn-primary btn-lg" onClick={newPhase}>
-                Add a Phase
-              </button>
+            <div className="appbox text-center  px-3 py-5">
+              <p>
+                Use our Visual Editor to make changes to your site without
+                deploying code
+              </p>
+
+              {hasVisualEditorFeature ? (
+                <button
+                  className="btn btn-primary btn-lg"
+                  onClick={() => setVisualEditorModal(true)}
+                >
+                  Open Visual Editor
+                </button>
+              ) : (
+                <div className="ml-3">
+                  <PremiumTooltip commercialFeature={"visual-editor"}>
+                    <div className="btn btn-primary btn-lg disabled">
+                      Open Visual Editor
+                    </div>
+                  </PremiumTooltip>
+                </div>
+              )}
             </div>
           )}
         </div>
-      </div>
-      <div className="mb-4">
-        <ExperimentReportsList experiment={experiment} />
-      </div>
+      ) : (
+        <>
+          <div className="mb-4 position-relative">
+            <div style={{ position: "absolute", top: -70 }} id="results"></div>
+            <h3>
+              Results{" "}
+              <a
+                href="#results"
+                className="small"
+                style={{ verticalAlign: "middle" }}
+              >
+                <FaLink />
+              </a>
+            </h3>
+            <div className="appbox">
+              {experiment.phases?.length > 0 ? (
+                <Results
+                  experiment={experiment}
+                  mutateExperiment={mutate}
+                  editMetrics={editMetrics}
+                  editResult={editResult}
+                  editPhases={editPhases}
+                  alwaysShowPhaseSelector={true}
+                  reportDetailsLink={false}
+                  canStartExperiment={canStartExperiment}
+                  startExperimentBlockedReason={startExperimentBlockedReason}
+                />
+              ) : (
+                <div className="text-center my-5">
+                  <p>There are no experiment phases yet.</p>
+                  <button className="btn btn-primary btn-lg" onClick={newPhase}>
+                    Add a Phase
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="mb-4">
+            <ExperimentReportsList experiment={experiment} />
+          </div>
+        </>
+      )}
+
       <div className="pb-3">
         <h2>Discussion</h2>
         <DiscussionThread

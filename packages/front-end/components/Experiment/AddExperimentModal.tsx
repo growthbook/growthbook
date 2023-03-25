@@ -1,6 +1,6 @@
 import { FC, useState } from "react";
 import { IconType } from "react-icons";
-import { GoBrowser, GoDatabase } from "react-icons/go";
+import { GoBeaker, GoGraph } from "react-icons/go";
 import Modal from "../Modal";
 import styles from "./AddExperimentModal.module.scss";
 import ImportExperimentModal from "./ImportExperimentModal";
@@ -18,7 +18,7 @@ const CreateExperimentCTA: FC<CTA> = ({ Icon, onClick, cta, description }) => {
     <div className={styles.ctaContainer} onClick={onClick}>
       <div className={styles.ctaButton}>
         <div className={styles.ctaIconContainer}>
-          <Icon size={128} />
+          <Icon size={96} />
         </div>
         <div>
           <h3 className={styles.ctaText}>{cta}</h3>
@@ -37,19 +37,19 @@ const AddExperimentModal: FC<{
 
   const ctas: CTA[] = [
     {
-      cta: "Analyze Results of an Experiment",
+      cta: "Analyze an Existing Experiment",
       description:
-        "Analyze results of an existing experiment by importing data from a data source.",
-      Icon: GoDatabase,
+        "Analyze a current or past experiment that already has data collected",
+      Icon: GoGraph,
       onClick: () => {
         setMode("import");
       },
     },
     {
-      cta: "Create a New Experiment",
+      cta: "Design a New Experiment",
       description:
         "Use Feature Flags or our Visual Editor to build and run a brand new experiment",
-      Icon: GoBrowser,
+      Icon: GoBeaker,
       onClick: () => {
         setMode("new");
       },

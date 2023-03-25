@@ -4,17 +4,13 @@ import {
   LegacyVariation,
   Variation,
 } from "back-end/types/experiment";
-import {
-  VisualChangesetInterface,
-  VisualChangesetURLPattern,
-} from "back-end/types/visual-changeset";
-import React, { FC, Fragment, useEffect, useState } from "react";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import React, { FC, Fragment, useState } from "react";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
-import { GBAddCircle, GBEdit } from "../Icons";
+import { GBEdit } from "../Icons";
 import OpenVisualEditorLink from "../OpenVisualEditorLink";
 import VisualChangesetModal from "./VisualChangesetModal";
 
@@ -83,37 +79,11 @@ const VariationsTable: FC<Props> = ({
   const { hasCommercialFeature } = useUser();
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
 
-  const [visualChangesets, setVisualChangesets] = useState<
-    VisualChangesetInterface[]
-  >(_visualChangesets ?? []);
-  const [showVisualChangesetForm, setShowVisualChangesetForm] = useState(false);
+  const visualChangesets = _visualChangesets || [];
+
   const [isEditingVisualChangeset, setIsEditingVisualChangeset] = useState(
     false
   );
-
-  useEffect(() => {
-    setVisualChangesets(_visualChangesets ?? []);
-  }, [_visualChangesets]);
-
-  const createVisualChangeset = async ({
-    editorUrl,
-    urlPatterns,
-  }: {
-    editorUrl: string;
-    urlPatterns: VisualChangesetURLPattern[];
-  }) => {
-    const res = await apiCall<{ visualChangeset: VisualChangesetInterface }>(
-      `/experiments/${experiment.id}/visual-changeset`,
-      {
-        method: "POST",
-        body: JSON.stringify({ editorUrl, urlPatterns }),
-      }
-    );
-
-    const { visualChangeset } = res;
-
-    setVisualChangesets([...visualChangesets, visualChangeset]);
-  };
 
   const updateVisualChangeset = async ({
     editorUrl,
@@ -122,29 +92,11 @@ const VariationsTable: FC<Props> = ({
     // This will change when we suport multiple changesets
     const changesetId = visualChangesets[0].id;
 
-    const res = await apiCall<{
-      nModified: number;
-      changesetId?: string;
-      updates?: Partial<VisualChangesetInterface>;
-    }>(`/visual-changesets/${changesetId}`, {
+    await apiCall(`/visual-changesets/${changesetId}`, {
       method: "PUT",
       body: JSON.stringify({ editorUrl, urlPatterns }),
     });
-
-    if (res.nModified > 0) {
-      setVisualChangesets([
-        ...visualChangesets.map((vc) => {
-          if (vc.id === changesetId) {
-            return {
-              ...vc,
-              ...res.updates,
-            };
-          }
-
-          return vc;
-        }),
-      ]);
-    }
+    mutate();
   };
 
   const hasDescriptions = variations.some((v) => !!v.description?.trim());
@@ -272,7 +224,11 @@ const VariationsTable: FC<Props> = ({
                     const numChanges =
                       (changes?.css ? 1 : 0) +
                       (changes?.domMutations?.length || 0);
-                    return <td key={j}>{numChanges} visual changes</td>;
+                    return (
+                      <td key={j}>
+                        {numChanges} visual change{numChanges === 1 ? "" : "s"}
+                      </td>
+                    );
                   })}
                 </tr>
               </Fragment>
@@ -295,36 +251,6 @@ const VariationsTable: FC<Props> = ({
           <Link href={`/experiments/designer/${experiment.id}`}>
             Open Legacy Visual Editor
           </Link>
-        </div>
-      )}
-
-      {!visualChangesets.length && experiment.status === "draft" && (
-        <div className="mt-3">
-          {showVisualChangesetForm ? (
-            <VisualChangesetModal
-              onClose={() => setShowVisualChangesetForm(false)}
-              onSubmit={createVisualChangeset}
-            />
-          ) : (
-            <>
-              {hasVisualEditorFeature ? (
-                <button
-                  className="ml-4 btn btn-outline-primary"
-                  onClick={() => setShowVisualChangesetForm(true)}
-                >
-                  <GBAddCircle /> Add Visual Changes
-                </button>
-              ) : (
-                <div className="ml-3">
-                  <PremiumTooltip commercialFeature={"visual-editor"}>
-                    <div className="ml-1 btn btn-outline-primary disabled">
-                      <GBAddCircle /> Add Visual Changes
-                    </div>
-                  </PremiumTooltip>
-                </div>
-              )}
-            </>
-          )}
         </div>
       )}
     </div>

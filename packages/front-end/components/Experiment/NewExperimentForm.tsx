@@ -274,49 +274,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             />
           </div>
         )}
-        {isNewExperiment && (
-          <SelectField
-            label="Assignment Attribute"
-            options={attributeSchema
-              .filter((s) => !hasHashAttributes || s.hashAttribute)
-              .map((s) => ({ label: s.property, value: s.property }))}
-            value={form.watch("hashAttribute")}
-            onChange={(v) => {
-              form.setValue("hashAttribute", v);
-            }}
-            helpText={
-              "Will be hashed and used to assign a variation to each user that views the experiment"
-            }
-          />
-        )}
-        {(!isImport || fromFeature) && (
-          <SelectField
-            label="Data Source"
-            value={form.watch("datasource")}
-            onChange={(v) => form.setValue("datasource", v)}
-            initialOption="Manual"
-            options={datasources.map((d) => ({
-              value: d.id,
-              label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-            }))}
-            className="portal-overflow-ellipsis"
-          />
-        )}
-        {datasource?.properties?.exposureQueries && (
-          <SelectField
-            label="Experiment Assignment Table"
-            value={form.watch("exposureQueryId")}
-            onChange={(v) => form.setValue("exposureQueryId", v)}
-            initialOption="Choose..."
-            required
-            options={exposureQueries.map((q) => {
-              return {
-                label: q.name,
-                value: q.id,
-              };
-            })}
-          />
-        )}
         {!isNewExperiment && (
           <SelectField
             label="Status"
@@ -347,12 +304,27 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           />
         )}
       </Page>
-      <Page display="Variations">
+      <Page display="Variation Assignment">
         {isNewExperiment && (
           <div className="alert alert-info">
             You will have a chance to review and change these settings before
             starting your experiment.
           </div>
+        )}
+        {isNewExperiment && (
+          <SelectField
+            label="Assign variation based on attribute"
+            options={attributeSchema
+              .filter((s) => !hasHashAttributes || s.hashAttribute)
+              .map((s) => ({ label: s.property, value: s.property }))}
+            value={form.watch("hashAttribute")}
+            onChange={(v) => {
+              form.setValue("hashAttribute", v);
+            }}
+            helpText={
+              "Will be hashed and used to assign a variation to each user that views the experiment"
+            }
+          />
         )}
         <FeatureVariationsInput
           valueType={"string"}
@@ -422,6 +394,36 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               defaultValue={""}
               labelClassName="font-weight-bold"
               onChange={(value) => form.setValue("phases.0.condition", value)}
+            />
+          )}
+          {(!isImport || fromFeature) && (
+            <SelectField
+              label="Data Source"
+              labelClassName="font-weight-bold"
+              value={form.watch("datasource")}
+              onChange={(v) => form.setValue("datasource", v)}
+              initialOption="Manual"
+              options={datasources.map((d) => ({
+                value: d.id,
+                label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
+              }))}
+              className="portal-overflow-ellipsis"
+            />
+          )}
+          {datasource?.properties?.exposureQueries && (
+            <SelectField
+              label="Experiment Assignment Table"
+              labelClassName="font-weight-bold"
+              value={form.watch("exposureQueryId")}
+              onChange={(v) => form.setValue("exposureQueryId", v)}
+              initialOption="Choose..."
+              required
+              options={exposureQueries.map((q) => {
+                return {
+                  label: q.name,
+                  value: q.id,
+                };
+              })}
             />
           )}
           <div className="form-group">

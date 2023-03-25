@@ -16,6 +16,7 @@ import DocumentationLinksSidebar from "@/components/HomePage/DocumentationLinksS
 import GetStartedStep from "@/components/HomePage/GetStartedStep";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import AddExperimentModal from "../Experiment/AddExperimentModal";
 
 const ExperimentsGetStarted = ({
   experiments,
@@ -120,14 +121,20 @@ const ExperimentsGetStarted = ({
             }}
           />
         )}
-        {experimentsOpen && (
-          <ImportExperimentModal
-            onClose={() => setExperimentsOpen(false)}
-            source={featureExperiment ? "feature-rule" : "get-started"}
-            initialValue={featureExperiment}
-            fromFeature={!!featureExperiment}
-          />
-        )}
+        {experimentsOpen &&
+          (featureExperiment ? (
+            <ImportExperimentModal
+              onClose={() => setExperimentsOpen(false)}
+              source={featureExperiment ? "feature-rule" : "get-started"}
+              initialValue={featureExperiment}
+              fromFeature={!!featureExperiment}
+            />
+          ) : (
+            <AddExperimentModal
+              onClose={() => setExperimentsOpen(false)}
+              source="get-started"
+            />
+          ))}
         <div className="row">
           <div className="col-12 col-lg-8">
             {hasFileConfig() ? (
