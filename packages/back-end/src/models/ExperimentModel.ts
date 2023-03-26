@@ -31,6 +31,7 @@ import { createEvent } from "./EventModel";
 import {
   findVisualChangesets,
   findVisualChangesetsByExperiment,
+  VisualChangesetModel,
 } from "./VisualChangesetModel";
 
 type FindOrganizationOptions = {
@@ -655,6 +656,8 @@ export async function deleteExperimentByIdForOrganization(
       id: experiment.id,
       organization: organization.id,
     });
+
+    VisualChangesetModel.deleteMany({ experiment: experiment.id });
 
     await onExperimentDelete(organization, experiment);
   } catch (e) {

@@ -8,6 +8,7 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { FC, Fragment, useState } from "react";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
 import { GBEdit } from "../Icons";
@@ -81,18 +82,17 @@ const VariationsTable: FC<Props> = ({
 
   const visualChangesets = _visualChangesets || [];
 
-  const [isEditingVisualChangeset, setIsEditingVisualChangeset] = useState(
-    false
-  );
+  const [
+    editingVisualChangeset,
+    setEditingVisualChangeset,
+  ] = useState<VisualChangesetInterface | null>(null);
 
   const updateVisualChangeset = async ({
+    id,
     editorUrl,
     urlPatterns,
   }: Partial<VisualChangesetInterface>) => {
-    // This will change when we suport multiple changesets
-    const changesetId = visualChangesets[0].id;
-
-    await apiCall(`/visual-changesets/${changesetId}`, {
+    await apiCall(`/visual-changesets/${id}`, {
       method: "PUT",
       body: JSON.stringify({ editorUrl, urlPatterns }),
     });
@@ -105,7 +105,7 @@ const VariationsTable: FC<Props> = ({
   return (
     <div className="w-100">
       <div
-        className="w-100"
+        className="w-100 mb-4"
         style={{
           overflowX: "auto",
         }}
@@ -114,30 +114,35 @@ const VariationsTable: FC<Props> = ({
           <thead>
             <tr>
               {variations.map((v, i) => (
-                <th key={i}>{v.name}</th>
+                <th
+                  key={i}
+                  className={`variation with-variation-label variation${i} ${
+                    !hasDescriptions ? "with-variation-border-bottom" : "pb-2"
+                  }`}
+                  style={{ borderBottom: hasDescriptions ? 0 : null }}
+                >
+                  <span className="label">{v.key}</span>
+                  <span className="name">{v.name}</span>
+                </th>
               ))}
             </tr>
-          </thead>
-
-          <tbody>
-            <tr>
-              {variations.map((v, i) => (
-                <td key={i} scope="col">
-                  <span className="text-muted">Id:</span> {v.key}
-                </td>
-              ))}
-            </tr>
-
             {hasDescriptions && (
               <tr>
                 {variations.map((v, i) => (
-                  <td key={i} scope="col">
+                  <td
+                    className={`variation with-variation-border-bottom variation${i} pt-0`}
+                    style={{ borderTop: 0 }}
+                    key={i}
+                    scope="col"
+                  >
                     <div>{v.description}</div>
                   </td>
                 ))}
               </tr>
             )}
+          </thead>
 
+          <tbody>
             <tr style={{ height: 1 }}>
               {variations.map((v, i) => (
                 <td
@@ -169,80 +174,127 @@ const VariationsTable: FC<Props> = ({
                 </td>
               ))}
             </tr>
-
-            {visualChangesets.map((vc, i) => (
-              <Fragment key={i}>
-                <tr className="bg-light">
-                  <td colSpan={variations.length}>
-                    <div className="row align-items-center">
-                      <div className="col-auto">
-                        <div>
-                          <strong className="text-muted">Visual Changes</strong>
-                        </div>
-                      </div>
-                      {hasVisualEditorFeature && (
-                        <>
-                          {experiment.status === "draft" && (
-                            <div className="col-auto">
-                              <OpenVisualEditorLink
-                                id={vc.id}
-                                changeIndex={1}
-                                visualEditorUrl={vc.editorUrl}
-                              />
-                            </div>
-                          )}
-                          <div className="col-auto">
-                            {vc.urlPatterns.map((p, j) => (
-                              <div key={j}>
-                                <small>
-                                  {p.include === false ? "Exclude" : "Include"}{" "}
-                                  URLs matching:
-                                </small>{" "}
-                                <code>{p.pattern}</code>
-                              </div>
-                            ))}
-                          </div>
-                          <div className="col-auto">
-                            <a
-                              href="#"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setIsEditingVisualChangeset(true);
-                              }}
-                            >
-                              <GBEdit />
-                            </a>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  {variations.map((_v, j) => {
-                    const changes = vc.visualChanges[j];
-                    const numChanges =
-                      (changes?.css ? 1 : 0) +
-                      (changes?.domMutations?.length || 0);
-                    return (
-                      <td key={j}>
-                        {numChanges} visual change{numChanges === 1 ? "" : "s"}
-                      </td>
-                    );
-                  })}
-                </tr>
-              </Fragment>
-            ))}
           </tbody>
         </table>
       </div>
 
-      {isEditingVisualChangeset ? (
+      {visualChangesets.length > 0 && (
+        <div>
+          <div className="px-3 mb-3">
+            <div className="h3 d-inline-block my-0 align-middle">
+              Visual Changes
+            </div>
+          </div>
+
+          {visualChangesets.map((vc, i) => (
+            <Fragment key={i}>
+              <div className={`${i !== 0 && "mt-3 pt-3 border-top"}`}>
+                {hasVisualEditorFeature && (
+                  <div className="px-3">
+                    <div className="row mt-1 mb-3 d-flex align-items-end">
+                      <div className="col">
+                        <label className="mb-1">
+                          URL Targeting
+                          <a
+                            className="ml-2"
+                            href="#"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setEditingVisualChangeset(vc);
+                            }}
+                          >
+                            <GBEdit />
+                          </a>
+                        </label>
+                        <div className="col-auto px-3 py-2 rounded bg-muted-yellow">
+                          {vc.urlPatterns.map((p, j) => (
+                            <div key={j}>
+                              <small>
+                                {p.include === false ? "Exclude" : "Include"}{" "}
+                                URLs matching:
+                              </small>{" "}
+                              <code>{p.pattern}</code>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div style={{ flex: 1 }} />
+                      {hasVisualEditorFeature && experiment.status === "draft" && (
+                        <div className="col-auto">
+                          <OpenVisualEditorLink
+                            id={visualChangesets[i].id}
+                            changeIndex={1}
+                            visualEditorUrl={visualChangesets[i].editorUrl}
+                          />
+                          <DeleteButton
+                            className="btn-sm ml-4"
+                            onClick={async () => {
+                              await apiCall(`/visual-changesets/${vc.id}`, {
+                                method: "DELETE",
+                              });
+                              mutate();
+                            }}
+                            displayName="Visual Changes"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <div
+                  className="w-100"
+                  style={{
+                    overflowX: "auto",
+                  }}
+                >
+                  <table
+                    className="table table-bordered"
+                    style={{ tableLayout: "fixed" }}
+                  >
+                    <thead>
+                      <tr>
+                        {variations.map((v, i) => (
+                          <th
+                            key={i}
+                            className={`py-2 variation with-variation-label variation${i} with-variation-border-bottom`}
+                            style={{ borderBottomWidth: 4, minWidth: 180 }}
+                          >
+                            <span className="label">{v.key}</span>
+                            <span className="name">{v.name}</span>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        {variations.map((_v, j) => {
+                          const changes = vc.visualChanges[j];
+                          const numChanges =
+                            (changes?.css ? 1 : 0) +
+                            (changes?.domMutations?.length || 0);
+                          return (
+                            <td key={j} className="px-4 py-2">
+                              {numChanges} visual change
+                              {numChanges === 1 ? "" : "s"}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </Fragment>
+          ))}
+        </div>
+      )}
+
+      {editingVisualChangeset ? (
         <VisualChangesetModal
-          editorUrl={visualChangesets[0].editorUrl}
-          urlPatterns={visualChangesets[0].urlPatterns}
+          visualChangeset={editingVisualChangeset}
           onSubmit={updateVisualChangeset}
-          onClose={() => setIsEditingVisualChangeset(false)}
+          onClose={() => setEditingVisualChangeset(null)}
         />
       ) : null}
 

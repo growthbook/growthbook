@@ -1,4 +1,7 @@
-import { VisualChangesetURLPattern } from "@/../back-end/types/visual-changeset";
+import {
+  VisualChangesetInterface,
+  VisualChangesetURLPattern,
+} from "@/../back-end/types/visual-changeset";
 import { FC, useState } from "react";
 import Field from "../Forms/Field";
 import { GBAddCircle } from "../Icons";
@@ -14,20 +17,17 @@ const genDefaultUrlPattern = (
 const VisualChangesetModal: FC<{
   onClose: () => void;
   onSubmit: (args: {
+    id: string;
     editorUrl: string;
     urlPatterns: VisualChangesetURLPattern[];
   }) => void;
-  editorUrl?: string;
-  urlPatterns?: VisualChangesetURLPattern[];
-}> = ({
-  onClose,
-  onSubmit: _onSubmit,
-  editorUrl: _editorUrl,
-  urlPatterns: _urlPatterns,
-}) => {
-  const [editorUrl, setEditorUrl] = useState<string>(_editorUrl ?? "");
+  visualChangeset?: VisualChangesetInterface;
+}> = ({ onClose, onSubmit: _onSubmit, visualChangeset }) => {
+  const [editorUrl, setEditorUrl] = useState<string>(
+    visualChangeset?.editorUrl ?? ""
+  );
   const [urlPatterns, setUrlPatterns] = useState<VisualChangesetURLPattern[]>(
-    _urlPatterns ?? [
+    visualChangeset?.urlPatterns ?? [
       {
         pattern: "",
         type: "regex",
@@ -48,9 +48,10 @@ const VisualChangesetModal: FC<{
     setUrlPatterns(newUrlPatterns);
   };
 
-  const onSubmit = () => {
+  const onSubmit = async () => {
     const validPatterns = urlPatterns.filter((p) => p.pattern.length > 0);
     _onSubmit({
+      id: visualChangeset?.id,
       editorUrl,
       urlPatterns:
         validPatterns.length > 0

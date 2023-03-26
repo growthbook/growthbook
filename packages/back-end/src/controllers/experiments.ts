@@ -1906,7 +1906,8 @@ export async function postVisualChangeset(
     organization: org,
   });
 
-  res.json({
+  res.status(200).json({
+    status: 200,
     visualChangeset,
   });
 }
@@ -1923,10 +1924,13 @@ export async function putVisualChangeset(
     updates: req.body,
   });
 
-  res.json({
-    nModified: ret.nModified,
-    changesetId: ret.nModified > 0 ? req.params.id : undefined,
-    updates: ret.nModified > 0 ? req.body : undefined,
+  res.status(200).json({
+    status: 200,
+    data: {
+      nModified: ret.nModified,
+      changesetId: ret.nModified > 0 ? req.params.id : undefined,
+      updates: ret.nModified > 0 ? req.body : undefined,
+    },
   });
 }
 
@@ -1941,5 +1945,7 @@ export async function deleteVisualChangeset(
     organization: org,
   });
 
-  res.status(200).send();
+  res.status(200).json({
+    status: 200,
+  });
 }
