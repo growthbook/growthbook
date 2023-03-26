@@ -222,9 +222,9 @@ const VariationsTable: FC<Props> = ({
                       {hasVisualEditorFeature && experiment.status === "draft" && (
                         <div className="col-auto">
                           <OpenVisualEditorLink
-                            id={visualChangesets[i].id}
+                            id={vc.id}
                             changeIndex={1}
-                            visualEditorUrl={visualChangesets[i].editorUrl}
+                            visualEditorUrl={vc.editorUrl}
                           />
                           <DeleteButton
                             className="btn-sm ml-4"
