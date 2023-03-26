@@ -1,6 +1,6 @@
 import { InformationSchemaInterface } from "@/../back-end/src/types/Integration";
 import { DataSourceInterfaceWithParams } from "@/../back-end/types/datasource";
-import React, { useEffect, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import Collapsible from "react-collapsible";
 import { FaAngleDown, FaAngleRight, FaTable } from "react-icons/fa";
 import { cloneDeep } from "lodash";
@@ -109,7 +109,7 @@ export default function SchemaBrowser({
   if (!data) return <LoadingSpinner />;
 
   return (
-    <>
+    <div className="d-flex flex-column h-100">
       <SchemaBrowserWrapper
         datasourceName={datasource.name}
         datasourceId={datasource.id}
@@ -123,23 +123,19 @@ export default function SchemaBrowser({
           !informationSchema?.error &&
           informationSchema?.status === "COMPLETE" ? (
             <div
-              key="database"
-              className="border rounded p-1"
+              className="p-1"
               style={{
-                minHeight: "100px",
-                maxHeight: "210px",
-                overflowY: "scroll",
+                overflowY: "auto",
               }}
             >
-              {informationSchema.databases.map((database) => {
+              {informationSchema.databases.map((database, i) => {
                 return (
-                  <>
-                    {database.schemas.map((schema) => {
+                  <Fragment key={i}>
+                    {database.schemas.map((schema, j) => {
                       return (
-                        <div key={schema.schemaName}>
+                        <div key={j}>
                           <Collapsible
                             className="pb-1"
-                            key={database.databaseName + schema.schemaName}
                             onTriggerOpening={async () => {
                               const currentDate = new Date();
                               const dateLastUpdated = new Date(
@@ -198,7 +194,7 @@ export default function SchemaBrowser({
                             }}
                             transitionTime={100}
                           >
-                            {schema.tables.map((table) => {
+                            {schema.tables.map((table, k) => {
                               return (
                                 <div
                                   className={clsx(
@@ -208,11 +204,7 @@ export default function SchemaBrowser({
                                   )}
                                   style={{ userSelect: "none" }}
                                   role="button"
-                                  key={
-                                    database.databaseName +
-                                    schema.schemaName +
-                                    table.tableName
-                                  }
+                                  key={k}
                                   onClick={async (e) =>
                                     handleTableClick(e, table.path, table.id)
                                   }
@@ -225,12 +217,12 @@ export default function SchemaBrowser({
                         </div>
                       );
                     })}
-                  </>
+                  </Fragment>
                 );
               })}
             </div>
           ) : (
-            <>
+            <div className="p-2">
               {!informationSchema && !fetching && (
                 <BuildInformationSchemaCard
                   datasourceId={datasource.id}
@@ -247,7 +239,7 @@ export default function SchemaBrowser({
                   setFetching={setFetching}
                 />
               )}
-            </>
+            </div>
           )}
         </>
       </SchemaBrowserWrapper>
@@ -257,6 +249,6 @@ export default function SchemaBrowser({
         datasourceId={datasource.id}
         setError={setError}
       />
-    </>
+    </div>
   );
 }

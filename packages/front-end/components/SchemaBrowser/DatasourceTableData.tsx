@@ -60,7 +60,13 @@ export default function DatasourceSchema({
 
   if (tableId && !table)
     return (
-      <div>
+      <div
+        className="p-2"
+        style={{
+          height: "50%",
+          flex: 1,
+        }}
+      >
         <LoadingSpinner />
         <span className="pl-2">Loading Table Data...</span>
       </div>
@@ -68,8 +74,16 @@ export default function DatasourceSchema({
 
   if (!table) return null;
   return (
-    <div className="pt-2">
-      <div className="d-flex justify-content-between">
+    <div
+      className="d-flex flex-column"
+      style={{
+        boxShadow: "0 -3px 5px -1px var(--border-color-200)",
+        position: "relative",
+        flex: 1,
+        height: "50%",
+      }}
+    >
+      <div className="d-flex justify-content-between px-2 pt-2">
         <label className="font-weight-bold">
           <div>
             <FaTable />{" "}
@@ -114,10 +128,7 @@ export default function DatasourceSchema({
           </label>
         )}
       </div>
-      <div
-        className="border rounded"
-        style={{ maxHeight: "250px", overflowY: "scroll" }}
-      >
+      <div className="border rounded" style={{ overflowY: "auto" }}>
         <table className="table table-sm">
           <tbody>
             {table?.columns.map((column) => {
