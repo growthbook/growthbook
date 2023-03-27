@@ -232,10 +232,10 @@ const VariationsTable: FC<Props> = ({
               simpleUrlPatterns.length > 0 &&
               exactUrlPatterns.length === 0 &&
               regexUrlPatterns.length === 0;
-            const onlyRegexRules =
-              regexUrlPatterns.length > 0 &&
+            const onlyExactRules =
+              exactUrlPatterns.length > 0 &&
               simpleUrlPatterns.length === 0 &&
-              exactUrlPatterns.length === 0;
+              regexUrlPatterns.length === 0;
 
             return (
               <Fragment key={i}>
@@ -272,9 +272,11 @@ const VariationsTable: FC<Props> = ({
                             )}
                             {exactUrlPatterns.length > 0 && (
                               <>
-                                <div className="uppercase-title mt-1">
-                                  Exact:
-                                </div>
+                                {!onlyExactRules && (
+                                  <div className="uppercase-title mt-1">
+                                    Exact:
+                                  </div>
+                                )}
                                 {exactUrlPatterns.map((p, j) =>
                                   drawUrlPattern(p, j, vc.urlPatterns.length)
                                 )}
@@ -282,11 +284,9 @@ const VariationsTable: FC<Props> = ({
                             )}
                             {regexUrlPatterns.length > 0 && (
                               <>
-                                {!onlyRegexRules && (
-                                  <div className="uppercase-title mt-1">
-                                    Regex:
-                                  </div>
-                                )}
+                                <div className="uppercase-title mt-1">
+                                  Regex:
+                                </div>
                                 {regexUrlPatterns.map((p, j) =>
                                   drawUrlPattern(p, j, vc.urlPatterns.length)
                                 )}

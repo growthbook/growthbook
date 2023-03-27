@@ -12,7 +12,8 @@ const genDefaultUrlPattern = (
   editorUrl: string
 ): VisualChangesetURLPattern => ({
   pattern: editorUrl,
-  type: "regex",
+  type: "exact",
+  include: true,
 });
 
 const VisualChangesetModal: FC<{
@@ -24,10 +25,25 @@ const VisualChangesetModal: FC<{
   }) => void;
   visualChangeset?: VisualChangesetInterface;
 }> = ({ onClose, onSubmit: _onSubmit, visualChangeset }) => {
+  let forceAdvancedMode = false;
+  if (visualChangeset?.urlPatterns?.length > 0) {
+    forceAdvancedMode = true;
+  }
+  if (visualChangeset?.urlPatterns?.length === 1) {
+    const p = visualChangeset.urlPatterns[0];
+    if (
+      p.pattern === visualChangeset.editorUrl &&
+      p.type === "exact" &&
+      p.include
+    ) {
+      forceAdvancedMode = false;
+    }
+  }
+
   const [editorUrl, setEditorUrl] = useState<string>(
     visualChangeset?.editorUrl ?? ""
   );
-  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(forceAdvancedMode);
   const [urlPatterns, setUrlPatterns] = useState<VisualChangesetURLPattern[]>(
     visualChangeset?.urlPatterns ?? [
       {
@@ -75,6 +91,13 @@ const VisualChangesetModal: FC<{
     });
   };
 
+  const editorUrlLabel = !showAdvanced
+    ? "Target URL"
+    : "URL to edit with Visual Editor";
+  const editorUrlHelpText = !showAdvanced
+    ? "Exact match of the URL to edit"
+    : "When clicking the Open Visual Editor button, this page will be opened.";
+
   return (
     <Modal
       open
@@ -85,36 +108,40 @@ const VisualChangesetModal: FC<{
     >
       <Field
         required
-        label="Visual Editor URL"
-        helpText={"The web page to edit with the Visual Editor."}
+        label={editorUrlLabel}
+        helpText={editorUrlHelpText}
         value={editorUrl}
         onChange={(e) => setEditorUrl(e.currentTarget.value)}
       />
 
-      <div className="my-2 text-xs">
-        <span
-          className="btn-link cursor-pointer"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-        >
-          <small>{showAdvanced ? "Hide" : "Show"} Advanced Options</small>
-        </span>
-      </div>
+      {!forceAdvancedMode && (
+        <div className="mt-1 mb-3 text-xs">
+          <span
+            className="btn-link cursor-pointer"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            <small>{showAdvanced ? "Hide" : "Show"} Advanced Options</small>
+          </span>
+        </div>
+      )}
 
       {showAdvanced && (
         <>
           <label>URL Targeting</label>
           {urlPatterns.map((p, i) => (
             <div key={i} className="row mb-2">
+              <div className="col-2">
+                <SelectField
+                  value={p.include ?? true ? "true" : "false"}
+                  options={[
+                    { label: "Include", value: "true" },
+                    { label: "Exclude", value: "false" },
+                  ]}
+                  onChange={(v) => setUrlPattern({ i, include: v === "true" })}
+                />
+              </div>
               <div className="col">
                 <Field
-                  helpText={
-                    <>
-                      Apply changes to all URLs matching this pattern for users.
-                      Use regular expression to target multiple e.g.{" "}
-                      <code>https://example.com/pricing</code> or{" "}
-                      <code>^/post/[0-9]+</code>.
-                    </>
-                  }
                   value={p.pattern}
                   onChange={(e) =>
                     setUrlPattern({ i, pattern: e.currentTarget.value })
@@ -133,21 +160,11 @@ const VisualChangesetModal: FC<{
                   }
                 />
               </div>
-              <div className="col-2">
-                <SelectField
-                  value={p.include ?? true ? "true" : "false"}
-                  options={[
-                    { label: "Include", value: "true" },
-                    { label: "Exclude", value: "false" },
-                  ]}
-                  onChange={(v) => setUrlPattern({ i, include: v === "true" })}
-                />
-              </div>
               <div className="col-auto" style={{ width: 30 }}>
                 {urlPatterns.length > 1 && (
                   <button
                     type="button"
-                    className="close inline"
+                    className="close inline mt-1 p-1"
                     onClick={() => removeUrlPattern(i)}
                   >
                     <span aria-hidden="true">×</span>
@@ -158,10 +175,10 @@ const VisualChangesetModal: FC<{
           ))}
 
           <button
-            className="btn btn-primary mt-2"
+            className="btn btn-link mt-2"
             onClick={(e) => {
               e.preventDefault();
-              setUrlPatterns([...urlPatterns, { pattern: "", type: "regex" }]);
+              setUrlPatterns([...urlPatterns, { pattern: "", type: "exact" }]);
             }}
           >
             <GBAddCircle /> Add URL Target
