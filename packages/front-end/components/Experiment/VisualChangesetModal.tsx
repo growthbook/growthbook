@@ -72,9 +72,7 @@ const VisualChangesetModal: FC<{
       <Field
         required
         label="Visual Editor URL"
-        helpText={
-          "The web page to edit with the Visual Editor. Will not affect users."
-        }
+        helpText={"The web page to edit with the Visual Editor."}
         value={editorUrl}
         onChange={(e) => setEditorUrl(e.currentTarget.value)}
       />
