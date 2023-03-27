@@ -53,7 +53,8 @@ export default function ConfigureReport({
       endDate: report.args.endDate
         ? getValidDate(report.args.endDate).toISOString().substr(0, 16)
         : undefined,
-      statsEngine: report.args.statsEngine || settings.statsEngine,
+      statsEngine:
+        report.args.statsEngine || settings.statsEngine || "bayesian",
       regressionAdjustmentEnabled:
         hasRegressionAdjustmentFeature &&
         !!report.args.regressionAdjustmentEnabled,
