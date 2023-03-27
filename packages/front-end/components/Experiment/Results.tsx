@@ -77,9 +77,6 @@ const Results: FC<{
   if (error) {
     return <div className="alert alert-danger m-3">{error.message}</div>;
   }
-  if (!snapshot) {
-    return null;
-  }
 
   const status = getQueryStatus(latest?.queries || [], latest?.error);
 
