@@ -26,6 +26,8 @@ import {
   MetricStats,
   MetricAnalysis,
   MetricType,
+  Condition,
+  Operator,
 } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
 import { ExperimentInterface } from "../../types/experiment";
@@ -820,6 +822,7 @@ export function toSnapshotApiInterface(
  * e.g. specifying only one of mixpanel, sql, sql.builder
  * @param organization
  * @param apiMetric
+ * @param datasource
  * @return metric Partial<MetricInterface>
  */
 export type RequiredApiMetricFields = Pick<
@@ -828,6 +831,7 @@ export type RequiredApiMetricFields = Pick<
 >;
 export function partialFromMetricApiInterface(
   organization: OrganizationInterface,
+  dataSource: DataSourceInterface,
   apiMetric: Partial<ApiMetric> & RequiredApiMetricFields
 ): Partial<MetricInterface> {
   const {
@@ -852,10 +856,23 @@ export function partialFromMetricApiInterface(
     queryFormat = "sql";
   }
 
-  const now = new Date();
-  const metric: MetricInterface = {
-    dateCreated: now,
-    dateUpdated: now,
+  const conditionsForDataSourceType = (): Condition[] => {
+    switch (dataSource.type) {
+      case "mixpanel":
+        return (mixpanel?.conditions || []).map(
+          ({ operator, property, value }) => ({
+            column: property,
+            operator: operator as Operator,
+            value: value,
+          })
+        );
+
+      default:
+        return (sqlBuilder?.conditions || []) as Condition[];
+    }
+  };
+
+  const metric: Omit<MetricInterface, "dateCreated" | "dateUpdated" | "id"> = {
     datasource: datasourceId,
     type: type as MetricType,
     organization: organization.id,
@@ -866,12 +883,17 @@ export function partialFromMetricApiInterface(
     owner: owner || "",
     tags,
     projects,
-    // TODO: Fill these out
-    aggregation: "",
+    inverse: behavior?.goal === "decrease",
+    ignoreNulls: false,
+    aggregation: sql?.userAggregationSQL || "",
+    sql: sql?.userAggregationSQL, // TODO: Is this correct?
+    cap: behavior?.cap ?? 0,
+    conditions: conditionsForDataSourceType(),
     anonymousIdColumn: "",
-    cap: 0,
-    column: "",
-    conditions: [],
+    column: sqlBuilder?.valueColumnName,
+    // userIdColumn: sqlBuilder?.identifierTypeColumns || "",
+    userIdColumn: "", // TODO: Remove?
+    // TODO: Fill these out
     conversionDelayHours: 0,
     conversionWindowHours: 0,
     denominator: "",
@@ -880,11 +902,9 @@ export function partialFromMetricApiInterface(
     minPercentChange: 0,
     minSampleSize: 0,
     queries: [],
-    sql: "",
     status: undefined,
     table: "",
     timestampColumn: "",
-    userIdColumn: "",
     userIdColumns: undefined,
     userIdType: undefined,
     userIdTypes: [],

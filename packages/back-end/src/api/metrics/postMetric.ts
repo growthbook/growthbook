@@ -100,7 +100,11 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
         : undefined,
     };
 
-    const metric = partialFromMetricApiInterface(req.organization, apiMetric);
+    const metric = partialFromMetricApiInterface(
+      req.organization,
+      datasource,
+      apiMetric
+    );
     const createdMetric = await createMetric(metric);
 
     return {
