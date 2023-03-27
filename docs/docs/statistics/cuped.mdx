@@ -99,11 +99,11 @@ Finally, you could also, if you wanted, override these metric-level settings for
 By default, each experiment analyzed using the Frequentist engine will use your organization-level defaults, unless they are overriden by a metric. However, you can always toggle CUPED on or off for a Frequentist analysis using the new toggle added to the top of the results table. You may need to re-run your analysis if you change this setting.
 
 - If the toggle is Off, then CUPED will not be applied to any metrics.
-- If it is toggled On, then it will be applied for all metrics that:
+- If the toggle is On, then it will be applied for all metrics that:
   - (a) it can be applied to
   - (b) do not have a metric setting or metric override turning it off
 
-The following screenshot shows the results with CUPED on. However, you can see that there is an icon showing that CUPED is disabled for Average Order Value (because it is a ratio metric). So even if CUPED is toggled on, we will always show you any metrics for which GrowthBook did not use CUPED.
+The following screenshot shows the results with CUPED on. However, you can see that there is an icon showing that CUPED is disabled for Average Order Value (because it is a ratio metric). So even if CUPED is toggled on, we will always show you any metrics for which GrowthBook did not use CUPED using that small CUPED icon with a red x.
 
 <img
   src="/images/statistics/cuped-results.png"
@@ -111,12 +111,18 @@ The following screenshot shows the results with CUPED on. However, you can see t
   style={{ width: 800, margin: "0 auto" }}
 />
 
-Furthermore, if you mouse over the icon you will get an explanation about why CUPED was not applied.
+Furthermore, if you mouse over the icon showing CUPED wasn't applied, you will get an explanation why.
+
+<img
+  src="/images/statistics/cuped-icon.png"
+  alt="Metric Icon showing CUPED Disabled Reason"
+  style={{ width: 300, margin: "0 auto" }}
+/>
+
+If you mouse over the metric name itself, you get the final CUPED status for each metric (on/off, number of lookback days).
 
 <img
   src="/images/statistics/cuped-tooltip.png"
   alt="Metric Tooltip with CUPED status"
-  style={{ width: 400, margin: "0 auto" }}
+  style={{ width: 300, margin: "0 auto" }}
 />
-
-If you mouse over the metric name itself, you get the final CUPED status for each metric (on/off, number of lookback days).

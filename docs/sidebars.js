@@ -167,6 +167,7 @@ const sidebars = {
           type: "doc",
           id: "statistics/cuped",
           label: "Regression Adjustment (CUPED)",
+          className: "pill-new",
         },
       ],
     },
