@@ -24,8 +24,8 @@ export default function SchemaBrowserWrapper({
   const { apiCall } = useAuth();
 
   return (
-    <div className="d-flex flex-column">
-      <div className="d-flex justify-content-between">
+    <div className="d-flex flex-column pt-2" style={{ flex: 1, height: "50%" }}>
+      <div className="d-flex justify-content-between border-bottom px-2">
         <label className="font-weight-bold mb-1 d-flex align-items-center">
           <FaDatabase />
           <span className="pl-1">{datasourceName}</span>

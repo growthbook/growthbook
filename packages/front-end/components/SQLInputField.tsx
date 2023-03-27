@@ -263,7 +263,7 @@ export default function SQLInputField({
             <DisplayTestQueryResults
               duration={parseInt(testQueryResults.duration || "0")}
               requiredColumns={[...requiredColumns]}
-              result={testQueryResults.results?.[0]}
+              results={testQueryResults.results}
               error={testQueryResults.error}
               sql={testQueryResults.sql}
               suggestions={suggestions}

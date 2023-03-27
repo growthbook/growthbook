@@ -588,6 +588,12 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
     throw new Error("Invalid SQL. Expecting `SELECT ... FROM ...`");
   }
 
+  if (sql.match(/;(\s|\n)*$/)) {
+    throw new Error(
+      "Don't end your SQL statements with semicolons since it will break our generated queries"
+    );
+  }
+
   const missingCols = requiredColumns.filter(
     (col) => !sql.toLowerCase().includes(col.toLowerCase())
   );
