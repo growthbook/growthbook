@@ -834,6 +834,8 @@ export function partialFromMetricApiInterface(
   dataSource: DataSourceInterface,
   apiMetric: Partial<ApiMetric> & RequiredApiMetricFields
 ): Partial<MetricInterface> {
+  const metricDefaults = organization.settings?.metricDefaults;
+
   const {
     datasourceId,
     name,
@@ -885,79 +887,45 @@ export function partialFromMetricApiInterface(
     projects,
     inverse: behavior?.goal === "decrease",
     ignoreNulls: false,
-    aggregation: sql?.userAggregationSQL || "",
-    sql: sql?.userAggregationSQL, // TODO: Is this correct?
+    aggregation: sql?.userAggregationSQL || mixpanel?.userAggregation || "",
+    sql: sql?.userAggregationSQL || sql?.conversionSQL, // TODO: Is this correct?
     cap: behavior?.cap ?? 0,
     conditions: conditionsForDataSourceType(),
-    anonymousIdColumn: "",
-    column: sqlBuilder?.valueColumnName,
-    // userIdColumn: sqlBuilder?.identifierTypeColumns || "",
-    userIdColumn: "", // TODO: Remove?
-    // TODO: Fill these out
-    conversionDelayHours: 0,
-    conversionWindowHours: 0,
-    denominator: "",
-    loseRisk: 0,
-    maxPercentChange: 0,
-    minPercentChange: 0,
-    minSampleSize: 0,
+
+    conversionDelayHours: behavior?.conversionWindowStart ?? 0,
+    conversionWindowHours: behavior?.conversionWindowEnd ?? 0,
+    loseRisk: behavior?.riskThresholdDanger ?? 0.0125,
+    winRisk: behavior?.riskThresholdSuccess ?? 0.0025,
+    column: sqlBuilder?.valueColumnName || mixpanel?.eventValue, // Is this correct?
+    maxPercentChange:
+      behavior?.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0.5,
+    minPercentChange:
+      behavior?.minPercentChange ??
+      metricDefaults?.minPercentageChange ??
+      0.005,
+    minSampleSize:
+      behavior?.minSampleSize ?? metricDefaults?.minimumSampleSize ?? 150,
+    denominator: sql?.denominatorMetricId || "",
+    table: mixpanel?.eventName || sqlBuilder?.tableName || "",
+    status: "active",
+    timestampColumn: sqlBuilder?.timestampColumnName || "timestamp",
     queries: [],
-    status: undefined,
-    table: "",
-    timestampColumn: "",
-    userIdColumns: undefined,
+    userIdTypes: sql?.identifierTypes || [],
     userIdType: undefined,
-    userIdTypes: [],
-    winRisk: 0,
+    anonymousIdColumn: "", // TODO: ??
+    userIdColumn: "", // TODO: Remove?
+    userIdColumns: (sqlBuilder?.identifierTypeColumns || []).reduce<
+      Record<string, string>
+    >((acc, { columnName, identifierType }) => {
+      acc[columnName] = identifierType;
+      return acc;
+    }, {}),
   };
 
-  const metricDefaults = organization.settings?.metricDefaults;
-  // todo:
-
-  if (mixpanel) {
-    const { conditions, userAggregation, eventName, eventValue } = mixpanel;
-  }
-
-  if (sql) {
-    const {
-      denominatorMetricId,
-      conversionSQL,
-      identifierTypes,
-      userAggregationSQL,
-    } = sql;
-  }
-
-  // Only used for builder
-  /*
-  userIdColumns,
-    userIdColumn, // deprecated field still being used by private API
-    userIdTypes, // deprecated field still being used by private API
-    anonymousIdColumn, // deprecated field still being used by private API
-    */
   if (sqlBuilder) {
     const {
-      conditions,
-      identifierTypeColumns: userIdTypes,
-      timestampColumnName,
-      valueColumnName,
-      tableName,
+      identifierTypeColumns: userIdTypes, // ?
     } = sqlBuilder;
-  }
-
-  if (behavior) {
-    const {
-      cap,
-      conversionWindowEnd,
-      conversionWindowStart,
-      goal,
-      maxPercentChange,
-      minPercentChange,
-      riskThresholdDanger: loseRisk, // loseRisk
-      riskThresholdSuccess: winRisk, // winRisk
-      minSampleSize,
-    } = behavior;
-
-    metric.inverse = goal === "decrease";
   }
 
   return metric;
