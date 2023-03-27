@@ -1176,7 +1176,7 @@ const MetricPage: FC = () => {
                           Apply regression adjustment:
                         </span>{" "}
                         <span className="font-weight-bold">
-                          {metric?.regressionAdjustmentEnabled ? "Yes" : "No"}
+                          {metric?.regressionAdjustmentEnabled ? "On" : "Off"}
                         </span>
                       </li>
                       <li className="mb-2">
@@ -1203,8 +1203,8 @@ const MetricPage: FC = () => {
                             </span>{" "}
                             <span className="font-weight-bold">
                               {settings?.regressionAdjustmentEnabled
-                                ? "Yes"
-                                : "No"}
+                                ? "On"
+                                : "Off"}
                             </span>
                           </div>
                           <div className="mb-1 small">

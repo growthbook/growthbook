@@ -359,18 +359,18 @@ export default function ConfigureReport({
               </PremiumTooltip>
             }
             labelClassName="font-weight-bold"
-            value={form.watch("regressionAdjustmentEnabled") ? "yes" : "no"}
+            value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
             onChange={(v) => {
-              form.setValue("regressionAdjustmentEnabled", v === "yes");
+              form.setValue("regressionAdjustmentEnabled", v === "on");
             }}
             options={[
               {
-                label: "Yes",
-                value: "yes",
+                label: "On",
+                value: "on",
               },
               {
-                label: "No",
-                value: "no",
+                label: "Off",
+                value: "off",
               },
             ]}
             helpText="Only applicable to frequentist analyses"

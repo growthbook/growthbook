@@ -320,16 +320,16 @@ export default function MetricsOverridesSelector({
                                   <>
                                     (metric default:{" "}
                                     {metricDefinition.regressionAdjustmentEnabled
-                                      ? "Yes"
-                                      : "No"}
+                                      ? "On"
+                                      : "Off"}
                                     )
                                   </>
                                 ) : (
                                   <>
                                     (organization default:{" "}
                                     {settings.regressionAdjustmentEnabled
-                                      ? "Yes"
-                                      : "No"}
+                                      ? "On"
+                                      : "Off"}
                                     )
                                   </>
                                 )}
@@ -337,7 +337,7 @@ export default function MetricsOverridesSelector({
                             </div>
                           </div>
                           <div
-                            className="form-group mt-1 mb-1 mr-2 form-inline"
+                            className="form-group mt-1 mb-1 mr-2"
                             style={{
                               opacity: form.watch(
                                 `metricOverrides.${i}.regressionAdjustmentEnabled`
@@ -356,8 +356,9 @@ export default function MetricsOverridesSelector({
                                     "15"
                                   : "",
                               }}
-                              className={`ml-2`}
-                              containerClassName="mb-0 small"
+                              className="ml-2"
+                              containerClassName="mb-0 small form-inline"
+                              inputGroupClassName="d-inline-flex w-150px"
                               append="days"
                               min="0"
                               max="100"

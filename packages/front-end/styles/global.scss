@@ -95,12 +95,21 @@ pre {
     font-size: 13px;
   }
 }
-// default bootstrap overrides:
 
+.w-100px {
+  width: 100px !important;
+}
+.w-150px {
+  width: 150px !important;
+}
+.w-200px {
+  width: 200px !important;
+}
+
+// default bootstrap overrides:
 .btn:focus {
   box-shadow: none;
 }
-
 .btn:focus-visible {
   box-shadow: 0 0 0 0.2rem rgb(0 123 255 / 25%);
 }

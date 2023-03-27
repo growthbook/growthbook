@@ -1101,11 +1101,11 @@ const MetricForm: FC<MetricFormProps> = ({
                       />
                       <small className="form-text text-muted">
                         (organization default:{" "}
-                        {settings.regressionAdjustmentEnabled ? "Yes" : "No"})
+                        {settings.regressionAdjustmentEnabled ? "On" : "Off"})
                       </small>
                     </div>
                     <div
-                      className="form-group mt-3 mb-1 mr-2 form-inline"
+                      className="form-group mt-3 mb-1 mr-2"
                       style={{
                         opacity: form.watch("regressionAdjustmentEnabled")
                           ? "1"
@@ -1121,8 +1121,9 @@ const MetricForm: FC<MetricFormProps> = ({
                             ? regressionAdjustmentDaysHighlightColor + "15"
                             : "",
                         }}
-                        className={`ml-2`}
-                        containerClassName="mb-0"
+                        className="ml-2"
+                        containerClassName="mb-0 form-inline"
+                        inputGroupClassName="d-inline-flex w-150px"
                         append="days"
                         min="0"
                         max="100"
