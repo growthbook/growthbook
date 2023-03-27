@@ -91,7 +91,7 @@ const drawUrlPattern = (
   <span key={j}>
     <code>{p.pattern}</code>
     {p.include === false && (
-      <Tooltip body="Exclude this pattern">
+      <Tooltip body="Exclude this pattern" style={{ marginLeft: 2 }}>
         <FaTimesCircle className="mt-1" color={"#e53"} />
       </Tooltip>
     )}

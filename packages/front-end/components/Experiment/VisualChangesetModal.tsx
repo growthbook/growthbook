@@ -3,6 +3,7 @@ import {
   VisualChangesetURLPattern,
 } from "@/../back-end/types/visual-changeset";
 import { FC, useState } from "react";
+import SelectField from "@/components/Forms/SelectField";
 import Field from "../Forms/Field";
 import { GBAddCircle } from "../Icons";
 import Modal from "../Modal";
@@ -31,15 +32,28 @@ const VisualChangesetModal: FC<{
     visualChangeset?.urlPatterns ?? [
       {
         pattern: "",
-        type: "regex",
+        type: "exact",
+        include: true,
       },
     ]
   );
-  const setUrlPattern = (p: string, i: number) => {
+  // todo: this should really be a form with hooks
+  const setUrlPattern = ({
+    i,
+    pattern,
+    type,
+    include,
+  }: {
+    i: number;
+    pattern?: string;
+    type?: "simple" | "exact" | "regex";
+    include?: boolean;
+  }) => {
     const newUrlPatterns = [...urlPatterns];
     newUrlPatterns[i] = {
-      pattern: p,
-      type: "regex",
+      pattern: pattern ?? newUrlPatterns[i].pattern,
+      type: type ?? newUrlPatterns[i].type,
+      include: include ?? newUrlPatterns[i].include ?? true,
     };
     setUrlPatterns(newUrlPatterns);
   };
@@ -78,17 +92,20 @@ const VisualChangesetModal: FC<{
       />
 
       <div className="my-2 text-xs">
-        <a href="#" onClick={() => setShowAdvanced(!showAdvanced)}>
+        <span
+          className="btn-link cursor-pointer"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+        >
           <small>{showAdvanced ? "Hide" : "Show"} Advanced Options</small>
-        </a>
+        </span>
       </div>
 
       {showAdvanced && (
         <>
           <label>URL Targeting</label>
           {urlPatterns.map((p, i) => (
-            <div key={i} className="d-flex align-items-start mb-2">
-              <div className="flex-1">
+            <div key={i} className="row mb-2">
+              <div className="col">
                 <Field
                   helpText={
                     <>
@@ -99,11 +116,35 @@ const VisualChangesetModal: FC<{
                     </>
                   }
                   value={p.pattern}
-                  onChange={(e) => setUrlPattern(e.currentTarget.value, i)}
+                  onChange={(e) =>
+                    setUrlPattern({ i, pattern: e.currentTarget.value })
+                  }
                 />
               </div>
-              {urlPatterns.length > 1 && (
-                <div className="flex-shrink-1 pl-2">
+              <div className="col-2">
+                <SelectField
+                  value={p.type}
+                  options={[
+                    { label: "Exact", value: "exact" },
+                    { label: "Regex", value: "regex" },
+                  ]}
+                  onChange={(v) =>
+                    setUrlPattern({ i, type: v as "exact" | "regex" })
+                  }
+                />
+              </div>
+              <div className="col-2">
+                <SelectField
+                  value={p.include ?? true ? "true" : "false"}
+                  options={[
+                    { label: "Include", value: "true" },
+                    { label: "Exclude", value: "false" },
+                  ]}
+                  onChange={(v) => setUrlPattern({ i, include: v === "true" })}
+                />
+              </div>
+              <div className="col-auto" style={{ width: 30 }}>
+                {urlPatterns.length > 1 && (
                   <button
                     type="button"
                     className="close inline"
@@ -111,8 +152,8 @@ const VisualChangesetModal: FC<{
                   >
                     <span aria-hidden="true">×</span>
                   </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ))}
 
