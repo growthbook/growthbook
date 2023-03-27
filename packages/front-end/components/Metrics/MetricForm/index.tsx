@@ -1068,7 +1068,8 @@ const MetricForm: FC<MetricFormProps> = ({
                       </label>
                     </div>
                     {!!form.watch("regressionAdjustmentOverride") &&
-                      settings.statsEngine === "bayesian" && (
+                      (!settings.statsEngine ||
+                        settings.statsEngine === "bayesian") && (
                         <small className="d-block my-1 text-warning-orange">
                           <FaExclamationTriangle /> Your organization uses
                           Bayesian statistics by default and regression

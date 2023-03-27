@@ -14,11 +14,11 @@ import { updateReport } from "../models/ReportModel";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { expandDenominatorMetrics } from "../util/sql";
 import { orgHasPremiumFeature } from "../util/organization.util";
+import { OrganizationInterface } from "../../types/organization";
 import { analyzeExperimentResults } from "./stats";
 import { parseDimensionId } from "./experiments";
 import { getExperimentMetric, getExperimentResults, startRun } from "./queries";
 import { getSourceIntegrationObject } from "./datasource";
-import { getOrganizationById } from "./organizations";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -66,21 +66,23 @@ export function reportArgsFromSnapshot(
 }
 
 export async function startExperimentAnalysis(
-  organization: string,
+  organization: OrganizationInterface,
   args: ExperimentReportArgs,
   useCache: boolean
 ) {
-  const org = await getOrganizationById(organization);
-  const hasRegressionAdjustmentFeature = org
-    ? orgHasPremiumFeature(org, "regression-adjustment")
+  const hasRegressionAdjustmentFeature = organization
+    ? orgHasPremiumFeature(organization, "regression-adjustment")
     : false;
-  const metricObjs = await getMetricsByOrganization(organization);
+  const metricObjs = await getMetricsByOrganization(organization.id);
   const metricMap = new Map<string, MetricInterface>();
   metricObjs.forEach((m) => {
     metricMap.set(m.id, m);
   });
 
-  const datasourceObj = await getDataSourceById(args.datasource, organization);
+  const datasourceObj = await getDataSourceById(
+    args.datasource,
+    organization.id
+  );
   if (!datasourceObj) {
     throw new Error("Missing datasource for report");
   }
@@ -106,7 +108,7 @@ export async function startExperimentAnalysis(
 
   let segmentObj: SegmentInterface | null = null;
   if (args.segment) {
-    segmentObj = await findSegmentById(args.segment, organization);
+    segmentObj = await findSegmentById(args.segment, organization.id);
   }
 
   const integration = getSourceIntegrationObject(datasourceObj);
@@ -137,7 +139,7 @@ export async function startExperimentAnalysis(
     userIdType: args.userIdType,
     hashAttribute: "",
     releasedVariationId: "",
-    organization,
+    organization: organization.id,
     skipPartialData: args.skipPartialData,
     trackingKey: args.trackingKey,
     datasource: args.datasource,
@@ -171,7 +173,7 @@ export async function startExperimentAnalysis(
       };
     }),
   };
-  const dimensionObj = await parseDimensionId(args.dimension, organization);
+  const dimensionObj = await parseDimensionId(args.dimension, organization.id);
 
   // Run it as a single synchronous task (non-sql datasources and legacy code)
   if (!integration.getSourceProperties().separateExperimentResultQueries) {
@@ -222,7 +224,7 @@ export async function startExperimentAnalysis(
     queryDocs,
     async (queryData) =>
       analyzeExperimentResults(
-        organization,
+        organization.id,
         args.variations,
         args.dimension,
         queryData,
@@ -233,6 +235,7 @@ export async function startExperimentAnalysis(
 }
 
 export async function runReport(
+  org: OrganizationInterface,
   report: ReportInterface,
   useCache: boolean = true
 ) {
@@ -240,7 +243,7 @@ export async function runReport(
 
   if (report.type === "experiment") {
     const { queries, results } = await startExperimentAnalysis(
-      report.organization,
+      org,
       report.args,
       useCache
     );
@@ -257,5 +260,5 @@ export async function runReport(
     throw new Error("Unsupported report type");
   }
 
-  await updateReport(report.organization, report.id, updates);
+  await updateReport(org.id, report.id, updates);
 }

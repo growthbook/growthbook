@@ -197,7 +197,7 @@ export async function refreshReport(
   report.args.regressionAdjustmentEnabled = !!report.args
     ?.regressionAdjustmentEnabled;
 
-  await runReport(report, useCache);
+  await runReport(org, report, useCache);
 
   return res.status(200).json({
     status: 200,
@@ -248,6 +248,7 @@ export async function putReport(
 
   if (needsRun) {
     await runReport(
+      org,
       {
         ...report,
         ...updates,

@@ -448,7 +448,7 @@ export async function createSnapshot(
   });
 
   const { queries, results } = await startExperimentAnalysis(
-    experiment.organization,
+    organization,
     reportArgsFromSnapshot(experiment, data),
     useCache
   );
