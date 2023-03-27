@@ -91,6 +91,7 @@ export default function EditSqlModal({
       size="max"
       bodyClassName="p-0"
       cta="Save"
+      closeCta="Back"
     >
       <div
         className={clsx("d-flex", {
