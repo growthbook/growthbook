@@ -2,7 +2,7 @@
 title: Regression Adjustment (CUPED)
 description: Regression Adjustment (CUPED)
 sidebar_label: Regression Adjustment (CUPED)
-slug: aggregation
+slug: cuped
 ---
 
 # Regression Adjustment (CUPED)
@@ -19,7 +19,7 @@ GrowthBook aims to unlock high-velocity, enterprise-scale experimentation. Regre
 
 Regression adjustment (RA) in general uses data correlated with a metric to reduce our uncertainty about that metric and the statistics we compute. Any data correlated with the metric of interest, but uncorrelated with variation assignment can be used. GrowthBook (and many others) use pre-experiment data, as metrics collected before an experiment will not be affected by said experiment. In fact, the very name CUPED embeds this concept of using pre-experiment data. Using this pre-experiment data, we can fit a simple model to predict our outcome metric and use those predictions to adjust our metric. The adjusted metric then tends to have lower variance.
 
-The more correlated the pre-experiment data is with your metric of interest, the more variance reduction you can achieve. For example, the following plot demonstrates the difference in the distribution of a metric before adjustment ("Normal") and after adjustment ("Adjusted"). The difference in the panels shows that the difference between the normal and adjusted metric is greater when correlation is higher. In both cases, the adjustment is reducing the variance of the metric, but in the higher correlation case, the variance reduction is going to be greater.
+The more correlated the pre-experiment data is with your metric of interest, the more variance reduction you can achieve. For example, the following plot demonstrates the difference in the distribution of a metric before adjustment ("Normal") and after adjustment ("Adjusted"). In both panels, the green, adjusted metric is distributed less widely (e.g. it is more tightly spaced out around the mean). However, the adjusted distribution is even tighter in the right plot, showing that variance reduction will be greater the more correlated your pre-experiment data is with your post-experiment data.
 
 <img
   src="/images/statistics/cuped-corr.png"
@@ -38,11 +38,14 @@ GrowthBook takes a transparent, simple approach to CUPED.
 For each metric you analyze, we use the metric itself from the pre-exposure period as the correlated data. This tends to be very powerful for metrics that are frequently produced by users (e.g. engagement measures), but can be less powerful if your metric is rare, or if you are measuring behavior for new users. In general, CUPED is more powerful the more you know about your units of interest and the longer they have been able to generate the metric that you are analyzing as a part of your experiment.
 
 We then use the standard CUPED estimator for each variation mean,
-$$\bar{Y}_{adjusted} = \bar{Y}_{post} - \theta * \bar{Y}_{pre},$$
+
+$$
+\bar{Y}_{adjusted} = \bar{Y}_{post} - \theta * \bar{Y}_{pre}
+$$
 
 where $\bar{Y}_{post}$ is the post-exposure metric average, $\bar{Y}_{pre}$ is the pre-exposure metric average, and $\theta$ is essentially a regression coefficient from a regression of the post-experiment data on the pre-experiment data (pooled across both the control and treatment variation of interest), $\theta = \text{Cov}(Y_{pre}, Y_{post}) / \text{Var}(Y_{pre})$.
 
-Technically, we could use any correlated data instead of $Y_{pre}$. For example, we could use some model that includes all pre-exposure metrics added to your experiment, or auxiliariy dimension information you have configured per user. However, one downside of these approaches is that your results for metric A will depend on whether or not you add a metric B to your experiment and our analysis pipeline would lose its modularity, where each metric can be processed in parallel. Nonetheless, we anticipate continuing to build methods that leverage additional data to improve variance reduction from CUPED.
+As discussed above, we could use any correlated data instead of $Y_{pre}$. For example, we could use some model that includes all pre-exposure metrics added to your experiment, or auxiliariy dimension information you have configured per user. However, one downside of these approaches is that your results for metric A will depend on whether or not you add a metric B to your experiment and our analysis pipeline would lose its modularity, where each metric can be processed in parallel. Nonetheless, we anticipate continuing to build methods that leverage additional data to improve variance reduction from CUPED.
 
 ### Lookback window
 
@@ -67,4 +70,32 @@ CUPED works for all metrics that are analyzed using the Frequentist engine, exce
 
 ## Configuring CUPED
 
-TODO SCREENSHOTS
+### Organization-level settings
+
+You can turn CUPED on for all Frequentist analysis under Settings -> General. On that page, you can set the default behavior for experiments. CUPED can be turned on or off by default for all analyses and you can set the default number of days to use for a lookback window.
+
+<img
+  src="/images/statistics/cuped-corr.png"
+  alt="Variance Reduction by Correlation"
+  style={{ width: 600, margin: "0 auto" }}
+/>
+
+### Metric-level settings
+
+You can also override these organization-level defaults at the Metric level. On the page for a Metric, you can go edit the Behavior, scroll down to Advanced Settings, and select overrides specific for that metric.
+
+You might want to disable CUPED for a particular metric if that metric never collects values for a user before they enter an experiment. You might want to adjust metric-specific lookback windows for any of the reasons listed in the section above.
+
+Finally, you could also, if you wanted, override these metric-level settings for a particular experiment using metric overrides on the experiment page.
+
+### Experiment settings
+
+By default, each experiment analyzed using the Frequentist engine will use your organization-level defaults, unless they are overriden by a metric.
+
+### How do I know if CUPED has been applied?
+
+Because we have a variety of ways to turn on or off CUPED, it is important to note that the results table itself will tell you if CUPED has been applied for a metric, and what the given lookback window is.
+
+If the toggle at the top of the results table is off, then CUPED has not been applied for any metric.
+
+If the toggle at the top of the results table is on, then the CUPED status for the metric can be seen using the icon in the metric row, as well as relevant information in the mouseover of the metric name.
