@@ -168,7 +168,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
             return analyzeExperimentResults(
               experiment.organization,
               getReportVariations(experiment, phase),
-              currentSnapshot.dimension || undefined,
+              undefined,
               queryData,
               currentSnapshot.statsEngine ?? organization.settings?.statsEngine
             );

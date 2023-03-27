@@ -235,7 +235,7 @@ export default function SinglePage({
     if (!experiment.regressionAdjustmentEnabled) {
       regressionAdjustmentEnabled = false;
     }
-    if (settings.statsEngine === "bayesian") {
+    if (!settings.statsEngine || settings.statsEngine === "bayesian") {
       regressionAdjustmentAvailable = false;
       regressionAdjustmentEnabled = false;
     }
