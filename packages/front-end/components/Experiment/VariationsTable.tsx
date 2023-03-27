@@ -105,12 +105,12 @@ const VariationsTable: FC<Props> = ({
   return (
     <div className="w-100">
       <div
-        className="w-100 mb-4"
+        className="w-100 mb-4 fade-mask-1rem"
         style={{
           overflowX: "auto",
         }}
       >
-        <table className="table table-bordered">
+        <table className="table table-bordered mx-3 w100-1rem">
           <thead>
             <tr>
               {variations.map((v, i) => (
@@ -121,7 +121,7 @@ const VariationsTable: FC<Props> = ({
                   }`}
                   style={{ borderBottom: hasDescriptions ? 0 : null }}
                 >
-                  <span className="label">{v.key}</span>
+                  <span className="label">{i}</span>
                   <span className="name">{v.name}</span>
                 </th>
               ))}
@@ -148,7 +148,7 @@ const VariationsTable: FC<Props> = ({
                 <td
                   key={i}
                   scope="col"
-                  style={{ minWidth: "18rem", height: "inherit" }}
+                  style={{ minWidth: "17.5rem", height: "inherit" }}
                 >
                   <div className="d-flex flex-column h-100">
                     {v.screenshots.length > 0 ? (
@@ -243,13 +243,13 @@ const VariationsTable: FC<Props> = ({
                 )}
 
                 <div
-                  className="w-100"
+                  className="w-100 fade-mask-1rem"
                   style={{
                     overflowX: "auto",
                   }}
                 >
                   <table
-                    className="table table-bordered"
+                    className="table table-bordered mx-3 w100-1rem"
                     style={{ tableLayout: "fixed" }}
                   >
                     <thead>
@@ -258,9 +258,9 @@ const VariationsTable: FC<Props> = ({
                           <th
                             key={i}
                             className={`py-2 variation with-variation-label variation${i} with-variation-border-bottom`}
-                            style={{ borderBottomWidth: 4, minWidth: 180 }}
+                            style={{ borderBottomWidth: 4, width: "10rem" }}
                           >
-                            <span className="label">{v.key}</span>
+                            <span className="label">{i}</span>
                             <span className="name">{v.name}</span>
                           </th>
                         ))}

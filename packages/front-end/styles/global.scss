@@ -1073,6 +1073,19 @@ pre {
   }
 }
 
+.fade-mask-1rem {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 1rem,
+    black calc(100% - 1rem),
+    transparent 100%
+  );
+}
+.w100-1rem {
+  width: calc(100% - 2rem);
+}
+
 .variation {
   &.with-variation-label {
     .label {
@@ -1146,7 +1159,6 @@ pre {
     border-bottom: 7px solid #999;
     &.variation0,
     &.variation4 {
-      border-bottom: 7px solid #772eff;
     }
     &.variation1,
     &.variation5 {
