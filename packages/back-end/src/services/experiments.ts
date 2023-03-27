@@ -821,8 +821,8 @@ export function toSnapshotApiInterface(
  * This method does not perform any validation; it is expected that valid data be passed in,
  * e.g. specifying only one of mixpanel, sql, sql.builder
  * @param organization
- * @param apiMetric
  * @param datasource
+ * @param apiMetric
  * @return metric Partial<MetricInterface>
  */
 export type RequiredApiMetricFields = Pick<
@@ -831,8 +831,8 @@ export type RequiredApiMetricFields = Pick<
 >;
 export function partialFromMetricApiInterface(
   organization: OrganizationInterface,
-  dataSource: DataSourceInterface,
-  apiMetric: Partial<ApiMetric> & RequiredApiMetricFields
+  apiMetric: Partial<ApiMetric> & RequiredApiMetricFields,
+  dataSource: DataSourceInterface
 ): Partial<MetricInterface> {
   const metricDefaults = organization.settings?.metricDefaults;
 
@@ -921,12 +921,6 @@ export function partialFromMetricApiInterface(
       return acc;
     }, {}),
   };
-
-  if (sqlBuilder) {
-    const {
-      identifierTypeColumns: userIdTypes, // ?
-    } = sqlBuilder;
-  }
 
   return metric;
 }
