@@ -25,7 +25,10 @@ type ModAppProps = AppProps & {
 
 const growthbook = new GrowthBook<AppFeatures>({
   apiHost: "https://cdn.growthbook.io",
-  clientKey: "sdk-ueFMOgZ2daLa0M",
+  clientKey:
+    process.env.NODE_ENV === "production"
+      ? "sdk-ueFMOgZ2daLa0M"
+      : "sdk-UmQ03OkUDAu7Aox",
   enableDevMode: true,
   realtimeKey: "key_prod_cb40dfcb0eb98e44",
   trackingCallback: (experiment, result) => {
