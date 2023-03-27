@@ -32,7 +32,6 @@ import {
   replaceSQLVars,
   format,
   FormatDialect,
-  replaceCountStar,
 } from "../util/sql";
 
 export default abstract class SqlIntegration
@@ -342,7 +341,11 @@ export default abstract class SqlIntegration
     );
 
     // Get rough date filter for metrics to improve performance
-    const metricStart = this.getMetricStart([params.metric], params.from);
+    const metricStart = this.getMetricStart(
+      params.from,
+      this.getMetricMinDelay([params.metric]),
+      0
+    );
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
     const aggregate = this.getAggregateMetricColumn(params.metric, "noWindow");
@@ -477,6 +480,13 @@ export default abstract class SqlIntegration
           main_denominator_sum_product:
             parseFloat(row.main_denominator_sum_product) || 0,
         }),
+        ...(row.covariate_metric_type && {
+          covariate_metric_type: row.covariate_metric_type ?? "",
+          covariate_sum: parseFloat(row.covariate_sum) || 0,
+          covariate_sum_squares: parseFloat(row.covariate_sum_squares) || 0,
+          main_covariate_sum_product:
+            parseFloat(row.main_covariate_sum_product) || 0,
+        }),
       };
     });
   }
@@ -566,6 +576,7 @@ export default abstract class SqlIntegration
   private getActivatedUsersCTE(
     baseIdType: string,
     metrics: MetricInterface[],
+    isRegressionAdjusted: boolean = false,
     ignoreConversionEnd: boolean = false,
     tablePrefix: string = "__activationMetric",
     initialTable: string = "__experiment"
@@ -574,6 +585,13 @@ export default abstract class SqlIntegration
     return `
       SELECT
         initial.${baseIdType},
+        ${
+          isRegressionAdjusted
+            ? `
+          initial.preexposure_start,
+          initial.preexposure_end,`
+            : ""
+        }
         t${metrics.length - 1}.conversion_start as conversion_start
         ${
           ignoreConversionEnd
@@ -650,8 +668,7 @@ export default abstract class SqlIntegration
     return `e.${col}`;
   }
 
-  private getMetricStart(metrics: MetricInterface[], initial: Date) {
-    const metricStart = new Date(initial);
+  private getMetricMinDelay(metrics: MetricInterface[]) {
     let runningDelay = 0;
     let minDelay = 0;
     metrics.forEach((m) => {
@@ -661,8 +678,20 @@ export default abstract class SqlIntegration
         runningDelay = delay;
       }
     });
+    return minDelay;
+  }
+
+  private getMetricStart(
+    initial: Date,
+    minDelay: number,
+    regressionAdjustmentHours: number
+  ) {
+    const metricStart = new Date(initial);
     if (minDelay < 0) {
       metricStart.setHours(metricStart.getHours() + minDelay);
+    }
+    if (regressionAdjustmentHours > 0) {
+      metricStart.setHours(metricStart.getHours() - regressionAdjustmentHours);
     }
     return metricStart;
   }
@@ -694,6 +723,19 @@ export default abstract class SqlIntegration
     return metricEnd;
   }
 
+  private getStatisticType(
+    isRatio: boolean,
+    isRegressionAdjusted: boolean
+  ): "mean" | "ratio" | "mean_ra" {
+    if (isRatio) {
+      return "ratio";
+    }
+    if (isRegressionAdjusted) {
+      return "mean_ra";
+    }
+    return "mean";
+  }
+
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
     const {
       metric: metricDoc,
@@ -702,6 +744,8 @@ export default abstract class SqlIntegration
       experiment,
       phase,
       segment,
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatus,
     } = params;
 
     // clone the metrics before we mutate them
@@ -743,6 +787,41 @@ export default abstract class SqlIntegration
       experiment.userIdType
     );
 
+    const denominator = denominatorMetrics[denominatorMetrics.length - 1];
+    // If the denominator is a binomial, it's just acting as a filter
+    // e.g. "Purchase/Signup" is filtering to users who signed up and then counting purchases
+    // When the denominator is a count, it's a real ratio, dividing two quantities
+    // e.g. "Pages/Session" is dividing number of page views by number of sessions
+    const isRatio = denominator?.type === "count";
+    // However, even if we use a count as denominator, GB 1.9 and earlier would
+    // filter out users who had 0 values for the denominator. However, we may want
+    // to enable more generic ratio metrics where we just sum numerator and denominator
+    // across all users. The following flag determines whether to filter out users
+    // that have no denominator values
+    const ratioIsFunnel = true; // @todo: allow this to be configured
+
+    // Apply regression adjustments
+    metric.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
+    if (metricRegressionAdjustmentStatus) {
+      metric.regressionAdjustmentEnabled =
+        regressionAdjustmentEnabled &&
+        metricRegressionAdjustmentStatus.regressionAdjustmentEnabled;
+      metric.regressionAdjustmentDays =
+        metricRegressionAdjustmentStatus.regressionAdjustmentDays ?? 14;
+    }
+
+    // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
+    // where RA is actually possible
+    const isRegressionAdjusted =
+      (metric.regressionAdjustmentDays ?? 0) > 0 &&
+      !!metric.regressionAdjustmentEnabled &&
+      !isRatio &&
+      !metric.aggregation;
+
+    const regressionAdjustmentHours = isRegressionAdjusted
+      ? (metric.regressionAdjustmentDays ?? 0) * 24
+      : 0;
+
     const ignoreConversionEnd =
       experiment.attributionModel === "experimentDuration";
 
@@ -750,7 +829,12 @@ export default abstract class SqlIntegration
     const orderedMetrics = activationMetrics
       .concat(denominatorMetrics)
       .concat([metric]);
-    const metricStart = this.getMetricStart(orderedMetrics, phase.dateStarted);
+    const minMetricDelay = this.getMetricMinDelay(orderedMetrics);
+    const metricStart = this.getMetricStart(
+      phase.dateStarted,
+      minMetricDelay,
+      regressionAdjustmentHours
+    );
     const metricEnd = this.getMetricEnd(
       orderedMetrics,
       phase.dateEnded,
@@ -775,8 +859,6 @@ export default abstract class SqlIntegration
       experiment.trackingKey
     );
 
-    const aggregate = this.getAggregateMetricColumn(metric, "post");
-
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
 
     const intialMetric =
@@ -785,19 +867,6 @@ export default abstract class SqlIntegration
         : denominatorMetrics.length > 0
         ? denominatorMetrics[0]
         : metric;
-
-    const denominator = denominatorMetrics[denominatorMetrics.length - 1];
-    // If the denominator is a binomial, it's just acting as a filter
-    // e.g. "Purchase/Signup" is filtering to users who signed up and then counting purchases
-    // When the denominator is a count, it's a real ratio, dividing two quantities
-    // e.g. "Pages/Session" is dividing number of page views by number of sessions
-    const isRatio = denominator?.type === "count";
-    // However, even if we use a count as denominator, GB 1.9 and earlier would
-    // filter out users who had 0 values for the denominator. However, we may want
-    // to enable more generic ratio metrics where we just sum numerator and denominator
-    // across all users. The following flag determines whether to filter out users
-    // that have no denominator values
-    const ratioIsFunnel = true; // @todo: allow this to be configured
 
     return format(
       `-- ${metric.name} (${metric.type})
@@ -818,6 +887,9 @@ export default abstract class SqlIntegration
         conversionDelayHours: intialMetric.conversionDelayHours || 0,
         experimentDimension:
           dimension?.type === "experiment" ? dimension.id : null,
+        isRegressionAdjusted: isRegressionAdjusted,
+        regressionAdjustmentHours: regressionAdjustmentHours,
+        minMetricDelay: minMetricDelay,
         ignoreConversionEnd,
       })})
       , __metric as (${this.getMetricCTE({
@@ -871,6 +943,7 @@ export default abstract class SqlIntegration
           ? `, __activatedUsers as (${this.getActivatedUsersCTE(
               baseIdType,
               activationMetrics,
+              isRegressionAdjusted,
               ignoreConversionEnd
             )})`
           : ""
@@ -898,6 +971,7 @@ export default abstract class SqlIntegration
           ? `, __denominatorUsers as (${this.getActivatedUsersCTE(
               baseIdType,
               denominatorMetrics,
+              false, // no regression adjustment for denominators
               ignoreConversionEnd,
               "__denominator",
               dimension?.type !== "activation" && activationMetrics.length > 0
@@ -909,8 +983,14 @@ export default abstract class SqlIntegration
       , __distinctUsers as (
         -- One row per user
         SELECT
-          e.${baseIdType},
+          e.${baseIdType} as ${baseIdType},
           ${dimensionCol} as dimension,
+          ${
+            isRegressionAdjusted
+              ? `MIN(e.preexposure_start) AS preexposure_start,
+                 MIN(e.preexposure_end) AS preexposure_end,`
+              : ""
+          }
           ${this.ifElse(
             "count(distinct e.variation) > 1",
             "'__multiple__'",
@@ -968,14 +1048,29 @@ export default abstract class SqlIntegration
           d.variation,
           d.dimension,
           d.${baseIdType},
-          ${aggregate} as value
+          ${this.getAggregateMetricColumn(
+            metric,
+            isRegressionAdjusted ? "post" : "noWindow"
+          )} as value
+          ${
+            isRegressionAdjusted
+              ? `, ${this.getAggregateMetricColumn(
+                  metric,
+                  "pre"
+                )} as covariate_value`
+              : ""
+          }
         FROM
           __distinctUsers d
-          LEFT JOIN __metric m ON (
-            m.${baseIdType} = d.${baseIdType}
-            AND m.timestamp >= d.conversion_start
-            ${ignoreConversionEnd ? "" : "AND m.timestamp <= d.conversion_end"}
-          )
+        JOIN __metric m ON (
+          m.${baseIdType} = d.${baseIdType}
+        )
+        WHERE
+          ${this.getMetricWindowWhereClause(
+            isRegressionAdjusted,
+            ignoreConversionEnd,
+            "d"
+          )}
         GROUP BY
           d.variation,
           d.dimension,
@@ -986,8 +1081,13 @@ export default abstract class SqlIntegration
           ? `, __userDenominator as (
               -- Add in the aggregate denominator value for each user
               SELECT
+                d.variation,
+                d.dimension,
                 d.${baseIdType},
-                ${this.getAggregateMetricColumn(denominator, "post")} as value
+                ${this.getAggregateMetricColumn(
+                  denominator,
+                  "noWindow"
+                )} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
@@ -1001,41 +1101,104 @@ export default abstract class SqlIntegration
                     : "AND m.timestamp <= d.conversion_end"
                 }
               GROUP BY
+                d.variation,
+                d.dimension,
                 d.${baseIdType}
             )`
           : ""
       }
-      -- One row per variation/dimension with aggregations
+      , __stats AS (
+        -- One row per variation/dimension with aggregations
+        SELECT
+          ${isRatio ? `d` : `m`}.variation,
+          ${isRatio ? `d` : `m`}.dimension,
+          COUNT(*) AS count,
+          SUM(COALESCE(m.value, 0)) AS main_sum,
+          SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
+          ${
+            isRatio
+              ? `,
+            SUM(COALESCE(d.value, 0)) AS denominator_sum,
+            SUM(POWER(COALESCE(d.value, 0), 2)) AS denominator_sum_squares,
+            SUM(COALESCE(d.value, 0) * COALESCE(m.value, 0)) AS main_denominator_sum_product
+          `
+              : ""
+          }
+          ${
+            isRegressionAdjusted
+              ? `,
+              SUM(COALESCE(m.covariate_value, 0)) AS covariate_sum,
+              SUM(POWER(COALESCE(m.covariate_value, 0), 2)) AS covariate_sum_squares,
+              SUM(COALESCE(m.value, 0) * COALESCE(m.covariate_value, 0)) AS main_covariate_sum_product
+              `
+              : ""
+          }
+        FROM
+        ${
+          isRatio
+            ? `__userDenominator d
+              LEFT JOIN __userMetric m ON (
+                d.${baseIdType} = m.${baseIdType}
+              )`
+            : `__userMetric m`
+        }
+        ${
+          isRegressionAdjusted && metric.ignoreNulls ? `WHERE m.value != 0` : ""
+        }
+        GROUP BY
+          ${isRatio ? `d` : `m`}.variation,
+          ${isRatio ? `d` : `m`}.dimension
+      )
+      , __overallUsers as (
+        -- Number of users in each variation/dimension
+        SELECT
+          variation,
+          dimension,
+          COUNT(*) as users
+        FROM
+          __distinctUsers
+        GROUP BY
+          variation,
+          dimension
+      )
       SELECT
-        m.variation,
-        m.dimension,
-        COUNT(*) AS users,
-        '${isRatio ? `ratio` : `mean`}' as statistic_type,
+        u.variation,
+        u.dimension,
+        ${metric.ignoreNulls ? "COALESCE(s.count, 0)" : "u.users"} AS users,
+        '${this.getStatisticType(
+          isRatio,
+          isRegressionAdjusted
+        )}' as statistic_type,
         '${metric.type}' as main_metric_type,
-        SUM(COALESCE(m.value, 0)) AS main_sum,
-        SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
+        COALESCE(s.main_sum, 0) AS main_sum,
+        COALESCE(s.main_sum_squares, 0) AS main_sum_squares
         ${
           isRatio
             ? `,
             '${denominator?.type}' as denominator_metric_type,
-          SUM(COALESCE(d.value, 0)) AS denominator_sum,
-          SUM(POWER(COALESCE(d.value, 0), 2)) AS denominator_sum_squares,
-          SUM(COALESCE(d.value, 0) * COALESCE(m.value, 0)) AS main_denominator_sum_product
+            COALESCE(s.denominator_sum, 0) AS denominator_sum,
+            COALESCE(s.denominator_sum_squares, 0) AS denominator_sum_squares,
+            COALESCE(s.main_denominator_sum_product, 0) AS main_denominator_sum_product
         `
             : ""
         }
-      FROM
-        __userMetric m
         ${
-          isRatio
-            ? `LEFT JOIN __userDenominator d ON (
-              m.${baseIdType} = d.${baseIdType}
-            )`
+          isRegressionAdjusted
+            ? `,
+            '${metric.type}' as covariate_metric_type,
+            COALESCE(s.covariate_sum, 0) AS covariate_sum,
+            COALESCE(s.covariate_sum_squares, 0) AS covariate_sum_squares,
+            COALESCE(s.main_covariate_sum_product, 0) AS main_covariate_sum_product
+            `
             : ""
         }
-      GROUP BY
-        m.variation,
-        m.dimension
+      FROM
+      __overallUsers u
+      LEFT JOIN
+        __stats s ON (
+          u.variation = s.variation
+          AND u.dimension = s.dimension
+        )
     `,
       this.getFormatDialect()
     );
@@ -1176,6 +1339,24 @@ export default abstract class SqlIntegration
     return null;
   }
 
+  private getMetricWindowWhereClause(
+    isRegressionAdjusted: boolean,
+    ignoreConversionEnd: boolean,
+    userAlias: string
+  ): string {
+    const conversionWindowFilter = `
+      m.timestamp >= ${userAlias}.conversion_start
+      ${
+        ignoreConversionEnd
+          ? ""
+          : `AND m.timestamp <= ${userAlias}.conversion_end`
+      }`;
+    if (isRegressionAdjusted) {
+      return `(${conversionWindowFilter}) OR (m.timestamp >= ${userAlias}.preexposure_start AND m.timestamp < ${userAlias}.preexposure_end)`;
+    }
+    return conversionWindowFilter;
+  }
+
   private getExperimentCTE({
     experiment,
     baseIdType,
@@ -1183,6 +1364,9 @@ export default abstract class SqlIntegration
     conversionWindowHours = 0,
     conversionDelayHours = 0,
     experimentDimension = null,
+    isRegressionAdjusted = false,
+    regressionAdjustmentHours = 0,
+    minMetricDelay = 0,
     ignoreConversionEnd = false,
   }: {
     experiment: ExperimentInterface;
@@ -1191,6 +1375,9 @@ export default abstract class SqlIntegration
     conversionWindowHours: number;
     conversionDelayHours: number;
     experimentDimension: string | null;
+    isRegressionAdjusted: boolean;
+    regressionAdjustmentHours: number;
+    minMetricDelay: number;
     ignoreConversionEnd: boolean;
   }) {
     conversionWindowHours =
@@ -1209,6 +1396,18 @@ export default abstract class SqlIntegration
       e.${baseIdType} as ${baseIdType},
       ${this.castToString("e.variation_id")} as variation,
       ${timestampColumn} as timestamp,
+      ${
+        isRegressionAdjusted
+          ? `${this.addHours(
+              timestampColumn,
+              minMetricDelay
+            )} AS preexposure_end,
+            ${this.addHours(
+              timestampColumn,
+              minMetricDelay - regressionAdjustmentHours
+            )} AS preexposure_start,`
+          : ""
+      }
       ${this.addHours(
         timestampColumn,
         conversionDelayHours
@@ -1348,10 +1547,7 @@ export default abstract class SqlIntegration
       else if (metric.aggregation) {
         // prePostTimeFilter (and regression adjustment) not implemented for
         // custom aggregate metrics
-        return this.capValue(
-          metric.cap,
-          replaceCountStar(metric.aggregation, `m.timestamp`)
-        );
+        return this.capValue(metric.cap, metric.aggregation);
       }
       // Standard aggregation (SUM)
       else {
@@ -1463,7 +1659,6 @@ export default abstract class SqlIntegration
         }
       }
     }
-
     if (settings?.queries?.pageviewsQuery) {
       const timestampColumn = this.castUserDateCol("i.timestamp");
 
