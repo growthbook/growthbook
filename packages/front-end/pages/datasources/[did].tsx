@@ -333,7 +333,9 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               Explore the schemas, tables, and table metadata of your connected
               datasource.
             </p>
-            <SchemaBrowser datasource={d} />
+            <div className="border rounded">
+              <SchemaBrowser datasource={d} />
+            </div>
           </>
         </Modal>
       )}

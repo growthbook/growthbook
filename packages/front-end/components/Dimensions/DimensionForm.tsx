@@ -40,7 +40,7 @@ const DimensionForm: FC<{
   const userIdType = form.watch("userIdType");
 
   const dsObj = getDatasourceById(datasource);
-  const supportsSchemaBrowser = dsObj.properties.supportsInformationSchema;
+  const supportsSchemaBrowser = dsObj?.properties.supportsInformationSchema;
 
   const dsProps = dsObj?.properties;
   const supportsSQL = dsProps?.queryLanguage === "sql";
@@ -103,7 +103,7 @@ const DimensionForm: FC<{
           }))}
           className="portal-overflow-ellipsis"
         />
-        {dsProps.userIds && (
+        {dsProps?.userIds && (
           <SelectField
             label="Identifier Type"
             required

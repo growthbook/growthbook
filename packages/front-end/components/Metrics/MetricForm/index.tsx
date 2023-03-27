@@ -804,33 +804,55 @@ const MetricForm: FC<MetricFormProps> = ({
                 </>
               )}
             </div>
-            {supportsSQL && (
-              <>
-                {value.queryFormat !== "sql" && (
-                  <div className="col-lg">
-                    <SQLInputField
-                      userEnteredQuery={getRawSQLPreview(value)}
-                      datasourceId={value.datasource}
-                      form={form}
-                      requiredColumns={requiredColumns}
-                      showPreview
-                      queryType="metric"
-                    />
-                    {value.type !== "binomial" && (
-                      <div className="mt-2">
-                        <label>User Value Aggregation:</label>
-                        <Code
-                          language="sql"
-                          code={getAggregateSQLPreview(value)}
-                        />
-                        <small className="text-muted">
-                          When there are multiple metric rows for a user
-                        </small>
-                      </div>
+            {supportsSQL &&
+              value.queryFormat === "sql" &&
+              !supportsSchemaBrowser && (
+                <div className="col-lg pt-2">
+                  <h4>SQL Query Instructions</h4>
+                  <p className="mt-3">
+                    Your SELECT statement must return the following column
+                    names:
+                  </p>
+                  <ol>
+                    {value.userIdTypes.map((id) => (
+                      <li key={id}>
+                        <strong>{id}</strong>
+                      </li>
+                    ))}
+                    {supportsSQL && value.type !== "binomial" && (
+                      <li>
+                        <strong>value</strong> -{" "}
+                        {value.type === "count"
+                          ? "The numeric value to be counted"
+                          : "The " + value.type + " amount"}
+                      </li>
                     )}
+                    <li>
+                      <strong>timestamp</strong> - When the action was performed
+                    </li>
+                  </ol>
+                </div>
+              )}
+            {value.queryFormat === "builder" && (
+              <div className="col-lg pt-2">
+                <SQLInputField
+                  userEnteredQuery={getRawSQLPreview(value)}
+                  datasourceId={value.datasource}
+                  form={form}
+                  requiredColumns={requiredColumns}
+                  showPreview
+                  queryType="metric"
+                />
+                {value.type !== "binomial" && (
+                  <div className="mt-2">
+                    <label>User Value Aggregation:</label>
+                    <Code language="sql" code={getAggregateSQLPreview(value)} />
+                    <small className="text-muted">
+                      When there are multiple metric rows for a user
+                    </small>
                   </div>
                 )}
-              </>
+              </div>
             )}
           </div>
         </Page>

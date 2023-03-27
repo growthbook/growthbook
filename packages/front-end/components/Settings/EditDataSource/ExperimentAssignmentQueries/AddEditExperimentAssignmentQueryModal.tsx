@@ -6,8 +6,9 @@ import {
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
-import { CursorData } from "@/components/Segments/SegmentForm";
-import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
+import { FaExternalLinkAlt } from "react-icons/fa";
+import Code from "@/components/SyntaxHighlighting/Code";
+import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import SQLInputField from "../../../SQLInputField";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
@@ -28,14 +29,12 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onSave,
   onCancel,
 }) => {
-  const [cursorData, setCursorData] = useState<null | CursorData>(null);
-  const updateSqlInput = (sql: string) => {
-    form.setValue("query", sql);
-  };
+  const [sqlOpen, setSqlOpen] = useState(false);
   const modalTitle =
     mode === "add"
       ? "Add an Experiment Assignment query"
       : `Edit ${exposureQuery.name}`;
+  const supportsSchemaBrowser = dataSource.properties.supportsInformationSchema;
 
   const userIdTypeOptions = dataSource.settings.userIdTypes.map(
     ({ userIdType }) => ({
@@ -43,8 +42,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       value: userIdType,
     })
   );
-  const supportsSchemaBrowser = dataSource.properties.supportsInformationSchema;
-
   const defaultUserId = userIdTypeOptions[0]?.value || "user_id";
 
   const form = useForm<ExposureQuery>({
@@ -106,45 +103,75 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   }
 
   return (
-    <Modal
-      open={true}
-      submit={handleSubmit}
-      close={onCancel}
-      size={supportsSchemaBrowser ? "max" : "lg"}
-      header={modalTitle}
-      cta="Save"
-      ctaEnabled={saveEnabled}
-      autoFocusSelector="#id-modal-identify-joins-heading"
-    >
-      <div className="my-2 ml-3 mr-3">
-        <div className="row">
-          <div className="col-12">
-            <Field label="Display Name" required {...form.register("name")} />
-            <Field
-              label="Description (optional)"
-              textarea
-              minRows={1}
-              {...form.register("description")}
-            />
-            <Field
-              label="Identifier Type"
-              options={identityTypes.map((i) => i.userIdType)}
-              required
-              {...form.register("userIdType")}
-            />
-            <StringArrayField
-              label="Dimension Columns"
-              value={userEnteredDimensions}
-              onChange={(dimensions) => {
-                form.setValue("dimensions", dimensions);
-              }}
-            />
-            <div className="row">
-              <div
-                className={
-                  supportsSchemaBrowser ? "col-xs-12 col-md-7" : "col-12"
-                }
-              >
+    <>
+      {sqlOpen && dataSource && (
+        <EditSqlModal
+          close={() => setSqlOpen(false)}
+          datasourceId={dataSource.id || ""}
+          placeholder=""
+          requiredColumns={Array.from(requiredColumns)}
+          value={userEnteredQuery}
+          save={async (sql) => form.setValue("query", sql)}
+        />
+      )}
+      <Modal
+        open={true}
+        submit={handleSubmit}
+        close={onCancel}
+        size={supportsSchemaBrowser ? "md" : "max"}
+        header={modalTitle}
+        cta="Save"
+        ctaEnabled={saveEnabled}
+        autoFocusSelector="#id-modal-identify-joins-heading"
+      >
+        <div className="my-2 ml-3 mr-3">
+          <div className="row">
+            <div className="col-12">
+              <Field label="Display Name" required {...form.register("name")} />
+              <Field
+                label="Description (optional)"
+                textarea
+                minRows={1}
+                {...form.register("description")}
+              />
+              <Field
+                label="Identifier Type"
+                options={identityTypes.map((i) => i.userIdType)}
+                required
+                {...form.register("userIdType")}
+              />
+              <StringArrayField
+                label="Dimension Columns"
+                value={userEnteredDimensions}
+                onChange={(dimensions) => {
+                  form.setValue("dimensions", dimensions);
+                }}
+              />
+              {supportsSchemaBrowser ? (
+                <div className="form-group">
+                  <label>Query</label>
+                  {userEnteredQuery && (
+                    <Code
+                      language="sql"
+                      code={userEnteredQuery}
+                      expandable={true}
+                    />
+                  )}
+                  <div>
+                    <button
+                      className="btn btn-outline-primary"
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setSqlOpen(true);
+                      }}
+                    >
+                      {userEnteredQuery ? "Edit" : "Add"} SQL{" "}
+                      <FaExternalLinkAlt />
+                    </button>
+                  </div>
+                </div>
+              ) : (
                 <SQLInputField
                   userEnteredQuery={userEnteredQuery}
                   datasourceId={dataSource.id}
@@ -152,22 +179,12 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                   requiredColumns={requiredColumns}
                   identityTypes={identityTypes}
                   queryType="experiment-assignment"
-                  setCursorData={setCursorData}
                 />
-              </div>
-              {supportsSchemaBrowser && (
-                <div className="d-none d-md-block col-5">
-                  <SchemaBrowser
-                    updateSqlInput={updateSqlInput}
-                    datasource={dataSource}
-                    cursorData={cursorData}
-                  />
-                </div>
               )}
             </div>
           </div>
         </div>
-      </div>
-    </Modal>
+      </Modal>
+    </>
   );
 };
