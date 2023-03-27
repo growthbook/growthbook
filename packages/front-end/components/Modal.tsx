@@ -23,6 +23,7 @@ type ModalProps = {
   docSection?: DocSection;
   error?: string;
   size?: "md" | "lg" | "max" | "fill";
+  sizeY?: "max" | "fill";
   inline?: boolean;
   overflowAuto?: boolean;
   autoFocusSelector?: string;
@@ -47,6 +48,7 @@ const Modal: FC<ModalProps> = ({
   closeCta = "Cancel",
   inline = false,
   size = "md",
+  sizeY,
   docSection,
   className = "",
   autoCloseOnSubmit = true,
@@ -56,7 +58,7 @@ const Modal: FC<ModalProps> = ({
   error: externalError,
   secondaryCTA,
   successMessage,
-  bodyClassName,
+  bodyClassName = "",
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,7 +93,10 @@ const Modal: FC<ModalProps> = ({
   const contents = (
     <div
       className={`modal-content ${className}`}
-      style={{ maxHeight: size === "fill" ? "" : "93vh" }}
+      style={{
+        height: sizeY === "max" ? "93vh" : null,
+        maxHeight: sizeY ? null : size === "fill" ? "" : "93vh",
+      }}
     >
       {loading && <LoadingOverlay />}
       {header ? (

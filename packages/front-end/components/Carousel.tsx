@@ -39,6 +39,7 @@ const Carousel: FC<{
           header={"Screenshot"}
           close={() => setModalOpen(false)}
           size="max"
+          sizeY="max"
         >
           {currentChild}
           {deleteImage && (
@@ -48,7 +49,7 @@ const Carousel: FC<{
                 await deleteImage(current);
                 setModalOpen(false);
               }}
-              outline={false}
+              outline={true}
               style={{
                 position: "absolute",
                 top: 20,
