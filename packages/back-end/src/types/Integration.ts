@@ -5,6 +5,7 @@ import {
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface, MetricType } from "../../types/metric";
+import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { SegmentInterface } from "../../types/segment";
 
 export class MissingDatasourceParamsError extends Error {
@@ -20,6 +21,7 @@ export class DataSourceNotSupportedError extends Error {
     this.name = "DataSourceNotSupportedError";
   }
 }
+
 export type MetricAggregationType = "pre" | "post" | "noWindow";
 
 export interface ExperimentMetricStats {
@@ -83,6 +85,8 @@ export type ExperimentMetricQueryParams = {
   denominatorMetrics: MetricInterface[];
   dimension: Dimension | null;
   segment: SegmentInterface | null;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatus?: MetricRegressionAdjustmentStatus;
 };
 
 export type PastExperimentParams = {
@@ -147,7 +151,7 @@ export type ExperimentMetricQueryResponse = {
   variation: string;
   users: number;
   count: number;
-  statistic_type: "ratio" | "mean";
+  statistic_type: "ratio" | "mean" | "mean_ra";
   main_metric_type: MetricType;
   main_sum: number;
   main_sum_squares: number;
@@ -155,6 +159,10 @@ export type ExperimentMetricQueryResponse = {
   denominator_sum?: number;
   denominator_sum_squares?: number;
   main_denominator_sum_product?: number;
+  covariate_metric_type?: MetricType;
+  covariate_sum?: number;
+  covariate_sum_squares?: number;
+  main_covariate_sum_product?: number;
 }[];
 export interface SourceIntegrationConstructor {
   new (
