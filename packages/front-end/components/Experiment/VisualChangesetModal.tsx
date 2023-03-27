@@ -26,6 +26,7 @@ const VisualChangesetModal: FC<{
   const [editorUrl, setEditorUrl] = useState<string>(
     visualChangeset?.editorUrl ?? ""
   );
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [urlPatterns, setUrlPatterns] = useState<VisualChangesetURLPattern[]>(
     visualChangeset?.urlPatterns ?? [
       {
@@ -77,45 +78,57 @@ const VisualChangesetModal: FC<{
         value={editorUrl}
         onChange={(e) => setEditorUrl(e.currentTarget.value)}
       />
-      <label>URL Targeting</label>
-      {urlPatterns.map((p, i) => (
-        <div key={i} className="d-flex align-items-start mb-2">
-          <div className="flex-1">
-            <Field
-              helpText={
-                <>
-                  Apply changes to all URLs matching this pattern for users. Use
-                  regular expression to target multiple e.g.{" "}
-                  <code>https://example.com/pricing</code> or{" "}
-                  <code>^/post/[0-9]+</code>.
-                </>
-              }
-              value={p.pattern}
-              onChange={(e) => setUrlPattern(e.currentTarget.value, i)}
-            />
-          </div>
-          {urlPatterns.length > 1 && (
-            <div className="flex-shrink-1 pl-2">
-              <button
-                type="button"
-                className="close inline"
-                onClick={() => removeUrlPattern(i)}
-              >
-                <span aria-hidden="true">×</span>
-              </button>
+
+      <div className="my-2 text-xs">
+        <a href="#" onClick={() => setShowAdvanced(!showAdvanced)}>
+          <small>{showAdvanced ? "Hide" : "Show"} Advanced Options</small>
+        </a>
+      </div>
+
+      {showAdvanced && (
+        <>
+          <label>URL Targeting</label>
+          {urlPatterns.map((p, i) => (
+            <div key={i} className="d-flex align-items-start mb-2">
+              <div className="flex-1">
+                <Field
+                  helpText={
+                    <>
+                      Apply changes to all URLs matching this pattern for users.
+                      Use regular expression to target multiple e.g.{" "}
+                      <code>https://example.com/pricing</code> or{" "}
+                      <code>^/post/[0-9]+</code>.
+                    </>
+                  }
+                  value={p.pattern}
+                  onChange={(e) => setUrlPattern(e.currentTarget.value, i)}
+                />
+              </div>
+              {urlPatterns.length > 1 && (
+                <div className="flex-shrink-1 pl-2">
+                  <button
+                    type="button"
+                    className="close inline"
+                    onClick={() => removeUrlPattern(i)}
+                  >
+                    <span aria-hidden="true">×</span>
+                  </button>
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      ))}
-      <button
-        className="btn btn-primary mt-4"
-        onClick={(e) => {
-          e.preventDefault();
-          setUrlPatterns([...urlPatterns, { pattern: "", type: "regex" }]);
-        }}
-      >
-        <GBAddCircle /> Add URL Target
-      </button>
+          ))}
+
+          <button
+            className="btn btn-primary mt-2"
+            onClick={(e) => {
+              e.preventDefault();
+              setUrlPatterns([...urlPatterns, { pattern: "", type: "regex" }]);
+            }}
+          >
+            <GBAddCircle /> Add URL Target
+          </button>
+        </>
+      )}
     </Modal>
   );
 };
