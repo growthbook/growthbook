@@ -19,12 +19,13 @@ import {
   ExperimentCreatedNotificationEvent,
   ExperimentDeletedNotificationEvent,
   ExperimentUpdatedNotificationEvent,
-} from "../events/base-events";
+} from "../events/notification-events";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import { logger } from "../util/logger";
 import { upgradeExperimentDoc } from "../util/migrations";
 import { refreshSDKPayloadCache, VisualExperiment } from "../services/features";
 import { SDKPayloadKey } from "../../types/sdk-payload";
+import { EventAuditUser } from "../events/event-types";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -242,9 +243,11 @@ export async function createExperiment({
   data,
   organization,
   bypassWebhooks = false,
+  user,
 }: {
   data: Partial<ExperimentInterface>;
   organization: OrganizationInterface;
+  user: EventAuditUser;
   bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
   data.organization = organization.id;
@@ -284,6 +287,7 @@ export async function createExperiment({
     organization,
     experiment: exp,
     bypassWebhooks,
+    user,
   });
 
   if (data.tags) {
@@ -296,6 +300,7 @@ export async function createExperiment({
 export async function updateExperimentById(
   organization: OrganizationInterface,
   experiment: ExperimentInterface,
+  user: EventAuditUser,
   changes: Changeset
 ): Promise<ExperimentInterface | null> {
   await ExperimentModel.updateOne(
@@ -314,6 +319,7 @@ export async function updateExperimentById(
     organization,
     oldExperiment: experiment,
     newExperiment: updated,
+    user,
   });
 
   return updated;
@@ -522,6 +528,7 @@ export async function getRecentExperimentsUsingMetric(
 
 export async function deleteExperimentSegment(
   organization: OrganizationInterface,
+  user: EventAuditUser,
   segment: string
 ): Promise<void> {
   const exps = await getExperimentsUsingSegment(segment, organization.id);
@@ -544,6 +551,7 @@ export async function deleteExperimentSegment(
       oldExperiment: previous,
       newExperiment: current,
       bypassWebhooks: true,
+      user,
     });
   });
 }
@@ -592,16 +600,19 @@ export const findExperiment = async ({
 
 /**
  * @param organization
+ * @param user
  * @param experiment
  * @return event.id
  */
 const logExperimentCreated = async (
   organization: OrganizationInterface,
+  user: EventAuditUser,
   experiment: ExperimentInterface
 ): Promise<string> => {
   const payload: ExperimentCreatedNotificationEvent = {
     object: "experiment",
     event: "experiment.created",
+    user,
     data: {
       current: toExperimentApiInterface(organization, experiment),
     },
@@ -620,16 +631,19 @@ const logExperimentCreated = async (
  */
 const logExperimentUpdated = async ({
   organization,
+  user,
   current,
   previous,
 }: {
   organization: OrganizationInterface;
+  user: EventAuditUser;
   current: ExperimentInterface;
   previous: ExperimentInterface;
 }): Promise<string> => {
   const payload: ExperimentUpdatedNotificationEvent = {
     object: "experiment",
     event: "experiment.updated",
+    user,
     data: {
       previous: toExperimentApiInterface(organization, previous),
       current: toExperimentApiInterface(organization, current),
@@ -644,12 +658,14 @@ const logExperimentUpdated = async ({
 
 /**
  * Deletes an experiment by ID and logs the event for the organization
- * @param id
+ * @param experiment
  * @param organization
+ * @param user
  */
 export async function deleteExperimentByIdForOrganization(
   experiment: ExperimentInterface,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
+  user: EventAuditUser
 ) {
   try {
     await ExperimentModel.deleteOne({
@@ -659,7 +675,7 @@ export async function deleteExperimentByIdForOrganization(
 
     VisualChangesetModel.deleteMany({ experiment: experiment.id });
 
-    await onExperimentDelete(organization, experiment);
+    await onExperimentDelete(organization, user, experiment);
   } catch (e) {
     logger.error(e);
   }
@@ -669,13 +685,16 @@ export async function deleteExperimentByIdForOrganization(
  * Removes the tag from any experiments that have it
  * and logs the experiment.updated event
  * @param organization
+ * @param user
  * @param tag
  */
 export const removeTagFromExperiments = async ({
   organization,
+  user,
   tag,
 }: {
   organization: OrganizationInterface;
+  user: EventAuditUser;
   tag: string;
 }): Promise<void> => {
   const query = { organization: organization.id, tags: tag };
@@ -694,13 +713,15 @@ export const removeTagFromExperiments = async ({
       oldExperiment: previous,
       newExperiment: current,
       bypassWebhooks: true,
+      user,
     });
   });
 };
 
 export async function removeMetricFromExperiments(
   metricId: string,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
+  user: EventAuditUser
 ) {
   const oldExperiments: Record<
     string,
@@ -772,6 +793,7 @@ export async function removeMetricFromExperiments(
         oldExperiment: previous,
         newExperiment: current,
         bypassWebhooks: true,
+        user,
       });
     }
   });
@@ -779,7 +801,8 @@ export async function removeMetricFromExperiments(
 
 export async function removeProjectFromExperiments(
   project: string,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
+  user: EventAuditUser
 ) {
   const query = { organization: organization.id, project };
   const previousExperiments = await findExperiments(query);
@@ -794,6 +817,7 @@ export async function removeProjectFromExperiments(
       organization,
       oldExperiment: previous,
       newExperiment: current,
+      user,
     });
   });
 }
@@ -807,16 +831,19 @@ export async function getExperimentsUsingSegment(id: string, orgId: string) {
 
 /**
  * @param organization
+ * @param user
  * @param experiment
- * @return event.id
+ * @return experiment
  */
 export const logExperimentDeleted = async (
   organization: OrganizationInterface,
+  user: EventAuditUser,
   experiment: ExperimentInterface
 ): Promise<string> => {
   const payload: ExperimentDeletedNotificationEvent = {
     object: "experiment",
     event: "experiment.deleted",
+    user,
     data: {
       previous: toExperimentApiInterface(organization, experiment),
     },
@@ -974,12 +1001,14 @@ const onExperimentCreate = async ({
   organization,
   experiment,
   bypassWebhooks,
+  user,
 }: {
   organization: OrganizationInterface;
   experiment: ExperimentInterface;
   bypassWebhooks?: boolean;
+  user: EventAuditUser;
 }) => {
-  await logExperimentCreated(organization, experiment);
+  await logExperimentCreated(organization, user, experiment);
 
   if (bypassWebhooks) return;
 
@@ -993,16 +1022,19 @@ const onExperimentUpdate = async ({
   oldExperiment,
   newExperiment,
   bypassWebhooks = false,
+  user,
 }: {
   organization: OrganizationInterface;
   oldExperiment: ExperimentInterface;
   newExperiment: ExperimentInterface;
   bypassWebhooks?: boolean;
+  user: EventAuditUser;
 }) => {
   await logExperimentUpdated({
     organization,
     current: newExperiment,
     previous: oldExperiment,
+    user,
   });
 
   if (bypassWebhooks) return;
@@ -1026,9 +1058,10 @@ const onExperimentUpdate = async ({
 
 const onExperimentDelete = async (
   organization: OrganizationInterface,
+  user: EventAuditUser,
   experiment: ExperimentInterface
 ) => {
-  await logExperimentDeleted(organization, experiment);
+  await logExperimentDeleted(organization, user, experiment);
 
   const payloadKeys = getPayloadKeys(organization, experiment);
 

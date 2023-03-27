@@ -72,6 +72,8 @@ import {
 } from "../services/audit";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
+import { ApiErrorResponse } from "../../types/api";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -460,7 +462,12 @@ export async function postExperiments(
     unknown,
     { allowDuplicateTrackingKey?: boolean }
   >,
-  res: Response
+  res: Response<
+    | { status: 200; experiment: ExperimentInterface }
+    | { status: 200; duplicateTrackingKey: boolean; existingId: string }
+    | ({ status: number } & ApiErrorResponse),
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org, userId } = getOrgFromReq(req);
 
@@ -567,6 +574,7 @@ export async function postExperiments(
     const experiment = await createExperiment({
       data: obj,
       organization: org,
+      user: res.locals.eventAudit,
     });
 
     await req.audit({
@@ -606,7 +614,11 @@ export async function postExperiment(
     },
     { id: string }
   >,
-  res: Response
+  res: Response<
+    | { status: number; experiment?: ExperimentInterface | null }
+    | ApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
@@ -753,7 +765,12 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  const updated = await updateExperimentById(org, experiment, changes);
+  const updated = await updateExperimentById(
+    org,
+    experiment,
+    res.locals.eventAudit,
+    changes
+  );
 
   // if variations have changed, update the experiment's visualchangesets if they exist
   if (changes.variations && updated) {
@@ -827,7 +844,7 @@ export async function postExperimentArchive(
   changes.archived = true;
 
   try {
-    await updateExperimentById(org, experiment, changes);
+    await updateExperimentById(org, experiment, res.locals.eventAudit, changes);
 
     // TODO: audit
     res.status(200).json({
@@ -880,7 +897,7 @@ export async function postExperimentUnarchive(
   changes.archived = false;
 
   try {
-    await updateExperimentById(org, experiment, changes);
+    await updateExperimentById(org, experiment, res.locals.eventAudit, changes);
 
     // TODO: audit
     res.status(200).json({
@@ -945,7 +962,12 @@ export async function postExperimentStatus(
 
   changes.status = status;
 
-  const updated = await updateExperimentById(org, experiment, changes);
+  const updated = await updateExperimentById(
+    org,
+    experiment,
+    res.locals.eventAudit,
+    changes
+  );
 
   await req.audit({
     event: "experiment.status",
@@ -1024,7 +1046,12 @@ export async function postExperimentStop(
   changes.releasedVariationId = releasedVariationId;
 
   try {
-    const updated = await updateExperimentById(org, experiment, changes);
+    const updated = await updateExperimentById(
+      org,
+      experiment,
+      res.locals.eventAudit,
+      changes
+    );
 
     await req.audit({
       event: isEnding ? "experiment.stop" : "experiment.results",
@@ -1085,7 +1112,12 @@ export async function deleteExperimentPhase(
   if (!changes.phases.length) {
     changes.status = "draft";
   }
-  const updated = await updateExperimentById(org, experiment, changes);
+  const updated = await updateExperimentById(
+    org,
+    experiment,
+    res.locals.eventAudit,
+    changes
+  );
 
   await updateSnapshotsOnPhaseDelete(org.id, id, phaseIndex);
 
@@ -1143,7 +1175,12 @@ export async function putExperimentPhase(
     ...phase,
   };
   changes.phases = phases;
-  const updated = await updateExperimentById(org, experiment, changes);
+  const updated = await updateExperimentById(
+    org,
+    experiment,
+    res.locals.eventAudit,
+    changes
+  );
 
   await req.audit({
     event: "experiment.phase",
@@ -1216,7 +1253,12 @@ export async function postExperimentPhase(
   // TODO: validation
   try {
     changes.phases = phases;
-    const updated = await updateExperimentById(org, experiment, changes);
+    const updated = await updateExperimentById(
+      org,
+      experiment,
+      res.locals.eventAudit,
+      changes
+    );
 
     await req.audit({
       event: isStarting ? "experiment.start" : "experiment.phase",
@@ -1256,7 +1298,10 @@ export async function getWatchingUsers(
 
 export async function deleteExperiment(
   req: AuthRequest<ExperimentInterface, { id: string }>,
-  res: Response
+  res: Response<
+    { status: 200 } | ({ status: number } & ApiErrorResponse),
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -1283,7 +1328,7 @@ export async function deleteExperiment(
   await Promise.all([
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
-    deleteExperimentByIdForOrganization(experiment, org),
+    deleteExperimentByIdForOrganization(experiment, org, res.locals.eventAudit),
     removeExperimentFromPresentations(experiment.id),
   ]);
 
@@ -1522,6 +1567,7 @@ export async function postSnapshot(
   try {
     const snapshot = await createSnapshot(
       experiment,
+      res.locals.eventAudit,
       phase,
       org,
       dimension || null,
@@ -1597,7 +1643,12 @@ export async function deleteScreenshot(
   changes.variations[variation].screenshots = changes.variations[
     variation
   ].screenshots.filter((s) => s.path !== url);
-  const updated = await updateExperimentById(org, experiment, changes);
+  const updated = await updateExperimentById(
+    org,
+    experiment,
+    res.locals.eventAudit,
+    changes
+  );
 
   await req.audit({
     event: "experiment.screenshot.delete",
@@ -1667,7 +1718,7 @@ export async function addScreenshot(
     description: description,
   });
 
-  await updateExperimentById(org, experiment, changes);
+  await updateExperimentById(org, experiment, res.locals.eventAudit, changes);
 
   await req.audit({
     event: "experiment.screenshot.create",

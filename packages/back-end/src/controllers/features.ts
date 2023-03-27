@@ -49,6 +49,7 @@ import {
 import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
 import { IS_CLOUD } from "../util/secrets";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
 
 class ApiKeyError extends Error {
   constructor(message: string) {
@@ -197,7 +198,10 @@ export async function getFeaturesPublic(req: Request, res: Response) {
 
 export async function postFeatures(
   req: AuthRequest<Partial<FeatureInterface>>,
-  res: Response
+  res: Response<
+    { status: 200; feature: FeatureInterface },
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { id, environmentSettings, ...otherProps } = req.body;
   const { org, userId, email, userName } = getOrgFromReq(req);
@@ -259,7 +263,7 @@ export async function postFeatures(
 
   addIdsToRules(feature.environmentSettings, feature.id);
 
-  await createFeature(org, feature);
+  await createFeature(org, res.locals.eventAudit, feature);
   await ensureWatching(userId, org.id, feature.id, "features");
 
   await req.audit({
@@ -349,7 +353,7 @@ export async function postFeaturePublish(
 
 export async function postFeatureDiscard(
   req: AuthRequest<{ draft: FeatureDraftChanges }, { id: string }>,
-  res: Response
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -366,7 +370,7 @@ export async function postFeatureDiscard(
 
   verifyDraftsAreEqual(feature.draft, draft);
 
-  await discardDraft(org, feature);
+  await discardDraft(org, res.locals.eventAudit, feature);
 
   res.status(200).json({
     status: 200,
@@ -382,7 +386,7 @@ export async function postFeatureDraft(
     },
     { id: string }
   >,
-  res: Response
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -396,7 +400,7 @@ export async function postFeatureDraft(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await updateDraft(org, feature, {
+  await updateDraft(org, res.locals.eventAudit, feature, {
     active: true,
     comment,
     dateCreated: new Date(),
@@ -412,7 +416,7 @@ export async function postFeatureDraft(
 
 export async function postFeatureRule(
   req: AuthRequest<{ rule: FeatureRule; environment: string }, { id: string }>,
-  res: Response
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -426,7 +430,7 @@ export async function postFeatureRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await addFeatureRule(org, feature, environment, rule);
+  await addFeatureRule(org, res.locals.eventAudit, feature, environment, rule);
 
   res.status(200).json({
     status: 200,
@@ -435,7 +439,7 @@ export async function postFeatureRule(
 
 export async function postFeatureDefaultValue(
   req: AuthRequest<{ defaultValue: string }, { id: string }>,
-  res: Response
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -449,7 +453,7 @@ export async function postFeatureDefaultValue(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await setDefaultValue(org, feature, defaultValue);
+  await setDefaultValue(org, res.locals.eventAudit, feature, defaultValue);
 
   res.status(200).json({
     status: 200,
@@ -461,7 +465,7 @@ export async function putFeatureRule(
     { rule: Partial<FeatureRule>; environment: string; i: number },
     { id: string }
   >,
-  res: Response
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -475,7 +479,14 @@ export async function putFeatureRule(
   req.checkPermissions("manageFeatures", feature.project);
   req.checkPermissions("createFeatureDrafts", feature.project);
 
-  await editFeatureRule(org, feature, environment, i, rule);
+  await editFeatureRule(
+    org,
+    res.locals.eventAudit,
+    feature,
+    environment,
+    i,
+    rule
+  );
 
   res.status(200).json({
     status: 200,
@@ -484,7 +495,7 @@ export async function putFeatureRule(
 
 export async function postFeatureToggle(
   req: AuthRequest<{ environment: string; state: boolean }, { id: string }>,
-  res: Response
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -501,7 +512,13 @@ export async function postFeatureToggle(
   const currentState =
     feature.environmentSettings?.[environment]?.enabled || false;
 
-  await toggleFeatureEnvironment(org, feature, environment, state);
+  await toggleFeatureEnvironment(
+    org,
+    res.locals.eventAudit,
+    feature,
+    environment,
+    state
+  );
 
   await req.audit({
     event: "feature.toggle",
@@ -526,7 +543,7 @@ export async function postFeatureMoveRule(
     { environment: string; from: number; to: number },
     { id: string }
   >,
-  res: Response
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -547,7 +564,13 @@ export async function postFeatureMoveRule(
 
   const newRules = arrayMove(rules, from, to);
 
-  await setFeatureDraftRules(org, feature, environment, newRules);
+  await setFeatureDraftRules(
+    org,
+    res.locals.eventAudit,
+    feature,
+    environment,
+    newRules
+  );
 
   res.status(200).json({
     status: 200,
@@ -556,7 +579,7 @@ export async function postFeatureMoveRule(
 
 export async function deleteFeatureRule(
   req: AuthRequest<{ environment: string; i: number }, { id: string }>,
-  res: Response
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -575,7 +598,13 @@ export async function deleteFeatureRule(
   const newRules = rules.slice();
   newRules.splice(i, 1);
 
-  await setFeatureDraftRules(org, feature, environment, newRules);
+  await setFeatureDraftRules(
+    org,
+    res.locals.eventAudit,
+    feature,
+    environment,
+    newRules
+  );
 
   res.status(200).json({
     status: 200,
@@ -584,7 +613,10 @@ export async function deleteFeatureRule(
 
 export async function putFeature(
   req: AuthRequest<Partial<FeatureInterface>, { id: string }>,
-  res: Response
+  res: Response<
+    { status: 200; feature: FeatureInterface },
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -629,7 +661,12 @@ export async function putFeature(
     throw new Error("Invalid update fields for feature");
   }
 
-  const updatedFeature = await updateFeature(org, feature, updates);
+  const updatedFeature = await updateFeature(
+    org,
+    res.locals.eventAudit,
+    feature,
+    updates
+  );
 
   // If there are new tags to add
   await addTagsDiff(org.id, feature.tags || [], updates.tags || []);
@@ -651,7 +688,7 @@ export async function putFeature(
 
 export async function deleteFeatureById(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
@@ -666,7 +703,7 @@ export async function deleteFeatureById(
       feature.project,
       getEnabledEnvironments(feature)
     );
-    await deleteFeature(org, feature);
+    await deleteFeature(org, res.locals.eventAudit, feature);
     await req.audit({
       event: "feature.delete",
       entity: {
@@ -684,7 +721,7 @@ export async function deleteFeatureById(
 
 export async function postFeatureArchive(
   req: AuthRequest<null, { id: string }>,
-  res: Response
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
 ) {
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
@@ -699,7 +736,12 @@ export async function postFeatureArchive(
     feature.project,
     getEnabledEnvironments(feature)
   );
-  const updatedFeature = await archiveFeature(org, feature, !feature.archived);
+  const updatedFeature = await archiveFeature(
+    org,
+    res.locals.eventAudit,
+    feature,
+    !feature.archived
+  );
 
   await req.audit({
     event: "feature.archive",

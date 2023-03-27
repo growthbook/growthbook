@@ -37,8 +37,15 @@ import {
   getMetricsByDatasource,
   getSampleMetrics,
 } from "../models/MetricModel";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
 
-export async function postSampleData(req: AuthRequest, res: Response) {
+export async function postSampleData(
+  req: AuthRequest,
+  res: Response<
+    { status: 200; experiment: string },
+    EventAuditUserForResponseLocals
+  >
+) {
   req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
 
@@ -170,6 +177,7 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
       data: experiment,
       organization: org,
       bypassWebhooks: true,
+      user: res.locals.eventAudit,
     });
 
     await createManualSnapshot(

@@ -136,6 +136,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     currentSnapshot = await createSnapshot(
       experiment,
+      null,
       experiment.phases.length - 1,
       organization,
       null,
@@ -197,7 +198,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     log.error("Failure - " + e.message);
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
-      await updateExperimentById(organization, experiment, {
+      await updateExperimentById(organization, experiment, null, {
         autoSnapshots: false,
       });
       // TODO: email user and let them know it failed

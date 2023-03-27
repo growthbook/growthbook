@@ -51,6 +51,7 @@ import {
   ApiExperimentResults,
   ApiExperimentMetric,
 } from "../../types/openapi";
+import { EventAuditUser } from "../events/event-types";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -389,6 +390,7 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 
 export async function createSnapshot(
   experiment: ExperimentInterface,
+  user: EventAuditUser,
   phaseIndex: number,
   organization: OrganizationInterface,
   dimensionId: string | null,
@@ -427,7 +429,7 @@ export async function createSnapshot(
     determineNextDate(organization.settings?.updateSchedule || null) ||
     undefined;
 
-  await updateExperimentById(organization, experiment, {
+  await updateExperimentById(organization, experiment, user, {
     lastSnapshotAttempt: new Date(),
     nextSnapshotAttempt: nextUpdate,
     autoSnapshots: nextUpdate !== null,

@@ -15,7 +15,7 @@ from gbstats.gbstats import (
 )
 from gbstats.messages import RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR
 from gbstats.shared.constants import StatsEngine
-from gbstats.shared.models import RegressionAdjustedStatistic, SampleMeanStatistic
+from gbstats.shared.models import RegressionAdjustedStatistic, SampleMeanStatistic, ProportionStatistic
 
 DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)
@@ -161,7 +161,6 @@ ZERO_DENOM_RATIO_STATISTICS_DF = pd.DataFrame(
     statistic_type="ratio", main_metric_type="count", denominator_metric_type="count"
 )
 
-
 RA_STATISTICS_DF = pd.DataFrame(
     [
         {
@@ -178,8 +177,8 @@ RA_STATISTICS_DF = pd.DataFrame(
         {
             "dimension": "All",
             "variation": "zero",
-            "main_sum": 333,
-            "main_sum_squares": 999,
+            "main_sum": 300,
+            "main_sum_squares": 600,
             "covariate_sum": 210,
             "covariate_sum_squares": 415,
             "main_covariate_sum_product": -20,
@@ -529,20 +528,45 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
         # Test that meric mean is unadjusted
         self.assertEqual(len(result.index), 1)
         self.assertEqual(result.at[0, "dimension"], "All")
-        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.110963012)
-        self.assertEqual(round_(result.at[0, "baseline_mean"]), 0.110963012)
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.099966678)
+        self.assertEqual(round_(result.at[0, "baseline_mean"]), 0.099966678)
         self.assertEqual(result.at[0, "baseline_risk"], None)
         self.assertEqual(round_(result.at[0, "v1_cr"]), 0.074)
         self.assertEqual(round_(result.at[0, "v1_mean"]), 0.074)
         self.assertEqual(result.at[0, "v1_risk"], None)
-        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.337439635)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.281707154)
         self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
-        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.000069244)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.003736297)
         # But difference is not just DIM / control mean, like it used to be
         self.assertNotEqual(
             np.round(result.at[0, "v1_expected"], 3),
             (0.074 - 0.110963012) / 0.110963012,
         )
+
+    def test_analyze_metric_df_ra_proportion(self):
+        rows = RA_STATISTICS_DF
+        # override default DF
+        rows['main_metric_type'] = 'binomial'
+        rows['covariate_metric_type'] = 'binomial'
+        rows['main_sum_squares'] = None
+        rows['covariate_sum_squares'] = None
+        df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
+        result = analyze_metric_df(
+            df=df, weights=[0.5, 0.5], inverse=False, engine=StatsEngine.FREQUENTIST
+        )
+
+        # Test that meric mean is unadjusted
+        self.assertEqual(len(result.index), 1)
+        self.assertEqual(result.at[0, "dimension"], "All")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 0.099966678)
+        self.assertEqual(round_(result.at[0, "baseline_mean"]), 0.099966678)
+        self.assertEqual(result.at[0, "baseline_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 0.074)
+        self.assertEqual(round_(result.at[0, "v1_mean"]), 0.074)
+        self.assertEqual(result.at[0, "v1_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.316211568)
+        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.00000035)
 
     def test_analyze_metric_df_ra_errors_bayesian(self):
         rows = RA_STATISTICS_DF

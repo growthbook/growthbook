@@ -19,6 +19,7 @@ import { POSTGRES_TEST_CONN } from "../util/secrets";
 import { processPastExperimentQueryResponse } from "../services/queries";
 import { createExperiment } from "../models/ExperimentModel";
 import { createSegment } from "../models/SegmentModel";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
 
 export async function getOrganizations(req: AuthRequest, res: Response) {
   if (!req.admin) {
@@ -45,7 +46,7 @@ export async function getOrganizations(req: AuthRequest, res: Response) {
 
 export async function addSampleData(
   req: AuthRequest<unknown, { id: string }>,
-  res: Response
+  res: Response<unknown, EventAuditUserForResponseLocals>
 ) {
   if (!req.admin) {
     return res.status(403).json({
@@ -375,6 +376,7 @@ export async function addSampleData(
         data,
         organization: org,
         bypassWebhooks: true,
+        user: res.locals.eventAudit,
       });
 
       // Add a few experiments to evidence
@@ -387,7 +389,15 @@ export async function addSampleData(
       }
 
       // Refresh results
-      await createSnapshot(exp, 0, org, null, false, org.settings?.statsEngine);
+      await createSnapshot(
+        exp,
+        res.locals.eventAudit,
+        0,
+        org,
+        null,
+        false,
+        org.settings?.statsEngine
+      );
     })
   );
 

@@ -25,6 +25,7 @@ import {
 import { MetricInterface } from "../../../types/metric";
 import { SegmentInterface } from "../../../types/segment";
 import { ExperimentInterface } from "../../../types/experiment";
+import { EventAuditUserForResponseLocals } from "../../events/event-types";
 
 // region GET /segments
 
@@ -43,7 +44,7 @@ type GetSegmentsResponse = {
  */
 export const getSegments = async (
   req: GetSegmentsRequest,
-  res: Response<GetSegmentsResponse>
+  res: Response<GetSegmentsResponse, EventAuditUserForResponseLocals>
 ) => {
   const { org } = getOrgFromReq(req);
   const segments = await findSegmentsByOrganization(org.id);
@@ -79,7 +80,7 @@ type GetSegmentUsageResponse = {
  */
 export const getSegmentUsage = async (
   req: GetSegmentUsageRequest,
-  res: Response<GetSegmentUsageResponse>
+  res: Response<GetSegmentUsageResponse, EventAuditUserForResponseLocals>
 ) => {
   const { id } = req.params;
   const { org } = getOrgFromReq(req);
@@ -137,7 +138,10 @@ type CreateSegmentResponse = {
  */
 export const postSegment = async (
   req: CreateSegmentRequest,
-  res: Response<CreateSegmentResponse | ApiErrorResponse>
+  res: Response<
+    CreateSegmentResponse | ApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) => {
   req.checkPermissions("createSegments");
 
@@ -195,7 +199,10 @@ type PutSegmentResponse = {
  */
 export const putSegment = async (
   req: PutSegmentRequest,
-  res: Response<PutSegmentResponse | ApiErrorResponse>
+  res: Response<
+    PutSegmentResponse | ApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) => {
   req.checkPermissions("createSegments");
 
@@ -250,7 +257,7 @@ type DeleteSegmentResponse = {
  */
 export const deleteSegment = async (
   req: DeleteSegmentRequest,
-  res: Response<DeleteSegmentResponse>
+  res: Response<DeleteSegmentResponse, EventAuditUserForResponseLocals>
 ) => {
   req.checkPermissions("createSegments");
 
@@ -290,7 +297,7 @@ export const deleteSegment = async (
     );
   }
 
-  await deleteExperimentSegment(org, id);
+  await deleteExperimentSegment(org, res.locals.eventAudit, id);
 
   res.status(200).json({
     status: 200,
