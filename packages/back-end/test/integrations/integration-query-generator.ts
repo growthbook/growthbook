@@ -70,7 +70,6 @@ const engines: DataSourceType[] = [
   "mysql",
   "mssql",
   "clickhouse",
-  "databricks",
 ];
 
 const baseExperimentPhase: ExperimentPhase = {
@@ -305,6 +304,8 @@ engines.forEach((engine) => {
         denominatorMetrics: denominatorMetrics,
         dimension: dimension,
         segment: segment,
+        regressionAdjustmentEnabled:
+          metric.regressionAdjustmentEnabled || false,
       });
 
       testCases.push({
