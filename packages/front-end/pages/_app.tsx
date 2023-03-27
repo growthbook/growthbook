@@ -72,7 +72,9 @@ function App({
 
   useEffect(() => {
     // Load feature definitions JSON from GrowthBook API
-    growthbook.loadFeatures({ autoRefresh: true });
+    growthbook.loadFeatures({ autoRefresh: true }).catch(() => {
+      console.log("Failed to fetch GrowthBook feature definitions");
+    });
   }, [router.pathname]);
 
   return (
