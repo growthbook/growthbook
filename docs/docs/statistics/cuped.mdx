@@ -72,30 +72,51 @@ CUPED works for all metrics that are analyzed using the Frequentist engine, exce
 
 ### Organization-level settings
 
-You can turn CUPED on for all Frequentist analysis under Settings -> General. On that page, you can set the default behavior for experiments. CUPED can be turned on or off by default for all analyses and you can set the default number of days to use for a lookback window.
+You can turn CUPED on for all Frequentist analysis under Settings -> General. On that page, you can set the default behavior for metrics analyzed with the Frequentist engine. CUPED can be turned on or off by default for all analyses and you can set the default number of days to use for a lookback window. This setting will set the default for all of your metrics, which will then flow through to all analyses that use those metrics.
 
 <img
-  src="/images/statistics/cuped-corr.png"
-  alt="Variance Reduction by Correlation"
-  style={{ width: 600, margin: "0 auto" }}
+  src="/images/statistics/cuped-org.png"
+  alt="Organization-level CUPED Setting"
+  style={{ width: 800, margin: "0 auto" }}
 />
 
 ### Metric-level settings
 
-You can also override these organization-level defaults at the Metric level. On the page for a Metric, you can go edit the Behavior, scroll down to Advanced Settings, and select overrides specific for that metric.
+You can also override these organization-level defaults at the Metric level. When creating or editing a Metric, go to the "Behavior" panel, click "Show advanced options" and scroll to the bottom. From there, you will see the following settings. These settings will allow you to disable CUPED for a metric, even if it is set at the organization or experiment level.
+
+<img
+  src="/images/statistics/cuped-metric.png"
+  alt="Metric-level CUPED Setting"
+  style={{ width: 700, margin: "0 auto" }}
+/>
 
 You might want to disable CUPED for a particular metric if that metric never collects values for a user before they enter an experiment. You might want to adjust metric-specific lookback windows for any of the reasons listed in the section above.
 
 Finally, you could also, if you wanted, override these metric-level settings for a particular experiment using metric overrides on the experiment page.
 
-### Experiment settings
+### Experiment settings and results
 
-By default, each experiment analyzed using the Frequentist engine will use your organization-level defaults, unless they are overriden by a metric.
+By default, each experiment analyzed using the Frequentist engine will use your organization-level defaults, unless they are overriden by a metric. However, you can always toggle CUPED on or off for a Frequentist analysis using the new toggle added to the top of the results table. You may need to re-run your analysis if you change this setting.
 
-### How do I know if CUPED has been applied?
+- If the toggle is Off, then CUPED will not be applied to any metrics.
+- If it is toggled On, then it will be applied for all metrics that:
+  - (a) it can be applied to
+  - (b) do not have a metric setting or metric override turning it off
 
-Because we have a variety of ways to turn on or off CUPED, it is important to note that the results table itself will tell you if CUPED has been applied for a metric, and what the given lookback window is.
+The following screenshot shows the results with CUPED on. However, you can see that there is an icon showing that CUPED is disabled for Average Order Value (because it is a ratio metric). So even if CUPED is toggled on, we will always show you any metrics for which GrowthBook did not use CUPED.
 
-If the toggle at the top of the results table is off, then CUPED has not been applied for any metric.
+<img
+  src="/images/statistics/cuped-results.png"
+  alt="Experiment Results with CUPED toggle"
+  style={{ width: 800, margin: "0 auto" }}
+/>
 
-If the toggle at the top of the results table is on, then the CUPED status for the metric can be seen using the icon in the metric row, as well as relevant information in the mouseover of the metric name.
+Furthermore, if you mouse over the icon you will get an explanation about why CUPED was not applied.
+
+<img
+  src="/images/statistics/cuped-tooltip.png"
+  alt="Metric Tooltip with CUPED status"
+  style={{ width: 400, margin: "0 auto" }}
+/>
+
+If you mouse over the metric name itself, you get the final CUPED status for each metric (on/off, number of lookback days).
