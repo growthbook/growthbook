@@ -27,7 +27,7 @@ The more correlated the pre-experiment data is with your metric of interest, the
   style={{ width: 600, margin: "0 auto" }}
 />
 
-In simpler terms, if we know a particular user tends to buy a lot of products on your website before you launch an experiment, we can use that information to understand whether purchase behavior after an experiment is driven by that customers innate tendency to buy a lot of products or whether it was due to the experiment.
+In simpler terms, if we know a particular user tends to buy a lot of products on your website before you launch an experiment, we can use that information to understand whether purchase behavior after an experiment is driven by that customer's innate tendency to buy a lot of products or whether it was due to the experiment.
 
 The concept of regression adjustment has been around for a long time, but you should feel free to read more in the original CUPED paper ([Deng et al. 2013](https://exp-platform.com/Documents/2013-02-CUPED-ImprovingSensitivityOfControlledExperiments.pdf)), a more general purpose paper on the underpinnings of regression adjustment from a sampling perspective ([Lin 2013](https://projecteuclid.org/journals/annals-of-applied-statistics/volume-7/issue-1/Agnostic-notes-on-regression-adjustments-to-experimental-data--Reexamining/10.1214/12-AOAS583.full)), and any of the many blog posts on the topic (e.g. [Booking.com](https://booking.ai/how-booking-com-increases-the-power-of-online-experiments-with-cuped-995d186fff1d), [Microsoft](https://www.microsoft.com/en-us/research/group/experimentation-platform-exp/articles/deep-dive-into-variance-reduction/)).
 
@@ -45,7 +45,7 @@ $$
 
 where $\bar{Y}_{post}$ is the post-exposure metric average, $\bar{Y}_{pre}$ is the pre-exposure metric average, and $\theta$ is essentially a regression coefficient from a regression of the post-experiment data on the pre-experiment data (pooled across both the control and treatment variation of interest), $\theta = \text{Cov}(Y_{pre}, Y_{post}) / \text{Var}(Y_{pre})$.
 
-As discussed above, we could use any correlated data instead of $Y_{pre}$. For example, we could use some model that includes all pre-exposure metrics added to your experiment, or auxiliariy dimension information you have configured per user. However, one downside of these approaches is that your results for metric A will depend on whether or not you add a metric B to your experiment and our analysis pipeline would lose its modularity, where each metric can be processed in parallel. Nonetheless, we anticipate continuing to build methods that leverage additional data to improve variance reduction from CUPED.
+As discussed above, we could use any correlated data instead of $Y_{pre}$. For example, we could use some model that includes all pre-exposure metrics added to your experiment, or auxiliary dimension information you have configured per user. However, one downside of these approaches is that your results for metric A will depend on whether or not you add a metric B to your experiment and our analysis pipeline would lose its modularity, where each metric can be processed in parallel. Nonetheless, we anticipate continuing to build methods that leverage additional data to improve variance reduction from CUPED.
 
 ### Lookback window
 
@@ -72,7 +72,7 @@ CUPED works for all metrics that are analyzed using the Frequentist engine, exce
 
 ### Organization-level settings
 
-You can turn CUPED on for all Frequentist analysis under Settings -> General. On that page, you can set the default behavior for metrics analyzed with the Frequentist engine. CUPED can be turned on or off by default for all analyses and you can set the default number of days to use for a lookback window. This setting will set the default for all of your metrics, which will then flow through to all analyses that use those metrics.
+You can turn CUPED on for all Frequentist analyses under Settings -> General. On that page, you can set the default behavior for metrics analyzed with the Frequentist engine. CUPED can be turned on or off by default for all analyses and you can set the default number of days to use for a lookback window. This setting will set the default for all of your metrics, which will then flow through to all analyses that use those metrics.
 
 <img
   src="/images/statistics/cuped-org.png"
