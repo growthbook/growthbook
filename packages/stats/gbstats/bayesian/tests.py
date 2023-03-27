@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from dataclasses import dataclass
 from typing import Tuple, Dict, Union, List
 
 import numpy as np
@@ -8,6 +9,27 @@ from gbstats.bayesian.dists import Beta, Norm
 from gbstats.bayesian.constants import BETA_PRIOR, NORM_PRIOR, EPSILON
 from gbstats.shared.models import BayesianTestResult, Statistic, Uplift
 from gbstats.shared.tests import BaseABTest
+
+
+@dataclass
+class BetaPrior:
+    a: float = 1
+    b: float = 1
+
+
+@dataclass
+class GaussianPrior:
+    mean: float = 0
+    variance: float = 1
+    pseudousers: float = 0
+
+
+@dataclass
+class BayesianConfig:
+    beta_prior: BetaPrior = BetaPrior()
+    normal_prior: GaussianPrior = GaussianPrior()
+    epsilon: float = 1e-04
+
 
 """
 Medium article inspiration:
@@ -76,13 +98,30 @@ class BayesianABTest(BaseABTest):
 
 
 class BinomialBayesianABTest(BayesianABTest):
+    def __init__(
+        self,
+        stat_a: Statistic,
+        stat_b: Statistic,
+        prior: BetaPrior = BetaPrior(),
+        inverse: bool = False,
+        ccr: float = 0.05,
+    ):
+        super().__init__(stat_a, stat_b, inverse, ccr)
+        if not isinstance(self.prior, BetaPrior):
+            raise ValueError("Wrong prior set for Binomial test")
+        self.prior = prior
+
     def compute_result(self) -> BayesianTestResult:
         # TODO refactor validation to base test
         if self.has_empty_input():
             return self._default_output()
 
-        alpha_a, beta_a = Beta.posterior(BETA_PRIOR, [self.stat_a.sum, self.stat_a.n])
-        alpha_b, beta_b = Beta.posterior(BETA_PRIOR, [self.stat_b.sum, self.stat_b.n])
+        alpha_a, beta_a = Beta.posterior(
+            [self.prior.a, self.prior.b], [self.stat_a.sum, self.stat_a.n]
+        )
+        alpha_b, beta_b = Beta.posterior(
+            [self.prior.a, self.prior.b], [self.stat_b.sum, self.stat_b.n]
+        )
 
         mean_a, var_a = Beta.moments(alpha_a, beta_a, log=True)
         mean_b, var_b = Beta.moments(alpha_b, beta_b, log=True)
@@ -109,6 +148,20 @@ class BinomialBayesianABTest(BayesianABTest):
 
 
 class GaussianBayesianABTest(BayesianABTest):
+    def __init__(
+        self,
+        stat_a: Statistic,
+        stat_b: Statistic,
+        prior: GaussianPrior = GaussianPrior(),
+        inverse: bool = False,
+        ccr: float = 0.05,
+    ):
+        super().__init__(stat_a, stat_b, inverse, ccr)
+
+        if not isinstance(self.prior, GaussianPrior):
+            raise ValueError("Wrong prior set for Gaussian test")
+        self.prior = prior
+
     def _is_log_approximation_inexact(
         self, mean_std_dev_pairs: Tuple[Tuple[float, float], Tuple[float, float]]
     ) -> bool:
@@ -130,7 +183,11 @@ class GaussianBayesianABTest(BayesianABTest):
             return self._default_output()
 
         mu_a, sd_a = Norm.posterior(
-            NORM_PRIOR,
+            [
+                self.prior.mean,
+                self.prior.variance,
+                self.prior.pseudousers,
+            ],
             [
                 self.stat_a.mean,
                 self.stat_a.stddev,
@@ -138,7 +195,11 @@ class GaussianBayesianABTest(BayesianABTest):
             ],
         )
         mu_b, sd_b = Norm.posterior(
-            NORM_PRIOR,
+            [
+                self.prior.mean,
+                self.prior.variance,
+                self.prior.pseudousers,
+            ],
             [
                 self.stat_b.mean,
                 self.stat_b.stddev,

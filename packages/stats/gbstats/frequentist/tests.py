@@ -9,13 +9,19 @@ from gbstats.shared.models import FrequentistTestResult, Statistic, Uplift
 from gbstats.shared.tests import BaseABTest
 
 
+@dataclass
+class FrequentistConfig:
+    alpha: float = 0.05
+    sequential: bool = False
+
+
 class TTest(BaseABTest):
     def __init__(
         self,
         stat_a: Statistic,
         stat_b: Statistic,
+        config: FrequentistConfig = FrequentistConfig(),
         test_value: float = 0,
-        alpha: float = 0.05,
     ):
         """Base class for one- and two-sided T-Tests with unequal variance.
         All values are with respect to relative effects, not absolute effects.
@@ -29,7 +35,7 @@ class TTest(BaseABTest):
             alpha (float, optional): the significance level for the CI construction. Defaults to 0.05.
         """
         super().__init__(stat_a, stat_b)
-        self.alpha = alpha
+        self.alpha = config.alpha
         self.test_value = test_value
 
     @property
@@ -141,3 +147,41 @@ class OneSidedTreatmentLesserTTest(TTest):
     def confidence_interval(self) -> List[float]:
         width: float = t.ppf(1 - self.alpha, self.dof) * np.sqrt(self.variance)
         return [-np.inf, self.point_estimate - width]
+
+
+class SequentialTwoSidedTTest(TTest):
+    SEQUENTIAL_TUNING_PARAMETER = 5000
+
+    def boundary(self, rho, alpha):
+        """Boundary from eq. 14 in Howard et al., but using estimated variance"""
+        N = self.stat_a.n + self.stat_b.n
+        s2 = self.variance * N
+        v = s2 * N
+        sum_width: float = np.sqrt(
+            (v + rho) * np.log((v + rho) / (rho * np.power(alpha, 2)))
+        )  # boundary for summation process as dictated in eq. 14
+        width = sum_width / N  # boundary for mean
+        return [self.point_estimate - width, self.point_estimate + width]
+
+    @property
+    def rho(self) -> float:
+        # This is close to https://github.com/gostevehoward/confseq/blob/29c07072322a1defd623f6a957177e0173d32914/src/confseq/uniform_boundaries.h#L418-L422
+        # using N as V
+        return self.SEQUENTIAL_TUNING_PARAMETER / (
+            2 * np.log(1 / self.alpha) + np.log(1 + 2 * np.log(1 / self.alpha))
+        )
+
+    @property
+    def p_value(self) -> float:
+        """P-value that corresponds to Howard (14) (1 - alpha) CS calculated analytically."""
+        N = self.stat_a.n + self.stat_b.n
+        x = np.abs(self.point_estimate - self.test_value) * N / np.sqrt(self.rho)
+        s2 = self.variance * N
+        tp1 = s2 * N / self.rho + 1
+        evalue = np.exp(np.square(x) / (2 * tp1)) / np.sqrt(tp1)
+        return min(1 / evalue, 1)
+
+    @property
+    def confidence_interval(self) -> List[float]:
+        """Akin to implementing eq. 14 in Howard et al., but using estimated variance"""
+        return self.boundary(self.rho, self.alpha)

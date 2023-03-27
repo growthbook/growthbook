@@ -5,7 +5,12 @@ from unittest import TestCase, main as unittest_main
 import numpy as np
 
 from gbstats.frequentist.tests import TwoSidedTTest
-from gbstats.shared.models import FrequentistTestResult, ProportionStatistic, SampleMeanStatistic, Uplift
+from gbstats.shared.models import (
+    FrequentistTestResult,
+    ProportionStatistic,
+    SampleMeanStatistic,
+    Uplift,
+)
 
 DECIMALS = 5
 round_ = partial(np.round, decimals=DECIMALS)
@@ -38,14 +43,13 @@ class TestTwoSidedTTest(TestCase):
 
         self.assertDictEqual(result_dict, expected_rounded_dict)
 
-
     def test_two_sided_ttest_binom(self):
         stat_a = ProportionStatistic(sum=14, n=28)
         stat_b = ProportionStatistic(sum=16, n=30)
         result_dict = asdict(TwoSidedTTest(stat_a, stat_b).compute_result())
         expected_rounded_dict = asdict(
             FrequentistTestResult(
-                expected=round_((16/30 - 0.5) / 0.5),
+                expected=round_((16 / 30 - 0.5) / 0.5),
                 ci=[-0.47767, 0.61101],
                 uplift=Uplift("normal", 0.06667, 0.2717),
                 p_value=0.80707,
@@ -64,7 +68,6 @@ class TestTwoSidedTTest(TestCase):
             result_dict[k] = v
 
         self.assertDictEqual(result_dict, expected_rounded_dict)
-
 
     def test_two_sided_ttest_missing_variance(self):
         stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=2)
