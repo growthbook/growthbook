@@ -24,6 +24,8 @@ type ModAppProps = AppProps & {
 };
 
 const growthbook = new GrowthBook<AppFeatures>({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-ueFMOgZ2daLa0M",
   enableDevMode: true,
   realtimeKey: "key_prod_cb40dfcb0eb98e44",
   trackingCallback: (experiment, result) => {
@@ -67,16 +69,7 @@ function App({
 
   useEffect(() => {
     // Load feature definitions JSON from GrowthBook API
-    fetch(
-      process.env.NODE_ENV === "production"
-        ? "https://cdn.growthbook.io/api/features/key_prod_cb40dfcb0eb98e44"
-        : "https://cdn.growthbook.io/api/features/key_dev_676ef35b3e2f8f3f"
-    )
-      .then((res) => res.json())
-      .then((json) => growthbook.setFeatures(json.features))
-      .catch(() => {
-        console.log("Failed to fetch GrowthBook feature definitions");
-      });
+    growthbook.loadFeatures({ autoRefresh: true });
   }, [router.pathname]);
 
   return (
