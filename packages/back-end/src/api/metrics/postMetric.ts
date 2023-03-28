@@ -59,7 +59,19 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
       description,
       owner,
       type,
-      behavior,
+      behavior: behavior
+        ? {
+            goal: behavior.goal,
+            cap: behavior?.cap ?? 0,
+            riskThresholdDanger: behavior?.riskThresholdDanger ?? 0,
+            riskThresholdSuccess: behavior?.riskThresholdSuccess ?? 0,
+            conversionWindowStart: behavior?.conversionWindowStart ?? 0,
+            conversionWindowEnd: behavior?.conversionWindowEnd ?? 0,
+            minSampleSize: behavior?.minSampleSize ?? 150,
+            minPercentChange: behavior?.minPercentChange ?? 0.005,
+            maxPercentChange: behavior?.maxPercentChange ?? 0.5,
+          }
+        : undefined,
       tags,
       projects,
       // We are mapping the request shape for the user to simplify sql, sqlBuilder & mixpanel,

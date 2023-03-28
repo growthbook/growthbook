@@ -697,14 +697,6 @@ paths:
                   type: object
                   required:
                     - goal
-                    - cap
-                    - conversionWindowStart
-                    - conversionWindowEnd
-                    - riskThresholdSuccess
-                    - riskThresholdDanger
-                    - minPercentChange
-                    - maxPercentChange
-                    - minSampleSize
                   properties:
                     goal:
                       type: string

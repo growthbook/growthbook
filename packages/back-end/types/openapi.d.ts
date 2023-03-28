@@ -2005,18 +2005,18 @@ export interface operations {
             /** @enum {string} */
             goal: "increase" | "decrease";
             /** @description This should be non-negative */
-            cap: number;
+            cap?: number;
             /** @description The [Conversion Delay](/app/metrics#conversion-delay), in hours */
-            conversionWindowStart: number;
+            conversionWindowStart?: number;
             /** @description The [Conversion Window](/app/metrics#conversion-window), in hours */
-            conversionWindowEnd: number;
-            riskThresholdSuccess: number;
-            riskThresholdDanger: number;
+            conversionWindowEnd?: number;
+            riskThresholdSuccess?: number;
+            riskThresholdDanger?: number;
             /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
-            minPercentChange: number;
+            minPercentChange?: number;
             /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
-            maxPercentChange: number;
-            minSampleSize: number;
+            maxPercentChange?: number;
+            minSampleSize?: number;
           };
           /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
           sql?: {
