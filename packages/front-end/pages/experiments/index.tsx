@@ -21,10 +21,15 @@ import TabButton from "@/components/Tabs/TabButton";
 import { useAnchor } from "@/components/Tabs/ControlledTabs";
 import Toggle from "@/components/Forms/Toggle";
 import AddExperimentModal from "@/components/Experiment/AddExperimentModal";
+import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "@/types/app-features";
 
 const NUM_PER_PAGE = 20;
 
 const ExperimentsPage = (): React.ReactElement => {
+  const growthbook = useGrowthBook<AppFeatures>();
+
   const { ready, project, getMetricById, getProjectById } = useDefinitions();
 
   const { data, error, mutate } = useApi<{
@@ -345,10 +350,17 @@ const ExperimentsPage = (): React.ReactElement => {
         </div>
       </div>
       {openNewExperimentModal && (
-        <AddExperimentModal
-          onClose={() => setOpenNewExperimentModal(false)}
-          source="experiment-list"
-        />
+        growthbook.isOn("new-experiment-modal") ? (
+          <AddExperimentModal
+            onClose={() => setOpenNewExperimentModal(false)}
+            source="experiment-list"
+          />
+        ) : (
+          <ImportExperimentModal
+            onClose={() => setOpenNewExperimentModal(false)}
+            source="experiment-list"
+          />
+        )
       )}
     </>
   );
