@@ -11,7 +11,6 @@ import useMembers from "@/hooks/useMembers";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import EditSqlModal from "../SchemaBrowser/EditSqlModal";
 import Code from "../SyntaxHighlighting/Code";
-import SQLInputField from "../SQLInputField";
 
 export type CursorData = {
   row: number;
@@ -46,8 +45,6 @@ const SegmentForm: FC<{
   const userIdType = form.watch("userIdType");
 
   const datasource = getDatasourceById(form.watch("datasource"));
-  const supportsSchemaBrowser =
-    datasource?.properties.supportsInformationSchema;
 
   const dsProps = datasource?.properties;
   const supportsSQL = dsProps?.queryLanguage === "sql";
@@ -122,41 +119,22 @@ const SegmentForm: FC<{
           />
         )}
         {supportsSQL ? (
-          <>
-            {supportsSchemaBrowser ? (
-              <div className="form-group">
-                <label>Query</label>
-                {sql && <Code language="sql" code={sql} expandable={true} />}
-                <div>
-                  <button
-                    className="btn btn-outline-primary"
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setSqlOpen(true);
-                    }}
-                  >
-                    {sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <SQLInputField
-                userEnteredQuery={sql}
-                datasourceId={datasource.id}
-                form={form}
-                placeholder={`SELECT\n ${userIdType}, date\nFROM\n mytable`}
-                requiredColumns={requiredColumns}
-                helpText={
-                  <>
-                    Select two columns named <code>{userIdType}</code> and{" "}
-                    <code>date</code>
-                  </>
-                }
-                queryType="segment"
-              />
-            )}
-          </>
+          <div className="form-group">
+            <label>Query</label>
+            {sql && <Code language="sql" code={sql} expandable={true} />}
+            <div>
+              <button
+                className="btn btn-outline-primary"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSqlOpen(true);
+                }}
+              >
+                {sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
+              </button>
+            </div>
+          </div>
         ) : (
           <Field
             label="Event Condition"

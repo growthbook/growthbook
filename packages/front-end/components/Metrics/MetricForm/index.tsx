@@ -281,9 +281,6 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const selectedDataSource = getDatasourceById(value.datasource);
 
-  const supportsSchemaBrowser =
-    selectedDataSource?.properties.supportsInformationSchema;
-
   const datasourceType = selectedDataSource?.type;
 
   const datasourceSettingsSupport =
@@ -557,42 +554,24 @@ const MetricForm: FC<MetricFormProps> = ({
                     }))}
                     label="Identifier Types Supported"
                   />
-                  {supportsSchemaBrowser ? (
-                    <div className="form-group">
-                      <label>Query</label>
-                      {value.sql && (
-                        <Code
-                          language="sql"
-                          code={value.sql}
-                          expandable={true}
-                        />
-                      )}
-                      <div>
-                        <button
-                          className="btn btn-outline-primary"
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setSqlOpen(true);
-                          }}
-                        >
-                          {value.sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
-                        </button>
-                      </div>
+                  <div className="form-group">
+                    <label>Query</label>
+                    {value.sql && (
+                      <Code language="sql" code={value.sql} expandable={true} />
+                    )}
+                    <div>
+                      <button
+                        className="btn btn-outline-primary"
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setSqlOpen(true);
+                        }}
+                      >
+                        {value.sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
+                      </button>
                     </div>
-                  ) : (
-                    <SQLInputField
-                      className="mb-2"
-                      userEnteredQuery={value.sql}
-                      datasourceId={value.datasource}
-                      form={form}
-                      requiredColumns={requiredColumns}
-                      placeholder={
-                        "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
-                      }
-                      queryType="metric"
-                    />
-                  )}
+                  </div>
                   {value.type !== "binomial" && (
                     <Field
                       label="User Value Aggregation"
@@ -805,35 +784,6 @@ const MetricForm: FC<MetricFormProps> = ({
                 </>
               )}
             </div>
-            {supportsSQL &&
-              value.queryFormat === "sql" &&
-              !supportsSchemaBrowser && (
-                <div className="col-lg pt-2">
-                  <h4>SQL Query Instructions</h4>
-                  <p className="mt-3">
-                    Your SELECT statement must return the following column
-                    names:
-                  </p>
-                  <ol>
-                    {value.userIdTypes.map((id) => (
-                      <li key={id}>
-                        <strong>{id}</strong>
-                      </li>
-                    ))}
-                    {supportsSQL && value.type !== "binomial" && (
-                      <li>
-                        <strong>value</strong> -{" "}
-                        {value.type === "count"
-                          ? "The numeric value to be counted"
-                          : "The " + value.type + " amount"}
-                      </li>
-                    )}
-                    <li>
-                      <strong>timestamp</strong> - When the action was performed
-                    </li>
-                  </ol>
-                </div>
-              )}
             {value.queryFormat === "builder" && (
               <div className="col-lg pt-2">
                 <SQLInputField

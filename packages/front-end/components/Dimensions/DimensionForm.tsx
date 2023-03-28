@@ -11,7 +11,6 @@ import SelectField from "@/components/Forms/SelectField";
 import useMembers from "@/hooks/useMembers";
 import EditSqlModal from "../SchemaBrowser/EditSqlModal";
 import Code from "../SyntaxHighlighting/Code";
-import SQLInputField from "../SQLInputField";
 
 const DimensionForm: FC<{
   close: () => void;
@@ -40,7 +39,6 @@ const DimensionForm: FC<{
   const userIdType = form.watch("userIdType");
 
   const dsObj = getDatasourceById(datasource);
-  const supportsSchemaBrowser = dsObj?.properties.supportsInformationSchema;
 
   const dsProps = dsObj?.properties;
   const supportsSQL = dsProps?.queryLanguage === "sql";
@@ -118,41 +116,22 @@ const DimensionForm: FC<{
           />
         )}
         {supportsSQL ? (
-          <>
-            {supportsSchemaBrowser ? (
-              <div className="form-group">
-                <label>Query</label>
-                {sql && <Code language="sql" code={sql} expandable={true} />}
-                <div>
-                  <button
-                    className="btn btn-outline-primary"
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setSqlOpen(true);
-                    }}
-                  >
-                    {sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <SQLInputField
-                userEnteredQuery={form.watch("sql")}
-                datasourceId={dsObj.id}
-                form={form}
-                requiredColumns={requiredColumns}
-                placeholder={`SELECT\n      ${userIdType}, browser as value\nFROM\n      users`}
-                helpText={
-                  <>
-                    Select two columns named <code>{userIdType}</code> and{" "}
-                    <code>value</code>
-                  </>
-                }
-                queryType="dimension"
-              />
-            )}
-          </>
+          <div className="form-group">
+            <label>Query</label>
+            {sql && <Code language="sql" code={sql} expandable={true} />}
+            <div>
+              <button
+                className="btn btn-outline-primary"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSqlOpen(true);
+                }}
+              >
+                {sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
+              </button>
+            </div>
+          </div>
         ) : (
           <Field
             label="Event Condition"

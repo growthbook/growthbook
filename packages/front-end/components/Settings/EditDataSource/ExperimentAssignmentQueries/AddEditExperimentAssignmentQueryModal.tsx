@@ -9,7 +9,8 @@ import uniqId from "uniqid";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import Code from "@/components/SyntaxHighlighting/Code";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
-import SQLInputField from "../../../SQLInputField";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Toggle from "@/components/Forms/Toggle";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import StringArrayField from "../../../Forms/StringArrayField";
@@ -34,7 +35,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     mode === "add"
       ? "Add an Experiment Assignment query"
       : `Edit ${exposureQuery.name}`;
-  const supportsSchemaBrowser = dataSource.properties.supportsInformationSchema;
 
   const userIdTypeOptions = dataSource.settings.userIdTypes.map(
     ({ userIdType }) => ({
@@ -118,7 +118,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         open={true}
         submit={handleSubmit}
         close={onCancel}
-        size={supportsSchemaBrowser ? "md" : "max"}
         header={modalTitle}
         cta="Save"
         ctaEnabled={saveEnabled}
@@ -147,40 +146,43 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                   form.setValue("dimensions", dimensions);
                 }}
               />
-              {supportsSchemaBrowser ? (
-                <div className="form-group">
-                  <label>Query</label>
-                  {userEnteredQuery && (
-                    <Code
-                      language="sql"
-                      code={userEnteredQuery}
-                      expandable={true}
-                    />
-                  )}
-                  <div>
-                    <button
-                      className="btn btn-outline-primary"
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setSqlOpen(true);
-                      }}
-                    >
-                      {userEnteredQuery ? "Edit" : "Add"} SQL{" "}
-                      <FaExternalLinkAlt />
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <SQLInputField
-                  userEnteredQuery={userEnteredQuery}
-                  datasourceId={dataSource.id}
-                  form={form}
-                  requiredColumns={requiredColumns}
-                  identityTypes={identityTypes}
-                  queryType="experiment-assignment"
+              <div className="mb-1">
+                <Toggle
+                  id="require-ssl"
+                  label="Require SSL"
+                  {...form.register("hasNameCol")}
+                  value={form.watch("hasNameCol")}
+                  setValue={(value) => form.setValue("hasNameCol", value)}
+                  className="mr-2"
                 />
-              )}
+                <label htmlFor="require-ssl" className="mr-1">
+                  Use Name Columns
+                </label>
+                <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
+              </div>
+              <div className="form-group">
+                <label>Query</label>
+                {userEnteredQuery && (
+                  <Code
+                    language="sql"
+                    code={userEnteredQuery}
+                    expandable={true}
+                  />
+                )}
+                <div>
+                  <button
+                    className="btn btn-outline-primary"
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setSqlOpen(true);
+                    }}
+                  >
+                    {userEnteredQuery ? "Edit" : "Add"} SQL{" "}
+                    <FaExternalLinkAlt />
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
