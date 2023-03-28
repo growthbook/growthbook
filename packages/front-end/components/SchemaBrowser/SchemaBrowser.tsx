@@ -17,8 +17,8 @@ import DatasourceTableData from "./DatasourceTableData";
 
 type Props = {
   datasource: DataSourceInterfaceWithParams;
-  cursorData: CursorData;
-  updateSqlInput: (sql: string) => void;
+  cursorData?: CursorData;
+  updateSqlInput?: (sql: string) => void;
 };
 
 export default function SchemaBrowser({
@@ -59,7 +59,7 @@ export default function SchemaBrowser({
   const handleTableClick = async (e, path: string, tableId: string) => {
     setError(null);
     if (e.detail === 2) {
-      if (!inputArray) return;
+      if (!inputArray || !updateSqlInput) return;
       const updatedStr = pastePathIntoExistingQuery(
         inputArray[row] || "",
         column,
