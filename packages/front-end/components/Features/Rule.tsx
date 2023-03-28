@@ -218,25 +218,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         </div>
         <div className="d-flex">
           <div
-            style={{ flex: 1, maxWidth: "100%" }}
+            style={{
+              flex: 1,
+              maxWidth: "100%",
+              opacity: ruleDisabled ? 0.5 : 1,
+            }}
             className="pt-1 position-relative"
           >
-            {ruleDisabled && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  zIndex: 99,
-                  background: "rgba(255,255,255,.7)",
-                  display: "flex",
-                  flexDirection: "column",
-                  fontSize: 25,
-                }}
-              ></div>
-            )}
             {rule.condition && rule.condition !== "{}" && (
               <div className="row mb-3 align-items-top">
                 <div className="col-auto">

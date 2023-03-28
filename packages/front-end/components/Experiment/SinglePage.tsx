@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import {
@@ -11,13 +11,19 @@ import {
 } from "react-icons/fa";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
+import uniq from "lodash/uniq";
+import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import { getDefaultConversionWindowHours } from "@/services/env";
-import { applyMetricOverrides } from "@/services/experiments";
+import {
+  applyMetricOverrides,
+  getRegressionAdjustmentsForMetric,
+} from "@/services/experiments";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -103,7 +109,10 @@ function drawMetricRow(
       <div className="col-sm-1">
         <div className="small">
           {overrideFields.includes("winRisk") ||
-          overrideFields.includes("loseRisk") ? (
+          overrideFields.includes("loseRisk") ||
+          overrideFields.includes("regressionAdjustmentOverride") ||
+          overrideFields.includes("regressionAdjustmentEnabled") ||
+          overrideFields.includes("regressionAdjustmentDays") ? (
             <span className="font-italic text-purple">override</span>
           ) : (
             <span className="text-muted">default</span>
@@ -168,7 +177,8 @@ export default function SinglePage({
   const watcherIds = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
-  const { users } = useUser();
+  const settings = useOrgSettings();
+  const { users, hasCommercialFeature } = useUser();
 
   const project = getProjectById(experiment.project || "");
   const datasource = getDatasourceById(experiment.datasource);
@@ -179,6 +189,92 @@ export default function SinglePage({
   const exposureQuery = exposureQueries.find(
     (q) => q.id === experiment.exposureQueryId
   );
+
+  const statsEngine = settings.statsEngine || "bayesian";
+
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
+
+  const allExperimentMetricIds = uniq([
+    ...experiment.metrics,
+    ...(experiment.guardrails ?? []),
+  ]);
+  const allExperimentMetrics = allExperimentMetricIds.map((m) =>
+    getMetricById(m)
+  );
+  const denominatorMetricIds = uniq(
+    allExperimentMetrics.map((m) => m?.denominator).filter((m) => m)
+  );
+  const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
+
+  const [
+    regressionAdjustmentAvailable,
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses,
+  ] = useMemo(() => {
+    const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+    let regressionAdjustmentAvailable = true;
+    let regressionAdjustmentEnabled = false;
+    for (const metric of allExperimentMetrics) {
+      if (!metric) continue;
+      const {
+        metricRegressionAdjustmentStatus,
+      } = getRegressionAdjustmentsForMetric({
+        metric: metric,
+        denominatorMetrics: denominatorMetrics,
+        experimentRegressionAdjustmentEnabled: !!experiment.regressionAdjustmentEnabled,
+        organizationSettings: settings,
+        metricOverrides: experiment.metricOverrides,
+      });
+      if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
+        regressionAdjustmentEnabled = true;
+      }
+      metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
+    }
+    if (!experiment.regressionAdjustmentEnabled) {
+      regressionAdjustmentEnabled = false;
+    }
+    if (!settings.statsEngine || settings.statsEngine === "bayesian") {
+      regressionAdjustmentAvailable = false;
+      regressionAdjustmentEnabled = false;
+    }
+    if (
+      !datasource?.type ||
+      datasource?.type === "google_analytics" ||
+      datasource?.type === "mixpanel"
+    ) {
+      // these do not implement getExperimentMetricQuery
+      regressionAdjustmentAvailable = false;
+      regressionAdjustmentEnabled = false;
+    }
+    if (!hasRegressionAdjustmentFeature) {
+      regressionAdjustmentEnabled = false;
+    }
+    return [
+      regressionAdjustmentAvailable,
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses,
+    ];
+  }, [
+    allExperimentMetrics,
+    denominatorMetrics,
+    settings,
+    experiment.regressionAdjustmentEnabled,
+    experiment.metricOverrides,
+    datasource?.type,
+    hasRegressionAdjustmentFeature,
+  ]);
+
+  const onRegressionAdjustmentChange = async (enabled: boolean) => {
+    await apiCall(`/experiment/${experiment.id}/`, {
+      method: "POST",
+      body: JSON.stringify({
+        regressionAdjustmentEnabled: !!enabled,
+      }),
+    });
+    mutate();
+  };
 
   const hasPermission = permissions.check("createAnalyses", experiment.project);
 
@@ -738,7 +834,7 @@ export default function SinglePage({
             <FaLink />
           </a>
         </h3>
-        <div className="appbox">
+        <div className="appbox" style={{ overflowX: "initial" }}>
           {experiment.phases?.length > 0 ? (
             <Results
               experiment={experiment}
@@ -748,6 +844,13 @@ export default function SinglePage({
               editPhases={editPhases}
               alwaysShowPhaseSelector={true}
               reportDetailsLink={false}
+              statsEngine={statsEngine}
+              regressionAdjustmentAvailable={regressionAdjustmentAvailable}
+              regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+              metricRegressionAdjustmentStatuses={
+                metricRegressionAdjustmentStatuses
+              }
+              onRegressionAdjustmentChange={onRegressionAdjustmentChange}
             />
           ) : (
             <div className="text-center my-5">

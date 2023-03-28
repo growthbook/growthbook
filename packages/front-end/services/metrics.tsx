@@ -67,7 +67,7 @@ export function formatConversionRate(type: MetricType, value: number): string {
       return formatter.format(d) + " days";
     }
 
-    // overwise, format as time string (00:00:00.0)
+    // otherwise, format as time string (00:00:00.0)
     const trimmed = Math.round(value * 10) / 10;
     const dec = (Math.round((trimmed % 1) * 10) + "").replace(/0$/, "");
     const s = "" + (Math.floor(trimmed) % 60);

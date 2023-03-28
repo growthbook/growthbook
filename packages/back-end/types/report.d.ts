@@ -50,6 +50,8 @@ export interface ExperimentReportArgs {
   skipPartialData?: boolean;
   attributionModel?: AttributionModel;
   statsEngine?: StatsEngine;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
 }
 export interface ExperimentReportResultDimension {
   name: string;

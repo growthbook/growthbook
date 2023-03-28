@@ -7,6 +7,7 @@ import {
   FaArchive,
   FaChevronRight,
   FaQuestionCircle,
+  FaTimes,
 } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
@@ -68,6 +69,7 @@ const MetricPage: FC = () => {
     getDatasourceById,
     getSegmentById,
     getMetricById,
+    metrics,
     segments,
   } = useDefinitions();
   const settings = useOrgSettings();
@@ -146,6 +148,26 @@ const MetricPage: FC = () => {
   const status = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
 
+  let regressionAdjustmentAvailableForMetric = true;
+  let regressionAdjustmentAvailableForMetricReason = <></>;
+  if (metric.denominator) {
+    const denominator = metrics.find((m) => m.id === metric.denominator);
+    if (denominator?.type === "count") {
+      regressionAdjustmentAvailableForMetric = false;
+      regressionAdjustmentAvailableForMetricReason = (
+        <>
+          Not available for ratio metrics with <em>count</em> denominators.
+        </>
+      );
+    }
+  }
+  if (metric.aggregation) {
+    regressionAdjustmentAvailableForMetric = false;
+    regressionAdjustmentAvailableForMetricReason = (
+      <>Not available for metrics with custom aggregations.</>
+    );
+  }
+
   const getMetricUsage = (metric: MetricInterface) => {
     return async () => {
       try {
@@ -172,7 +194,7 @@ const MetricPage: FC = () => {
             res.experiments.forEach((e) => {
               experimentLinks.push(
                 <Link href={`/experiment/${e.id}`}>
-                  <a className="">{e.name}</a>
+                  <a>{e.name}</a>
                 </Link>
               );
             });
@@ -207,7 +229,7 @@ const MetricPage: FC = () => {
                           {experimentLinks.map((l, i) => {
                             return (
                               <Fragment key={i}>
-                                <li className="">{l}</li>
+                                <li>{l}</li>
                               </Fragment>
                             );
                           })}
@@ -221,7 +243,7 @@ const MetricPage: FC = () => {
                           {ideaLinks.map((l, i) => {
                             return (
                               <Fragment key={i}>
-                                <li className="">{l}</li>
+                                <li>{l}</li>
                               </Fragment>
                             );
                           })}
@@ -1034,58 +1056,57 @@ const MetricPage: FC = () => {
               open={() => setEditModalOpen(2)}
               canOpen={canEditMetric}
             >
-              <RightRailSectionGroup type="commaList" empty="">
-                {[
-                  metric.inverse ? "inverse" : null,
-                  metric.cap > 0 ? `cap: ${metric.cap}` : null,
-                  metric.ignoreNulls ? "converted users only" : null,
-                ]}
+              <RightRailSectionGroup type="custom" empty="" className="mt-3">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  {metric.inverse && (
+                    <li className="mb-2">
+                      <span className="text-gray">Goal:</span>{" "}
+                      <span className="font-weight-bold">Inverse</span>
+                    </li>
+                  )}
+                  {metric.cap > 0 && (
+                    <li className="mb-2">
+                      <span className="text-gray">Capped value:</span>{" "}
+                      <span className="font-weight-bold">{metric.cap}</span>
+                    </li>
+                  )}
+                  {metric.ignoreNulls && (
+                    <li className="mb-2">
+                      <span className="text-gray">Converted users only:</span>{" "}
+                      <span className="font-weight-bold">Yes</span>
+                    </li>
+                  )}
+                </ul>
               </RightRailSectionGroup>
 
               {datasource?.properties?.metricCaps && (
-                <RightRailSectionGroup
-                  type="commaList"
-                  title="Conversion Window"
-                >
-                  <span>
-                    {metric.conversionDelayHours
-                      ? metric.conversionDelayHours + " to "
-                      : ""}
-                    {(metric.conversionDelayHours || 0) +
-                      (metric.conversionWindowHours ||
-                        getDefaultConversionWindowHours())}{" "}
-                    hours
-                  </span>
+                <RightRailSectionGroup type="custom" empty="">
+                  <ul className="right-rail-subsection list-unstyled mb-4">
+                    <li className="mt-3 mb-1">
+                      <span className="uppercase-title lg">
+                        Conversion Window
+                      </span>
+                    </li>
+                    <li>
+                      <span className="font-weight-bold">
+                        {metric.conversionDelayHours
+                          ? metric.conversionDelayHours + " to "
+                          : ""}
+                        {(metric.conversionDelayHours || 0) +
+                          (metric.conversionWindowHours ||
+                            getDefaultConversionWindowHours())}{" "}
+                        hours
+                      </span>
+                    </li>
+                  </ul>
                 </RightRailSectionGroup>
               )}
 
               <RightRailSectionGroup type="custom" empty="">
-                <ul className="right-rail-subsection list-unstyled">
-                  {settings.statsEngine !== "frequentist" && (
-                    <>
-                      <li className="mb-2">
-                        <span className="uppercase-title">Thresholds</span>
-                      </li>
-                      <li className="mb-2">
-                        <span className="text-gray">Acceptable risk &lt;</span>{" "}
-                        <span className="font-weight-bold">
-                          {metric?.winRisk * 100 ||
-                            defaultWinRiskThreshold * 100}
-                          %
-                        </span>
-                      </li>
-                      <li className="mb-2">
-                        <span className="text-gray">
-                          Unacceptable risk &gt;
-                        </span>{" "}
-                        <span className="font-weight-bold">
-                          {metric?.loseRisk * 100 ||
-                            defaultLoseRiskThreshold * 100}
-                          %
-                        </span>
-                      </li>
-                    </>
-                  )}
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-1">
+                    <span className="uppercase-title lg">Thresholds</span>
+                  </li>
                   <li className="mb-2">
                     <span className="text-gray">Minimum sample size:</span>{" "}
                     <span className="font-weight-bold">
@@ -1104,6 +1125,106 @@ const MetricPage: FC = () => {
                       {getMinPercentageChangeForMetric(metric) * 100}%
                     </span>
                   </li>
+                </ul>
+              </RightRailSectionGroup>
+
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-2">
+                    <span className="uppercase-title lg">Risk Thresholds</span>
+                    <small className="d-block mb-1 text-muted">
+                      Only applicable to Bayesian analyses
+                    </small>
+                  </li>
+                  <li className="mb-2">
+                    <span className="text-gray">Acceptable risk &lt;</span>{" "}
+                    <span className="font-weight-bold">
+                      {metric?.winRisk * 100 || defaultWinRiskThreshold * 100}%
+                    </span>
+                  </li>
+                  <li className="mb-2">
+                    <span className="text-gray">Unacceptable risk &gt;</span>{" "}
+                    <span className="font-weight-bold">
+                      {metric?.loseRisk * 100 || defaultLoseRiskThreshold * 100}
+                      %
+                    </span>
+                  </li>
+                </ul>
+              </RightRailSectionGroup>
+
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-2">
+                  <li className="mt-3 mb-2">
+                    <span className="uppercase-title lg">
+                      Regression Adjustment (CUPED)
+                    </span>
+                    <small className="d-block mb-1 text-muted">
+                      Only applicable to frequentist analyses
+                    </small>
+                  </li>
+                  {!regressionAdjustmentAvailableForMetric ? (
+                    <li className="mb-2">
+                      <div className="text-muted small">
+                        <FaTimes className="text-danger" />{" "}
+                        {regressionAdjustmentAvailableForMetricReason}
+                      </div>
+                    </li>
+                  ) : metric?.regressionAdjustmentOverride ? (
+                    <>
+                      <li className="mb-2">
+                        <span className="text-gray">
+                          Apply regression adjustment:
+                        </span>{" "}
+                        <span className="font-weight-bold">
+                          {metric?.regressionAdjustmentEnabled ? "On" : "Off"}
+                        </span>
+                      </li>
+                      <li className="mb-2">
+                        <span className="text-gray">
+                          Lookback period (days):
+                        </span>{" "}
+                        <span className="font-weight-bold">
+                          {metric?.regressionAdjustmentDays}
+                        </span>
+                      </li>
+                    </>
+                  ) : settings.regressionAdjustmentEnabled ? (
+                    <>
+                      <li className="mb-1">
+                        <div className="mb-1">
+                          <em className="text-gray">
+                            Using organization defaults
+                          </em>
+                        </div>
+                        <div className="ml-2 px-2 border-left">
+                          <div className="mb-1 small">
+                            <span className="text-gray">
+                              Apply regression adjustment:
+                            </span>{" "}
+                            <span className="font-weight-bold">
+                              {settings?.regressionAdjustmentEnabled
+                                ? "On"
+                                : "Off"}
+                            </span>
+                          </div>
+                          <div className="mb-1 small">
+                            <span className="text-gray">
+                              Lookback period (days):
+                            </span>{" "}
+                            <span className="font-weight-bold">
+                              {settings?.regressionAdjustmentDays}
+                            </span>
+                          </div>
+                        </div>
+                      </li>
+                    </>
+                  ) : (
+                    <li className="mb-2">
+                      <div className="mb-1">
+                        <em className="text-gray">Disabled</em>
+                      </div>
+                    </li>
+                  )}
                 </ul>
               </RightRailSectionGroup>
             </RightRailSection>
