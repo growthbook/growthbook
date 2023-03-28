@@ -246,8 +246,8 @@ export async function getSampleExperiment(
 export async function createExperiment({
   data,
   organization,
-  bypassWebhooks = false,
   user,
+  bypassWebhooks = false,
 }: {
   data: Partial<ExperimentInterface>;
   organization: OrganizationInterface;
