@@ -59,31 +59,6 @@ export default function ConfigureReport({
   );
   const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
 
-  const metricRegressionAdjustmentStatuses = useMemo(() => {
-    const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
-    for (const metric of allExperimentMetrics) {
-      if (!metric) continue;
-      const {
-        metricRegressionAdjustmentStatus,
-      } = getRegressionAdjustmentsForMetric({
-        metric: metric,
-        denominatorMetrics: denominatorMetrics,
-        experimentRegressionAdjustmentEnabled: !!report.args
-          .regressionAdjustmentEnabled,
-        organizationSettings: settings,
-        metricOverrides: report.args.metricOverrides,
-      });
-      metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
-    }
-    return metricRegressionAdjustmentStatuses;
-  }, [
-    allExperimentMetrics,
-    denominatorMetrics,
-    settings,
-    report.args.regressionAdjustmentEnabled,
-    report.args.metricOverrides,
-  ]);
-
   const form = useForm({
     defaultValues: {
       ...report.args,
@@ -109,6 +84,33 @@ export default function ConfigureReport({
         report.args.metricRegressionAdjustmentStatuses || [],
     },
   });
+
+  // CUPED adjustments
+  const metricRegressionAdjustmentStatuses = useMemo(() => {
+    const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+    for (const metric of allExperimentMetrics) {
+      if (!metric) continue;
+      const {
+        metricRegressionAdjustmentStatus,
+      } = getRegressionAdjustmentsForMetric({
+        metric: metric,
+        denominatorMetrics: denominatorMetrics,
+        experimentRegressionAdjustmentEnabled: !!form.watch(
+          `regressionAdjustmentEnabled`
+        ),
+        organizationSettings: settings,
+        metricOverrides: report.args.metricOverrides,
+      });
+      metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
+    }
+    return metricRegressionAdjustmentStatuses;
+  }, [
+    allExperimentMetrics,
+    denominatorMetrics,
+    settings,
+    form,
+    report.args.metricOverrides,
+  ]);
 
   const filteredMetrics = metrics.filter(
     (m) => m.datasource === report.args.datasource
