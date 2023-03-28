@@ -28,6 +28,7 @@ export type BaseFieldProps = {
   error?: ReactNode;
   helpText?: ReactNode;
   containerClassName?: string;
+  inputGroupClassName?: string;
   labelClassName?: string;
   // eslint-disable-next-line
   render?: (id: string, ref: any) => ReactElement;
@@ -93,6 +94,7 @@ const Field = forwardRef(
       error,
       helpText,
       containerClassName,
+      inputGroupClassName,
       labelClassName,
       label,
       prepend,
@@ -186,7 +188,7 @@ const Field = forwardRef(
 
     if (prepend || append) {
       component = (
-        <div className="input-group">
+        <div className={clsx("input-group", inputGroupClassName)}>
           {prepend && (
             <div className="input-group-prepend">
               <div className="input-group-text">{prepend}</div>

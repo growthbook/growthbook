@@ -3,8 +3,8 @@ import z from "zod";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
 import {
-  InformationSchemaInterface,
   InformationSchema,
+  InformationSchemaInterface,
 } from "../types/Integration";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
@@ -89,7 +89,7 @@ export async function createInformationSchema(
   organization: string,
   datasourceId: string
 ): Promise<InformationSchemaInterface> {
-  //TODO: Remove this check and orgs usingFileConfig to create informationSchemas
+  //TODO: GB-82 - Remove this check and orgs usingFileConfig to create informationSchemas
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");
   }
@@ -112,7 +112,7 @@ export async function updateInformationSchemaById(
   id: string,
   updates: Partial<InformationSchemaInterface>
 ): Promise<void> {
-  //TODO: Remove this check and orgs usingFileConfig to create informationSchemas
+  //TODO: GB-82 Remove this check and orgs usingFileConfig to create informationSchemas
   if (usingFileConfig()) {
     throw new Error("Cannot add. Data sources managed by config.yml");
   }
@@ -140,4 +140,26 @@ export async function getInformationSchemaByDatasourceId(
   if (!result) return null;
 
   return toInterface(result);
+}
+
+export async function getInformationSchemasByOrganization(
+  organization: string
+): Promise<InformationSchemaInterface[] | null> {
+  const results = await InformationSchemaModel.find({
+    organization,
+  });
+
+  return results ? results.map(toInterface) : null;
+}
+
+export async function getInformationSchemaById(
+  organization: string,
+  informationSchemaId: string
+): Promise<InformationSchemaInterface | null> {
+  const result = await InformationSchemaModel.findOne({
+    organization,
+    id: informationSchemaId,
+  });
+
+  return result ? toInterface(result) : null;
 }
