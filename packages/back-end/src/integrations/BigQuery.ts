@@ -132,7 +132,7 @@ export default class BigQuery extends SqlIntegration {
           data_type,
           column_name
         FROM
-          ${databaseName}.${tableSchema}.INFORMATION_SCHEMA.COLUMNS
+          \`${databaseName}.${tableSchema}.INFORMATION_SCHEMA.COLUMNS\`
         WHERE
           table_name
         IN ('${tableName}')
