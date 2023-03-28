@@ -732,9 +732,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         }
                       />
                     </div>
-                    {!!form.watch("regressionAdjustmentEnabled") &&
-                      (!settings.statsEngine ||
-                        settings.statsEngine === "bayesian") && (
+                    {form.watch("regressionAdjustmentEnabled") &&
+                      form.watch("statsEngine") === "bayesian" && (
                         <div className="d-flex">
                           <small className="mb-1 text-warning-orange">
                             <FaExclamationTriangle /> Your organization uses
