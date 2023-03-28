@@ -3,11 +3,15 @@ import {
   getExperimentById,
   getExperimentsToUpdate,
   getExperimentsToUpdateLegacy,
-  updateExperimentById,
+  updateExperiment,
 } from "../models/ExperimentModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
-import { createSnapshot, getExperimentWatchers } from "../services/experiments";
+import {
+  createSnapshot,
+  getExperimentWatchers,
+  getRegressionAdjustmentInfo,
+} from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
 import {
   updateSnapshot,
@@ -36,7 +40,7 @@ type UpdateSingleExpJob = Job<{
 
 export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_UPDATES, async () => {
-    // Old way of queing experiments based on a fixed schedule
+    // Old way of queuing experiments based on a fixed schedule
     // Will remove in the future when it's no longer needed
     const ids = await legacyQueueExperimentUpdates();
 
@@ -65,7 +69,7 @@ export default async function (agenda: Agenda) {
     // All experiments that haven't been updated in at least UPDATE_EVERY ms
     const latestDate = new Date(Date.now() - UPDATE_EVERY);
 
-    const experiments = await await getExperimentsToUpdateLegacy(latestDate);
+    const experiments = await getExperimentsToUpdateLegacy(latestDate);
 
     for (let i = 0; i < experiments.length; i++) {
       await queueExerimentUpdate(
@@ -134,6 +138,11 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       experiment.phases.length - 1
     );
 
+    const {
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses,
+    } = await getRegressionAdjustmentInfo(experiment, organization);
+
     currentSnapshot = await createSnapshot(
       experiment,
       null,
@@ -141,7 +150,9 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       organization,
       null,
       false,
-      organization.settings?.statsEngine
+      organization.settings?.statsEngine,
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses
     );
 
     await new Promise<void>((resolve, reject) => {
@@ -160,7 +171,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
               getReportVariations(experiment, phase),
               undefined,
               queryData,
-              organization.settings?.statsEngine
+              currentSnapshot.statsEngine ?? organization.settings?.statsEngine
             );
           },
           async (updates, results, error) => {
@@ -198,7 +209,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     log.error("Failure - " + e.message);
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
-      await updateExperimentById(organization, experiment, null, {
+      await updateExperiment(organization, experiment, null, {
         autoSnapshots: false,
       });
       // TODO: email user and let them know it failed

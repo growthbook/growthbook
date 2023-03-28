@@ -396,7 +396,9 @@ export async function addSampleData(
         org,
         null,
         false,
-        org.settings?.statsEngine
+        org.settings?.statsEngine,
+        false,
+        []
       );
     })
   );

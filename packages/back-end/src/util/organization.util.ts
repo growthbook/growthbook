@@ -25,6 +25,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "encrypt-features-endpoint",
     "schedule-feature-flag",
     "override-metrics",
+    "regression-adjustment",
     "visual-editor",
   ]),
   pro_sso: new Set<CommercialFeature>([
@@ -33,6 +34,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "encrypt-features-endpoint",
     "schedule-feature-flag",
     "override-metrics",
+    "regression-adjustment",
     "visual-editor",
   ]),
   enterprise: new Set<CommercialFeature>([
@@ -41,6 +43,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "encrypt-features-endpoint",
     "schedule-feature-flag",
     "override-metrics",
+    "regression-adjustment",
     "visual-editor",
   ]),
 };

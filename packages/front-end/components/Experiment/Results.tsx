@@ -1,6 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
+import { StatsEngine } from "back-end/types/stats";
+import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ago, getValidDate } from "@/services/dates";
 import usePermissions from "@/hooks/usePermissions";
@@ -14,6 +16,7 @@ import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import StatusBanner from "@/components/Experiment/StatusBanner";
+import { GBCuped } from "@/components/Icons";
 import PValueGuardrailResults from "./PValueGuardrailResults";
 
 const BreakDownResults = dynamic(
@@ -31,8 +34,11 @@ const Results: FC<{
   mutateExperiment: () => void;
   alwaysShowPhaseSelector?: boolean;
   reportDetailsLink?: boolean;
-  canStartExperiment?: boolean;
-  startExperimentBlockedReason?: string;
+  statsEngine?: StatsEngine;
+  regressionAdjustmentAvailable?: boolean;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  onRegressionAdjustmentChange?: (enabled: boolean) => void;
 }> = ({
   experiment,
   editMetrics,
@@ -41,8 +47,11 @@ const Results: FC<{
   mutateExperiment,
   alwaysShowPhaseSelector = false,
   reportDetailsLink = true,
-  canStartExperiment = true,
-  startExperimentBlockedReason = "",
+  statsEngine,
+  regressionAdjustmentAvailable = false,
+  regressionAdjustmentEnabled = false,
+  metricRegressionAdjustmentStatuses,
+  onRegressionAdjustmentChange,
 }) => {
   const { getMetricById } = useDefinitions();
   const settings = useOrgSettings();
@@ -93,8 +102,6 @@ const Results: FC<{
       <StatusBanner
         mutateExperiment={mutateExperiment}
         editResult={editResult}
-        canStartExperiment={canStartExperiment}
-        startExperimentBlockedReason={startExperimentBlockedReason}
       />
       <AnalysisSettingsBar
         mutateExperiment={mutateExperiment}
@@ -102,6 +109,11 @@ const Results: FC<{
         variations={variations}
         editPhases={editPhases}
         alwaysShowPhaseSelector={alwaysShowPhaseSelector}
+        statsEngine={statsEngine}
+        regressionAdjustmentAvailable={regressionAdjustmentAvailable}
+        regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+        metricRegressionAdjustmentStatuses={metricRegressionAdjustmentStatuses}
+        onRegressionAdjustmentChange={onRegressionAdjustmentChange}
       />
       {experiment.metrics.length === 0 && (
         <div className="alert alert-info m-3">
@@ -202,6 +214,11 @@ const Results: FC<{
             guardrails={experiment.guardrails}
             variations={variations}
             key={snapshot.dimension}
+            statsEngine={snapshot.statsEngine}
+            regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
+            metricRegressionAdjustmentStatuses={
+              snapshot.metricRegressionAdjustmentStatuses
+            }
           />
         ))}
       {hasData && !snapshot.dimension && (
@@ -216,6 +233,7 @@ const Results: FC<{
             </div>
           )}
           <CompactResults
+            editMetrics={editMetrics}
             id={experiment.id}
             isLatestPhase={phase === experiment.phases.length - 1}
             metrics={experiment.metrics}
@@ -226,27 +244,16 @@ const Results: FC<{
             startDate={phaseObj?.dateStarted}
             multipleExposures={snapshot.multipleExposures || 0}
             variations={variations}
-            editMetrics={editMetrics}
+            statsEngine={snapshot.statsEngine}
+            regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
+            metricRegressionAdjustmentStatuses={
+              snapshot.metricRegressionAdjustmentStatuses
+            }
           />
           {experiment.guardrails?.length > 0 && (
-            <div className="mb-3 p-3">
-              <h3 className="mb-3">
-                Guardrails
-                {editMetrics && (
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      editMetrics();
-                    }}
-                    className="ml-2"
-                    style={{ fontSize: "0.8rem" }}
-                  >
-                    Adjust Guardrails
-                  </a>
-                )}
-              </h3>
-              <div className="row mt-3">
+            <div className="mt-1 px-3">
+              <h3 className="mb-3">Guardrails</h3>
+              <div className="row">
                 {experiment.guardrails.map((g) => {
                   const metric = getMetricById(g);
                   if (!metric) return "";
@@ -257,7 +264,7 @@ const Results: FC<{
                   const xlargeCols = experiment.guardrails.length === 2 ? 6 : 4;
                   return (
                     <div
-                      className={`col-12 col-xl-${xlargeCols} col-lg-6 mb-3`}
+                      className={`col-12 col-xl-${xlargeCols} col-lg-6`}
                       key={g}
                     >
                       {settings.statsEngine === "frequentist" ? (
@@ -281,15 +288,58 @@ const Results: FC<{
           )}
         </>
       )}
-      {permissions.check("createAnalyses", experiment.project) &&
-        experiment.metrics?.length > 0 && (
-          <div className="px-3 mb-3">
-            <span className="text-muted">
-              Click the 3 dots next to the Update button above to configure this
-              report, download as a Jupyter notebook, and more.
-            </span>
+      {hasData && (
+        <div className="row align-items-center mx-2 my-3">
+          <div className="col-auto small" style={{ lineHeight: 1.2 }}>
+            <div className="text-muted mb-1">
+              The above results were computed with:
+            </div>
+            <div>
+              <span className="text-muted">Engine:</span>{" "}
+              <span>
+                {snapshot?.statsEngine === "frequentist"
+                  ? "Frequentist"
+                  : "Bayesian"}
+              </span>
+            </div>
+            {snapshot?.statsEngine === "frequentist" && (
+              <div>
+                <span className="text-muted">
+                  <GBCuped size={12} />
+                  CUPED:
+                </span>{" "}
+                <span>
+                  {snapshot?.regressionAdjustmentEnabled
+                    ? "Enabled"
+                    : "Disabled"}
+                </span>
+              </div>
+            )}
+            <div>
+              <span className="text-muted">Run date:</span>{" "}
+              <span>
+                {getValidDate(snapshot.dateCreated).toLocaleString([], {
+                  year: "numeric",
+                  month: "numeric",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
           </div>
-        )}
+          <div style={{ flex: "1 1 0%" }}></div>
+          <div className="col-4 small text-muted" style={{ lineHeight: 1.2 }}>
+            {permissions.check("createAnalyses", experiment.project) &&
+              experiment.metrics?.length > 0 && (
+                <>
+                  Click the 3 dots next to the Update button above to configure
+                  this report, download as a Jupyter notebook, and more.
+                </>
+              )}
+          </div>
+        </div>
+      )}
     </>
   );
 };

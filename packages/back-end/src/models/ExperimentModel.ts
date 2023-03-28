@@ -76,6 +76,9 @@ const experimentSchema = new mongoose.Schema({
       conversionDelayHours: Number,
       winRisk: Number,
       loseRisk: Number,
+      regressionAdjustmentOverride: Boolean,
+      regressionAdjustmentEnabled: Boolean,
+      regressionAdjustmentDays: Number,
     },
   ],
   guardrails: [String],
@@ -146,6 +149,7 @@ const experimentSchema = new mongoose.Schema({
   nextSnapshotAttempt: Date,
   autoSnapshots: Boolean,
   ideaSource: String,
+  regressionAdjustmentEnabled: Boolean,
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -297,7 +301,7 @@ export async function createExperiment({
   return toInterface(exp);
 }
 
-export async function updateExperimentById(
+export async function updateExperiment(
   organization: OrganizationInterface,
   experiment: ExperimentInterface,
   user: EventAuditUser,

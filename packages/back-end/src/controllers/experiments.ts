@@ -19,7 +19,7 @@ import {
   getExperimentById,
   getExperimentByTrackingKey,
   getPastExperimentsByDatasource,
-  updateExperimentById,
+  updateExperiment,
 } from "../models/ExperimentModel";
 import {
   createVisualChangeset,
@@ -71,6 +71,8 @@ import {
   auditDetailsUpdate,
 } from "../services/audit";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import { StatsEngine } from "../../types/stats";
+import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { ApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
@@ -719,7 +721,8 @@ export async function postExperiment(
     "releasedVariationId",
     "autoSnapshots",
     "project",
-    "visualEditorUrl",
+    "regressionAdjustmentEnabled",
+    "visualEditorUrl", // todo: should this be here?
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
@@ -765,7 +768,7 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  const updated = await updateExperimentById(
+  const updated = await updateExperiment(
     org,
     experiment,
     res.locals.eventAudit,
@@ -844,7 +847,7 @@ export async function postExperimentArchive(
   changes.archived = true;
 
   try {
-    await updateExperimentById(org, experiment, res.locals.eventAudit, changes);
+    await updateExperiment(org, experiment, res.locals.eventAudit, changes);
 
     // TODO: audit
     res.status(200).json({
@@ -897,7 +900,7 @@ export async function postExperimentUnarchive(
   changes.archived = false;
 
   try {
-    await updateExperimentById(org, experiment, res.locals.eventAudit, changes);
+    await updateExperiment(org, experiment, res.locals.eventAudit, changes);
 
     // TODO: audit
     res.status(200).json({
@@ -962,7 +965,7 @@ export async function postExperimentStatus(
 
   changes.status = status;
 
-  const updated = await updateExperimentById(
+  const updated = await updateExperiment(
     org,
     experiment,
     res.locals.eventAudit,
@@ -1046,7 +1049,7 @@ export async function postExperimentStop(
   changes.releasedVariationId = releasedVariationId;
 
   try {
-    const updated = await updateExperimentById(
+    const updated = await updateExperiment(
       org,
       experiment,
       res.locals.eventAudit,
@@ -1112,7 +1115,7 @@ export async function deleteExperimentPhase(
   if (!changes.phases.length) {
     changes.status = "draft";
   }
-  const updated = await updateExperimentById(
+  const updated = await updateExperiment(
     org,
     experiment,
     res.locals.eventAudit,
@@ -1175,7 +1178,7 @@ export async function putExperimentPhase(
     ...phase,
   };
   changes.phases = phases;
-  const updated = await updateExperimentById(
+  const updated = await updateExperiment(
     org,
     experiment,
     res.locals.eventAudit,
@@ -1253,7 +1256,7 @@ export async function postExperimentPhase(
   // TODO: validation
   try {
     changes.phases = phases;
-    const updated = await updateExperimentById(
+    const updated = await updateExperiment(
       org,
       experiment,
       res.locals.eventAudit,
@@ -1429,7 +1432,7 @@ export async function getSnapshotStatus(
         getReportVariations(experiment, phase),
         snapshot.dimension || undefined,
         queryData,
-        org.settings?.statsEngine
+        snapshot.statsEngine ?? org.settings?.statsEngine
       ),
     async (updates, results, error) => {
       await updateSnapshot(org.id, id, {
@@ -1475,6 +1478,9 @@ export async function postSnapshot(
       dimension?: string;
       users?: number[];
       metrics?: { [key: string]: MetricStats[] };
+      statsEngine?: StatsEngine;
+      regressionAdjustmentEnabled?: boolean;
+      metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
     },
     { id: string },
     { force?: string }
@@ -1484,7 +1490,19 @@ export async function postSnapshot(
   req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
-  const statsEngine = org.settings?.statsEngine;
+
+  let { statsEngine, regressionAdjustmentEnabled } = req.body;
+  const { metricRegressionAdjustmentStatuses } = req.body;
+
+  statsEngine = (typeof statsEngine === "string" &&
+  ["bayesian", "frequentist"].includes(statsEngine)
+    ? statsEngine
+    : org.settings?.statsEngine ?? "bayesian") as StatsEngine;
+
+  regressionAdjustmentEnabled =
+    regressionAdjustmentEnabled !== undefined
+      ? regressionAdjustmentEnabled
+      : org.settings?.regressionAdjustmentEnabled ?? false;
 
   const useCache = !req.query["force"];
 
@@ -1572,7 +1590,9 @@ export async function postSnapshot(
       org,
       dimension || null,
       useCache,
-      org.settings?.statsEngine
+      statsEngine,
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses ?? []
     );
     await req.audit({
       event: "experiment.refresh",
@@ -1643,7 +1663,7 @@ export async function deleteScreenshot(
   changes.variations[variation].screenshots = changes.variations[
     variation
   ].screenshots.filter((s) => s.path !== url);
-  const updated = await updateExperimentById(
+  const updated = await updateExperiment(
     org,
     experiment,
     res.locals.eventAudit,
@@ -1718,7 +1738,7 @@ export async function addScreenshot(
     description: description,
   });
 
-  await updateExperimentById(org, experiment, res.locals.eventAudit, changes);
+  await updateExperiment(org, experiment, res.locals.eventAudit, changes);
 
   await req.audit({
     event: "experiment.screenshot.create",

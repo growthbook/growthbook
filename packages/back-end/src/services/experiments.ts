@@ -1,11 +1,14 @@
 import uniqid from "uniqid";
 import cronParser from "cron-parser";
-import { updateExperimentById } from "../models/ExperimentModel";
+import uniq from "lodash/uniq";
+import cloneDeep from "lodash/cloneDeep";
+import { updateExperiment } from "../models/ExperimentModel";
 import {
   SnapshotVariation,
   ExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
 import {
+  getMetricsByIds,
   getMetricsByOrganization,
   insertMetric,
   updateMetric,
@@ -27,7 +30,7 @@ import {
   MetricAnalysis,
 } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
-import { ExperimentInterface } from "../../types/experiment";
+import { ExperimentInterface, MetricOverride } from "../../types/experiment";
 import { PastExperiment } from "../../types/past-experiments";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
@@ -41,6 +44,7 @@ import {
 import {
   ExperimentUpdateSchedule,
   OrganizationInterface,
+  OrganizationSettings,
 } from "../../types/organization";
 import { StatsEngine } from "../../types/stats";
 import { logger } from "../util/logger";
@@ -51,6 +55,7 @@ import {
   ApiExperimentResults,
   ApiExperimentMetric,
 } from "../../types/openapi";
+import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { EventAuditUser } from "../events/event-types";
 import {
   getReportVariations,
@@ -395,7 +400,9 @@ export async function createSnapshot(
   organization: OrganizationInterface,
   dimensionId: string | null,
   useCache: boolean = false,
-  statsEngine: StatsEngine | undefined
+  statsEngine: StatsEngine | undefined,
+  regressionAdjustmentEnabled: boolean,
+  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[]
 ) {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -422,24 +429,27 @@ export async function createSnapshot(
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
     skipPartialData: experiment.skipPartialData || false,
-    statsEngine,
+    statsEngine:
+      statsEngine || organization.settings?.statsEngine || "bayesian",
+    regressionAdjustmentEnabled: regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses:
+      metricRegressionAdjustmentStatuses || [],
   };
 
   const nextUpdate =
     determineNextDate(organization.settings?.updateSchedule || null) ||
     undefined;
 
-  await updateExperimentById(organization, experiment, user, {
+  await updateExperiment(organization, experiment, user, {
     lastSnapshotAttempt: new Date(),
     nextSnapshotAttempt: nextUpdate,
     autoSnapshots: nextUpdate !== null,
   });
 
   const { queries, results } = await startExperimentAnalysis(
-    experiment.organization,
+    organization,
     reportArgsFromSnapshot(experiment, data),
-    useCache,
-    statsEngine
+    useCache
   );
 
   data.queries = queries;
@@ -881,4 +891,149 @@ export function toMetricApiInterface(
   }
 
   return obj;
+}
+
+export async function getRegressionAdjustmentInfo(
+  experiment: ExperimentInterface,
+  organization: OrganizationInterface
+): Promise<{
+  regressionAdjustmentEnabled: boolean;
+  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
+}> {
+  let regressionAdjustmentEnabled = false;
+  const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+
+  if (!experiment.regressionAdjustmentEnabled) {
+    return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
+  }
+
+  const allExperimentMetricIds = uniq([
+    ...experiment.metrics,
+    ...(experiment.guardrails ?? []),
+  ]);
+  const allExperimentMetrics = await getMetricsByIds(
+    allExperimentMetricIds,
+    organization.id
+  );
+  const denominatorMetricIds = uniq(
+    allExperimentMetrics.map((m) => m.denominator).filter((m) => m)
+  ) as string[];
+  const denominatorMetrics = await getMetricsByIds(
+    denominatorMetricIds,
+    organization.id
+  );
+
+  for (const metric of allExperimentMetrics) {
+    if (!metric) continue;
+    const {
+      metricRegressionAdjustmentStatus,
+    } = getRegressionAdjustmentsForMetric({
+      metric: metric,
+      denominatorMetrics: denominatorMetrics,
+      experimentRegressionAdjustmentEnabled: !!experiment.regressionAdjustmentEnabled,
+      organizationSettings: organization.settings,
+      metricOverrides: experiment.metricOverrides,
+    });
+    if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
+      regressionAdjustmentEnabled = true;
+    }
+    metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
+  }
+  if (!experiment.regressionAdjustmentEnabled) {
+    regressionAdjustmentEnabled = false;
+  }
+  return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
+}
+
+export function getRegressionAdjustmentsForMetric({
+  metric,
+  denominatorMetrics,
+  experimentRegressionAdjustmentEnabled,
+  organizationSettings,
+  metricOverrides,
+}: {
+  metric: MetricInterface;
+  denominatorMetrics: MetricInterface[];
+  experimentRegressionAdjustmentEnabled: boolean;
+  organizationSettings?: Partial<OrganizationSettings>; // can be RA fields from a snapshot of org settings
+  metricOverrides?: MetricOverride[];
+}): {
+  newMetric: MetricInterface;
+  metricRegressionAdjustmentStatus: MetricRegressionAdjustmentStatus;
+} {
+  const newMetric = cloneDeep<MetricInterface>(metric);
+
+  // start with default RA settings
+  let regressionAdjustmentEnabled = true;
+  let regressionAdjustmentDays = 14;
+  let reason = "";
+
+  // get RA settings from organization
+  if (organizationSettings?.regressionAdjustmentEnabled) {
+    regressionAdjustmentEnabled = true;
+    regressionAdjustmentDays =
+      organizationSettings?.regressionAdjustmentDays ??
+      regressionAdjustmentDays;
+  }
+  if (experimentRegressionAdjustmentEnabled) {
+    regressionAdjustmentEnabled = true;
+  }
+
+  // get RA settings from metric
+  if (metric?.regressionAdjustmentOverride) {
+    regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
+    regressionAdjustmentDays = metric?.regressionAdjustmentDays ?? 14;
+    if (!regressionAdjustmentEnabled) {
+      reason = "disabled in metric settings";
+    }
+  }
+
+  // get RA settings from metric override
+  if (metricOverrides) {
+    const metricOverride = metricOverrides.find((mo) => mo.id === metric.id);
+    if (metricOverride?.regressionAdjustmentOverride) {
+      regressionAdjustmentEnabled = !!metricOverride?.regressionAdjustmentEnabled;
+      regressionAdjustmentDays =
+        metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
+      if (!regressionAdjustmentEnabled) {
+        reason = "disabled by metric override";
+      } else {
+        reason = "";
+      }
+    }
+  }
+
+  // final gatekeeping
+  if (regressionAdjustmentEnabled) {
+    if (metric?.denominator) {
+      const denominator = denominatorMetrics.find(
+        (m) => m.id === metric?.denominator
+      );
+      if (denominator?.type === "count") {
+        regressionAdjustmentEnabled = false;
+        reason = "denominator is count";
+      }
+    }
+  }
+  if (metric?.type === "binomial" && metric?.aggregation) {
+    regressionAdjustmentEnabled = false;
+    reason = "custom aggregation";
+  }
+
+  if (!regressionAdjustmentEnabled) {
+    regressionAdjustmentDays = 0;
+  }
+
+  newMetric.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
+  newMetric.regressionAdjustmentDays = regressionAdjustmentDays;
+
+  return {
+    newMetric,
+    metricRegressionAdjustmentStatus: {
+      metric: newMetric.id,
+      regressionAdjustmentEnabled,
+      regressionAdjustmentDays,
+      reason,
+    },
+  };
 }
