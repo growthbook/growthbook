@@ -537,7 +537,7 @@ export default abstract class SqlIntegration
       `WITH __table as (
         ${query}
       )
-      SELECT * FROM __table LIMIT 1`,
+      SELECT * FROM __table LIMIT 5`,
       {
         startDate,
       }

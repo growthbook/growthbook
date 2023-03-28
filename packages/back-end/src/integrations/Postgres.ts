@@ -3,7 +3,7 @@ import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runPostgresQuery } from "../services/postgres";
 import { InformationSchema, RawInformationSchema } from "../types/Integration";
-import { formatInformationSchema } from "../util/integrations";
+import { formatInformationSchema } from "../util/informationSchemas";
 import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
@@ -65,5 +65,32 @@ export default class Postgres extends SqlIntegration {
       results as RawInformationSchema[],
       "postgres"
     );
+  }
+
+  async getTableData(
+    databaseName: string,
+    tableSchema: string,
+    tableName: string
+  ): Promise<{ tableData: null | unknown[]; refreshMS: number }> {
+    const sql = `SELECT
+        data_type,
+        column_name
+      FROM
+        information_schema.columns
+      WHERE
+        table_catalog
+      IN ('${databaseName}')
+      AND
+        table_schema
+      IN ('${tableSchema}')
+      AND
+        table_name
+      IN ('${tableName}')`;
+
+    const queryStartTime = Date.now();
+    const tableData = await this.runQuery(sql);
+    const queryEndTime = Date.now();
+
+    return { tableData, refreshMS: queryEndTime - queryStartTime };
   }
 }
