@@ -1,8 +1,12 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import { ReportInterface } from "back-end/types/report";
+import {
+  MetricRegressionAdjustmentStatus,
+  ReportInterface,
+} from "back-end/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
 import { AttributionModel } from "back-end/types/experiment";
+import uniq from "lodash/uniq";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getValidDate } from "@/services/dates";
@@ -10,6 +14,7 @@ import { getExposureQuery } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -29,13 +34,55 @@ export default function ConfigureReport({
   const settings = useOrgSettings();
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
-  const { metrics, segments, getDatasourceById } = useDefinitions();
+  const {
+    metrics,
+    segments,
+    getDatasourceById,
+    getMetricById,
+  } = useDefinitions();
   const datasource = getDatasourceById(report.args.datasource);
   const [usingStatsEngineDefault, setUsingStatsEngineDefault] = useState(false);
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
+
+  const allExperimentMetricIds = uniq([
+    ...report.args.metrics,
+    ...(report.args.guardrails ?? []),
+  ]);
+  const allExperimentMetrics = allExperimentMetricIds.map((m) =>
+    getMetricById(m)
+  );
+  const denominatorMetricIds = uniq(
+    allExperimentMetrics.map((m) => m?.denominator).filter((m) => m)
+  );
+  const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
+
+  const metricRegressionAdjustmentStatuses = useMemo(() => {
+    const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+    for (const metric of allExperimentMetrics) {
+      if (!metric) continue;
+      const {
+        metricRegressionAdjustmentStatus,
+      } = getRegressionAdjustmentsForMetric({
+        metric: metric,
+        denominatorMetrics: denominatorMetrics,
+        experimentRegressionAdjustmentEnabled: !!report.args
+          .regressionAdjustmentEnabled,
+        organizationSettings: settings,
+        metricOverrides: report.args.metricOverrides,
+      });
+      metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
+    }
+    return metricRegressionAdjustmentStatuses;
+  }, [
+    allExperimentMetrics,
+    denominatorMetrics,
+    settings,
+    report.args.regressionAdjustmentEnabled,
+    report.args.metricOverrides,
+  ]);
 
   const form = useForm({
     defaultValues: {
@@ -58,6 +105,8 @@ export default function ConfigureReport({
       regressionAdjustmentEnabled:
         hasRegressionAdjustmentFeature &&
         !!report.args.regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses:
+        report.args.metricRegressionAdjustmentStatuses || [],
     },
   });
 
@@ -101,6 +150,9 @@ export default function ConfigureReport({
           ...value,
           skipPartialData: !!value.skipPartialData,
         };
+        if (value.regressionAdjustmentEnabled) {
+          args.metricRegressionAdjustmentStatuses = metricRegressionAdjustmentStatuses;
+        }
 
         await apiCall(`/report/${report.id}`, {
           method: "PUT",

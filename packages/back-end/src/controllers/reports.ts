@@ -237,6 +237,8 @@ export async function putReport(
       updates.args?.statsEngine || org.settings?.statsEngine || "bayesian";
     updates.args.regressionAdjustmentEnabled = !!updates.args
       ?.regressionAdjustmentEnabled;
+    updates.args.metricRegressionAdjustmentStatuses =
+      updates.args?.metricRegressionAdjustmentStatuses || [];
 
     needsRun = true;
   }
