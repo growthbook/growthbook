@@ -795,7 +795,7 @@ export default function SinglePage({
               )}
             </div>
           ) : (
-            <div className="appbox text-center  px-3 py-5">
+            <div className="appbox text-center px-3 pt-4 pb-3 mb-4">
               <p>
                 Use our Visual Editor to make changes to your site without
                 deploying code
@@ -817,6 +817,25 @@ export default function SinglePage({
                   </PremiumTooltip>
                 </div>
               )}
+
+              <div className="text-right">
+                <p className="mb-1 text-muted small">Want to skip this step?</p>
+                <Button
+                  color=""
+                  className="btn-sm btn-outline-primary"
+                  onClick={async () => {
+                    await apiCall(`/experiment/${experiment.id}/status`, {
+                      method: "POST",
+                      body: JSON.stringify({
+                        status: "running",
+                      }),
+                    });
+                    await mutate();
+                  }}
+                >
+                  Start Experiment <MdRocketLaunch />
+                </Button>
+              </div>
             </div>
           )}
         </div>
