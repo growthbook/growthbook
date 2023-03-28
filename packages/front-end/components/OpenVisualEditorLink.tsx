@@ -1,6 +1,7 @@
 import { FC, useMemo, useState } from "react";
 import qs from "query-string";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { getApiHost } from "@/services/env";
 import Modal from "./Modal";
 
 const OpenVisualEditorLink: FC<{
@@ -9,6 +10,7 @@ const OpenVisualEditorLink: FC<{
   openSettings?: () => void;
   changeIndex: number;
 }> = ({ id, visualEditorUrl, openSettings, changeIndex }) => {
+  const apiHost = getApiHost();
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
 
@@ -24,12 +26,13 @@ const OpenVisualEditorLink: FC<{
       "vc-id": id,
       "v-idx": changeIndex,
       "exp-url": encodeURIComponent(window.location.href),
+      "api-host": encodeURIComponent(apiHost),
     };
 
     const root = visualEditorUrl.split("?")[0];
 
     return `${root}?${qs.stringify(queryParams)}`;
-  }, [visualEditorUrl, id, changeIndex]);
+  }, [visualEditorUrl, id, changeIndex, apiHost]);
 
   return (
     <>
