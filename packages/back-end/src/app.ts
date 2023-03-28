@@ -68,6 +68,11 @@ const featuresController = wrapController(featuresControllerRaw);
 import * as slackControllerRaw from "./controllers/slack";
 const slackController = wrapController(slackControllerRaw);
 
+import * as informationSchemasControllerRaw from "./controllers/informationSchemas";
+const informationSchemasController = wrapController(
+  informationSchemasControllerRaw
+);
+
 // End Controllers
 
 import { isEmailEnabled } from "./services/email";
@@ -472,6 +477,28 @@ app.get("/datasource/:id", datasourcesController.getDataSource);
 app.post("/datasources", datasourcesController.postDataSources);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
+
+// Information Schemas
+app.get(
+  "/datasource/:datasourceId/schema/table/:tableId",
+  informationSchemasController.getTableData
+);
+app.put(
+  "/datasource/:datasourceId/schema/table/:tableId",
+  informationSchemasController.putTableData
+);
+app.post(
+  "/datasource/:datasourceId/schema",
+  informationSchemasController.postInformationSchema
+);
+app.put(
+  "/datasource/:datasourceId/schema",
+  informationSchemasController.putInformationSchema
+);
+app.get(
+  "/datasource/:datasourceId/schema",
+  informationSchemasController.getInformationSchema
+);
 
 // Events
 app.use("/events", eventsRouter);
