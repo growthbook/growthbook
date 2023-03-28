@@ -903,7 +903,17 @@ export function partialFromMetricApiInterface(
     conditions: conditionsForDataSourceType(),
 
     conversionDelayHours: behavior?.conversionWindowStart ?? 0,
-    conversionWindowHours: behavior?.conversionWindowEnd ?? 0,
+    // with DEFAULT_CONVERSION_WINDOW_HOURS default
+    // conversionWindowHours:
+    //   (behavior?.conversionWindowEnd || DEFAULT_CONVERSION_WINDOW_HOURS) -
+    //   (behavior?.conversionWindowStart ?? 0),
+    // with 0 default
+    conversionWindowHours:
+      (behavior?.conversionWindowEnd || 0) -
+      (behavior?.conversionWindowStart ?? 0),
+    // Existing
+    // conversionWindowHours: behavior?.conversionWindowEnd ?? 0,
+
     loseRisk: behavior?.riskThresholdDanger ?? 0.0125,
     winRisk: behavior?.riskThresholdSuccess ?? 0.0025,
     column: sqlBuilder?.valueColumnName || mixpanel?.eventValue, // Is this correct?
