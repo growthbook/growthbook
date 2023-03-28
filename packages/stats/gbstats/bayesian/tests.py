@@ -1,35 +1,23 @@
 from abc import abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Tuple, Dict, Union, List
 
 import numpy as np
 from scipy.stats import norm
 
 from gbstats.bayesian.dists import Beta, Norm
-from gbstats.bayesian.constants import BETA_PRIOR, NORM_PRIOR, EPSILON
 from gbstats.shared.models import BayesianTestResult, Statistic, Uplift
 from gbstats.shared.tests import BaseABTest
 
 
 @dataclass
-class BetaPrior:
-    a: float = 1
-    b: float = 1
-
-
+class BinomialBayesianConfig:
+    prior: Tuple[float] = (1, 1) # a, b
+    
 @dataclass
-class GaussianPrior:
-    mean: float = 0
-    variance: float = 1
-    pseudousers: float = 0
-
-
-@dataclass
-class BayesianConfig:
-    beta_prior: BetaPrior = BetaPrior()
-    normal_prior: GaussianPrior = GaussianPrior()
-    epsilon: float = 1e-04
-
+class GaussianBayesianConfig:
+    prior: Tuple[float] = (0, 1, 0), #mean, var, psuedoobs
+    epsilon: float = 1e-4
 
 """
 Medium article inspiration:
@@ -102,14 +90,12 @@ class BinomialBayesianABTest(BayesianABTest):
         self,
         stat_a: Statistic,
         stat_b: Statistic,
-        prior: BetaPrior = BetaPrior(),
+        config: BinomialBayesianConfig = BinomialBayesianConfig(),
         inverse: bool = False,
         ccr: float = 0.05,
     ):
         super().__init__(stat_a, stat_b, inverse, ccr)
-        if not isinstance(self.prior, BetaPrior):
-            raise ValueError("Wrong prior set for Binomial test")
-        self.prior = prior
+        self.prior = config.prior
 
     def compute_result(self) -> BayesianTestResult:
         # TODO refactor validation to base test
@@ -152,15 +138,15 @@ class GaussianBayesianABTest(BayesianABTest):
         self,
         stat_a: Statistic,
         stat_b: Statistic,
-        prior: GaussianPrior = GaussianPrior(),
+        config: GaussianBayesianConfig = GaussianBayesianConfig(),
         inverse: bool = False,
         ccr: float = 0.05,
     ):
         super().__init__(stat_a, stat_b, inverse, ccr)
-
+        self.prior = config.prior
         if not isinstance(self.prior, GaussianPrior):
             raise ValueError("Wrong prior set for Gaussian test")
-        self.prior = prior
+        self.epsilon = config.epsilon
 
     def _is_log_approximation_inexact(
         self, mean_std_dev_pairs: Tuple[Tuple[float, float], Tuple[float, float]]
@@ -172,7 +158,7 @@ class GaussianBayesianABTest(BayesianABTest):
             A tuple of (mean, standard deviation) tuples.
         """
         return any(
-            [norm.cdf(0, pair[0], pair[1]) > EPSILON for pair in mean_std_dev_pairs]
+            [norm.cdf(0, pair[0], pair[1]) > self.epsilon for pair in mean_std_dev_pairs]
         )
 
     def compute_result(self) -> BayesianTestResult:
@@ -210,8 +196,8 @@ class GaussianBayesianABTest(BayesianABTest):
         if self._is_log_approximation_inexact(((mu_a, sd_a), (mu_b, sd_b))):
             return self._default_output()
 
-        mean_a, var_a = Norm.moments(mu_a, sd_a, log=True)
-        mean_b, var_b = Norm.moments(mu_b, sd_b, log=True)
+        mean_a, var_a = Norm.moments(mu_a, sd_a, log=True, epsilon=self.epsilon)
+        mean_b, var_b = Norm.moments(mu_b, sd_b, log=True, epsilon=self.epsilon)
 
         mean_diff = mean_b - mean_a
         std_diff = np.sqrt(var_a + var_b)

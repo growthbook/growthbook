@@ -136,7 +136,7 @@ def analyze_metric_df(
     engine_config: Dict[str, Any] = {},
 ) -> pd.DataFrame:
 
-    config: Union[BayesianConfig, FrequentistConfig] = build_config_from_dict(
+    config = build_config_from_dict(
         engine, engine_config
     )
     num_variations = df.at[0, "variations"]

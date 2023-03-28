@@ -18,7 +18,6 @@ from gbstats.shared.constants import StatsEngine
 from gbstats.shared.models import (
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
-    ProportionStatistic,
 )
 
 DECIMALS = 9

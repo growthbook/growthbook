@@ -13,6 +13,7 @@ from gbstats.shared.tests import BaseABTest
 class FrequentistConfig:
     alpha: float = 0.05
     sequential: bool = False
+    sequential_tuning_parameter: float = 5000
 
 
 class TTest(BaseABTest):
@@ -150,8 +151,6 @@ class OneSidedTreatmentLesserTTest(TTest):
 
 
 class SequentialTwoSidedTTest(TTest):
-    SEQUENTIAL_TUNING_PARAMETER = 5000
-
     def boundary(self, rho, alpha):
         """Boundary from eq. 14 in Howard et al., but using estimated variance"""
         N = self.stat_a.n + self.stat_b.n
