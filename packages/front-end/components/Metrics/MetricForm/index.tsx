@@ -282,7 +282,7 @@ const MetricForm: FC<MetricFormProps> = ({
   const selectedDataSource = getDatasourceById(value.datasource);
 
   const supportsSchemaBrowser =
-    selectedDataSource.properties.supportsInformationSchema;
+    selectedDataSource?.properties.supportsInformationSchema;
 
   const datasourceType = selectedDataSource?.type;
 
@@ -368,8 +368,10 @@ const MetricForm: FC<MetricFormProps> = ({
   useEffect(() => {
     if (type === "binomial") {
       form.setValue("ignoreNulls", false);
+    } else {
+      requiredColumns.add("value");
     }
-  }, [type, form]);
+  }, [type, form, requiredColumns]);
 
   return (
     <>
@@ -377,8 +379,7 @@ const MetricForm: FC<MetricFormProps> = ({
         <EditSqlModal
           close={() => setSqlOpen(false)}
           datasourceId={selectedDataSource.id || ""}
-          // placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
-          placeholder="Test"
+          placeholder=""
           requiredColumns={Array.from(requiredColumns)}
           value={value.sql}
           save={async (sql) => form.setValue("sql", sql)}
