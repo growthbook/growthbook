@@ -9,6 +9,7 @@ import Code from "../components/SyntaxHighlighting/Code";
 import Tooltip from "../components/Tooltip/Tooltip";
 import { useAuth } from "../services/auth";
 import { validateSQL } from "../services/datasources";
+import { CursorData } from "./Segments/SegmentForm";
 
 type TestQueryResults = {
   duration?: string;
@@ -29,6 +30,7 @@ type Props = {
   identityTypes?: UserIdType[];
   queryType: "segment" | "dimension" | "metric" | "experiment-assignment";
   className?: string;
+  setCursorData?: (data: CursorData) => void;
 };
 
 export default function SQLInputField({
@@ -42,6 +44,7 @@ export default function SQLInputField({
   identityTypes,
   queryType,
   className,
+  setCursorData,
 }: Props) {
   const [
     testQueryResults,
@@ -214,6 +217,7 @@ export default function SQLInputField({
               }
               placeholder={placeholder}
               helpText={helpText}
+              setCursorData={setCursorData}
             />
           )}
           {testQueryResults && (
