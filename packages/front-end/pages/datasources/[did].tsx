@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
-import { FaAngleLeft, FaExternalLinkAlt, FaKey } from "react-icons/fa";
+import {
+  FaAngleLeft,
+  FaDatabase,
+  FaExternalLinkAlt,
+  FaKey,
+} from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -19,6 +24,8 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
 import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import Modal from "@/components/Modal";
+import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -30,6 +37,7 @@ function quotePropertyName(name: string) {
 const DataSourcePage: FC = () => {
   const permissions = usePermissions();
   const [editConn, setEditConn] = useState(false);
+  const [viewSchema, setViewSchema] = useState(false);
   const router = useRouter();
 
   const {
@@ -146,7 +154,7 @@ const DataSourcePage: FC = () => {
               <div className="d-md-flex w-100 justify-content-between">
                 <div>
                   <button
-                    className="btn btn-outline-primary mb-2 mb-md-0 mr-md-2 font-weight-bold"
+                    className="btn btn-outline-primary mr-2 mt-1 font-weight-bold"
                     onClick={(e) => {
                       e.preventDefault();
                       setEditConn(true);
@@ -156,19 +164,30 @@ const DataSourcePage: FC = () => {
                   </button>
 
                   <DocLink
-                    className="btn btn-outline-secondary font-weight-bold mb-2 mb-md-0"
+                    className="btn btn-outline-secondary mr-2 mt-1 font-weight-bold"
                     docSection={d.type as DocSection}
                     fallBackSection="datasources"
                   >
-                    <FaExternalLinkAlt /> View documentation
+                    <FaExternalLinkAlt /> View Documentation
                   </DocLink>
+                  {d.properties.supportsInformationSchema && (
+                    <button
+                      className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setViewSchema(true);
+                      }}
+                    >
+                      <FaDatabase /> View Schema Browser
+                    </button>
+                  )}
                 </div>
 
                 <div>
                   {canEdit && (
                     <DeleteButton
                       displayName={d.name}
-                      className="font-weight-bold"
+                      className="font-weight-bold mt-1"
                       text={`Delete "${d.name}" Datasource`}
                       onClick={async () => {
                         await apiCall(`/datasource/${d.id}`, {
@@ -301,6 +320,24 @@ mixpanel.init('YOUR PROJECT TOKEN', {
             setEditConn(false);
           }}
         />
+      )}
+      {viewSchema && (
+        <Modal
+          open={true}
+          close={() => setViewSchema(false)}
+          closeCta="Close"
+          header="Schema Browser"
+        >
+          <>
+            <p>
+              Explore the schemas, tables, and table metadata of your connected
+              datasource.
+            </p>
+            <div className="border rounded">
+              <SchemaBrowser datasource={d} />
+            </div>
+          </>
+        </Modal>
       )}
     </div>
   );
