@@ -74,7 +74,6 @@ const SegmentForm: FC<{
         header={current.id ? "Edit Segment" : "New Segment"}
         submit={form.handleSubmit(async (value) => {
           if (supportsSQL) {
-            if (!sql) throw new Error("SQL cannot be empty");
             validateSQL(value.sql, [value.userIdType, "date"]);
           }
 

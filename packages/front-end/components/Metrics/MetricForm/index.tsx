@@ -359,16 +359,12 @@ const MetricForm: FC<MetricFormProps> = ({
       : "";
 
   const requiredColumns = useMemo(() => {
-    return new Set(["timestamp", ...value.userIdTypes]);
-  }, [value.userIdTypes]);
-
-  useEffect(() => {
-    if (type === "binomial") {
-      form.setValue("ignoreNulls", false);
-    } else {
-      requiredColumns.add("value");
+    const set = new Set(["timestamp", ...value.userIdTypes]);
+    if (type !== "binomial") {
+      set.add("value");
     }
-  }, [type, form, requiredColumns]);
+    return set;
+  }, [value.userIdTypes, type]);
 
   return (
     <>
@@ -784,7 +780,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 </>
               )}
             </div>
-            {value.queryFormat === "builder" && (
+            {supportsSQL && value.queryFormat === "builder" && (
               <div className="col-lg pt-2">
                 <SQLInputField
                   userEnteredQuery={getRawSQLPreview(value)}

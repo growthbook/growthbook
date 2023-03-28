@@ -51,7 +51,7 @@ const DimensionForm: FC<{
 
   return (
     <>
-      {sqlOpen && datasource && (
+      {sqlOpen && dsObj && (
         <EditSqlModal
           close={() => setSqlOpen(false)}
           datasourceId={dsObj.id || ""}
@@ -68,7 +68,6 @@ const DimensionForm: FC<{
         header={current.id ? "Edit Dimension" : "New Dimension"}
         submit={form.handleSubmit(async (value) => {
           if (supportsSQL) {
-            if (!sql) throw new Error("SQL cannot be empty");
             validateSQL(value.sql, [value.userIdType, "date"]);
           }
 
