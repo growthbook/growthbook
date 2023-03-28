@@ -32,6 +32,7 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
 
     const updatedFeature = await toggleMultipleEnvironments(
       req.organization,
+      req.eventAudit,
       feature,
       toggles
     );
