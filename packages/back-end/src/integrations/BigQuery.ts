@@ -4,12 +4,12 @@ import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
+import { DataSourceProperties } from "../../types/datasource";
 import {
   InformationSchema,
   MissingDatasourceParamsError,
 } from "../types/Integration";
-import { formatInformationSchema } from "../util/integrations";
-import { DataSourceProperties } from "../../types/datasource";
+import { formatInformationSchema } from "../util/informationSchemas";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -121,5 +121,29 @@ export default class BigQuery extends SqlIntegration {
     }
 
     return formatInformationSchema(results, "bigquery");
+  }
+
+  async getTableData(
+    databaseName: string,
+    tableSchema: string,
+    tableName: string
+  ): Promise<{ tableData: null | unknown[]; refreshMS: number }> {
+    const sql = `SELECT
+          data_type,
+          column_name
+        FROM
+          \`${databaseName}.${tableSchema}.INFORMATION_SCHEMA.COLUMNS\`
+        WHERE
+          table_name
+        IN ('${tableName}')
+        AND
+          table_schema
+        IN ('${tableSchema}')`;
+
+    const queryStartTime = Date.now();
+    const tableData = await this.runQuery(sql);
+    const queryEndTime = Date.now();
+
+    return { tableData, refreshMS: queryEndTime - queryStartTime };
   }
 }
