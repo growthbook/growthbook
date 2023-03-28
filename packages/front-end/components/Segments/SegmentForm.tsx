@@ -1,14 +1,22 @@
-import { FC, useMemo } from "react";
+import { FC, useMemo, useState } from "react";
 import { SegmentInterface } from "back-end/types/segment";
 import { useForm } from "react-hook-form";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { validateSQL } from "@/services/datasources";
-import SQLInputField from "@/components/SQLInputField";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import useMembers from "@/hooks/useMembers";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import EditSqlModal from "../SchemaBrowser/EditSqlModal";
+import Code from "../SyntaxHighlighting/Code";
+
+export type CursorData = {
+  row: number;
+  column: number;
+  input: string[];
+};
 
 const SegmentForm: FC<{
   close: () => void;
@@ -32,99 +40,119 @@ const SegmentForm: FC<{
       owner: current.owner || "",
     },
   });
+  const [sqlOpen, setSqlOpen] = useState(false);
 
   const userIdType = form.watch("userIdType");
 
   const datasource = getDatasourceById(form.watch("datasource"));
+
   const dsProps = datasource?.properties;
-  const sql = dsProps?.queryLanguage === "sql";
+  const supportsSQL = dsProps?.queryLanguage === "sql";
+
+  const sql = form.watch("sql");
 
   const requiredColumns = useMemo(() => {
     return new Set([userIdType, "date"]);
   }, [userIdType]);
 
   return (
-    <Modal
-      close={close}
-      open={true}
-      header={current.id ? "Edit Segment" : "New Segment"}
-      submit={form.handleSubmit(async (value) => {
-        if (sql) {
-          validateSQL(value.sql, [value.userIdType, "date"]);
-        }
-
-        await apiCall(current.id ? `/segments/${current.id}` : `/segments`, {
-          method: current.id ? "PUT" : "POST",
-          body: JSON.stringify(value),
-        });
-        mutateDefinitions({});
-      })}
-    >
-      <Field label="Name" required {...form.register("name")} />
-      <Field
-        label="Owner"
-        options={memberUsernameOptions}
-        comboBox
-        {...form.register("owner")}
-      />
-      <SelectField
-        label="Data Source"
-        required
-        value={form.watch("datasource")}
-        onChange={(v) => form.setValue("datasource", v)}
-        placeholder="Choose one..."
-        options={filteredDatasources.map((d) => ({
-          value: d.id,
-          label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-        }))}
-        className="portal-overflow-ellipsis"
-      />
-      {datasource.properties.userIds && (
-        <SelectField
-          label="Identifier Type"
-          required
-          value={userIdType}
-          onChange={(v) => form.setValue("userIdType", v)}
-          options={(datasource?.settings?.userIdTypes || []).map((t) => {
-            return {
-              label: t.userIdType,
-              value: t.userIdType,
-            };
-          })}
-        />
-      )}
-      {sql ? (
-        <SQLInputField
-          userEnteredQuery={form.watch("sql")}
-          datasourceId={datasource.id}
-          form={form}
-          requiredColumns={requiredColumns}
+    <>
+      {sqlOpen && datasource && (
+        <EditSqlModal
+          close={() => setSqlOpen(false)}
+          datasourceId={datasource.id || ""}
           placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
-          helpText={
-            <>
-              Select two columns named <code>{userIdType}</code> and{" "}
-              <code>date</code>
-            </>
-          }
-          queryType="segment"
-        />
-      ) : (
-        <Field
-          label="Event Condition"
-          required
-          {...form.register("sql")}
-          textarea
-          minRows={3}
-          placeholder={"event.properties.$browser === 'Chrome'"}
-          helpText={
-            <>
-              Javascript condition used to filter events. Has access to an{" "}
-              <code>event</code> variable.
-            </>
-          }
+          requiredColumns={Array.from(requiredColumns)}
+          value={sql}
+          save={async (sql) => form.setValue("sql", sql)}
         />
       )}
-    </Modal>
+      <Modal
+        close={close}
+        open={true}
+        size={"md"}
+        header={current.id ? "Edit Segment" : "New Segment"}
+        submit={form.handleSubmit(async (value) => {
+          if (supportsSQL) {
+            if (!sql) throw new Error("SQL cannot be empty");
+            validateSQL(value.sql, [value.userIdType, "date"]);
+          }
+
+          await apiCall(current.id ? `/segments/${current.id}` : `/segments`, {
+            method: current.id ? "PUT" : "POST",
+            body: JSON.stringify(value),
+          });
+          mutateDefinitions({});
+        })}
+      >
+        <Field label="Name" required {...form.register("name")} />
+        <Field
+          label="Owner"
+          options={memberUsernameOptions}
+          comboBox
+          {...form.register("owner")}
+        />
+        <SelectField
+          label="Data Source"
+          required
+          value={form.watch("datasource")}
+          onChange={(v) => form.setValue("datasource", v)}
+          placeholder="Choose one..."
+          options={filteredDatasources.map((d) => ({
+            value: d.id,
+            label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
+          }))}
+          className="portal-overflow-ellipsis"
+        />
+        {datasource.properties.userIds && (
+          <SelectField
+            label="Identifier Type"
+            required
+            value={userIdType}
+            onChange={(v) => form.setValue("userIdType", v)}
+            options={(datasource?.settings?.userIdTypes || []).map((t) => {
+              return {
+                label: t.userIdType,
+                value: t.userIdType,
+              };
+            })}
+          />
+        )}
+        {supportsSQL ? (
+          <div className="form-group">
+            <label>Query</label>
+            {sql && <Code language="sql" code={sql} expandable={true} />}
+            <div>
+              <button
+                className="btn btn-outline-primary"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSqlOpen(true);
+                }}
+              >
+                {sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <Field
+            label="Event Condition"
+            required
+            {...form.register("sql")}
+            textarea
+            minRows={3}
+            placeholder={"event.properties.$browser === 'Chrome'"}
+            helpText={
+              <>
+                Javascript condition used to filter events. Has access to an{" "}
+                <code>event</code> variable.
+              </>
+            }
+          />
+        )}
+      </Modal>
+    </>
   );
 };
 export default SegmentForm;
