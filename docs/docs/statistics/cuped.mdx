@@ -7,13 +7,20 @@ slug: cuped
 
 # Regression Adjustment (CUPED)
 
-:::tip
+:::note
 
 Regression Adjustment (CUPED) is only implemented for the Frequentist statistics engine, and is a premium feature.
 
 :::
 
 GrowthBook aims to unlock high-velocity, enterprise-scale experimentation. Regression adjustment (also known as CUPED, short for Controlled-experiment Using Pre-Experiment Data) is one way to increase the velocity of experimentation by reducing the uncertainty in estimates of experiment uplift.
+
+### Why use CUPED?
+
+CUPED decreases the variance of experiment uplift, increasing the accuracy of your experimental results and therefore the speed at which you can see the effects of an experiment. In the right conditions, CUPED can equate to getting 20% or more traffic during your experiment!
+
+- In 2016, Netflix reported that CUPED reduced variance by rougly ~40% for some key engagment metrics ([source](https://www.kdd.org/kdd2016/papers/files/adp0945-xieA.pdf)).
+- In 2022, Microsoft reported that, for one product team, CUPED was akin to adding 20% more traffic to analysis of a majority of metrics ([source](https://www.microsoft.com/en-us/research/group/experimentation-platform-exp/articles/deep-dive-into-variance-reduction/)).
 
 ### How does it work?
 
@@ -66,7 +73,7 @@ CUPED works for all metrics that are analyzed using the Frequentist engine, exce
 
 - Ratio metrics where the denominator is a count metric
 - Metrics with custom user value aggregations
-- Metrics from MixPanel data sources
+- Metrics from MixPanel and Google Analytics data sources
 
 ## Configuring CUPED
 
