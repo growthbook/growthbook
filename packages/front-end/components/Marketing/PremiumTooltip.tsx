@@ -10,12 +10,14 @@ export default function PremiumTooltip({
   children,
   body = null,
   tipPosition = "top",
+  className = "",
   innerClassName = "",
 }: {
   commercialFeature: CommercialFeature;
   children: ReactNode;
   body?: string | JSX.Element;
   tipPosition?: "bottom" | "top" | "left" | "right";
+  className?: string;
   innerClassName?: string;
 }) {
   const { hasCommercialFeature } = useUser();
@@ -40,6 +42,7 @@ export default function PremiumTooltip({
         </>
       }
       tipPosition={tipPosition}
+      className={className || ""}
       innerClassName={innerClassName || ""}
     >
       {!hasFeature && (

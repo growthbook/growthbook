@@ -6,9 +6,12 @@ import {
   Operator,
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
-import { FaExternalLinkAlt } from "react-icons/fa";
+import {
+  FaExclamationTriangle,
+  FaExternalLinkAlt,
+  FaTimes,
+} from "react-icons/fa";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
@@ -30,6 +33,10 @@ import MultiSelectField from "@/components/Forms/MultiSelectField";
 import SQLInputField from "@/components/SQLInputField";
 import GoogleAnalyticsMetrics from "@/components/Metrics/GoogleAnalyticsMetrics";
 import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Toggle from "@/components/Forms/Toggle";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 
 const weekAgo = new Date();
@@ -148,10 +155,12 @@ const MetricForm: FC<MetricFormProps> = ({
     projects,
     project,
   } = useDefinitions();
+  const settings = useOrgSettings();
+  const { hasCommercialFeature } = useUser();
+
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
-  const settings = useOrgSettings();
   const [sqlOpen, setSqlOpen] = useState(false);
 
   const {
@@ -229,6 +238,13 @@ const MetricForm: FC<MetricFormProps> = ({
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
       minPercentChange: getMinPercentageChangeForMetric(current) * 100,
       minSampleSize: getMinSampleSizeForMetric(current),
+      regressionAdjustmentOverride:
+        current.regressionAdjustmentOverride ?? false,
+      regressionAdjustmentEnabled: current.regressionAdjustmentEnabled ?? false,
+      regressionAdjustmentDays:
+        current.regressionAdjustmentDays ??
+        settings.regressionAdjustmentDays ??
+        14,
     },
   });
 
@@ -253,6 +269,9 @@ const MetricForm: FC<MetricFormProps> = ({
     projects: form.watch("projects"),
     sql: form.watch("sql"),
     conditions: form.watch("conditions"),
+    regressionAdjustmentOverride: form.watch("regressionAdjustmentOverride"),
+    regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
+    regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
   };
 
   const denominatorOptions = useMemo(() => {
@@ -298,6 +317,30 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
+
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
+  let regressionAdjustmentAvailableForMetric = true;
+  let regressionAdjustmentAvailableForMetricReason = <></>;
+
+  if (form.watch("denominator")) {
+    const denominator = metrics.find((m) => m.id === form.watch("denominator"));
+    if (denominator?.type === "count") {
+      regressionAdjustmentAvailableForMetric = false;
+      regressionAdjustmentAvailableForMetricReason = (
+        <>
+          Not available for ratio metrics with <em>count</em> denominators.
+        </>
+      );
+    }
+  }
+  if (form.watch("aggregation")) {
+    regressionAdjustmentAvailableForMetric = false;
+    regressionAdjustmentAvailableForMetricReason = (
+      <>Not available for metrics with custom aggregations.</>
+    );
+  }
 
   let table = "Table";
   let column = "Column";
@@ -358,6 +401,18 @@ const MetricForm: FC<MetricFormProps> = ({
       ? "The acceptable risk percentage cannot be higher than the too risky percentage"
       : "";
 
+  const regressionAdjustmentDaysHighlightColor =
+    value.regressionAdjustmentDays > 28 || value.regressionAdjustmentDays < 7
+      ? "#e27202"
+      : "";
+
+  const regressionAdjustmentDaysWarningMsg =
+    value.regressionAdjustmentDays > 28
+      ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
+      : value.regressionAdjustmentDays < 7
+      ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
+      : "";
+
   const requiredColumns = useMemo(() => {
     const set = new Set(["timestamp", ...value.userIdTypes]);
     if (type !== "binomial") {
@@ -366,13 +421,21 @@ const MetricForm: FC<MetricFormProps> = ({
     return set;
   }, [value.userIdTypes, type]);
 
+  useEffect(() => {
+    if (type === "binomial") {
+      form.setValue("ignoreNulls", false);
+    }
+  }, [type, form]);
+
   return (
     <>
-      {sqlOpen && selectedDataSource && (
+      {supportsSQL && sqlOpen && (
         <EditSqlModal
           close={() => setSqlOpen(false)}
-          datasourceId={selectedDataSource.id || ""}
-          placeholder=""
+          datasourceId={value.datasource}
+          placeholder={
+            "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
+          }
           requiredColumns={Array.from(requiredColumns)}
           value={value.sql}
           save={async (sql) => form.setValue("sql", sql)}
@@ -663,10 +726,7 @@ const MetricForm: FC<MetricFormProps> = ({
                                 const ret = [
                                   { value: "=", label: "equals" },
                                   { value: "!=", label: "does not equal" },
-                                  {
-                                    value: "~",
-                                    label: "matches the regex",
-                                  },
+                                  { value: "~", label: "matches the regex" },
                                   {
                                     value: "!~",
                                     label: "does not match the regex",
@@ -780,31 +840,65 @@ const MetricForm: FC<MetricFormProps> = ({
                 </>
               )}
             </div>
-            {supportsSQL && value.queryFormat === "builder" && (
+            {supportsSQL && (
               <div className="col-lg pt-2">
-                <SQLInputField
-                  userEnteredQuery={getRawSQLPreview(value)}
-                  datasourceId={value.datasource}
-                  form={form}
-                  requiredColumns={requiredColumns}
-                  showPreview
-                  queryType="metric"
-                />
-                {value.type !== "binomial" && (
-                  <div className="mt-2">
-                    <label>User Value Aggregation:</label>
-                    <Code language="sql" code={getAggregateSQLPreview(value)} />
-                    <small className="text-muted">
-                      When there are multiple metric rows for a user
-                    </small>
+                {value.queryFormat === "sql" ? (
+                  <div>
+                    <h4>SQL Query Instructions</h4>
+                    <p className="mt-3">
+                      Your SELECT statement must return the following column
+                      names:
+                    </p>
+                    <ol>
+                      {value.userIdTypes.map((id) => (
+                        <li key={id}>
+                          <strong>{id}</strong>
+                        </li>
+                      ))}
+                      {value.type !== "binomial" && (
+                        <li>
+                          <strong>value</strong> -{" "}
+                          {value.type === "count"
+                            ? "The numeric value to be counted"
+                            : "The " + value.type + " amount"}
+                        </li>
+                      )}
+                      <li>
+                        <strong>timestamp</strong> - When the action was
+                        performed
+                      </li>
+                    </ol>
                   </div>
+                ) : (
+                  <>
+                    <SQLInputField
+                      userEnteredQuery={getRawSQLPreview(value)}
+                      datasourceId={value.datasource}
+                      form={form}
+                      requiredColumns={requiredColumns}
+                      showPreview
+                      queryType="metric"
+                    />
+                    {value.type !== "binomial" && (
+                      <div className="mt-2">
+                        <label>User Value Aggregation:</label>
+                        <Code
+                          language="sql"
+                          code={getAggregateSQLPreview(value)}
+                        />
+                        <small className="text-muted">
+                          When there are multiple metric rows for a user
+                        </small>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}
           </div>
         </Page>
         <Page display="Behavior">
-          <div className="form-group ">
+          <div className="form-group">
             <label>What is the Goal?</label>
             <SelectField
               value={form.watch("inverse") ? "1" : "0"}
@@ -827,6 +921,7 @@ const MetricForm: FC<MetricFormProps> = ({
               ]}
             />
           </div>
+
           {capSupported &&
             ["count", "duration", "revenue"].includes(value.type) && (
               <div className="form-group">
@@ -842,43 +937,48 @@ const MetricForm: FC<MetricFormProps> = ({
                 </small>
               </div>
             )}
+
           {conversionWindowSupported && (
-            <div className="form-group">
-              <label>Conversion Delay (hours)</label>
-              <input
-                type="number"
-                step="any"
-                className="form-control"
-                placeholder={"0"}
-                {...form.register("conversionDelayHours", {
-                  valueAsNumber: true,
-                })}
-              />
-              <small className="text-muted">
-                Ignore all conversions within the first X hours of being put
-                into an experiment.
-              </small>
-            </div>
+            <>
+              <label>Conversion Window</label>
+              <div className="px-3 py-2 pb-0 mb-4 border rounded">
+                <div className="form-group">
+                  <label>Conversion Delay (hours)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    className="form-control"
+                    placeholder={"0"}
+                    {...form.register("conversionDelayHours", {
+                      valueAsNumber: true,
+                    })}
+                  />
+                  <small className="text-muted">
+                    Ignore all conversions within the first X hours of being put
+                    into an experiment.
+                  </small>
+                </div>
+                <div className="form-group mb-0">
+                  <label>Conversion Window (hours)</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="1"
+                    className="form-control"
+                    placeholder={getDefaultConversionWindowHours() + ""}
+                    {...form.register("conversionWindowHours", {
+                      valueAsNumber: true,
+                    })}
+                  />
+                  <small className="text-muted">
+                    After the conversion delay (if any), wait this many hours
+                    for a conversion event.
+                  </small>
+                </div>
+              </div>
+            </>
           )}
-          {conversionWindowSupported && (
-            <div className="form-group">
-              <label>Conversion Window (hours)</label>
-              <input
-                type="number"
-                step="any"
-                min="1"
-                className="form-control"
-                placeholder={getDefaultConversionWindowHours() + ""}
-                {...form.register("conversionWindowHours", {
-                  valueAsNumber: true,
-                })}
-              />
-              <small className="text-muted">
-                After the conversion delay (if any), wait this many hours for a
-                conversion event.
-              </small>
-            </div>
-          )}
+
           {!showAdvanced ? (
             <a
               href="#"
@@ -901,6 +1001,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     onChange={(v) => {
                       form.setValue("ignoreNulls", v === "1");
                     }}
+                    containerClassName="mb-0"
                     options={[
                       {
                         value: "0",
@@ -918,15 +1019,15 @@ const MetricForm: FC<MetricFormProps> = ({
                   </small>
                 </div>
               )}
-              {settings.statsEngine !== "frequentist" && (
-                <RiskThresholds
-                  winRisk={value.winRisk}
-                  loseRisk={value.loseRisk}
-                  winRiskRegisterField={form.register("winRisk")}
-                  loseRiskRegisterField={form.register("loseRisk")}
-                  riskError={riskError}
-                />
-              )}
+
+              <RiskThresholds
+                winRisk={value.winRisk}
+                loseRisk={value.loseRisk}
+                winRiskRegisterField={form.register("winRisk")}
+                loseRiskRegisterField={form.register("loseRisk")}
+                riskError={riskError}
+              />
+
               <div className="form-group">
                 <label>Minimum Sample Size</label>
                 <input
@@ -972,6 +1073,129 @@ const MetricForm: FC<MetricFormProps> = ({
               metricDefaults.minPercentageChange * 100
             })`}
               />
+
+              <PremiumTooltip commercialFeature="regression-adjustment">
+                <label className="mb-1">Regression Adjustment (CUPED)</label>
+              </PremiumTooltip>
+              <small className="d-block mb-1 text-muted">
+                Only applicable to frequentist analyses
+              </small>
+              <div className="px-3 py-2 pb-0 mb-2 border rounded">
+                {regressionAdjustmentAvailableForMetric ? (
+                  <>
+                    <div className="form-group mb-0 mr-0 form-inline">
+                      <div className="form-inline my-1">
+                        <input
+                          type="checkbox"
+                          className="form-check-input"
+                          {...form.register("regressionAdjustmentOverride")}
+                          id={"toggle-regressionAdjustmentOverride"}
+                          disabled={!hasRegressionAdjustmentFeature}
+                        />
+                        <label
+                          className="mr-1 cursor-pointer"
+                          htmlFor="toggle-regressionAdjustmentOverride"
+                        >
+                          Override organization-level settings
+                        </label>
+                      </div>
+                      {!!form.watch("regressionAdjustmentOverride") &&
+                        (!settings.statsEngine ||
+                          settings.statsEngine === "bayesian") && (
+                          <small className="d-block my-1 text-warning-orange">
+                            <FaExclamationTriangle /> Your organization uses
+                            Bayesian statistics by default and regression
+                            adjustment is not implemented for the Bayesian
+                            engine.
+                          </small>
+                        )}
+                    </div>
+                    <div
+                      style={{
+                        display: form.watch("regressionAdjustmentOverride")
+                          ? "block"
+                          : "none",
+                      }}
+                    >
+                      <div className="d-flex my-2 border-bottom"></div>
+                      <div className="form-group mt-3 mb-0 mr-2 form-inline">
+                        <label
+                          className="mr-1"
+                          htmlFor="toggle-regressionAdjustmentEnabled"
+                        >
+                          Apply regression adjustment for this metric
+                        </label>
+                        <Toggle
+                          id={"toggle-regressionAdjustmentEnabled"}
+                          value={!!form.watch("regressionAdjustmentEnabled")}
+                          setValue={(value) => {
+                            form.setValue("regressionAdjustmentEnabled", value);
+                          }}
+                          disabled={!hasRegressionAdjustmentFeature}
+                        />
+                        <small className="form-text text-muted">
+                          (organization default:{" "}
+                          {settings.regressionAdjustmentEnabled ? "On" : "Off"})
+                        </small>
+                      </div>
+                      <div
+                        className="form-group mt-3 mb-1 mr-2"
+                        style={{
+                          opacity: form.watch("regressionAdjustmentEnabled")
+                            ? "1"
+                            : "0.5",
+                        }}
+                      >
+                        <Field
+                          label="Pre-exposure lookback period (days)"
+                          type="number"
+                          style={{
+                            borderColor: regressionAdjustmentDaysHighlightColor,
+                            backgroundColor: regressionAdjustmentDaysHighlightColor
+                              ? regressionAdjustmentDaysHighlightColor + "15"
+                              : "",
+                          }}
+                          className="ml-2"
+                          containerClassName="mb-0 form-inline"
+                          inputGroupClassName="d-inline-flex w-150px"
+                          append="days"
+                          min="0"
+                          max="100"
+                          disabled={!hasRegressionAdjustmentFeature}
+                          helpText={
+                            <>
+                              <span className="ml-2">
+                                (organization default:{" "}
+                                {settings.regressionAdjustmentDays ?? 14})
+                              </span>
+                            </>
+                          }
+                          {...form.register("regressionAdjustmentDays", {
+                            valueAsNumber: true,
+                            validate: (v) => {
+                              return !(v <= 0 || v > 100);
+                            },
+                          })}
+                        />
+                        {regressionAdjustmentDaysWarningMsg && (
+                          <small
+                            style={{
+                              color: regressionAdjustmentDaysHighlightColor,
+                            }}
+                          >
+                            {regressionAdjustmentDaysWarningMsg}
+                          </small>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-muted">
+                    <FaTimes className="text-danger" />{" "}
+                    {regressionAdjustmentAvailableForMetricReason}
+                  </div>
+                )}
+              </div>
             </>
           )}
         </Page>

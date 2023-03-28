@@ -33,6 +33,7 @@ import {
   format,
   FormatDialect,
 } from "../util/sql";
+import { MetricRegressionAdjustmentStatus } from "../../types/report";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -169,7 +170,9 @@ export default abstract class SqlIntegration
 
   applyMetricOverrides(
     metric: MetricInterface,
-    experiment: ExperimentInterface
+    experiment: ExperimentInterface,
+    experimentRegressionAdjustmentEnabled?: boolean,
+    metricRegressionAdjustmentStatus?: MetricRegressionAdjustmentStatus
   ) {
     if (!metric) return;
     const metricOverride = experiment?.metricOverrides?.find(
@@ -188,6 +191,25 @@ export default abstract class SqlIntegration
       if ("loseRisk" in metricOverride) {
         metric.loseRisk = metricOverride.loseRisk;
       }
+    }
+    // Apply regression adjustments specifically, not from metric overrides
+    if (experimentRegressionAdjustmentEnabled !== undefined) {
+      metric.regressionAdjustmentEnabled = experimentRegressionAdjustmentEnabled;
+    }
+    if (metricRegressionAdjustmentStatus !== undefined) {
+      metric.regressionAdjustmentEnabled =
+        experimentRegressionAdjustmentEnabled &&
+        metricRegressionAdjustmentStatus.regressionAdjustmentEnabled;
+      metric.regressionAdjustmentDays =
+        metricRegressionAdjustmentStatus.regressionAdjustmentDays ?? 14;
+      metric.regressionAdjustmentDays = Math.max(
+        metric.regressionAdjustmentDays,
+        0
+      );
+      metric.regressionAdjustmentDays = Math.min(
+        metric.regressionAdjustmentDays,
+        100
+      );
     }
     return;
   }
@@ -757,7 +779,12 @@ export default abstract class SqlIntegration
       denominatorMetricsDocs
     );
 
-    this.applyMetricOverrides(metric, experiment);
+    this.applyMetricOverrides(
+      metric,
+      experiment,
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatus
+    );
     activationMetrics.forEach((m) => this.applyMetricOverrides(m, experiment));
     denominatorMetrics.forEach((m) => this.applyMetricOverrides(m, experiment));
 
@@ -799,16 +826,6 @@ export default abstract class SqlIntegration
     // across all users. The following flag determines whether to filter out users
     // that have no denominator values
     const ratioIsFunnel = true; // @todo: allow this to be configured
-
-    // Apply regression adjustments
-    metric.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
-    if (metricRegressionAdjustmentStatus) {
-      metric.regressionAdjustmentEnabled =
-        regressionAdjustmentEnabled &&
-        metricRegressionAdjustmentStatus.regressionAdjustmentEnabled;
-      metric.regressionAdjustmentDays =
-        metricRegressionAdjustmentStatus.regressionAdjustmentDays ?? 14;
-    }
 
     // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
     // where RA is actually possible

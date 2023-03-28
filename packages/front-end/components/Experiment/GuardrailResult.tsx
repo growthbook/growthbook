@@ -61,7 +61,7 @@ const GuardrailResults: FC<{
     <div className="d-flex flex-column" key={metric.id}>
       <div
         className={clsx(
-          "d-flex align-items-center guardrail alert m-0",
+          "d-flex align-items-center guardrail m-0 p-2",
           `alert-${status}`
         )}
       >
@@ -79,9 +79,7 @@ const GuardrailResults: FC<{
         </Tooltip>
       </div>
       <div>
-        <table
-          className={clsx("rounded table table-bordered experiment-compact")}
-        >
+        <table className={clsx("table experiment-compact small-padding mb-1")}>
           <thead>
             <tr>
               <th>Variation</th>

@@ -37,8 +37,9 @@ export type CommercialFeature =
   | "sso"
   | "advanced-permissions"
   | "encrypt-features-endpoint"
+  | "schedule-feature-flag"
   | "override-metrics"
-  | "schedule-feature-flag";
+  | "regression-adjustment";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {
@@ -154,6 +155,8 @@ export interface OrganizationSettings {
   defaultRole?: MemberRoleInfo;
   statsEngine?: StatsEngine;
   pValueThreshold?: number;
+  regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentDays?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
 }
