@@ -102,8 +102,8 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
 
     const metric = partialFromMetricApiInterface(
       req.organization,
-      datasource,
-      apiMetric
+      apiMetric,
+      datasource
     );
     const createdMetric = await createMetric(metric);
 
