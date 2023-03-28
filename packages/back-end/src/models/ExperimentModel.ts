@@ -70,6 +70,9 @@ const experimentSchema = new mongoose.Schema({
       conversionDelayHours: Number,
       winRisk: Number,
       loseRisk: Number,
+      regressionAdjustmentOverride: Boolean,
+      regressionAdjustmentEnabled: Boolean,
+      regressionAdjustmentDays: Number,
     },
   ],
   guardrails: [String],
@@ -139,6 +142,7 @@ const experimentSchema = new mongoose.Schema({
   nextSnapshotAttempt: Date,
   autoSnapshots: Boolean,
   ideaSource: String,
+  regressionAdjustmentEnabled: Boolean,
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
