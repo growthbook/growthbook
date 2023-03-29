@@ -1023,7 +1023,6 @@ export function postMetricApiPayloadToMetricInterface(
   if (sqlBuilder) {
     // conditions are handled above in the Conditions section
     metric.table = sqlBuilder.tableName;
-    metric.aggregation = sql?.userAggregationSQL;
     metric.timestampColumn = sqlBuilder.timestampColumnName;
     metric.column = sqlBuilder.valueColumnName;
   }

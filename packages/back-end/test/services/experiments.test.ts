@@ -20,8 +20,8 @@ describe("experiments utils", () => {
         type: "count",
       };
       const datasource: Pick<DataSourceInterface, "type"> = {
-        type: 'mysql'
-      }
+        type: "mysql",
+      };
 
       const result = postMetricApiPayloadIsValid(input, datasource) as {
         valid: true;
@@ -31,6 +31,9 @@ describe("experiments utils", () => {
     });
 
     it("should return a failed result when multiple query formats provided", () => {
+      const datasource: Pick<DataSourceInterface, "type"> = {
+        type: "postgres",
+      };
       const input: z.infer<typeof postMetricValidator.bodySchema> = {
         datasourceId: "ds_abc123",
         sql: {
@@ -46,7 +49,7 @@ describe("experiments utils", () => {
         type: "count",
       };
 
-      const result = postMetricApiPayloadIsValid(input) as {
+      const result = postMetricApiPayloadIsValid(input, datasource) as {
         valid: false;
         error: string;
       };
@@ -58,6 +61,9 @@ describe("experiments utils", () => {
     });
 
     it("should return a failed result if binomial type specified and has userAggregationSQL", () => {
+      const datasource: Pick<DataSourceInterface, "type"> = {
+        type: "postgres",
+      };
       const input: z.infer<typeof postMetricValidator.bodySchema> = {
         datasourceId: "ds_abc123",
         sql: {
@@ -69,7 +75,7 @@ describe("experiments utils", () => {
         type: "binomial",
       };
 
-      const result = postMetricApiPayloadIsValid(input) as {
+      const result = postMetricApiPayloadIsValid(input, datasource) as {
         valid: false;
         error: string;
       };
@@ -81,6 +87,9 @@ describe("experiments utils", () => {
     });
 
     it("should return a failed result when conversionWindowEnd provided but not conversionWindowStart", () => {
+      const datasource: Pick<DataSourceInterface, "type"> = {
+        type: "postgres",
+      };
       const input: z.infer<typeof postMetricValidator.bodySchema> = {
         datasourceId: "ds_abc123",
         sql: {
@@ -95,7 +104,7 @@ describe("experiments utils", () => {
         type: "count",
       };
 
-      const result = postMetricApiPayloadIsValid(input) as {
+      const result = postMetricApiPayloadIsValid(input, datasource) as {
         valid: false;
         error: string;
       };
@@ -122,7 +131,7 @@ describe("experiments utils", () => {
         invites: [],
       };
 
-      it("should create a MetricInterface from a postMetric payload", () => {
+      it("with minimum payload, should create a MetricInterface from a postMetric payload", () => {
         const input: z.infer<typeof postMetricValidator.bodySchema> = {
           datasourceId: "ds_abc123",
           sql: {
@@ -159,6 +168,89 @@ describe("experiments utils", () => {
         expect(result.type).toEqual("binomial");
         expect(result.userIdTypes).toEqual(["user_id"]);
       });
+
+      it("with a full payload, should create a MetricInterface from a postMetric payload", () => {
+        const input: z.infer<typeof postMetricValidator.bodySchema> = {
+          datasourceId: "ds_abc123",
+          tags: ["checkout"],
+          projects: ["proj_abc987"],
+          sqlBuilder: {
+            tableName: "users",
+            timestampColumnName: "created_at",
+            valueColumnName: "signed_up",
+            conditions: [
+              {
+                value: "true",
+                operator: "=",
+                column: "signed_up",
+              },
+            ],
+            identifierTypeColumns: [
+              {
+                columnName: "id",
+                identifierType: "string",
+              },
+            ],
+          },
+          behavior: {
+            goal: "decrease",
+            conversionWindowStart: 10,
+            conversionWindowEnd: 50,
+            cap: 1337,
+            riskThresholdSuccess: 5,
+            riskThresholdDanger: 0.5,
+            minPercentChange: 1,
+            maxPercentChange: 50,
+            minSampleSize: 200,
+          },
+          name: "My Cool Metric",
+          description: "This is a metric with lots of fields",
+          type: "count",
+        };
+
+        const result = postMetricApiPayloadToMetricInterface(
+          input,
+          organization,
+          datasource
+        );
+
+        expect(result.aggregation).toEqual(undefined);
+        expect(result.conditions).toEqual([
+          {
+            column: "signed_up",
+            operator: "=",
+            value: "true",
+          },
+        ]);
+        expect(result.datasource).toEqual("ds_abc123");
+        expect(result.denominator).toBe(undefined);
+        expect(result.description).toEqual(
+          "This is a metric with lots of fields"
+        );
+        expect(result.ignoreNulls).toEqual(false);
+        expect(result.inverse).toEqual(true);
+        expect(result.name).toEqual("My Cool Metric");
+        expect(result.organization).toEqual("org_abc123");
+        expect(result.owner).toEqual("");
+        expect(result.queries).toEqual([]);
+        expect(result.queryFormat).toEqual("builder");
+        expect(result.runStarted).toEqual(null);
+        expect(result.sql).toEqual(undefined);
+        expect(result.type).toEqual("count");
+        expect(result.userIdTypes).toEqual(undefined);
+        // More fields
+        expect(result.projects).toEqual(["proj_abc987"]);
+        expect(result.tags).toEqual(["checkout"]);
+        expect(result.winRisk).toEqual(5);
+        expect(result.loseRisk).toEqual(0.5);
+        expect(result.minPercentChange).toEqual(1);
+        expect(result.maxPercentChange).toEqual(50);
+        expect(result.minSampleSize).toEqual(200);
+        expect(result.cap).toEqual(1337);
+        expect(result.conversionWindowHours).toEqual(40);
+        expect(result.conversionDelayHours).toEqual(10);
+        expect(result.column).toEqual("signed_up");
+      });
     });
 
     describe("mixpanel datasource", () => {
@@ -175,7 +267,7 @@ describe("experiments utils", () => {
         invites: [],
       };
 
-      it("should create a MetricInterface from a postMetric payload", () => {
+      it("with minimum payload, should create a MetricInterface from a postMetric payload", () => {
         const input: z.infer<typeof postMetricValidator.bodySchema> = {
           datasourceId: "ds_abc123",
           mixpanel: {

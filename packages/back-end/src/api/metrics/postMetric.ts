@@ -21,7 +21,7 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
       throw new Error(`Invalid data source: ${datasourceId}`);
     }
 
-    const validationResult = postMetricApiPayloadIsValid(req.body);
+    const validationResult = postMetricApiPayloadIsValid(req.body, datasource);
     if (!validationResult.valid) {
       throw new Error(validationResult.error);
     }
