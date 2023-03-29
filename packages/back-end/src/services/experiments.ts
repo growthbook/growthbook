@@ -867,6 +867,12 @@ export function postMetricApiPayloadIsValid(
   };
 }
 
+/**
+ * Converts the OpenAPI POST /metric payload to a {@link MetricInterface}
+ * @param payload
+ * @param organization
+ * @param datasource
+ */
 export function postMetricApiPayloadToMetricInterface(
   payload: z.infer<typeof postMetricValidator.bodySchema>,
   organization: OrganizationInterface,
@@ -895,7 +901,7 @@ export function postMetricApiPayloadToMetricInterface(
     tags,
     projects,
     inverse: behavior?.goal === "decrease",
-    ignoreNulls: false, // todo: ??
+    ignoreNulls: false,
     queries: [],
     runStarted: null,
     type,
@@ -980,125 +986,6 @@ export function postMetricApiPayloadToMetricInterface(
     metric.table = mixpanel.eventName;
     metric.column = mixpanel.eventValue;
   }
-
-  return metric;
-}
-
-/**
- * Get a Partial<MetricInterface> from a Partial<ApiMetric>
- * This method does not perform any validation; it is expected that valid data be passed in,
- * e.g. specifying only one of mixpanel, sql, sql.builder
- * @param organization
- * @param datasource
- * @param apiMetric
- * @return metric Partial<MetricInterface>
- */
-export type RequiredApiMetricFields = Pick<
-  ApiMetric,
-  "datasourceId" | "type" | "name"
->;
-export function partialFromMetricApiInterface(
-  organization: OrganizationInterface,
-  apiMetric: Partial<ApiMetric> & RequiredApiMetricFields,
-  dataSource: DataSourceInterface
-): Partial<MetricInterface> {
-  const metricDefaults = organization.settings?.metricDefaults;
-
-  const {
-    datasourceId,
-    name,
-    description,
-    type,
-    behavior,
-    sql,
-    mixpanel,
-    owner,
-    tags = [],
-    projects = [],
-  } = apiMetric;
-
-  let queryFormat: undefined | "builder" | "sql" = undefined;
-
-  const sqlBuilder = sql?.builder;
-  if (sqlBuilder) {
-    queryFormat = "builder";
-  } else if (sql) {
-    queryFormat = "sql";
-  }
-
-  const conditionsForDataSourceType = (): Condition[] => {
-    switch (dataSource.type) {
-      case "mixpanel":
-        return (mixpanel?.conditions || []).map(
-          ({ operator, property, value }) => ({
-            column: property,
-            operator: operator as Operator,
-            value: value,
-          })
-        );
-
-      default:
-        return (sqlBuilder?.conditions || []) as Condition[];
-    }
-  };
-
-  const metric: Omit<MetricInterface, "dateCreated" | "dateUpdated" | "id"> = {
-    datasource: datasourceId,
-    type: type as MetricType,
-    organization: organization.id,
-    name,
-    queryFormat,
-    description: description || "",
-    runStarted: null,
-    owner: owner || "",
-    tags,
-    projects,
-    inverse: behavior?.goal === "decrease",
-    ignoreNulls: false,
-    aggregation: sql?.userAggregationSQL || mixpanel?.userAggregation || "",
-    sql: sql?.conversionSQL,
-    cap: behavior?.cap ?? 0,
-    conditions: conditionsForDataSourceType(),
-
-    conversionDelayHours: behavior?.conversionWindowStart ?? 0,
-    // with DEFAULT_CONVERSION_WINDOW_HOURS default
-    // conversionWindowHours:
-    //   (behavior?.conversionWindowEnd || DEFAULT_CONVERSION_WINDOW_HOURS) -
-    //   (behavior?.conversionWindowStart ?? 0),
-    // with 0 default
-    conversionWindowHours:
-      (behavior?.conversionWindowEnd || 0) -
-      (behavior?.conversionWindowStart ?? 0),
-    // Existing
-    // conversionWindowHours: behavior?.conversionWindowEnd ?? 0,
-
-    loseRisk: behavior?.riskThresholdDanger ?? 0.0125,
-    winRisk: behavior?.riskThresholdSuccess ?? 0.0025,
-    column: sqlBuilder?.valueColumnName || mixpanel?.eventValue, // Is this correct?
-    maxPercentChange:
-      behavior?.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0.5,
-    minPercentChange:
-      behavior?.minPercentChange ??
-      metricDefaults?.minPercentageChange ??
-      0.005,
-    minSampleSize:
-      behavior?.minSampleSize ?? metricDefaults?.minimumSampleSize ?? 150,
-    denominator: sql?.denominatorMetricId || "",
-    table: mixpanel?.eventName || sqlBuilder?.tableName || "",
-    status: "active",
-    timestampColumn: sqlBuilder?.timestampColumnName || "timestamp",
-    queries: [],
-    userIdTypes: sql?.identifierTypes || [],
-    userIdType: undefined,
-    anonymousIdColumn: "", // TODO: ??
-    userIdColumn: "", // TODO: Remove?
-    userIdColumns: (sqlBuilder?.identifierTypeColumns || []).reduce<
-      Record<string, string>
-    >((acc, { columnName, identifierType }) => {
-      acc[columnName] = identifierType;
-      return acc;
-    }, {}),
-  };
 
   return metric;
 }
