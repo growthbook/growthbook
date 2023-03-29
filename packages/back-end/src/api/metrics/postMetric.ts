@@ -1,29 +1,33 @@
-import { ApiMetric, PostMetricResponse } from "../../../types/openapi";
+import { PostMetricResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { postMetricValidator } from "../../validators/openapi";
-import {
-  createMetric,
-  partialFromMetricApiInterface,
-  RequiredApiMetricFields,
-  toMetricApiInterface,
-} from "../../services/experiments";
+import { createMetric, toMetricApiInterface } from "../../services/experiments";
 import { getDataSourceById } from "../../models/DataSourceModel";
+import { Condition, MetricInterface, Operator } from "../../../types/metric";
 
 export const postMetric = createApiRequestHandler(postMetricValidator)(
   async (req): Promise<PostMetricResponse> => {
     const {
       datasourceId,
       name,
-      description,
+      description = "",
       type,
       behavior,
-      owner,
+      owner = "",
       sql,
       sqlBuilder,
       mixpanel,
       tags = [],
       projects = [],
     } = req.body;
+
+    const datasource = await getDataSourceById(
+      datasourceId,
+      req.organization.id
+    );
+    if (!datasource) {
+      throw new Error(`Invalid data source: ${datasourceId}`);
+    }
 
     let queryFormatCount = 0;
     if (sqlBuilder) {
@@ -44,14 +48,101 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
       throw new Error("Binomial metrics cannot have userAggregationSQL");
     }
 
-    const datasource = await getDataSourceById(
-      datasourceId,
-      req.organization.id
-    );
-    if (!datasource) {
-      throw new Error(`Invalid data source: ${datasourceId}`);
+    const metric: Omit<
+      MetricInterface,
+      "dateCreated" | "dateUpdated" | "id"
+    > = {
+      datasource: datasourceId,
+      description,
+      name,
+      organization: req.organization.id,
+      owner,
+      tags,
+      projects,
+      inverse: behavior?.goal === "decrease",
+      ignoreNulls: false, // todo: ??
+      queries: [], // todo: ??
+      runStarted: null,
+      type,
+      userIdColumns: (sqlBuilder?.identifierTypeColumns || []).reduce<
+        Record<string, string>
+      >((acc, { columnName, identifierType }) => {
+        acc[columnName] = identifierType;
+        return acc;
+      }, {}),
+    };
+
+    // Assign all undefined behavior fields to the metric
+    if (behavior) {
+      if (typeof behavior.cap !== "undefined") {
+        metric.cap = behavior.cap;
+      }
+
+      if (typeof behavior.conversionDelayHours !== "undefined") {
+        metric.conversionDelayHours = behavior.conversionDelayHours;
+      }
+
+      if (typeof behavior.conversionWindowHours !== "undefined") {
+        metric.conversionWindowHours = behavior.conversionWindowHours;
+      }
+
+      if (typeof behavior.maxPercentChange !== "undefined") {
+        metric.maxPercentChange = behavior.maxPercentChange;
+      }
+
+      if (typeof behavior.minPercentChange !== "undefined") {
+        metric.minPercentChange = behavior.minPercentChange;
+      }
+
+      if (typeof behavior.minSampleSize !== "undefined") {
+        metric.minSampleSize = behavior.minSampleSize;
+      }
+
+      if (typeof behavior.riskThresholdDanger !== "undefined") {
+        metric.loseRisk = behavior.riskThresholdDanger;
+      }
+
+      if (typeof behavior.riskThresholdSuccess !== "undefined") {
+        metric.winRisk = behavior.riskThresholdSuccess;
+      }
     }
 
+    let queryFormat: undefined | "builder" | "sql" = undefined;
+    if (sqlBuilder) {
+      queryFormat = "builder";
+    } else if (sql) {
+      queryFormat = "sql";
+    }
+    metric.queryFormat = queryFormat;
+
+    // Conditions
+    metric.conditions =
+      datasource.type == "mixpanel"
+        ? (mixpanel?.conditions || []).map(({ operator, property, value }) => ({
+            column: property,
+            operator: operator as Operator,
+            value: value,
+          }))
+        : ((sqlBuilder?.conditions || []) as Condition[]);
+
+    // TODO: sqlBuilder
+    if (sqlBuilder) {
+      metric.table = sqlBuilder.tableName;
+      metric.aggregation = sql?.userAggregationSQL;
+      metric.timestampColumn = sqlBuilder.timestampColumnName;
+      metric.column = sqlBuilder.valueColumnName;
+    }
+
+    // TODO: sql
+
+    // TODO: mixpanel
+    if (mixpanel) {
+      metric.aggregation = mixpanel.userAggregation;
+      metric.table = mixpanel.eventName;
+      metric.column = mixpanel.eventValue;
+    }
+
+    /*
     // Build API metric from postMetric request
     const apiMetric: Partial<ApiMetric> & RequiredApiMetricFields = {
       datasourceId,
@@ -117,6 +208,7 @@ export const postMetric = createApiRequestHandler(postMetricValidator)(
       apiMetric,
       datasource
     );
+    */
     const createdMetric = await createMetric(metric);
 
     return {
