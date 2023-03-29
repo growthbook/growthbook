@@ -82,7 +82,8 @@ const Results: FC<{
 
   const hasData =
     snapshot?.results?.[0]?.variations?.length > 0 &&
-    snapshot.statsEngine === settings.statsEngine;
+    (snapshot.statsEngine || "bayesian") ===
+      (settings.statsEngine || "bayesian");
 
   const phaseObj = experiment.phases?.[phase];
 
