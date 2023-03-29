@@ -104,7 +104,11 @@ const GuardrailResults: FC<{
               const chance = 1 - (stats.chanceToWin ?? 1);
               return (
                 <tr key={i}>
-                  <th>{v.name}</th>
+                  <th
+                    className={`variation with-variation-label variation${i} font-weight-normal`}
+                  >
+                    <span className="name">{v.name}</span>
+                  </th>
                   <MetricValueColumn
                     metric={metric}
                     stats={stats}

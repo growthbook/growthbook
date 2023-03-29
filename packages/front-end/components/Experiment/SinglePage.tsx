@@ -941,7 +941,7 @@ export default function SinglePage({
                 <FaLink />
               </a>
             </h3>
-            <div className="appbox">
+            <div className="appbox" style={{ overflowX: "initial" }}>
               {experiment.phases?.length > 0 ? (
                 <Results
                   experiment={experiment}
