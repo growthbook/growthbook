@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import {
@@ -11,13 +11,19 @@ import {
 } from "react-icons/fa";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
+import uniq from "lodash/uniq";
+import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import { getDefaultConversionWindowHours } from "@/services/env";
-import { applyMetricOverrides } from "@/services/experiments";
+import {
+  applyMetricOverrides,
+  getRegressionAdjustmentsForMetric,
+} from "@/services/experiments";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -58,12 +64,24 @@ function getColWidth(v: number) {
 function drawMetricRow(
   m: string,
   metric: MetricInterface,
-  experiment: ExperimentInterfaceStringDates
+  experiment: ExperimentInterfaceStringDates,
+  ignoreConversionEnd: boolean
 ) {
   const { newMetric, overrideFields } = applyMetricOverrides(
     metric,
     experiment.metricOverrides
   );
+  if (!newMetric) return null;
+
+  const conversionStart = newMetric.conversionDelayHours || 0;
+  const conversionEnd =
+    (newMetric.conversionDelayHours || 0) +
+    (newMetric.conversionWindowHours || getDefaultConversionWindowHours());
+
+  const hasOverrides =
+    overrideFields.includes("conversionDelayHours") ||
+    (!ignoreConversionEnd && overrideFields.includes("conversionWindowHours"));
+
   return (
     <div className="row align-items-top" key={m}>
       <div className="col-sm-5">
@@ -79,13 +97,10 @@ function drawMetricRow(
       <div className="col-sm-5 ml-2">
         {newMetric && (
           <div className="small">
-            {newMetric.conversionDelayHours || 0} to{" "}
-            {(newMetric.conversionDelayHours || 0) +
-              (newMetric.conversionWindowHours ||
-                getDefaultConversionWindowHours())}{" "}
+            {conversionStart}{" "}
+            {ignoreConversionEnd ? "" : "to " + conversionEnd + " "}
             hours{" "}
-            {(overrideFields.includes("conversionDelayHours") ||
-              overrideFields.includes("conversionWindowHours")) && (
+            {hasOverrides && (
               <span className="font-italic text-purple">(override)</span>
             )}
           </div>
@@ -94,7 +109,10 @@ function drawMetricRow(
       <div className="col-sm-1">
         <div className="small">
           {overrideFields.includes("winRisk") ||
-          overrideFields.includes("loseRisk") ? (
+          overrideFields.includes("loseRisk") ||
+          overrideFields.includes("regressionAdjustmentOverride") ||
+          overrideFields.includes("regressionAdjustmentEnabled") ||
+          overrideFields.includes("regressionAdjustmentDays") ? (
             <span className="font-italic text-purple">override</span>
           ) : (
             <span className="text-muted">default</span>
@@ -159,7 +177,8 @@ export default function SinglePage({
   const watcherIds = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
-  const { users } = useUser();
+  const settings = useOrgSettings();
+  const { users, hasCommercialFeature } = useUser();
 
   const project = getProjectById(experiment.project || "");
   const datasource = getDatasourceById(experiment.datasource);
@@ -171,11 +190,100 @@ export default function SinglePage({
     (q) => q.id === experiment.exposureQueryId
   );
 
+  const statsEngine = settings.statsEngine || "bayesian";
+
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
+
+  const allExperimentMetricIds = uniq([
+    ...experiment.metrics,
+    ...(experiment.guardrails ?? []),
+  ]);
+  const allExperimentMetrics = allExperimentMetricIds.map((m) =>
+    getMetricById(m)
+  );
+  const denominatorMetricIds = uniq(
+    allExperimentMetrics.map((m) => m?.denominator).filter((m) => m)
+  );
+  const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
+
+  const [
+    regressionAdjustmentAvailable,
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses,
+  ] = useMemo(() => {
+    const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+    let regressionAdjustmentAvailable = true;
+    let regressionAdjustmentEnabled = false;
+    for (const metric of allExperimentMetrics) {
+      if (!metric) continue;
+      const {
+        metricRegressionAdjustmentStatus,
+      } = getRegressionAdjustmentsForMetric({
+        metric: metric,
+        denominatorMetrics: denominatorMetrics,
+        experimentRegressionAdjustmentEnabled: !!experiment.regressionAdjustmentEnabled,
+        organizationSettings: settings,
+        metricOverrides: experiment.metricOverrides,
+      });
+      if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
+        regressionAdjustmentEnabled = true;
+      }
+      metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
+    }
+    if (!experiment.regressionAdjustmentEnabled) {
+      regressionAdjustmentEnabled = false;
+    }
+    if (!settings.statsEngine || settings.statsEngine === "bayesian") {
+      regressionAdjustmentAvailable = false;
+      regressionAdjustmentEnabled = false;
+    }
+    if (
+      !datasource?.type ||
+      datasource?.type === "google_analytics" ||
+      datasource?.type === "mixpanel"
+    ) {
+      // these do not implement getExperimentMetricQuery
+      regressionAdjustmentAvailable = false;
+      regressionAdjustmentEnabled = false;
+    }
+    if (!hasRegressionAdjustmentFeature) {
+      regressionAdjustmentEnabled = false;
+    }
+    return [
+      regressionAdjustmentAvailable,
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses,
+    ];
+  }, [
+    allExperimentMetrics,
+    denominatorMetrics,
+    settings,
+    experiment.regressionAdjustmentEnabled,
+    experiment.metricOverrides,
+    datasource?.type,
+    hasRegressionAdjustmentFeature,
+  ]);
+
+  const onRegressionAdjustmentChange = async (enabled: boolean) => {
+    await apiCall(`/experiment/${experiment.id}/`, {
+      method: "POST",
+      body: JSON.stringify({
+        regressionAdjustmentEnabled: !!enabled,
+      }),
+    });
+    mutate();
+  };
+
   const hasPermission = permissions.check("createAnalyses", experiment.project);
 
   const canEdit = hasPermission && !experiment.archived;
 
   const variationCols = getColWidth(experiment.variations.length);
+
+  const ignoreConversionEnd =
+    experiment.attributionModel === "experimentDuration";
 
   // Get name or email of all active users watching this experiment
   const usersWatching = (watcherIds?.data?.userIds || [])
@@ -594,8 +702,8 @@ export default function SinglePage({
               <RightRailSectionGroup title="Attribution Model" type="custom">
                 <AttributionModelTooltip>
                   <strong>
-                    {experiment.attributionModel === "allExposures"
-                      ? "All Exposures"
+                    {experiment.attributionModel === "experimentDuration"
+                      ? "Experiment Duration"
                       : "First Exposure"}
                   </strong>{" "}
                   <FaQuestionCircle />
@@ -613,10 +721,14 @@ export default function SinglePage({
               <div className="row mb-1 text-muted">
                 <div className="col-5">Goals</div>
                 <div className="col-5">
-                  Conversion Window{" "}
+                  Conversion {ignoreConversionEnd ? "Delay" : "Window"}{" "}
                   <Tooltip
-                    body={`After a user sees the experiment, only include
-                          metric conversions within the specified time window.`}
+                    body={
+                      ignoreConversionEnd
+                        ? `Wait this long after viewing the experiment before we start counting conversions for a user.`
+                        : `After a user sees the experiment, only include
+                          metric conversions within the specified time window.`
+                    }
                   >
                     <FaQuestionCircle />
                   </Tooltip>
@@ -626,18 +738,30 @@ export default function SinglePage({
               <>
                 {experiment.metrics.map((m) => {
                   const metric = getMetricById(m);
-                  return drawMetricRow(m, metric, experiment);
+                  return drawMetricRow(
+                    m,
+                    metric,
+                    experiment,
+                    ignoreConversionEnd
+                  );
                 })}
                 {experiment.guardrails?.length > 0 && (
                   <>
                     <div className="row mb-1 mt-3 text-muted">
                       <div className="col-5">Guardrails</div>
-                      <div className="col-5">Conversion Window</div>
+                      <div className="col-5">
+                        Conversion {ignoreConversionEnd ? "Delay" : "Window"}
+                      </div>
                       <div className="col-sm-2">Behavior</div>
                     </div>
                     {experiment.guardrails.map((m) => {
                       const metric = getMetricById(m);
-                      return drawMetricRow(m, metric, experiment);
+                      return drawMetricRow(
+                        m,
+                        metric,
+                        experiment,
+                        ignoreConversionEnd
+                      );
                     })}
                   </>
                 )}
@@ -645,13 +769,16 @@ export default function SinglePage({
                   <>
                     <div className="row mb-1 mt-3 text-muted">
                       <div className="col-5">Activation Metric</div>
-                      <div className="col-5">Conversion Window</div>
+                      <div className="col-5">
+                        Conversion {ignoreConversionEnd ? "Delay" : "Window"}
+                      </div>
                       <div className="col-sm-2">Behavior</div>
                     </div>
                     {drawMetricRow(
                       experiment.activationMetric,
                       getMetricById(experiment.activationMetric),
-                      experiment
+                      experiment,
+                      ignoreConversionEnd
                     )}
                   </>
                 )}
@@ -707,7 +834,7 @@ export default function SinglePage({
             <FaLink />
           </a>
         </h3>
-        <div className="appbox">
+        <div className="appbox" style={{ overflowX: "initial" }}>
           {experiment.phases?.length > 0 ? (
             <Results
               experiment={experiment}
@@ -717,6 +844,13 @@ export default function SinglePage({
               editPhases={editPhases}
               alwaysShowPhaseSelector={true}
               reportDetailsLink={false}
+              statsEngine={statsEngine}
+              regressionAdjustmentAvailable={regressionAdjustmentAvailable}
+              regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+              metricRegressionAdjustmentStatuses={
+                metricRegressionAdjustmentStatuses
+              }
+              onRegressionAdjustmentChange={onRegressionAdjustmentChange}
             />
           ) : (
             <div className="text-center my-5">

@@ -308,21 +308,8 @@ export interface components {
                   name?: string;
                 })[];
             })[];
-          definition?: {
-            defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
-            rules?: ({
-                force?: OneOf<[string, number, (unknown)[], any, null]>;
-                weights?: (number)[];
-                variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
-                hashAttribute?: string;
-                namespace?: (OneOf<[number, string]>)[];
-                key?: string;
-                coverage?: number;
-                condition?: {
-                  [key: string]: unknown | undefined;
-                };
-              })[];
-          };
+          /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+          definition?: string;
           draft?: {
             enabled: boolean;
             defaultValue: string;
@@ -362,21 +349,8 @@ export interface components {
                     name?: string;
                   })[];
               })[];
-            definition?: {
-              defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
-              rules?: ({
-                  force?: OneOf<[string, number, (unknown)[], any, null]>;
-                  weights?: (number)[];
-                  variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
-                  hashAttribute?: string;
-                  namespace?: (OneOf<[number, string]>)[];
-                  key?: string;
-                  coverage?: number;
-                  condition?: {
-                    [key: string]: unknown | undefined;
-                  };
-                })[];
-            };
+            /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+            definition?: string;
           };
         }) | undefined;
       };
@@ -427,21 +401,8 @@ export interface components {
               name?: string;
             })[];
         })[];
-      definition?: {
-        defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
-        rules?: ({
-            force?: OneOf<[string, number, (unknown)[], any, null]>;
-            weights?: (number)[];
-            variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
-            hashAttribute?: string;
-            namespace?: (OneOf<[number, string]>)[];
-            key?: string;
-            coverage?: number;
-            condition?: {
-              [key: string]: unknown | undefined;
-            };
-          })[];
-      };
+      /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+      definition?: string;
       draft?: {
         enabled: boolean;
         defaultValue: string;
@@ -481,21 +442,8 @@ export interface components {
                 name?: string;
               })[];
           })[];
-        definition?: {
-          defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
-          rules?: ({
-              force?: OneOf<[string, number, (unknown)[], any, null]>;
-              weights?: (number)[];
-              variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
-              hashAttribute?: string;
-              namespace?: (OneOf<[number, string]>)[];
-              key?: string;
-              coverage?: number;
-              condition?: {
-                [key: string]: unknown | undefined;
-              };
-            })[];
-        };
+        /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+        definition?: string;
       };
     };
     FeatureRule: {
@@ -653,9 +601,7 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /** @enum {unknown} */
-        multipleVariations: "include" | "exclude";
-        /** @enum {unknown} */
-        attributionModel: "firstExposure" | "allExposures";
+        attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         goals: ({
@@ -711,9 +657,7 @@ export interface components {
       /** @enum {unknown} */
       inProgressConversions: "include" | "exclude";
       /** @enum {unknown} */
-      multipleVariations: "include" | "exclude";
-      /** @enum {unknown} */
-      attributionModel: "firstExposure" | "allExposures";
+      attributionModel: "firstExposure" | "experimentDuration";
       /** @enum {unknown} */
       statsEngine: "bayesian" | "frequentist";
       goals: ({
@@ -764,9 +708,7 @@ export interface components {
         /** @enum {unknown} */
         inProgressConversions: "include" | "exclude";
         /** @enum {unknown} */
-        multipleVariations: "include" | "exclude";
-        /** @enum {unknown} */
-        attributionModel: "firstExposure" | "allExposures";
+        attributionModel: "firstExposure" | "experimentDuration";
         /** @enum {unknown} */
         statsEngine: "bayesian" | "frequentist";
         goals: ({
@@ -974,21 +916,8 @@ export interface operations {
                             name?: string;
                           })[];
                       })[];
-                    definition?: {
-                      defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
-                      rules?: ({
-                          force?: OneOf<[string, number, (unknown)[], any, null]>;
-                          weights?: (number)[];
-                          variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
-                          hashAttribute?: string;
-                          namespace?: (OneOf<[number, string]>)[];
-                          key?: string;
-                          coverage?: number;
-                          condition?: {
-                            [key: string]: unknown | undefined;
-                          };
-                        })[];
-                    };
+                    /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+                    definition?: string;
                     draft?: {
                       enabled: boolean;
                       defaultValue: string;
@@ -1028,21 +957,8 @@ export interface operations {
                               name?: string;
                             })[];
                         })[];
-                      definition?: {
-                        defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
-                        rules?: ({
-                            force?: OneOf<[string, number, (unknown)[], any, null]>;
-                            weights?: (number)[];
-                            variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
-                            hashAttribute?: string;
-                            namespace?: (OneOf<[number, string]>)[];
-                            key?: string;
-                            coverage?: number;
-                            condition?: {
-                              [key: string]: unknown | undefined;
-                            };
-                          })[];
-                      };
+                      /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+                      definition?: string;
                     };
                   }) | undefined;
                 };
@@ -1126,21 +1042,8 @@ export interface operations {
                           name?: string;
                         })[];
                     })[];
-                  definition?: {
-                    defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
-                    rules?: ({
-                        force?: OneOf<[string, number, (unknown)[], any, null]>;
-                        weights?: (number)[];
-                        variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
-                        hashAttribute?: string;
-                        namespace?: (OneOf<[number, string]>)[];
-                        key?: string;
-                        coverage?: number;
-                        condition?: {
-                          [key: string]: unknown | undefined;
-                        };
-                      })[];
-                  };
+                  /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+                  definition?: string;
                   draft?: {
                     enabled: boolean;
                     defaultValue: string;
@@ -1180,21 +1083,8 @@ export interface operations {
                             name?: string;
                           })[];
                       })[];
-                    definition?: {
-                      defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
-                      rules?: ({
-                          force?: OneOf<[string, number, (unknown)[], any, null]>;
-                          weights?: (number)[];
-                          variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
-                          hashAttribute?: string;
-                          namespace?: (OneOf<[number, string]>)[];
-                          key?: string;
-                          coverage?: number;
-                          condition?: {
-                            [key: string]: unknown | undefined;
-                          };
-                        })[];
-                    };
+                    /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+                    definition?: string;
                   };
                 }) | undefined;
               };
@@ -1281,21 +1171,8 @@ export interface operations {
                           name?: string;
                         })[];
                     })[];
-                  definition?: {
-                    defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
-                    rules?: ({
-                        force?: OneOf<[string, number, (unknown)[], any, null]>;
-                        weights?: (number)[];
-                        variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
-                        hashAttribute?: string;
-                        namespace?: (OneOf<[number, string]>)[];
-                        key?: string;
-                        coverage?: number;
-                        condition?: {
-                          [key: string]: unknown | undefined;
-                        };
-                      })[];
-                  };
+                  /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+                  definition?: string;
                   draft?: {
                     enabled: boolean;
                     defaultValue: string;
@@ -1335,21 +1212,8 @@ export interface operations {
                             name?: string;
                           })[];
                       })[];
-                    definition?: {
-                      defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
-                      rules?: ({
-                          force?: OneOf<[string, number, (unknown)[], any, null]>;
-                          weights?: (number)[];
-                          variations?: (OneOf<[string, number, (unknown)[], any, null]>)[];
-                          hashAttribute?: string;
-                          namespace?: (OneOf<[number, string]>)[];
-                          key?: string;
-                          coverage?: number;
-                          condition?: {
-                            [key: string]: unknown | undefined;
-                          };
-                        })[];
-                    };
+                    /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+                    definition?: string;
                   };
                 }) | undefined;
               };
@@ -1940,9 +1804,7 @@ export interface operations {
                   /** @enum {unknown} */
                   inProgressConversions: "include" | "exclude";
                   /** @enum {unknown} */
-                  multipleVariations: "include" | "exclude";
-                  /** @enum {unknown} */
-                  attributionModel: "firstExposure" | "allExposures";
+                  attributionModel: "firstExposure" | "experimentDuration";
                   /** @enum {unknown} */
                   statsEngine: "bayesian" | "frequentist";
                   goals: ({
@@ -2047,9 +1909,7 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /** @enum {unknown} */
-                multipleVariations: "include" | "exclude";
-                /** @enum {unknown} */
-                attributionModel: "firstExposure" | "allExposures";
+                attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 goals: ({
@@ -2124,9 +1984,7 @@ export interface operations {
                 /** @enum {unknown} */
                 inProgressConversions: "include" | "exclude";
                 /** @enum {unknown} */
-                multipleVariations: "include" | "exclude";
-                /** @enum {unknown} */
-                attributionModel: "firstExposure" | "allExposures";
+                attributionModel: "firstExposure" | "experimentDuration";
                 /** @enum {unknown} */
                 statsEngine: "bayesian" | "frequentist";
                 goals: ({

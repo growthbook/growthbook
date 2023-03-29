@@ -67,6 +67,10 @@ import {
 } from "../services/audit";
 import { logger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import { StatsEngine } from "../../types/stats";
+import { MetricRegressionAdjustmentStatus } from "../../types/report";
+import { ApiErrorResponse } from "../../types/api";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -449,7 +453,12 @@ export async function postExperiments(
     unknown,
     { allowDuplicateTrackingKey?: boolean }
   >,
-  res: Response
+  res: Response<
+    | { status: 200; experiment: ExperimentInterface }
+    | { status: 200; duplicateTrackingKey: boolean; existingId: string }
+    | ({ status: number } & ApiErrorResponse),
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org, userId } = getOrgFromReq(req);
 
@@ -521,7 +530,6 @@ export async function postExperiments(
     segment: data.segment || "",
     queryFilter: data.queryFilter || "",
     skipPartialData: !!data.skipPartialData,
-    removeMultipleExposures: !!data.removeMultipleExposures,
     attributionModel: data.attributionModel || "firstExposure",
     variations: data.variations || [],
     implementation: data.implementation || "code",
@@ -553,7 +561,7 @@ export async function postExperiments(
       }
     }
 
-    const experiment = await createExperiment(obj, org);
+    const experiment = await createExperiment(obj, org, res.locals.eventAudit);
 
     await req.audit({
       event: "experiment.create",
@@ -594,7 +602,11 @@ export async function postExperiment(
     },
     { id: string }
   >,
-  res: Response
+  res: Response<
+    | { status: number; experiment?: ExperimentInterface | null }
+    | ApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
@@ -681,7 +693,6 @@ export async function postExperiment(
     "segment",
     "queryFilter",
     "skipPartialData",
-    "removeMultipleExposures",
     "attributionModel",
     "metrics",
     "metricOverrides",
@@ -698,6 +709,7 @@ export async function postExperiment(
     "releasedVariationId",
     "autoSnapshots",
     "project",
+    "regressionAdjustmentEnabled",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
@@ -757,6 +769,7 @@ export async function postExperiment(
   try {
     await logExperimentUpdated({
       organization: org,
+      user: res.locals.eventAudit,
       current: experiment,
       previous: previousExperiment,
     });
@@ -1236,7 +1249,10 @@ export async function getWatchingUsers(
 
 export async function deleteExperiment(
   req: AuthRequest<ExperimentInterface, { id: string }>,
-  res: Response
+  res: Response<
+    { status: 200 } | ({ status: number } & ApiErrorResponse),
+    EventAuditUserForResponseLocals
+  >
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -1263,7 +1279,7 @@ export async function deleteExperiment(
   await Promise.all([
     // note: we might want to change this to change the status to
     // 'deleted' instead of actually deleting the document.
-    deleteExperimentByIdForOrganization(experiment, org),
+    deleteExperimentByIdForOrganization(experiment, org, res.locals.eventAudit),
     removeExperimentFromPresentations(experiment.id),
   ]);
 
@@ -1366,7 +1382,7 @@ export async function getSnapshotStatus(
         getReportVariations(experiment, phase),
         snapshot.dimension || undefined,
         queryData,
-        org.settings?.statsEngine
+        snapshot.statsEngine ?? org.settings?.statsEngine
       ),
     async (updates, results, error) => {
       await updateSnapshot(org.id, id, {
@@ -1412,6 +1428,9 @@ export async function postSnapshot(
       dimension?: string;
       users?: number[];
       metrics?: { [key: string]: MetricStats[] };
+      statsEngine?: StatsEngine;
+      regressionAdjustmentEnabled?: boolean;
+      metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
     },
     { id: string },
     { force?: string }
@@ -1421,7 +1440,19 @@ export async function postSnapshot(
   req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
-  const statsEngine = org.settings?.statsEngine;
+
+  let { statsEngine, regressionAdjustmentEnabled } = req.body;
+  const { metricRegressionAdjustmentStatuses } = req.body;
+
+  statsEngine = (typeof statsEngine === "string" &&
+  ["bayesian", "frequentist"].includes(statsEngine)
+    ? statsEngine
+    : org.settings?.statsEngine ?? "bayesian") as StatsEngine;
+
+  regressionAdjustmentEnabled =
+    regressionAdjustmentEnabled !== undefined
+      ? regressionAdjustmentEnabled
+      : org.settings?.regressionAdjustmentEnabled ?? false;
 
   const useCache = !req.query["force"];
 
@@ -1508,7 +1539,9 @@ export async function postSnapshot(
       org,
       dimension || null,
       useCache,
-      org.settings?.statsEngine
+      statsEngine,
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses ?? []
     );
     await req.audit({
       event: "experiment.refresh",

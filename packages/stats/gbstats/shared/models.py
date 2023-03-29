@@ -163,23 +163,40 @@ def compute_theta(
     a: RegressionAdjustedStatistic, b: RegressionAdjustedStatistic
 ) -> float:
     n = a.n + b.n
+    joint_post_statistic = create_joint_statistic(
+        a=a.post_statistic, b=b.post_statistic, n=n
+    )
+    joint_pre_statistic = create_joint_statistic(
+        a=a.pre_statistic, b=b.pre_statistic, n=n
+    )
+    if joint_pre_statistic.variance == 0 or joint_post_statistic.variance == 0:
+        return 0
+
     joint = RegressionAdjustedStatistic(
         n=n,
-        post_statistic=SampleMeanStatistic(
-            n,
-            a.post_statistic.sum + b.post_statistic.sum,
-            a.post_statistic.sum_squares + b.post_statistic.sum_squares,
-        ),
-        pre_statistic=SampleMeanStatistic(
-            n,
-            a.pre_statistic.sum + b.pre_statistic.sum,
-            a.pre_statistic.sum_squares + b.pre_statistic.sum_squares,
-        ),
+        post_statistic=joint_post_statistic,
+        pre_statistic=joint_pre_statistic,
         post_pre_sum_of_products=a.post_pre_sum_of_products
         + b.post_pre_sum_of_products,
         theta=0,
     )
     return joint.covariance / joint.pre_statistic.variance
+
+
+def create_joint_statistic(
+    a: Union[ProportionStatistic, SampleMeanStatistic],
+    b: Union[ProportionStatistic, SampleMeanStatistic],
+    n: int,
+) -> Union[ProportionStatistic, SampleMeanStatistic]:
+    if isinstance(a, ProportionStatistic) and isinstance(b, ProportionStatistic):
+        return ProportionStatistic(n=n, sum=a.sum + b.sum)
+    elif isinstance(a, SampleMeanStatistic) and isinstance(b, SampleMeanStatistic):
+        return SampleMeanStatistic(
+            n=n, sum=a.sum + b.sum, sum_squares=a.sum_squares + b.sum_squares
+        )
+    raise ValueError(
+        "Statistic types for a metric must not be different types across variations."
+    )
 
 
 # Data classes for the results of tests

@@ -34,9 +34,9 @@ class TTest(BaseABTest):
     @property
     def variance(self) -> float:
         return self.stat_b.variance / (
-            pow(self.stat_a.mean, 2) * self.stat_b.n
-        ) + self.stat_a.variance * pow(self.stat_b.mean, 2) / (
-            pow(self.stat_a.mean, 4) * self.stat_a.n
+            pow(self.stat_a.unadjusted_mean, 2) * self.stat_b.n
+        ) + self.stat_a.variance * pow(self.stat_b.unadjusted_mean, 2) / (
+            pow(self.stat_a.unadjusted_mean, 4) * self.stat_a.n
         )
 
     @property

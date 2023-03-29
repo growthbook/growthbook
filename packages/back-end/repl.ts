@@ -4,6 +4,7 @@ import * as Event from "./src/models/EventModel";
 import * as EventWebHook from "./src/models/EventWebhookModel";
 import * as EventWebHookLog from "./src/models/EventWebHookLogModel";
 import * as SlackIntegration from "./src/models/SlackIntegrationModel";
+import * as InformationSchema from "./src/models/InformationSchemaModel";
 import * as VisualChangeset from "./src/models/VisualChangesetModel";
 import mongoInit from "./src/init/mongo";
 
@@ -20,5 +21,6 @@ import mongoInit from "./src/init/mongo";
   replServer.context.EventWebHook = EventWebHook;
   replServer.context.EventWebHookLog = EventWebHookLog;
   replServer.context.SlackIntegration = SlackIntegration;
+  replServer.context.InformationSchema = InformationSchema;
   replServer.context.VisualChangeset = VisualChangeset;
 })();

@@ -84,9 +84,9 @@ export default function ResultsDownloadButton({
             totalValue: stats.value,
             perUserValue: stats.cr,
             perUserValueStdDev: stats.stats.stddev || null,
-            chanceToBeatControl: stats.chanceToWin || null,
+            chanceToBeatControl: stats.chanceToWin ?? null,
             percentChange: stats.expected || null,
-            percentChangePValue: stats.pValue || null,
+            percentChangePValue: stats.pValue ?? null,
             percentChangeCILower: stats.ci?.[0] || null,
             percentChangeCIUpper: stats.ci?.[1] || null,
           });
@@ -102,7 +102,6 @@ export default function ResultsDownloadButton({
       if (!rows) return "";
 
       const json2csvParser = new Parser();
-
       const csv = json2csvParser.parse(rows);
 
       const blob = new Blob([csv], { type: "text/csv" });

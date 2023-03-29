@@ -1,4 +1,4 @@
-import React, { FC, useState } from "react";
+import React, { FC } from "react";
 import {
   EventInterface,
   NotificationEventName,
@@ -6,7 +6,6 @@ import {
   NotificationEventResource,
 } from "back-end/types/event";
 import { datetime } from "@/services/dates";
-import Code from "../../SyntaxHighlighting/Code";
 import { getEventText } from "./utils";
 
 type EventsTableRowProps = {
@@ -20,38 +19,19 @@ type EventsTableRowProps = {
 };
 
 export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
-  const [isOpen, setIsOpen] = useState(false);
-
   return (
-    <tr
-      style={{ cursor: "pointer" }}
-      className={isOpen ? "highlight" : "hover-highlight"}
-      onClick={(e) => {
-        // Don't toggle the row's open state if a button in the code block was clicked, e.g. Copy, Expand
-        const target = e.target as HTMLElement;
-        if (target && target.closest("[role='button']")) {
-          return;
-        }
-
-        setIsOpen(!isOpen);
-      }}
-    >
+    <tr>
       <td>
-        <span className="py-2 d-block">{datetime(event.dateCreated)}</span>
+        <span className="py-2 d-block nowrap">
+          {datetime(event.dateCreated)}
+        </span>
       </td>
       <td>
         <p className="py-2 mb-0">{getEventText(event)}</p>
 
-        {isOpen && (
-          <div className="mt-2">
-            <Code
-              language="json"
-              filename={event.data.event}
-              code={JSON.stringify(event.data, null, 2)}
-              expandable={true}
-            />
-          </div>
-        )}
+        <p className="my-0 py-1">
+          <a href={`/events/${event.id}`}>View Event</a>
+        </p>
       </td>
     </tr>
   );

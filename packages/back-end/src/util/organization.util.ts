@@ -25,6 +25,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "encrypt-features-endpoint",
     "schedule-feature-flag",
     "override-metrics",
+    "regression-adjustment",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -32,6 +33,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "encrypt-features-endpoint",
     "schedule-feature-flag",
     "override-metrics",
+    "regression-adjustment",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
@@ -39,6 +41,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "encrypt-features-endpoint",
     "schedule-feature-flag",
     "override-metrics",
+    "regression-adjustment",
   ]),
 };
 export function getAccountPlan(org: OrganizationInterface): AccountPlan {

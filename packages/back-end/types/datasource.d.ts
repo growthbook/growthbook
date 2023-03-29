@@ -94,6 +94,7 @@ export interface DataSourceProperties {
   userIds?: boolean;
   pastExperiments?: boolean;
   separateExperimentResultQueries?: boolean;
+  supportsInformationSchema?: boolean;
 }
 
 type WithParams<B, P> = Omit<B, "params"> & {
@@ -133,6 +134,7 @@ export type DataSourceSettings = {
   // @deprecated
   experimentDimensions?: string[];
   notebookRunQuery?: string;
+  informationSchemaId?: string;
   schemaFormat?: SchemaFormat;
   schemaOptions?: Record<string, string | number>;
   userIdTypes?: UserIdType[];
