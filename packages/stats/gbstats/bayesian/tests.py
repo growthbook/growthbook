@@ -11,13 +11,28 @@ from gbstats.shared.tests import BaseABTest
 
 
 @dataclass
+class GaussianPrior:
+    mean: float = 0
+    variance: float = 1
+    pseudon: float = 0
+
+
+@dataclass
+class BetaPrior:
+    a: float = 1
+    b: float = 1
+
+
+@dataclass
 class BinomialBayesianConfig:
-    prior: Tuple[float] = (1, 1) # a, b
-    
+    prior: BetaPrior = field(default_factory=BetaPrior)
+
+
 @dataclass
 class GaussianBayesianConfig:
-    prior: Tuple[float] = (0, 1, 0), #mean, var, psuedoobs
+    prior: GaussianPrior = field(default_factory=GaussianPrior)
     epsilon: float = 1e-4
+
 
 """
 Medium article inspiration:
@@ -144,8 +159,6 @@ class GaussianBayesianABTest(BayesianABTest):
     ):
         super().__init__(stat_a, stat_b, inverse, ccr)
         self.prior = config.prior
-        if not isinstance(self.prior, GaussianPrior):
-            raise ValueError("Wrong prior set for Gaussian test")
         self.epsilon = config.epsilon
 
     def _is_log_approximation_inexact(
@@ -158,7 +171,10 @@ class GaussianBayesianABTest(BayesianABTest):
             A tuple of (mean, standard deviation) tuples.
         """
         return any(
-            [norm.cdf(0, pair[0], pair[1]) > self.epsilon for pair in mean_std_dev_pairs]
+            [
+                norm.cdf(0, pair[0], pair[1]) > self.epsilon
+                for pair in mean_std_dev_pairs
+            ]
         )
 
     def compute_result(self) -> BayesianTestResult:
@@ -172,7 +188,7 @@ class GaussianBayesianABTest(BayesianABTest):
             [
                 self.prior.mean,
                 self.prior.variance,
-                self.prior.pseudousers,
+                self.prior.pseudon,
             ],
             [
                 self.stat_a.mean,
@@ -184,7 +200,7 @@ class GaussianBayesianABTest(BayesianABTest):
             [
                 self.prior.mean,
                 self.prior.variance,
-                self.prior.pseudousers,
+                self.prior.pseudon,
             ],
             [
                 self.stat_b.mean,

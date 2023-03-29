@@ -5,9 +5,10 @@ import pandas as pd
 from scipy.stats.distributions import chi2
 
 from gbstats.bayesian.tests import (
-    BayesianConfig,
     BinomialBayesianABTest,
+    BinomialBayesianConfig,
     GaussianBayesianABTest,
+    GaussianBayesianConfig,
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
@@ -24,7 +25,6 @@ from gbstats.shared.models import (
     Statistic,
     TestResult,
 )
-from gbstats.shared.tests import BaseABTest
 from gbstats.messages import raise_error_if_bayesian_ra
 
 
@@ -136,9 +136,6 @@ def analyze_metric_df(
     engine_config: Dict[str, Any] = {},
 ) -> pd.DataFrame:
 
-    config = build_config_from_dict(
-        engine, engine_config
-    )
     num_variations = df.at[0, "variations"]
 
     # Add new columns to the dataframe with placeholder values
@@ -166,6 +163,7 @@ def analyze_metric_df(
         # Baseline values
         stat_a: Statistic = variation_statistic_from_metric_row(s, "baseline")
         raise_error_if_bayesian_ra(stat_a, engine)
+
         s["baseline_cr"] = stat_a.unadjusted_mean
         s["baseline_mean"] = stat_a.unadjusted_mean
         s["baseline_stddev"] = stat_a.stddev
@@ -204,16 +202,24 @@ def analyze_metric_df(
             users[i] = stat_b.n
 
             # Run the A/B test analysis of baseline vs variation
+
             if engine == StatsEngine.BAYESIAN:
-                if isinstance(stat_a, ProportionStatistic) and isinstance(
+                binomial_test = isinstance(stat_a, ProportionStatistic) and isinstance(
                     stat_b, ProportionStatistic
-                ):
-                    test: BaseABTest = BinomialBayesianABTest(
-                        stat_a, stat_b, config=config, inverse=inverse
+                )
+                if binomial_test:
+                    test = BinomialBayesianABTest(
+                        stat_a,
+                        stat_b,
+                        config=BinomialBayesianConfig(**engine_config),
+                        inverse=inverse,
                     )
                 else:
-                    test: BaseABTest = GaussianBayesianABTest(
-                        stat_a, stat_b, config=config, inverse=inverse
+                    test = GaussianBayesianABTest(
+                        stat_a,
+                        stat_b,
+                        config=GaussianBayesianConfig(**engine_config),
+                        inverse=inverse,
                     )
 
                 res: TestResult = test.compute_result()
@@ -226,12 +232,11 @@ def analyze_metric_df(
                 s[f"v{i}_risk"] = res.relative_risk[1]
                 s[f"v{i}_prob_beat_baseline"] = res.chance_to_win
             else:
+                config = FrequentistConfig(**engine_config)
                 if config.sequential:
-                    test: BaseABTest = SequentialTwoSidedTTest(
-                        stat_a, stat_b, config=config
-                    )
+                    test = SequentialTwoSidedTTest(stat_a, stat_b, config=config)
                 else:
-                    test: BaseABTest = TwoSidedTTest(stat_a, stat_b, config=config)
+                    test = TwoSidedTTest(stat_a, stat_b, config=config)
                 res: TestResult = test.compute_result()
                 s[f"v{i}_p_value"] = res.p_value
                 baseline_risk = None
@@ -336,15 +341,6 @@ def base_statistic_from_metric_row(
         raise ValueError(
             f"Unexpected metric_type '{metric_type}' type for '{component}_type in experiment data."
         )
-
-
-def build_config_from_dict(engine, config_dict):
-    if engine == StatsEngine.BAYESIAN:
-        return BayesianConfig(**config_dict)
-    elif engine == StatsEngine.FREQUENTIST:
-        return FrequentistConfig(**config_dict)
-    else:
-        raise ValueError("Impossible stats engine set {engine}")
 
 
 # Run a chi-squared test to make sure the observed traffic split matches the expected one

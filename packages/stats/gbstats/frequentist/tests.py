@@ -151,6 +151,16 @@ class OneSidedTreatmentLesserTTest(TTest):
 
 
 class SequentialTwoSidedTTest(TTest):
+    def __init__(
+        self,
+        stat_a: Statistic,
+        stat_b: Statistic,
+        config: FrequentistConfig = FrequentistConfig(),
+        test_value: float = 0,
+    ):
+        super().__init__(stat_a, stat_b, config, test_value)
+        self.sequential_tuning_parameter = config.sequential_tuning_parameter
+
     def boundary(self, rho, alpha):
         """Boundary from eq. 14 in Howard et al., but using estimated variance"""
         N = self.stat_a.n + self.stat_b.n
@@ -166,7 +176,7 @@ class SequentialTwoSidedTTest(TTest):
     def rho(self) -> float:
         # This is close to https://github.com/gostevehoward/confseq/blob/29c07072322a1defd623f6a957177e0173d32914/src/confseq/uniform_boundaries.h#L418-L422
         # using N as V
-        return self.SEQUENTIAL_TUNING_PARAMETER / (
+        return self.sequential_tuning_parameter / (
             2 * np.log(1 / self.alpha) + np.log(1 + 2 * np.log(1 / self.alpha))
         )
 
