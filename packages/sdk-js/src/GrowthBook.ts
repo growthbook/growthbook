@@ -807,8 +807,8 @@ export class GrowthBook<
 
     // 8.3. New, more powerful URL targeting
     if (
-      experiment.urls &&
-      !isURLTargeted(this._getContextUrl(), experiment.urls)
+      experiment.urlPatterns &&
+      !isURLTargeted(this._getContextUrl(), experiment.urlPatterns)
     ) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because of url targeting", {

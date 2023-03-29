@@ -82,7 +82,7 @@ export type Experiment<T> = {
   seed?: string;
   name?: string;
   phase?: string;
-  urls?: UrlTarget[];
+  urlPatterns?: UrlTarget[];
   weights?: number[];
   condition?: ConditionInterface;
   coverage?: number;

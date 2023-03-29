@@ -348,15 +348,21 @@ const onVisualChangesetUpdate = async ({
   oldVisualChangeset: VisualChangesetInterface;
   newVisualChangeset: VisualChangesetInterface;
 }) => {
-  // if no effective delta between old and new, return early
+  // if no visual changes or url patterns changes, return early
   const oldVisualChanges = oldVisualChangeset.visualChanges.map(
     ({ css, domMutations }) => ({ css, domMutations })
   );
   const newVisualChanges = newVisualChangeset.visualChanges.map(
     ({ css, domMutations }) => ({ css, domMutations })
   );
+  const hasNoVisualChanges = isEqual(oldVisualChanges, newVisualChanges);
 
-  if (isEqual(oldVisualChanges, newVisualChanges)) return;
+  const hasNoUrlPatternsChanges = isEqual(
+    oldVisualChangeset.urlPatterns,
+    newVisualChangeset.urlPatterns
+  );
+
+  if (hasNoVisualChanges && hasNoUrlPatternsChanges) return;
 
   const experiment = await getExperimentById(
     organization.id,
