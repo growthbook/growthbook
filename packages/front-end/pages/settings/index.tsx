@@ -636,7 +636,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     <SelectField
                       label={
                         <AttributionModelTooltip>
-                          Attribution Model <FaQuestionCircle />
+                          Default Attribution Model <FaQuestionCircle />
                         </AttributionModelTooltip>
                       }
                       className="ml-2"
