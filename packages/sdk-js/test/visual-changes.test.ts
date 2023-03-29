@@ -145,7 +145,7 @@ describe("Auto experiments", () => {
       experiments: [
         {
           key: "my-experiment",
-          urls: [
+          urlPatterns: [
             {
               type: "regex",
               include: true,
