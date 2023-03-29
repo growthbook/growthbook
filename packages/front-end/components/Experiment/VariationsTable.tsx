@@ -240,16 +240,18 @@ const VariationsTable: FC<Props> = ({
                         <div className="col">
                           <label className="mb-1">
                             URL Targeting
-                            <a
-                              className="ml-2"
-                              href="#"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                setEditingVisualChangeset(vc);
-                              }}
-                            >
-                              <GBEdit />
-                            </a>
+                            {canEdit && (
+                              <a
+                                className="ml-2"
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  setEditingVisualChangeset(vc);
+                                }}
+                              >
+                                <GBEdit />
+                              </a>
+                            )}
                           </label>
                           <div className="col-auto px-3 py-2 rounded bg-muted-yellow">
                             {simpleUrlPatterns.length > 0 && (
@@ -297,16 +299,21 @@ const VariationsTable: FC<Props> = ({
                                 changeIndex={1}
                                 visualEditorUrl={vc.editorUrl}
                               />
-                              <DeleteButton
-                                className="btn-sm ml-4"
-                                onClick={async () => {
-                                  await apiCall(`/visual-changesets/${vc.id}`, {
-                                    method: "DELETE",
-                                  });
-                                  mutate();
-                                }}
-                                displayName="Visual Changes"
-                              />
+                              {canEdit && (
+                                <DeleteButton
+                                  className="btn-sm ml-4"
+                                  onClick={async () => {
+                                    await apiCall(
+                                      `/visual-changesets/${vc.id}`,
+                                      {
+                                        method: "DELETE",
+                                      }
+                                    );
+                                    mutate();
+                                  }}
+                                  displayName="Visual Changes"
+                                />
+                              )}
                             </div>
                           )}
                       </div>

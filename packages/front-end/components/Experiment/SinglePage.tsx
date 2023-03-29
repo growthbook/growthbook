@@ -15,6 +15,7 @@ import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import uniq from "lodash/uniq";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -27,6 +28,7 @@ import {
 } from "@/services/experiments";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { AppFeatures } from "@/types/app-features";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -168,6 +170,8 @@ export default function SinglePage({
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
+
+  const growthbook = useGrowthBook<AppFeatures>();
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
@@ -829,7 +833,9 @@ export default function SinglePage({
         </div>
       </div>
 
-      {experiment.status === "draft" && experiment.phases.length > 0 ? (
+      {growthbook.isOn("visual-editor-ui") &&
+      experiment.status === "draft" &&
+      experiment.phases.length > 0 ? (
         <div>
           {visualChangesets.length > 0 ? (
             <div className="mb-4">
@@ -885,7 +891,7 @@ export default function SinglePage({
                 deploying code
               </p>
 
-              {hasVisualEditorFeature ? (
+              {hasVisualEditorFeature && canEdit ? (
                 <button
                   className="btn btn-primary btn-lg"
                   onClick={() => setVisualEditorModal(true)}

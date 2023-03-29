@@ -17,4 +17,5 @@ export type AppFeatures = {
   "proxy-cloud": boolean;
   "slack-integration": boolean;
   "new-experiment-modal": boolean;
+  "visual-editor-ui": boolean;
 };
