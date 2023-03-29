@@ -118,18 +118,6 @@ const VariationsTable: FC<Props> = ({
     setEditingVisualChangeset,
   ] = useState<VisualChangesetInterface | null>(null);
 
-  const updateVisualChangeset = async ({
-    id,
-    editorUrl,
-    urlPatterns,
-  }: Partial<VisualChangesetInterface>) => {
-    await apiCall(`/visual-changesets/${id}`, {
-      method: "PUT",
-      body: JSON.stringify({ editorUrl, urlPatterns }),
-    });
-    mutate();
-  };
-
   const hasDescriptions = variations.some((v) => !!v.description?.trim());
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
   const hasLegacyVisualChanges = variations.some((v) => isLegacyVariation(v));
@@ -376,9 +364,11 @@ const VariationsTable: FC<Props> = ({
 
       {editingVisualChangeset ? (
         <VisualChangesetModal
+          mode="edit"
+          experiment={experiment}
           visualChangeset={editingVisualChangeset}
-          onSubmit={updateVisualChangeset}
-          onClose={() => setEditingVisualChangeset(null)}
+          mutate={mutate}
+          close={() => setEditingVisualChangeset(null)}
         />
       ) : null}
 

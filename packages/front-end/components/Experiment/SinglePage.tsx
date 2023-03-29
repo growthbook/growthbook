@@ -363,14 +363,10 @@ export default function SinglePage({
       )}
       {visualEditorModal && (
         <VisualChangesetModal
-          onClose={() => setVisualEditorModal(false)}
-          onSubmit={async ({ editorUrl, urlPatterns }) => {
-            await apiCall(`/experiments/${experiment.id}/visual-changeset`, {
-              method: "POST",
-              body: JSON.stringify({ editorUrl, urlPatterns }),
-            });
-            mutate();
-          }}
+          mode="create"
+          experiment={experiment}
+          mutate={mutate}
+          close={() => setVisualEditorModal(false)}
         />
       )}
       {statusModal && (
