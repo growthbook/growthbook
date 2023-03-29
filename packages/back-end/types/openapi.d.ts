@@ -185,7 +185,8 @@ export interface components {
       datasourceId: string;
       name: string;
       description: string;
-      type: string;
+      /** @enum {string} */
+      type: "binomial" | "count" | "duration" | "revenue";
       tags: (string)[];
       projects: (string)[];
       archived: boolean;
@@ -1920,7 +1921,8 @@ export interface operations {
                 datasourceId: string;
                 name: string;
                 description: string;
-                type: string;
+                /** @enum {string} */
+                type: "binomial" | "count" | "duration" | "revenue";
                 tags: (string)[];
                 projects: (string)[];
                 archived: boolean;
@@ -1986,12 +1988,12 @@ export interface operations {
         "application/json": {
           /** @description ID for the [DataSource](#tag/DataSource_model) */
           datasourceId: string;
+          /** @description Name of the person who owns this metric */
+          owner?: string;
           /** @description Name of the metric */
           name: string;
           /** @description Description of the metric */
           description?: string;
-          /** @description Name of the person who owns this metric */
-          owner?: string;
           /**
            * @description Type of metric. See [Metrics documentation](/app/metrics) 
            * @enum {string}
@@ -2001,15 +2003,16 @@ export interface operations {
           tags?: (string)[];
           /** @description List of project IDs for projects that can access this metric */
           projects?: (string)[];
+          archived?: boolean;
           behavior?: {
             /** @enum {string} */
             goal?: "increase" | "decrease";
             /** @description This should be non-negative */
             cap?: number;
-            /** @description The [Conversion Delay](/app/metrics#conversion-delay), in hours */
-            conversionDelayHours?: number;
-            /** @description The [Conversion Window](/app/metrics#conversion-window), in hours */
-            conversionWindowHours?: number;
+            /** @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) */
+            conversionWindowStart?: number;
+            /** @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). */
+            conversionWindowEnd?: number;
             riskThresholdSuccess?: number;
             riskThresholdDanger?: number;
             /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
@@ -2020,9 +2023,7 @@ export interface operations {
           };
           /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
           sql?: {
-            /** @description The [Identifier Types](/app/datasources#identifier-types) in your Data Source that are available for this metric */
             identifierTypes: (string)[];
-            /** @description The main SQL to retrieve your metric */
             conversionSQL: string;
             /** @description Custom user level aggregation for your metric (default: SUM(value)) */
             userAggregationSQL?: string;
@@ -2070,7 +2071,8 @@ export interface operations {
               datasourceId: string;
               name: string;
               description: string;
-              type: string;
+              /** @enum {string} */
+              type: "binomial" | "count" | "duration" | "revenue";
               tags: (string)[];
               projects: (string)[];
               archived: boolean;
@@ -2142,7 +2144,8 @@ export interface operations {
               datasourceId: string;
               name: string;
               description: string;
-              type: string;
+              /** @enum {string} */
+              type: "binomial" | "count" | "duration" | "revenue";
               tags: (string)[];
               projects: (string)[];
               archived: boolean;

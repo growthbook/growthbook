@@ -5,8 +5,8 @@ import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
 import { updateExperimentById } from "../models/ExperimentModel";
 import {
-  SnapshotVariation,
   ExperimentSnapshotInterface,
+  SnapshotVariation,
 } from "../../types/experiment-snapshot";
 import {
   getMetricsByIds,
@@ -18,19 +18,18 @@ import { checkSrm, sumSquaresFromStats } from "../util/stats";
 import { addTags } from "../models/TagModel";
 import { WatchModel } from "../models/WatchModel";
 import {
-  PastExperimentResult,
   Dimension,
   ExperimentMetricQueryResponse,
-  MetricValueResult,
   MetricValueParams,
+  MetricValueResult,
+  PastExperimentResult,
 } from "../types/Integration";
 import { createExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import {
+  Condition,
+  MetricAnalysis,
   MetricInterface,
   MetricStats,
-  MetricAnalysis,
-  MetricType,
-  Condition,
   Operator,
 } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
@@ -58,9 +57,9 @@ import { getSDKPayloadKeys } from "../util/features";
 import { DataSourceInterface } from "../../types/datasource";
 import {
   ApiExperiment,
-  ApiMetric,
-  ApiExperimentResults,
   ApiExperimentMetric,
+  ApiExperimentResults,
+  ApiMetric,
 } from "../../types/openapi";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { postMetricValidator } from "../validators/openapi";
@@ -837,6 +836,7 @@ export function postMetricApiPayloadIsValid(
 ): { valid: true } | { valid: false; error: string } {
   const { type, sql, sqlBuilder, mixpanel } = payload;
 
+  // Validate query format: sql, sqlBuilder, mixpanel
   let queryFormatCount = 0;
   if (sqlBuilder) {
     queryFormatCount++;
@@ -847,7 +847,6 @@ export function postMetricApiPayloadIsValid(
   if (mixpanel) {
     queryFormatCount++;
   }
-
   if (queryFormatCount !== 1) {
     return {
       valid: false,
@@ -855,10 +854,23 @@ export function postMetricApiPayloadIsValid(
     };
   }
 
+  // Validate binomial metric type
   if (type === "binomial" && sql?.userAggregationSQL) {
     return {
       valid: false,
       error: "Binomial metrics cannot have userAggregationSQL",
+    };
+  }
+
+  // Validate conversion window
+  if (
+    typeof payload.behavior?.conversionWindowEnd !== "undefined" &&
+    typeof payload.behavior?.conversionWindowStart === "undefined"
+  ) {
+    return {
+      valid: false,
+      error:
+        "Must specify `behavior.conversionWindowStart` when providing `behavior.conversionWindowEnd`",
     };
   }
 
@@ -919,12 +931,21 @@ export function postMetricApiPayloadToMetricInterface(
       metric.cap = behavior.cap;
     }
 
-    if (typeof behavior.conversionDelayHours !== "undefined") {
-      metric.conversionDelayHours = behavior.conversionDelayHours;
+    if (typeof behavior.conversionWindowStart !== "undefined") {
+      // The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the Conversion Delay
+      metric.conversionDelayHours = behavior.conversionWindowStart;
     }
 
-    if (typeof behavior.conversionWindowHours !== "undefined") {
-      metric.conversionWindowHours = behavior.conversionWindowHours;
+    if (
+      typeof behavior.conversionWindowEnd !== "undefined" &&
+      typeof behavior.conversionWindowStart !== "undefined"
+    ) {
+      // The end of a Conversion Window relative to the exposure date, in hours.
+      // This is equivalent to the Conversion Delay + Conversion Window Hours settings in the UI. In other words,
+      // if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and
+      // conversionWindowEnd to 72 (24+48).
+      metric.conversionWindowHours =
+        behavior.conversionWindowEnd - behavior.conversionWindowStart;
     }
 
     if (typeof behavior.maxPercentChange !== "undefined") {

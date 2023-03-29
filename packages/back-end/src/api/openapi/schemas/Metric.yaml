@@ -29,6 +29,11 @@ properties:
     type: string
   type:
     type: string
+    enum:
+      - binomial
+      - count
+      - duration
+      - revenue
   tags:
     type: array
     items:
