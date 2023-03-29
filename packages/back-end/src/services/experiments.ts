@@ -830,9 +830,11 @@ export function toSnapshotApiInterface(
 /**
  * While the `postMetricValidator` can detect the presence of values, it cannot figure out the correctness.
  * @param payload
+ * @param datasource
  */
 export function postMetricApiPayloadIsValid(
-  payload: z.infer<typeof postMetricValidator.bodySchema>
+  payload: z.infer<typeof postMetricValidator.bodySchema>,
+  datasource: Pick<DataSourceInterface, "type">
 ): { valid: true } | { valid: false; error: string } {
   const { type, sql, sqlBuilder, mixpanel } = payload;
 
@@ -854,12 +856,43 @@ export function postMetricApiPayloadIsValid(
     };
   }
 
-  // Validate binomial metric type
-  if (type === "binomial" && sql?.userAggregationSQL) {
-    return {
-      valid: false,
-      error: "Binomial metrics cannot have userAggregationSQL",
-    };
+  // Validate for payload.sql
+  if (sql) {
+    // Validate binomial metrics
+    if (type === "binomial" && typeof sql.userAggregationSQL !== "undefined")
+      return {
+        valid: false,
+        error: "Binomial metrics cannot have userAggregationSQL",
+      };
+  }
+
+  // Validate payload.mixpanel
+  if (mixpanel) {
+    // Validate binomial metrics
+    if (type === "binomial" && typeof mixpanel.eventValue !== "undefined")
+      return {
+        valid: false,
+        error: "Binomial metrics cannot have an eventValue",
+      };
+
+    if (datasource.type !== "mixpanel")
+      return {
+        valid: false,
+        error: "Mixpanel datasources must provide `mixpanel`",
+      };
+  }
+
+  // Validate payload.sqlBuilder
+  if (sqlBuilder) {
+    // Validate binomial metrics
+    if (
+      type === "binomial" &&
+      typeof sqlBuilder.valueColumnName !== "undefined"
+    )
+      return {
+        valid: false,
+        error: "Binomial metrics cannot have a valueColumnName",
+      };
   }
 
   // Validate conversion window

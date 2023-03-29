@@ -2048,7 +2048,7 @@ export interface operations {
           /** @description Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
           mixpanel?: {
             eventName: string;
-            eventValue: string;
+            eventValue?: string;
             userAggregation: string;
             conditions?: ({
                 property: string;

@@ -131,7 +131,6 @@ properties:
     description: "Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed."
     required:
       - eventName
-      - eventValue
       - userAggregation
     properties:
       eventName:
