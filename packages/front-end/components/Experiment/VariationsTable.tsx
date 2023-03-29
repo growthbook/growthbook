@@ -131,6 +131,7 @@ const VariationsTable: FC<Props> = ({
   };
 
   const hasDescriptions = variations.some((v) => !!v.description?.trim());
+  const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
   const hasLegacyVisualChanges = variations.some((v) => isLegacyVariation(v));
 
   return (
@@ -148,25 +149,30 @@ const VariationsTable: FC<Props> = ({
                 <th
                   key={i}
                   className={`variation with-variation-label variation${i} ${
-                    !hasDescriptions ? "with-variation-border-bottom" : "pb-2"
+                    !(hasDescriptions || hasUniqueIDs)
+                      ? "with-variation-border-bottom"
+                      : "pb-2"
                   }`}
-                  style={{ borderBottom: hasDescriptions ? 0 : null }}
+                  style={{
+                    borderBottom: hasDescriptions || hasUniqueIDs ? 0 : null,
+                  }}
                 >
                   <span className="label">{i}</span>
                   <span className="name">{v.name}</span>
                 </th>
               ))}
             </tr>
-            {hasDescriptions && (
+            {(hasDescriptions || hasUniqueIDs) && (
               <tr>
                 {variations.map((v, i) => (
                   <td
-                    className={`variation with-variation-border-bottom variation${i} pt-0`}
+                    className={`variation with-variation-border-bottom variation${i} pt-0 pb-1 align-bottom`}
                     style={{ borderTop: 0 }}
                     key={i}
                     scope="col"
                   >
-                    <div>{v.description}</div>
+                    {hasDescriptions && <div>{v.description}</div>}
+                    {hasUniqueIDs && <code className="small">ID: {v.key}</code>}
                   </td>
                 ))}
               </tr>
