@@ -35,6 +35,9 @@
     "size": "gzip-size ./dist/bundles/index.min.js --include-original"
   },
   "author": "Jeremy Dorn",
+  "dependencies": {
+    "dom-mutator": "^0.4.0"
+  },
   "devDependencies": {
     "@babel/cli": "^7.19.3",
     "@babel/core": "^7.19.6",
@@ -61,8 +64,5 @@
     ">0.35%",
     "not IE 11",
     "maintained node versions"
-  ],
-  "dependencies": {
-    "dom-mutator": "^0.3.2"
-  }
+  ]
 }
