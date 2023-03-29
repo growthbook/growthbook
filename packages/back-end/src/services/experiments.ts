@@ -960,17 +960,21 @@ export function postMetricApiPayloadToMetricInterface(
         }))
       : ((sqlBuilder?.conditions || []) as Condition[]);
 
-  // TODO: sqlBuilder
   if (sqlBuilder) {
+    // conditions are handled above in the Conditions section
     metric.table = sqlBuilder.tableName;
     metric.aggregation = sql?.userAggregationSQL;
     metric.timestampColumn = sqlBuilder.timestampColumnName;
     metric.column = sqlBuilder.valueColumnName;
   }
 
-  // TODO: sql
+  if (sql) {
+    metric.aggregation = sql.userAggregationSQL;
+    metric.denominator = sql.denominatorMetricId;
+    metric.userIdTypes = sql.identifierTypes;
+    metric.sql = sql.conversionSQL;
+  }
 
-  // TODO: mixpanel
   if (mixpanel) {
     metric.aggregation = mixpanel.userAggregation;
     metric.table = mixpanel.eventName;
