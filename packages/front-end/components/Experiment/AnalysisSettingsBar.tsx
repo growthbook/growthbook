@@ -53,7 +53,7 @@ function isOutdated(
     return true;
   }
   const experimentRegressionAdjustmentEnabled =
-    statsEngine === "bayesian" || !hasRegressionAdjustmentFeature
+    statsEngine !== "frequentist" || !hasRegressionAdjustmentFeature
       ? false
       : !!experiment.regressionAdjustmentEnabled;
   if (
