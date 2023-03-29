@@ -1,12 +1,12 @@
 import { VisualChangesetInterface } from "@/../back-end/types/visual-changeset";
 import { FC, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import SelectField from "@/components/Forms/SelectField";
+import { useAuth } from "@/services/auth";
 import Field from "../Forms/Field";
 import { GBAddCircle } from "../Icons";
 import Modal from "../Modal";
-import { useAuth } from "@/services/auth";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 
 const defaultType = "exact";
 
@@ -40,8 +40,10 @@ const VisualChangesetModal: FC<{
   const form = useForm({
     defaultValues: {
       editorUrl: visualChangeset?.editorUrl ?? "",
-      urlPatterns: visualChangeset?.urlPatterns ?? [{ pattern: "", type: defaultType, include: true }],
-    }
+      urlPatterns: visualChangeset?.urlPatterns ?? [
+        { pattern: "", type: defaultType, include: true },
+      ],
+    },
   });
   const urlPatterns = useFieldArray({
     control: form.control,
@@ -49,12 +51,14 @@ const VisualChangesetModal: FC<{
   });
 
   const onSubmit = form.handleSubmit(async (value) => {
-    let payload = {
+    const payload = {
       editorUrl: value.editorUrl,
       urlPatterns: value.urlPatterns,
-    }
+    };
     if (!showAdvanced) {
-      payload.urlPatterns = [{ pattern: value.editorUrl, type: defaultType, include: true }];
+      payload.urlPatterns = [
+        { pattern: value.editorUrl, type: defaultType, include: true },
+      ];
     }
     if (mode === "create") {
       await apiCall(`/experiments/${experiment.id}/visual-changeset`, {
@@ -90,14 +94,15 @@ const VisualChangesetModal: FC<{
         required
         label={editorUrlLabel}
         helpText={editorUrlHelpText}
-        {...form.register("editorUrl", { required: true,
+        {...form.register("editorUrl", {
+          required: true,
           onChange: () => {
             if (!showAdvanced) {
               form.setValue("urlPatterns.0.pattern", form.watch("editorUrl"));
               form.setValue("urlPatterns.0.type", defaultType);
               form.setValue("urlPatterns.0.include", true);
             }
-          }
+          },
         })}
       />
 
@@ -112,48 +117,80 @@ const VisualChangesetModal: FC<{
         </div>
       )}
 
-      <div style={{display: showAdvanced ? "block" : "none"}}>
+      <div style={{ display: showAdvanced ? "block" : "none" }}>
         <label>URL Targeting</label>
         {urlPatterns.fields.map((p, i) => (
-          <div key={i} className="row mb-2">
-            <div className="col-2">
-              <SelectField
-                value={!form.watch(`urlPatterns.${i}.include`) ? "false" : "true"}
-                options={[
-                  { label: "Include", value: "true" },
-                  { label: "Exclude", value: "false" },
-                ]}
-                onChange={(v) => form.setValue(`urlPatterns.${i}.include`, v !== "false")}
-              />
+          <div key={i} className="mb-2">
+            <div className="row">
+              <div className="col-2">
+                <SelectField
+                  value={
+                    !form.watch(`urlPatterns.${i}.include`) ? "false" : "true"
+                  }
+                  options={[
+                    { label: "Include", value: "true" },
+                    { label: "Exclude", value: "false" },
+                  ]}
+                  onChange={(v) =>
+                    form.setValue(`urlPatterns.${i}.include`, v !== "false")
+                  }
+                />
+              </div>
+              <div className="col">
+                <Field {...form.register(`urlPatterns.${i}.pattern`)} />
+              </div>
+              <div className="col-2">
+                <SelectField
+                  value={form.watch(`urlPatterns.${i}.type`)}
+                  options={[
+                    { label: "Exact", value: "exact" },
+                    { label: "Regex", value: "regex" },
+                  ]}
+                  onChange={(v) => form.setValue(`urlPatterns.${i}.type`, v)}
+                />
+              </div>
+              <div className="col-auto" style={{ width: 30 }}>
+                {urlPatterns.fields.length > 1 && (
+                  <button
+                    type="button"
+                    className="close inline mt-1 p-1"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      urlPatterns.remove(i);
+                    }}
+                  >
+                    <span aria-hidden="true">×</span>
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="col">
-              <Field
-                {...form.register(`urlPatterns.${i}.pattern`)}
-              />
-            </div>
-            <div className="col-2">
-              <SelectField
-                value={form.watch(`urlPatterns.${i}.type`)}
-                options={[
-                  { label: "Exact", value: "exact" },
-                  { label: "Regex", value: "regex" },
-                ]}
-                onChange={(v) => form.setValue(`urlPatterns.${i}.type`, v)}
-              />
-            </div>
-            <div className="col-auto" style={{ width: 30 }}>
-              {urlPatterns.fields.length > 1 && (
-                <button
-                  type="button"
-                  className="close inline mt-1 p-1"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    urlPatterns.remove(i);
-                  }}
-                >
-                  <span aria-hidden="true">×</span>
-                </button>
-              )}
+            <div className="row">
+              <div className="col-2"></div>
+              <div className="col pr-4">
+                <div className="small text-muted">
+                  {form.watch(`urlPatterns.${i}.type`) === "exact" ? (
+                    <>
+                      <strong>Exact</strong>: Matches a URL or path exactly as
+                      it is represented.{" "}
+                      <code>http://www.example.com/pricing</code> will be
+                      targeted separately from{" "}
+                      <code>http://www.example.com/pricing/</code>
+                    </>
+                  ) : form.watch(`urlPatterns.${i}.type`) === "regex" ? (
+                    <>
+                      <strong>Regex</strong>: Matches a URL or path via regular
+                      expression. Both:{" "}
+                      <code style={{ whiteSpace: "nowrap" }}>
+                        https:?\/\/(www\.)?example\.com\/pricing\/?
+                      </code>{" "}
+                      and{" "}
+                      <code style={{ whiteSpace: "nowrap" }}>\/pricing\/?</code>{" "}
+                      will match &quot;https://www.example.com/pricing&quot; and
+                      &quot;http://example.com/pricing/&quot;
+                    </>
+                  ) : null}
+                </div>
+              </div>
             </div>
           </div>
         ))}
@@ -162,7 +199,7 @@ const VisualChangesetModal: FC<{
           className="btn btn-link mt-2"
           onClick={(e) => {
             e.preventDefault();
-            urlPatterns.append({ pattern: "", type: "simple", include: true });
+            urlPatterns.append({ pattern: "", type: "exact", include: true });
           }}
         >
           <GBAddCircle /> Add URL Target
