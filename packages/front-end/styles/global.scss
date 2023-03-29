@@ -1195,104 +1195,99 @@ pre {
       justify-content: center;
       width: 24px;
       height: 24px;
-      color: #999;
+      color: colors.$variant-null;
       font-weight: 600;
-      border: 1.5px solid transparentize(#999, 0.35);
+      border: 1.5px solid transparentize(colors.$variant-null, 0.35);
       border-radius: 20px;
       margin-right: 4px;
     }
-
     .name {
-      color: #999;
+      color: colors.$variant-null;
       margin-right: 4px;
     }
 
     &.variation0,
     &.variation4 {
       .label {
-        border-color: transparentize(#4f69ff, 0.35);
-        color: #4f69ff;
+        border-color: transparentize(colors.$variant-0, 0.35);
+        color: colors.$variant-0;
       }
-
       .name {
-        color: #4f69ff;
+        color: colors.$variant-0;
       }
     }
 
     &.variation1,
     &.variation5 {
       .label {
-        border-color: transparentize(#03d1ca, 0.35);
-        color: #03d1ca;
+        border-color: transparentize(colors.$variant-1, 0.35);
+        color: colors.$variant-1;
       }
-
       .name {
-        color: #03d1ca;
+        color: colors.$variant-1;
       }
     }
 
     &.variation2,
     &.variation6 {
       .label {
-        border-color: transparentize(#fd7e14, 0.35);
-        color: #fd7e14;
+        border-color: transparentize(colors.$variant-2, 0.35);
+        color: colors.$variant-2;
       }
-
       .name {
-        color: #fd7e14;
+        color: colors.$variant-2;
       }
     }
 
     &.variation3,
     &.variation7 {
       .label {
-        border-color: transparentize(#e83e8c, 0.35);
-        color: #e83e8c;
+        border-color: transparentize(colors.$variant-3, 0.35);
+        color: colors.$variant-3;
       }
-
       .name {
-        color: #e83e8c;
+        color: colors.$variant-3;
       }
     }
   }
 
   &.with-variation-fill {
-    background: #999;
+    background: colors.$variant-null;
     &.variation0,
     &.variation4 {
-      background: #4f69ff;
+      background: colors.$variant-0;
     }
     &.variation1,
     &.variation5 {
-      background: #03d1ca;
+      background: colors.$variant-1;
     }
     &.variation2,
     &.variation6 {
-      background: #fd7e14;
+      background: colors.$variant-2;
     }
     &.variation3,
     &.variation7 {
-      background: #e83e8c;
+      background: colors.$variant-3;
     }
   }
 
   &.with-variation-border-bottom {
-    border-bottom: 7px solid #999;
+    border-bottom: 7px solid colors.$variant-null;
     &.variation0,
     &.variation4 {
-      border-bottom: 7px solid #4f69ff;
+      border-bottom: 7px solid colors.$variant-0;
     }
     &.variation1,
     &.variation5 {
-      border-bottom: 7px solid #03d1ca;
+      border-bottom: 7px solid colors.$variant-1;
     }
     &.variation2,
     &.variation6 {
-      border-bottom: 7px solid #fd7e14;
+      border-bottom: 7px solid colors.$variant-2;
     }
     &.variation3,
     &.variation7 {
-      border-bottom: 7px solid #e83e8c;
+      border-bottom: 7px solid colors.$variant-3;
     }
   }
 }
