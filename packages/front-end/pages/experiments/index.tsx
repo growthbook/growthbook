@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -22,7 +23,6 @@ import { useAnchor } from "@/components/Tabs/ControlledTabs";
 import Toggle from "@/components/Forms/Toggle";
 import AddExperimentModal from "@/components/Experiment/AddExperimentModal";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "@/types/app-features";
 
 const NUM_PER_PAGE = 20;
@@ -349,8 +349,8 @@ const ExperimentsPage = (): React.ReactElement => {
           )}
         </div>
       </div>
-      {openNewExperimentModal && (
-        growthbook.isOn("new-experiment-modal") ? (
+      {openNewExperimentModal &&
+        (growthbook.isOn("new-experiment-modal") ? (
           <AddExperimentModal
             onClose={() => setOpenNewExperimentModal(false)}
             source="experiment-list"
@@ -360,8 +360,7 @@ const ExperimentsPage = (): React.ReactElement => {
             onClose={() => setOpenNewExperimentModal(false)}
             source="experiment-list"
           />
-        )
-      )}
+        ))}
     </>
   );
 };
