@@ -104,7 +104,7 @@ const GuardrailResults: FC<{
               const chance = 1 - (stats.chanceToWin ?? 1);
               return (
                 <tr key={i}>
-                  <td>{v.name}</td>
+                  <th>{v.name}</th>
                   <MetricValueColumn
                     metric={metric}
                     stats={stats}
@@ -129,8 +129,8 @@ const GuardrailResults: FC<{
                       {percentFormatter.format(chance)}
                     </td>
                   ) : (
-                    <td>
-                      <em>not enough data</em>
+                    <td className="text-center">
+                      <em className="text-muted">not enough data</em>
                     </td>
                   )}
                 </tr>

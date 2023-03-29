@@ -137,7 +137,11 @@ const PValueGuardrailResults: FC<{
 
               return (
                 <tr key={i}>
-                  <td>{r.name}</td>
+                  <th
+                    className={`variation with-variation-label variation${i} font-weight-normal`}
+                  >
+                    <span className="name">{r.name}</span>
+                  </th>
 
                   <MetricValueColumn
                     metric={metric}
@@ -161,8 +165,8 @@ const PValueGuardrailResults: FC<{
                       })`}
                     </td>
                   ) : (
-                    <td>
-                      <em>not enough data</em>
+                    <td className="text-center">
+                      <em className="text-muted">not enough data</em>
                     </td>
                   )}
                 </tr>
