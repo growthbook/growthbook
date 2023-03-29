@@ -63,7 +63,7 @@ export function getUrlRegExp(regexString: string): RegExp | undefined {
 }
 
 export function isURLTargeted(url: string, targets: UrlTarget[]) {
-  if (!targets.length) return true;
+  if (!targets.length) return false;
   let hasIncludeRules = false;
   let isIncluded = false;
 
@@ -88,7 +88,7 @@ function _evalURLTarget(
   const pathOnly = url.replace(/^https?:\/\//, "").replace(/^[^/]*\//, "/");
 
   if (type === "exact") {
-    return url === pattern || url === pathOnly;
+    return url === pattern || pathOnly === pattern;
   } else if (type === "regex") {
     const regex = getUrlRegExp(pattern);
     if (!regex) return false;
