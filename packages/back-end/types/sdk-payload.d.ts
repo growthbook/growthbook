@@ -31,7 +31,7 @@ interface SDKExperiment {
   // then `force` should be the array index of the released variation
   force?: number;
   // From phase.condition
-  condition?: string;
+  condition?: Record<string, unknown>;
   // From phase.coverage
   coverage?: number;
 }

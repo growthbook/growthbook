@@ -70,6 +70,17 @@ function generateVisualExperimentsPayload(
           ? e.variations.find((v) => v.id === e.releasedVariationId)
           : null;
 
+      let condition;
+      if (phase.condition && phase.condition !== "{}") {
+        try {
+          condition = JSON.parse(
+            replaceSavedGroupsInCondition(phase.condition, groupMap)
+          );
+        } catch (e) {
+          // ignore condition parse errors here
+        }
+      }
+
       if (!phase) return null;
 
       return {
@@ -100,9 +111,7 @@ function generateVisualExperimentsPayload(
         force: forcedVariation
           ? e.variations.indexOf(forcedVariation)
           : undefined,
-        condition: JSON.parse(
-          replaceSavedGroupsInCondition(phase.condition, groupMap)
-        ),
+        condition,
         coverage: phase.coverage,
       };
     }
