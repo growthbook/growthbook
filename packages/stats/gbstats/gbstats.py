@@ -191,11 +191,6 @@ def analyze_metric_df(
                     stat_b.theta = theta
 
             s[f"v{i}_cr"] = stat_b.unadjusted_mean
-            s[f"v{i}_expected"] = (
-                (stat_b.mean - stat_a.mean) / stat_a.unadjusted_mean
-                if stat_a.unadjusted_mean > 0
-                else 0
-            )
             s[f"v{i}_mean"] = stat_b.unadjusted_mean
             s[f"v{i}_stddev"] = stat_b.stddev
 
@@ -222,7 +217,7 @@ def analyze_metric_df(
                         inverse=inverse,
                     )
 
-                res: TestResult = test.compute_result()
+                res = test.compute_result()
 
                 # The baseline risk is the max risk of any of the variation A/B tests
                 if res.relative_risk[0] > baseline_risk:
@@ -237,10 +232,21 @@ def analyze_metric_df(
                     test = SequentialTwoSidedTTest(stat_a, stat_b, config=config)
                 else:
                     test = TwoSidedTTest(stat_a, stat_b, config=config)
-                res: TestResult = test.compute_result()
+                res = test.compute_result()
                 s[f"v{i}_p_value"] = res.p_value
                 baseline_risk = None
 
+            if stat_a.unadjusted_mean <= 0:
+                # negative or missing control mean
+                s[f"v{i}_expected"] = 0
+            elif res.expected == 0:
+                # if result is not vlaid, try to return at least the diff
+                s[f"v{i}_expected"] = (
+                    stat_b.mean - stat_a.mean
+                ) / stat_a.unadjusted_mean
+            else:
+                # return adjusted/prior-affected guess of expectation
+                s[f"v{i}_expected"] = res.expected
             s.at[f"v{i}_ci"] = res.ci
             s.at[f"v{i}_uplift"] = asdict(res.uplift)
 
