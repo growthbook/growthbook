@@ -2,6 +2,7 @@ import uniqid from "uniqid";
 import cronParser from "cron-parser";
 import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
+import { z } from "zod";
 import { updateExperimentById } from "../models/ExperimentModel";
 import {
   SnapshotVariation,
@@ -62,6 +63,7 @@ import {
   ApiExperimentMetric,
 } from "../../types/openapi";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
+import { postMetricValidator } from "../validators/openapi";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -824,6 +826,158 @@ export function toSnapshotApiInterface(
       };
     }),
   };
+}
+
+/**
+ * While the `postMetricValidator` can detect the presence of values, it cannot figure out the correctness.
+ * @param payload
+ */
+export function postMetricApiPayloadIsValid(
+  payload: z.infer<typeof postMetricValidator.bodySchema>
+): { valid: true } | { valid: false; error: string } {
+  const { type, sql, sqlBuilder, mixpanel } = payload;
+
+  let queryFormatCount = 0;
+  if (sqlBuilder) {
+    queryFormatCount++;
+  }
+  if (sql) {
+    queryFormatCount++;
+  }
+  if (mixpanel) {
+    queryFormatCount++;
+  }
+
+  if (queryFormatCount !== 1) {
+    return {
+      valid: false,
+      error: "Can only specify one of: sql, sqlBuilder, mixpanel",
+    };
+  }
+
+  if (type === "binomial" && sql?.userAggregationSQL) {
+    return {
+      valid: false,
+      error: "Binomial metrics cannot have userAggregationSQL",
+    };
+  }
+
+  return {
+    valid: true,
+  };
+}
+
+export function postMetricApiPayloadToMetricInterface(
+  payload: z.infer<typeof postMetricValidator.bodySchema>,
+  organization: OrganizationInterface,
+  datasource: Pick<DataSourceInterface, "type">
+): Omit<MetricInterface, "dateCreated" | "dateUpdated" | "id"> {
+  const {
+    datasourceId,
+    name,
+    description = "",
+    type,
+    behavior,
+    owner = "",
+    sql,
+    sqlBuilder,
+    mixpanel,
+    tags = [],
+    projects = [],
+  } = payload;
+
+  const metric: Omit<MetricInterface, "dateCreated" | "dateUpdated" | "id"> = {
+    datasource: datasourceId,
+    description,
+    name,
+    organization: organization.id,
+    owner,
+    tags,
+    projects,
+    inverse: behavior?.goal === "decrease",
+    ignoreNulls: false, // todo: ??
+    queries: [],
+    runStarted: null,
+    type,
+    userIdColumns: (sqlBuilder?.identifierTypeColumns || []).reduce<
+      Record<string, string>
+    >((acc, { columnName, identifierType }) => {
+      acc[columnName] = identifierType;
+      return acc;
+    }, {}),
+  };
+
+  // Assign all undefined behavior fields to the metric
+  if (behavior) {
+    if (typeof behavior.cap !== "undefined") {
+      metric.cap = behavior.cap;
+    }
+
+    if (typeof behavior.conversionDelayHours !== "undefined") {
+      metric.conversionDelayHours = behavior.conversionDelayHours;
+    }
+
+    if (typeof behavior.conversionWindowHours !== "undefined") {
+      metric.conversionWindowHours = behavior.conversionWindowHours;
+    }
+
+    if (typeof behavior.maxPercentChange !== "undefined") {
+      metric.maxPercentChange = behavior.maxPercentChange;
+    }
+
+    if (typeof behavior.minPercentChange !== "undefined") {
+      metric.minPercentChange = behavior.minPercentChange;
+    }
+
+    if (typeof behavior.minSampleSize !== "undefined") {
+      metric.minSampleSize = behavior.minSampleSize;
+    }
+
+    if (typeof behavior.riskThresholdDanger !== "undefined") {
+      metric.loseRisk = behavior.riskThresholdDanger;
+    }
+
+    if (typeof behavior.riskThresholdSuccess !== "undefined") {
+      metric.winRisk = behavior.riskThresholdSuccess;
+    }
+  }
+
+  let queryFormat: undefined | "builder" | "sql" = undefined;
+  if (sqlBuilder) {
+    queryFormat = "builder";
+  } else if (sql) {
+    queryFormat = "sql";
+  }
+  metric.queryFormat = queryFormat;
+
+  // Conditions
+  metric.conditions =
+    datasource.type == "mixpanel"
+      ? (mixpanel?.conditions || []).map(({ operator, property, value }) => ({
+          column: property,
+          operator: operator as Operator,
+          value: value,
+        }))
+      : ((sqlBuilder?.conditions || []) as Condition[]);
+
+  // TODO: sqlBuilder
+  if (sqlBuilder) {
+    metric.table = sqlBuilder.tableName;
+    metric.aggregation = sql?.userAggregationSQL;
+    metric.timestampColumn = sqlBuilder.timestampColumnName;
+    metric.column = sqlBuilder.valueColumnName;
+  }
+
+  // TODO: sql
+
+  // TODO: mixpanel
+  if (mixpanel) {
+    metric.aggregation = mixpanel.userAggregation;
+    metric.table = mixpanel.eventName;
+    metric.column = mixpanel.eventValue;
+  }
+
+  return metric;
 }
 
 /**
