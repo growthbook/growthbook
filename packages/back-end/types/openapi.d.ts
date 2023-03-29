@@ -2003,13 +2003,13 @@ export interface operations {
           projects?: (string)[];
           behavior?: {
             /** @enum {string} */
-            goal: "increase" | "decrease";
+            goal?: "increase" | "decrease";
             /** @description This should be non-negative */
             cap?: number;
-            /** @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) */
-            conversionWindowStart?: number;
-            /** @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). */
-            conversionWindowEnd?: number;
+            /** @description The [Conversion Delay](/app/metrics#conversion-delay), in hours */
+            conversionDelayHours?: number;
+            /** @description The [Conversion Window](/app/metrics#conversion-window), in hours */
+            conversionWindowHours?: number;
             riskThresholdSuccess?: number;
             riskThresholdDanger?: number;
             /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
