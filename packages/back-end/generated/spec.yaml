@@ -1090,48 +1090,48 @@ components:
               type: string
             denominatorMetricId:
               type: string
-            builder:
-              type: object
-              required:
-                - identifierTypeColumns
-                - tableName
-                - valueColumnName
-                - timestampColumnName
-                - conditions
-              properties:
-                identifierTypeColumns:
-                  type: array
-                  items:
-                    type: object
-                    required:
-                      - identifierType
-                      - columnName
-                    properties:
-                      identifierType:
-                        type: string
-                      columnName:
-                        type: string
-                tableName:
-                  type: string
-                valueColumnName:
-                  type: string
-                timestampColumnName:
-                  type: string
-                conditions:
-                  type: array
-                  items:
-                    type: object
-                    required:
-                      - column
-                      - operator
-                      - value
-                    properties:
-                      column:
-                        type: string
-                      operator:
-                        type: string
-                      value:
-                        type: string
+        sqlBuilder:
+          type: object
+          required:
+            - identifierTypeColumns
+            - tableName
+            - valueColumnName
+            - timestampColumnName
+            - conditions
+          properties:
+            identifierTypeColumns:
+              type: array
+              items:
+                type: object
+                required:
+                  - identifierType
+                  - columnName
+                properties:
+                  identifierType:
+                    type: string
+                  columnName:
+                    type: string
+            tableName:
+              type: string
+            valueColumnName:
+              type: string
+            timestampColumnName:
+              type: string
+            conditions:
+              type: array
+              items:
+                type: object
+                required:
+                  - column
+                  - operator
+                  - value
+                properties:
+                  column:
+                    type: string
+                  operator:
+                    type: string
+                  value:
+                    type: string
         mixpanel:
           type: object
           required:

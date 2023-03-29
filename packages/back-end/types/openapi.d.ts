@@ -206,20 +206,20 @@ export interface components {
         conversionSQL: string;
         userAggregationSQL: string;
         denominatorMetricId: string;
-        builder?: {
-          identifierTypeColumns: ({
-              identifierType: string;
-              columnName: string;
-            })[];
-          tableName: string;
-          valueColumnName: string;
-          timestampColumnName: string;
-          conditions: ({
-              column: string;
-              operator: string;
-              value: string;
-            })[];
-        };
+      };
+      sqlBuilder?: {
+        identifierTypeColumns: ({
+            identifierType: string;
+            columnName: string;
+          })[];
+        tableName: string;
+        valueColumnName: string;
+        timestampColumnName: string;
+        conditions: ({
+            column: string;
+            operator: string;
+            value: string;
+          })[];
       };
       mixpanel?: {
         eventName: string;
@@ -1941,20 +1941,20 @@ export interface operations {
                   conversionSQL: string;
                   userAggregationSQL: string;
                   denominatorMetricId: string;
-                  builder?: {
-                    identifierTypeColumns: ({
-                        identifierType: string;
-                        columnName: string;
-                      })[];
-                    tableName: string;
-                    valueColumnName: string;
-                    timestampColumnName: string;
-                    conditions: ({
-                        column: string;
-                        operator: string;
-                        value: string;
-                      })[];
-                  };
+                };
+                sqlBuilder?: {
+                  identifierTypeColumns: ({
+                      identifierType: string;
+                      columnName: string;
+                    })[];
+                  tableName: string;
+                  valueColumnName: string;
+                  timestampColumnName: string;
+                  conditions: ({
+                      column: string;
+                      operator: string;
+                      value: string;
+                    })[];
                 };
                 mixpanel?: {
                   eventName: string;
@@ -2091,20 +2091,20 @@ export interface operations {
                 conversionSQL: string;
                 userAggregationSQL: string;
                 denominatorMetricId: string;
-                builder?: {
-                  identifierTypeColumns: ({
-                      identifierType: string;
-                      columnName: string;
-                    })[];
-                  tableName: string;
-                  valueColumnName: string;
-                  timestampColumnName: string;
-                  conditions: ({
-                      column: string;
-                      operator: string;
-                      value: string;
-                    })[];
-                };
+              };
+              sqlBuilder?: {
+                identifierTypeColumns: ({
+                    identifierType: string;
+                    columnName: string;
+                  })[];
+                tableName: string;
+                valueColumnName: string;
+                timestampColumnName: string;
+                conditions: ({
+                    column: string;
+                    operator: string;
+                    value: string;
+                  })[];
               };
               mixpanel?: {
                 eventName: string;
@@ -2163,20 +2163,20 @@ export interface operations {
                 conversionSQL: string;
                 userAggregationSQL: string;
                 denominatorMetricId: string;
-                builder?: {
-                  identifierTypeColumns: ({
-                      identifierType: string;
-                      columnName: string;
-                    })[];
-                  tableName: string;
-                  valueColumnName: string;
-                  timestampColumnName: string;
-                  conditions: ({
-                      column: string;
-                      operator: string;
-                      value: string;
-                    })[];
-                };
+              };
+              sqlBuilder?: {
+                identifierTypeColumns: ({
+                    identifierType: string;
+                    columnName: string;
+                  })[];
+                tableName: string;
+                valueColumnName: string;
+                timestampColumnName: string;
+                conditions: ({
+                    column: string;
+                    operator: string;
+                    value: string;
+                  })[];
               };
               mixpanel?: {
                 eventName: string;

@@ -5,7 +5,7 @@ required:
   - dateUpdated
   - owner
   - datasourceId
-  - name 
+  - name
   - description
   - type
   - tags
@@ -52,26 +52,26 @@ properties:
       - maxPercentChange
       - minSampleSize
     properties:
-      goal: 
+      goal:
         type: string
         enum:
           - increase
           - decrease
-      cap: 
+      cap:
         type: number
-      conversionWindowStart: 
+      conversionWindowStart:
         type: number
-      conversionWindowEnd: 
+      conversionWindowEnd:
         type: number
-      riskThresholdSuccess: 
+      riskThresholdSuccess:
         type: number
-      riskThresholdDanger: 
+      riskThresholdDanger:
         type: number
-      minPercentChange: 
+      minPercentChange:
         type: number
-      maxPercentChange: 
+      maxPercentChange:
         type: number
-      minSampleSize: 
+      minSampleSize:
         type: number
   sql:
     type: object
@@ -85,54 +85,54 @@ properties:
         type: array
         items:
           type: string
-      conversionSQL: 
+      conversionSQL:
         type: string
-      userAggregationSQL:  
+      userAggregationSQL:
         type: string
-      denominatorMetricId:  
+      denominatorMetricId:
         type: string
-      builder:
-        type: object
-        required:
-          - identifierTypeColumns
-          - tableName
-          - valueColumnName
-          - timestampColumnName
-          - conditions
-        properties:
-          identifierTypeColumns:
-            type: array
-            items:
-              type: object
-              required:
-                - identifierType
-                - columnName
-              properties:
-                identifierType:
-                  type: string
-                columnName:
-                  type: string
-          tableName:
-            type: string
-          valueColumnName: 
-            type: string
-          timestampColumnName: 
-            type: string
-          conditions: 
-            type: array
-            items:
-              type: object
-              required:
-                - column
-                - operator
-                - value
-              properties:
-                column:
-                  type: string
-                operator:
-                  type: string
-                value:
-                  type: string
+  sqlBuilder:
+    type: object
+    required:
+      - identifierTypeColumns
+      - tableName
+      - valueColumnName
+      - timestampColumnName
+      - conditions
+    properties:
+      identifierTypeColumns:
+        type: array
+        items:
+          type: object
+          required:
+            - identifierType
+            - columnName
+          properties:
+            identifierType:
+              type: string
+            columnName:
+              type: string
+      tableName:
+        type: string
+      valueColumnName:
+        type: string
+      timestampColumnName:
+        type: string
+      conditions:
+        type: array
+        items:
+          type: object
+          required:
+            - column
+            - operator
+            - value
+          properties:
+            column:
+              type: string
+            operator:
+              type: string
+            value:
+              type: string
   mixpanel:
     type: object
     required:
@@ -143,11 +143,11 @@ properties:
     properties:
       eventName:
         type: string
-      eventValue: 
+      eventValue:
         type: string
-      userAggregation: 
+      userAggregation:
         type: string
-      conditions: 
+      conditions:
         type: array
         items:
           type: object

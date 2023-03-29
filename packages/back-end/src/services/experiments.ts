@@ -1058,7 +1058,7 @@ export function toMetricApiInterface(
       };
 
       if (metric.queryFormat === "builder") {
-        obj.sql.builder = {
+        obj.sqlBuilder = {
           identifierTypeColumns: identifierTypes.map((t) => ({
             identifierType: t,
             columnName:
