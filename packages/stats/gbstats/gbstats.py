@@ -190,15 +190,11 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
                 if isinstance(stat_a, ProportionStatistic) and isinstance(
                     stat_b, ProportionStatistic
                 ):
-                    test: BaseABTest = BinomialBayesianABTest(
-                        stat_a, stat_b, inverse=inverse
-                    )
+                    test = BinomialBayesianABTest(stat_a, stat_b, inverse=inverse)
                 else:
-                    test: BaseABTest = GaussianBayesianABTest(
-                        stat_a, stat_b, inverse=inverse
-                    )
+                    test = GaussianBayesianABTest(stat_a, stat_b, inverse=inverse)
 
-                res: TestResult = test.compute_result()
+                res = test.compute_result()
 
                 # The baseline risk is the max risk of any of the variation A/B tests
                 if res.relative_risk[0] > baseline_risk:
@@ -208,8 +204,8 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
                 s[f"v{i}_risk"] = res.relative_risk[1]
                 s[f"v{i}_prob_beat_baseline"] = res.chance_to_win
             else:
-                test: BaseABTest = TwoSidedTTest(stat_a, stat_b)
-                res: TestResult = test.compute_result()
+                test = TwoSidedTTest(stat_a, stat_b)
+                res = test.compute_result()
                 s[f"v{i}_p_value"] = res.p_value
                 baseline_risk = None
 
