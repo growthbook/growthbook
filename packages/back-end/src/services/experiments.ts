@@ -898,7 +898,7 @@ export function partialFromMetricApiInterface(
     inverse: behavior?.goal === "decrease",
     ignoreNulls: false,
     aggregation: sql?.userAggregationSQL || mixpanel?.userAggregation || "",
-    sql: sql?.userAggregationSQL || sql?.conversionSQL, // TODO: Is this correct?
+    sql: sql?.conversionSQL,
     cap: behavior?.cap ?? 0,
     conditions: conditionsForDataSourceType(),
 
