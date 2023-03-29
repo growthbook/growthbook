@@ -1,9 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { FaExclamationTriangle, FaPencilAlt } from "react-icons/fa";
+import {
+  FaExclamationTriangle,
+  FaPencilAlt,
+  FaQuestionCircle,
+} from "react-icons/fa";
 import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import cronstrue from "cronstrue";
+import { AttributionModel } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -22,6 +27,8 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import EditLicenseModal from "@/components/Settings/EditLicenseModal";
 import Toggle from "@/components/Forms/Toggle";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import SelectField from "@/components/Forms/SelectField";
+import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -99,6 +106,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       statsEngine: "bayesian",
       regressionAdjustmentEnabled: false,
       regressionAdjustmentDays: 14,
+      attributionModel: "firstExposure",
     },
   });
   const { apiCall } = useAuth();
@@ -125,6 +133,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     pValueThreshold: form.watch("pValueThreshold"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
+    attributionModel: form.watch("attributionModel"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -533,6 +542,32 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       valueAsNumber: true,
                     })}
                   />
+
+                  <div className="mb-3 form-group flex-column align-items-start">
+                    <SelectField
+                      label={
+                        <AttributionModelTooltip>
+                          Default Attribution Model <FaQuestionCircle />
+                        </AttributionModelTooltip>
+                      }
+                      className="ml-2"
+                      value={form.watch("attributionModel")}
+                      onChange={(value) => {
+                        const model = value as AttributionModel;
+                        form.setValue("attributionModel", model);
+                      }}
+                      options={[
+                        {
+                          label: "First Exposure",
+                          value: "firstExposure",
+                        },
+                        {
+                          label: "Experiment Duration",
+                          value: "experimentDuration",
+                        },
+                      ]}
+                    />
+                  </div>
 
                   <div className="mb-3 form-group flex-column align-items-start">
                     <Field

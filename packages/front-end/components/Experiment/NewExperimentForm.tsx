@@ -88,6 +88,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     refreshTags,
     project,
   } = useDefinitions();
+
+  const settings = useOrgSettings();
+
   const { refreshWatching } = useWatching();
 
   useEffect(() => {
@@ -114,7 +117,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       name: initialValue?.name || "",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
-      attributionModel: initialValue?.attributionModel ?? "firstExposure",
+      attributionModel:
+        initialValue?.attributionModel ??
+        settings?.attributionModel ??
+        "firstExposure",
       metrics: initialValue?.metrics || [],
       tags: initialValue?.tags || [],
       visualEditorUrl: "",

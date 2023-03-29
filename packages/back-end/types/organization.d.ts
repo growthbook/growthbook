@@ -4,7 +4,7 @@ import {
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
 } from "../src/util/organization.util";
-import { ImplementationType } from "./experiment";
+import { AttributionModel, ImplementationType } from "./experiment";
 import type { StatsEngine } from "./stats";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
@@ -160,6 +160,7 @@ export interface OrganizationSettings {
   regressionAdjustmentDays?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
+  attributionModel?: AttributionModel;
 }
 
 export interface SubscriptionQuote {
