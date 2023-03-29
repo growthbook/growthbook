@@ -292,6 +292,12 @@ export class GrowthBook<
     if (isBrowser && window._growthbook === this) {
       delete window._growthbook;
     }
+
+    // Undo any active auto experiments
+    this._activeAutoExperiments.forEach((exp) => {
+      exp.undo();
+    });
+    this._activeAutoExperiments.clear();
   }
 
   public setRenderer(renderer: () => void) {
@@ -1010,7 +1016,8 @@ export class GrowthBook<
       s.innerHTML = changes.css;
       document.head.appendChild(s);
       undo.push(() => s.remove());
-    } else if (changes.domMutations) {
+    }
+    if (changes.domMutations) {
       changes.domMutations.forEach((mutation) => {
         undo.push(mutate.declarative(mutation as DeclarativeMutation).revert);
       });

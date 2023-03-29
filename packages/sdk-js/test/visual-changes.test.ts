@@ -1,5 +1,10 @@
+import { GrowthBook } from "../src";
 import { UrlTargetType } from "../src/types/growthbook";
 import { isURLTargeted } from "../src/util";
+
+function sleep(ms = 20) {
+  return new Promise((res) => setTimeout(res, ms));
+}
 
 const cases: Array<[UrlTargetType, string, string, boolean]> = [
   ["exact", "https://www.example.com", "https://www.example.com", true],
@@ -37,10 +42,16 @@ const cases: Array<[UrlTargetType, string, string, boolean]> = [
   ["exact", "https://www.example.com", "https://example.com", false],
   ["exact", "https://example.com", "https://www.example.com", false],
   ["exact", "https://wwwexample.com", "http://www.example.com", false],
-  ["exact", "http://wwwexample.com", "https://www.example.com", false],
+  ["exact", "http://www.example.com", "https://www.example.com", false],
   ["regex", "https://www.example.com/post/123", "^/post/[0-9]+", true],
   ["regex", "https://www.example.com/post/abc", "^/post/[0-9]+", false],
   ["regex", "https://www.example.com/new/post/123", "^/post/[0-9]+", false],
+  [
+    "regex",
+    "https://www.example.com/new/post/123",
+    "example\\.com.*/post/[0-9]+",
+    true,
+  ],
 ];
 
 describe("isURLTargeted", () => {
@@ -121,4 +132,70 @@ describe("isURLTargeted", () => {
       ).toEqual(expected);
     }
   );
+});
+
+describe("Auto experiments", () => {
+  it("applies visual changes", async () => {
+    document.head.innerHTML = "";
+    document.body.innerHTML = "<h1>title</h1>";
+
+    const gb = new GrowthBook({
+      attributes: { id: "1" },
+      url: "http://www.example.com/home",
+      experiments: [
+        {
+          key: "my-experiment",
+          urls: [
+            {
+              type: "regex",
+              include: true,
+              pattern: "home",
+            },
+          ],
+          weights: [0.1, 0.9],
+          variations: [
+            {},
+            {
+              css: "h1 { color: red; }",
+              domMutations: [
+                {
+                  selector: "h1",
+                  action: "set",
+                  attribute: "html",
+                  value: "new",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    // Changes applied immediately
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>new</h1>");
+    expect(document.head.innerHTML).toEqual(
+      "<style>h1 { color: red; }</style>"
+    );
+
+    // Changes are undone when the URL changes to something that no longer matches
+    gb.setURL("http://www.example.com/news");
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>title</h1>");
+    expect(document.head.innerHTML).toEqual("");
+
+    // Changes are re-applied when switching back to the right URL
+    gb.setURL("http://www.example.com/home");
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>new</h1>");
+    expect(document.head.innerHTML).toEqual(
+      "<style>h1 { color: red; }</style>"
+    );
+
+    // Changes are undone when the GrowthBook instance is destroyed
+    gb.destroy();
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>title</h1>");
+    expect(document.head.innerHTML).toEqual("");
+  });
 });
