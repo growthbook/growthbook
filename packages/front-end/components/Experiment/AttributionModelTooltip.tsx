@@ -7,7 +7,7 @@ export function AttributionModelTooltip({ children }: { children: ReactNode }) {
       body={
         <div>
           <div className="mb-2">
-            Determines how we attribute metric conversions to this experiment.
+            Determines how we attribute metric conversions for an experiment.
           </div>
           <div className="mb-2">
             <strong>First Exposure</strong> - Single conversion window based on

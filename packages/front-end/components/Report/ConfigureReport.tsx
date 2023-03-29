@@ -68,7 +68,10 @@ export default function ConfigureReport({
           report.args.exposureQueryId,
           report.args.userIdType
         )?.id || "",
-      attributionModel: report.args.attributionModel || "firstExposure",
+      attributionModel:
+        report.args.attributionModel ||
+        settings.attributionModel ||
+        "firstExposure",
       startDate: getValidDate(report.args.startDate)
         .toISOString()
         .substr(0, 16),
