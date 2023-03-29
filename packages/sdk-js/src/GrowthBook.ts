@@ -207,9 +207,7 @@ export class GrowthBook<
     }
   }
 
-  public setExperiments(
-    experiments: Experiment<AutoExperimentVariation>[]
-  ): void {
+  public setExperiments(experiments: AutoExperiment[]): void {
     this._ctx.experiments = experiments;
     this.ready = true;
     this._updateAllAutoExperiments();
@@ -220,9 +218,11 @@ export class GrowthBook<
     decryptionKey?: string,
     subtle?: SubtleCrypto
   ): Promise<void> {
-    const experiments = await this._decrypt<
-      Experiment<AutoExperimentVariation>[]
-    >(encryptedString, decryptionKey, subtle);
+    const experiments = await this._decrypt<AutoExperiment[]>(
+      encryptedString,
+      decryptionKey,
+      subtle
+    );
     this.setExperiments(experiments);
   }
 

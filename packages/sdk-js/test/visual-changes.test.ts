@@ -198,4 +198,154 @@ describe("Auto experiments", () => {
     expect(document.body.innerHTML).toEqual("<h1>title</h1>");
     expect(document.head.innerHTML).toEqual("");
   });
+
+  it("supports manually triggered experiments", async () => {
+    document.head.innerHTML = "";
+    document.body.innerHTML = "<h1>title</h1>";
+
+    const gb = new GrowthBook({
+      attributes: { id: "1" },
+      experiments: [
+        {
+          key: "my-experiment",
+          weights: [0.1, 0.9],
+          manual: true,
+          variations: [
+            {},
+            {
+              css: "h1 { color: red; }",
+              domMutations: [
+                {
+                  selector: "h1",
+                  action: "set",
+                  attribute: "html",
+                  value: "new",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    // Changes should not be applied right away
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>title</h1>");
+    expect(document.head.innerHTML).toEqual("");
+
+    // Triggering a non-existant experiment does nothing
+    gb.triggerExperiment("my-test");
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>title</h1>");
+    expect(document.head.innerHTML).toEqual("");
+
+    // Triggering the actual experiment key causes the changes
+    gb.triggerExperiment("my-experiment");
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>new</h1>");
+    expect(document.head.innerHTML).toEqual(
+      "<style>h1 { color: red; }</style>"
+    );
+
+    gb.destroy();
+  });
+
+  it("responds to changes in the experiment definition", async () => {
+    document.head.innerHTML = "";
+    document.body.innerHTML = "<h1>title</h1>";
+
+    const gb = new GrowthBook({
+      attributes: { id: "1" },
+      experiments: [
+        {
+          key: "my-experiment",
+          weights: [0.1, 0.9],
+          manual: true,
+          variations: [
+            {},
+            {
+              css: "h1 { color: red; }",
+              domMutations: [
+                {
+                  selector: "h1",
+                  action: "set",
+                  attribute: "html",
+                  value: "new",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    // Changes should not be applied right away
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>title</h1>");
+    expect(document.head.innerHTML).toEqual("");
+
+    // Changing the experiment definition will no update manual tests that haven't been triggered yet
+    gb.setExperiments([
+      {
+        key: "my-experiment",
+        weights: [0.1, 0.9],
+        manual: true,
+        variations: [
+          {},
+          {
+            css: "h1 { color: green; }",
+            domMutations: [
+              {
+                selector: "h1",
+                action: "set",
+                attribute: "html",
+                value: "foo",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>title</h1>");
+    expect(document.head.innerHTML).toEqual("");
+
+    // Triggering the actual experiment key causes the changes to apply
+    gb.triggerExperiment("my-experiment");
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>foo</h1>");
+    expect(document.head.innerHTML).toEqual(
+      "<style>h1 { color: green; }</style>"
+    );
+
+    // Now, changes to the experiment will apply immediately
+    gb.setExperiments([
+      {
+        key: "my-experiment",
+        weights: [0.1, 0.9],
+        manual: true,
+        variations: [
+          {},
+          {
+            css: "h1 { color: blue; }",
+            domMutations: [
+              {
+                selector: "h1",
+                action: "set",
+                attribute: "html",
+                value: "really new",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>really new</h1>");
+    expect(document.head.innerHTML).toEqual(
+      "<style>h1 { color: blue; }</style>"
+    );
+
+    gb.destroy();
+  });
 });
