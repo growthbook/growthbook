@@ -31,6 +31,7 @@ const visualChangesetSchema = new mongoose.Schema({
   urlPatterns: {
     type: [
       {
+        _id: false,
         include: Boolean,
         type: {
           type: String,
@@ -270,10 +271,12 @@ export const updateVisualChangeset = async ({
   changesetId,
   organization,
   updates,
+  bypassWebhooks,
 }: {
   changesetId: string;
   organization: OrganizationInterface;
   updates: Partial<VisualChangesetInterface>;
+  bypassWebhooks?: boolean;
 }) => {
   const visualChangeset = await findVisualChangesetById(
     changesetId,
@@ -315,6 +318,7 @@ export const updateVisualChangeset = async ({
       ...(isUpdatingVisualChanges ? { visualChanges } : {}),
     },
     organization,
+    bypassWebhooks,
   });
 
   return { nModified: res.nModified, visualChanges };
@@ -343,11 +347,15 @@ const onVisualChangesetUpdate = async ({
   organization,
   oldVisualChangeset,
   newVisualChangeset,
+  bypassWebhooks = false,
 }: {
   organization: OrganizationInterface;
   oldVisualChangeset: VisualChangesetInterface;
   newVisualChangeset: VisualChangesetInterface;
+  bypassWebhooks?: boolean;
 }) => {
+  if (bypassWebhooks) return;
+
   // if no visual changes or url patterns changes, return early
   const oldVisualChanges = oldVisualChangeset.visualChanges.map(
     ({ css, domMutations }) => ({ css, domMutations })
@@ -422,10 +430,11 @@ export const syncVisualChangesWithVariations = async ({
     organization,
     changesetId: visualChangeset.id,
     updates: { visualChanges: newVisualChanges },
+    // bypass webhooks since we are only creating new (empty) visual changes
+    bypassWebhooks: true,
   });
 };
 
-// TODO implement in UI
 export const deleteVisualChangesetById = async ({
   changesetId,
   organization,

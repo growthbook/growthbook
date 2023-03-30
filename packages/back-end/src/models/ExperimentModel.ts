@@ -864,7 +864,8 @@ const _isValidVisualExperiment = (
 ): e is VisualExperiment => !!e.experiment && !!e.visualChangeset;
 
 export const getAllVisualExperiments = async (
-  organization: string
+  organization: string,
+  project?: string
 ): Promise<Array<VisualExperiment>> => {
   const visualChangesets = await findVisualChangesets(organization);
 
@@ -883,6 +884,7 @@ export const getAllVisualExperiments = async (
       id: {
         $in: visualChangesets.map((changeset) => changeset.experiment),
       },
+      ...(project ? { project } : {}),
       organization,
       archived: false,
     })
@@ -899,14 +901,14 @@ export const getAllVisualExperiments = async (
       );
     });
 
-  const visualExperiments: Array<
-    Partial<VisualExperiment>
-  > = visualChangesets.map((c) => ({
-    experiment: experiments.find((e) => e.id === c.experiment),
-    visualChangeset: c,
-  }));
+  const visualExperiments: Array<VisualExperiment> = visualChangesets
+    .map((c) => ({
+      experiment: experiments.find((e) => e.id === c.experiment),
+      visualChangeset: c,
+    }))
+    .filter(_isValidVisualExperiment);
 
-  return visualExperiments.filter(_isValidVisualExperiment);
+  return visualExperiments;
 };
 
 export const getPayloadKeys = (

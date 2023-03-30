@@ -245,10 +245,9 @@ async function getFeatureDefinitionsResponse(
     JSON.stringify(features),
     encryptionKey
   );
-  const encryptedExperiments = await encrypt(
-    JSON.stringify(experiments),
-    encryptionKey
-  );
+  const encryptedExperiments = includeVisualExperiments
+    ? await encrypt(JSON.stringify(experiments), encryptionKey)
+    : undefined;
 
   return {
     features: {},
@@ -312,7 +311,10 @@ export async function getFeatureDefinitions(
   const groupMap = await getSavedGroupMap(org);
   const featureDefinitions = generatePayload(features, environment, groupMap);
 
-  const allVisualExperiments = await getAllVisualExperiments(organization);
+  const allVisualExperiments = await getAllVisualExperiments(
+    organization,
+    project
+  );
 
   // Generate visual experiments
   const experimentsDefinitions = generateVisualExperimentsPayload(
