@@ -836,7 +836,7 @@ export function postMetricApiPayloadIsValid(
   payload: z.infer<typeof postMetricValidator.bodySchema>,
   datasource: Pick<DataSourceInterface, "type">
 ): { valid: true } | { valid: false; error: string } {
-  const { type, sql, sqlBuilder, mixpanel } = payload;
+  const { type, sql, sqlBuilder, mixpanel, behavior } = payload;
 
   // Validate query format: sql, sqlBuilder, mixpanel
   let queryFormatCount = 0;
@@ -854,6 +854,27 @@ export function postMetricApiPayloadIsValid(
       valid: false,
       error: "Can only specify one of: sql, sqlBuilder, mixpanel",
     };
+  }
+
+  // Validate behavior
+  if (behavior) {
+    if (
+      typeof behavior.riskThresholdDanger !== "undefined" &&
+      behavior.riskThresholdDanger < 0
+    )
+      return {
+        valid: false,
+        error: "riskThresholdDanger must be a non-negative number",
+      };
+
+    if (
+      typeof behavior.riskThresholdSuccess !== "undefined" &&
+      behavior.riskThresholdSuccess < 0
+    )
+      return {
+        valid: false,
+        error: "riskThresholdSuccess must be a non-negative number",
+      };
   }
 
   // Validate for payload.sql
@@ -896,14 +917,15 @@ export function postMetricApiPayloadIsValid(
   }
 
   // Validate conversion window
-  if (
-    typeof payload.behavior?.conversionWindowEnd !== "undefined" &&
-    typeof payload.behavior?.conversionWindowStart === "undefined"
-  ) {
+  const conversionWindowEndExists =
+    typeof payload.behavior?.conversionWindowEnd !== "undefined";
+  const conversionWindowStartExists =
+    typeof payload.behavior?.conversionWindowStart !== "undefined";
+  if (conversionWindowEndExists !== conversionWindowStartExists) {
     return {
       valid: false,
       error:
-        "Must specify `behavior.conversionWindowStart` when providing `behavior.conversionWindowEnd`",
+        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
     };
   }
 

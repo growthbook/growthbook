@@ -111,7 +111,36 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
-        "Must specify `behavior.conversionWindowStart` when providing `behavior.conversionWindowEnd`"
+        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
+      );
+    });
+
+    it("should return a failed result when conversionWindowStart provided but not conversionWindowEnd", () => {
+      const datasource: Pick<DataSourceInterface, "type"> = {
+        type: "postgres",
+      };
+      const input: z.infer<typeof postMetricValidator.bodySchema> = {
+        datasourceId: "ds_abc123",
+        sql: {
+          identifierTypes: ["user_id"],
+          conversionSQL: "select * from foo",
+          userAggregationSQL: "sum(values)",
+        },
+        behavior: {
+          conversionWindowStart: 0,
+        },
+        name: "My Cool Metric",
+        type: "count",
+      };
+
+      const result = postMetricApiPayloadIsValid(input, datasource) as {
+        valid: false;
+        error: string;
+      };
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toEqual(
+        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
       );
     });
   });

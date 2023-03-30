@@ -2009,13 +2009,15 @@ export interface operations {
             goal?: "increase" | "decrease";
             /** @description This should be non-negative */
             cap?: number;
-            /** @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) */
+            /** @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
             conversionWindowStart?: number;
-            /** @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). */
+            /** @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
             conversionWindowEnd?: number;
+            /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number. */
             riskThresholdSuccess?: number;
+            /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
             riskThresholdDanger?: number;
-            /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
+            /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
             minPercentChange?: number;
             /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
             maxPercentChange?: number;
@@ -2025,7 +2027,7 @@ export interface operations {
           sql?: {
             identifierTypes: (string)[];
             conversionSQL: string;
-            /** @description Custom user level aggregation for your metric (default: SUM(value)) */
+            /** @description Custom user level aggregation for your metric (default: `SUM(value)`) */
             userAggregationSQL?: string;
             /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics) */
             denominatorMetricId?: string;
