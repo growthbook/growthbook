@@ -4,6 +4,10 @@ import { FaExternalLinkAlt } from "react-icons/fa";
 import { getApiHost } from "@/services/env";
 import Modal from "./Modal";
 
+// TODO - parameterize this
+const CHROME_EXTENSION_LINK =
+  "https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia";
+
 const OpenVisualEditorLink: FC<{
   visualEditorUrl?: string;
   id: string;
@@ -13,6 +17,11 @@ const OpenVisualEditorLink: FC<{
   const apiHost = getApiHost();
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
+
+  const isChromeBrowser = useMemo(() => {
+    const ua = navigator.userAgent;
+    return ua.indexOf("Chrome") > -1 && ua.indexOf("Edge") === -1;
+  }, []);
 
   const url = useMemo(() => {
     if (!visualEditorUrl) return "";
@@ -84,15 +93,27 @@ const OpenVisualEditorLink: FC<{
           close={() => setShowExtensionDialog(false)}
           closeCta="Close"
           cta="View extension"
-          submit={() => {
-            window.open(
-              // TODO - parameterize this
-              "https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia"
-            );
-          }}
+          submit={
+            isChromeBrowser
+              ? () => {
+                  window.open(CHROME_EXTENSION_LINK);
+                }
+              : undefined
+          }
         >
-          You&apos;ll need to install the GrowthBook DevTools Chrome extension
-          to use the visual editor.{" "}
+          {isChromeBrowser ? (
+            `You'll need to install the GrowthBook DevTools Chrome extension
+          to use the visual editor.`
+          ) : (
+            <>
+              The Visual Editor is currently only supported in Chrome. We are
+              working on bringing the Visual Editor to other browsers.{" "}
+              <a href={CHROME_EXTENSION_LINK} target="_blank" rel="noreferrer">
+                Click here to proceed anyway
+              </a>
+              .
+            </>
+          )}
         </Modal>
       )}
     </>
