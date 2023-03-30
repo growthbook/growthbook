@@ -1,4 +1,4 @@
-import { each, flatten, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
+import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
@@ -31,7 +31,6 @@ import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
 import {
   findVisualChangesets,
-  findVisualChangesetsByExperiment,
   VisualChangesetModel,
 } from "./VisualChangesetModel";
 
@@ -930,28 +929,6 @@ export const getPayloadKeys = (
   }));
 };
 
-const getAllVisualChanges = async (
-  organization: OrganizationInterface,
-  experiment: ExperimentInterface
-) => {
-  const visualChangesets = await findVisualChangesetsByExperiment(
-    experiment.id,
-    organization.id
-  );
-
-  if (!visualChangesets.length) return [];
-
-  const importantKeys: Array<keyof VisualChange> = [
-    "css",
-    "domMutations",
-    "variation",
-  ];
-
-  const visualChanges = flatten(visualChangesets.map((vc) => vc.visualChanges));
-
-  return visualChanges.map((vc) => pick(vc, importantKeys));
-};
-
 const getExperimentChanges = (
   experiment: ExperimentInterface
 ): Omit<ExperimentInterface, "variations"> & {
@@ -978,37 +955,17 @@ const getExperimentChanges = (
   };
 };
 
-const hasChangesForSDKPayloadRefresh = async ({
-  organization,
-  oldExperiment,
-  newExperiment,
-}: {
-  organization: OrganizationInterface;
-  oldExperiment: ExperimentInterface;
-  newExperiment: ExperimentInterface;
-}): Promise<boolean> => {
+const hasChangesForSDKPayloadRefresh = (
+  oldExperiment: ExperimentInterface,
+  newExperiment: ExperimentInterface
+): boolean => {
   // We don't need to refresh the payload for experiments without visual changesets
   if (!newExperiment.hasVisualChangesets) return false;
 
   const oldChanges = getExperimentChanges(oldExperiment);
   const newChanges = getExperimentChanges(newExperiment);
 
-  const hasExperimentChanges = !isEqual(oldChanges, newChanges);
-
-  if (hasExperimentChanges) return true;
-
-  const oldVisualChanges = await getAllVisualChanges(
-    organization,
-    oldExperiment
-  );
-  const newVisualChanges = await getAllVisualChanges(
-    organization,
-    newExperiment
-  );
-
-  const hasVisualChanges = !isEqual(oldVisualChanges, newVisualChanges);
-
-  return hasVisualChanges;
+  return !isEqual(oldChanges, newChanges);
 };
 
 const onExperimentCreate = async ({
@@ -1043,23 +1000,21 @@ const onExperimentUpdate = async ({
     user,
   });
 
-  if (bypassWebhooks) return;
+  if (
+    !bypassWebhooks &&
+    hasChangesForSDKPayloadRefresh(oldExperiment, newExperiment)
+  ) {
+    const oldPayloadKeys = oldExperiment
+      ? getPayloadKeys(organization, oldExperiment)
+      : [];
+    const newPayloadKeys = getPayloadKeys(organization, newExperiment);
+    const payloadKeys = uniqWith(
+      [...oldPayloadKeys, ...newPayloadKeys],
+      isEqual
+    );
 
-  const hasChanges = await hasChangesForSDKPayloadRefresh({
-    organization,
-    oldExperiment,
-    newExperiment,
-  });
-
-  if (!hasChanges) return;
-
-  const oldPayloadKeys = oldExperiment
-    ? getPayloadKeys(organization, oldExperiment)
-    : [];
-  const newPayloadKeys = getPayloadKeys(organization, newExperiment);
-  const payloadKeys = uniqWith([...oldPayloadKeys, ...newPayloadKeys], isEqual);
-
-  refreshSDKPayloadCache(organization, payloadKeys);
+    refreshSDKPayloadCache(organization, payloadKeys);
+  }
 };
 
 const onExperimentDelete = async (
@@ -1069,7 +1024,8 @@ const onExperimentDelete = async (
 ) => {
   await logExperimentDeleted(organization, user, experiment);
 
-  const payloadKeys = getPayloadKeys(organization, experiment);
-
-  refreshSDKPayloadCache(organization, payloadKeys);
+  if (experiment.hasVisualChangesets) {
+    const payloadKeys = getPayloadKeys(organization, experiment);
+    refreshSDKPayloadCache(organization, payloadKeys);
+  }
 };
