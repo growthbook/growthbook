@@ -4,7 +4,7 @@
 
 This is the React client library that lets you evaluate feature flags and run experiments (A/B tests) within a React application. It is a thin wrapper around the [Javascript SDK](https://docs.growthbook.io/lib/js), so you might want to view those docs first to familiarize yourself with the basic classes and methods.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-5.7KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-7.84KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -15,6 +15,7 @@ This is the React client library that lets you evaluate feature flags and run ex
 - **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
 - Run mutually exclusive experiments with **namespaces**
 - **Remote configuration** to change feature values without deploying new code
+- Run **Visual Experiments** without writing code by using the GrowthBook Visual Editor
 
 ## Community
 
