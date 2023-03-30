@@ -29,6 +29,7 @@ import {
 import useSDKConnections from "@/hooks/useSDKConnections";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { AppFeatures } from "@/types/app-features";
+import track from "@/services/track";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -862,6 +863,10 @@ export default function SinglePage({
                         }),
                       });
                       await mutate();
+                      track("Start experiment", {
+                        source: "visual-editor-ui",
+                        action: "main CTA",
+                      });
                     }}
                   >
                     Start Experiment <MdRocketLaunch />
@@ -871,6 +876,7 @@ export default function SinglePage({
                     color="link"
                     onClick={async () => {
                       editPhase(experiment.phases.length - 1);
+                      track("Edit phase", { source: "visual-editor-ui" });
                     }}
                   >
                     Edit Targeting
@@ -899,7 +905,13 @@ export default function SinglePage({
               {hasVisualEditorFeature && canEdit ? (
                 <button
                   className="btn btn-primary btn-lg"
-                  onClick={() => setVisualEditorModal(true)}
+                  onClick={() => {
+                    setVisualEditorModal(true);
+                    track("Open visual editor modal", {
+                      source: "visual-editor-ui",
+                      action: "add",
+                    });
+                  }}
                 >
                   Open Visual Editor
                 </button>
@@ -926,6 +938,10 @@ export default function SinglePage({
                       }),
                     });
                     await mutate();
+                    track("Start experiment", {
+                      source: "visual-editor-ui",
+                      action: "bypass visual editor",
+                    });
                   }}
                 >
                   Start Experiment <MdRocketLaunch />

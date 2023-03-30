@@ -2,6 +2,7 @@ import { FC, useMemo, useState } from "react";
 import qs from "query-string";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { getApiHost } from "@/services/env";
+import track from "@/services/track";
 import Modal from "./Modal";
 
 // TODO - parameterize this
@@ -52,6 +53,10 @@ const OpenVisualEditorLink: FC<{
           if (!visualEditorUrl) {
             e.preventDefault();
             setShowEditorUrlDialog(true);
+            track("Open visual editor", {
+              source: "visual-editor-ui",
+              status: "missing visualEditorUrl",
+            });
             return;
           }
 
@@ -63,8 +68,17 @@ const OpenVisualEditorLink: FC<{
           if (!isExtensionInstalled) {
             e.preventDefault();
             setShowExtensionDialog(true);
+            track("Open visual editor", {
+              source: "visual-editor-ui",
+              status: "missing extension",
+            });
             return;
           }
+
+          track("Open visual editor", {
+            source: "visual-editor-ui",
+            status: "success",
+          });
         }}
       >
         Open Visual Editor <FaExternalLinkAlt />

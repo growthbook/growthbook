@@ -14,6 +14,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import track from "@/services/track";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
 import { GBEdit } from "../Icons";
@@ -258,6 +259,10 @@ const VariationsTable: FC<Props> = ({
                                 onClick={(e) => {
                                   e.preventDefault();
                                   setEditingVisualChangeset(vc);
+                                  track("Open visual editor modal", {
+                                    source: "visual-editor-ui",
+                                    action: "edit",
+                                  });
                                 }}
                               >
                                 <GBEdit />
@@ -319,6 +324,9 @@ const VariationsTable: FC<Props> = ({
                                       }
                                     );
                                     mutate();
+                                    track("Delete visual changeset", {
+                                      source: "visual-editor-ui",
+                                    });
                                   }}
                                   displayName="Visual Changes"
                                 />

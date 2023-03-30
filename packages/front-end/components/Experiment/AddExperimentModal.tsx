@@ -1,6 +1,7 @@
 import { FC, useState } from "react";
 import { IconType } from "react-icons";
 import { GoBeaker, GoGraph } from "react-icons/go";
+import track from "@/services/track";
 import Modal from "../Modal";
 import styles from "./AddExperimentModal.module.scss";
 import ImportExperimentModal from "./ImportExperimentModal";
@@ -43,6 +44,7 @@ const AddExperimentModal: FC<{
       Icon: GoGraph,
       onClick: () => {
         setMode("import");
+        track("Analyze an Existing Experiment", { source });
       },
     },
     {
@@ -52,6 +54,7 @@ const AddExperimentModal: FC<{
       Icon: GoBeaker,
       onClick: () => {
         setMode("new");
+        track("Design a New Experiment", { source });
       },
     },
   ];
