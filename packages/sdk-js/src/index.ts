@@ -29,3 +29,5 @@ export type { ConditionInterface } from "./types/mongrule";
 export { setPolyfills, clearCache, configureCache } from "./feature-repository";
 
 export { GrowthBook } from "./GrowthBook";
+
+export { isURLTargeted } from "./util";

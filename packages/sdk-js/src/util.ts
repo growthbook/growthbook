@@ -80,6 +80,58 @@ export function isURLTargeted(url: string, targets: UrlTarget[]) {
   return isIncluded || !hasIncludeRules;
 }
 
+function _evalSimpleUrlPart(
+  actual: string,
+  pattern: string,
+  isPath: boolean
+): boolean {
+  try {
+    // Escape special regex characters and change wildcard `*` to `.*`
+    let escaped = pattern
+      .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/\*/g, ".*");
+
+    if (isPath) {
+      // When matching pathname, make leading/trailing slashes optional
+      escaped = "\\/?" + escaped.replace(/(^\/|\/$)/g, "") + "\\/?";
+    }
+
+    console.log(escaped);
+    const regex = new RegExp("^" + escaped + "$", "i");
+    return regex.test(actual);
+  } catch (e) {
+    return false;
+  }
+}
+
+function _evalSimpleUrlTarget(url: string, pattern: string) {
+  try {
+    const actual = new URL(url, "https://_");
+    // If a protocol is missing, but a host is specified, add `https://` to the front
+    const expected = new URL(
+      pattern.replace(/^([^:/?]*)\./i, "https://$1."),
+      "https://*"
+    );
+
+    // Compare each part of the URL separately
+    const comps: Array<[string, string, boolean]> = [
+      [actual.host, expected.host, false],
+      [actual.pathname, expected.pathname, true],
+      [actual.hash, expected.hash, false],
+    ];
+    expected.searchParams.forEach((v, k) => {
+      comps.push([actual.searchParams.get(k) || "", v, false]);
+    });
+
+    // If any comparisons fail, the whole thing fails
+    return !comps.some(
+      (data) => !_evalSimpleUrlPart(data[0], data[1], data[2])
+    );
+  } catch (e) {
+    return false;
+  }
+}
+
 function _evalURLTarget(
   url: string,
   type: UrlTargetType,
@@ -93,6 +145,8 @@ function _evalURLTarget(
     const regex = getUrlRegExp(pattern);
     if (!regex) return false;
     return regex.test(url) || regex.test(pathOnly);
+  } else if (type === "simple") {
+    return _evalSimpleUrlTarget(url, pattern);
   }
 
   return false;
