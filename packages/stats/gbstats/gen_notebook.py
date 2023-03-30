@@ -84,7 +84,7 @@ def create_notebook(
             f"var_names = {str(var_names)}\n\n"
             "# Expected traffic split between variations\n"
             f"weights = {str(weights)}\n"
-            "# Statistics engine to user\n"
+            "# Statistics engine to use\n"
             f"stats_engine = {str(stats_engine)}\n"
             f"# Columns to show in the result summary\n"
             f"summary_cols = {str(summary_cols)}"

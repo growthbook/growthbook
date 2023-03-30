@@ -490,7 +490,7 @@ export default abstract class SqlIntegration
         variation: row.variation ?? "",
         dimension: row.dimension || "",
         users: parseInt(row.users) || 0,
-        count: parseInt(row.users) || 0,
+        count: parseInt(row.count) || 0,
         statistic_type: row.statistic_type ?? "",
         main_metric_type: row.main_metric_type ?? "",
         main_sum: parseFloat(row.main_sum) || 0,
@@ -1182,6 +1182,7 @@ export default abstract class SqlIntegration
         u.variation,
         u.dimension,
         ${metric.ignoreNulls ? "COALESCE(s.count, 0)" : "u.users"} AS users,
+        ${metric.ignoreNulls ? "COALESCE(s.count, 0)" : "u.users"} AS count,
         '${this.getStatisticType(
           isRatio,
           isRegressionAdjusted
