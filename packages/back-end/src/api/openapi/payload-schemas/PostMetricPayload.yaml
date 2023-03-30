@@ -70,7 +70,7 @@ properties:
         type: number
   sql:
     type: object
-    description: "Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed."
+    description: "Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified."
     required:
       - identifierTypes
       - conversionSQL
@@ -89,7 +89,7 @@ properties:
         description: "The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)"
   sqlBuilder:
     type: object
-    description: "An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed."
+    description: "An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified."
     required:
       - identifierTypeColumns
       - tableName
@@ -130,7 +130,7 @@ properties:
               type: string
   mixpanel:
     type: object
-    description: "Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed."
+    description: "Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified."
     required:
       - eventName
       - userAggregation

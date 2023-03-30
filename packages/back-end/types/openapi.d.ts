@@ -2023,7 +2023,7 @@ export interface operations {
             maxPercentChange?: number;
             minSampleSize?: number;
           };
-          /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
+          /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified. */
           sql?: {
             identifierTypes: (string)[];
             conversionSQL: string;
@@ -2032,7 +2032,7 @@ export interface operations {
             /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics) */
             denominatorMetricId?: string;
           };
-          /** @description An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
+          /** @description An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified. */
           sqlBuilder?: {
             identifierTypeColumns: ({
                 identifierType: string;
@@ -2047,7 +2047,7 @@ export interface operations {
                 value: string;
               })[];
           };
-          /** @description Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
+          /** @description Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified. */
           mixpanel?: {
             eventName: string;
             eventValue?: string;
