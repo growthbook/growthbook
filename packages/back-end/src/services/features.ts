@@ -71,7 +71,7 @@ function generateVisualExperimentsPayload(
           : null;
 
       let condition;
-      if (phase.condition && phase.condition !== "{}") {
+      if (phase?.condition && phase.condition !== "{}") {
         try {
           condition = JSON.parse(
             replaceSavedGroupsInCondition(phase.condition, groupMap)

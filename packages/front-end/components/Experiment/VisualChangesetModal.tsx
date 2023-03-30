@@ -2,16 +2,19 @@ import { VisualChangesetInterface } from "@/../back-end/types/visual-changeset";
 import { FC, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
+import { isURLTargeted } from "@growthbook/growthbook";
 import SelectField from "@/components/Forms/SelectField";
 import { useAuth } from "@/services/auth";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "../Forms/Field";
 import { GBAddCircle } from "../Icons";
 import Modal from "../Modal";
 
-const defaultType = "exact";
+const defaultType = "simple";
 
 const VisualChangesetModal: FC<{
-  mode: "create" | "edit";
+  mode: "add" | "edit";
   experiment: ExperimentInterfaceStringDates;
   visualChangeset?: VisualChangesetInterface;
   mutate: () => void;
@@ -60,7 +63,7 @@ const VisualChangesetModal: FC<{
         { pattern: value.editorUrl, type: defaultType, include: true },
       ];
     }
-    if (mode === "create") {
+    if (mode === "add") {
       await apiCall(`/experiments/${experiment.id}/visual-changeset`, {
         method: "POST",
         body: JSON.stringify(payload),
@@ -78,21 +81,28 @@ const VisualChangesetModal: FC<{
   const editorUrlLabel = !showAdvanced
     ? "Target URL"
     : "URL to edit with Visual Editor";
-  const editorUrlHelpText = !showAdvanced
-    ? "Exact match of the URL to edit"
-    : "When clicking the Open Visual Editor button, this page will be opened.";
+  const editorUrlHelpText = !showAdvanced ? undefined : (
+    <>
+      Clicking the <strong>Open Visual Editor</strong> button will open this URL
+    </>
+  );
+
+  const patternsMatchUrl =
+    !showAdvanced ||
+    isURLTargeted(form.watch("editorUrl"), form.watch("urlPatterns"));
 
   return (
     <Modal
       open
       close={close}
       size="lg"
-      header="Add Visual Changes"
+      header={`${mode === "add" ? "Add" : "Modify"} Visual Changes`}
       submit={onSubmit}
     >
       <Field
         required
         label={editorUrlLabel}
+        containerClassName="mb-2"
         helpText={editorUrlHelpText}
         {...form.register("editorUrl", {
           required: true,
@@ -105,9 +115,14 @@ const VisualChangesetModal: FC<{
           },
         })}
       />
+      {!patternsMatchUrl && (
+        <div className="alert alert-warning mt-3">
+          <FaExclamationCircle /> Your URL patterns do not match the target URL
+        </div>
+      )}
 
       {!forceAdvancedMode && (
-        <div className="mt-1 mb-3 text-xs">
+        <div className="my-3 text-xs">
           <span
             className="btn-link cursor-pointer"
             onClick={() => setShowAdvanced(!showAdvanced)}
@@ -117,7 +132,10 @@ const VisualChangesetModal: FC<{
         </div>
       )}
 
-      <div style={{ display: showAdvanced ? "block" : "none" }}>
+      <div
+        className="mt-4"
+        style={{ display: showAdvanced ? "block" : "none" }}
+      >
         <label>URL Targeting</label>
         {urlPatterns.fields.map((p, i) => (
           <div key={i} className="mb-2">
@@ -143,9 +161,11 @@ const VisualChangesetModal: FC<{
                 <SelectField
                   value={form.watch(`urlPatterns.${i}.type`)}
                   options={[
+                    { label: "Simple", value: "simple" },
                     { label: "Exact", value: "exact" },
                     { label: "Regex", value: "regex" },
                   ]}
+                  sort={false}
                   onChange={(v) => form.setValue(`urlPatterns.${i}.type`, v)}
                 />
               </div>
@@ -166,28 +186,84 @@ const VisualChangesetModal: FC<{
             </div>
             <div className="row">
               <div className="col-2"></div>
-              <div className="col pr-4">
+              <div className="col-7 px-3">
                 <div className="small text-muted">
-                  {form.watch(`urlPatterns.${i}.type`) === "exact" ? (
-                    <>
-                      <strong>Exact</strong>: Matches a URL or path exactly as
-                      it is represented.{" "}
-                      <code>http://www.example.com/pricing</code> will be
-                      targeted separately from{" "}
-                      <code>http://www.example.com/pricing/</code>
-                    </>
+                  {form.watch(`urlPatterns.${i}.type`) === "simple" ? (
+                    <Tooltip
+                      tipMinWidth={"500px"}
+                      body={
+                        <>
+                          <ul className="px-4">
+                            <li>
+                              Both <code>pricing</code> and{" "}
+                              <code>/pricing/</code> will match
+                              &quot;https://www.example.com/pricing/?a=1&quot;
+                              (leading and trailing slashes are ignored)
+                            </li>
+                            <li>
+                              <code>?c=3&a=1</code> will match
+                              &quot;https://www.example.com/?a=1&b=2&c=3&quot;
+                              (order and excluded querystrings are ignored)
+                            </li>
+                            <li>
+                              Wildcard support:{" "}
+                              <code>/post/*/edit?key=abc-*</code>
+                            </li>
+                            <li>
+                              Using wildcards to restrict by domain:{" "}
+                              <code>*.example.com/post/*</code>
+                            </li>
+                          </ul>
+                        </>
+                      }
+                    >
+                      <strong>Simple</strong>: Matches a URL using intuitive
+                      rules <FaInfoCircle />
+                    </Tooltip>
+                  ) : form.watch(`urlPatterns.${i}.type`) === "exact" ? (
+                    <Tooltip
+                      tipMinWidth={"500px"}
+                      body={
+                        <>
+                          <code>http://www.example.com/pricing</code> will be
+                          targeted separately from{" "}
+                          <code>http://www.example.com/pricing/</code>
+                        </>
+                      }
+                    >
+                      <strong>Exact</strong>: Strict matching of URL or path{" "}
+                      <FaInfoCircle />
+                    </Tooltip>
                   ) : form.watch(`urlPatterns.${i}.type`) === "regex" ? (
-                    <>
+                    <Tooltip
+                      tipMinWidth={"500px"}
+                      body={
+                        <>
+                          <ul className="px-4">
+                            <li>
+                              <code style={{ whiteSpace: "nowrap" }}>
+                                https:?\/\/(www\.)?example\.com\/pricing\/?
+                              </code>{" "}
+                              will match both
+                              &quot;https://www.example.com/pricing&quot; and
+                              &quot;http://example.com/pricing/&quot;
+                            </li>
+                            <li>
+                              <code style={{ whiteSpace: "nowrap" }}>
+                                \/pricing\/?
+                              </code>{" "}
+                              will <em>also</em> match both
+                              &quot;https://www.example.com/pricing&quot; and
+                              &quot;http://example.com/pricing/&quot; (matching
+                              by path)
+                            </li>
+                          </ul>
+                        </>
+                      }
+                    >
                       <strong>Regex</strong>: Matches a URL or path via regular
-                      expression. Both:{" "}
-                      <code style={{ whiteSpace: "nowrap" }}>
-                        https:?\/\/(www\.)?example\.com\/pricing\/?
-                      </code>{" "}
-                      and{" "}
-                      <code style={{ whiteSpace: "nowrap" }}>\/pricing\/?</code>{" "}
-                      will match &quot;https://www.example.com/pricing&quot; and
-                      &quot;http://example.com/pricing/&quot;
-                    </>
+                      expression <FaInfoCircle />
+                    </Tooltip>
                   ) : null}
                 </div>
               </div>
@@ -196,10 +272,14 @@ const VisualChangesetModal: FC<{
         ))}
 
         <button
-          className="btn btn-link mt-2"
+          className="btn btn-link mt-1"
           onClick={(e) => {
             e.preventDefault();
-            urlPatterns.append({ pattern: "", type: "exact", include: true });
+            urlPatterns.append({
+              pattern: "",
+              type: defaultType,
+              include: true,
+            });
           }}
         >
           <GBAddCircle /> Add URL Target

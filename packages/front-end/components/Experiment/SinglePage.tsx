@@ -367,7 +367,7 @@ export default function SinglePage({
       )}
       {visualEditorModal && (
         <VisualChangesetModal
-          mode="create"
+          mode="add"
           experiment={experiment}
           mutate={mutate}
           close={() => setVisualEditorModal(false)}
@@ -632,7 +632,11 @@ export default function SinglePage({
               />{" "}
             </div>
             <div className="px-3">
-              <HeaderWithEdit edit={editVariations}>Variations</HeaderWithEdit>
+              <HeaderWithEdit edit={editVariations}>
+                <>
+                  Variations <small>({experiment.variations.length})</small>
+                </>
+              </HeaderWithEdit>
             </div>
             <VariationsTable
               experiment={experiment}
@@ -845,7 +849,7 @@ export default function SinglePage({
                   your experiment before you start
                 </div>
               ) : hasSDKWithVisualExperimentsEnabled ? (
-                <div className="appbox text-center  px-3 py-5">
+                <div className="appbox text-center px-3 py-5">
                   <p>Done setting everything up?</p>
                   <Button
                     color="primary"
@@ -863,6 +867,7 @@ export default function SinglePage({
                     Start Experiment <MdRocketLaunch />
                   </Button>{" "}
                   <Button
+                    className="ml-2"
                     color="link"
                     onClick={async () => {
                       editPhase(experiment.phases.length - 1);

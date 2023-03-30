@@ -1290,6 +1290,26 @@ pre {
       border-bottom: 7px solid colors.$variant-3;
     }
   }
+
+  &.with-variation-right-shadow {
+    box-shadow: -3px 0 0 colors.$variant-null inset;
+    &.variation0,
+    &.variation4 {
+      box-shadow: -3px 0 0 colors.$variant-0 inset;
+    }
+    &.variation1,
+    &.variation5 {
+      box-shadow: -3px 0 0 colors.$variant-1 inset;
+    }
+    &.variation2,
+    &.variation6 {
+      box-shadow: -3px 0 0 colors.$variant-2 inset;
+    }
+    &.variation3,
+    &.variation7 {
+      box-shadow: -3px 0 0 colors.$variant-3 inset;
+    }
+  }
 }
 
 .bg-purple {

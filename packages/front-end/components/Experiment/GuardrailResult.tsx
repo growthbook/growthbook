@@ -105,7 +105,7 @@ const GuardrailResults: FC<{
               return (
                 <tr key={i}>
                   <th
-                    className={`variation with-variation-label variation${i} font-weight-normal`}
+                    className={`variation with-variation-right-shadow variation${i} font-weight-normal`}
                   >
                     <span className="name">{v.name}</span>
                   </th>
