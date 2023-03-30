@@ -98,6 +98,5 @@ export const logger: BaseLogger = {
     // eslint-disable-next-line
     // @ts-ignore
     httpLogger.logger.warn(...args);
-    Sentry.captureMessage(JSON.stringify(args));
   },
 };
