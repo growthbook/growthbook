@@ -46,9 +46,8 @@ const OpenVisualEditorLink: FC<{
 
   return (
     <>
-      <a
+      <span
         className="btn btn-sm btn-primary"
-        href={url || "#"}
         onClick={async (e) => {
           if (!visualEditorUrl) {
             e.preventDefault();
@@ -57,24 +56,24 @@ const OpenVisualEditorLink: FC<{
               source: "visual-editor-ui",
               status: "missing visualEditorUrl",
             });
-            return;
+            return false;
           }
 
-          let isExtensionInstalled: boolean;
-          const extResp = await fetch(
+          let isExtensionInstalled = false;
+          await fetch(
             "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo192.png",
             {
               method: "HEAD",
             }
-          );
-          if (extResp.status === 200) {
-            isExtensionInstalled = true;
-          } else {
-            // check if extension is installed
-            isExtensionInstalled = !!document.getElementById(
-              "__gb_visual_editor"
-            );
-          }
+          )
+            .then((resp) => {
+              if (resp.status === 200) {
+                isExtensionInstalled = true;
+              }
+            })
+            .catch((e) => {
+              console.log("chrome extension check failed", e.message);
+            });
 
           if (!isExtensionInstalled) {
             e.preventDefault();
@@ -83,17 +82,20 @@ const OpenVisualEditorLink: FC<{
               source: "visual-editor-ui",
               status: "missing extension",
             });
-            return;
+            return false;
           }
 
-          track("Open visual editor", {
-            source: "visual-editor-ui",
-            status: "success",
-          });
+          if (url) {
+            track("Open visual editor", {
+              source: "visual-editor-ui",
+              status: "success",
+            });
+            window.location.href = url;
+          }
         }}
       >
         Open Visual Editor <FaExternalLinkAlt />
-      </a>
+      </span>
 
       {showEditorUrlDialog && openSettings && (
         <Modal
