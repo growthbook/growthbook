@@ -87,6 +87,9 @@ def get_metric_df(
             prefix = f"v{i}" if i > 0 else "baseline"
             for col in SUM_COLS:
                 dimensions[dim][f"{prefix}_{col}"] = getattr(row, col, 0)
+            # Special handling for count, if missing returnes a method, so override with user value
+            if callable(getattr(row, "count")):
+                dimensions[dim][f"{prefix}_count"] = getattr(row, "users", 0)
 
     return pd.DataFrame(dimensions.values())
 

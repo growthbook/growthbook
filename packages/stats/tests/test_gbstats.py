@@ -15,7 +15,11 @@ from gbstats.gbstats import (
 )
 from gbstats.messages import RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR
 from gbstats.shared.constants import StatsEngine
-from gbstats.shared.models import RegressionAdjustedStatistic, SampleMeanStatistic, ProportionStatistic
+from gbstats.shared.models import (
+    RegressionAdjustedStatistic,
+    SampleMeanStatistic,
+    ProportionStatistic,
+)
 
 DECIMALS = 9
 round_ = partial(np.round, decimals=DECIMALS)
@@ -189,6 +193,19 @@ RA_STATISTICS_DF = pd.DataFrame(
 ).assign(
     statistic_type="mean_ra", main_metric_type="count", covariate_metric_type="count"
 )
+
+
+class TestGetMetricDf(TestCase):
+    def test_get_metric_df_missing_count(self):
+        rows = MULTI_DIMENSION_STATISTICS_DF.drop("count", axis=1)
+        df = get_metric_df(
+            rows,
+            {"zero": 0, "one": 1},
+            ["zero", "one"],
+        )
+        for i, row in df.iterrows():
+            self.assertEqual(row["baseline_count"], row["baseline_users"])
+            self.assertEqual(row["v1_count"], row["v1_users"])
 
 
 class TestBaseStatisticBuilder(TestCase):
@@ -546,10 +563,10 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
     def test_analyze_metric_df_ra_proportion(self):
         rows = RA_STATISTICS_DF
         # override default DF
-        rows['main_metric_type'] = 'binomial'
-        rows['covariate_metric_type'] = 'binomial'
-        rows['main_sum_squares'] = None
-        rows['covariate_sum_squares'] = None
+        rows["main_metric_type"] = "binomial"
+        rows["covariate_metric_type"] = "binomial"
+        rows["main_sum_squares"] = None
+        rows["covariate_sum_squares"] = None
         df = get_metric_df(rows, {"zero": 0, "one": 1}, ["zero", "one"])
         result = analyze_metric_df(
             df=df, weights=[0.5, 0.5], inverse=False, engine=StatsEngine.FREQUENTIST
