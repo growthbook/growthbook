@@ -11,6 +11,7 @@ export const putVisualChangeset = createApiRequestHandler(
       changesetId: req.params.id,
       organization: req.organization,
       updates: req.body,
+      user: req.eventAudit,
     });
 
     return {

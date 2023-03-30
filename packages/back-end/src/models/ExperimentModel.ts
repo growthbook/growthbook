@@ -149,6 +149,7 @@ const experimentSchema = new mongoose.Schema({
   autoSnapshots: Boolean,
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
+  hasVisualChangesets: Boolean,
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -297,12 +298,19 @@ export async function createExperiment({
   return toInterface(exp);
 }
 
-export async function updateExperiment(
-  organization: OrganizationInterface,
-  experiment: ExperimentInterface,
-  user: EventAuditUser,
-  changes: Changeset
-): Promise<ExperimentInterface | null> {
+export async function updateExperiment({
+  organization,
+  experiment,
+  user,
+  changes,
+  bypassWebhooks = false,
+}: {
+  organization: OrganizationInterface;
+  experiment: ExperimentInterface;
+  user: EventAuditUser;
+  changes: Changeset;
+  bypassWebhooks?: boolean;
+}): Promise<ExperimentInterface | null> {
   await ExperimentModel.updateOne(
     {
       id: experiment.id,
@@ -320,6 +328,7 @@ export async function updateExperiment(
     oldExperiment: experiment,
     newExperiment: updated,
     user,
+    bypassWebhooks,
   });
 
   return updated;
@@ -978,6 +987,9 @@ const hasChangesForSDKPayloadRefresh = async ({
   oldExperiment: ExperimentInterface;
   newExperiment: ExperimentInterface;
 }): Promise<boolean> => {
+  // We don't need to refresh the payload for experiments without visual changesets
+  if (!newExperiment.hasVisualChangesets) return false;
+
   const oldChanges = getExperimentChanges(oldExperiment);
   const newChanges = getExperimentChanges(newExperiment);
 

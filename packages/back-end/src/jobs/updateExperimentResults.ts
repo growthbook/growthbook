@@ -209,8 +209,13 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     log.error("Failure - " + e.message);
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
-      await updateExperiment(organization, experiment, null, {
-        autoSnapshots: false,
+      await updateExperiment({
+        organization,
+        experiment,
+        user: null,
+        changes: {
+          autoSnapshots: false,
+        },
       });
       // TODO: email user and let them know it failed
     } catch (e) {

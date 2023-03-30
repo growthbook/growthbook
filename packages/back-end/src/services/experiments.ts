@@ -440,10 +440,15 @@ export async function createSnapshot(
     determineNextDate(organization.settings?.updateSchedule || null) ||
     undefined;
 
-  await updateExperiment(organization, experiment, user, {
-    lastSnapshotAttempt: new Date(),
-    nextSnapshotAttempt: nextUpdate,
-    autoSnapshots: nextUpdate !== null,
+  await updateExperiment({
+    organization,
+    experiment,
+    user,
+    changes: {
+      lastSnapshotAttempt: new Date(),
+      nextSnapshotAttempt: nextUpdate,
+      autoSnapshots: nextUpdate !== null,
+    },
   });
 
   const { queries, results } = await startExperimentAnalysis(

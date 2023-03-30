@@ -10,8 +10,13 @@ import {
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "../../types/visual-changeset";
+import { EventAuditUser } from "../events/event-types";
 import { refreshSDKPayloadCache } from "../services/features";
-import { getExperimentById, getPayloadKeys } from "./ExperimentModel";
+import {
+  getExperimentById,
+  getPayloadKeys,
+  updateExperiment,
+} from "./ExperimentModel";
 
 /**
  * VisualChangeset is a collection of visual changes that are grouped together
@@ -235,11 +240,13 @@ export const createVisualChangeset = async ({
   organization,
   urlPatterns,
   editorUrl,
+  user,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
   urlPatterns: VisualChangesetURLPattern[];
   editorUrl: VisualChangesetInterface["editorUrl"];
+  user: EventAuditUser;
 }): Promise<VisualChangesetInterface> => {
   const visualChangeset = toInterface(
     await VisualChangesetModel.create({
@@ -251,11 +258,24 @@ export const createVisualChangeset = async ({
       visualChanges: experiment.variations.map(genNewVisualChange),
     })
   );
+
+  // mark the experiment as having a visual changeset
+  if (!experiment.hasVisualChangesets) {
+    await updateExperiment({
+      organization,
+      experiment,
+      changes: { hasVisualChangesets: true },
+      user,
+      bypassWebhooks: true,
+    });
+  }
+
   await onVisualChangesetCreate({
     organization,
     visualChangeset,
     experiment,
   });
+
   return visualChangeset;
 };
 
@@ -272,11 +292,13 @@ export const updateVisualChangeset = async ({
   organization,
   updates,
   bypassWebhooks,
+  user,
 }: {
   changesetId: string;
   organization: OrganizationInterface;
   updates: Partial<VisualChangesetInterface>;
   bypassWebhooks?: boolean;
+  user: EventAuditUser;
 }) => {
   const visualChangeset = await findVisualChangesetById(
     changesetId,
@@ -309,6 +331,21 @@ export const updateVisualChangeset = async ({
       },
     }
   );
+
+  // double-check that the experiment is marked as having visual changesets
+  const experiment = await getExperimentById(
+    organization.id,
+    visualChangeset.experiment
+  );
+  if (experiment && !experiment.hasVisualChangesets) {
+    await updateExperiment({
+      organization,
+      experiment,
+      user,
+      changes: { hasVisualChangesets: true },
+      bypassWebhooks: true,
+    });
+  }
 
   await onVisualChangesetUpdate({
     oldVisualChangeset: visualChangeset,
@@ -413,10 +450,12 @@ export const syncVisualChangesWithVariations = async ({
   experiment,
   organization,
   visualChangeset,
+  user,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
   visualChangeset: VisualChangesetInterface;
+  user: EventAuditUser;
 }) => {
   const { variations } = experiment;
   const { visualChanges } = visualChangeset;
@@ -432,15 +471,18 @@ export const syncVisualChangesWithVariations = async ({
     updates: { visualChanges: newVisualChanges },
     // bypass webhooks since we are only creating new (empty) visual changes
     bypassWebhooks: true,
+    user,
   });
 };
 
 export const deleteVisualChangesetById = async ({
   changesetId,
   organization,
+  user,
 }: {
   changesetId: string;
   organization: OrganizationInterface;
+  user: EventAuditUser;
 }) => {
   const visualChangeset = await findVisualChangesetById(
     changesetId,
@@ -455,6 +497,27 @@ export const deleteVisualChangesetById = async ({
     id: changesetId,
     organization: organization.id,
   });
+
+  // if experiment has no more visual changesets, update experiment
+  const remainingVisualChangesets = await findVisualChangesetsByExperiment(
+    visualChangeset.experiment,
+    organization.id
+  );
+  if (remainingVisualChangesets.length === 0) {
+    const experiment = await getExperimentById(
+      organization.id,
+      visualChangeset.experiment
+    );
+    if (experiment && experiment.hasVisualChangesets) {
+      await updateExperiment({
+        organization,
+        experiment,
+        changes: { hasVisualChangesets: false },
+        bypassWebhooks: true,
+        user,
+      });
+    }
+  }
 
   await onVisualChangesetDelete({
     organization,

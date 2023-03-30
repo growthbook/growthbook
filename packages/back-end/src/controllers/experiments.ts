@@ -766,12 +766,12 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  const updated = await updateExperiment(
-    org,
+  const updated = await updateExperiment({
+    organization: org,
     experiment,
-    res.locals.eventAudit,
-    changes
-  );
+    user: res.locals.eventAudit,
+    changes,
+  });
 
   // if variations have changed, update the experiment's visualchangesets if they exist
   if (changes.variations && updated) {
@@ -787,6 +787,7 @@ export async function postExperiment(
             visualChangeset: vc,
             experiment: updated,
             organization: org,
+            user: res.locals.eventAudit,
           })
         )
       );
@@ -845,7 +846,12 @@ export async function postExperimentArchive(
   changes.archived = true;
 
   try {
-    await updateExperiment(org, experiment, res.locals.eventAudit, changes);
+    await updateExperiment({
+      organization: org,
+      experiment,
+      user: res.locals.eventAudit,
+      changes,
+    });
 
     // TODO: audit
     res.status(200).json({
@@ -898,7 +904,12 @@ export async function postExperimentUnarchive(
   changes.archived = false;
 
   try {
-    await updateExperiment(org, experiment, res.locals.eventAudit, changes);
+    await updateExperiment({
+      organization: org,
+      experiment,
+      user: res.locals.eventAudit,
+      changes,
+    });
 
     // TODO: audit
     res.status(200).json({
@@ -963,12 +974,12 @@ export async function postExperimentStatus(
 
   changes.status = status;
 
-  const updated = await updateExperiment(
-    org,
+  const updated = await updateExperiment({
+    organization: org,
     experiment,
-    res.locals.eventAudit,
-    changes
-  );
+    user: res.locals.eventAudit,
+    changes,
+  });
 
   await req.audit({
     event: "experiment.status",
@@ -1047,12 +1058,12 @@ export async function postExperimentStop(
   changes.releasedVariationId = releasedVariationId;
 
   try {
-    const updated = await updateExperiment(
-      org,
+    const updated = await updateExperiment({
+      organization: org,
       experiment,
-      res.locals.eventAudit,
-      changes
-    );
+      user: res.locals.eventAudit,
+      changes,
+    });
 
     await req.audit({
       event: isEnding ? "experiment.stop" : "experiment.results",
@@ -1113,12 +1124,12 @@ export async function deleteExperimentPhase(
   if (!changes.phases.length) {
     changes.status = "draft";
   }
-  const updated = await updateExperiment(
-    org,
+  const updated = await updateExperiment({
+    organization: org,
     experiment,
-    res.locals.eventAudit,
-    changes
-  );
+    user: res.locals.eventAudit,
+    changes,
+  });
 
   await updateSnapshotsOnPhaseDelete(org.id, id, phaseIndex);
 
@@ -1176,12 +1187,12 @@ export async function putExperimentPhase(
     ...phase,
   };
   changes.phases = phases;
-  const updated = await updateExperiment(
-    org,
+  const updated = await updateExperiment({
+    organization: org,
     experiment,
-    res.locals.eventAudit,
-    changes
-  );
+    user: res.locals.eventAudit,
+    changes,
+  });
 
   await req.audit({
     event: "experiment.phase",
@@ -1254,12 +1265,12 @@ export async function postExperimentPhase(
   // TODO: validation
   try {
     changes.phases = phases;
-    const updated = await updateExperiment(
-      org,
+    const updated = await updateExperiment({
+      organization: org,
       experiment,
-      res.locals.eventAudit,
-      changes
-    );
+      user: res.locals.eventAudit,
+      changes,
+    });
 
     await req.audit({
       event: isStarting ? "experiment.start" : "experiment.phase",
@@ -1661,12 +1672,12 @@ export async function deleteScreenshot(
   changes.variations[variation].screenshots = changes.variations[
     variation
   ].screenshots.filter((s) => s.path !== url);
-  const updated = await updateExperiment(
-    org,
+  const updated = await updateExperiment({
+    organization: org,
     experiment,
-    res.locals.eventAudit,
-    changes
-  );
+    user: res.locals.eventAudit,
+    changes,
+  });
 
   await req.audit({
     event: "experiment.screenshot.delete",
@@ -1736,7 +1747,12 @@ export async function addScreenshot(
     description: description,
   });
 
-  await updateExperiment(org, experiment, res.locals.eventAudit, changes);
+  await updateExperiment({
+    organization: org,
+    experiment,
+    user: res.locals.eventAudit,
+    changes,
+  });
 
   await req.audit({
     event: "experiment.screenshot.create",
@@ -1973,6 +1989,7 @@ export async function postVisualChangeset(
     urlPatterns: req.body.urlPatterns,
     editorUrl: req.body.editorUrl,
     organization: org,
+    user: res.locals.eventAudit,
   });
 
   res.status(200).json({
@@ -1991,6 +2008,7 @@ export async function putVisualChangeset(
     changesetId: req.params.id,
     organization: org,
     updates: req.body,
+    user: res.locals.eventAudit,
   });
 
   res.status(200).json({
@@ -2012,6 +2030,7 @@ export async function deleteVisualChangeset(
   await deleteVisualChangesetById({
     changesetId: req.params.id,
     organization: org,
+    user: res.locals.eventAudit,
   });
 
   res.status(200).json({
