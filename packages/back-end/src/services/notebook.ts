@@ -27,8 +27,7 @@ export async function generateReportNotebook(
     report.args,
     `/report/${report.id}`,
     report.title,
-    "",
-    !report.results?.hasCorrectedStats
+    ""
   );
 }
 
@@ -64,8 +63,7 @@ export async function generateExperimentNotebook(
     reportArgsFromSnapshot(experiment, snapshot),
     `/experiment/${experiment.id}`,
     experiment.name,
-    experiment.hypothesis || "",
-    !snapshot.hasCorrectedStats
+    experiment.hypothesis || ""
   );
 }
 
@@ -75,8 +73,7 @@ export async function generateNotebook(
   args: ExperimentReportArgs,
   url: string,
   name: string,
-  description: string,
-  needsCorrection: boolean
+  description: string
 ) {
   // Get datasource
   const datasource = await getDataSourceById(args.datasource, organization);
@@ -127,12 +124,12 @@ export async function generateNotebook(
     var_names: args.variations.map((v) => v.name),
     weights: args.variations.map((v) => v.weight),
     run_query: datasource.settings.notebookRunQuery,
-    needs_correction: needsCorrection,
   }).replace(/\\/g, "\\\\");
 
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gen_notebook import create_notebook
+from gbstats.shared.constants import StatsEngine
 import pandas as pd
 import json
 
@@ -158,7 +155,11 @@ print(create_notebook(
     var_names=data['var_names'],
     weights=data['weights'],
     run_query=data['run_query'],
-    needs_correction=data['needs_correction']
+    stats_engine=${
+      (args.statsEngine ?? "bayesian") === "frequentist"
+        ? "StatsEngine.FREQUENTIST"
+        : "StatsEngine.BAYESIAN"
+    }
 ))`,
     {}
   );
