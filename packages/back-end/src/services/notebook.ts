@@ -27,8 +27,7 @@ export async function generateReportNotebook(
     report.args,
     `/report/${report.id}`,
     report.title,
-    "",
-    !report.results?.hasCorrectedStats
+    ""
   );
 }
 
@@ -64,8 +63,7 @@ export async function generateExperimentNotebook(
     reportArgsFromSnapshot(experiment, snapshot),
     `/experiment/${experiment.id}`,
     experiment.name,
-    experiment.hypothesis || "",
-    !snapshot.hasCorrectedStats
+    experiment.hypothesis || ""
   );
 }
 
