@@ -157,7 +157,6 @@ const ReportsPage = (): React.ReactElement => {
                 router.push(`/report/${report.id}`);
               }}
               style={{ cursor: "pointer" }}
-              className=""
             >
               <td>
                 <Link href={`/report/${report.id}`}>

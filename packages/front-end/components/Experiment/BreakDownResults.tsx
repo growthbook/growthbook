@@ -3,6 +3,7 @@ import { MetricInterface } from "back-end/types/metric";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
+  MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { StatsEngine } from "back-end/types/stats";
@@ -37,6 +38,8 @@ const BreakDownResults: FC<{
   activationMetric?: string;
   status: ExperimentStatus;
   statsEngine?: StatsEngine;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
 }> = ({
   dimensionId,
   results,
@@ -50,6 +53,8 @@ const BreakDownResults: FC<{
   status,
   reportDate,
   statsEngine,
+  regressionAdjustmentEnabled,
+  metricRegressionAdjustmentStatuses,
 }) => {
   const { getDimensionById, getMetricById, ready } = useDefinitions();
 
@@ -68,6 +73,15 @@ const BreakDownResults: FC<{
       .map((metricId) => {
         const metric = getMetricById(metricId);
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
+        let regressionAdjustmentStatus:
+          | MetricRegressionAdjustmentStatus
+          | undefined;
+        if (regressionAdjustmentEnabled && metricRegressionAdjustmentStatuses) {
+          regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find(
+            (s) => s.metric === metricId
+          );
+        }
+
         return {
           metric: newMetric,
           isGuardrail: !metrics.includes(metricId),
@@ -78,12 +92,21 @@ const BreakDownResults: FC<{
               variations: d.variations.map((variation) => {
                 return variation.metrics[metricId];
               }),
+              regressionAdjustmentStatus,
             };
           }),
         };
       })
       .filter((table) => table.metric);
-  }, [results, metrics, metricOverrides, guardrails, ready]);
+  }, [
+    results,
+    metrics,
+    metricOverrides,
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses,
+    guardrails,
+    ready,
+  ]);
 
   const risk = useRiskVariation(
     variations.length,

@@ -10,6 +10,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
 import { useAttributeSchema } from "@/services/features";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -37,6 +38,8 @@ const AnalysisForm: FC<{
     datasources,
   } = useDefinitions();
 
+  const settings = useOrgSettings();
+
   const attributeSchema = useAttributeSchema();
 
   const phaseObj = experiment.phases[phase];
@@ -56,7 +59,10 @@ const AnalysisForm: FC<{
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
       skipPartialData: experiment.skipPartialData ? "strict" : "loose",
-      attributionModel: experiment.attributionModel || "firstExposure",
+      attributionModel:
+        experiment.attributionModel ||
+        settings.attributionModel ||
+        "firstExposure",
       dateStarted: getValidDate(phaseObj?.dateStarted)
         .toISOString()
         .substr(0, 16),

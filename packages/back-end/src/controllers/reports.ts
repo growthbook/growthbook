@@ -184,7 +184,6 @@ export async function refreshReport(
   req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
-
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
@@ -193,7 +192,12 @@ export async function refreshReport(
 
   const useCache = !req.query["force"];
 
-  await runReport(report, useCache, org);
+  report.args.statsEngine =
+    report.args?.statsEngine || org.settings?.statsEngine || "bayesian";
+  report.args.regressionAdjustmentEnabled = !!report.args
+    ?.regressionAdjustmentEnabled;
+
+  await runReport(org, report, useCache);
 
   return res.status(200).json({
     status: 200,
@@ -224,7 +228,18 @@ export async function putReport(
     };
 
     updates.args.startDate = getValidDate(updates.args.startDate);
-    updates.args.endDate = getValidDate(updates.args.endDate || new Date());
+    if (!updates.args.endDate) {
+      delete updates.args.endDate;
+    } else {
+      updates.args.endDate = getValidDate(updates.args.endDate || new Date());
+    }
+    updates.args.statsEngine =
+      updates.args?.statsEngine || org.settings?.statsEngine || "bayesian";
+    updates.args.regressionAdjustmentEnabled = !!updates.args
+      ?.regressionAdjustmentEnabled;
+    updates.args.metricRegressionAdjustmentStatuses =
+      updates.args?.metricRegressionAdjustmentStatuses || [];
+
     needsRun = true;
   }
   if ("title" in req.body) updates.title = req.body.title;
@@ -235,12 +250,12 @@ export async function putReport(
 
   if (needsRun) {
     await runReport(
+      org,
       {
         ...report,
         ...updates,
       },
-      true,
-      org
+      true
     );
   }
 
@@ -259,7 +274,6 @@ export async function getReportStatus(
   if (!report) {
     throw new Error("Could not get query status");
   }
-  const statsEngine = report.args.statsEngine || org.settings?.statsEngine;
   const result = await getStatusEndpoint(
     report,
     org.id,
@@ -268,9 +282,9 @@ export async function getReportStatus(
         return analyzeExperimentResults(
           org.id,
           report.args.variations,
-          report.args.dimension || "",
+          report.args.dimension || undefined,
           queryData,
-          statsEngine
+          report.args.statsEngine || org.settings?.statsEngine
         );
       }
       throw new Error("Unsupported report type");
