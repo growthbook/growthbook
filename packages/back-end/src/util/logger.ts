@@ -1,5 +1,7 @@
 import pinoHttp from "pino-http";
+import * as Sentry from "@sentry/node";
 import { Request } from "express";
+import { BaseLogger } from "pino";
 import { ApiRequestLocals } from "../../types/api";
 import { AuthRequest } from "../types/AuthRequest";
 import { ENVIRONMENT } from "./secrets";
@@ -54,4 +56,48 @@ export const httpLogger = pinoHttp({
   customProps: getCustomLogProps,
 });
 
-export const logger = httpLogger.logger;
+export const logger: BaseLogger = {
+  debug(...args: unknown[]) {
+    // eslint-disable-next-line
+    // @ts-ignore
+    httpLogger.logger.debug(...args);
+  },
+  error(...args: unknown[]) {
+    // eslint-disable-next-line
+    // @ts-ignore
+    httpLogger.logger.error(...args);
+    // eslint-disable-next-line
+    // @ts-ignore
+    Sentry.captureException(...args);
+  },
+  fatal(...args: unknown[]) {
+    // eslint-disable-next-line
+    // @ts-ignore
+    Sentry.captureException(...args);
+    // eslint-disable-next-line
+    // @ts-ignore
+    httpLogger.logger.fatal(...args);
+  },
+  info(...args: unknown[]) {
+    // eslint-disable-next-line
+    // @ts-ignore
+    httpLogger.logger.info(...args);
+  },
+  level: httpLogger.logger.level,
+  silent(...args: unknown[]) {
+    // eslint-disable-next-line
+    // @ts-ignore
+    httpLogger.logger.silent(...args);
+  },
+  trace(...args: unknown[]) {
+    // eslint-disable-next-line
+    // @ts-ignore
+    httpLogger.logger.trace(...args);
+  },
+  warn(...args: unknown[]) {
+    // eslint-disable-next-line
+    // @ts-ignore
+    httpLogger.logger.warn(...args);
+    Sentry.captureMessage(JSON.stringify(args));
+  },
+};
