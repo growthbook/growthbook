@@ -133,6 +133,7 @@ export async function generateNotebook(
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gen_notebook import create_notebook
+from gbstats.shared.constants import StatsEngine
 import pandas as pd
 import json
 
@@ -158,7 +159,12 @@ print(create_notebook(
     var_names=data['var_names'],
     weights=data['weights'],
     run_query=data['run_query'],
-    needs_correction=data['needs_correction']
+    needs_correction=data['needs_correction'],
+    stats_engine=${
+      (args.statsEngine ?? "bayesian") === "frequentist"
+        ? "StatsEngine.FREQUENTIST"
+        : "StatsEngine.BAYESIAN"
+    }
 ))`,
     {}
   );
