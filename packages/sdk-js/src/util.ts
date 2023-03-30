@@ -89,14 +89,13 @@ function _evalSimpleUrlPart(
     // Escape special regex characters and change wildcard `*` to `.*`
     let escaped = pattern
       .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
-      .replace(/\*/g, ".*");
+      .replace(/(\*|%2A)/g, ".*");
 
     if (isPath) {
       // When matching pathname, make leading/trailing slashes optional
       escaped = "\\/?" + escaped.replace(/(^\/|\/$)/g, "") + "\\/?";
     }
 
-    console.log(escaped);
     const regex = new RegExp("^" + escaped + "$", "i");
     return regex.test(actual);
   } catch (e) {
