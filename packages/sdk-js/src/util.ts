@@ -117,8 +117,12 @@ function _evalSimpleUrlTarget(url: string, pattern: string) {
     const comps: Array<[string, string, boolean]> = [
       [actual.host, expected.host, false],
       [actual.pathname, expected.pathname, true],
-      [actual.hash, expected.hash, false],
     ];
+    // We only want to compare hashes if it's explicitly being targeted
+    if (expected.hash) {
+      comps.push([actual.hash, expected.hash, false]);
+    }
+
     expected.searchParams.forEach((v, k) => {
       comps.push([actual.searchParams.get(k) || "", v, false]);
     });
