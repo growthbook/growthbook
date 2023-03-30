@@ -174,7 +174,7 @@ class SequentialTwoSidedTTest(TTest):
 
     @property
     def rho(self) -> float:
-        # This is close to https://github.com/gostevehoward/confseq/blob/29c07072322a1defd623f6a957177e0173d32914/src/confseq/uniform_boundaries.h#L418-L422
+        # Akin to https://github.com/gostevehoward/confseq/blob/29c07072322a1defd623f6a957177e0173d32914/src/confseq/uniform_boundaries.h#L418-L422
         # using N as V
         return self.sequential_tuning_parameter / (
             2 * np.log(1 / self.alpha) + np.log(1 + 2 * np.log(1 / self.alpha))

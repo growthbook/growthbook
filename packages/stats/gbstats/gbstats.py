@@ -1,5 +1,5 @@
 from dataclasses import asdict
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 
 import pandas as pd
 from scipy.stats.distributions import chi2
@@ -23,7 +23,6 @@ from gbstats.shared.models import (
     RatioStatistic,
     RegressionAdjustedStatistic,
     Statistic,
-    TestResult,
 )
 from gbstats.messages import raise_error_if_bayesian_ra
 

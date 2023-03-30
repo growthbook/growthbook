@@ -123,10 +123,8 @@ class TestNorm(TestCase):
         expected_rounded_dict = asdict(
             BayesianTestResult(
                 expected=0.04974,
-                ci= [-0.01797, 0.12212],
-                uplift=Uplift(
-                    dist="lognormal", mean=0.04854, stddev=0.03402
-                ),
+                ci=[-0.01797, 0.12212],
+                uplift=Uplift(dist="lognormal", mean=0.04854, stddev=0.03402),
                 chance_to_win=0.9232,
                 risk=[0.51017, 0.01277],
                 relative_risk=[0.04859, 0.00122],
