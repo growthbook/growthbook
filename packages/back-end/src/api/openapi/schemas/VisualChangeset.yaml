@@ -19,7 +19,7 @@ properties:
           type: boolean
         type:
           type: string
-          enum: [simple, exact, regex]
+          enum: [simple, regex]
         pattern: string
   editorUrl:
     type: string

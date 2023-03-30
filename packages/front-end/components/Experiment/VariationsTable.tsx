@@ -231,17 +231,12 @@ const VariationsTable: FC<Props> = ({
             const simpleUrlPatterns = vc.urlPatterns
               .filter((v) => v.type === "simple")
               .sort((v) => (v.include === false ? 1 : -1));
-            const exactUrlPatterns = vc.urlPatterns
-              .filter((v) => v.type === "exact")
-              .sort((v) => (v.include === false ? 1 : -1));
             const regexUrlPatterns = vc.urlPatterns
               .filter((v) => v.type === "regex")
               .sort((v) => (v.include === false ? 1 : -1));
 
             const onlySimpleRules =
-              simpleUrlPatterns.length > 0 &&
-              exactUrlPatterns.length === 0 &&
-              regexUrlPatterns.length === 0;
+              simpleUrlPatterns.length > 0 && regexUrlPatterns.length === 0;
 
             return (
               <Fragment key={i}>
@@ -278,16 +273,6 @@ const VariationsTable: FC<Props> = ({
                                   </div>
                                 )}
                                 {simpleUrlPatterns.map((p, j) =>
-                                  drawUrlPattern(p, j, vc.urlPatterns.length)
-                                )}
-                              </>
-                            )}
-                            {exactUrlPatterns.length > 0 && (
-                              <>
-                                <div className="uppercase-title mt-1">
-                                  Exact:
-                                </div>
-                                {exactUrlPatterns.map((p, j) =>
                                   drawUrlPattern(p, j, vc.urlPatterns.length)
                                 )}
                               </>

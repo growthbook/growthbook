@@ -1,5 +1,5 @@
 import { GrowthBook } from "../src";
-import { UrlTargetType } from "../src/types/growthbook";
+import { UrlTarget, UrlTargetType } from "../src/types/growthbook";
 import { isURLTargeted } from "../src/util";
 
 function sleep(ms = 20) {
@@ -7,42 +7,6 @@ function sleep(ms = 20) {
 }
 
 const cases: Array<[UrlTargetType, string, string, boolean]> = [
-  ["exact", "https://www.example.com", "https://www.example.com", true],
-  [
-    "exact",
-    "https://www.example.com/foo?bar=1",
-    "https://www.example.com/foo?bar=1",
-    true,
-  ],
-  ["exact", "https://www.example.com/foo?bar=1", "/foo?bar=1", true],
-  [
-    "exact",
-    "https://www.example.com/foo?bar=1&baz=2",
-    "https://www.example.com/foo?bar=1&baz=2",
-    true,
-  ],
-  [
-    "exact",
-    "https://www.example.com/foo?bar=1&baz=2",
-    "https://www.example.com/foo?baz=2&bar=1",
-    false,
-  ],
-  [
-    "exact",
-    "https://www.example.com/foo?bar=1&baz=2",
-    "https://www.example.com/foo?bar=1&baz=2&foo=3",
-    false,
-  ],
-  [
-    "exact",
-    "https://www.example.com/foo",
-    "https://www.example.com/foo?bar=1",
-    false,
-  ],
-  ["exact", "https://www.example.com", "https://example.com", false],
-  ["exact", "https://example.com", "https://www.example.com", false],
-  ["exact", "https://wwwexample.com", "http://www.example.com", false],
-  ["exact", "http://www.example.com", "https://www.example.com", false],
   ["regex", "https://www.example.com/post/123", "^/post/[0-9]+", true],
   ["regex", "https://www.example.com/post/abc", "^/post/[0-9]+", false],
   ["regex", "https://www.example.com/new/post/123", "^/post/[0-9]+", false],
@@ -109,22 +73,22 @@ describe("isURLTargeted", () => {
     const URL = `https://www.example.com`;
 
     const includeMatch = {
-      type: "exact",
+      type: "simple",
       include: true,
       pattern: URL,
     } as const;
     const excludeMatch = {
-      type: "exact",
+      type: "simple",
       include: false,
       pattern: URL,
     } as const;
     const includeNoMatch = {
-      type: "exact",
+      type: "simple",
       include: true,
       pattern: "https://wrong.com",
     } as const;
     const excludeNoMatch = {
-      type: "exact",
+      type: "simple",
       include: false,
       pattern: "https://another.com",
     } as const;
@@ -163,6 +127,29 @@ describe("isURLTargeted", () => {
 
     // Only include rules, one matches
     expect(isURLTargeted(URL, [includeNoMatch, includeMatch])).toEqual(true);
+  });
+
+  it("supports an exclude rule on top of an include rule", () => {
+    const rules: UrlTarget[] = [
+      {
+        include: true,
+        type: "simple",
+        pattern: "/search",
+      },
+      {
+        include: false,
+        type: "simple",
+        pattern: "/search?bad=true",
+      },
+    ];
+
+    expect(isURLTargeted("https://example.com/search", rules)).toEqual(true);
+    expect(isURLTargeted("https://example.com/search?bad=true", rules)).toEqual(
+      false
+    );
+    expect(
+      isURLTargeted("https://example.com/search?good=true", rules)
+    ).toEqual(true);
   });
 
   it.each(cases)(

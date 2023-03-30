@@ -161,7 +161,6 @@ const VisualChangesetModal: FC<{
                   value={form.watch(`urlPatterns.${i}.type`)}
                   options={[
                     { label: "Simple", value: "simple" },
-                    { label: "Exact", value: "exact" },
                     { label: "Regex", value: "regex" },
                   ]}
                   sort={false}
@@ -208,20 +207,6 @@ const VisualChangesetModal: FC<{
                     >
                       <strong>Simple</strong>: Matches a full URL or path.
                       Supports <code>*</code> as a wildcard <FaInfoCircle />
-                    </Tooltip>
-                  ) : form.watch(`urlPatterns.${i}.type`) === "exact" ? (
-                    <Tooltip
-                      tipMinWidth={"500px"}
-                      body={
-                        <>
-                          <code>http://www.example.com/pricing</code> will be
-                          targeted separately from{" "}
-                          <code>http://www.example.com/pricing/</code>
-                        </>
-                      }
-                    >
-                      <strong>Exact</strong>: Strict matching of URL or path{" "}
-                      <FaInfoCircle />
                     </Tooltip>
                   ) : form.watch(`urlPatterns.${i}.type`) === "regex" ? (
                     <Tooltip

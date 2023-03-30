@@ -1893,7 +1893,6 @@ components:
                 type: string
                 enum:
                   - simple
-                  - exact
                   - regex
               pattern: string
         editorUrl:

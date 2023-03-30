@@ -103,9 +103,8 @@ function _evalSimpleUrlPart(
   }
 }
 
-function _evalSimpleUrlTarget(url: string, pattern: string) {
+function _evalSimpleUrlTarget(actual: URL, pattern: string) {
   try {
-    const actual = new URL(url, "https://_");
     // If a protocol is missing, but a host is specified, add `https://` to the front
     // Use "_____" as the wildcard since `*` is not a valid hostname in some browsers
     const expected = new URL(
@@ -141,19 +140,24 @@ function _evalURLTarget(
   type: UrlTargetType,
   pattern: string
 ): boolean {
-  const pathOnly = url.replace(/^https?:\/\//, "").replace(/^[^/]*\//, "/");
+  try {
+    const parsed = new URL(url, "https://_");
 
-  if (type === "exact") {
-    return url === pattern || pathOnly === pattern;
-  } else if (type === "regex") {
-    const regex = getUrlRegExp(pattern);
-    if (!regex) return false;
-    return regex.test(url) || regex.test(pathOnly);
-  } else if (type === "simple") {
-    return _evalSimpleUrlTarget(url, pattern);
+    if (type === "regex") {
+      const regex = getUrlRegExp(pattern);
+      if (!regex) return false;
+      return (
+        regex.test(parsed.href) ||
+        regex.test(parsed.href.substring(parsed.origin.length))
+      );
+    } else if (type === "simple") {
+      return _evalSimpleUrlTarget(parsed, pattern);
+    }
+
+    return false;
+  } catch (e) {
+    return false;
   }
-
-  return false;
 }
 
 export function getBucketRanges(

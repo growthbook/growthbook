@@ -828,7 +828,7 @@ export interface components {
       urlPatterns: ({
           include?: boolean;
           /** @enum {string} */
-          type: "simple" | "exact" | "regex";
+          type: "simple" | "regex";
           pattern: string;
         })[];
       editorUrl: string;
@@ -2109,7 +2109,7 @@ export interface operations {
                 urlPatterns: ({
                     include?: boolean;
                     /** @enum {string} */
-                    type: "simple" | "exact" | "regex";
+                    type: "simple" | "regex";
                     pattern: string;
                   })[];
                 editorUrl: string;
@@ -2153,7 +2153,7 @@ export interface operations {
               urlPatterns: ({
                   include?: boolean;
                   /** @enum {string} */
-                  type: "simple" | "exact" | "regex";
+                  type: "simple" | "regex";
                   pattern: string;
                 })[];
               editorUrl: string;

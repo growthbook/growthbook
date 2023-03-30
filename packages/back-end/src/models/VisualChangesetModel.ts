@@ -40,7 +40,7 @@ const visualChangesetSchema = new mongoose.Schema({
         include: Boolean,
         type: {
           type: String,
-          enum: ["simple", "exact", "regex"],
+          enum: ["simple", "regex"],
           required: true,
         },
         pattern: {

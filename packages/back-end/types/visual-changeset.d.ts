@@ -15,7 +15,7 @@ interface VisualChange {
 
 export interface VisualChangesetURLPattern {
   include: boolean;
-  type: "simple" | "exact" | "regex";
+  type: "simple" | "regex";
   pattern: string;
 }
 

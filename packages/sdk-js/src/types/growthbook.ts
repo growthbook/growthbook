@@ -65,7 +65,7 @@ export interface FeatureResult<T = any> {
 /** @deprecated */
 export type ExperimentStatus = "draft" | "running" | "stopped";
 
-export type UrlTargetType = "exact" | "regex" | "simple";
+export type UrlTargetType = "regex" | "simple";
 
 export type UrlTarget = {
   include: boolean;
@@ -212,7 +212,7 @@ export type FeatureApiResponse = {
   features?: FeatureDefinitions;
   dateUpdated?: string;
   encryptedFeatures?: string;
-  experiments?: Experiment<AutoExperimentVariation>[];
+  experiments?: AutoExperiment[];
   encryptedExperiments?: string;
 };
 
