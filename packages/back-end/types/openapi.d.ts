@@ -846,6 +846,18 @@ export interface components {
             })[];
         })[];
     };
+    VisualChange: {
+      description?: string;
+      css?: string;
+      variation: string;
+      domMutations?: ({
+          selector: string;
+          /** @enum {string} */
+          action: "append" | "set" | "remove";
+          attribute: string;
+          value?: string;
+        })[];
+    };
   };
   responses: {
     Error: never;
@@ -2315,6 +2327,7 @@ export type ApiExperimentAnalysisSettings = components["schemas"]["ExperimentAna
 export type ApiExperimentResults = components["schemas"]["ExperimentResults"];
 export type ApiDataSource = components["schemas"]["DataSource"];
 export type ApiVisualChangeset = components["schemas"]["VisualChangeset"];
+export type ApiVisualChange = components["schemas"]["VisualChange"];
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];

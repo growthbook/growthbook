@@ -1935,6 +1935,38 @@ components:
                       type: string
                     value:
                       type: string
+    VisualChange:
+      type: object
+      required:
+        - variation
+      properties:
+        description:
+          type: string
+        css:
+          type: string
+        variation:
+          type: string
+        domMutations:
+          type: array
+          items:
+            type: object
+            required:
+              - selector
+              - action
+              - attribute
+            properties:
+              selector:
+                type: string
+              action:
+                type: string
+                enum:
+                  - append
+                  - set
+                  - remove
+              attribute:
+                type: string
+              value:
+                type: string
   securitySchemes:
     bearerAuth:
       type: http
