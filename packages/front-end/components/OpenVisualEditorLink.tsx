@@ -49,7 +49,7 @@ const OpenVisualEditorLink: FC<{
       <a
         className="btn btn-sm btn-primary"
         href={url || "#"}
-        onClick={(e) => {
+        onClick={async (e) => {
           if (!visualEditorUrl) {
             e.preventDefault();
             setShowEditorUrlDialog(true);
@@ -60,10 +60,21 @@ const OpenVisualEditorLink: FC<{
             return;
           }
 
-          // check if extension is installed
-          const isExtensionInstalled = !!document.getElementById(
-            "__gb_visual_editor"
+          let isExtensionInstalled: boolean;
+          const extResp = await fetch(
+            "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo192.png",
+            {
+              method: "HEAD",
+            }
           );
+          if (extResp.status === 200) {
+            isExtensionInstalled = true;
+          } else {
+            // check if extension is installed
+            isExtensionInstalled = !!document.getElementById(
+              "__gb_visual_editor"
+            );
+          }
 
           if (!isExtensionInstalled) {
             e.preventDefault();
