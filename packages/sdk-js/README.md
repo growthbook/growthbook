@@ -4,7 +4,7 @@
 
 This is the Javascript client library that lets you evaluate feature flags and run experiments (A/B tests) within a Javascript application.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-4.5KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-6.9KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -15,6 +15,7 @@ This is the Javascript client library that lets you evaluate feature flags and r
 - **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
 - Run mutually exclusive experiments with **namespaces**
 - **Remote configuration** to change feature values without deploying new code
+- Run **Visual Experiments** without writing code by using the GrowthBook Visual Editor
 
 ## Installation
 
