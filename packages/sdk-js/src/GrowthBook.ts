@@ -367,8 +367,18 @@ export class GrowthBook<
   }
 
   private _updateAllAutoExperiments() {
-    const experiments = this._ctx.experiments;
-    if (!experiments) return;
+    const experiments = this._ctx.experiments || [];
+
+    // Stop any experiments that are no longer defined
+    const keys = new Set(experiments.map((e) => e.key));
+    this._activeAutoExperiments.forEach((v, k) => {
+      if (!keys.has(k)) {
+        v.undo();
+        this._activeAutoExperiments.delete(k);
+      }
+    });
+
+    // Re-run all new/updated experiments
     experiments.forEach((exp) => {
       this._runAutoExperiment(exp, false);
     });

@@ -382,4 +382,56 @@ describe("Auto experiments", () => {
 
     gb.destroy();
   });
+
+  it("reverts auto experiments if they are no longer in the experiments array", async () => {
+    document.head.innerHTML = "";
+    document.body.innerHTML = "<h1>title</h1>";
+
+    const gb = new GrowthBook({
+      attributes: { id: "1" },
+      url: "http://www.example.com/home",
+      experiments: [
+        {
+          key: "my-experiment",
+          urlPatterns: [
+            {
+              type: "regex",
+              include: true,
+              pattern: "home",
+            },
+          ],
+          weights: [0.1, 0.9],
+          variations: [
+            {},
+            {
+              css: "h1 { color: red; }",
+              domMutations: [
+                {
+                  selector: "h1",
+                  action: "set",
+                  attribute: "html",
+                  value: "new",
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    // Changes applied immediately
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>new</h1>");
+    expect(document.head.innerHTML).toEqual(
+      "<style>h1 { color: red; }</style>"
+    );
+
+    // Changes are undone when the experiment is removed from the instance
+    gb.setExperiments([]);
+    await sleep();
+    expect(document.body.innerHTML).toEqual("<h1>title</h1>");
+    expect(document.head.innerHTML).toEqual("");
+
+    gb.destroy();
+  });
 });
