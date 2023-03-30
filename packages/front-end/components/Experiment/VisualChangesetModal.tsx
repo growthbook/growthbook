@@ -3,7 +3,7 @@ import { FC, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
-import { isURLTargeted } from "@growthbook/growthbook";
+import { isURLTargeted, UrlTarget } from "@growthbook/growthbook";
 import SelectField from "@/components/Forms/SelectField";
 import { useAuth } from "@/services/auth";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -89,7 +89,10 @@ const VisualChangesetModal: FC<{
 
   const patternsMatchUrl =
     !showAdvanced ||
-    isURLTargeted(form.watch("editorUrl"), form.watch("urlPatterns"));
+    isURLTargeted(
+      form.watch("editorUrl"),
+      form.watch("urlPatterns") as UrlTarget[]
+    );
 
   return (
     <Modal
