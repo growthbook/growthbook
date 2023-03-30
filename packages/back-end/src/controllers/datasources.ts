@@ -177,7 +177,6 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
       data: experiment,
       organization: org,
       user: res.locals.eventAudit,
-      bypassWebhooks: true,
     });
 
     await createManualSnapshot(

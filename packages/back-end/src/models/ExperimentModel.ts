@@ -246,12 +246,10 @@ export async function createExperiment({
   data,
   organization,
   user,
-  bypassWebhooks = false,
 }: {
   data: Partial<ExperimentInterface>;
   organization: OrganizationInterface;
   user: EventAuditUser;
-  bypassWebhooks?: boolean;
 }): Promise<ExperimentInterface> {
   data.organization = organization.id;
 
@@ -289,7 +287,6 @@ export async function createExperiment({
   await onExperimentCreate({
     organization,
     experiment: exp,
-    bypassWebhooks,
     user,
   });
 
@@ -1005,21 +1002,13 @@ const hasChangesForSDKPayloadRefresh = async ({
 const onExperimentCreate = async ({
   organization,
   experiment,
-  bypassWebhooks,
   user,
 }: {
   organization: OrganizationInterface;
   experiment: ExperimentInterface;
-  bypassWebhooks?: boolean;
   user: EventAuditUser;
 }) => {
   await logExperimentCreated(organization, user, experiment);
-
-  if (bypassWebhooks) return;
-
-  const payloadKeys = getPayloadKeys(organization, experiment);
-
-  refreshSDKPayloadCache(organization, payloadKeys);
 };
 
 const onExperimentUpdate = async ({

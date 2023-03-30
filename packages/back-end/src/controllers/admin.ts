@@ -376,7 +376,6 @@ export async function addSampleData(
         data,
         organization: org,
         user: res.locals.eventAudit,
-        bypassWebhooks: true,
       });
 
       // Add a few experiments to evidence
