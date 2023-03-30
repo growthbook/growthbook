@@ -99,6 +99,11 @@ const sidebars = {
           id: "guide/rudderstack-and-nextjs-with-growthbook",
           label: "Rudderstack + Next.js",
         },
+        {
+          type: "link",
+          href: "https://docs.growthbook.io/open-guide-to-ab-testing.v1.0.pdf",
+          label: "Guide to A/B Testing",
+        },
       ],
     },
     {
