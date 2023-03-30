@@ -75,8 +75,7 @@ export async function generateNotebook(
   args: ExperimentReportArgs,
   url: string,
   name: string,
-  description: string,
-  needsCorrection: boolean
+  description: string
 ) {
   // Get datasource
   const datasource = await getDataSourceById(args.datasource, organization);
@@ -127,7 +126,6 @@ export async function generateNotebook(
     var_names: args.variations.map((v) => v.name),
     weights: args.variations.map((v) => v.weight),
     run_query: datasource.settings.notebookRunQuery,
-    needs_correction: needsCorrection,
   }).replace(/\\/g, "\\\\");
 
   const result = await promisify(PythonShell.runString)(
@@ -159,7 +157,6 @@ print(create_notebook(
     var_names=data['var_names'],
     weights=data['weights'],
     run_query=data['run_query'],
-    needs_correction=data['needs_correction'],
     stats_engine=${
       (args.statsEngine ?? "bayesian") === "frequentist"
         ? "StatsEngine.FREQUENTIST"
