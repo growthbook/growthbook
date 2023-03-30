@@ -1,13 +1,20 @@
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
-import { ReportInterface } from "back-end/types/report";
+import {
+  MetricRegressionAdjustmentStatus,
+  ReportInterface,
+} from "back-end/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
 import { AttributionModel } from "back-end/types/experiment";
+import uniq from "lodash/uniq";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -26,9 +33,31 @@ export default function ConfigureReport({
 }) {
   const settings = useOrgSettings();
   const { apiCall } = useAuth();
-  const { metrics, segments, getDatasourceById } = useDefinitions();
+  const { hasCommercialFeature } = useUser();
+  const {
+    metrics,
+    segments,
+    getDatasourceById,
+    getMetricById,
+  } = useDefinitions();
   const datasource = getDatasourceById(report.args.datasource);
   const [usingStatsEngineDefault, setUsingStatsEngineDefault] = useState(false);
+
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
+
+  const allExperimentMetricIds = uniq([
+    ...report.args.metrics,
+    ...(report.args.guardrails ?? []),
+  ]);
+  const allExperimentMetrics = allExperimentMetricIds.map((m) =>
+    getMetricById(m)
+  );
+  const denominatorMetricIds = uniq(
+    allExperimentMetrics.map((m) => m?.denominator).filter((m) => m)
+  );
+  const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
 
   const form = useForm({
     defaultValues: {
@@ -39,14 +68,52 @@ export default function ConfigureReport({
           report.args.exposureQueryId,
           report.args.userIdType
         )?.id || "",
-      attributionModel: report.args.attributionModel || "firstExposure",
+      attributionModel:
+        report.args.attributionModel ||
+        settings.attributionModel ||
+        "firstExposure",
       startDate: getValidDate(report.args.startDate)
         .toISOString()
         .substr(0, 16),
-      endDate: getValidDate(report.args.endDate).toISOString().substr(0, 16),
-      statsEngine: report.args.statsEngine || settings.statsEngine,
+      endDate: report.args.endDate
+        ? getValidDate(report.args.endDate).toISOString().substr(0, 16)
+        : undefined,
+      statsEngine:
+        report.args.statsEngine || settings.statsEngine || "bayesian",
+      regressionAdjustmentEnabled:
+        hasRegressionAdjustmentFeature &&
+        !!report.args.regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses:
+        report.args.metricRegressionAdjustmentStatuses || [],
     },
   });
+
+  // CUPED adjustments
+  const metricRegressionAdjustmentStatuses = useMemo(() => {
+    const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+    for (const metric of allExperimentMetrics) {
+      if (!metric) continue;
+      const {
+        metricRegressionAdjustmentStatus,
+      } = getRegressionAdjustmentsForMetric({
+        metric: metric,
+        denominatorMetrics: denominatorMetrics,
+        experimentRegressionAdjustmentEnabled: !!form.watch(
+          `regressionAdjustmentEnabled`
+        ),
+        organizationSettings: settings,
+        metricOverrides: report.args.metricOverrides,
+      });
+      metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
+    }
+    return metricRegressionAdjustmentStatuses;
+  }, [
+    allExperimentMetrics,
+    denominatorMetrics,
+    settings,
+    form,
+    report.args.metricOverrides,
+  ]);
 
   const filteredMetrics = metrics.filter(
     (m) => m.datasource === report.args.datasource
@@ -88,6 +155,9 @@ export default function ConfigureReport({
           ...value,
           skipPartialData: !!value.skipPartialData,
         };
+        if (value.regressionAdjustmentEnabled) {
+          args.metricRegressionAdjustmentStatuses = metricRegressionAdjustmentStatuses;
+        }
 
         await apiCall(`/report/${report.id}`, {
           method: "PUT",
@@ -182,13 +252,15 @@ export default function ConfigureReport({
           />
         </div>
         <div className="col">
-          <Field
-            label="End Date (UTC)"
-            labelClassName="font-weight-bold"
-            type="datetime-local"
-            {...form.register("endDate")}
-            helpText="Only include users who entered the experiment on or before this date"
-          />
+          {form.watch("endDate") && (
+            <Field
+              label="End Date (UTC)"
+              labelClassName="font-weight-bold"
+              type="datetime-local"
+              {...form.register("endDate")}
+              helpText="Only include users who entered the experiment on or before this date"
+            />
+          )}
         </div>
       </div>
 
@@ -302,7 +374,7 @@ export default function ConfigureReport({
       )}
 
       <div className="d-flex flex-row no-gutters align-items-center">
-        <div className="col-2">
+        <div className="col-3">
           <SelectField
             disabled={usingStatsEngineDefault}
             label={<strong>Stats Engine</strong>}
@@ -334,6 +406,35 @@ export default function ConfigureReport({
           />
           Use Organization Default
         </label>
+      </div>
+
+      <div className="d-flex flex-row no-gutters align-items-center">
+        <div className="col-3">
+          <SelectField
+            label={
+              <PremiumTooltip commercialFeature="regression-adjustment">
+                Use Regression Adjustment (CUPED)
+              </PremiumTooltip>
+            }
+            labelClassName="font-weight-bold"
+            value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
+            onChange={(v) => {
+              form.setValue("regressionAdjustmentEnabled", v === "on");
+            }}
+            options={[
+              {
+                label: "On",
+                value: "on",
+              },
+              {
+                label: "Off",
+                value: "off",
+              },
+            ]}
+            helpText="Only applicable to frequentist analyses"
+            disabled={!hasRegressionAdjustmentFeature}
+          />
+        </div>
       </div>
 
       {datasourceProperties?.queryLanguage === "sql" && (

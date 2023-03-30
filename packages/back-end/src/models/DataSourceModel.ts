@@ -16,7 +16,7 @@ import {
 import { usingFileConfig, getConfigDatasources } from "../init/config";
 import { upgradeDatasourceObject } from "../util/migrations";
 import { ApiDataSource } from "../../types/openapi";
-import { queueCreateInformationSchema } from "../jobs/informationSchema";
+import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
 
 const dataSourceSchema = new mongoose.Schema({
   id: String,

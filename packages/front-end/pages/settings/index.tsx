@@ -1,9 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { FaPencilAlt } from "react-icons/fa";
+import {
+  FaExclamationTriangle,
+  FaPencilAlt,
+  FaQuestionCircle,
+} from "react-icons/fa";
 import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import cronstrue from "cronstrue";
+import { AttributionModel } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import VisualEditorInstructions from "@/components/Settings/VisualEditorInstructions";
@@ -22,6 +27,10 @@ import usePermissions from "@/hooks/usePermissions";
 import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import EditLicenseModal from "@/components/Settings/EditLicenseModal";
+import Toggle from "@/components/Forms/Toggle";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import SelectField from "@/components/Forms/SelectField";
+import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -40,6 +49,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     apiKeys,
     accountPlan,
     license,
+    hasCommercialFeature,
   } = useUser();
   const [editOpen, setEditOpen] = useState(false);
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
@@ -47,6 +57,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
 
   const permissions = usePermissions();
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -94,6 +107,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       confidenceLevel: 0.95,
       pValueThreshold: 0.05,
       statsEngine: "bayesian",
+      regressionAdjustmentEnabled: false,
+      regressionAdjustmentDays: 14,
+      attributionModel: "firstExposure",
     },
   });
   const { apiCall } = useAuth();
@@ -118,6 +134,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
     statsEngine: form.watch("statsEngine"),
     confidenceLevel: form.watch("confidenceLevel"),
     pValueThreshold: form.watch("pValueThreshold"),
+    regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
+    regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
+    attributionModel: form.watch("attributionModel"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -170,7 +189,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   const ctaEnabled = hasChanges(value, originalValue);
 
-  const saveSettings = async () => {
+  const saveSettings = form.handleSubmit(async (value) => {
     const enabledVisualEditor =
       !settings?.visualEditorEnabled && value.visualEditorEnabled;
 
@@ -199,7 +218,38 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
     // show the user that the settings have saved:
     setSaveMsg(true);
-  };
+  });
+
+  // const saveSettings = async () => {
+  //   const enabledVisualEditor =
+  //     !settings?.visualEditorEnabled && value.visualEditorEnabled;
+  //
+  //   const transformedOrgSettings = {
+  //     ...value,
+  //     metricDefaults: {
+  //       ...value.metricDefaults,
+  //       maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
+  //       minPercentageChange: value.metricDefaults.minPercentageChange / 100,
+  //     },
+  //     confidenceLevel: value.confidenceLevel / 100,
+  //   };
+  //
+  //   await apiCall(`/organization`, {
+  //     method: "PUT",
+  //     body: JSON.stringify({
+  //       settings: transformedOrgSettings,
+  //     }),
+  //   });
+  //   refreshOrganization();
+  //
+  //   // Track usage of the Visual Editor
+  //   if (enabledVisualEditor) {
+  //     track("Enable Visual Editor");
+  //   }
+  //
+  //   // show the user that the settings have saved:
+  //   setSaveMsg(true);
+  // };
 
   const highlightColor =
     value.confidenceLevel < 70
@@ -217,6 +267,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ? "#e27202"
       : value.pValueThreshold > 0.1
       ? "#B39F01"
+      : "";
+
+  const regressionAdjustmentDaysHighlightColor =
+    value.regressionAdjustmentDays > 28 || value.regressionAdjustmentDays < 7
+      ? "#e27202"
       : "";
 
   const warningMsg =
@@ -243,6 +298,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ? "Use caution with values above 0.1"
       : value.pValueThreshold <= 0.01
       ? "Threshold values of 0.01 and lower can take lots of data to achieve"
+      : "";
+
+  const regressionAdjustmentDaysWarningMsg =
+    value.regressionAdjustmentDays > 28
+      ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
+      : value.regressionAdjustmentDays < 7
+      ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
       : "";
 
   if (!permissions.organizationSettings) {
@@ -571,6 +633,32 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   />
 
                   <div className="mb-3 form-group flex-column align-items-start">
+                    <SelectField
+                      label={
+                        <AttributionModelTooltip>
+                          Default Attribution Model <FaQuestionCircle />
+                        </AttributionModelTooltip>
+                      }
+                      className="ml-2"
+                      value={form.watch("attributionModel")}
+                      onChange={(value) => {
+                        const model = value as AttributionModel;
+                        form.setValue("attributionModel", model);
+                      }}
+                      options={[
+                        {
+                          label: "First Exposure",
+                          value: "firstExposure",
+                        },
+                        {
+                          label: "Experiment Duration",
+                          value: "experimentDuration",
+                        },
+                      ]}
+                    />
+                  </div>
+
+                  <div className="mb-3 form-group flex-column align-items-start">
                     <Field
                       label="Experiment Auto-Update Frequency"
                       className="ml-2"
@@ -648,6 +736,98 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     </div>
                   </div>
                 </div>
+
+                <div className="p-3 my-3 border rounded">
+                  <h5 className="font-weight-bold mb-1">
+                    <PremiumTooltip commercialFeature="regression-adjustment">
+                      Regression Adjustment (CUPED)
+                    </PremiumTooltip>
+                  </h5>
+                  <div className="mb-3">
+                    <small className="d-inline-block mb-2 text-muted">
+                      Only applicable to frequentist analyses
+                    </small>
+                  </div>
+                  <div className="form-group mb-0 mr-2">
+                    <div className="d-flex">
+                      <label
+                        className="mr-1"
+                        htmlFor="toggle-regressionAdjustmentEnabled"
+                      >
+                        Apply regression adjustment by default
+                      </label>
+                      <Toggle
+                        id={"toggle-regressionAdjustmentEnabled"}
+                        value={!!form.watch("regressionAdjustmentEnabled")}
+                        setValue={(value) => {
+                          form.setValue("regressionAdjustmentEnabled", value);
+                        }}
+                        disabled={
+                          !hasRegressionAdjustmentFeature || hasFileConfig()
+                        }
+                      />
+                    </div>
+                    {form.watch("regressionAdjustmentEnabled") &&
+                      form.watch("statsEngine") === "bayesian" && (
+                        <div className="d-flex">
+                          <small className="mb-1 text-warning-orange">
+                            <FaExclamationTriangle /> Your organization uses
+                            Bayesian statistics by default and regression
+                            adjustment is not implemented for the Bayesian
+                            engine.
+                          </small>
+                        </div>
+                      )}
+                  </div>
+                  <div
+                    className="form-group mt-3 mb-0 mr-2 form-inline"
+                    style={{
+                      opacity: form.watch("regressionAdjustmentEnabled")
+                        ? "1"
+                        : "0.5",
+                    }}
+                  >
+                    <Field
+                      label="Pre-exposure lookback period (days)"
+                      type="number"
+                      style={{
+                        borderColor: regressionAdjustmentDaysHighlightColor,
+                        backgroundColor: regressionAdjustmentDaysHighlightColor
+                          ? regressionAdjustmentDaysHighlightColor + "15"
+                          : "",
+                      }}
+                      className={`ml-2`}
+                      containerClassName="mb-0"
+                      append="days"
+                      min="0"
+                      max="100"
+                      disabled={
+                        !hasRegressionAdjustmentFeature || hasFileConfig()
+                      }
+                      helpText={
+                        <>
+                          <span className="ml-2">(14 is default)</span>
+                        </>
+                      }
+                      {...form.register("regressionAdjustmentDays", {
+                        valueAsNumber: true,
+                        validate: (v) => {
+                          return !(v <= 0 || v > 100);
+                        },
+                      })}
+                    />
+                    {regressionAdjustmentDaysWarningMsg && (
+                      <small
+                        style={{
+                          color: regressionAdjustmentDaysHighlightColor,
+                        }}
+                      >
+                        {regressionAdjustmentDaysWarningMsg}
+                      </small>
+                    )}
+                  </div>
+                </div>
+
                 <div className="form-check mb-2 mt-2">
                   <input
                     type="checkbox"

@@ -27,7 +27,8 @@ export type ResultsTableProps = {
   labelHeader: string;
   renderLabelColumn: (
     label: string,
-    metric: MetricInterface
+    metric: MetricInterface,
+    row: ExperimentTableRow
   ) => string | ReactElement;
   dateCreated: Date;
   hasRisk: boolean;
@@ -58,11 +59,11 @@ export default function ResultsTable({
   hasRisk,
   riskVariation,
   setRiskVariation,
-  statsEngine: _statsEngine,
+  statsEngine,
 }: ResultsTableProps) {
   const domain = useDomain(variations, rows);
   const orgSettings = useOrgSettings();
-  const statsEngine = _statsEngine ? _statsEngine : orgSettings.statsEngine;
+  statsEngine = statsEngine ?? orgSettings.statsEngine ?? "bayesian";
 
   return (
     <table
@@ -74,13 +75,17 @@ export default function ResultsTable({
     >
       <thead>
         <tr>
-          <th rowSpan={2} className="metric" style={{ minWidth: 125 }}>
+          <th
+            rowSpan={2}
+            className="metric head-last-row"
+            style={{ minWidth: 125 }}
+          >
             {labelHeader}
           </th>
           {hasRisk && fullStats && (
             <th
               rowSpan={2}
-              className="metric"
+              className="metric head-last-row"
               style={{ maxWidth: 155, minWidth: 125 }}
             >
               Risk of Choosing&nbsp;
@@ -104,21 +109,31 @@ export default function ResultsTable({
             </th>
           )}
           {variations.map((v, i) => (
-            <th colSpan={i ? (fullStats ? 3 : 2) : 1} className="value" key={i}>
-              <span className="text-muted font-weight-normal">{i}:</span>
-              &nbsp;{v.name}
+            <th
+              colSpan={i ? (fullStats ? 3 : 2) : 1}
+              className={`value variation${i} pb-2`}
+              key={i}
+              style={{ whiteSpace: i == 0 ? "nowrap" : "initial" }}
+            >
+              <span className="label">{i}</span>
+              <span className="name">{v.name}</span>
             </th>
           ))}
         </tr>
         <tr>
           {variations.map((v, i) => (
             <React.Fragment key={i}>
-              <th className={clsx("value", `variation${i} text-center`)}>
+              <th
+                className={clsx(
+                  "value pt-2",
+                  `variation${i} head-last-row text-center`
+                )}
+              >
                 Value
               </th>
               {i > 0 && fullStats && (
                 <th
-                  className={`variation${i} text-center`}
+                  className={`variation${i} head-last-row text-center pt-2`}
                   style={{ minWidth: 110 }}
                 >
                   {statsEngine === "frequentist"
@@ -127,7 +142,7 @@ export default function ResultsTable({
                 </th>
               )}
               {i > 0 && (
-                <th className={`variation${i} text-center`}>
+                <th className={`variation${i} head-last-row text-center pt-2`}>
                   Percent Change{" "}
                   {fullStats && (
                     <>
@@ -146,6 +161,19 @@ export default function ResultsTable({
                 </th>
               )}
             </React.Fragment>
+          ))}
+        </tr>
+        <tr>
+          <th className="head-bottom-border sticky"></th>
+          {hasRisk && fullStats && (
+            <th className="empty-td head-bottom-border"></th>
+          )}
+          {variations.map((v, i) => (
+            <th
+              key={i}
+              className={`head-bottom-border variation${i}`}
+              colSpan={i ? (fullStats ? 3 : 2) : 1}
+            ></th>
           ))}
         </tr>
       </thead>
@@ -200,7 +228,7 @@ export default function ResultsTable({
               )}
             >
               <th className="metricname">
-                {renderLabelColumn(row.label, row.metric)}
+                {renderLabelColumn(row.label, row.metric, row)}
               </th>
               {hasRisk && fullStats && (
                 <RiskColumn row={row} riskVariation={riskVariation} />

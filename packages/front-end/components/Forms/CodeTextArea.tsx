@@ -1,6 +1,7 @@
 import React from "react";
 import dynamic from "next/dynamic";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { CursorData } from "../Segments/SegmentForm";
 import Field, { FieldProps } from "./Field";
 
 const AceEditor = dynamic(
@@ -31,8 +32,11 @@ export type Props = Omit<
   language: Language;
   value: string;
   setValue: (value: string) => void;
+  setCursorData?: (data: CursorData) => void;
   minLines?: number;
   maxLines?: number;
+  fullHeight?: boolean;
+  onCtrlEnter?: () => void;
 };
 
 const LIGHT_THEME = "textmate";
@@ -43,29 +47,28 @@ export default function CodeTextArea({
   value,
   setValue,
   placeholder,
-  minLines = 4,
+  minLines = 10,
   maxLines = 50,
+  setCursorData,
+  fullHeight,
+  onCtrlEnter,
   ...otherProps
 }: Props) {
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
 
-  const semicolonWarning =
-    "Warning: Please remove any terminating semicolons. GrowthBook uses Common Table Expressions that will break from terminating semicolons.";
-
-  if (language === "sql" && value.includes(";")) {
-    otherProps.error = semicolonWarning;
-  }
-
   const { theme } = useAppearanceUITheme();
+
+  const heightProps = fullHeight ? { height: "100%" } : { minLines, maxLines };
 
   return (
     <Field
       {...fieldProps}
+      containerClassName={fullHeight ? "h-100" : ""}
       render={(id) => {
         return (
           <>
-            <div className="border rounded">
+            <div className={`border rounded ${fullHeight ? "h-100" : ""}`}>
               <AceEditor
                 name={id}
                 mode={language}
@@ -74,8 +77,30 @@ export default function CodeTextArea({
                 value={value}
                 onChange={(newValue) => setValue(newValue)}
                 placeholder={placeholder}
-                minLines={minLines}
-                maxLines={maxLines}
+                fontSize="1em"
+                commands={
+                  onCtrlEnter
+                    ? [
+                        {
+                          bindKey: {
+                            win: "Ctrl-enter",
+                            mac: "Command-enter",
+                          },
+                          exec: onCtrlEnter,
+                          name: "Run Test Query",
+                        },
+                      ]
+                    : []
+                }
+                {...heightProps}
+                onCursorChange={(e) =>
+                  setCursorData &&
+                  setCursorData({
+                    row: e.cursor.row,
+                    column: e.cursor.column,
+                    input: e.cursor.document.$lines,
+                  })
+                }
               />
             </div>
           </>

@@ -1,8 +1,9 @@
 import Agenda, { Job } from "agenda";
-import { initializeDatasourceInformationSchema } from "../services/datasource";
+import { updateDatasourceInformationSchema } from "../services/informationSchema";
 import { getDataSourceById } from "../models/DataSourceModel";
 import {
   getInformationSchemaByDatasourceId,
+  getInformationSchemaById,
   updateInformationSchemaById,
 } from "../models/InformationSchemaModel";
 import {
@@ -11,10 +12,11 @@ import {
   MissingDatasourceParamsError,
 } from "../types/Integration";
 
-const CREATE_INFORMATION_SCHEMA_JOB_NAME = "createInformationSchema";
-type CreateInformationSchemaJob = Job<{
+const UPDATE_INFORMATION_SCHEMA_JOB_NAME = "updateInformationSchema";
+type UpdateInformationSchemaJob = Job<{
   datasourceId: string;
   organization: string;
+  informationSchemaId: string;
 }>;
 
 let agenda: Agenda;
@@ -22,18 +24,31 @@ export default function (ag: Agenda) {
   agenda = ag;
 
   agenda.define(
-    CREATE_INFORMATION_SCHEMA_JOB_NAME,
-    async (job: CreateInformationSchemaJob) => {
-      const { datasourceId, organization } = job.attrs.data;
+    UPDATE_INFORMATION_SCHEMA_JOB_NAME,
+    async (job: UpdateInformationSchemaJob) => {
+      const {
+        datasourceId,
+        organization,
+        informationSchemaId,
+      } = job.attrs.data;
 
       if (!datasourceId || !organization) return;
 
       const datasource = await getDataSourceById(datasourceId, organization);
 
-      if (!datasource) return;
+      const informationSchema = await getInformationSchemaById(
+        organization,
+        informationSchemaId
+      );
+
+      if (!datasource || !informationSchema) return;
 
       try {
-        await initializeDatasourceInformationSchema(datasource, organization);
+        await updateDatasourceInformationSchema(
+          datasource,
+          organization,
+          informationSchema
+        );
       } catch (e) {
         const error: InformationSchemaError = {
           errorType: "generic",
@@ -65,16 +80,18 @@ export default function (ag: Agenda) {
   );
 }
 
-export async function queueCreateInformationSchema(
+export async function queueUpdateInformationSchema(
   datasourceId: string,
-  organization: string
+  organization: string,
+  informationSchemaId: string
 ) {
   if (!datasourceId || !organization) return;
 
-  const job = agenda.create(CREATE_INFORMATION_SCHEMA_JOB_NAME, {
+  const job = agenda.create(UPDATE_INFORMATION_SCHEMA_JOB_NAME, {
     datasourceId,
     organization,
-  }) as CreateInformationSchemaJob;
+    informationSchemaId,
+  }) as UpdateInformationSchemaJob;
   job.unique({ datasource: datasourceId, organization });
   job.schedule(new Date());
   await job.save();

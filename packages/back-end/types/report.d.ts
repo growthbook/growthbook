@@ -23,6 +23,12 @@ export interface ExperimentReportVariation {
   name: string;
   weight: number;
 }
+export interface MetricRegressionAdjustmentStatus {
+  metric: string;
+  regressionAdjustmentEnabled: boolean;
+  regressionAdjustmentDays: number;
+  reason: string;
+}
 export interface ExperimentReportArgs {
   trackingKey: string;
   datasource: string;
@@ -44,6 +50,8 @@ export interface ExperimentReportArgs {
   skipPartialData?: boolean;
   attributionModel?: AttributionModel;
   statsEngine?: StatsEngine;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
 }
 export interface ExperimentReportResultDimension {
   name: string;
