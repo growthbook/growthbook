@@ -56,6 +56,9 @@ export const httpLogger = pinoHttp({
   customProps: getCustomLogProps,
 });
 
+/**
+ * Wrapper for our logger
+ */
 export const logger: BaseLogger = {
   error(...args: unknown[]) {
     // eslint-disable-next-line
@@ -73,3 +76,8 @@ export const logger: BaseLogger = {
   trace: httpLogger.logger.trace,
   warn: httpLogger.logger.warn,
 };
+
+/**
+ * pino's logger.child function
+ */
+export const childLogger = httpLogger.logger.child;

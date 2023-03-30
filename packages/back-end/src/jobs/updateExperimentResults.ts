@@ -14,8 +14,8 @@ import {
 } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
 import {
-  updateSnapshot,
   getLatestSnapshot,
+  updateSnapshot,
 } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
@@ -24,7 +24,7 @@ import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { analyzeExperimentResults } from "../services/stats";
 import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
-import { logger } from "../util/logger";
+import { childLogger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 
 // Time between experiment result updates (default 6 hours)
@@ -111,7 +111,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const organization = job.attrs.data?.organization;
   if (!experimentId || !organization) return;
 
-  const log = logger.child({
+  const log = childLogger({
     cron: "updateSingleExperiment",
     experimentId,
   });
@@ -223,7 +223,7 @@ async function sendSignificanceEmail(
   lastSnapshot: ExperimentSnapshotInterface,
   currentSnapshot: ExperimentSnapshotInterface
 ) {
-  const log = logger.child({
+  const log = childLogger({
     cron: "sendSignificanceEmail",
     experimentId: experiment.id,
   });
