@@ -721,6 +721,7 @@ export async function postExperiment(
     "autoSnapshots",
     "project",
     "regressionAdjustmentEnabled",
+    "hasVisualChangesets",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
