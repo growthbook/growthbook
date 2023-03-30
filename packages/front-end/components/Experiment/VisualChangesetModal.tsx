@@ -118,12 +118,6 @@ const VisualChangesetModal: FC<{
           },
         })}
       />
-      {!patternsMatchUrl && (
-        <div className="alert alert-warning mt-3">
-          <FaExclamationCircle /> Your URL patterns do not match the target URL
-        </div>
-      )}
-
       {!forceAdvancedMode && (
         <div className="my-3 text-xs">
           <span
@@ -193,35 +187,25 @@ const VisualChangesetModal: FC<{
                 <div className="small text-muted">
                   {form.watch(`urlPatterns.${i}.type`) === "simple" ? (
                     <Tooltip
-                      tipMinWidth={"500px"}
                       body={
                         <>
+                          Example Patterns:
                           <ul className="px-4">
                             <li>
-                              Both <code>pricing</code> and{" "}
-                              <code>/pricing/</code> will match
-                              &quot;https://www.example.com/pricing/?a=1&quot;
-                              (leading and trailing slashes are ignored)
+                              <code>https://www.example.com/pricing</code>
                             </li>
                             <li>
-                              <code>?c=3&a=1</code> will match
-                              &quot;https://www.example.com/?a=1&b=2&c=3&quot;
-                              (order and excluded querystrings are ignored)
+                              <code>/sale?utm_source=email</code>
                             </li>
                             <li>
-                              Wildcard support:{" "}
-                              <code>/post/*/edit?key=abc-*</code>
-                            </li>
-                            <li>
-                              Using wildcards to restrict by domain:{" "}
-                              <code>*.example.com/post/*</code>
+                              <code>/items/*</code>
                             </li>
                           </ul>
                         </>
                       }
                     >
-                      <strong>Simple</strong>: Matches a URL using intuitive
-                      rules <FaInfoCircle />
+                      <strong>Simple</strong>: Matches a full URL or path.
+                      Supports <code>*</code> as a wildcard <FaInfoCircle />
                     </Tooltip>
                   ) : form.watch(`urlPatterns.${i}.type`) === "exact" ? (
                     <Tooltip
@@ -245,7 +229,7 @@ const VisualChangesetModal: FC<{
                           <ul className="px-4">
                             <li>
                               <code style={{ whiteSpace: "nowrap" }}>
-                                https:?\/\/(www\.)?example\.com\/pricing\/?
+                                https?:\/\/(www\.)?example\.com\/pricing\/?
                               </code>{" "}
                               will match both
                               &quot;https://www.example.com/pricing&quot; and
@@ -288,6 +272,12 @@ const VisualChangesetModal: FC<{
           <GBAddCircle /> Add URL Target
         </button>
       </div>
+
+      {!patternsMatchUrl && (
+        <div className="alert alert-warning mt-3">
+          <FaExclamationCircle /> Your URL patterns do not match the target URL
+        </div>
+      )}
     </Modal>
   );
 };

@@ -86,10 +86,10 @@ function _evalSimpleUrlPart(
   isPath: boolean
 ): boolean {
   try {
-    // Escape special regex characters and change wildcard `*` to `.*`
+    // Escape special regex characters and change wildcard `_____` to `.*`
     let escaped = pattern
-      .replace(/[.+?^${}()|[\]\\]/g, "\\$&")
-      .replace(/(\*|%2A)/g, ".*");
+      .replace(/[*.+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/_____/g, ".*");
 
     if (isPath) {
       // When matching pathname, make leading/trailing slashes optional
@@ -107,9 +107,10 @@ function _evalSimpleUrlTarget(url: string, pattern: string) {
   try {
     const actual = new URL(url, "https://_");
     // If a protocol is missing, but a host is specified, add `https://` to the front
+    // Use "_____" as the wildcard since `*` is not a valid hostname in some browsers
     const expected = new URL(
-      pattern.replace(/^([^:/?]*)\./i, "https://$1."),
-      "https://*"
+      pattern.replace(/^([^:/?]*)\./i, "https://$1.").replace(/\*/g, "_____"),
+      "https://_____"
     );
 
     // Compare each part of the URL separately
