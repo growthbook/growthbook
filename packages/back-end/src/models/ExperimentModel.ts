@@ -587,7 +587,7 @@ export const logExperimentCreated = async (
   organization: OrganizationInterface,
   user: EventAuditUser,
   experiment: ExperimentInterface
-): Promise<string> => {
+): Promise<string | undefined> => {
   const payload: ExperimentCreatedNotificationEvent = {
     object: "experiment",
     event: "experiment.created",
@@ -598,9 +598,10 @@ export const logExperimentCreated = async (
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent.id).perform();
-
-  return emittedEvent.id;
+  if (emittedEvent) {
+    new EventNotifier(emittedEvent.id).perform();
+    return emittedEvent.id;
+  }
 };
 
 export const logExperimentUpdated = async ({
@@ -613,7 +614,7 @@ export const logExperimentUpdated = async ({
   user: EventAuditUser;
   current: ExperimentInterface;
   previous: ExperimentInterface;
-}): Promise<string> => {
+}): Promise<string | undefined> => {
   const payload: ExperimentUpdatedNotificationEvent = {
     object: "experiment",
     event: "experiment.updated",
@@ -625,9 +626,10 @@ export const logExperimentUpdated = async ({
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent.id).perform();
-
-  return emittedEvent.id;
+  if (emittedEvent) {
+    new EventNotifier(emittedEvent.id).perform();
+    return emittedEvent.id;
+  }
 };
 
 /**
@@ -809,7 +811,7 @@ export const logExperimentDeleted = async (
   organization: OrganizationInterface,
   user: EventAuditUser,
   experiment: ExperimentInterface
-): Promise<string> => {
+): Promise<string | undefined> => {
   const payload: ExperimentDeletedNotificationEvent = {
     object: "experiment",
     event: "experiment.deleted",
@@ -820,9 +822,10 @@ export const logExperimentDeleted = async (
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent.id).perform();
-
-  return emittedEvent.id;
+  if (emittedEvent) {
+    new EventNotifier(emittedEvent.id).perform();
+    return emittedEvent.id;
+  }
 };
 
 // endregion Events
