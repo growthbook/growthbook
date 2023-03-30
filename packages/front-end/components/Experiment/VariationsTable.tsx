@@ -168,12 +168,17 @@ const VariationsTable: FC<Props> = ({
           </thead>
 
           <tbody>
-            <tr style={{ height: 1 }}>
+            <tr>
               {variations.map((v, i) => (
                 <td
                   key={i}
                   scope="col"
-                  style={{ minWidth: "17.5rem", height: "inherit" }}
+                  className={`align-top ${canEdit ? "pb-1" : ""}`}
+                  style={{
+                    minWidth: "17.5rem",
+                    height: "inherit",
+                    borderBottom: canEdit ? 0 : null,
+                  }}
                 >
                   <div className="d-flex flex-column h-100">
                     {v.screenshots.length > 0 ? (
@@ -186,19 +191,29 @@ const VariationsTable: FC<Props> = ({
                         mutate={mutate}
                       />
                     ) : null}
-                    {canEdit && (
-                      <div className="mt-auto">
-                        <ScreenshotUpload
-                          variation={i}
-                          experiment={experiment.id}
-                          onSuccess={() => mutate()}
-                        />
-                      </div>
-                    )}
                   </div>
                 </td>
               ))}
             </tr>
+            {canEdit && (
+              <tr>
+                {variations.map((v, i) => (
+                  <td
+                    key={`b${i}`}
+                    className="pt-0 pb-1"
+                    style={{ borderTop: 0 }}
+                  >
+                    <div>
+                      <ScreenshotUpload
+                        variation={i}
+                        experiment={experiment.id}
+                        onSuccess={() => mutate()}
+                      />
+                    </div>
+                  </td>
+                ))}
+              </tr>
+            )}
           </tbody>
         </table>
       </div>

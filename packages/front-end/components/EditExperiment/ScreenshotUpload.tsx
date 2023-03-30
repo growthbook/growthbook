@@ -78,6 +78,9 @@ const ScreenshotUpload = ({
         <div className={styles.message}>Drop Image Here...</div>
         <button className="btn btn-link btn-sm">
           <GBAddCircle /> Add Screenshot
+          <div className="small text-muted mt-1">
+            Drag and drop or browse to upload.
+          </div>
         </button>
       </div>
     </>

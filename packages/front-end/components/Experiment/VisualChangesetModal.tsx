@@ -99,7 +99,9 @@ const VisualChangesetModal: FC<{
       open
       close={close}
       size="lg"
-      header={`${mode === "add" ? "Add" : "Modify"} Visual Changes`}
+      header={`${
+        mode === "add" ? "Add" : "Modify"
+      } Visual Changes URL targeting`}
       submit={onSubmit}
     >
       <Field
