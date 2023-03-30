@@ -552,7 +552,6 @@ export async function postExperiments(
     previewURL: data.previewURL || "",
     targetURLRegex: data.targetURLRegex || "",
     ideaSource: data.ideaSource || "",
-    visualEditorUrl: data.visualEditorUrl || "",
   };
 
   try {
@@ -722,7 +721,6 @@ export async function postExperiment(
     "autoSnapshots",
     "project",
     "regressionAdjustmentEnabled",
-    "visualEditorUrl", // todo: should this be here?
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};

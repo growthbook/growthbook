@@ -11,7 +11,6 @@ import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import usePermissions from "@/hooks/usePermissions";
 import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
-import EditInfoForm from "@/components/Experiment/EditInfoForm";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import EditTagsForm from "@/components/Tags/EditTagsForm";
 import EditProjectForm from "@/components/Experiment/EditProjectForm";
@@ -29,7 +28,6 @@ const ExperimentPage = (): ReactElement => {
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [variationsModalOpen, setVariationsModalOpen] = useState(false);
-  const [editModalOpen, setEditModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [projectModalOpen, setProjectModalOpen] = useState(false);
@@ -93,13 +91,6 @@ const ExperimentPage = (): ReactElement => {
         <EditVariationsForm
           experiment={experiment}
           cancel={() => setVariationsModalOpen(false)}
-          mutate={mutate}
-        />
-      )}
-      {editModalOpen && (
-        <EditInfoForm
-          experiment={experiment}
-          cancel={() => setEditModalOpen(false)}
           mutate={mutate}
         />
       )}

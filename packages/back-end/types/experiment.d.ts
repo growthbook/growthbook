@@ -135,7 +135,6 @@ export interface ExperimentInterface {
   autoSnapshots: boolean;
   ideaSource?: string;
   regressionAdjustmentEnabled?: boolean;
-  visualEditorUrl?: string; // todo: needed?
 }
 
 export type ExperimentInterfaceStringDates = Omit<

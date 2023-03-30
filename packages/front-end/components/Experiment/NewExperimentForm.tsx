@@ -124,7 +124,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         "firstExposure",
       metrics: initialValue?.metrics || [],
       tags: initialValue?.tags || [],
-      visualEditorUrl: "",
       targetURLRegex: initialValue?.targetURLRegex || "",
       description: initialValue?.description || "",
       guardrails: initialValue?.guardrails || [],
