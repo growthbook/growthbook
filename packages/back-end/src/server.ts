@@ -12,14 +12,16 @@ const server = app.listen(app.get("port"), () => {
 export default server;
 
 // App-level error handling
-interface UnhandledRejectionError extends Error {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  promise: Promise<any>;
+class UnhandledRejectionError extends Error {
+  public promise: Promise<unknown>;
+  constructor(message: string, promise: Promise<unknown>) {
+    super(message);
+    this.name = "UnhandledRejectionError";
+    this.promise = promise;
+  }
 }
 process.on("unhandledRejection", (reason, promise) => {
-  const err = new Error(reason as string) as UnhandledRejectionError;
-  err.promise = promise;
-  logger.error(err, "Unhandled Rejection");
+  throw new UnhandledRejectionError(reason as string, promise);
 });
 process.on("uncaughtException", (err) => {
   logger.error(err, "Uncaught Exception");
