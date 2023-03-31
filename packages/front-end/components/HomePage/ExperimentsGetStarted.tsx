@@ -7,7 +7,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { hasFileConfig } from "@/services/env";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissions from "@/hooks/usePermissions";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -17,6 +16,7 @@ import DocumentationLinksSidebar from "@/components/HomePage/DocumentationLinksS
 import GetStartedStep from "@/components/HomePage/GetStartedStep";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import AddExperimentModal from "../Experiment/AddExperimentModal";
 
 const ExperimentsGetStarted = ({
   experiments,
@@ -28,7 +28,6 @@ const ExperimentsGetStarted = ({
   const { metrics, datasources, mutateDefinitions, project } = useDefinitions();
   const { apiCall } = useAuth();
 
-  const { visualEditorEnabled } = useOrgSettings();
   const permissions = usePermissions();
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
@@ -122,14 +121,20 @@ const ExperimentsGetStarted = ({
             }}
           />
         )}
-        {experimentsOpen && (
-          <ImportExperimentModal
-            onClose={() => setExperimentsOpen(false)}
-            source={featureExperiment ? "feature-rule" : "get-started"}
-            initialValue={featureExperiment}
-            fromFeature={!!featureExperiment}
-          />
-        )}
+        {experimentsOpen &&
+          (featureExperiment ? (
+            <ImportExperimentModal
+              onClose={() => setExperimentsOpen(false)}
+              source={featureExperiment ? "feature-rule" : "get-started"}
+              initialValue={featureExperiment}
+              fromFeature={!!featureExperiment}
+            />
+          ) : (
+            <AddExperimentModal
+              onClose={() => setExperimentsOpen(false)}
+              source="get-started"
+            />
+          ))}
         <div className="row">
           <div className="col-12 col-lg-8">
             {hasFileConfig() ? (
@@ -294,9 +299,7 @@ const ExperimentsGetStarted = ({
             </div>
           </div>
           <div className="col-12 col-lg-4">
-            <DocumentationLinksSidebar
-              showVisualEditor={!visualEditorEnabled}
-            />
+            <DocumentationLinksSidebar />
           </div>
         </div>
       </div>

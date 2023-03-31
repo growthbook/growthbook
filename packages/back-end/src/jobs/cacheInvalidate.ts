@@ -1,8 +1,7 @@
 import Agenda, { Job } from "agenda";
 import AWS from "aws-sdk";
 import { CreateInvalidationRequest } from "aws-sdk/clients/cloudfront";
-import { AWS_CLOUDFRONT_DISTRIBUTION_ID, CRON_ENABLED } from "../util/secrets";
-import { getAllApiKeysByOrganization } from "../models/ApiKeyModel";
+import { AWS_CLOUDFRONT_DISTRIBUTION_ID } from "../util/secrets";
 import { logger } from "../util/logger";
 
 const INVALIDATE_JOB_NAME = "fireInvalidate";
@@ -50,28 +49,4 @@ export default function (ag: Agenda) {
       });
     });
   });
-}
-
-export async function queueCDNInvalidate(
-  organization: string,
-  getUrl: (key: string) => string
-) {
-  if (!AWS_CLOUDFRONT_DISTRIBUTION_ID) return;
-  if (!CRON_ENABLED) return;
-
-  const apiKeys = await getAllApiKeysByOrganization(organization);
-
-  // Skip if there are no API keys defined
-  if (!apiKeys || !apiKeys.length) return;
-
-  // Queue up jobs to invalidate each API key in the CDN
-  for (const k of apiKeys) {
-    const url = getUrl(k.key);
-    const job = agenda.create(INVALIDATE_JOB_NAME, {
-      url,
-    }) as InvalidateJob;
-    job.unique({ url });
-    job.schedule(new Date());
-    await job.save();
-  }
 }

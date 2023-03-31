@@ -1,5 +1,10 @@
 # Changelog
 
+## **0.24.0** - Mar 30, 2023
+
+- Support for the new GrowthBook Visual Editor
+- Advanced URL targeting support
+
 ## **0.23.0** - Feb 27, 2023
 
 - Support for holdout groups

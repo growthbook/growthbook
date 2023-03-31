@@ -3,7 +3,7 @@ import cronParser from "cron-parser";
 import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
-import { updateExperimentById } from "../models/ExperimentModel";
+import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotInterface,
   SnapshotVariation,
@@ -35,8 +35,6 @@ import {
 import { SegmentInterface } from "../../types/segment";
 import { ExperimentInterface, MetricOverride } from "../../types/experiment";
 import { PastExperiment } from "../../types/past-experiments";
-import { queueWebhook } from "../jobs/webhooks";
-import { queueCDNInvalidate } from "../jobs/cacheInvalidate";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
 import { getValidDate } from "../util/dates";
@@ -53,7 +51,6 @@ import {
 } from "../../types/organization";
 import { StatsEngine } from "../../types/stats";
 import { logger } from "../util/logger";
-import { getSDKPayloadKeys } from "../util/features";
 import { DataSourceInterface } from "../../types/datasource";
 import {
   ApiExperiment,
@@ -63,6 +60,7 @@ import {
 } from "../../types/openapi";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { postMetricValidator } from "../validators/openapi";
+import { EventAuditUser } from "../events/event-types";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -401,6 +399,7 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
 
 export async function createSnapshot(
   experiment: ExperimentInterface,
+  user: EventAuditUser,
   phaseIndex: number,
   organization: OrganizationInterface,
   dimensionId: string | null,
@@ -445,10 +444,15 @@ export async function createSnapshot(
     determineNextDate(organization.settings?.updateSchedule || null) ||
     undefined;
 
-  await updateExperimentById(organization.id, experiment, {
-    lastSnapshotAttempt: new Date(),
-    nextSnapshotAttempt: nextUpdate,
-    autoSnapshots: nextUpdate !== null,
+  await updateExperiment({
+    organization,
+    experiment,
+    user,
+    changes: {
+      lastSnapshotAttempt: new Date(),
+      nextSnapshotAttempt: nextUpdate,
+      autoSnapshots: nextUpdate !== null,
+    },
   });
 
   const { queries, results } = await startExperimentAnalysis(
@@ -597,27 +601,6 @@ export async function processPastExperiments(
   return Array.from(experimentMap.values()).filter(
     (e) => e.numVariations > 1 && e.numVariations < 10
   );
-}
-
-export async function experimentUpdated(
-  experiment: ExperimentInterface,
-  previousProject: string = ""
-) {
-  const payloadKeys = getSDKPayloadKeys(
-    new Set(["dev", "production"]),
-    new Set(["", previousProject || "", experiment.project || ""])
-  );
-
-  // fire the webhook:
-  await queueWebhook(experiment.organization, payloadKeys, false);
-
-  // invalidate the CDN
-  await queueCDNInvalidate(experiment.organization, (key) => {
-    // Which url to invalidate depends on the type of experiment
-    return experiment.implementation === "visual"
-      ? `/js/${key}.js`
-      : `/config/${key}`;
-  });
 }
 
 function getExperimentMetric(

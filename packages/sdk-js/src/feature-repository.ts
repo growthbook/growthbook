@@ -82,7 +82,7 @@ export async function refreshFeatures(
     timeout,
     skipCache
   );
-  updateInstance && data && (await setFeaturesOnInstance(instance, data));
+  updateInstance && data && (await refreshInstance(instance, data));
 }
 
 // Subscribe a GrowthBook instance to feature changes
@@ -213,14 +213,21 @@ function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse): void {
 
   // Update features for all subscribed GrowthBook instances
   const instances = subscribedInstances.get(key);
-  instances &&
-    instances.forEach((instance) => setFeaturesOnInstance(instance, data));
+  instances && instances.forEach((instance) => refreshInstance(instance, data));
 }
 
-async function setFeaturesOnInstance(
+async function refreshInstance(
   instance: GrowthBook,
   data: FeatureApiResponse
 ): Promise<void> {
+  await (data.encryptedExperiments
+    ? instance.setEncryptedExperiments(
+        data.encryptedExperiments,
+        undefined,
+        polyfills.SubtleCrypto
+      )
+    : instance.setExperiments(data.experiments || instance.getExperiments()));
+
   await (data.encryptedFeatures
     ? instance.setEncryptedFeatures(
         data.encryptedFeatures,

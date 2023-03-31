@@ -114,7 +114,6 @@ paths:
     $ref: "./paths/getExperiment.yaml"
   /experiments/{id}/results:
     $ref: "./paths/getExperimentResults.yaml"
-  # PLOP_INSERT_PATHS_HERE
   /metrics:
     get:
       $ref: "./paths/listMetrics.yaml"
@@ -126,7 +125,15 @@ paths:
   /experiments/{id}/visual-changesets:
     $ref: "./paths/listVisualChangesets.yaml"
   /visual-changesets/{id}:
-    $ref: "./paths/getVisualChangeset.yaml"
+    get:
+      $ref: "./paths/getVisualChangeset.yaml"
+    put:
+      $ref: "./paths/putVisualChangeset.yaml"
+  /visual-changesets/{id}/visual-change:
+    $ref: "./paths/postVisualChange.yaml"
+  /visual-changesets/{id}/visual-change/{visualChangeId}:
+    $ref: "./paths/putVisualChange.yaml"
+  # PLOP_INSERT_PATHS_HERE
 components:
   parameters:
     $ref: "./parameters.yaml"

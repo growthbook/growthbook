@@ -135,6 +135,9 @@ tags:
   - name: Segment_model
     x-displayName: Segment
     description: <SchemaDefinition schemaRef="#/components/schemas/Segment" />
+  - name: VisualChange_model
+    x-displayName: VisualChange
+    description: <SchemaDefinition schemaRef="#/components/schemas/VisualChange" />
   - name: VisualChangeset_model
     x-displayName: VisualChangeset
     description: <SchemaDefinition schemaRef="#/components/schemas/VisualChangeset" />
@@ -884,9 +887,14 @@ paths:
                         items:
                           $ref: '#/components/schemas/VisualChangeset'
   '/visual-changesets/{id}':
-    parameters:
-      - $ref: '#/components/parameters/id'
     get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - in: query
+          name: includeExperiment
+          schema:
+            type: integer
+          description: Include the associated experiment in payload
       tags:
         - visual-changesets
       summary: Get a single visual changeset
@@ -907,6 +915,86 @@ paths:
                 properties:
                   visualChangeset:
                     $ref: '#/components/schemas/VisualChangeset'
+                  experiment:
+                    $ref: '#/components/schemas/Experiment'
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - visual-changesets
+      summary: Update a visual changeset
+      operationId: putVisualChangeset
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc
+              -u secret_abc123DEF456 \
+              -H "Content-Type: application/json" \
+                                                 -d '{"editorUrl": "https://docs.growthbook.io", "urlPatterns":"[{ ... }]"}'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - nModified
+                properties:
+                  nModified:
+                    type: number
+  '/visual-changesets/{id}/visual-change':
+    parameters:
+      - $ref: '#/components/parameters/id'
+    post:
+      tags:
+        - visual-changesets
+      summary: Create a visual change for a visual changeset
+      operationId: postVisualChange
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -XPOST https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change \
+              -u secret_abc123DEF456 \
+              -H "Content-Type: application/json" \
+              -d '{"variation": "v_123abc", "domMutations":"[]"}'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - nModified
+                properties:
+                  nModified:
+                    type: number
+  '/visual-changesets/{id}/visual-change/{visualChangeId}':
+    parameters:
+      - $ref: '#/components/parameters/id'
+      - $ref: '#/components/parameters/visualChangeId'
+    put:
+      tags:
+        - visual-changesets
+      summary: Update a visual change for a visual changeset
+      operationId: putVisualChange
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -XPOST https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change/vch_abc123 \
+              -u secret_abc123DEF456 \
+              -H "Content-Type: application/json" \
+              -d '{"variation": "v_123abc", "domMutations":"[]"}'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - nModified
+                properties:
+                  nModified:
+                    type: number
 components:
   parameters:
     id:
@@ -942,6 +1030,13 @@ components:
       name: datasourceId
       in: query
       description: Filter by Data Source
+      schema:
+        type: string
+    visualChangeId:
+      name: visualChangeId
+      in: path
+      required: true
+      description: Specify a specific visual change
       schema:
         type: string
   schemas:
@@ -1518,6 +1613,10 @@ components:
           type: boolean
         encryptionKey:
           type: string
+        includeVisualExperiments:
+          type: boolean
+        includeDraftExperiments:
+          type: boolean
         key:
           type: string
         proxyEnabled:
@@ -1963,15 +2062,29 @@ components:
     VisualChangeset:
       type: object
       required:
-        - urlPattern
+        - urlPatterns
         - editorUrl
         - experiment
         - visualChanges
       properties:
         id:
           type: string
-        urlPattern:
-          type: string
+        urlPatterns:
+          type: array
+          items:
+            type: object
+            required:
+              - type
+              - pattern
+            properties:
+              include:
+                type: boolean
+              type:
+                type: string
+                enum:
+                  - simple
+                  - regex
+              pattern: string
         editorUrl:
           type: string
         experiment:
@@ -2011,6 +2124,38 @@ components:
                       type: string
                     value:
                       type: string
+    VisualChange:
+      type: object
+      required:
+        - variation
+      properties:
+        description:
+          type: string
+        css:
+          type: string
+        variation:
+          type: string
+        domMutations:
+          type: array
+          items:
+            type: object
+            required:
+              - selector
+              - action
+              - attribute
+            properties:
+              selector:
+                type: string
+              action:
+                type: string
+                enum:
+                  - append
+                  - set
+                  - remove
+              attribute:
+                type: string
+              value:
+                type: string
   securitySchemes:
     bearerAuth:
       type: http
@@ -2076,4 +2221,5 @@ x-tagGroups:
       - Project_model
       - SdkConnection_model
       - Segment_model
+      - VisualChange_model
       - VisualChangeset_model

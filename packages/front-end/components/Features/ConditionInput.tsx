@@ -16,6 +16,7 @@ import styles from "./ConditionInput.module.scss";
 interface Props {
   defaultValue: string;
   onChange: (value: string) => void;
+  labelClassName?: string;
 }
 
 export default function ConditionInput(props: Props) {
@@ -60,6 +61,7 @@ export default function ConditionInput(props: Props) {
       <div className="mb-3">
         <CodeTextArea
           label="Targeting Conditions"
+          labelClassName={props.labelClassName}
           language="json"
           value={value}
           setValue={setValue}
@@ -93,8 +95,10 @@ export default function ConditionInput(props: Props) {
   if (!conds.length) {
     return (
       <div className="form-group">
-        <label className="mb-0">Targeting Conditions</label>
-        <div className="m-2">
+        <label className={props.labelClassName || ""}>
+          Targeting Conditions
+        </label>
+        <div className={`mb-3 bg-light p-3 ${styles.conditionbox}`}>
           <em className="text-muted mr-3">Applied to everyone by default.</em>
           <a
             href="#"
@@ -119,7 +123,7 @@ export default function ConditionInput(props: Props) {
 
   return (
     <div className="form-group">
-      <label>Targeting Conditions</label>
+      <label className={props.labelClassName || ""}>Targeting Conditions</label>
       <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
         <ul className={styles.conditionslist}>
           {conds.map(({ field, operator, value }, i) => {
