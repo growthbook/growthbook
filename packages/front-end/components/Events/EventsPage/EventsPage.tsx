@@ -1,17 +1,22 @@
-import React, { FC } from "react";
+import React, { FC, useCallback, useState } from "react";
 import {
   EventInterface,
   NotificationEventName,
   NotificationEventPayload,
   NotificationEventResource,
 } from "back-end/types/event";
+import { FaDownload } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
+import { useAuth } from "@/services/auth";
+import { saveAs } from "@/services/files";
 import LoadingSpinner from "../../LoadingSpinner";
 import { EventsTableRow } from "./EventsTableRow";
 
 type EventsPageProps = {
   isLoading: boolean;
   hasError: boolean;
+  performDownload: () => void;
+  isDownloading: boolean;
   events: EventInterface<
     NotificationEventPayload<
       NotificationEventName,
@@ -25,10 +30,30 @@ export const EventsPage: FC<EventsPageProps> = ({
   events = [],
   hasError,
   isLoading,
+  performDownload,
+  isDownloading,
 }) => {
   return (
-    <div className="container p-4">
-      <h1>Events</h1>
+    <div className="container py-4">
+      <div className="row">
+        <div className="col-6">
+          <h1>Events</h1>
+        </div>
+
+        <div className="col-6 text-right ">
+          <button
+            onClick={performDownload}
+            disabled={isDownloading}
+            className="btn btn-primary"
+          >
+            <span className="mr-1">
+              <FaDownload />
+            </span>{" "}
+            Export
+          </button>
+        </div>
+      </div>
+
       {hasError && (
         <div className="alert alert-danger">
           There was an error loading the events.
@@ -65,6 +90,8 @@ export const EventsPage: FC<EventsPageProps> = ({
 };
 
 export const EventsPageContainer = () => {
+  const { apiCall } = useAuth();
+
   const { data, error, isValidating } = useApi<{
     events: EventInterface<
       NotificationEventPayload<
@@ -75,11 +102,30 @@ export const EventsPageContainer = () => {
     >[];
   }>("/events");
 
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const performFileDownload = useCallback(() => {
+    setIsDownloading(true);
+
+    apiCall("/data-export/events?type=json").then(
+      (response: { fileName: string; data: string }) => {
+        saveAs({ textContent: response.data, fileName: response.fileName });
+
+        setTimeout(() => {
+          // Re-enable after some time to avoid spam
+          setIsDownloading(false);
+        }, 10000);
+      }
+    );
+  }, [apiCall]);
+
   return (
     <EventsPage
       isLoading={isValidating}
       hasError={!!error}
       events={data?.events || []}
+      isDownloading={isDownloading}
+      performDownload={performFileDownload}
     />
   );
 };
