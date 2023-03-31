@@ -1,4 +1,4 @@
-import React, { FC, useCallback, useState } from "react";
+import React, { FC } from "react";
 import {
   EventInterface,
   NotificationEventName,
@@ -7,8 +7,7 @@ import {
 } from "back-end/types/event";
 import { FaDownload } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
-import { useAuth } from "@/services/auth";
-import { saveAs } from "@/services/files";
+import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
 import LoadingSpinner from "../../LoadingSpinner";
 import { EventsTableRow } from "./EventsTableRow";
 
@@ -90,8 +89,6 @@ export const EventsPage: FC<EventsPageProps> = ({
 };
 
 export const EventsPageContainer = () => {
-  const { apiCall } = useAuth();
-
   const { data, error, isValidating } = useApi<{
     events: EventInterface<
       NotificationEventPayload<
@@ -102,22 +99,9 @@ export const EventsPageContainer = () => {
     >[];
   }>("/events");
 
-  const [isDownloading, setIsDownloading] = useState(false);
-
-  const performFileDownload = useCallback(() => {
-    setIsDownloading(true);
-
-    apiCall("/data-export/events?type=json").then(
-      (response: { fileName: string; data: string }) => {
-        saveAs({ textContent: response.data, fileName: response.fileName });
-
-        setTimeout(() => {
-          // Re-enable after some time to avoid spam
-          setIsDownloading(false);
-        }, 10000);
-      }
-    );
-  }, [apiCall]);
+  const { isDownloading, performDownload } = useDownloadDataExport({
+    url: "/data-export/events?type=json",
+  });
 
   return (
     <EventsPage
@@ -125,7 +109,7 @@ export const EventsPageContainer = () => {
       hasError={!!error}
       events={data?.events || []}
       isDownloading={isDownloading}
-      performDownload={performFileDownload}
+      performDownload={performDownload}
     />
   );
 };

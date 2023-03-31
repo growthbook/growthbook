@@ -4,16 +4,12 @@ import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { getLatestEventsForOrganization } from "../../models/EventModel";
+import { DataExportFileResponse } from "../../../types/data-exports";
 
 // region GET /data-export/:id
 
-type GetDataExportResponse = {
-  fileName: string;
-  data: string;
-};
-
 /**
- * GET /data-export/:id
+ * GET /data-export/events
  * Get one data-export resource by ID
  * @param req
  * @param res
@@ -21,7 +17,7 @@ type GetDataExportResponse = {
 export const getDataExport = async (
   req: AuthRequest,
   res: Response<
-    GetDataExportResponse | ApiErrorResponse,
+    DataExportFileResponse | ApiErrorResponse,
     EventAuditUserForResponseLocals
   >
 ) => {
