@@ -862,6 +862,52 @@ export function postMetricApiPayloadIsValid(
           error: "riskThresholdDanger must be higher than riskThresholdSuccess",
         };
     }
+
+    // Validate conversion window
+    const { conversionWindowEnd, conversionWindowStart } = behavior;
+    const conversionWindowEndExists =
+      typeof conversionWindowEnd !== "undefined";
+    const conversionWindowStartExists =
+      typeof conversionWindowStart !== "undefined";
+    if (conversionWindowEndExists !== conversionWindowStartExists) {
+      return {
+        valid: false,
+        error:
+          "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
+      };
+    }
+
+    if (conversionWindowEndExists && conversionWindowStartExists) {
+      // Enforce conversion window end is greater than start
+      if (conversionWindowEnd <= conversionWindowStart)
+        return {
+          valid: false,
+          error:
+            "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`",
+        };
+    }
+
+    // Min/max percentage change
+    const { maxPercentChange, minPercentChange } = behavior;
+    const maxPercentExists = typeof maxPercentChange !== "undefined";
+    const minPercentExists = typeof minPercentChange !== "undefined";
+    // Enforce both max/min percent or neither
+    if (maxPercentExists !== minPercentExists)
+      return {
+        valid: false,
+        error:
+          "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
+      };
+
+    if (maxPercentExists && minPercentExists) {
+      // Enforce max is greater than min
+      if (maxPercentChange <= minPercentChange)
+        return {
+          valid: false,
+          error:
+            "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`",
+        };
+    }
   }
 
   // Validate for payload.sql
@@ -901,19 +947,6 @@ export function postMetricApiPayloadIsValid(
         valid: false,
         error: "Binomial metrics cannot have a valueColumnName",
       };
-  }
-
-  // Validate conversion window
-  const conversionWindowEndExists =
-    typeof payload.behavior?.conversionWindowEnd !== "undefined";
-  const conversionWindowStartExists =
-    typeof payload.behavior?.conversionWindowStart !== "undefined";
-  if (conversionWindowEndExists !== conversionWindowStartExists) {
-    return {
-      valid: false,
-      error:
-        "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
-    };
   }
 
   return {

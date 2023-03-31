@@ -115,6 +115,36 @@ describe("experiments utils", () => {
       );
     });
 
+    it("should return a failed result when conversionWindowEnd less than conversionWindowStart", () => {
+      const datasource: Pick<DataSourceInterface, "type"> = {
+        type: "postgres",
+      };
+      const input: z.infer<typeof postMetricValidator.bodySchema> = {
+        datasourceId: "ds_abc123",
+        sql: {
+          identifierTypes: ["user_id"],
+          conversionSQL: "select * from foo",
+          userAggregationSQL: "sum(values)",
+        },
+        behavior: {
+          conversionWindowStart: 10,
+          conversionWindowEnd: 5,
+        },
+        name: "My Cool Metric",
+        type: "count",
+      };
+
+      const result = postMetricApiPayloadIsValid(input, datasource) as {
+        valid: false;
+        error: string;
+      };
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toEqual(
+        "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`"
+      );
+    });
+
     it("should return a failed result when conversionWindowStart provided but not conversionWindowEnd", () => {
       const datasource: Pick<DataSourceInterface, "type"> = {
         type: "postgres",
@@ -141,6 +171,94 @@ describe("experiments utils", () => {
       expect(result.valid).toBe(false);
       expect(result.error).toEqual(
         "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
+      );
+    });
+
+    it("should return a failed result when minPercentageChange provided but not maxPercentageChange", () => {
+      const datasource: Pick<DataSourceInterface, "type"> = {
+        type: "postgres",
+      };
+      const input: z.infer<typeof postMetricValidator.bodySchema> = {
+        datasourceId: "ds_abc123",
+        sql: {
+          identifierTypes: ["user_id"],
+          conversionSQL: "select * from foo",
+          userAggregationSQL: "sum(values)",
+        },
+        behavior: {
+          minPercentChange: 0.05,
+        },
+        name: "My Cool Metric",
+        type: "count",
+      };
+
+      const result = postMetricApiPayloadIsValid(input, datasource) as {
+        valid: false;
+        error: string;
+      };
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toEqual(
+        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither"
+      );
+    });
+
+    it("should return a failed result when maxPercentageChange provided but not minPercentageChange", () => {
+      const datasource: Pick<DataSourceInterface, "type"> = {
+        type: "postgres",
+      };
+      const input: z.infer<typeof postMetricValidator.bodySchema> = {
+        datasourceId: "ds_abc123",
+        sql: {
+          identifierTypes: ["user_id"],
+          conversionSQL: "select * from foo",
+          userAggregationSQL: "sum(values)",
+        },
+        behavior: {
+          maxPercentChange: 0.5,
+        },
+        name: "My Cool Metric",
+        type: "count",
+      };
+
+      const result = postMetricApiPayloadIsValid(input, datasource) as {
+        valid: false;
+        error: string;
+      };
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toEqual(
+        "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither"
+      );
+    });
+
+    it("should return a failed result when maxPercentageChange is not greater than minPercentageChange", () => {
+      const datasource: Pick<DataSourceInterface, "type"> = {
+        type: "postgres",
+      };
+      const input: z.infer<typeof postMetricValidator.bodySchema> = {
+        datasourceId: "ds_abc123",
+        sql: {
+          identifierTypes: ["user_id"],
+          conversionSQL: "select * from foo",
+          userAggregationSQL: "sum(values)",
+        },
+        behavior: {
+          minPercentChange: 0.5,
+          maxPercentChange: 0.005,
+        },
+        name: "My Cool Metric",
+        type: "count",
+      };
+
+      const result = postMetricApiPayloadIsValid(input, datasource) as {
+        valid: false;
+        error: string;
+      };
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toEqual(
+        "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`"
       );
     });
 
