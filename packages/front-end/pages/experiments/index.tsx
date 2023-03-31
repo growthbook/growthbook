@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
@@ -11,7 +12,6 @@ import WatchButton from "@/components/WatchButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Pagination from "@/components/Pagination";
 import { GBAddCircle } from "@/components/Icons";
-import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import { useUser } from "@/services/UserContext";
 import ExperimentsGetStarted from "@/components/HomePage/ExperimentsGetStarted";
 import NewFeatureExperiments from "@/components/Experiment/NewFeatureExperiments";
@@ -21,10 +21,15 @@ import TabButtons from "@/components/Tabs/TabButtons";
 import TabButton from "@/components/Tabs/TabButton";
 import { useAnchor } from "@/components/Tabs/ControlledTabs";
 import Toggle from "@/components/Forms/Toggle";
+import AddExperimentModal from "@/components/Experiment/AddExperimentModal";
+import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
+import { AppFeatures } from "@/types/app-features";
 
 const NUM_PER_PAGE = 20;
 
 const ExperimentsPage = (): React.ReactElement => {
+  const growthbook = useGrowthBook<AppFeatures>();
+
   const { ready, project, getMetricById, getProjectById } = useDefinitions();
 
   const { data, error, mutate } = useApi<{
@@ -289,9 +294,6 @@ const ExperimentsPage = (): React.ReactElement => {
                       <div className="d-flex flex-column">
                         <div>
                           <span className="testname">{e.name}</span>
-                          {e.implementation === "visual" && (
-                            <small className="text-muted ml-2">(visual)</small>
-                          )}
                         </div>
                         {isFiltered && e.trackingKey && (
                           <span
@@ -347,12 +349,18 @@ const ExperimentsPage = (): React.ReactElement => {
           )}
         </div>
       </div>
-      {openNewExperimentModal && (
-        <ImportExperimentModal
-          onClose={() => setOpenNewExperimentModal(false)}
-          source="experiment-list"
-        />
-      )}
+      {openNewExperimentModal &&
+        (growthbook.isOn("new-experiment-modal") ? (
+          <AddExperimentModal
+            onClose={() => setOpenNewExperimentModal(false)}
+            source="experiment-list"
+          />
+        ) : (
+          <ImportExperimentModal
+            onClose={() => setOpenNewExperimentModal(false)}
+            source="experiment-list"
+          />
+        ))}
     </>
   );
 };

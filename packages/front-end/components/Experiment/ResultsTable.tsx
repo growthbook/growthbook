@@ -111,7 +111,7 @@ export default function ResultsTable({
           {variations.map((v, i) => (
             <th
               colSpan={i ? (fullStats ? 3 : 2) : 1}
-              className={`value variation${i} pb-2`}
+              className={`value variation with-variation-label variation${i} pb-2`}
               key={i}
               style={{ whiteSpace: i == 0 ? "nowrap" : "initial" }}
             >
@@ -171,7 +171,7 @@ export default function ResultsTable({
           {variations.map((v, i) => (
             <th
               key={i}
-              className={`head-bottom-border variation${i}`}
+              className={`head-bottom-border variation variation${i} with-variation-fill`}
               colSpan={i ? (fullStats ? 3 : 2) : 1}
             ></th>
           ))}

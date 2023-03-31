@@ -4,7 +4,7 @@
 
 This is the Javascript client library that lets you evaluate feature flags and run experiments (A/B tests) within a Javascript application.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-4.5KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-6.9KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -15,6 +15,7 @@ This is the Javascript client library that lets you evaluate feature flags and r
 - **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
 - Run mutually exclusive experiments with **namespaces**
 - **Remote configuration** to change feature values without deploying new code
+- Run **Visual Experiments** without writing code by using the GrowthBook Visual Editor
 
 ## Installation
 
@@ -52,6 +53,14 @@ const gb = new GrowthBook({
   attributes: {
     id: "123",
     country: "US",
+  },
+  // Only required for A/B testing
+  // Called every time a user is put into an experiment
+  trackingCallback: (experiment, result) => {
+    console.log("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
   },
 });
 
@@ -192,7 +201,7 @@ gb.setRenderer(() => {
 
 ## Experimentation (A/B Testing)
 
-In order to run A/B tests on your feature flags, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
+In order to run A/B tests, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
 
 ```js
 const gb = new GrowthBook({
@@ -208,13 +217,33 @@ const gb = new GrowthBook({
 });
 ```
 
-If the experiment came from a feature rule, `result.featureId` will contain the feature id, which may be useful for tracking/logging purposes.
+This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
 
-Once you define the callback, just use feature flags like normal in your code. If an experiment is used to determine the feature flag value, it will automatically call your tracking callback.
+### Feature Flag Experiments
+
+There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
 
 ```js
-// If this has an active experiment, it will call trackingCallback automatically
+// If this has an active experiment and the user is included,
+// it will call trackingCallback automatically
 const newLogin = gb.isOn("new-signup-form");
+```
+
+If the experiment came from a feature rule, `result.featureId` in the trackingCallback will contain the feature id, which may be useful for tracking/logging purposes.
+
+### Visual Editor Experiments
+
+Experiments created through the GrowthBook Visual Editor will run automatically as soon as their targeting conditions are met.
+
+**Note**: Visual Editor experiments are only supported in a web browser environment. They will not run in Node.js, Mobile apps, or Desktop apps.
+
+If you are using this SDK in a Single Page App (SPA), you will need to let the GrowthBook instance know when the URL changes so the active experiments can update accordingly.
+
+```js
+// Call this every time a navigation event happens in your SPA
+function onRouteChange() {
+  gb.setURL(window.location.href);
+}
 ```
 
 ## TypeScript

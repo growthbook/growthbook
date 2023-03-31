@@ -99,6 +99,8 @@ export default function InitialSDKConnectionForm({
           name: value.name,
           languages: value.languages,
           encryptPayload: false,
+          includeVisualExperiments: false,
+          includeDraftExperiments: false,
           environment: environments[0]?.id || "production",
           project: "",
           proxyEnabled: false,
