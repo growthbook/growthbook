@@ -143,6 +143,92 @@ describe("experiments utils", () => {
         "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither"
       );
     });
+
+    it("should return a failed result if both risk threshold values are not provided", () => {
+      const datasource: Pick<DataSourceInterface, "type"> = {
+        type: "postgres",
+      };
+      const input: z.infer<typeof postMetricValidator.bodySchema> = {
+        datasourceId: "ds_abc123",
+        sql: {
+          identifierTypes: ["user_id"],
+          conversionSQL: "select * from foo",
+          userAggregationSQL: "sum(values)",
+        },
+        behavior: {
+          riskThresholdSuccess: 0.5,
+        },
+        name: "My Cool Metric",
+        type: "count",
+      };
+
+      const result = postMetricApiPayloadIsValid(input, datasource) as {
+        valid: false;
+        error: string;
+      };
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toEqual(
+        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither."
+      );
+    });
+
+    it("should return a failed result if the risk threshold danger value is less than the success value", () => {
+      const datasource: Pick<DataSourceInterface, "type"> = {
+        type: "postgres",
+      };
+      const input: z.infer<typeof postMetricValidator.bodySchema> = {
+        datasourceId: "ds_abc123",
+        sql: {
+          identifierTypes: ["user_id"],
+          conversionSQL: "select * from foo",
+          userAggregationSQL: "sum(values)",
+        },
+        behavior: {
+          riskThresholdSuccess: 0.5,
+          riskThresholdDanger: 0.1,
+        },
+        name: "My Cool Metric",
+        type: "count",
+      };
+
+      const result = postMetricApiPayloadIsValid(input, datasource) as {
+        valid: false;
+        error: string;
+      };
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toEqual(
+        "riskThresholdDanger must be higher than riskThresholdSuccess"
+      );
+    });
+
+    it("should return a successful result if both risk threshold values are provided", () => {
+      const datasource: Pick<DataSourceInterface, "type"> = {
+        type: "postgres",
+      };
+      const input: z.infer<typeof postMetricValidator.bodySchema> = {
+        datasourceId: "ds_abc123",
+        sql: {
+          identifierTypes: ["user_id"],
+          conversionSQL: "select * from foo",
+          userAggregationSQL: "sum(values)",
+        },
+        behavior: {
+          riskThresholdSuccess: 0.5,
+          riskThresholdDanger: 0.99,
+        },
+        name: "My Cool Metric",
+        type: "count",
+      };
+
+      const result = postMetricApiPayloadIsValid(input, datasource) as {
+        valid: false;
+        error: string;
+      };
+
+      expect(result.valid).toBe(true);
+    });
   });
 
   describe("postMetricApiPayloadToMetricInterface", () => {

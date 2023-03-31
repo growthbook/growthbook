@@ -841,23 +841,39 @@ export function postMetricApiPayloadIsValid(
 
   // Validate behavior
   if (behavior) {
-    if (
-      typeof behavior.riskThresholdDanger !== "undefined" &&
-      behavior.riskThresholdDanger < 0
-    )
+    const { riskThresholdDanger, riskThresholdSuccess } = behavior;
+
+    // Enforce that both and riskThresholdSuccess exist, or neither
+    const riskDangerExists = typeof riskThresholdDanger !== "undefined";
+    const riskSuccessExists = typeof riskThresholdSuccess !== "undefined";
+    if (riskDangerExists !== riskSuccessExists)
       return {
         valid: false,
-        error: "riskThresholdDanger must be a non-negative number",
+        error:
+          "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
       };
 
-    if (
-      typeof behavior.riskThresholdSuccess !== "undefined" &&
-      behavior.riskThresholdSuccess < 0
-    )
-      return {
-        valid: false,
-        error: "riskThresholdSuccess must be a non-negative number",
-      };
+    // We have both. Make sure they're valid
+    if (riskDangerExists && riskSuccessExists) {
+      // Enforce positive numbers
+      if (riskThresholdDanger < 0)
+        return {
+          valid: false,
+          error: "riskThresholdDanger must be a non-negative number",
+        };
+
+      if (riskThresholdSuccess < 0)
+        return {
+          valid: false,
+          error: "riskThresholdSuccess must be a non-negative number",
+        };
+
+      if (riskThresholdDanger < riskThresholdSuccess)
+        return {
+          valid: false,
+          error: "riskThresholdDanger must be higher than riskThresholdSuccess",
+        };
+    }
   }
 
   // Validate for payload.sql
