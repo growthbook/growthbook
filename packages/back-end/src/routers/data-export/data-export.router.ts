@@ -17,7 +17,7 @@ router.get(
       })
       .strict(),
   }),
-  dataExportController.getDataExport
+  dataExportController.getDataExportForEvents
 );
 
 export { router as dataExportRouter };

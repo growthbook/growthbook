@@ -12,7 +12,7 @@ import { DataExportFileResponse } from "../../../types/data-exports";
  * @param req
  * @param res
  */
-export const getDataExport = async (
+export const getDataExportForEvents = async (
   req: AuthRequest,
   res: Response<
     DataExportFileResponse | ApiErrorResponse,
