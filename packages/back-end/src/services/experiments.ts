@@ -855,19 +855,7 @@ export function postMetricApiPayloadIsValid(
 
     // We have both. Make sure they're valid
     if (riskDangerExists && riskSuccessExists) {
-      // Enforce positive numbers
-      if (riskThresholdDanger < 0)
-        return {
-          valid: false,
-          error: "riskThresholdDanger must be a non-negative number",
-        };
-
-      if (riskThresholdSuccess < 0)
-        return {
-          valid: false,
-          error: "riskThresholdSuccess must be a non-negative number",
-        };
-
+      // Enforce riskThresholdDanger must be higher than riskThresholdSuccess
       if (riskThresholdDanger < riskThresholdSuccess)
         return {
           valid: false,
