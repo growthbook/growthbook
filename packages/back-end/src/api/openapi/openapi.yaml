@@ -100,10 +100,6 @@ paths:
     $ref: "./paths/listSegments.yaml"
   /segments/{id}:
     $ref: "./paths/getSegment.yaml"
-  /metrics:
-    $ref: "./paths/listMetrics.yaml"
-  /metrics/{id}:
-    $ref: "./paths/getMetric.yaml"
   /sdk-connections:
     $ref: "./paths/listSdkConnections.yaml"
   /sdk-connections/{id}:
@@ -118,6 +114,14 @@ paths:
     $ref: "./paths/getExperiment.yaml"
   /experiments/{id}/results:
     $ref: "./paths/getExperimentResults.yaml"
+  /metrics:
+    get:
+      $ref: "./paths/listMetrics.yaml"
+    post:
+      $ref: "./paths/postMetric.yaml"
+  /metrics/{id}:
+    get:
+      $ref: "./paths/getMetric.yaml"
   /experiments/{id}/visual-changesets:
     $ref: "./paths/listVisualChangesets.yaml"
   /visual-changesets/{id}:
