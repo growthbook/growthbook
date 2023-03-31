@@ -4,6 +4,7 @@ from .gbstats import (
     get_metric_df,
     reduce_dimensionality,
 )
+from gbstats.shared.constants import StatsEngine
 import nbformat
 from nbformat import v4 as nbf
 from nbformat.v4.nbjson import from_dict
@@ -39,7 +40,7 @@ def create_notebook(
     weights=[],
     run_query="",
     metrics=[],
-    needs_correction=False,
+    stats_engine=StatsEngine.BAYESIAN,
 ):
     summary_cols = [
         "dimension",
@@ -52,10 +53,14 @@ def create_notebook(
         summary_cols.append(f"v{i}_name")
         summary_cols.append(f"v{i}_users")
         summary_cols.append(f"v{i}_cr")
-        summary_cols.append(f"v{i}_risk")
         summary_cols.append(f"v{i}_expected")
         summary_cols.append(f"v{i}_ci")
-        summary_cols.append(f"v{i}_prob_beat_baseline")
+        if stats_engine == StatsEngine.BAYESIAN:
+            summary_cols.append(f"v{i}_risk")
+            summary_cols.append(f"v{i}_prob_beat_baseline")
+        elif stats_engine == StatsEngine.FREQUENTIST:
+
+            summary_cols.append(f"v{i}_p_value")
 
     cells = [
         nbf.new_markdown_cell(
@@ -71,13 +76,16 @@ def create_notebook(
             "  analyze_metric_df,\n"
             "  get_metric_df,\n"
             "  reduce_dimensionality\n"
-            ")\n\n"
+            ")\n"
+            "from gbstats.shared.constants import StatsEngine\n\n"
             "# Mapping of variation id to index\n"
             f"var_id_map = {str(var_id_map)}\n\n"
             "# Display names of variations\n"
             f"var_names = {str(var_names)}\n\n"
             "# Expected traffic split between variations\n"
             f"weights = {str(weights)}\n"
+            "# Statistics engine to use\n"
+            f"stats_engine = {str(stats_engine)}\n"
             f"# Columns to show in the result summary\n"
             f"summary_cols = {str(summary_cols)}"
         ),
@@ -144,7 +152,7 @@ def create_notebook(
             code_cell_df(
                 df=df,
                 source=(
-                    "# If there are too many dimensions, marge the smaller ones together\n"
+                    "# If there are too many dimensions, merge the smaller ones together\n"
                     f"m{i}_reduced = reduce_dimensionality(m{i}, max=20)\n"
                     f"display(m{i}_reduced)"
                 ),
@@ -154,9 +162,7 @@ def create_notebook(
         cells.append(nbf.new_markdown_cell("### Result"))
 
         result = analyze_metric_df(
-            df=df,
-            weights=weights,
-            inverse=inverse,
+            df=df, weights=weights, inverse=inverse, engine=stats_engine
         )
         cells.append(
             code_cell_df(
@@ -166,7 +172,8 @@ def create_notebook(
                     f"m{i}_result = analyze_metric_df(\n"
                     f"    df=m{i}_reduced,\n"
                     f"    weights=weights,\n"
-                    f"    inverse={inverse}\n"
+                    f"    inverse={inverse},\n"
+                    f"    engine=stats_engine\n"
                     f")\n"
                     f"display(m{i}_result[summary_cols].T)"
                 ),
