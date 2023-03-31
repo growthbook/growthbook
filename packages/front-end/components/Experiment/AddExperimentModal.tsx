@@ -50,7 +50,7 @@ const AddExperimentModal: FC<{
     {
       cta: "Design a New Experiment",
       description:
-        "Use Feature Flags or our Visual Editor to build and run a brand new experiment",
+        "Use our Visual Editor to build and run a brand new front-end experiment",
       Icon: GoBeaker,
       onClick: () => {
         setMode("new");
