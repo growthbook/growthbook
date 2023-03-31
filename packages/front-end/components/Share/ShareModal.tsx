@@ -226,7 +226,6 @@ const ShareModal = ({
     localStorageKey: "experiments-share",
     searchFields: [
       "name",
-      "implementation",
       "hypothesis",
       "description",
       "tags",

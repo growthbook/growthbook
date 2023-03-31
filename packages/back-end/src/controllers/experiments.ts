@@ -7,7 +7,6 @@ import {
   createManualSnapshot,
   createSnapshot,
   ensureWatching,
-  experimentUpdated,
   getExperimentWatchers,
   getManualSnapshotData,
   processPastExperiments,
@@ -20,9 +19,15 @@ import {
   getExperimentById,
   getExperimentByTrackingKey,
   getPastExperimentsByDatasource,
-  logExperimentUpdated,
-  updateExperimentById,
+  updateExperiment,
 } from "../models/ExperimentModel";
+import {
+  createVisualChangeset,
+  deleteVisualChangesetById,
+  findVisualChangesetsByExperiment,
+  syncVisualChangesWithVariations,
+  updateVisualChangeset,
+} from "../models/VisualChangesetModel";
 import {
   deleteSnapshotById,
   findSnapshotById,
@@ -65,10 +70,10 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "../services/audit";
-import { logger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { StatsEngine } from "../../types/stats";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
+import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { ApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 
@@ -215,9 +220,15 @@ export async function getExperiment(
       })) || undefined;
   }
 
+  const visualChangesets = await findVisualChangesetsByExperiment(
+    experiment.id,
+    org.id
+  );
+
   res.status(200).json({
     status: 200,
     experiment,
+    visualChangesets,
     idea,
   });
 }
@@ -561,7 +572,11 @@ export async function postExperiments(
       }
     }
 
-    const experiment = await createExperiment(obj, org, res.locals.eventAudit);
+    const experiment = await createExperiment({
+      data: obj,
+      organization: org,
+      user: res.locals.eventAudit,
+    });
 
     await req.audit({
       event: "experiment.create",
@@ -573,8 +588,6 @@ export async function postExperiments(
     });
 
     await ensureWatching(userId, org.id, experiment.id, "experiments");
-
-    await experimentUpdated(experiment);
 
     res.status(200).json({
       status: 200,
@@ -621,8 +634,6 @@ export async function postExperiment(
     });
     return;
   }
-
-  const previousExperiment = cloneDeep(experiment);
 
   if (experiment.organization !== org.id) {
     res.status(403).json({
@@ -710,6 +721,7 @@ export async function postExperiment(
     "autoSnapshots",
     "project",
     "regressionAdjustmentEnabled",
+    "hasVisualChangesets",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
@@ -755,7 +767,33 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  const updated = await updateExperimentById(org.id, experiment, changes);
+  const updated = await updateExperiment({
+    organization: org,
+    experiment,
+    user: res.locals.eventAudit,
+    changes,
+  });
+
+  // if variations have changed, update the experiment's visualchangesets if they exist
+  if (changes.variations && updated) {
+    const visualChangesets = await findVisualChangesetsByExperiment(
+      experiment.id,
+      org.id
+    );
+
+    if (visualChangesets.length) {
+      await Promise.all(
+        visualChangesets.map((vc) =>
+          syncVisualChangesWithVariations({
+            visualChangeset: vc,
+            experiment: updated,
+            organization: org,
+            user: res.locals.eventAudit,
+          })
+        )
+      );
+    }
+  }
 
   await req.audit({
     event: "experiment.update",
@@ -765,17 +803,6 @@ export async function postExperiment(
     },
     details: auditDetailsUpdate(experiment, updated),
   });
-
-  try {
-    await logExperimentUpdated({
-      organization: org,
-      user: res.locals.eventAudit,
-      current: experiment,
-      previous: previousExperiment,
-    });
-  } catch (e) {
-    logger.error(e);
-  }
 
   // If there are new tags to add
   await addTagsDiff(org.id, experiment.tags || [], data.tags || []);
@@ -820,7 +847,12 @@ export async function postExperimentArchive(
   changes.archived = true;
 
   try {
-    await updateExperimentById(org.id, experiment, changes);
+    await updateExperiment({
+      organization: org,
+      experiment,
+      user: res.locals.eventAudit,
+      changes,
+    });
 
     // TODO: audit
     res.status(200).json({
@@ -873,7 +905,12 @@ export async function postExperimentUnarchive(
   changes.archived = false;
 
   try {
-    await updateExperimentById(org.id, experiment, changes);
+    await updateExperiment({
+      organization: org,
+      experiment,
+      user: res.locals.eventAudit,
+      changes,
+    });
 
     // TODO: audit
     res.status(200).json({
@@ -938,7 +975,12 @@ export async function postExperimentStatus(
 
   changes.status = status;
 
-  const updated = await updateExperimentById(org.id, experiment, changes);
+  const updated = await updateExperiment({
+    organization: org,
+    experiment,
+    user: res.locals.eventAudit,
+    changes,
+  });
 
   await req.audit({
     event: "experiment.status",
@@ -1017,7 +1059,12 @@ export async function postExperimentStop(
   changes.releasedVariationId = releasedVariationId;
 
   try {
-    const updated = await updateExperimentById(org.id, experiment, changes);
+    const updated = await updateExperiment({
+      organization: org,
+      experiment,
+      user: res.locals.eventAudit,
+      changes,
+    });
 
     await req.audit({
       event: isEnding ? "experiment.stop" : "experiment.results",
@@ -1078,7 +1125,12 @@ export async function deleteExperimentPhase(
   if (!changes.phases.length) {
     changes.status = "draft";
   }
-  const updated = await updateExperimentById(org.id, experiment, changes);
+  const updated = await updateExperiment({
+    organization: org,
+    experiment,
+    user: res.locals.eventAudit,
+    changes,
+  });
 
   await updateSnapshotsOnPhaseDelete(org.id, id, phaseIndex);
 
@@ -1136,7 +1188,12 @@ export async function putExperimentPhase(
     ...phase,
   };
   changes.phases = phases;
-  const updated = await updateExperimentById(org.id, experiment, changes);
+  const updated = await updateExperiment({
+    organization: org,
+    experiment,
+    user: res.locals.eventAudit,
+    changes,
+  });
 
   await req.audit({
     event: "experiment.phase",
@@ -1209,7 +1266,12 @@ export async function postExperimentPhase(
   // TODO: validation
   try {
     changes.phases = phases;
-    const updated = await updateExperimentById(org.id, experiment, changes);
+    const updated = await updateExperiment({
+      organization: org,
+      experiment,
+      user: res.locals.eventAudit,
+      changes,
+    });
 
     await req.audit({
       event: isStarting ? "experiment.start" : "experiment.phase",
@@ -1291,8 +1353,6 @@ export async function deleteExperiment(
     },
     details: auditDetailsDelete(experiment),
   });
-
-  await experimentUpdated(experiment);
 
   res.status(200).json({
     status: 200,
@@ -1535,6 +1595,7 @@ export async function postSnapshot(
   try {
     const snapshot = await createSnapshot(
       experiment,
+      res.locals.eventAudit,
       phase,
       org,
       dimension || null,
@@ -1612,7 +1673,12 @@ export async function deleteScreenshot(
   changes.variations[variation].screenshots = changes.variations[
     variation
   ].screenshots.filter((s) => s.path !== url);
-  const updated = await updateExperimentById(org.id, experiment, changes);
+  const updated = await updateExperiment({
+    organization: org,
+    experiment,
+    user: res.locals.eventAudit,
+    changes,
+  });
 
   await req.audit({
     event: "experiment.screenshot.delete",
@@ -1682,7 +1748,12 @@ export async function addScreenshot(
     description: description,
   });
 
-  await updateExperimentById(org.id, experiment, changes);
+  await updateExperiment({
+    organization: org,
+    experiment,
+    user: res.locals.eventAudit,
+    changes,
+  });
 
   await req.audit({
     event: "experiment.screenshot.create",
@@ -1892,4 +1963,78 @@ export async function postPastExperiments(
       },
     });
   }
+}
+
+export async function postVisualChangeset(
+  req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  if (!req.body.urlPatterns) {
+    throw new Error("urlPatterns needs to be defined");
+  }
+
+  if (!req.body.editorUrl) {
+    throw new Error("editorUrl needs to be defined");
+  }
+
+  const experiment = await getExperimentById(org.id, req.params.id);
+
+  if (!experiment) {
+    throw new Error("Could not find experiment");
+  }
+
+  const visualChangeset = await createVisualChangeset({
+    experiment,
+    urlPatterns: req.body.urlPatterns,
+    editorUrl: req.body.editorUrl,
+    organization: org,
+    user: res.locals.eventAudit,
+  });
+
+  res.status(200).json({
+    status: 200,
+    visualChangeset,
+  });
+}
+
+export async function putVisualChangeset(
+  req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const ret = await updateVisualChangeset({
+    changesetId: req.params.id,
+    organization: org,
+    updates: req.body,
+    user: res.locals.eventAudit,
+  });
+
+  res.status(200).json({
+    status: 200,
+    data: {
+      nModified: ret.nModified,
+      changesetId: ret.nModified > 0 ? req.params.id : undefined,
+      updates: ret.nModified > 0 ? req.body : undefined,
+    },
+  });
+}
+
+export async function deleteVisualChangeset(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  await deleteVisualChangesetById({
+    changesetId: req.params.id,
+    organization: org,
+    user: res.locals.eventAudit,
+  });
+
+  res.status(200).json({
+    status: 200,
+  });
 }

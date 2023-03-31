@@ -122,6 +122,24 @@ export const listVisualChangesetsValidator = {
 
 export const getVisualChangesetValidator = {
   bodySchema: z.never(),
+  querySchema: z.object({"includeExperiment":z.coerce.number().int().optional()}).strict(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const putVisualChangesetValidator = {
+  bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const postVisualChangeValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const putVisualChangeValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string(),"visualChangeId":z.string()}).strict(),
 };

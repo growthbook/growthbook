@@ -1,6 +1,5 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
-import cloneDeep from "lodash/cloneDeep";
 import { FilterQuery } from "mongoose";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
@@ -22,7 +21,6 @@ import {
 import {
   deleteExperimentSegment,
   getExperimentsUsingSegment,
-  logExperimentUpdated,
 } from "../../models/ExperimentModel";
 import { MetricInterface } from "../../../types/metric";
 import { SegmentInterface } from "../../../types/segment";
@@ -299,22 +297,7 @@ export const deleteSegment = async (
     );
   }
 
-  const exps = await getExperimentsUsingSegment(id, org.id);
-  if (exps.length > 0) {
-    await deleteExperimentSegment(org.id, id);
-
-    exps.forEach((previous) => {
-      const current = cloneDeep(previous);
-      current.segment = "";
-
-      logExperimentUpdated({
-        organization: org,
-        user: res.locals.eventAudit,
-        previous,
-        current,
-      });
-    });
-  }
+  await deleteExperimentSegment(org, res.locals.eventAudit, id);
 
   res.status(200).json({
     status: 200,

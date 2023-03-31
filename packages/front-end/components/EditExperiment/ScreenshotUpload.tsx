@@ -10,6 +10,7 @@ import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "../LoadingOverlay";
+import { GBAddCircle } from "../Icons";
 import styles from "./ScreenshotUpload.module.scss";
 
 type props = {
@@ -75,8 +76,11 @@ const ScreenshotUpload = ({
         {loading > 0 ? <LoadingOverlay /> : ""}
         <input {...getInputProps()} />
         <div className={styles.message}>Drop Image Here...</div>
-        <button className="btn btn-outline-primary btn-sm">
-          Upload Screenshot
+        <button className="btn btn-link btn-sm">
+          <GBAddCircle /> Add Screenshot
+          <div className="small text-muted mt-1">
+            Drag and drop or browse to upload.
+          </div>
         </button>
       </div>
     </>

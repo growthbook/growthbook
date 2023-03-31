@@ -9,7 +9,11 @@ import {
   FeatureRule,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
-import { getFeatureDefinition } from "../util/features";
+import { getAllVisualExperiments } from "../models/ExperimentModel";
+import {
+  getFeatureDefinition,
+  replaceSavedGroupsInCondition,
+} from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import { OrganizationInterface } from "../../types/organization";
 import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
@@ -17,9 +21,11 @@ import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
 import { queueWebhook } from "../jobs/webhooks";
 import { GroupMap } from "../../types/saved-group";
-import { SDKPayloadKey } from "../../types/sdk-payload";
+import { SDKExperiment, SDKPayloadKey } from "../../types/sdk-payload";
 import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
+import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
+import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -42,6 +48,75 @@ function generatePayload(
   });
 
   return defs;
+}
+
+export type VisualExperiment = {
+  experiment: ExperimentInterface;
+  visualChangeset: VisualChangesetInterface;
+};
+
+function generateVisualExperimentsPayload(
+  visualExperiments: Array<VisualExperiment>,
+  _environment: string,
+  groupMap: GroupMap
+): SDKExperiment[] {
+  const isValidSDKExperiment = (e: SDKExperiment | null): e is SDKExperiment =>
+    !!e;
+  const sdkExperiments: Array<SDKExperiment | null> = visualExperiments.map(
+    ({ experiment: e, visualChangeset: v }) => {
+      const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
+      const forcedVariation =
+        e.status === "stopped" && e.releasedVariationId
+          ? e.variations.find((v) => v.id === e.releasedVariationId)
+          : null;
+
+      let condition;
+      if (phase?.condition && phase.condition !== "{}") {
+        try {
+          condition = JSON.parse(
+            replaceSavedGroupsInCondition(phase.condition, groupMap)
+          );
+        } catch (e) {
+          // ignore condition parse errors here
+        }
+      }
+
+      if (!phase) return null;
+
+      return {
+        key: e.trackingKey,
+        status: e.status,
+        variations: v.visualChanges.map((vc) => ({
+          css: vc.css,
+          domMutations: vc.domMutations,
+        })),
+        hashVersion: 2,
+        hashAttribute: e.hashAttribute,
+        urlPatterns: v.urlPatterns,
+        weights: phase.variationWeights,
+        meta: e.variations.map((v) => ({ key: v.key, name: v.name })),
+        filters: phase.namespace.enabled
+          ? [
+              {
+                attribute: e.hashAttribute,
+                seed: phase.namespace.name,
+                hashVersion: 2,
+                ranges: [phase.namespace.range],
+              },
+            ]
+          : [],
+        seed: phase.seed,
+        name: e.name,
+        phase: `${e.phases.length - 1}`,
+        force: forcedVariation
+          ? e.variations.indexOf(forcedVariation)
+          : undefined,
+        condition,
+        coverage: phase.coverage,
+      };
+    }
+  );
+  return sdkExperiments.filter(isValidSDKExperiment);
 }
 
 export async function getSavedGroupMap(
@@ -94,6 +169,7 @@ export async function refreshSDKPayloadCache(
 
   const groupMap = await getSavedGroupMap(organization);
   allFeatures = allFeatures || (await getAllFeatures(organization.id));
+  const allVisualExperiments = await getAllVisualExperiments(organization.id);
 
   // For each affected project/environment pair, generate a new SDK payload and update the cache
   const promises: (() => Promise<void>)[] = [];
@@ -101,11 +177,20 @@ export async function refreshSDKPayloadCache(
     const projectFeatures = key.project
       ? allFeatures.filter((f) => f.project === key.project)
       : allFeatures;
+    const projectExperiments = key.project
+      ? allVisualExperiments.filter((e) => e.experiment.project === key.project)
+      : allVisualExperiments;
 
-    if (!projectFeatures.length) continue;
+    if (!projectFeatures.length && !projectExperiments.length) continue;
 
     const featureDefinitions = generatePayload(
       projectFeatures,
+      key.environment,
+      groupMap
+    );
+
+    const experimentsDefinitions = generateVisualExperimentsPayload(
+      projectExperiments,
       key.environment,
       groupMap
     );
@@ -116,6 +201,7 @@ export async function refreshSDKPayloadCache(
         project: key.project,
         environment: key.environment,
         featureDefinitions,
+        experimentsDefinitions,
       });
     });
   }
@@ -137,12 +223,20 @@ export async function refreshSDKPayloadCache(
 
 async function getFeatureDefinitionsResponse(
   features: Record<string, FeatureDefinition>,
+  experiments: SDKExperiment[],
   dateUpdated: Date | null,
-  encryptionKey?: string
+  encryptionKey?: string,
+  includeVisualExperiments?: boolean,
+  includeDraftExperiments?: boolean
 ) {
+  if (!includeDraftExperiments) {
+    experiments = experiments.filter((e) => e.status !== "draft");
+  }
+
   if (!encryptionKey) {
     return {
       features,
+      ...(includeVisualExperiments && { experiments }),
       dateUpdated,
     };
   }
@@ -151,11 +245,16 @@ async function getFeatureDefinitionsResponse(
     JSON.stringify(features),
     encryptionKey
   );
+  const encryptedExperiments = includeVisualExperiments
+    ? await encrypt(JSON.stringify(experiments), encryptionKey)
+    : undefined;
 
   return {
     features: {},
+    ...(includeVisualExperiments && { experiments: [] }),
     dateUpdated,
     encryptedFeatures,
+    ...(includeVisualExperiments && { encryptedExperiments }),
   };
 }
 
@@ -163,11 +262,15 @@ export async function getFeatureDefinitions(
   organization: string,
   environment: string = "production",
   project?: string,
-  encryptionKey?: string
+  encryptionKey?: string,
+  includeVisualExperiments?: boolean,
+  includeDraftExperiments?: boolean
 ): Promise<{
   features: Record<string, FeatureDefinition>;
+  experiments?: SDKExperiment[];
   dateUpdated: Date | null;
   encryptedFeatures?: string;
+  encryptedExperiments?: string;
 }> {
   // Return cached payload from Mongo if exists
   try {
@@ -177,11 +280,14 @@ export async function getFeatureDefinitions(
       project: project || "",
     });
     if (cached) {
-      const { features } = cached.contents;
+      const { features, experiments } = cached.contents;
       return await getFeatureDefinitionsResponse(
         features,
+        experiments,
         cached.dateUpdated,
-        encryptionKey
+        encryptionKey,
+        includeVisualExperiments,
+        includeDraftExperiments
       );
     }
   } catch (e) {
@@ -190,7 +296,14 @@ export async function getFeatureDefinitions(
 
   const org = await getOrganizationById(organization);
   if (!org) {
-    return await getFeatureDefinitionsResponse({}, null, encryptionKey);
+    return await getFeatureDefinitionsResponse(
+      {},
+      [],
+      null,
+      encryptionKey,
+      includeVisualExperiments,
+      includeDraftExperiments
+    );
   }
 
   // Generate the feature definitions
@@ -198,18 +311,34 @@ export async function getFeatureDefinitions(
   const groupMap = await getSavedGroupMap(org);
   const featureDefinitions = generatePayload(features, environment, groupMap);
 
+  const allVisualExperiments = await getAllVisualExperiments(
+    organization,
+    project
+  );
+
+  // Generate visual experiments
+  const experimentsDefinitions = generateVisualExperimentsPayload(
+    allVisualExperiments,
+    environment,
+    groupMap
+  );
+
   // Cache in Mongo
   await updateSDKPayload({
     organization,
     project: project || "",
     environment,
     featureDefinitions,
+    experimentsDefinitions,
   });
 
   return await getFeatureDefinitionsResponse(
     featureDefinitions,
+    experimentsDefinitions,
     new Date(),
-    encryptionKey
+    encryptionKey,
+    includeVisualExperiments,
+    includeDraftExperiments
   );
 }
 
