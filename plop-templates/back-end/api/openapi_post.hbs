@@ -1,14 +1,22 @@
-parameters:
-  - $ref: "../parameters.yaml#/id"
+parameters: []
 tags:
   - {{kebabCase object}}s
-summary: Get a single {{object}}
-operationId: get{{pascalCase object}}
+summary: Create a single {{object}}
+operationId: post{{pascalCase object}}
 x-codeSamples:
   - lang: 'cURL'
     source: |
-      curl https://api.growthbook.io/api/v1/{{kebabCase object}}s/ds_123abc \
+      curl -X POST https://api.growthbook.io/api/v1/{{kebabCase object}}s \
+        -d '{}' # TODO: Example JSON
         -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        required: []
+        properties: []
 responses:
   "200":
     content:
