@@ -10,6 +10,7 @@ import {
 import { updateDataSource } from "../models/DataSourceModel";
 import { removeDeletedInformationSchemaTables } from "../models/InformationSchemaTablesModel";
 import { queueUpdateStaleInformationSchemaTable } from "../jobs/updateStaleInformationSchemaTable";
+import { promiseAllChunks } from "../util/promise";
 import { getSourceIntegrationObject } from "./datasource";
 
 export function getRecentlyDeletedTables(
@@ -61,6 +62,9 @@ export async function mergeStaleInformationSchemaWithUpdate(
   if (!staleInformationSchema || staleInformationSchema.length === 0) {
     return updatedInformationSchema;
   }
+
+  const promises: (() => Promise<unknown>)[] = [];
+
   updatedInformationSchema.forEach((database) => {
     const correspondingIndex = staleInformationSchema.findIndex(
       (staleInformationSchemaRecord) =>
@@ -71,6 +75,7 @@ export async function mergeStaleInformationSchemaWithUpdate(
       database.dateCreated =
         staleInformationSchema[correspondingIndex].dateCreated;
     }
+    if (!database.schemas) return;
     database.schemas.forEach((schema) => {
       const correspondingSchemaIndex = staleInformationSchema[
         correspondingIndex
@@ -85,7 +90,8 @@ export async function mergeStaleInformationSchemaWithUpdate(
             correspondingSchemaIndex
           ].dateCreated;
       }
-      schema.tables.forEach(async (table) => {
+      if (!schema.tables) return;
+      schema.tables.forEach((table) => {
         const correspondingTableIndex = staleInformationSchema[
           correspondingIndex
         ].schemas[correspondingSchemaIndex].tables.findIndex(
@@ -115,9 +121,8 @@ export async function mergeStaleInformationSchemaWithUpdate(
           } else {
             if (table.id) {
               // If numOfColumns has changed & the table has an id, then it needs to be updated.
-              await queueUpdateStaleInformationSchemaTable(
-                organization,
-                table.id
+              promises.push(() =>
+                queueUpdateStaleInformationSchemaTable(organization, table.id)
               );
             }
           }
@@ -125,6 +130,10 @@ export async function mergeStaleInformationSchemaWithUpdate(
       });
     });
   });
+
+  if (promises.length > 0) {
+    await promiseAllChunks(promises, 5);
+  }
 
   return updatedInformationSchema;
 }

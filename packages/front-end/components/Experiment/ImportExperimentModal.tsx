@@ -76,7 +76,7 @@ const ImportExperimentModal: FC<{
       close={() => onClose()}
     >
       <div className="alert alert-info">
-        Prefer to start with a blank experiment instead?{" "}
+        Don&apos;t see your experiment listed below?{" "}
         <a
           href="#"
           className="alert-link"

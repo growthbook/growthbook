@@ -11,8 +11,6 @@ import cronstrue from "cronstrue";
 import { AttributionModel } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
-import VisualEditorInstructions from "@/components/Settings/VisualEditorInstructions";
-import track from "@/services/track";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
 import { hasFileConfig, isCloud } from "@/services/env";
@@ -46,7 +44,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     refreshOrganization,
     settings,
     organization,
-    apiKeys,
     accountPlan,
     license,
     hasCommercialFeature,
@@ -190,9 +187,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const ctaEnabled = hasChanges(value, originalValue);
 
   const saveSettings = form.handleSubmit(async (value) => {
-    const enabledVisualEditor =
-      !settings?.visualEditorEnabled && value.visualEditorEnabled;
-
     const transformedOrgSettings = {
       ...value,
       metricDefaults: {
@@ -211,45 +205,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
     });
     refreshOrganization();
 
-    // Track usage of the Visual Editor
-    if (enabledVisualEditor) {
-      track("Enable Visual Editor");
-    }
-
     // show the user that the settings have saved:
     setSaveMsg(true);
   });
-
-  // const saveSettings = async () => {
-  //   const enabledVisualEditor =
-  //     !settings?.visualEditorEnabled && value.visualEditorEnabled;
-  //
-  //   const transformedOrgSettings = {
-  //     ...value,
-  //     metricDefaults: {
-  //       ...value.metricDefaults,
-  //       maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
-  //       minPercentageChange: value.metricDefaults.minPercentageChange / 100,
-  //     },
-  //     confidenceLevel: value.confidenceLevel / 100,
-  //   };
-  //
-  //   await apiCall(`/organization`, {
-  //     method: "PUT",
-  //     body: JSON.stringify({
-  //       settings: transformedOrgSettings,
-  //     }),
-  //   });
-  //   refreshOrganization();
-  //
-  //   // Track usage of the Visual Editor
-  //   if (enabledVisualEditor) {
-  //     track("Enable Visual Editor");
-  //   }
-  //
-  //   // show the user that the settings have saved:
-  //   setSaveMsg(true);
-  // };
 
   const highlightColor =
     value.confidenceLevel < 70
@@ -547,53 +505,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
           )}
 
           <div className="bg-white p-3 border position-relative">
-            <div className="row">
-              <div className="col-sm-3">
-                <h4>
-                  Visual Editor{" "}
-                  <span className="badge badge-warning">beta</span>
-                </h4>
-              </div>
-              <div className="col-sm-9 pb-3">
-                <p>
-                  {`The Visual Editor allows non-technical users to create and start
-                  experiments in production without writing any code. `}
-                  <DocLink docSection="visual_editor">
-                    View Documentation
-                  </DocLink>
-                </p>
-                <div>
-                  <div className="form-check">
-                    <input
-                      type="checkbox"
-                      disabled={hasFileConfig()}
-                      className="form-check-input "
-                      {...form.register("visualEditorEnabled")}
-                      id="checkbox-visualeditor"
-                    />
-
-                    <label
-                      htmlFor="checkbox-visualeditor"
-                      className="form-check-label"
-                    >
-                      Enable Visual Editor
-                    </label>
-                  </div>
-                </div>
-                {value.visualEditorEnabled && settings?.visualEditorEnabled && (
-                  <div className="bg-light p-3 my-3 border rounded">
-                    <h5 className="font-weight-bold">Setup Instructions</h5>
-                    <VisualEditorInstructions
-                      apiKeys={apiKeys}
-                      mutate={refreshOrganization}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="divider border-bottom mb-3 mt-3" />
-
             <div className="row">
               <div className="col-sm-3">
                 <h4>Experiment Settings</h4>

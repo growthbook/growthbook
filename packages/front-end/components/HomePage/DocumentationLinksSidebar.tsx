@@ -1,16 +1,10 @@
 import Link from "next/link";
-import { FaDesktop } from "react-icons/fa";
 import { FiArrowRight } from "react-icons/fi";
-import { HiCursorClick } from "react-icons/hi";
 import usePermissions from "@/hooks/usePermissions";
 import track from "@/services/track";
 import { DocLink } from "../DocLink";
 
-export default function DocumentationLinksSidebar({
-  showVisualEditor = false,
-}: {
-  showVisualEditor?: boolean;
-}) {
+export default function DocumentationLinksSidebar() {
   const permissions = usePermissions();
 
   return (
@@ -89,45 +83,6 @@ export default function DocumentationLinksSidebar({
             <Link href="/settings/team">
               <a className="boxlink">
                 Invite team <FiArrowRight />
-              </a>
-            </Link>
-          </span>
-        </div>
-      )}
-      {showVisualEditor && permissions.check("manageEnvironments", "", []) && (
-        <div className="card-body border-top">
-          <div className="card-title">
-            <h4 className="">Enable the Visual Editor</h4>
-          </div>
-          <div className="card-text mb-3">
-            <div className="float-right mx-4 position-relative">
-              <FaDesktop
-                style={{
-                  fontSize: "3.4em",
-                  color: "#71B1E9",
-                  stroke: "#fff",
-                  strokeWidth: 3,
-                }}
-              />
-              <HiCursorClick
-                style={{
-                  fontSize: "2.4em",
-                  position: "absolute",
-                  bottom: 3,
-                  right: -3,
-                  stroke: "#fff",
-                  color: "#4A8AC2",
-                  strokeWidth: "1px",
-                }}
-              />
-            </div>
-            Let your non-technical teammates implement A/B tests without writing
-            code.
-          </div>
-          <span className="action-link non-active-step">
-            <Link href="/settings">
-              <a className="boxlink">
-                Go to settings <FiArrowRight />
               </a>
             </Link>
           </span>
