@@ -4,7 +4,7 @@
 
 This is the React client library that lets you evaluate feature flags and run experiments (A/B tests) within a React application. It is a thin wrapper around the [Javascript SDK](https://docs.growthbook.io/lib/js), so you might want to view those docs first to familiarize yourself with the basic classes and methods.
 
-![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-5.7KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
+![Build Status](https://github.com/growthbook/growthbook/workflows/CI/badge.svg) ![GZIP Size](https://img.shields.io/badge/gzip%20size-7.84KB-informational) ![NPM Version](https://img.shields.io/npm/v/@growthbook/growthbook-react)
 
 - **No external dependencies**
 - **Lightweight and fast**
@@ -15,6 +15,7 @@ This is the React client library that lets you evaluate feature flags and run ex
 - **Use your existing event tracking** (GA, Segment, Mixpanel, custom)
 - Run mutually exclusive experiments with **namespaces**
 - **Remote configuration** to change feature values without deploying new code
+- Run **Visual Experiments** without writing code by using the GrowthBook Visual Editor
 
 ## Community
 
@@ -46,6 +47,14 @@ const gb = new GrowthBook({
   clientKey: "sdk-abc123",
   // Enable easier debugging during development
   enableDevMode: true,
+  // Only required for A/B testing
+  // Called every time a user is put into an experiment
+  trackingCallback: (experiment, result) => {
+    console.log("Experiment Viewed", {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  },
 });
 
 export default function App() {
@@ -213,7 +222,7 @@ if (gb.ready) {
 
 ## Experimentation (A/B Testing)
 
-In order to run A/B tests on your feature flags, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
+In order to run A/B tests, you need to set up a tracking callback function. This is called every time a user is put into an experiment and can be used to track the exposure event in your analytics system (Segment, Mixpanel, GA, etc.).
 
 ```js
 const gb = new GrowthBook({
@@ -229,11 +238,45 @@ const gb = new GrowthBook({
 });
 ```
 
-Once you set that up, just use feature flags like normal in your code. If an experiment is used to determine the feature flag value, it will automatically call your tracking callback.
+This same tracking callback is used for both feature flag experiments and Visual Editor experiments.
+
+### Feature Flag Experiments
+
+There is nothing special you have to do for feature flag experiments. Just evaluate the feature flag like you would normally do. If the user is put into an experiment as part of the feature flag, it will call the `trackingCallback` automatically in the background.
 
 ```js
-// If this has an active experiment, it will call trackingCallback automatically
-const newLogin = useFeatureIsOn("new-signup-form");
+// If this has an active experiment and the user is included,
+// it will call trackingCallback automatically
+useFeatureIsOn("new-signup-form");
+```
+
+If the experiment came from a feature rule, `result.featureId` in the trackingCallback will contain the feature id, which may be useful for tracking/logging purposes.
+
+### Visual Editor Experiments
+
+Experiments created through the GrowthBook Visual Editor will run automatically as soon as their targeting conditions are met.
+
+**Note**: Visual Editor experiments are only supported in a web browser environment. They will not run in React Native or during Server Side Rendering (SSR).
+
+If you are using this SDK in a Single Page App (SPA), you will need to let the GrowthBook instance know when the URL changes so the active experiments can update accordingly.
+
+For example, in Next.js, you could do this:
+
+```js
+function updateGrowthBookURL() {
+  gb.setURL(window.location.href);
+}
+
+export default function MyApp() {
+  // Subscribe to route change events and update GrowthBook
+  const router = useRouter();
+  useEffect(() => {
+    router.events.on("routeChangeComplete", updateGrowthBookURL);
+    return () => router.events.off("routeChangeComplete", updateGrowthBookURL);
+  }, []);
+
+  // ...
+}
 ```
 
 ## Server Side Rendering (SSR)

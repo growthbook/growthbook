@@ -964,26 +964,6 @@ pre {
         &:not(&:first-child) {
           border-left: 3px solid var(--border-color-300);
         }
-
-        &.variation0,
-        &.variation4 {
-          background: #4f69ff;
-        }
-
-        &.variation1,
-        &.variation5 {
-          background: #03d1ca;
-        }
-
-        &.variation2,
-        &.variation6 {
-          background: #fd7e14;
-        }
-
-        &.variation3,
-        &.variation7 {
-          background: #e83e8c;
-        }
       }
     }
   }
@@ -991,67 +971,6 @@ pre {
   .value {
     border-left: 3px solid var(--border-color-300);
     min-width: 80px;
-
-    .label {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 24px;
-      height: 24px;
-      color: #999;
-      font-weight: 600;
-      border: 1.5px solid transparentize(#999, 0.35);
-      border-radius: 20px;
-      margin-right: 4px;
-    }
-    .name {
-      color: #999;
-      margin-right: 4px;
-    }
-
-    &.variation0,
-    &.variation4 {
-      .label {
-        border-color: transparentize(#4f69ff, 0.35);
-        color: #4f69ff;
-      }
-      .name {
-        color: #4f69ff;
-      }
-    }
-
-    &.variation1,
-    &.variation5 {
-      .label {
-        border-color: transparentize(#03d1ca, 0.35);
-        color: #03d1ca;
-      }
-      .name {
-        color: #03d1ca;
-      }
-    }
-
-    &.variation2,
-    &.variation6 {
-      .label {
-        border-color: transparentize(#fd7e14, 0.35);
-        color: #fd7e14;
-      }
-      .name {
-        color: #fd7e14;
-      }
-    }
-
-    &.variation3,
-    &.variation7 {
-      .label {
-        border-color: transparentize(#e83e8c, 0.35);
-        color: #e83e8c;
-      }
-      .name {
-        color: #e83e8c;
-      }
-    }
   }
 
   thead tr:first-child th:first-child,
@@ -1255,11 +1174,152 @@ pre {
   }
 }
 
+.fade-mask-1rem {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 1rem,
+    black calc(100% - 1rem),
+    transparent 100%
+  );
+}
+.w100-1rem {
+  width: calc(100% - 2rem);
+}
+
+.variation {
+  &.with-variation-label {
+    .label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      color: colors.$variant-null;
+      font-weight: 600;
+      border: 1.5px solid transparentize(colors.$variant-null, 0.35);
+      border-radius: 20px;
+      margin-right: 4px;
+    }
+    .name {
+      color: colors.$variant-null;
+      margin-right: 4px;
+    }
+
+    &.variation0,
+    &.variation4 {
+      .label {
+        border-color: transparentize(colors.$variant-0, 0.35);
+        color: colors.$variant-0;
+      }
+      .name {
+        color: colors.$variant-0;
+      }
+    }
+
+    &.variation1,
+    &.variation5 {
+      .label {
+        border-color: transparentize(colors.$variant-1, 0.35);
+        color: colors.$variant-1;
+      }
+      .name {
+        color: colors.$variant-1;
+      }
+    }
+
+    &.variation2,
+    &.variation6 {
+      .label {
+        border-color: transparentize(colors.$variant-2, 0.35);
+        color: colors.$variant-2;
+      }
+      .name {
+        color: colors.$variant-2;
+      }
+    }
+
+    &.variation3,
+    &.variation7 {
+      .label {
+        border-color: transparentize(colors.$variant-3, 0.35);
+        color: colors.$variant-3;
+      }
+      .name {
+        color: colors.$variant-3;
+      }
+    }
+  }
+
+  &.with-variation-fill {
+    background: colors.$variant-null;
+    &.variation0,
+    &.variation4 {
+      background: colors.$variant-0;
+    }
+    &.variation1,
+    &.variation5 {
+      background: colors.$variant-1;
+    }
+    &.variation2,
+    &.variation6 {
+      background: colors.$variant-2;
+    }
+    &.variation3,
+    &.variation7 {
+      background: colors.$variant-3;
+    }
+  }
+
+  &.with-variation-border-bottom {
+    border-bottom: 7px solid colors.$variant-null;
+    &.variation0,
+    &.variation4 {
+      border-bottom: 7px solid colors.$variant-0;
+    }
+    &.variation1,
+    &.variation5 {
+      border-bottom: 7px solid colors.$variant-1;
+    }
+    &.variation2,
+    &.variation6 {
+      border-bottom: 7px solid colors.$variant-2;
+    }
+    &.variation3,
+    &.variation7 {
+      border-bottom: 7px solid colors.$variant-3;
+    }
+  }
+
+  &.with-variation-right-shadow {
+    box-shadow: -3px 0 0 colors.$variant-null inset;
+    &.variation0,
+    &.variation4 {
+      box-shadow: -3px 0 0 colors.$variant-0 inset;
+    }
+    &.variation1,
+    &.variation5 {
+      box-shadow: -3px 0 0 colors.$variant-1 inset;
+    }
+    &.variation2,
+    &.variation6 {
+      box-shadow: -3px 0 0 colors.$variant-2 inset;
+    }
+    &.variation3,
+    &.variation7 {
+      box-shadow: -3px 0 0 colors.$variant-3 inset;
+    }
+  }
+}
+
 .bg-purple {
   background: colors.$highlight-purple;
 }
 .bg-purple-light {
   background: colors.$highlight-purple-light;
+}
+.bg-muted-yellow {
+  background: var(--alert-warn-background);
 }
 
 .change-bar {
