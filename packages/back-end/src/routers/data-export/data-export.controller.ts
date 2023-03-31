@@ -6,8 +6,6 @@ import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { getLatestEventsForOrganization } from "../../models/EventModel";
 import { DataExportFileResponse } from "../../../types/data-exports";
 
-// region GET /data-export/:id
-
 /**
  * GET /data-export/events
  * Get one data-export resource by ID
@@ -34,5 +32,3 @@ export const getDataExport = async (
     data: JSON.stringify(events),
   });
 };
-
-// endregion GET /data-export/:id
