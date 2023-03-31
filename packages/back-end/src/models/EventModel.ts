@@ -144,7 +144,7 @@ export const getEventForOrganization = async (
 /**
  * Get all events for an organization
  * @param organizationId
- * @param limit
+ * @param limit  Providing 0 as a limit will return all events
  * @returns
  */
 export const getLatestEventsForOrganization = async (
