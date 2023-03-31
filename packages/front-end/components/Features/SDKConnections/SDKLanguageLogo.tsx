@@ -20,6 +20,7 @@ export const languageMapping: Record<
     docs: DocSection;
     supportsEncryption: boolean;
     usesEntireEndpoint: boolean;
+    supportsVisualExperiments: boolean;
   }
 > = {
   react: {
@@ -29,6 +30,7 @@ export const languageMapping: Record<
     docs: "tsx",
     supportsEncryption: true,
     usesEntireEndpoint: false,
+    supportsVisualExperiments: true,
   },
   ruby: {
     Icon: DiRuby,
@@ -37,6 +39,7 @@ export const languageMapping: Record<
     docs: "ruby",
     supportsEncryption: false,
     usesEntireEndpoint: true,
+    supportsVisualExperiments: false,
   },
   python: {
     Icon: DiPython,
@@ -45,6 +48,7 @@ export const languageMapping: Record<
     docs: "python",
     supportsEncryption: false,
     usesEntireEndpoint: true,
+    supportsVisualExperiments: false,
   },
   android: {
     Icon: DiAndroid,
@@ -53,6 +57,7 @@ export const languageMapping: Record<
     docs: "kotlin",
     supportsEncryption: false,
     usesEntireEndpoint: false,
+    supportsVisualExperiments: false,
   },
   csharp: {
     Icon: FaHashtag,
@@ -61,6 +66,7 @@ export const languageMapping: Record<
     docs: "csharp",
     supportsEncryption: false,
     usesEntireEndpoint: true,
+    supportsVisualExperiments: false,
   },
   flutter: {
     Icon: SiFlutter,
@@ -69,6 +75,7 @@ export const languageMapping: Record<
     docs: "flutter",
     supportsEncryption: false,
     usesEntireEndpoint: false,
+    supportsVisualExperiments: false,
   },
   go: {
     Icon: SiGo,
@@ -77,6 +84,7 @@ export const languageMapping: Record<
     docs: "go",
     supportsEncryption: false,
     usesEntireEndpoint: true,
+    supportsVisualExperiments: false,
   },
   ios: {
     Icon: FaApple,
@@ -85,6 +93,7 @@ export const languageMapping: Record<
     docs: "swift",
     supportsEncryption: true,
     usesEntireEndpoint: true,
+    supportsVisualExperiments: false,
   },
   java: {
     Icon: FaJava,
@@ -93,6 +102,7 @@ export const languageMapping: Record<
     docs: "java",
     supportsEncryption: true,
     usesEntireEndpoint: true,
+    supportsVisualExperiments: false,
   },
   javascript: {
     Icon: SiJavascript,
@@ -101,6 +111,7 @@ export const languageMapping: Record<
     docs: "javascript",
     supportsEncryption: true,
     usesEntireEndpoint: false,
+    supportsVisualExperiments: true,
   },
   php: {
     Icon: SiPhp,
@@ -109,6 +120,7 @@ export const languageMapping: Record<
     docs: "php",
     supportsEncryption: false,
     usesEntireEndpoint: true,
+    supportsVisualExperiments: false,
   },
   nodejs: {
     Icon: SiNodedotjs,
@@ -117,6 +129,7 @@ export const languageMapping: Record<
     docs: "javascript",
     supportsEncryption: true,
     usesEntireEndpoint: false,
+    supportsVisualExperiments: false,
   },
   other: {
     Icon: FaCode,
@@ -125,6 +138,7 @@ export const languageMapping: Record<
     docs: "sdks",
     supportsEncryption: false,
     usesEntireEndpoint: true,
+    supportsVisualExperiments: false,
   },
 };
 

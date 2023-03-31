@@ -32,13 +32,14 @@ const Carousel: FC<{
   }
 
   return (
-    <div className="carousel slide">
+    <div className="carousel slide my-2">
       {modalOpen && currentChild && (
         <Modal
           open={true}
           header={"Screenshot"}
           close={() => setModalOpen(false)}
           size="max"
+          sizeY="max"
         >
           {currentChild}
           {deleteImage && (
@@ -48,7 +49,7 @@ const Carousel: FC<{
                 await deleteImage(current);
                 setModalOpen(false);
               }}
-              outline={false}
+              outline={true}
               style={{
                 position: "absolute",
                 top: 20,

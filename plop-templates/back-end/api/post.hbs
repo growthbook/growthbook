@@ -1,0 +1,17 @@
+import { Post{{pascalCase object}}Response } from "../../../types/openapi";
+import {
+  post{{pascalCase object}},
+  to{{pascalCase object}}ApiInterface
+} from "../../models/{{pascalCase object}}Model";
+import { createApiRequestHandler } from "../../util/handler";
+import { post{{pascalCase object}}Validator } from "../../validators/openapi";
+
+export const post{{pascalCase object}} = createApiRequestHandler(post{{pascalCase object}}Validator)(
+  async (req): Promise<Post{{pascalCase object}}Response> => {
+    const {{camelCase object}} = await post{{pascalCase object}}(/* */);
+
+    return {
+      {{camelCase object}}: to{{pascalCase object}}ApiInterface({{camelCase object}}),
+    };
+  }
+);
