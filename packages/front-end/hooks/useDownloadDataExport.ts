@@ -20,7 +20,8 @@ type DownloadDataExport = {
  * URL should be something like /data-export/events?type=json
  * and it should return {@link DataExportFileResponse} for this to work.
  *
- * Specify an optional successDelay, and 0 if you prefer no delay. Default: 10 seconds
+ * Specify an optional successDelay, and 0 if you prefer no delay. Default: 10 seconds.
+ * The file will download immediately after it's complete, the delay is to optionally prevent button click spam.
  *
  * Example:
  *    const {
