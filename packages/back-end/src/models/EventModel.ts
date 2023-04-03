@@ -67,7 +67,13 @@ const eventSchema = new mongoose.Schema({
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
-          logger.error(errorString, "Invalid Event data");
+          logger.error(
+            {
+              error: JSON.stringify(errorString, null, 2),
+              result: JSON.stringify(result, null, 2),
+            },
+            "Invalid Event data"
+          );
         }
 
         return result.success;
@@ -97,24 +103,28 @@ const EventModel = mongoose.model<EventDocument<unknown>>("Event", eventSchema);
  *
  * @param organizationId
  * @param data
- * @throws Error when validation fails
  * @returns
  */
 export const createEvent = async (
   organizationId: string,
   data: NotificationEvent
-): Promise<EventInterface<NotificationEvent>> => {
-  const eventId = `event-${randomUUID()}`;
-  const doc = await EventModel.create({
-    id: eventId,
-    event: data.event,
-    object: data.object,
-    dateCreated: new Date(),
-    organizationId,
-    data: data,
-  });
+): Promise<EventInterface<NotificationEvent> | null> => {
+  try {
+    const eventId = `event-${randomUUID()}`;
+    const doc = await EventModel.create({
+      id: eventId,
+      event: data.event,
+      object: data.object,
+      dateCreated: new Date(),
+      organizationId,
+      data: data,
+    });
 
-  return toInterface(doc) as EventInterface<NotificationEvent>;
+    return toInterface(doc) as EventInterface<NotificationEvent>;
+  } catch (e) {
+    logger.error(e);
+    return null;
+  }
 };
 
 /**
