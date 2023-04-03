@@ -60,48 +60,31 @@ export const httpLogger = pinoHttp({
  * Wrapper for our logger
  */
 export const logger: BaseLogger = {
-  debug(...args: unknown[]) {
-    // eslint-disable-next-line
-    // @ts-ignore
+  debug(...args: Parameters<BaseLogger["debug"]>) {
     httpLogger.logger.debug(...args);
   },
-  error(...args: unknown[]) {
-    // eslint-disable-next-line
-    // @ts-ignore
+  error(...args: Parameters<BaseLogger["error"]>) {
     httpLogger.logger.error(...args);
-    // eslint-disable-next-line
-    // @ts-ignore
     Sentry.captureException(...args);
   },
-  fatal(...args: unknown[]) {
-    // eslint-disable-next-line
-    // @ts-ignore
+  fatal(...args: Parameters<BaseLogger["fatal"]>) {
     Sentry.captureException(...args);
-    // eslint-disable-next-line
-    // @ts-ignore
     httpLogger.logger.fatal(...args);
   },
-  info(...args: unknown[]) {
-    // eslint-disable-next-line
-    // @ts-ignore
+  info(...args: Parameters<BaseLogger["info"]>) {
     httpLogger.logger.info(...args);
   },
   level: httpLogger.logger.level,
-  silent(...args: unknown[]) {
-    // eslint-disable-next-line
-    // @ts-ignore
+  silent(...args: Parameters<BaseLogger["silent"]>) {
     httpLogger.logger.silent(...args);
   },
-  trace(...args: unknown[]) {
-    // eslint-disable-next-line
-    // @ts-ignore
+  trace(...args: Parameters<BaseLogger["trace"]>) {
     httpLogger.logger.trace(...args);
   },
-  warn(...args: unknown[]) {
-    // eslint-disable-next-line
-    // @ts-ignore
+  warn(...args: Parameters<BaseLogger["warn"]>) {
     httpLogger.logger.warn(...args);
   },
+
 };
 
 /**
