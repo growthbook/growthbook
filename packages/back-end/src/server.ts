@@ -11,18 +11,13 @@ const server = app.listen(app.get("port"), () => {
 
 export default server;
 
-// App-level error handling
-class UnhandledRejectionError extends Error {
-  public promise: Promise<unknown>;
-  constructor(message: string, promise: Promise<unknown>) {
-    super(message);
-    this.name = "UnhandledRejectionError";
-    this.promise = promise;
+process.on("unhandledRejection", (rejection: unknown) => {
+  if (["string", "number", "boolean"].includes(typeof rejection)) {
+    logger.error(new Error(rejection as string), "Unhandled Rejection");
+    return;
   }
-}
-process.on("unhandledRejection", (reason, promise) => {
-  throw new UnhandledRejectionError(reason as string, promise);
+  logger.error(rejection, "Unhandled Rejection");
 });
-process.on("uncaughtException", (err) => {
+process.on("uncaughtException", (err: Error) => {
   logger.error(err, "Uncaught Exception");
 });
