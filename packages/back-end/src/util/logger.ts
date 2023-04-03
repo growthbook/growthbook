@@ -84,7 +84,6 @@ export const logger: BaseLogger = {
   warn(...args: Parameters<BaseLogger["warn"]>) {
     httpLogger.logger.warn(...args);
   },
-
 };
 
 /**
