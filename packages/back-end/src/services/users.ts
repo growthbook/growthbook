@@ -7,6 +7,7 @@ import { findOrganizationsByMemberId } from "../models/OrganizationModel";
 import { UserLoginNotificationEvent } from "../events/notification-events";
 import { createEvent } from "../models/EventModel";
 import { UserLoginAuditableProperties } from "../events/event-types";
+import { logger } from "../util/logger";
 import { usingOpenId, validatePasswordFormat } from "./auth";
 
 const SALT_LEN = 16;
@@ -126,8 +127,6 @@ export const getAuditableUserPropertiesFromRequest = (
  * @param ip
  * @param os
  * @param userAgent
- * @param ip
- * @param os
  */
 export async function trackLoginForUser({
   email,
@@ -135,12 +134,8 @@ export async function trackLoginForUser({
   userAgent,
   ip,
   os,
-}: {
+}: Pick<UserLoginAuditableProperties, "userAgent" | "device" | "ip" | "os"> & {
   email: string;
-  device: string;
-  userAgent: string;
-  ip: string;
-  os: string;
 }): Promise<void> {
   const user = await getUserByEmail(email);
   if (!user) {
@@ -157,7 +152,7 @@ export async function trackLoginForUser({
   const auditedData: UserLoginAuditableProperties = {
     email: user.email,
     id: user.id,
-    name: user.name,
+    name: user.name || "",
     ip,
     userAgent,
     os,
@@ -171,15 +166,20 @@ export async function trackLoginForUser({
       type: "dashboard",
       email: user.email,
       id: user.id,
-      name: user.name,
+      name: user.name || "",
     },
     data: {
       current: auditedData,
     },
   };
 
-  // Create a login event for all of a user's organizations
-  for (const organizationId of organizationIds) {
-    await createEvent(organizationId, event);
+  try {
+    // Create a login event for all of a user's organizations
+    const eventCreatePromises = organizationIds.map((organizationId) =>
+      createEvent(organizationId, event)
+    );
+    await Promise.all(eventCreatePromises);
+  } catch (e) {
+    logger.error(e);
   }
 }
