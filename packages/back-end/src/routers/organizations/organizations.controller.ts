@@ -596,7 +596,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     expandedMembers.push({
       email,
       verified,
-      name,
+      name: name || "",
       ...memberInfo,
       dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
     });
