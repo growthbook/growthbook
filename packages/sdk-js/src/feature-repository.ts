@@ -336,7 +336,6 @@ function onSSEError(
 function destroyChannel(channel: ScopedChannel, key: RepositoryKey) {
   channel.src.onopen = null;
   channel.src.onerror = null;
-  channel.src.removeEventListener("features", channel.cb);
   channel.src.close();
   streams.delete(key);
 }
