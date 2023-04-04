@@ -197,8 +197,9 @@ const getTrustProxyConfig = (): boolean | string | number => {
 
   // Check for nth hop config
   //    Trust the nth hop from the front-facing proxy server as the client.
-  const maybeNumber = parseInt(value);
-  if (!isNaN(maybeNumber)) return maybeNumber;
+  if (value.match(/^[0-9]+$/)) {
+    return parseInt(value);
+  }
 
   // If not a recognized boolean format or a valid integer, return value verbatim
   return value;
