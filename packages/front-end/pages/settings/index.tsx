@@ -57,6 +57,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
+  const hasSequentialTestingFeature = hasCommercialFeature(
+    "sequential-testing"
+  );
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -106,6 +109,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       statsEngine: "bayesian",
       regressionAdjustmentEnabled: false,
       regressionAdjustmentDays: 14,
+      sequentialTestingEnabled: false,
+      sequentialTestingTuningParameter: 1000,
       attributionModel: "firstExposure",
     },
   });
@@ -133,6 +138,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
     pValueThreshold: form.watch("pValueThreshold"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
+    sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
+    sequentialTestingTuningParameter: form.watch(
+      "sequentialTestingTuningParameter"
+    ),
     attributionModel: form.watch("attributionModel"),
   };
 
@@ -736,6 +745,78 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         {regressionAdjustmentDaysWarningMsg}
                       </small>
                     )}
+                  </div>
+                </div>
+
+                <div className="p-3 my-3 border rounded">
+                  <h5 className="font-weight-bold mb-1">
+                    <PremiumTooltip commercialFeature="sequential-testing">
+                      Sequential Testing
+                    </PremiumTooltip>
+                  </h5>
+                  <div className="mb-3">
+                    <small className="d-inline-block mb-2 text-muted">
+                      Only applicable to frequentist analyses
+                    </small>
+                  </div>
+                  <div className="form-group mb-0 mr-2">
+                    <div className="d-flex">
+                      <label
+                        className="mr-1"
+                        htmlFor="toggle-sequentialTestingEnabled"
+                      >
+                        Apply sequential testing by default
+                      </label>
+                      <Toggle
+                        id={"toggle-sequentialTestingEnabled"}
+                        value={!!form.watch("sequentialTestingEnabled")}
+                        setValue={(value) => {
+                          form.setValue("sequentialTestingEnabled", value);
+                        }}
+                        disabled={
+                          !hasRegressionAdjustmentFeature || hasFileConfig()
+                        }
+                      />
+                    </div>
+                    {form.watch("sequentialTestingEnabled") &&
+                      form.watch("statsEngine") === "bayesian" && (
+                        <div className="d-flex">
+                          <small className="mb-1 text-warning-orange">
+                            <FaExclamationTriangle /> Your organization uses
+                            Bayesian statistics by default and sequential
+                            testing is not implemented for the Bayesian engine.
+                          </small>
+                        </div>
+                      )}
+                  </div>
+                  <div
+                    className="form-group mt-3 mb-0 mr-2 form-inline"
+                    style={{
+                      opacity: form.watch("sequentialTestingEnabled")
+                        ? "1"
+                        : "0.5",
+                    }}
+                  >
+                    <Field
+                      label="Tuning parameter"
+                      type="number"
+                      className={`ml-2`}
+                      containerClassName="mb-0"
+                      min="0"
+                      max="10000"
+                      disabled={!hasSequentialTestingFeature || hasFileConfig()}
+                      helpText={
+                        <>
+                          <span className="ml-2">(1000 is default)</span>
+                        </>
+                      }
+                      {...form.register("sequentialTestingTuningParameter", {
+                        valueAsNumber: true,
+                        validate: (v) => {
+                          return !(v <= 0 || v > 10000);
+                        },
+                      })}
+                    />
                   </div>
                 </div>
 

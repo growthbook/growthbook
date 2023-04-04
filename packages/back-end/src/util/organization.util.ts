@@ -26,6 +26,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "schedule-feature-flag",
     "override-metrics",
     "regression-adjustment",
+    "sequential-testing",
     "visual-editor",
   ]),
   pro_sso: new Set<CommercialFeature>([
@@ -35,6 +36,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "schedule-feature-flag",
     "override-metrics",
     "regression-adjustment",
+    "sequential-testing",
     "visual-editor",
   ]),
   enterprise: new Set<CommercialFeature>([
@@ -44,6 +46,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "schedule-feature-flag",
     "override-metrics",
     "regression-adjustment",
+    "sequential-testing",
     "visual-editor",
   ]),
 };
