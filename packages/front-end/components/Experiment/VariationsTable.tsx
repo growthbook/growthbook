@@ -9,7 +9,7 @@ import {
   VisualChangesetURLPattern,
 } from "back-end/types/visual-changeset";
 import React, { FC, Fragment, useState } from "react";
-import { FaTimesCircle, FaExternalLinkAlt } from "react-icons/fa";
+import { FaTimesCircle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -343,15 +343,6 @@ const VariationsTable: FC<Props> = ({
                             >
                               <span className="label">{i}</span>
                               <span className="name">{v.name}</span>
-                              <a
-                                href={appendQueryParamsToURL(vc.editorUrl, {
-                                  [experiment.trackingKey]: i,
-                                })}
-                                className="name"
-                                title="Preview link"
-                              >
-                                <FaExternalLinkAlt size={10} />
-                              </a>
                             </th>
                           ))}
                         </tr>
@@ -365,8 +356,26 @@ const VariationsTable: FC<Props> = ({
                               (changes?.domMutations?.length || 0);
                             return (
                               <td key={j} className="px-4 py-1">
-                                {numChanges} visual change
-                                {numChanges === 1 ? "" : "s"}
+                                <div className="d-flex justify-content-between">
+                                  <div>
+                                    {numChanges} visual change
+                                    {numChanges === 1 ? "" : "s"}
+                                  </div>
+                                  <div>
+                                    <a
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      href={appendQueryParamsToURL(
+                                        vc.editorUrl,
+                                        {
+                                          [experiment.trackingKey]: j,
+                                        }
+                                      )}
+                                    >
+                                      Preview
+                                    </a>
+                                  </div>
+                                </div>
                               </td>
                             );
                           })}
