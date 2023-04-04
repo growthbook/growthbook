@@ -230,7 +230,7 @@ async function getFeatureDefinitionsResponse(
   includeDraftExperiments?: boolean
 ) {
   if (!includeDraftExperiments) {
-    experiments = experiments.filter((e) => e.status !== "draft");
+    experiments = experiments?.filter((e) => e.status !== "draft") || [];
   }
 
   if (!encryptionKey) {
@@ -246,7 +246,7 @@ async function getFeatureDefinitionsResponse(
     encryptionKey
   );
   const encryptedExperiments = includeVisualExperiments
-    ? await encrypt(JSON.stringify(experiments), encryptionKey)
+    ? await encrypt(JSON.stringify(experiments || []), encryptionKey)
     : undefined;
 
   return {
@@ -283,7 +283,7 @@ export async function getFeatureDefinitions(
       const { features, experiments } = cached.contents;
       return await getFeatureDefinitionsResponse(
         features,
-        experiments,
+        experiments || [],
         cached.dateUpdated,
         encryptionKey,
         includeVisualExperiments,
