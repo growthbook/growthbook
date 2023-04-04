@@ -276,7 +276,7 @@ async function fetchFeatures(
 
 // Watch a feature endpoint for changes
 // Will prefer SSE if enabled, otherwise fall back to cron
-function startAutoRefresh(instance: GrowthBook, errors = 0): void {
+function startAutoRefresh(instance: GrowthBook): void {
   const [key, apiHost, clientKey] = getKey(instance);
   if (
     cacheSettings.backgroundSync &&
@@ -299,44 +299,56 @@ function startAutoRefresh(instance: GrowthBook, errors = 0): void {
               clientKey,
               error: e ? (e as Error).message : null,
             });
-          onSSEError(instance, channel, key);
+          onSSEError(channel, apiHost, clientKey);
         }
       },
-      errors: errors,
+      errors: 0,
     };
     streams.set(key, channel);
-    channel.src.addEventListener("features", channel.cb);
-
-    channel.src.onerror = () => {
-      onSSEError(instance, channel, key);
-    };
-    channel.src.onopen = () => {
-      channel.errors = 0;
-    };
+    enableChannel(channel, apiHost, clientKey);
   }
 }
 
 function onSSEError(
-  instance: GrowthBook,
   channel: ScopedChannel,
-  key: RepositoryKey
+  apiHost: string,
+  clientKey: string
 ) {
   channel.errors++;
   if (channel.errors > 3 || channel.src.readyState === 2) {
     // exponential backoff after 4 errors, with jitter
     const delay =
       Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1025);
-    destroyChannel(channel, key);
+    disableChannel(channel);
     setTimeout(() => {
-      startAutoRefresh(instance, channel.errors);
+      channel.src = new polyfills.EventSource(`${apiHost}/sub/${clientKey}`);
+      enableChannel(channel, apiHost, clientKey);
     }, Math.min(delay, 300000)); // 5 minutes max
   }
 }
 
-function destroyChannel(channel: ScopedChannel, key: RepositoryKey) {
+function disableChannel(channel: ScopedChannel) {
   channel.src.onopen = null;
   channel.src.onerror = null;
   channel.src.close();
+}
+
+function enableChannel(
+  channel: ScopedChannel,
+  apiHost: string,
+  clientKey: string
+) {
+  channel.src.addEventListener("features", channel.cb);
+  channel.src.onerror = () => {
+    onSSEError(channel, apiHost, clientKey);
+  };
+  channel.src.onopen = () => {
+    channel.errors = 0;
+  };
+}
+
+function destroyChannel(channel: ScopedChannel, key: RepositoryKey) {
+  disableChannel(channel);
   streams.delete(key);
 }
 
