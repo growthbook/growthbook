@@ -318,7 +318,7 @@ function onSSEError(
   if (channel.errors > 3 || (channel.src && channel.src.readyState === 2)) {
     // exponential backoff after 4 errors, with jitter
     const delay =
-      Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1025);
+      Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1000);
     disableChannel(channel);
     setTimeout(() => {
       enableChannel(channel, apiHost, clientKey);
