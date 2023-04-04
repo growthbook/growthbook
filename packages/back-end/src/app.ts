@@ -92,6 +92,7 @@ import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.rou
 import { projectRouter } from "./routers/project/project.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
+import { dataExportRouter } from "./routers/data-export/data-export.router";
 
 const app = express();
 
@@ -506,6 +507,9 @@ app.use(eventWebHooksRouter);
 
 // Slack integration
 app.use("/integrations/slack", slackIntegrationRouter);
+
+// Data Export
+app.use("/data-export", dataExportRouter);
 
 // Presentations
 app.get("/presentations", presentationController.getPresentations);
