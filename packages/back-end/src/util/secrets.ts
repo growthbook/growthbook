@@ -178,10 +178,11 @@ export const PROXY_HOST_PUBLIC = process.env.PROXY_HOST_PUBLIC || "";
  * Allows custom configuration of the trust proxy settings as
  * described in the docs: https://expressjs.com/en/5x/api.html#trust.proxy.options.table
  *
- * Also supports 0/1, true/false for boolean values.
+ * Supports true/false for boolean values.
+ * Supports integer values to trust the nth hop from the front-facing proxy server as the client.
  * All other truthy values will be used verbatim.
  */
-const getTrustProxyConfig = (): boolean | string => {
+const getTrustProxyConfig = (): boolean | string | number => {
   const value = process.env.EXPRESS_TRUST_PROXY_OPTS;
 
   // If no value set, return false
@@ -191,10 +192,15 @@ const getTrustProxyConfig = (): boolean | string => {
 
   // Lower-cased value to enable easier boolean config
   const lowerCasedValue = value.toLowerCase();
-  if (lowerCasedValue === "true" || lowerCasedValue === "1") return true;
-  if (lowerCasedValue === "false" || lowerCasedValue === "0") return false;
+  if (lowerCasedValue === "true") return true;
+  if (lowerCasedValue === "false") return false;
 
-  // If not a recognized boolean format, return value verbatim
+  // Check for nth hop config
+  //    Trust the nth hop from the front-facing proxy server as the client.
+  const maybeNumber = parseInt(value);
+  if (!isNaN(maybeNumber)) return maybeNumber;
+
+  // If not a recognized boolean format or a valid integer, return value verbatim
   return value;
 };
 
