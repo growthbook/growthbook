@@ -489,7 +489,7 @@ export default function FeaturePage() {
               count={rules.length}
               padding={false}
             >
-              <div className="appbox mb-4 border-top-0">
+              <div className="border mb-4 border-top-0">
                 {rules.length > 0 ? (
                   <RuleList
                     environment={e.id}
