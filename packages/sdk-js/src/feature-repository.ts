@@ -14,7 +14,7 @@ type CacheEntry = {
   staleAt: Date;
 };
 type ScopedChannel = {
-  src: EventSource;
+  src: EventSource | null;
   cb: (event: MessageEvent<string>) => void;
   errors: number;
 };
@@ -285,7 +285,7 @@ function startAutoRefresh(instance: GrowthBook): void {
   ) {
     if (streams.has(key)) return;
     const channel: ScopedChannel = {
-      src: new polyfills.EventSource(`${apiHost}/sub/${clientKey}`),
+      src: null,
       cb: (event: MessageEvent<string>) => {
         try {
           const json: FeatureApiResponse = JSON.parse(event.data);
@@ -315,19 +315,19 @@ function onSSEError(
   clientKey: string
 ) {
   channel.errors++;
-  if (channel.errors > 3 || channel.src.readyState === 2) {
+  if (channel.errors > 3 || (channel.src && channel.src.readyState === 2)) {
     // exponential backoff after 4 errors, with jitter
     const delay =
       Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1025);
     disableChannel(channel);
     setTimeout(() => {
-      channel.src = new polyfills.EventSource(`${apiHost}/sub/${clientKey}`);
       enableChannel(channel, apiHost, clientKey);
     }, Math.min(delay, 300000)); // 5 minutes max
   }
 }
 
 function disableChannel(channel: ScopedChannel) {
+  if (!channel.src) return;
   channel.src.onopen = null;
   channel.src.onerror = null;
   channel.src.close();
@@ -338,6 +338,9 @@ function enableChannel(
   apiHost: string,
   clientKey: string
 ) {
+  channel.src = new polyfills.EventSource(
+    `${apiHost}/sub/${clientKey}`
+  ) as EventSource;
   channel.src.addEventListener("features", channel.cb);
   channel.src.onerror = () => {
     onSSEError(channel, apiHost, clientKey);
