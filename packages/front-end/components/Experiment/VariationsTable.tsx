@@ -9,12 +9,13 @@ import {
   VisualChangesetURLPattern,
 } from "back-end/types/visual-changeset";
 import React, { FC, Fragment, useState } from "react";
-import { FaTimesCircle } from "react-icons/fa";
+import { FaTimesCircle, FaExternalLinkAlt } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import track from "@/services/track";
+import { appendQueryParamsToURL } from "@/services/utils";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
 import { GBEdit } from "../Icons";
@@ -342,6 +343,15 @@ const VariationsTable: FC<Props> = ({
                             >
                               <span className="label">{i}</span>
                               <span className="name">{v.name}</span>
+                              <a
+                                href={appendQueryParamsToURL(vc.editorUrl, {
+                                  [experiment.trackingKey]: i,
+                                })}
+                                className="name"
+                                title="Preview link"
+                              >
+                                <FaExternalLinkAlt size={10} />
+                              </a>
                             </th>
                           ))}
                         </tr>
