@@ -2,6 +2,7 @@ import { FilterQuery } from "mongodb";
 import mongoose from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
+import { isEqual } from "lodash";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -31,6 +32,10 @@ import {
 import { EventAuditUser } from "../events/event-types";
 import { saveRevision } from "./FeatureRevisionModel";
 import { createEvent } from "./EventModel";
+import {
+  addLinkedFeatureToExperiment,
+  removeLinkedFeatureFromExperiment,
+} from "./ExperimentModel";
 
 const featureSchema = new mongoose.Schema({
   id: String,
@@ -60,11 +65,19 @@ const featureSchema = new mongoose.Schema({
       enabled: Boolean,
       condition: String,
       description: String,
+      experimentId: String,
       values: [
         {
           _id: false,
           value: String,
           weight: Number,
+        },
+      ],
+      variations: [
+        {
+          _id: false,
+          variationId: String,
+          value: String,
         },
       ],
       namespace: {},
@@ -79,6 +92,7 @@ const featureSchema = new mongoose.Schema({
   environmentSettings: {},
   draft: {},
   revision: {},
+  linkedExperiments: [String],
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -121,9 +135,17 @@ export async function createFeature(
   user: EventAuditUser,
   data: FeatureInterface
 ) {
-  const feature = await FeatureModel.create(data);
+  const linkedExperiments = getLinkedExperiments(data);
+  const feature = await FeatureModel.create({
+    ...data,
+    linkedExperiments,
+  });
   await saveRevision(toInterface(feature));
   onFeatureCreate(org, user, feature);
+
+  linkedExperiments.forEach((exp) => {
+    addLinkedFeatureToExperiment(org, user, exp, data.id);
+  });
 }
 
 export async function deleteFeature(
@@ -133,6 +155,12 @@ export async function deleteFeature(
 ) {
   await FeatureModel.deleteOne({ organization: org.id, id: feature.id });
   onFeatureDelete(org, user, feature);
+
+  if (feature.linkedExperiments) {
+    feature.linkedExperiments.forEach((exp) => {
+      removeLinkedFeatureFromExperiment(org, user, exp, feature.id);
+    });
+  }
 }
 
 /**
@@ -272,25 +300,52 @@ export async function updateFeature(
   feature: FeatureInterface,
   updates: Partial<FeatureInterface>
 ): Promise<FeatureInterface> {
-  const dateUpdated = new Date();
+  const allUpdates = {
+    ...updates,
+    dateUpdated: new Date(),
+  };
+  const updatedFeature = {
+    ...feature,
+    ...allUpdates,
+  };
+
+  // Refresh linkedExperiments if needed
+  const linkedExperiments = getLinkedExperiments(updatedFeature);
+  const experimentsAdded = new Set<string>();
+  const experimentsRemoved = new Set<string>();
+  if (!isEqual(linkedExperiments, feature.linkedExperiments)) {
+    allUpdates.linkedExperiments = linkedExperiments;
+    updatedFeature.linkedExperiments = linkedExperiments;
+
+    // New experiments this feature was added to
+    linkedExperiments.forEach((exp) => {
+      if (!feature.linkedExperiments?.includes(exp)) {
+        experimentsAdded.add(exp);
+      }
+    });
+    // Experiments this feature was removed from
+    feature.linkedExperiments?.forEach((exp) => {
+      if (!linkedExperiments.includes(exp)) {
+        experimentsRemoved.add(exp);
+      }
+    });
+  }
 
   await FeatureModel.updateOne(
     { organization: feature.organization, id: feature.id },
     {
-      $set: {
-        ...updates,
-        dateUpdated,
-      },
+      $set: allUpdates,
     }
   );
 
-  const updatedFeature = {
-    ...feature,
-    ...updates,
-    dateUpdated,
-  };
-
   onFeatureUpdate(org, user, feature, updatedFeature);
+
+  experimentsAdded.forEach((exp) => {
+    addLinkedFeatureToExperiment(org, user, exp, feature.id);
+  });
+  experimentsRemoved.forEach((exp) => {
+    removeLinkedFeatureFromExperiment(org, user, exp, feature.id);
+  });
 
   return updatedFeature;
 }
@@ -587,4 +642,30 @@ export async function publishDraft(
 
   await saveRevision(updatedFeature);
   return updatedFeature;
+}
+
+function getLinkedExperiments(feature: FeatureInterface) {
+  const expIds: Set<string> = new Set();
+  // Published rules
+  if (feature.environmentSettings) {
+    Object.values(feature.environmentSettings).forEach((env) => {
+      env.rules?.forEach((rule) => {
+        if (rule.type === "experiment-ref") {
+          expIds.add(rule.experimentId);
+        }
+      });
+    });
+  }
+  // Draft rules
+  if (feature.draft && feature.draft.active && feature.draft.rules) {
+    Object.values(feature.draft.rules).forEach((rules) => {
+      rules.forEach((rule) => {
+        if (rule.type === "experiment-ref") {
+          expIds.add(rule.experimentId);
+        }
+      });
+    });
+  }
+
+  return [...expIds];
 }

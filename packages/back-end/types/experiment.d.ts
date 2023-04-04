@@ -136,6 +136,7 @@ export interface ExperimentInterface {
   ideaSource?: string;
   regressionAdjustmentEnabled?: boolean;
   hasVisualChangesets?: boolean;
+  linkedFeatures?: string[];
 }
 
 export type ExperimentInterfaceStringDates = Omit<

@@ -32,7 +32,10 @@ import {
   verifyDraftsAreEqual,
 } from "../services/features";
 import { ensureWatching } from "../services/experiments";
-import { getExperimentByTrackingKey } from "../models/ExperimentModel";
+import {
+  getExperimentByTrackingKey,
+  getExperimentsByIds,
+} from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
   auditDetailsCreate,
@@ -791,27 +794,36 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
-  const expIds: Set<string> = new Set();
+  const experimentIds: Set<string> = new Set();
+  const trackingKeys: Set<string> = new Set();
   if (feature.environmentSettings) {
     Object.values(feature.environmentSettings).forEach((env) => {
       env.rules?.forEach((r) => {
         if (r.type === "experiment") {
-          expIds.add(r.trackingKey || feature.id);
+          trackingKeys.add(r.trackingKey || feature.id);
+        } else if (r.type === "experiment-ref") {
+          experimentIds.add(r.experimentId);
         }
       });
     });
   }
 
   const experiments: { [key: string]: ExperimentInterface } = {};
-  if (expIds.size > 0) {
+  if (trackingKeys.size > 0) {
     await Promise.all(
-      Array.from(expIds).map(async (id) => {
-        const exp = await getExperimentByTrackingKey(org.id, id);
+      Array.from(trackingKeys).map(async (key) => {
+        const exp = await getExperimentByTrackingKey(org.id, key);
         if (exp) {
-          experiments[id] = exp;
+          experiments[exp.id] = exp;
         }
       })
     );
+  }
+  if (experimentIds.size > 0) {
+    const docs = await getExperimentsByIds(org.id, Array.from(experimentIds));
+    docs.forEach((doc) => {
+      experiments[doc.id] = doc;
+    });
   }
 
   const revisions = await getRevisions(org.id, id);

@@ -149,6 +149,7 @@ const experimentSchema = new mongoose.Schema({
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
   hasVisualChangesets: Boolean,
+  linkedFeatures: [String],
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -714,18 +715,10 @@ export const removeTagFromExperiments = async ({
     $pull: { tags: tag },
   });
 
-  previousExperiments.forEach((previous) => {
-    const current = cloneDeep(previous);
-    current.tags = current.tags.filter((t) => t != tag);
-
-    onExperimentUpdate({
-      organization,
-      oldExperiment: previous,
-      newExperiment: current,
-      bypassWebhooks: true,
-      user,
-    });
-  });
+  logAllChanges(organization, user, previousExperiments, (exp) => ({
+    ...exp,
+    tags: exp.tags.filter((t) => t !== tag),
+  }));
 };
 
 export async function removeMetricFromExperiments(
@@ -819,10 +812,99 @@ export async function removeProjectFromExperiments(
 
   await ExperimentModel.updateMany(query, { $set: { project: "" } });
 
-  previousExperiments.forEach((previous) => {
-    const current = cloneDeep(previous);
-    current.project = "";
+  logAllChanges(organization, user, previousExperiments, (exp) => ({
+    ...exp,
+    project: "",
+  }));
+}
 
+export async function addLinkedFeatureToExperiment(
+  organization: OrganizationInterface,
+  user: EventAuditUser,
+  experimentId: string,
+  featureId: string
+) {
+  const experiment = await findExperiment({
+    experimentId,
+    organizationId: organization.id,
+  });
+
+  if (!experiment) return;
+
+  if (experiment.linkedFeatures?.includes(featureId)) return;
+
+  await ExperimentModel.updateOne(
+    {
+      id: experimentId,
+      organization: organization.id,
+    },
+    {
+      $addToSet: {
+        linkedFeatures: featureId,
+      },
+    }
+  );
+
+  onExperimentUpdate({
+    organization,
+    oldExperiment: experiment,
+    newExperiment: {
+      ...experiment,
+      linkedFeatures: [...(experiment.linkedFeatures || []), featureId],
+    },
+    user,
+  });
+}
+
+export async function removeLinkedFeatureFromExperiment(
+  organization: OrganizationInterface,
+  user: EventAuditUser,
+  experimentId: string,
+  featureId: string
+) {
+  const experiment = await findExperiment({
+    experimentId,
+    organizationId: organization.id,
+  });
+
+  if (!experiment) return;
+
+  if (!experiment.linkedFeatures?.includes(featureId)) return;
+
+  await ExperimentModel.updateOne(
+    {
+      id: experimentId,
+      organization: organization.id,
+    },
+    {
+      $pull: {
+        linkedFeatures: featureId,
+      },
+    }
+  );
+
+  onExperimentUpdate({
+    organization,
+    oldExperiment: experiment,
+    newExperiment: {
+      ...experiment,
+      linkedFeatures: (experiment.linkedFeatures || []).filter(
+        (f) => f !== featureId
+      ),
+    },
+    user,
+  });
+}
+
+function logAllChanges(
+  organization: OrganizationInterface,
+  user: EventAuditUser,
+  previousExperiments: ExperimentInterface[],
+  applyChanges: (exp: ExperimentInterface) => ExperimentInterface | null
+) {
+  previousExperiments.forEach((previous) => {
+    const current = applyChanges(cloneDeep(previous));
+    if (!current) return;
     onExperimentUpdate({
       organization,
       oldExperiment: previous,
