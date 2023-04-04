@@ -17,7 +17,6 @@ type ScopedChannel = {
   src: EventSource;
   cb: (event: MessageEvent<string>) => void;
   errors: number;
-  lastError: Date;
 };
 
 // Config settings
@@ -277,7 +276,7 @@ async function fetchFeatures(
 
 // Watch a feature endpoint for changes
 // Will prefer SSE if enabled, otherwise fall back to cron
-function startAutoRefresh(instance: GrowthBook) {
+function startAutoRefresh(instance: GrowthBook, errors = 0): void {
   const [key, apiHost, clientKey] = getKey(instance);
   if (
     cacheSettings.backgroundSync &&
@@ -300,36 +299,44 @@ function startAutoRefresh(instance: GrowthBook) {
               clientKey,
               error: e ? (e as Error).message : null,
             });
-          onSSEError(channel, key);
+          onSSEError(instance, channel, key);
         }
       },
-      errors: 0,
-      lastError: new Date(),
+      errors: errors,
     };
     streams.set(key, channel);
     channel.src.addEventListener("features", channel.cb);
 
     channel.src.onerror = () => {
-      onSSEError(channel, key);
+      onSSEError(instance, channel, key);
+    };
+    channel.src.onopen = () => {
+      channel.errors = 0;
     };
   }
 }
 
-function onSSEError(channel: ScopedChannel, key: RepositoryKey) {
-  const now = new Date();
-  if (now.getTime() - channel.lastError.getTime() < 5000) {
-    channel.errors++;
-  } else {
-    channel.errors = 1;
-  }
-  channel.lastError = now;
+function onSSEError(
+  instance: GrowthBook,
+  channel: ScopedChannel,
+  key: RepositoryKey
+) {
+  channel.errors++;
   if (channel.errors > 3 || channel.src.readyState === 2) {
+    // exponential backoff after 4 errors, with jitter
+    const delay =
+      Math.pow(3, channel.errors - 3) * (1000 + Math.random() * 1025);
     destroyChannel(channel, key);
+    setTimeout(() => {
+      startAutoRefresh(instance, channel.errors);
+    }, Math.min(delay, 300000)); // 5 minutes max
   }
 }
 
 function destroyChannel(channel: ScopedChannel, key: RepositoryKey) {
+  channel.src.onopen = null;
   channel.src.onerror = null;
+  channel.src.removeEventListener("features", channel.cb);
   channel.src.close();
   streams.delete(key);
 }
