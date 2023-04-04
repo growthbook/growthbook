@@ -317,7 +317,7 @@ function startAutoRefresh(instance: GrowthBook) {
 
 function onSSEError(channel: ScopedChannel, key: RepositoryKey) {
   const now = new Date();
-  if (now - channel.lastError < 1000) {
+  if (now.getTime() - channel.lastError.getTime() < 1000) {
     channel.errors++;
   } else {
     channel.errors = 1;
