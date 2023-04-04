@@ -331,6 +331,7 @@ function disableChannel(channel: ScopedChannel) {
   channel.src.onopen = null;
   channel.src.onerror = null;
   channel.src.close();
+  channel.src = null;
 }
 
 function enableChannel(
