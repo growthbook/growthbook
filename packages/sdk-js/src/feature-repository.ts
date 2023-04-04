@@ -17,6 +17,7 @@ type ScopedChannel = {
   src: EventSource;
   cb: (event: MessageEvent<string>) => void;
   errors: number;
+  lastError: Date;
 };
 
 // Config settings
@@ -303,6 +304,7 @@ function startAutoRefresh(instance: GrowthBook) {
         }
       },
       errors: 0,
+      lastError: new Date(),
     };
     streams.set(key, channel);
     channel.src.addEventListener("features", channel.cb);
@@ -314,7 +316,13 @@ function startAutoRefresh(instance: GrowthBook) {
 }
 
 function onSSEError(channel: ScopedChannel, key: RepositoryKey) {
-  channel.errors++;
+  const now = new Date();
+  if (now - channel.lastError < 1000) {
+    channel.errors++;
+  } else {
+    channel.errors = 1;
+  }
+  channel.lastError = now;
   if (channel.errors > 3 || channel.src.readyState === 2) {
     destroyChannel(channel, key);
   }
