@@ -73,8 +73,8 @@ less problematic and, at times, more valuable.
 
 GrowthBook has begun also investing in developing a frequentist statistics engine, and users can now select which approach
 fits their use case best under their organization settings. The current frequentist engine computes two-sample t-tests for
-relative percent change and has variance reduction (via [CUPED](/statistics/cuped)) enabled. Future extensions to implement sequential testing, one-sided tests
-for guardrails, and more are possible.
+relative percent change; you can reduce variance (via [CUPED](/statistics/cuped)) and you can enable
+[sequential testing](/statistics/sequential) to mitigate concerns with peeking.
 
 Because our default results and confidence intervals display relative percent change, we use a delta
 method corrected variance for our p-values and confidence intervals that correctly incorporates uncertainty from the control variation mean.

@@ -1,0 +1,59 @@
+---
+title: Sequential Testing
+description: Sequential Testing
+sidebar_label: Sequential Testing
+slug: sequential
+---
+
+# Sequential Testing
+
+:::note
+
+Sequential Testing is only implemented for the Frequentist statistics engine.
+
+:::
+
+## Why use sequential testing?
+
+Sequential testing allows you to look at your experiment results as many times as you like while still keeping the number of false positives below the expected rate. In other words, it is the frequentist solution to the peeking problem in AB testing.
+
+### The peeking problem
+
+What is peeking? First, some background on frequentist testing.
+
+When running a frequentist analysis, the experimenter sets a confidence level, often written as $\alpha$. Many people, and GrowthBook, default to using $\alpha = 5%$ (sometimes it is written as $\alpha = 0.05$). These all mean the same thing: for a correctly specified frequentist analysis, you will only reject the null hypothesis 5% of the time when the null hypothesis is true. Usually in online experimentation, the 5% represents the expected number of times that our experiment would say that our treatment and control are different when really they are not. In other words, $\alpha$ controls the _False Positive Rate_.
+
+However, experimenters often violate a fundamental assumption underpinning frequentist analysis: you must wait until for some pre-specified time (or sample size) before looking at and acting upon experiment results for the above guarantee to hold. If you violate this assumption, and _peek_ at your results, you will end up with an inflated _False Positive Rate_, far above your nominal 5% level. In other words, if we check an experiment as it runs, we are essentially increasing the number of times we can get a positive, even if there is no experiment effect, just through random noise.
+
+We have two options:
+
+1. Stop checking early. This is possible, but in a lot of cases it can make decision making worse! It is powerful to be able to see bad results and shut a feature down early; or conversely to see a great feature do well right away, end the experiment, and ship to everyone.
+2. Use an estimator that returns our control over false positive rates.
+
+Sequential testing is one such estimator; it will let us check our results early without fear of inflating the false positive rate.
+
+## GrowthBook's implementation
+
+There are many approaches to sequential testing, several of which are well explained and compared in [this Spotify blogpost](https://engineering.atspotify.com/2023/03/choosing-sequential-testing-framework-comparisons-and-discussions/).
+
+For GrowthBook, we selected a method that would work for the wide variety of experimenters that we serve, while also providing experimenters with a way to tune the approach for their setting. To that end, we implement the Generalized Anytime Valid Inference (GAVI) confidence sequences described by Spotify in the above post and introduced by [Howard et al. (2022)](https://arxiv.org/pdf/1810.08240.pdf).
+
+Specifically, our confidence sequences, which take the place of confidence intervals, become:
+
+$$[\hat{\mu} - B, \hat{\mu} + B]$$
+
+$$B = \frac{1}{N}\sqrt{\left((\hat{\sigma}^2*N + \rho) * \text{ln}\left(\frac{(\hat{\sigma}^2*N + \rho)}{\rho + \alpha^2}\right) \right)}$$
+
+$$\rho = \frac{2 * S * \hat{\sigma}^2*N}{2 * \text{ln}(\alpha^{-1}) + \text{ln}\left(1 + 2 * \text{ln}(\alpha^{-1})\right)}$$
+
+In the above, $\hat{\mu}$ is our estimated uplift, $\hat{\sigma}^2$ is the estimated variance of the uplift, $\alpha$ is our significance level (defaults to 0.05), and $N$ is the sum of the two variation's sample sizes.
+
+In the above $S$ is essentially a tuning parameter that lets us control how tight these confidence sequences are relative to the standard, fixed-time confidence intervals. It can be thought of as an "estimated sample size." You want to set $S$ to be the number of observations at which you tend to make decisions, because it is at that sample size that the loss in experiment power from using sequential testing will be smallest relative to the traditional confidence intervals.
+
+We default to using 5,000, but we have a long discussion on how to set this parameter and why it matters in our TODO BLOG POST.
+
+## Configuring sequential testing
+
+### Enabling sequential testing
+
+### Tuning sequential testing
