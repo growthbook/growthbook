@@ -11,6 +11,7 @@ import {
   APP_ORIGIN,
   CORS_ORIGIN_REGEX,
   ENVIRONMENT,
+  EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
   SENTRY_DSN,
   UPLOAD_METHOD,
@@ -109,6 +110,7 @@ if (!process.env.NO_INIT) {
 }
 
 app.set("port", process.env.PORT || 3100);
+app.set("trust proxy", EXPRESS_TRUST_PROXY_OPTS);
 
 // Pretty print on dev
 if (ENVIRONMENT !== "production") {
