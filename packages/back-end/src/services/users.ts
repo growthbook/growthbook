@@ -1,7 +1,13 @@
 import crypto from "crypto";
 import { promisify } from "util";
 import uniqid from "uniqid";
+import { Request } from "express";
 import { UserDocument, UserModel } from "../models/UserModel";
+import { findOrganizationsByMemberId } from "../models/OrganizationModel";
+import { UserLoginNotificationEvent } from "../events/notification-events";
+import { createEvent } from "../models/EventModel";
+import { UserLoginAuditableProperties } from "../events/event-types";
+import { logger } from "../util/logger";
 import { usingOpenId, validatePasswordFormat } from "./auth";
 
 const SALT_LEN = 16;
@@ -88,4 +94,89 @@ export async function createUser(
     id: uniqid("u_"),
     verified,
   });
+}
+
+/**
+ * Some tracking properties exist on the request object
+ * @param req
+ */
+export const getAuditableUserPropertiesFromRequest = (
+  req: Request
+): Pick<UserLoginAuditableProperties, "userAgent" | "device" | "ip" | "os"> => {
+  const userAgent = (req.headers["user-agent"] as string) || "";
+  const device = (req.headers["sec-ch-ua"] as string) || "";
+  const os = (req.headers["sec-ch-ua-platform"] as string) || "";
+  const ip = req.ip || "";
+
+  return {
+    userAgent,
+    device,
+    os,
+    ip,
+  };
+};
+
+/**
+ * Track a login event under each organization for a user that has just logged in.
+ * @param email
+ * @param device
+ * @param userAgent
+ * @param ip
+ * @param os
+ * @param userAgent
+ */
+export async function trackLoginForUser({
+  email,
+  device,
+  userAgent,
+  ip,
+  os,
+}: Pick<UserLoginAuditableProperties, "userAgent" | "device" | "ip" | "os"> & {
+  email: string;
+}): Promise<void> {
+  const user = await getUserByEmail(email);
+  if (!user) {
+    return;
+  }
+
+  const organizations = await findOrganizationsByMemberId(user.id);
+  if (!organizations) {
+    return;
+  }
+
+  const organizationIds = organizations.map((org) => org.id);
+
+  const auditedData: UserLoginAuditableProperties = {
+    email: user.email,
+    id: user.id,
+    name: user.name || "",
+    ip,
+    userAgent,
+    os,
+    device,
+  };
+
+  const event: UserLoginNotificationEvent = {
+    object: "user",
+    event: "user.login",
+    user: {
+      type: "dashboard",
+      email: user.email,
+      id: user.id,
+      name: user.name || "",
+    },
+    data: {
+      current: auditedData,
+    },
+  };
+
+  try {
+    // Create a login event for all of a user's organizations
+    const eventCreatePromises = organizationIds.map((organizationId) =>
+      createEvent(organizationId, event)
+    );
+    await Promise.all(eventCreatePromises);
+  } catch (e) {
+    logger.error(e);
+  }
 }
