@@ -5,13 +5,17 @@ import {
   NotificationEventPayload,
   NotificationEventResource,
 } from "back-end/types/event";
+import { FaDownload } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
+import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
 import LoadingSpinner from "../../LoadingSpinner";
 import { EventsTableRow } from "./EventsTableRow";
 
 type EventsPageProps = {
   isLoading: boolean;
   hasError: boolean;
+  performDownload: () => void;
+  isDownloading: boolean;
   events: EventInterface<
     NotificationEventPayload<
       NotificationEventName,
@@ -25,10 +29,30 @@ export const EventsPage: FC<EventsPageProps> = ({
   events = [],
   hasError,
   isLoading,
+  performDownload,
+  isDownloading,
 }) => {
   return (
-    <div className="container p-4">
-      <h1>Events</h1>
+    <div className="container py-4">
+      <div className="row">
+        <div className="col-6">
+          <h1>Events</h1>
+        </div>
+
+        <div className="col-6 text-right ">
+          <button
+            onClick={performDownload}
+            disabled={isDownloading}
+            className="btn btn-primary"
+          >
+            <span className="mr-1">
+              <FaDownload />
+            </span>{" "}
+            Export
+          </button>
+        </div>
+      </div>
+
       {hasError && (
         <div className="alert alert-danger">
           There was an error loading the events.
@@ -75,11 +99,17 @@ export const EventsPageContainer = () => {
     >[];
   }>("/events");
 
+  const { isDownloading, performDownload } = useDownloadDataExport({
+    url: "/data-export/events?type=json",
+  });
+
   return (
     <EventsPage
       isLoading={isValidating}
       hasError={!!error}
       events={data?.events || []}
+      isDownloading={isDownloading}
+      performDownload={performDownload}
     />
   );
 };
