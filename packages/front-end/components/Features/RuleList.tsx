@@ -19,6 +19,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import { getRules } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
+import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({
@@ -64,6 +65,41 @@ export default function RuleList({
     }
     return -1;
   }
+
+  // detect unreachable rules, and get the first rule that is at 100%.
+  let unreachableIndex = null;
+  items.forEach((item, i) => {
+    if (unreachableIndex) return;
+
+    // get the schedules on any of the rules:
+    const upcomingScheduleRule = getUpcomingScheduleRule(item);
+
+    const scheduleCompletedAndDisabled =
+      !upcomingScheduleRule &&
+      item?.scheduleRules?.length &&
+      item.scheduleRules.at(-1)?.timestamp !== null;
+
+    const ruleDisabled =
+      scheduleCompletedAndDisabled ||
+      upcomingScheduleRule?.enabled ||
+      !item.enabled;
+
+    // rollouts and experiments at 100%:
+    if (
+      (item.type === "rollout" || item.type === "experiment") &&
+      item.coverage === 1 &&
+      item.enabled === true &&
+      item.condition === "{}" &&
+      !ruleDisabled
+    ) {
+      unreachableIndex = i + 1;
+    }
+
+    // force rule at 100%: (doesn't have coverage)
+    if (item.type === "force" && item.condition === "{}" && !ruleDisabled) {
+      unreachableIndex = i + 1;
+    }
+  });
 
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
@@ -120,6 +156,7 @@ export default function RuleList({
             mutate={mutate}
             experiments={experiments}
             setRuleModal={setRuleModal}
+            unreachable={unreachableIndex && i >= unreachableIndex}
           />
         ))}
       </SortableContext>
