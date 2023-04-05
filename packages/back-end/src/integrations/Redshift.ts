@@ -50,7 +50,7 @@ export default class Redshift extends SqlIntegration {
         SVV_COLUMNS
       WHERE
         table_schema
-      NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+      NOT IN ('information_schema')
       GROUP BY (table_name, table_schema, table_catalog)`;
 
     const results = await this.runQuery(sql);
