@@ -29,3 +29,22 @@ export async function uploadFile(
     fileURL: fileURL.match(/^\//) ? getApiHost() + fileURL : fileURL,
   };
 }
+
+/**
+ * Save the text content as a file with the given file name.
+ * @param textContent
+ * @param fileName
+ */
+export function saveAs({
+  textContent,
+  fileName,
+}: {
+  textContent: string;
+  fileName: string;
+}) {
+  const blob = new Blob([textContent], { type: "text/plain;charset=utf-8" });
+  const a = document.createElement("a");
+  a.download = fileName;
+  a.href = URL.createObjectURL(blob);
+  a.click();
+}
