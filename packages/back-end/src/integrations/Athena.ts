@@ -4,7 +4,11 @@ import { AthenaConnectionParams } from "../../types/integrations/athena";
 import { FormatDialect } from "../util/sql";
 import { DataSourceProperties } from "../../types/datasource";
 import { formatInformationSchema } from "../util/informationSchemas";
-import { InformationSchema, RawInformationSchema } from "../types/Integration";
+import {
+  InformationSchema,
+  MissingDatasourceParamsError,
+  RawInformationSchema,
+} from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {
@@ -55,16 +59,20 @@ export default class Athena extends SqlIntegration {
     return `1.0*${col}`;
   }
   async getInformationSchema(): Promise<InformationSchema[]> {
+    const defaultCatalog = this.params.catalog;
+
+    if (!defaultCatalog)
+      throw new MissingDatasourceParamsError(
+        "To view the information schema for an Athena dataset, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings."
+      );
+
     const sql = `SELECT
         table_name,
         table_catalog,
         table_schema,
         count(column_name) as column_count
       FROM
-        information_schema.columns
-      WHERE
-        table_schema
-      NOT IN ('information_schema')
+        ${defaultCatalog}.information_schema.columns
       GROUP BY (table_name, table_schema, table_catalog)`;
 
     const results = await this.runQuery(sql);
@@ -85,11 +93,8 @@ export default class Athena extends SqlIntegration {
         data_type,
         column_name
       FROM
-        information_schema.columns
+        ${databaseName}.information_schema.columns
       WHERE
-        table_catalog
-      IN ('${databaseName}')
-      AND
         table_schema
       IN ('${tableSchema}')
       AND
