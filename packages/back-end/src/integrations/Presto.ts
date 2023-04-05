@@ -151,7 +151,7 @@ export default class Presto extends SqlIntegration {
         column_name
       FROM
         ${databaseName}.information_schema.columns
-      AND
+      WHERE
         table_schema
       IN ('${tableSchema}')
       AND
