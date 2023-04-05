@@ -3,7 +3,7 @@ import {
   getExperimentById,
   getExperimentsToUpdate,
   getExperimentsToUpdateLegacy,
-  updateExperimentById,
+  updateExperiment,
 } from "../models/ExperimentModel";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
@@ -14,8 +14,8 @@ import {
 } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
 import {
-  updateSnapshot,
   getLatestSnapshot,
+  updateSnapshot,
 } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
@@ -24,7 +24,7 @@ import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { analyzeExperimentResults } from "../services/stats";
 import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
-import { logger } from "../util/logger";
+import { childLogger } from "../util/logger";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 
 // Time between experiment result updates (default 6 hours)
@@ -108,16 +108,20 @@ export default async function (agenda: Agenda) {
 
 async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const experimentId = job.attrs.data?.experimentId;
-  const organization = job.attrs.data?.organization;
-  if (!experimentId || !organization) return;
+  const orgId = job.attrs.data?.organization;
+  if (!experimentId || !orgId) return;
 
-  const log = logger.child({
+  const log = childLogger({
     cron: "updateSingleExperiment",
     experimentId,
   });
 
-  const experiment = await getExperimentById(organization, experimentId);
+  const experiment = await getExperimentById(orgId, experimentId);
   if (!experiment) return;
+
+  const organization = await findOrganizationById(experiment.organization);
+  if (!organization) return;
+  if (organization?.settings?.updateSchedule?.type === "never") return;
 
   let lastSnapshot: ExperimentSnapshotInterface | null;
   let currentSnapshot: ExperimentSnapshotInterface;
@@ -134,10 +138,6 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       experiment.phases.length - 1
     );
 
-    const organization = await findOrganizationById(experiment.organization);
-    if (!organization) return;
-    if (organization?.settings?.updateSchedule?.type === "never") return;
-
     const {
       regressionAdjustmentEnabled,
       metricRegressionAdjustmentStatuses,
@@ -145,6 +145,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     currentSnapshot = await createSnapshot(
       experiment,
+      null,
       experiment.phases.length - 1,
       organization,
       null,
@@ -208,8 +209,13 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     log.error("Failure - " + e.message);
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
-      await updateExperimentById(organization, experiment, {
-        autoSnapshots: false,
+      await updateExperiment({
+        organization,
+        experiment,
+        user: null,
+        changes: {
+          autoSnapshots: false,
+        },
       });
       // TODO: email user and let them know it failed
     } catch (e) {
@@ -223,7 +229,7 @@ async function sendSignificanceEmail(
   lastSnapshot: ExperimentSnapshotInterface,
   currentSnapshot: ExperimentSnapshotInterface
 ) {
-  const log = logger.child({
+  const log = childLogger({
     cron: "sendSignificanceEmail",
     experimentId: experiment.id,
   });

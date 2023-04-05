@@ -1,6 +1,8 @@
 import { Router } from "express";
 import { get{{pascalCase object}} } from "./get{{pascalCase object}}";
 import { list{{pascalCase object}}s } from "./list{{pascalCase object}}s";
+import { post{{pascalCase object}} } from "./post{{pascalCase object}}";
+import { put{{pascalCase object}} } from "./put{{pascalCase object}}";
 
 const router = Router();
 
@@ -8,5 +10,7 @@ const router = Router();
 // Mounted at /api/v1/{{kebabCase object}}s
 router.get("/", list{{pascalCase object}}s);
 router.get("/:id", get{{pascalCase object}});
+router.put("/:id", put{{pascalCase object}});
+router.post("/", post{{pascalCase object}});
 
 export default router;

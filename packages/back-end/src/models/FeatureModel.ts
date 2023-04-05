@@ -148,7 +148,7 @@ async function logFeatureUpdatedEvent(
   user: EventAuditUser,
   previous: FeatureInterface,
   current: FeatureInterface
-): Promise<string> {
+): Promise<string | undefined> {
   const savedGroupMap = await getSavedGroupMap(organization);
 
   const payload: FeatureUpdatedNotificationEvent = {
@@ -162,9 +162,10 @@ async function logFeatureUpdatedEvent(
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent.id).perform();
-
-  return emittedEvent.id;
+  if (emittedEvent) {
+    new EventNotifier(emittedEvent.id).perform();
+    return emittedEvent.id;
+  }
 }
 
 /**
@@ -177,7 +178,7 @@ async function logFeatureCreatedEvent(
   organization: OrganizationInterface,
   user: EventAuditUser,
   feature: FeatureInterface
-): Promise<string> {
+): Promise<string | undefined> {
   const savedGroupMap = await getSavedGroupMap(organization);
 
   const payload: FeatureCreatedNotificationEvent = {
@@ -190,9 +191,10 @@ async function logFeatureCreatedEvent(
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent.id).perform();
-
-  return emittedEvent.id;
+  if (emittedEvent) {
+    new EventNotifier(emittedEvent.id).perform();
+    return emittedEvent.id;
+  }
 }
 
 /**
@@ -204,7 +206,7 @@ async function logFeatureDeletedEvent(
   organization: OrganizationInterface,
   user: EventAuditUser,
   previousFeature: FeatureInterface
-): Promise<string> {
+): Promise<string | undefined> {
   const savedGroupMap = await getSavedGroupMap(organization);
 
   const payload: FeatureDeletedNotificationEvent = {
@@ -217,9 +219,10 @@ async function logFeatureDeletedEvent(
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent.id).perform();
-
-  return emittedEvent.id;
+  if (emittedEvent) {
+    new EventNotifier(emittedEvent.id).perform();
+    return emittedEvent.id;
+  }
 }
 
 async function onFeatureCreate(

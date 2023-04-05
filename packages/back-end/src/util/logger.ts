@@ -1,5 +1,7 @@
 import pinoHttp from "pino-http";
+import * as Sentry from "@sentry/node";
 import { Request } from "express";
+import { BaseLogger } from "pino";
 import { ApiRequestLocals } from "../../types/api";
 import { AuthRequest } from "../types/AuthRequest";
 import { ENVIRONMENT } from "./secrets";
@@ -54,4 +56,37 @@ export const httpLogger = pinoHttp({
   customProps: getCustomLogProps,
 });
 
-export const logger = httpLogger.logger;
+/**
+ * Wrapper for our logger
+ */
+export const logger: BaseLogger = {
+  debug(...args: Parameters<BaseLogger["debug"]>) {
+    httpLogger.logger.debug(...args);
+  },
+  error(...args: Parameters<BaseLogger["error"]>) {
+    httpLogger.logger.error(...args);
+    Sentry.captureException(...args);
+  },
+  fatal(...args: Parameters<BaseLogger["fatal"]>) {
+    Sentry.captureException(...args);
+    httpLogger.logger.fatal(...args);
+  },
+  info(...args: Parameters<BaseLogger["info"]>) {
+    httpLogger.logger.info(...args);
+  },
+  level: httpLogger.logger.level,
+  silent(...args: Parameters<BaseLogger["silent"]>) {
+    httpLogger.logger.silent(...args);
+  },
+  trace(...args: Parameters<BaseLogger["trace"]>) {
+    httpLogger.logger.trace(...args);
+  },
+  warn(...args: Parameters<BaseLogger["warn"]>) {
+    httpLogger.logger.warn(...args);
+  },
+};
+
+/**
+ * pino's logger.child function
+ */
+export const childLogger = httpLogger.logger.child;

@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/growthbook",
-  "version": "0.23.0",
+  "version": "0.25.0",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -17,6 +17,7 @@
   "engines": {
     "node": ">=10"
   },
+  "sideEffects": false,
   "repository": {
     "type": "git",
     "url": "https://github.com/growthbook/growthbook",
@@ -34,6 +35,9 @@
     "size": "gzip-size ./dist/bundles/index.min.js --include-original"
   },
   "author": "Jeremy Dorn",
+  "dependencies": {
+    "dom-mutator": "^0.4.0"
+  },
   "devDependencies": {
     "@babel/cli": "^7.19.3",
     "@babel/core": "^7.19.6",
