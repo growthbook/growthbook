@@ -46,6 +46,9 @@ export default function ConfigureReport({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
+  const hasSequentialTestingFeature = hasCommercialFeature(
+    "sequential-testing"
+  );
 
   const allExperimentMetricIds = uniq([
     ...report.args.metrics,
@@ -85,6 +88,8 @@ export default function ConfigureReport({
         !!report.args.regressionAdjustmentEnabled,
       metricRegressionAdjustmentStatuses:
         report.args.metricRegressionAdjustmentStatuses || [],
+      sequentialTestingEnabled: hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled,
+      sequentialTestingTuningParameter: report.args.sequentialTestingTuningParameter || 1000,
     },
   });
 
@@ -157,6 +162,9 @@ export default function ConfigureReport({
         };
         if (value.regressionAdjustmentEnabled) {
           args.metricRegressionAdjustmentStatuses = metricRegressionAdjustmentStatuses;
+        }
+        if (value.sequentialTestingEnabled) {
+          args.sequentialTestingTuningParameter = value.sequentialTestingTuningParameter;
         }
 
         await apiCall(`/report/${report.id}`, {
@@ -433,6 +441,35 @@ export default function ConfigureReport({
             ]}
             helpText="Only applicable to frequentist analyses"
             disabled={!hasRegressionAdjustmentFeature}
+          />
+        </div>
+      </div>
+
+      <div className="d-flex flex-row no-gutters align-items-center">
+        <div className="col-3">
+          <SelectField
+            label={
+              <PremiumTooltip commercialFeature="regression-adjustment">
+                Use Sequential Testing
+              </PremiumTooltip>
+            }
+            labelClassName="font-weight-bold"
+            value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
+            onChange={(v) => {
+              form.setValue("sequentialTestingEnabled", v === "on");
+            }}
+            options={[
+              {
+                label: "On",
+                value: "on",
+              },
+              {
+                label: "Off",
+                value: "off",
+              },
+            ]}
+            helpText="Only applicable to frequentist analyses"
+            disabled={!hasSequentialTestingFeature}
           />
         </div>
       </div>

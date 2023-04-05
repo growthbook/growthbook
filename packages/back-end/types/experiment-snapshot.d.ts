@@ -62,4 +62,6 @@ export interface ExperimentSnapshotInterface {
   statsEngine?: StatsEngine;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
 }

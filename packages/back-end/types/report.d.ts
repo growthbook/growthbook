@@ -52,6 +52,8 @@ export interface ExperimentReportArgs {
   statsEngine?: StatsEngine;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
 }
 export interface ExperimentReportResultDimension {
   name: string;

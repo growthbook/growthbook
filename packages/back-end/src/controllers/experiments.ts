@@ -1442,7 +1442,11 @@ export async function getSnapshotStatus(
         getReportVariations(experiment, phase),
         snapshot.dimension || undefined,
         queryData,
-        snapshot.statsEngine ?? org.settings?.statsEngine
+        snapshot.statsEngine ?? org.settings?.statsEngine,
+        snapshot.sequentialTestingEnabled ??
+          org.settings?.sequentialTestingEnabled,
+        snapshot.sequentialTestingTuningParameter ??
+          org.settings?.sequentialTestingTuningParameter
       ),
     async (updates, results, error) => {
       await updateSnapshot(org.id, id, {
@@ -1501,8 +1505,13 @@ export async function postSnapshot(
 
   const { org } = getOrgFromReq(req);
 
-  let { statsEngine, regressionAdjustmentEnabled } = req.body;
-  const { metricRegressionAdjustmentStatuses } = req.body;
+  let {
+    statsEngine,
+    regressionAdjustmentEnabled,
+  } = req.body;
+  const {
+    metricRegressionAdjustmentStatuses,
+  } = req.body;
 
   statsEngine = (typeof statsEngine === "string" &&
   ["bayesian", "frequentist"].includes(statsEngine)
@@ -1513,6 +1522,9 @@ export async function postSnapshot(
     regressionAdjustmentEnabled !== undefined
       ? regressionAdjustmentEnabled
       : org.settings?.regressionAdjustmentEnabled ?? false;
+
+  const sequentialTestingEnabled = org.settings?.sequentialTestingEnabled ?? false;
+  const sequentialTestingTuningParameter = org.settings?.sequentialTestingTuningParameter ?? 1000;
 
   const useCache = !req.query["force"];
 
@@ -1553,7 +1565,9 @@ export async function postSnapshot(
         phase,
         users,
         metrics,
-        statsEngine
+        statsEngine,
+        sequentialTestingEnabled,
+        sequentialTestingTuningParameter,
       );
       res.status(200).json({
         status: 200,
@@ -1593,17 +1607,18 @@ export async function postSnapshot(
   }
 
   try {
-    const snapshot = await createSnapshot(
+    const snapshot = await createSnapshot({
       experiment,
-      res.locals.eventAudit,
-      phase,
-      org,
-      dimension || null,
+      organization: org,
+      user: res.locals.eventAudit,
+      phaseIndex: phase,
       useCache,
       statsEngine,
       regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses ?? []
-    );
+      metricRegressionAdjustmentStatuses,
+      sequentialTestingEnabled,
+      sequentialTestingTuningParameter,
+    });
     await req.audit({
       event: "experiment.refresh",
       entity: {

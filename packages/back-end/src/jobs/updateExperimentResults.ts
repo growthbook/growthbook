@@ -143,17 +143,16 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       metricRegressionAdjustmentStatuses,
     } = await getRegressionAdjustmentInfo(experiment, organization);
 
-    currentSnapshot = await createSnapshot(
+    currentSnapshot = await createSnapshot({
       experiment,
-      null,
-      experiment.phases.length - 1,
       organization,
-      null,
-      false,
-      organization.settings?.statsEngine,
+      phaseIndex: experiment.phases.length - 1,
+      statsEngine: organization.settings?.statsEngine,
       regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses
-    );
+      metricRegressionAdjustmentStatuses,
+      sequentialTestingEnabled: organization.settings?.sequentialTestingEnabled,
+      sequentialTestingTuningParameter: organization.settings?.sequentialTestingTuningParameter,
+    });
 
     await new Promise<void>((resolve, reject) => {
       const check = async () => {
@@ -171,7 +170,11 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
               getReportVariations(experiment, phase),
               undefined,
               queryData,
-              currentSnapshot.statsEngine ?? organization.settings?.statsEngine
+              currentSnapshot.statsEngine ?? organization.settings?.statsEngine,
+              currentSnapshot.sequentialTestingEnabled ??
+                organization.settings?.sequentialTestingEnabled,
+              currentSnapshot.sequentialTestingTuningParameter ??
+                organization.settings?.sequentialTestingTuningParameter
             );
           },
           async (updates, results, error) => {

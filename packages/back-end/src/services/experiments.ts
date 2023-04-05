@@ -307,7 +307,9 @@ export async function createManualSnapshot(
   metrics: {
     [key: string]: MetricStats[];
   },
-  statsEngine?: StatsEngine
+  statsEngine?: StatsEngine,
+  sequentialTestingEnabled?: boolean,
+  sequentialTestingTuningParameter?: number
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
@@ -334,6 +336,8 @@ export async function createManualSnapshot(
       },
     ],
     statsEngine,
+    sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
   };
 
   const snapshot = await createExperimentSnapshotModel(data);
@@ -397,17 +401,31 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   return new Date(Date.now() + hours * 60 * 60 * 1000);
 }
 
-export async function createSnapshot(
-  experiment: ExperimentInterface,
-  user: EventAuditUser,
-  phaseIndex: number,
-  organization: OrganizationInterface,
-  dimensionId: string | null,
-  useCache: boolean = false,
-  statsEngine: StatsEngine | undefined,
-  regressionAdjustmentEnabled: boolean,
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[]
-) {
+export async function createSnapshot({
+  experiment,
+  organization,
+  user = null,
+  phaseIndex,
+  dimension = null,
+  useCache = false,
+  statsEngine,
+  regressionAdjustmentEnabled,
+  metricRegressionAdjustmentStatuses,
+  sequentialTestingEnabled,
+  sequentialTestingTuningParameter,
+}: {
+  experiment: ExperimentInterface;
+  organization: OrganizationInterface;
+  user?: EventAuditUser;
+  phaseIndex: number;
+  dimension?: string | null;
+  useCache?: boolean;
+  statsEngine?: StatsEngine;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
+}) {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
     throw new Error("Invalid snapshot phase");
@@ -425,7 +443,7 @@ export async function createSnapshot(
     queries: [],
     hasRawQueries: true,
     queryLanguage: "sql",
-    dimension: dimensionId,
+    dimension: dimension || null,
     results: undefined,
     unknownVariations: [],
     multipleExposures: 0,
@@ -435,9 +453,10 @@ export async function createSnapshot(
     skipPartialData: experiment.skipPartialData || false,
     statsEngine:
       statsEngine || organization.settings?.statsEngine || "bayesian",
-    regressionAdjustmentEnabled: regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses:
-      metricRegressionAdjustmentStatuses || [],
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses,
+    sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
   };
 
   const nextUpdate =

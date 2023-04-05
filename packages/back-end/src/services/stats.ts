@@ -24,7 +24,9 @@ export async function analyzeExperimentMetric(
   metric: MetricInterface,
   rows: ExperimentMetricQueryResponse,
   maxDimensions: number,
-  statsEngine: StatsEngine = "bayesian"
+  statsEngine: StatsEngine = "bayesian",
+  sequentialTestingEnabled: boolean = false,
+  sequentialTestingTuningParameter: number = 1000
 ): Promise<ExperimentMetricAnalysis> {
   if (!rows || !rows.length) {
     return {
@@ -95,6 +97,11 @@ result = analyze_metric_df(
     statsEngine === "frequentist"
       ? "StatsEngine.FREQUENTIST"
       : "StatsEngine.BAYESIAN"
+  },
+  engine_config=${
+    statsEngine === "frequentist" && sequentialTestingEnabled
+      ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameter}}`
+      : "{}"
   }
 )
 
@@ -125,7 +132,9 @@ export async function analyzeExperimentResults(
   variations: ExperimentReportVariation[],
   dimension: string | undefined,
   queryData: QueryMap,
-  statsEngine: StatsEngine = "bayesian"
+  statsEngine: StatsEngine = "bayesian",
+  sequentialTestingEnabled: boolean = false,
+  sequentialTestingTuningParameter: number = 1000
 ): Promise<ExperimentReportResults> {
   const metrics = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
@@ -200,7 +209,9 @@ export async function analyzeExperimentResults(
           metric,
           data.rows,
           dimension === "pre:date" ? 100 : MAX_DIMENSIONS,
-          statsEngine
+          statsEngine,
+          sequentialTestingEnabled,
+          sequentialTestingTuningParameter
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(

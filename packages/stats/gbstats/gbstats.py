@@ -122,7 +122,7 @@ def reduce_dimensionality(df, max=20):
 
 
 # Run A/B test analysis for each variation and dimension
-def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
+def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN, engine_config={}):
     num_variations = df.at[0, "variations"]
 
     # Add new columns to the dataframe with placeholder values

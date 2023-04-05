@@ -304,17 +304,29 @@ const Results: FC<{
               </span>
             </div>
             {snapshot?.statsEngine === "frequentist" && (
-              <div>
-                <span className="text-muted">
-                  <GBCuped size={12} />
-                  CUPED:
-                </span>{" "}
-                <span>
-                  {snapshot?.regressionAdjustmentEnabled
-                    ? "Enabled"
-                    : "Disabled"}
-                </span>
-              </div>
+              <>
+                <div>
+                  <span className="text-muted">
+                    <GBCuped size={12} />
+                    CUPED:
+                  </span>{" "}
+                  <span>
+                    {snapshot?.regressionAdjustmentEnabled
+                      ? "Enabled"
+                      : "Disabled"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted">
+                    Sequential:
+                  </span>{" "}
+                    <span>
+                    {snapshot?.sequentialTestingEnabled
+                      ? "Enabled"
+                      : "Disabled"}
+                  </span>
+                </div>
+              </>
             )}
             <div>
               <span className="text-muted">Run date:</span>{" "}

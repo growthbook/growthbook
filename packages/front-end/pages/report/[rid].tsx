@@ -466,17 +466,29 @@ export default function ReportPage() {
                   </span>
                 </div>
                 {report.args?.statsEngine === "frequentist" && (
-                  <div>
-                    <span className="text-muted">
-                      <GBCuped size={12} />
-                      CUPED:
-                    </span>{" "}
-                    <span>
-                      {report.args?.regressionAdjustmentEnabled
-                        ? "Enabled"
-                        : "Disabled"}
-                    </span>
-                  </div>
+                  <>
+                    <div>
+                      <span className="text-muted">
+                        <GBCuped size={12} />
+                        CUPED:
+                      </span>{" "}
+                      <span>
+                        {report.args?.regressionAdjustmentEnabled
+                          ? "Enabled"
+                          : "Disabled"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted">
+                        Sequential:
+                      </span>{" "}
+                          <span>
+                        {report.args?.sequentialTestingEnabled
+                          ? "Enabled"
+                          : "Disabled"}
+                      </span>
+                    </div>
+                  </>
                 )}
                 <div>
                   <span className="text-muted">Run date:</span>{" "}
