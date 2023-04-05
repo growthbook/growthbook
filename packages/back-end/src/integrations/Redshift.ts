@@ -61,7 +61,7 @@ export default class Redshift extends SqlIntegration {
 
     return formatInformationSchema(
       results as RawInformationSchema[],
-      "postgres"
+      "redshift"
     );
   }
   async getTableData(
