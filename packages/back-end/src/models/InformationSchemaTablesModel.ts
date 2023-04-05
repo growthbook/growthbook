@@ -31,7 +31,13 @@ const informationSchemaTablesSchema = new mongoose.Schema({
 
         if (!result.success) {
           const errorString = errorStringFromZodResult(result);
-          logger.error(errorString, "Invalid Columns name");
+          logger.error(
+            {
+              error: JSON.stringify(errorString, null, 2),
+              result: JSON.stringify(result, null, 2),
+            },
+            "Invalid Columns name"
+          );
         }
 
         return result.success;

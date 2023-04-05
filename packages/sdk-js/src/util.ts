@@ -1,4 +1,4 @@
-import { VariationRange } from "./types/growthbook";
+import { UrlTarget, UrlTargetType, VariationRange } from "./types/growthbook";
 
 function hashFnv32a(str: string): number {
   let hval = 0x811c9dc5;
@@ -59,6 +59,104 @@ export function getUrlRegExp(regexString: string): RegExp | undefined {
   } catch (e) {
     console.error(e);
     return undefined;
+  }
+}
+
+export function isURLTargeted(url: string, targets: UrlTarget[]) {
+  if (!targets.length) return false;
+  let hasIncludeRules = false;
+  let isIncluded = false;
+
+  for (let i = 0; i < targets.length; i++) {
+    const match = _evalURLTarget(url, targets[i].type, targets[i].pattern);
+    if (targets[i].include === false) {
+      if (match) return false;
+    } else {
+      hasIncludeRules = true;
+      if (match) isIncluded = true;
+    }
+  }
+
+  return isIncluded || !hasIncludeRules;
+}
+
+function _evalSimpleUrlPart(
+  actual: string,
+  pattern: string,
+  isPath: boolean
+): boolean {
+  try {
+    // Escape special regex characters and change wildcard `_____` to `.*`
+    let escaped = pattern
+      .replace(/[*.+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/_____/g, ".*");
+
+    if (isPath) {
+      // When matching pathname, make leading/trailing slashes optional
+      escaped = "\\/?" + escaped.replace(/(^\/|\/$)/g, "") + "\\/?";
+    }
+
+    const regex = new RegExp("^" + escaped + "$", "i");
+    return regex.test(actual);
+  } catch (e) {
+    return false;
+  }
+}
+
+function _evalSimpleUrlTarget(actual: URL, pattern: string) {
+  try {
+    // If a protocol is missing, but a host is specified, add `https://` to the front
+    // Use "_____" as the wildcard since `*` is not a valid hostname in some browsers
+    const expected = new URL(
+      pattern.replace(/^([^:/?]*)\./i, "https://$1.").replace(/\*/g, "_____"),
+      "https://_____"
+    );
+
+    // Compare each part of the URL separately
+    const comps: Array<[string, string, boolean]> = [
+      [actual.host, expected.host, false],
+      [actual.pathname, expected.pathname, true],
+    ];
+    // We only want to compare hashes if it's explicitly being targeted
+    if (expected.hash) {
+      comps.push([actual.hash, expected.hash, false]);
+    }
+
+    expected.searchParams.forEach((v, k) => {
+      comps.push([actual.searchParams.get(k) || "", v, false]);
+    });
+
+    // If any comparisons fail, the whole thing fails
+    return !comps.some(
+      (data) => !_evalSimpleUrlPart(data[0], data[1], data[2])
+    );
+  } catch (e) {
+    return false;
+  }
+}
+
+function _evalURLTarget(
+  url: string,
+  type: UrlTargetType,
+  pattern: string
+): boolean {
+  try {
+    const parsed = new URL(url, "https://_");
+
+    if (type === "regex") {
+      const regex = getUrlRegExp(pattern);
+      if (!regex) return false;
+      return (
+        regex.test(parsed.href) ||
+        regex.test(parsed.href.substring(parsed.origin.length))
+      );
+    } else if (type === "simple") {
+      return _evalSimpleUrlTarget(parsed, pattern);
+    }
+
+    return false;
+  } catch (e) {
+    return false;
   }
 }
 

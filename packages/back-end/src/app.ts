@@ -92,6 +92,7 @@ import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.rou
 import { projectRouter } from "./routers/project/project.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
+import { dataExportRouter } from "./routers/data-export/data-export.router";
 
 const app = express();
 
@@ -210,7 +211,14 @@ app.options(
 );
 
 // Secret API routes (no JWT or CORS)
-app.use("/api/v1", apiRouter);
+app.use(
+  "/api/v1",
+  // TODO add authentication
+  cors({
+    origin: "*",
+  }),
+  apiRouter
+);
 
 // Accept cross-origin requests from the frontend app
 const origins: (string | RegExp)[] = [APP_ORIGIN];
@@ -413,6 +421,17 @@ app.post(
   "/experiments/report/:snapshot",
   reportsController.postReportFromSnapshot
 );
+app.post(
+  "/experiments/:id/visual-changeset",
+  experimentsController.postVisualChangeset
+);
+
+// Visual Changesets
+app.put("/visual-changesets/:id", experimentsController.putVisualChangeset);
+app.delete(
+  "/visual-changesets/:id",
+  experimentsController.deleteVisualChangeset
+);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);
@@ -488,6 +507,9 @@ app.use(eventWebHooksRouter);
 
 // Slack integration
 app.use("/integrations/slack", slackIntegrationRouter);
+
+// Data Export
+app.use("/data-export", dataExportRouter);
 
 // Presentations
 app.get("/presentations", presentationController.getPresentations);

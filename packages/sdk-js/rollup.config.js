@@ -22,6 +22,7 @@ const terserSettings = terser({
 
 export default {
   input: "src/index.ts",
+  external: () => false,
   output: [
     {
       file: "dist/bundles/esm.js",

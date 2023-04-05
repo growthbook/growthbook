@@ -1,0 +1,38 @@
+@import "../../styles/colors.scss";
+
+.ctaContainer {
+  width: 50%;
+  display: flex;
+  justify-content: center;
+}
+
+.ctaButton {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 24rem;
+  height: 18rem;
+  border: 1px solid $highlight-purple;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  padding: 1rem;
+  margin: 1rem;
+  text-align: center;
+  transition: 200ms all ease-in-out;
+  &:hover {
+    transform: scale(1.025);
+  }
+}
+
+.ctaIconContainer {
+  margin-bottom: 1rem;
+
+  svg {
+    color: $highlight-purple;
+  }
+}
+
+.ctaText {
+  font-size: 1.2rem;
+}

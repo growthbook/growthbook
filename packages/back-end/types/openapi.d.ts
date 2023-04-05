@@ -77,20 +77,6 @@ export interface paths {
       };
     };
   };
-  "/metrics": {
-    /** Get all metrics */
-    get: operations["listMetrics"];
-  };
-  "/metrics/{id}": {
-    /** Get a single metric */
-    get: operations["getMetric"];
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
-  };
   "/sdk-connections": {
     /** Get all sdk connections */
     get: operations["listSdkConnections"];
@@ -143,6 +129,16 @@ export interface paths {
       };
     };
   };
+  "/metrics": {
+    /** Get all metrics */
+    get: operations["listMetrics"];
+    /** Create a single metric */
+    post: operations["postMetric"];
+  };
+  "/metrics/{id}": {
+    /** Get a single metric */
+    get: operations["getMetric"];
+  };
   "/experiments/{id}/visual-changesets": {
     /** Get all visual changesets */
     get: operations["listVisualChangesets"];
@@ -150,10 +146,28 @@ export interface paths {
   "/visual-changesets/{id}": {
     /** Get a single visual changeset */
     get: operations["getVisualChangeset"];
+    /** Update a visual changeset */
+    put: operations["putVisualChangeset"];
+  };
+  "/visual-changesets/{id}/visual-change": {
+    /** Create a visual change for a visual changeset */
+    post: operations["postVisualChange"];
     parameters: {
         /** @description The id of the requested resource */
       path: {
         id: string;
+      };
+    };
+  };
+  "/visual-changesets/{id}/visual-change/{visualChangeId}": {
+    /** Update a visual change for a visual changeset */
+    put: operations["putVisualChange"];
+    parameters: {
+        /** @description The id of the requested resource */
+        /** @description Specify a specific visual change */
+      path: {
+        id: string;
+        visualChangeId: string;
       };
     };
   };
@@ -189,7 +203,8 @@ export interface components {
       datasourceId: string;
       name: string;
       description: string;
-      type: string;
+      /** @enum {string} */
+      type: "binomial" | "count" | "duration" | "revenue";
       tags: (string)[];
       projects: (string)[];
       archived: boolean;
@@ -210,20 +225,20 @@ export interface components {
         conversionSQL: string;
         userAggregationSQL: string;
         denominatorMetricId: string;
-        builder?: {
-          identifierTypeColumns: ({
-              identifierType: string;
-              columnName: string;
-            })[];
-          tableName: string;
-          valueColumnName: string;
-          timestampColumnName: string;
-          conditions: ({
-              column: string;
-              operator: string;
-              value: string;
-            })[];
-        };
+      };
+      sqlBuilder?: {
+        identifierTypeColumns: ({
+            identifierType: string;
+            columnName: string;
+          })[];
+        tableName: string;
+        valueColumnName: string;
+        timestampColumnName: string;
+        conditions: ({
+            column: string;
+            operator: string;
+            value: string;
+          })[];
       };
       mixpanel?: {
         eventName: string;
@@ -547,6 +562,8 @@ export interface components {
       project: string;
       encryptPayload: boolean;
       encryptionKey: string;
+      includeVisualExperiments?: boolean;
+      includeDraftExperiments?: boolean;
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
@@ -805,7 +822,12 @@ export interface components {
     };
     VisualChangeset: {
       id?: string;
-      urlPattern: string;
+      urlPatterns: ({
+          include?: boolean;
+          /** @enum {string} */
+          type: "simple" | "regex";
+          pattern: string;
+        })[];
       editorUrl: string;
       experiment: string;
       visualChanges: ({
@@ -819,6 +841,18 @@ export interface components {
               attribute: string;
               value?: string;
             })[];
+        })[];
+    };
+    VisualChange: {
+      description?: string;
+      css?: string;
+      variation: string;
+      domMutations?: ({
+          selector: string;
+          /** @enum {string} */
+          action: "append" | "set" | "remove";
+          attribute: string;
+          value?: string;
         })[];
     };
   };
@@ -836,6 +870,8 @@ export interface components {
     projectId: string;
     /** @description Filter by Data Source */
     datasourceId: string;
+    /** @description Specify a specific visual change */
+    visualChangeId: string;
   };
   requestBodies: never;
   headers: never;
@@ -1401,157 +1437,6 @@ export interface operations {
       };
     };
   };
-  listMetrics: {
-    /** Get all metrics */
-    parameters: {
-        /** @description The number of items to return */
-        /** @description How many items to skip (use in conjunction with limit for pagination) */
-        /** @description Filter by project id */
-        /** @description Filter by Data Source */
-      query: {
-        limit?: number;
-        offset?: number;
-        projectId?: string;
-        datasourceId?: string;
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": ({
-            metrics: ({
-                id: string;
-                dateCreated: string;
-                dateUpdated: string;
-                owner: string;
-                datasourceId: string;
-                name: string;
-                description: string;
-                type: string;
-                tags: (string)[];
-                projects: (string)[];
-                archived: boolean;
-                behavior: {
-                  /** @enum {string} */
-                  goal: "increase" | "decrease";
-                  cap: number;
-                  conversionWindowStart: number;
-                  conversionWindowEnd: number;
-                  riskThresholdSuccess: number;
-                  riskThresholdDanger: number;
-                  minPercentChange: number;
-                  maxPercentChange: number;
-                  minSampleSize: number;
-                };
-                sql?: {
-                  identifierTypes: (string)[];
-                  conversionSQL: string;
-                  userAggregationSQL: string;
-                  denominatorMetricId: string;
-                  builder?: {
-                    identifierTypeColumns: ({
-                        identifierType: string;
-                        columnName: string;
-                      })[];
-                    tableName: string;
-                    valueColumnName: string;
-                    timestampColumnName: string;
-                    conditions: ({
-                        column: string;
-                        operator: string;
-                        value: string;
-                      })[];
-                  };
-                };
-                mixpanel?: {
-                  eventName: string;
-                  eventValue: string;
-                  userAggregation: string;
-                  conditions: ({
-                      property: string;
-                      operator: string;
-                      value: string;
-                    })[];
-                };
-              })[];
-          }) & {
-            limit: number;
-            offset: number;
-            count: number;
-            total: number;
-            hasMore: boolean;
-            nextOffset: OneOf<[number, null]>;
-          };
-        };
-      };
-    };
-  };
-  getMetric: {
-    /** Get a single metric */
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            metric: {
-              id: string;
-              dateCreated: string;
-              dateUpdated: string;
-              owner: string;
-              datasourceId: string;
-              name: string;
-              description: string;
-              type: string;
-              tags: (string)[];
-              projects: (string)[];
-              archived: boolean;
-              behavior: {
-                /** @enum {string} */
-                goal: "increase" | "decrease";
-                cap: number;
-                conversionWindowStart: number;
-                conversionWindowEnd: number;
-                riskThresholdSuccess: number;
-                riskThresholdDanger: number;
-                minPercentChange: number;
-                maxPercentChange: number;
-                minSampleSize: number;
-              };
-              sql?: {
-                identifierTypes: (string)[];
-                conversionSQL: string;
-                userAggregationSQL: string;
-                denominatorMetricId: string;
-                builder?: {
-                  identifierTypeColumns: ({
-                      identifierType: string;
-                      columnName: string;
-                    })[];
-                  tableName: string;
-                  valueColumnName: string;
-                  timestampColumnName: string;
-                  conditions: ({
-                      column: string;
-                      operator: string;
-                      value: string;
-                    })[];
-                };
-              };
-              mixpanel?: {
-                eventName: string;
-                eventValue: string;
-                userAggregation: string;
-                conditions: ({
-                    property: string;
-                    operator: string;
-                    value: string;
-                  })[];
-              };
-            };
-          };
-        };
-      };
-    };
-  };
   listSdkConnections: {
     /** Get all sdk connections */
     parameters: {
@@ -1581,6 +1466,8 @@ export interface operations {
                 project: string;
                 encryptPayload: boolean;
                 encryptionKey: string;
+                includeVisualExperiments?: boolean;
+                includeDraftExperiments?: boolean;
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
@@ -1616,6 +1503,8 @@ export interface operations {
               project: string;
               encryptPayload: boolean;
               encryptionKey: string;
+              includeVisualExperiments?: boolean;
+              includeDraftExperiments?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
@@ -2049,6 +1938,310 @@ export interface operations {
       };
     };
   };
+  listMetrics: {
+    /** Get all metrics */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+        /** @description Filter by project id */
+        /** @description Filter by Data Source */
+      query: {
+        limit?: number;
+        offset?: number;
+        projectId?: string;
+        datasourceId?: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": ({
+            metrics: ({
+                id: string;
+                dateCreated: string;
+                dateUpdated: string;
+                owner: string;
+                datasourceId: string;
+                name: string;
+                description: string;
+                /** @enum {string} */
+                type: "binomial" | "count" | "duration" | "revenue";
+                tags: (string)[];
+                projects: (string)[];
+                archived: boolean;
+                behavior: {
+                  /** @enum {string} */
+                  goal: "increase" | "decrease";
+                  cap: number;
+                  conversionWindowStart: number;
+                  conversionWindowEnd: number;
+                  riskThresholdSuccess: number;
+                  riskThresholdDanger: number;
+                  minPercentChange: number;
+                  maxPercentChange: number;
+                  minSampleSize: number;
+                };
+                sql?: {
+                  identifierTypes: (string)[];
+                  conversionSQL: string;
+                  userAggregationSQL: string;
+                  denominatorMetricId: string;
+                };
+                sqlBuilder?: {
+                  identifierTypeColumns: ({
+                      identifierType: string;
+                      columnName: string;
+                    })[];
+                  tableName: string;
+                  valueColumnName: string;
+                  timestampColumnName: string;
+                  conditions: ({
+                      column: string;
+                      operator: string;
+                      value: string;
+                    })[];
+                };
+                mixpanel?: {
+                  eventName: string;
+                  eventValue: string;
+                  userAggregation: string;
+                  conditions: ({
+                      property: string;
+                      operator: string;
+                      value: string;
+                    })[];
+                };
+              })[];
+          }) & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  postMetric: {
+    /** Create a single metric */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description ID for the [DataSource](#tag/DataSource_model) */
+          datasourceId: string;
+          /** @description Name of the person who owns this metric */
+          owner?: string;
+          /** @description Name of the metric */
+          name: string;
+          /** @description Description of the metric */
+          description?: string;
+          /**
+           * @description Type of metric. See [Metrics documentation](/app/metrics) 
+           * @enum {string}
+           */
+          type: "binomial" | "count" | "duration" | "revenue";
+          /** @description List of tags */
+          tags?: (string)[];
+          /** @description List of project IDs for projects that can access this metric */
+          projects?: (string)[];
+          archived?: boolean;
+          behavior?: {
+            /** @enum {string} */
+            goal?: "increase" | "decrease";
+            /** @description This should be non-negative */
+            cap?: number;
+            /** @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
+            conversionWindowStart?: number;
+            /** @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
+            conversionWindowEnd?: number;
+            /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
+            riskThresholdSuccess?: number;
+            /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
+            riskThresholdDanger?: number;
+            /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
+            minPercentChange?: number;
+            /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
+            maxPercentChange?: number;
+            minSampleSize?: number;
+          };
+          /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified. */
+          sql?: {
+            identifierTypes: (string)[];
+            conversionSQL: string;
+            /** @description Custom user level aggregation for your metric (default: `SUM(value)`) */
+            userAggregationSQL?: string;
+            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics) */
+            denominatorMetricId?: string;
+          };
+          /** @description An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified. */
+          sqlBuilder?: {
+            identifierTypeColumns: ({
+                identifierType: string;
+                columnName: string;
+              })[];
+            tableName: string;
+            valueColumnName?: string;
+            timestampColumnName: string;
+            conditions?: ({
+                column: string;
+                operator: string;
+                value: string;
+              })[];
+          };
+          /** @description Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified. */
+          mixpanel?: {
+            eventName: string;
+            eventValue?: string;
+            userAggregation: string;
+            conditions?: ({
+                property: string;
+                operator: string;
+                value: string;
+              })[];
+          };
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metric: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              owner: string;
+              datasourceId: string;
+              name: string;
+              description: string;
+              /** @enum {string} */
+              type: "binomial" | "count" | "duration" | "revenue";
+              tags: (string)[];
+              projects: (string)[];
+              archived: boolean;
+              behavior: {
+                /** @enum {string} */
+                goal: "increase" | "decrease";
+                cap: number;
+                conversionWindowStart: number;
+                conversionWindowEnd: number;
+                riskThresholdSuccess: number;
+                riskThresholdDanger: number;
+                minPercentChange: number;
+                maxPercentChange: number;
+                minSampleSize: number;
+              };
+              sql?: {
+                identifierTypes: (string)[];
+                conversionSQL: string;
+                userAggregationSQL: string;
+                denominatorMetricId: string;
+              };
+              sqlBuilder?: {
+                identifierTypeColumns: ({
+                    identifierType: string;
+                    columnName: string;
+                  })[];
+                tableName: string;
+                valueColumnName: string;
+                timestampColumnName: string;
+                conditions: ({
+                    column: string;
+                    operator: string;
+                    value: string;
+                  })[];
+              };
+              mixpanel?: {
+                eventName: string;
+                eventValue: string;
+                userAggregation: string;
+                conditions: ({
+                    property: string;
+                    operator: string;
+                    value: string;
+                  })[];
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  getMetric: {
+    /** Get a single metric */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            metric: {
+              id: string;
+              dateCreated: string;
+              dateUpdated: string;
+              owner: string;
+              datasourceId: string;
+              name: string;
+              description: string;
+              /** @enum {string} */
+              type: "binomial" | "count" | "duration" | "revenue";
+              tags: (string)[];
+              projects: (string)[];
+              archived: boolean;
+              behavior: {
+                /** @enum {string} */
+                goal: "increase" | "decrease";
+                cap: number;
+                conversionWindowStart: number;
+                conversionWindowEnd: number;
+                riskThresholdSuccess: number;
+                riskThresholdDanger: number;
+                minPercentChange: number;
+                maxPercentChange: number;
+                minSampleSize: number;
+              };
+              sql?: {
+                identifierTypes: (string)[];
+                conversionSQL: string;
+                userAggregationSQL: string;
+                denominatorMetricId: string;
+              };
+              sqlBuilder?: {
+                identifierTypeColumns: ({
+                    identifierType: string;
+                    columnName: string;
+                  })[];
+                tableName: string;
+                valueColumnName: string;
+                timestampColumnName: string;
+                conditions: ({
+                    column: string;
+                    operator: string;
+                    value: string;
+                  })[];
+              };
+              mixpanel?: {
+                eventName: string;
+                eventValue: string;
+                userAggregation: string;
+                conditions: ({
+                    property: string;
+                    operator: string;
+                    value: string;
+                  })[];
+              };
+            };
+          };
+        };
+      };
+    };
+  };
   listVisualChangesets: {
     /** Get all visual changesets */
     parameters: {
@@ -2063,7 +2256,12 @@ export interface operations {
           "application/json": {
             visualChangesets: ({
                 id?: string;
-                urlPattern: string;
+                urlPatterns: ({
+                    include?: boolean;
+                    /** @enum {string} */
+                    type: "simple" | "regex";
+                    pattern: string;
+                  })[];
                 editorUrl: string;
                 experiment: string;
                 visualChanges: ({
@@ -2086,13 +2284,28 @@ export interface operations {
   };
   getVisualChangeset: {
     /** Get a single visual changeset */
+    parameters: {
+        /** @description Include the associated experiment in payload */
+      query: {
+        includeExperiment?: number;
+      };
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
     responses: {
       200: {
         content: {
           "application/json": {
             visualChangeset: {
               id?: string;
-              urlPattern: string;
+              urlPatterns: ({
+                  include?: boolean;
+                  /** @enum {string} */
+                  type: "simple" | "regex";
+                  pattern: string;
+                })[];
               editorUrl: string;
               experiment: string;
               visualChanges: ({
@@ -2108,6 +2321,135 @@ export interface operations {
                     })[];
                 })[];
             };
+            experiment?: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              project: string;
+              hypothesis: string;
+              description: string;
+              tags: (string)[];
+              owner: string;
+              archived: boolean;
+              status: string;
+              autoRefresh: boolean;
+              hashAttribute: string;
+              variations: ({
+                  variationId: string;
+                  key: string;
+                  name: string;
+                  description: string;
+                  screenshots: (string)[];
+                })[];
+              phases: ({
+                  name: string;
+                  dateStarted: string;
+                  dateEnded: string;
+                  reasonForStopping: string;
+                  seed: string;
+                  coverage: number;
+                  trafficSplit: ({
+                      variationId: string;
+                      weight: number;
+                    })[];
+                  namespace?: {
+                    namespaceId: string;
+                    range: (unknown)[];
+                  };
+                  targetingCondition: string;
+                })[];
+              settings: {
+                datasourceId: string;
+                assignmentQueryId: string;
+                experimentId: string;
+                segmentId: string;
+                queryFilter: string;
+                /** @enum {unknown} */
+                inProgressConversions: "include" | "exclude";
+                /** @enum {unknown} */
+                attributionModel: "firstExposure" | "experimentDuration";
+                /** @enum {unknown} */
+                statsEngine: "bayesian" | "frequentist";
+                goals: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                guardrails: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                activationMetric?: {
+                  metricId: string;
+                  overrides: {
+                    conversionWindowStart?: number;
+                    conversionWindowEnd?: number;
+                    winRiskThreshold?: number;
+                    loseRiskThreshold?: number;
+                  };
+                };
+              };
+              resultSummary?: {
+                status: string;
+                winner: string;
+                conclusions: string;
+                releasedVariationId: string;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  putVisualChangeset: {
+    /** Update a visual changeset */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            nModified: number;
+          };
+        };
+      };
+    };
+  };
+  postVisualChange: {
+    /** Create a visual change for a visual changeset */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            nModified: number;
+          };
+        };
+      };
+    };
+  };
+  putVisualChange: {
+    /** Update a visual change for a visual changeset */
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            nModified: number;
           };
         };
       };
@@ -2135,6 +2477,7 @@ export type ApiExperimentAnalysisSettings = components["schemas"]["ExperimentAna
 export type ApiExperimentResults = components["schemas"]["ExperimentResults"];
 export type ApiDataSource = components["schemas"]["DataSource"];
 export type ApiVisualChangeset = components["schemas"]["VisualChangeset"];
+export type ApiVisualChange = components["schemas"]["VisualChange"];
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -2146,8 +2489,6 @@ export type ListDimensionsResponse = operations["listDimensions"]["responses"]["
 export type GetDimensionResponse = operations["getDimension"]["responses"]["200"]["content"]["application/json"];
 export type ListSegmentsResponse = operations["listSegments"]["responses"]["200"]["content"]["application/json"];
 export type GetSegmentResponse = operations["getSegment"]["responses"]["200"]["content"]["application/json"];
-export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
-export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
 export type ListSdkConnectionsResponse = operations["listSdkConnections"]["responses"]["200"]["content"]["application/json"];
 export type GetSdkConnectionResponse = operations["getSdkConnection"]["responses"]["200"]["content"]["application/json"];
 export type ListDataSourcesResponse = operations["listDataSources"]["responses"]["200"]["content"]["application/json"];
@@ -2155,5 +2496,11 @@ export type GetDataSourceResponse = operations["getDataSource"]["responses"]["20
 export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
+export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
+export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["content"]["application/json"];
+export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
 export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetVisualChangesetResponse = operations["getVisualChangeset"]["responses"]["200"]["content"]["application/json"];
+export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];
+export type PostVisualChangeResponse = operations["postVisualChange"]["responses"]["200"]["content"]["application/json"];
+export type PutVisualChangeResponse = operations["putVisualChange"]["responses"]["200"]["content"]["application/json"];
