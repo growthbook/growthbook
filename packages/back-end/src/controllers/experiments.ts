@@ -722,6 +722,8 @@ export async function postExperiment(
     "project",
     "regressionAdjustmentEnabled",
     "hasVisualChangesets",
+    "sequentialTestingEnabled",
+    "sequentialTestingTuningParameter",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
@@ -1505,13 +1507,11 @@ export async function postSnapshot(
 
   const { org } = getOrgFromReq(req);
 
-  let {
-    statsEngine,
-    regressionAdjustmentEnabled,
-  } = req.body;
-  const {
-    metricRegressionAdjustmentStatuses,
-  } = req.body;
+  let { statsEngine, regressionAdjustmentEnabled } = req.body;
+  const { metricRegressionAdjustmentStatuses } = req.body;
+  const { id } = req.params;
+  const { phase, dimension } = req.body;
+  const experiment = await getExperimentById(org.id, id);
 
   statsEngine = (typeof statsEngine === "string" &&
   ["bayesian", "frequentist"].includes(statsEngine)
@@ -1523,18 +1523,19 @@ export async function postSnapshot(
       ? regressionAdjustmentEnabled
       : org.settings?.regressionAdjustmentEnabled ?? false;
 
-  const sequentialTestingEnabled = org.settings?.sequentialTestingEnabled ?? false;
-  const sequentialTestingTuningParameter = org.settings?.sequentialTestingTuningParameter ?? 1000;
+  const sequentialTestingEnabled =
+    experiment?.sequentialTestingEnabled ??
+    !!org.settings?.sequentialTestingEnabled;
+  const sequentialTestingTuningParameter =
+    experiment?.sequentialTestingTuningParameter ??
+    org.settings?.sequentialTestingTuningParameter ??
+    1000;
 
   const useCache = !req.query["force"];
 
   // This is doing an expensive analytics SQL query, so may take a long time
   // Set timeout to 30 minutes
   req.setTimeout(30 * 60 * 1000);
-
-  const { id } = req.params;
-  const { phase, dimension } = req.body;
-  const experiment = await getExperimentById(org.id, id);
 
   if (!experiment) {
     res.status(404).json({
@@ -1567,7 +1568,7 @@ export async function postSnapshot(
         metrics,
         statsEngine,
         sequentialTestingEnabled,
-        sequentialTestingTuningParameter,
+        sequentialTestingTuningParameter
       );
       res.status(200).json({
         status: 200,

@@ -150,8 +150,12 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       statsEngine: organization.settings?.statsEngine,
       regressionAdjustmentEnabled,
       metricRegressionAdjustmentStatuses,
-      sequentialTestingEnabled: organization.settings?.sequentialTestingEnabled,
-      sequentialTestingTuningParameter: organization.settings?.sequentialTestingTuningParameter,
+      sequentialTestingEnabled:
+        experiment?.sequentialTestingEnabled ??
+        !!organization.settings?.sequentialTestingEnabled,
+      sequentialTestingTuningParameter:
+        experiment?.sequentialTestingTuningParameter ??
+        (organization.settings?.sequentialTestingTuningParameter || 1000),
     });
 
     await new Promise<void>((resolve, reject) => {

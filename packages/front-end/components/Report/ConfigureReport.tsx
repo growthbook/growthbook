@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import {
   MetricRegressionAdjustmentStatus,
@@ -15,6 +15,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
+import { hasFileConfig } from "@/services/env";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -88,8 +89,10 @@ export default function ConfigureReport({
         !!report.args.regressionAdjustmentEnabled,
       metricRegressionAdjustmentStatuses:
         report.args.metricRegressionAdjustmentStatuses || [],
-      sequentialTestingEnabled: hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled,
-      sequentialTestingTuningParameter: report.args.sequentialTestingTuningParameter || 1000,
+      sequentialTestingEnabled:
+        hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled,
+      sequentialTestingTuningParameter:
+        report.args.sequentialTestingTuningParameter,
     },
   });
 
@@ -162,9 +165,6 @@ export default function ConfigureReport({
         };
         if (value.regressionAdjustmentEnabled) {
           args.metricRegressionAdjustmentStatuses = metricRegressionAdjustmentStatuses;
-        }
-        if (value.sequentialTestingEnabled) {
-          args.sequentialTestingTuningParameter = value.sequentialTestingTuningParameter;
         }
 
         await apiCall(`/report/${report.id}`, {
@@ -445,7 +445,7 @@ export default function ConfigureReport({
         </div>
       </div>
 
-      <div className="d-flex flex-row no-gutters align-items-center">
+      <div className="d-flex flex-row no-gutters align-items-top">
         <div className="col-3">
           <SelectField
             label={
@@ -470,6 +470,32 @@ export default function ConfigureReport({
             ]}
             helpText="Only applicable to frequentist analyses"
             disabled={!hasSequentialTestingFeature}
+          />
+        </div>
+        <div
+          className="col-2 px-4"
+          style={{
+            opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
+          }}
+        >
+          <Field
+            label="Tuning parameter"
+            type="number"
+            containerClassName="mb-0"
+            min="0"
+            max="10000"
+            disabled={!hasSequentialTestingFeature || hasFileConfig()}
+            helpText={
+              <>
+                <span className="ml-2">(1000 is default)</span>
+              </>
+            }
+            {...form.register("sequentialTestingTuningParameter", {
+              valueAsNumber: true,
+              validate: (v) => {
+                return !(v <= 0 || v > 10000);
+              },
+            })}
           />
         </div>
       </div>

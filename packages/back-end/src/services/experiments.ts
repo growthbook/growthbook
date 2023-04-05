@@ -1248,6 +1248,29 @@ export async function getRegressionAdjustmentInfo(
   return { regressionAdjustmentEnabled, metricRegressionAdjustmentStatuses };
 }
 
+export function getSequentialTestingInfo(
+  experiment: ExperimentInterface,
+  organization: OrganizationInterface
+): {
+  sequentialTestingEnabled: boolean;
+  sequentialTestingTuningParameter: number;
+} {
+  let sequentialTestingEnabled = false;
+  let sequentialTestingTuningParameter = 1000;
+  if (organization.settings?.sequentialTestingEnabled) {
+    sequentialTestingEnabled = true;
+    sequentialTestingTuningParameter =
+      organization.settings.sequentialTestingTuningParameter;
+  }
+  if (experiment.sequentialTestingEnabled !== undefined) {
+    sequentialTestingEnabled = experiment.sequentialTestingEnabled;
+    sequentialTestingTuningParameter =
+      experiment.sequentialTestingTuningParameter;
+  }
+
+  return { sequentialTestingEnabled, sequentialTestingTuningParameter };
+}
+
 export function getRegressionAdjustmentsForMetric({
   metric,
   denominatorMetrics,
