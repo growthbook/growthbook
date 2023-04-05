@@ -1,5 +1,9 @@
 # Changelog
 
+## **0.25.0** - Apr 4, 2023
+
+- More graceful EventSource connection handling with exponential backoff
+
 ## **0.24.0** - Mar 30, 2023
 
 - Support for the new GrowthBook Visual Editor
