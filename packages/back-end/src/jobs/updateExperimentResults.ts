@@ -155,7 +155,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         !!organization.settings?.sequentialTestingEnabled,
       sequentialTestingTuningParameter:
         experiment?.sequentialTestingTuningParameter ??
-        (organization.settings?.sequentialTestingTuningParameter || 1000),
+        organization.settings?.sequentialTestingTuningParameter ??
+        5000,
     });
 
     await new Promise<void>((resolve, reject) => {

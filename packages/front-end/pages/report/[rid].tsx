@@ -57,6 +57,9 @@ export default function ReportPage() {
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
+  const hasSequentialTestingFeature = hasCommercialFeature(
+    "sequential-testing"
+  );
 
   const form = useForm({
     defaultValues: {
@@ -109,6 +112,9 @@ export default function ReportPage() {
     hasRegressionAdjustmentFeature &&
     regressionAdjustmentAvailable &&
     !!report.args.regressionAdjustmentEnabled;
+
+  const sequentialTestingEnabled =
+    hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
 
   return (
     <div className="container-fluid pagecontents experiment-details">
@@ -369,6 +375,7 @@ export default function ReportPage() {
                 metricRegressionAdjustmentStatuses={
                   report.args.metricRegressionAdjustmentStatuses
                 }
+                sequentialTestingEnabled={sequentialTestingEnabled}
               />
             ))}
           {report.results && !report.args.dimension && (
@@ -416,6 +423,7 @@ export default function ReportPage() {
                 metricRegressionAdjustmentStatuses={
                   report.args.metricRegressionAdjustmentStatuses
                 }
+                sequentialTestingEnabled={sequentialTestingEnabled}
               />
               {report.args.guardrails?.length > 0 && (
                 <div className="mt-1 px-3">
@@ -479,10 +487,8 @@ export default function ReportPage() {
                       </span>
                     </div>
                     <div>
-                      <span className="text-muted">
-                        Sequential:
-                      </span>{" "}
-                          <span>
+                      <span className="text-muted">Sequential:</span>{" "}
+                      <span>
                         {report.args?.sequentialTestingEnabled
                           ? "Enabled"
                           : "Disabled"}

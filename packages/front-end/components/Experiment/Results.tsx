@@ -220,6 +220,7 @@ const Results: FC<{
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses
             }
+            sequentialTestingEnabled={snapshot.sequentialTestingEnabled}
           />
         ))}
       {hasData && !snapshot.dimension && (
@@ -250,6 +251,7 @@ const Results: FC<{
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses
             }
+            sequentialTestingEnabled={snapshot.sequentialTestingEnabled}
           />
           {experiment.guardrails?.length > 0 && (
             <div className="mt-1 px-3">
@@ -317,10 +319,8 @@ const Results: FC<{
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted">
-                    Sequential:
-                  </span>{" "}
-                    <span>
+                  <span className="text-muted">Sequential:</span>{" "}
+                  <span>
                     {snapshot?.sequentialTestingEnabled
                       ? "Enabled"
                       : "Disabled"}

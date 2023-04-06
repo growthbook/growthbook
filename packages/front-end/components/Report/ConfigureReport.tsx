@@ -483,17 +483,19 @@ export default function ConfigureReport({
             type="number"
             containerClassName="mb-0"
             min="0"
-            max="10000"
             disabled={!hasSequentialTestingFeature || hasFileConfig()}
             helpText={
               <>
-                <span className="ml-2">(1000 is default)</span>
+                <span className="ml-2">
+                  ({settings.sequentialTestingTuningParameter ?? 5000} is
+                  organization default)
+                </span>
               </>
             }
             {...form.register("sequentialTestingTuningParameter", {
               valueAsNumber: true,
               validate: (v) => {
-                return !(v <= 0 || v > 10000);
+                return !(v <= 0);
               },
             })}
           />

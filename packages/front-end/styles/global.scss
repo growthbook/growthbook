@@ -2304,7 +2304,13 @@ td.disabled {
     }
   }
 }
-
+.form-control:disabled {
+  cursor: not-allowed;
+  background-color: var(--disabled-background) !important;
+}
+input:disabled {
+  cursor: not-allowed;
+}
 .form-group.metric-override {
   .form-control::placeholder {
     font-style: italic;

@@ -26,7 +26,7 @@ export async function analyzeExperimentMetric(
   maxDimensions: number,
   statsEngine: StatsEngine = "bayesian",
   sequentialTestingEnabled: boolean = false,
-  sequentialTestingTuningParameter: number = 1000
+  sequentialTestingTuningParameter: number = 5000
 ): Promise<ExperimentMetricAnalysis> {
   if (!rows || !rows.length) {
     return {
@@ -134,7 +134,7 @@ export async function analyzeExperimentResults(
   queryData: QueryMap,
   statsEngine: StatsEngine = "bayesian",
   sequentialTestingEnabled: boolean = false,
-  sequentialTestingTuningParameter: number = 1000
+  sequentialTestingTuningParameter: number = 5000
 ): Promise<ExperimentReportResults> {
   const metrics = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();

@@ -143,7 +143,9 @@ export default function MetricsOverridesSelector({
 
               <div>
                 <label className="mb-1">
-                  <strong>{metricDefinition.name}</strong>
+                  <strong className="text-purple">
+                    {metricDefinition.name}
+                  </strong>
                 </label>
 
                 <div className="row mt-1">

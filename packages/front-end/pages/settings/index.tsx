@@ -115,7 +115,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       regressionAdjustmentEnabled: false,
       regressionAdjustmentDays: 14,
       sequentialTestingEnabled: false,
-      sequentialTestingTuningParameter: 1000,
+      sequentialTestingTuningParameter: 5000,
       attributionModel: "firstExposure",
     },
   });
@@ -666,16 +666,17 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 </div>
 
                 <h4>Stats Engine Settings</h4>
+
                 <ControlledTabs
                   newStyle={true}
-                  className="mt-4"
+                  className="mt-3"
                   buttonsClassName="px-5"
                   tabContentsClassName="border"
                   setActive={setStatsEngineTab}
                   active={statsEngineTab}
                 >
                   <Tab anchor="bayesian" id="bayesian" display="Bayesian">
-                    <h4 className="mb-4 text-purple">Bayesian Config</h4>
+                    <h4 className="mb-4 text-purple">Bayesian Settings</h4>
 
                     <div className="form-group mb-2 mr-2 form-inline">
                       <Field
@@ -721,7 +722,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     id="frequentist"
                     display="Frequentist"
                   >
-                    <h4 className="mb-4 text-purple">Frequentist Config</h4>
+                    <h4 className="mb-4 text-purple">Frequentist Settings</h4>
 
                     <div className="form-group mb-2 mr-2 form-inline">
                       <Field
@@ -761,16 +762,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     </div>
 
                     <div className="p-3 my-3 border rounded">
-                      <h5 className="font-weight-bold mb-1">
+                      <h5 className="font-weight-bold mb-4">
                         <PremiumTooltip commercialFeature="regression-adjustment">
                           Regression Adjustment (CUPED)
                         </PremiumTooltip>
                       </h5>
-                      <div className="mb-3">
-                        <small className="d-inline-block mb-2 text-muted">
-                          Only applicable to frequentist analyses
-                        </small>
-                      </div>
                       <div className="form-group mb-0 mr-2">
                         <div className="d-flex">
                           <label
@@ -855,16 +851,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     </div>
 
                     <div className="p-3 my-3 border rounded">
-                      <h5 className="font-weight-bold mb-1">
+                      <h5 className="font-weight-bold mb-4">
                         <PremiumTooltip commercialFeature="sequential-testing">
                           Sequential Testing
                         </PremiumTooltip>
                       </h5>
-                      <div className="mb-3">
-                        <small className="d-inline-block mb-2 text-muted">
-                          Only applicable to frequentist analyses
-                        </small>
-                      </div>
                       <div className="form-group mb-0 mr-2">
                         <div className="d-flex">
                           <label
@@ -880,7 +871,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                               form.setValue("sequentialTestingEnabled", value);
                             }}
                             disabled={
-                              !hasRegressionAdjustmentFeature || hasFileConfig()
+                              !hasSequentialTestingFeature || hasFileConfig()
                             }
                           />
                         </div>
@@ -910,13 +901,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           className={`ml-2`}
                           containerClassName="mb-0"
                           min="0"
-                          max="10000"
                           disabled={
                             !hasSequentialTestingFeature || hasFileConfig()
                           }
                           helpText={
                             <>
-                              <span className="ml-2">(1000 is default)</span>
+                              <span className="ml-2">(5000 is default)</span>
                             </>
                           }
                           {...form.register(
@@ -924,7 +914,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                             {
                               valueAsNumber: true,
                               validate: (v) => {
-                                return !(v <= 0 || v > 10000);
+                                return !(v <= 0);
                               },
                             }
                           )}

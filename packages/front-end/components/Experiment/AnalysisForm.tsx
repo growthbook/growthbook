@@ -85,7 +85,7 @@ const AnalysisForm: FC<{
       sequentialTestingTuningParameter:
         experiment.sequentialTestingEnabled !== undefined
           ? experiment.sequentialTestingTuningParameter
-          : settings.sequentialTestingTuningParameter || 1000,
+          : settings.sequentialTestingTuningParameter ?? 5000,
     },
   });
 
@@ -102,7 +102,7 @@ const AnalysisForm: FC<{
         );
         form.setValue(
           "sequentialTestingTuningParameter",
-          settings.sequentialTestingTuningParameter ?? 1000
+          settings.sequentialTestingTuningParameter ?? 5000
         );
       }
       setUsingSequentialTestingDefault(enable);
@@ -174,7 +174,7 @@ const AnalysisForm: FC<{
         if (usingSequentialTestingDefault) {
           body.sequentialTestingEnabled = !!settings.sequentialTestingEnabled;
           body.sequentialTestingTuningParameter =
-            settings.sequentialTestingTuningParameter || 1000;
+            settings.sequentialTestingTuningParameter ?? 5000;
         }
 
         await apiCall(`/experiment/${experiment.id}`, {
@@ -411,7 +411,6 @@ const AnalysisForm: FC<{
               type="number"
               containerClassName="mb-0"
               min="0"
-              max="10000"
               disabled={
                 usingSequentialTestingDefault ||
                 !hasSequentialTestingFeature ||
@@ -419,13 +418,16 @@ const AnalysisForm: FC<{
               }
               helpText={
                 <>
-                  <span className="ml-2">(1000 is default)</span>
+                  <span className="ml-2">
+                    ({settings.sequentialTestingTuningParameter ?? 5000} is
+                    default)
+                  </span>
                 </>
               }
               {...form.register("sequentialTestingTuningParameter", {
                 valueAsNumber: true,
                 validate: (v) => {
-                  return !(v <= 0 || v > 10000);
+                  return !(v <= 0);
                 },
               })}
             />
@@ -436,6 +438,7 @@ const AnalysisForm: FC<{
                 type="checkbox"
                 className="form-check-input"
                 checked={usingSequentialTestingDefault}
+                disabled={!hasSequentialTestingFeature}
                 onChange={(e) =>
                   setSequentialTestingToDefault(e.target.checked)
                 }
