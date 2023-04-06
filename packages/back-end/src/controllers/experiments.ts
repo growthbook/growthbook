@@ -1529,7 +1529,7 @@ export async function postSnapshot(
   const sequentialTestingTuningParameter =
     experiment?.sequentialTestingTuningParameter ??
     org.settings?.sequentialTestingTuningParameter ??
-    1000;
+    5000;
 
   const useCache = !req.query["force"];
 
