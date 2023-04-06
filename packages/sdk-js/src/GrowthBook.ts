@@ -73,7 +73,7 @@ export class GrowthBook<
   private _attributeOverrides: Attributes;
   private _activeAutoExperiments: Map<
     string,
-    { valueHash: number; undo: () => void }
+    { valueHash: string; undo: () => void }
   >;
 
   constructor(context?: Context) {
@@ -334,7 +334,7 @@ export class GrowthBook<
     const result = this.run(experiment);
 
     // A hash to quickly tell if the assigned value changed
-    const valueHash = hash("", JSON.stringify(result.value), 2);
+    const valueHash = JSON.stringify(result.value);
 
     // If the changes are already active, no need to re-apply them
     if (result.inExperiment && existing && existing.valueHash === valueHash) {
@@ -666,6 +666,7 @@ export class GrowthBook<
     }
 
     const n = hash(seed, hashValue, hashVersion || 1);
+    if (n === null) return false;
 
     return range
       ? inRange(n, range)
@@ -683,6 +684,7 @@ export class GrowthBook<
       const { hashValue } = this._getHashAttribute(filter.attribute);
       if (!hashValue) return true;
       const n = hash(filter.seed, hashValue, filter.hashVersion || 2);
+      if (n === null) return true;
       return !filter.ranges.some((r) => inRange(n, r));
     });
   }
@@ -833,6 +835,14 @@ export class GrowthBook<
       hashValue,
       experiment.hashVersion || 1
     );
+    if (n === null) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Skip because of invalid hash version", {
+          id: key,
+        });
+      return this._getResult(experiment, -1, false, featureId);
+    }
+
     const ranges =
       experiment.ranges ||
       getBucketRanges(

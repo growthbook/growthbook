@@ -12,7 +12,11 @@ function hashFnv32a(str: string): number {
   return hval >>> 0;
 }
 
-export function hash(seed: string, value: string, version: number): number {
+export function hash(
+  seed: string,
+  value: string,
+  version: number
+): number | null {
   // New unbiased hashing algorithm
   if (version === 2) {
     return (hashFnv32a(hashFnv32a(seed + value) + "") % 10000) / 10000;
@@ -23,7 +27,7 @@ export function hash(seed: string, value: string, version: number): number {
   }
 
   // Unknown hash version
-  return -1;
+  return null;
 }
 
 export function getEqualWeights(n: number): number[] {
@@ -40,6 +44,7 @@ export function inNamespace(
   namespace: [string, number, number]
 ): boolean {
   const n = hash("__" + namespace[0], hashValue, 1);
+  if (n === null) return false;
   return n >= namespace[1] && n < namespace[2];
 }
 
