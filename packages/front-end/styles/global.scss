@@ -1321,6 +1321,9 @@ pre {
 .bg-muted-yellow {
   background: var(--alert-warn-background);
 }
+.bg-main-color {
+  background: var(--background-color);
+}
 
 .change-bar {
   align-items: center;
