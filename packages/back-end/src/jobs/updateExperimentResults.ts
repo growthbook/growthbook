@@ -25,7 +25,7 @@ import { analyzeExperimentResults } from "../services/stats";
 import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { childLogger } from "../util/logger";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import { ExperimentSnapshotInterface, ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -143,20 +143,23 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       metricRegressionAdjustmentStatuses,
     } = await getRegressionAdjustmentInfo(experiment, organization);
 
-    currentSnapshot = await createSnapshot({
-      experiment,
-      organization,
-      phaseIndex: experiment.phases.length - 1,
-      statsEngine: organization.settings?.statsEngine,
+    const experimentSnapshotSettings: ExperimentSnapshotSettings = {
+      statsEngine: organization.settings?.statsEngine || "bayesian",
       regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses,
-      sequentialTestingEnabled:
-        experiment?.sequentialTestingEnabled ??
+      metricRegressionAdjustmentStatuses: metricRegressionAdjustmentStatuses || [],
+      sequentialTestingEnabled: experiment?.sequentialTestingEnabled ??
         !!organization.settings?.sequentialTestingEnabled,
       sequentialTestingTuningParameter:
         experiment?.sequentialTestingTuningParameter ??
         organization.settings?.sequentialTestingTuningParameter ??
         5000,
+    };
+
+    currentSnapshot = await createSnapshot({
+      experiment,
+      organization,
+      phaseIndex: experiment.phases.length - 1,
+      experimentSnapshotSettings,
     });
 
     await new Promise<void>((resolve, reject) => {

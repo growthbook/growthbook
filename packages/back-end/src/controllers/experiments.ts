@@ -70,7 +70,7 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "../services/audit";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import { ExperimentSnapshotInterface, ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { StatsEngine } from "../../types/stats";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
@@ -1553,6 +1553,14 @@ export async function postSnapshot(
     return;
   }
 
+  const experimentSnapshotSettings: ExperimentSnapshotSettings = {
+    statsEngine,
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses: metricRegressionAdjustmentStatuses || [],
+    sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
+  };
+
   // Manual snapshot
   if (!experiment.datasource) {
     const { users, metrics } = req.body;
@@ -1566,9 +1574,7 @@ export async function postSnapshot(
         phase,
         users,
         metrics,
-        statsEngine,
-        sequentialTestingEnabled,
-        sequentialTestingTuningParameter
+        experimentSnapshotSettings
       );
       res.status(200).json({
         status: 200,
@@ -1614,12 +1620,9 @@ export async function postSnapshot(
       user: res.locals.eventAudit,
       phaseIndex: phase,
       useCache,
-      statsEngine,
-      regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses,
-      sequentialTestingEnabled,
-      sequentialTestingTuningParameter,
+      experimentSnapshotSettings,
     });
+
     await req.audit({
       event: "experiment.refresh",
       entity: {

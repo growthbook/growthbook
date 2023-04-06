@@ -6,6 +6,7 @@ import { z } from "zod";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
   SnapshotVariation,
 } from "../../types/experiment-snapshot";
 import {
@@ -49,7 +50,6 @@ import {
   OrganizationInterface,
   OrganizationSettings,
 } from "../../types/organization";
-import { StatsEngine } from "../../types/stats";
 import { logger } from "../util/logger";
 import { DataSourceInterface } from "../../types/datasource";
 import {
@@ -307,9 +307,7 @@ export async function createManualSnapshot(
   metrics: {
     [key: string]: MetricStats[];
   },
-  statsEngine?: StatsEngine,
-  sequentialTestingEnabled?: boolean,
-  sequentialTestingTuningParameter?: number
+  experimentSnapshotSettings: ExperimentSnapshotSettings
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
@@ -335,9 +333,15 @@ export async function createManualSnapshot(
         variations,
       },
     ],
-    statsEngine,
-    sequentialTestingEnabled,
-    sequentialTestingTuningParameter,
+    statsEngine: experimentSnapshotSettings.statsEngine,
+    regressionAdjustmentEnabled:
+      experimentSnapshotSettings.regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses:
+      experimentSnapshotSettings.metricRegressionAdjustmentStatuses,
+    sequentialTestingEnabled:
+      experimentSnapshotSettings.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      experimentSnapshotSettings.sequentialTestingTuningParameter,
   };
 
   const snapshot = await createExperimentSnapshotModel(data);
@@ -408,11 +412,7 @@ export async function createSnapshot({
   phaseIndex,
   dimension = null,
   useCache = false,
-  statsEngine,
-  regressionAdjustmentEnabled,
-  metricRegressionAdjustmentStatuses,
-  sequentialTestingEnabled,
-  sequentialTestingTuningParameter,
+  experimentSnapshotSettings,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
@@ -420,11 +420,7 @@ export async function createSnapshot({
   phaseIndex: number;
   dimension?: string | null;
   useCache?: boolean;
-  statsEngine?: StatsEngine;
-  regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
-  sequentialTestingEnabled?: boolean;
-  sequentialTestingTuningParameter?: number;
+  experimentSnapshotSettings?: ExperimentSnapshotSettings;
 }) {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -452,11 +448,17 @@ export async function createSnapshot({
     queryFilter: experiment.queryFilter || "",
     skipPartialData: experiment.skipPartialData || false,
     statsEngine:
-      statsEngine || organization.settings?.statsEngine || "bayesian",
-    regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses,
-    sequentialTestingEnabled,
-    sequentialTestingTuningParameter,
+      experimentSnapshotSettings?.statsEngine ||
+      organization.settings?.statsEngine ||
+      "bayesian",
+    regressionAdjustmentEnabled:
+      experimentSnapshotSettings?.regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses:
+      experimentSnapshotSettings?.metricRegressionAdjustmentStatuses,
+    sequentialTestingEnabled:
+      experimentSnapshotSettings?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      experimentSnapshotSettings?.sequentialTestingTuningParameter,
   };
 
   const nextUpdate =
