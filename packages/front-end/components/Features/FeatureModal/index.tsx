@@ -5,7 +5,7 @@ import {
   FeatureValueType,
 } from "back-end/types/feature";
 import dJSON from "dirty-json";
-import { ReactElement } from "react";
+import { ReactElement, useState } from "react";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -18,6 +18,7 @@ import {
 } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
 import usePermissions from "@/hooks/usePermissions";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import FeatureValueField from "../FeatureValueField";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
@@ -142,6 +143,13 @@ export default function FeatureModal({
 
   const form = useForm({ defaultValues });
 
+  const [showTags, setShowTags] = useState(
+    featureToDuplicate?.tags?.length > 0
+  );
+  const [showDescription, setShowDescription] = useState(
+    featureToDuplicate?.description?.length > 0
+  );
+
   const { apiCall } = useAuth();
 
   const valueType = form.watch("valueType") as FeatureValueType;
@@ -204,10 +212,56 @@ export default function FeatureModal({
     >
       <FeatureKeyField keyField={form.register("id")} />
 
-      <TagsField
-        value={form.watch("tags")}
-        onChange={(tags) => form.setValue("tags", tags)}
-      />
+      {showTags ? (
+        <TagsField
+          value={form.watch("tags")}
+          onChange={(tags) => form.setValue("tags", tags)}
+        />
+      ) : (
+        <a
+          href="#"
+          className="badge badge-light badge-pill mr-3 mb-3"
+          onClick={(e) => {
+            e.preventDefault();
+            setShowTags(true);
+          }}
+        >
+          add tags
+        </a>
+      )}
+
+      {showDescription ? (
+        <div className="form-group">
+          <label>Description</label>
+          <MarkdownInput
+            value={form.watch("description")}
+            setValue={(value) => form.setValue("description", value)}
+            autofocus={!featureToDuplicate?.description?.length}
+          />
+        </div>
+      ) : (
+        <a
+          href="#"
+          className="badge badge-light badge-pill mb-3"
+          onClick={(e) => {
+            e.preventDefault();
+            setShowDescription(true);
+          }}
+        >
+          add description
+        </a>
+      )}
+
+      {!featureToDuplicate && (
+        <ValueTypeField
+          value={valueType}
+          onChange={(val) => {
+            const defaultValue = getDefaultValue(val);
+            form.setValue("valueType", val);
+            form.setValue("defaultValue", defaultValue);
+          }}
+        />
+      )}
 
       <EnvironmentSelect
         environmentSettings={environmentSettings}
@@ -224,31 +278,20 @@ export default function FeatureModal({
       */}
       {!featureToDuplicate && (
         <>
-          <hr />
-
-          <h5>When Enabled</h5>
-
-          <ValueTypeField
-            value={valueType}
-            onChange={(val) => {
-              const defaultValue = getDefaultValue(val);
-              form.setValue("valueType", val);
-              form.setValue("defaultValue", defaultValue);
-            }}
-          />
-
           <FeatureValueField
-            label={"Value"}
+            label={"Default Value when Enabled"}
             id="defaultValue"
             value={form.watch("defaultValue")}
             setValue={(v) => form.setValue("defaultValue", v)}
             valueType={valueType}
           />
 
-          <p>
-            You can add complex rules later to control exactly how and when this
-            feature gets released to users.
-          </p>
+          <div className="alert alert-info">
+            After creating your feature, you will be able to add targeted rules
+            such as <strong>A/B Tests</strong> and{" "}
+            <strong>Percentage Rollouts</strong> to control exactly how it gets
+            released to users.
+          </div>
         </>
       )}
     </Modal>
