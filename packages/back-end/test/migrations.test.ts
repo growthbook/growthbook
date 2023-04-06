@@ -8,6 +8,7 @@ import {
   upgradeFeatureInterface,
   upgradeFeatureRule,
   upgradeMetricDoc,
+  upgradeOrganizationDoc,
 } from "../src/util/migrations";
 import { DataSourceInterface, DataSourceSettings } from "../types/datasource";
 import { encryptParams } from "../src/services/datasource";
@@ -19,6 +20,7 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "../types/feature";
+import { OrganizationInterface } from "../types/organization";
 
 describe("backend", () => {
   it("updates old metric objects - earlyStart", () => {
@@ -918,6 +920,56 @@ describe("backend", () => {
     ).toEqual({
       ...upgraded,
       attributionModel: "firstExposure",
+    });
+  });
+
+  it("Upgrades old Organization objects", () => {
+    const org: OrganizationInterface = {
+      dateCreated: new Date(),
+      id: "",
+      invites: [],
+      members: [],
+      name: "",
+      ownerEmail: "",
+      url: "",
+    };
+
+    expect(
+      upgradeOrganizationDoc({
+        ...org,
+      })
+    ).toEqual({
+      ...org,
+      settings: {
+        attributeSchema: [
+          { property: "id", datatype: "string", hashAttribute: true },
+          { property: "deviceId", datatype: "string", hashAttribute: true },
+          { property: "company", datatype: "string", hashAttribute: true },
+          { property: "loggedIn", datatype: "boolean" },
+          { property: "employee", datatype: "boolean" },
+          { property: "country", datatype: "string" },
+          { property: "browser", datatype: "string" },
+          { property: "url", datatype: "string" },
+        ],
+        defaultRole: {
+          role: "collaborator",
+          environments: [],
+          limitAccessByEnvironment: false,
+        },
+        statsEngine: "bayesian",
+        environments: [
+          {
+            id: "dev",
+            description: "",
+            toggleOnList: true,
+          },
+          {
+            id: "production",
+            description: "",
+            toggleOnList: true,
+          },
+        ],
+      },
     });
   });
 });

@@ -72,6 +72,9 @@ export type MetricOverride = {
   conversionDelayHours?: number;
   winRisk?: number;
   loseRisk?: number;
+  regressionAdjustmentOverride?: boolean;
+  regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentDays?: number;
 };
 
 export interface LegacyExperimentInterface
@@ -131,6 +134,8 @@ export interface ExperimentInterface {
   nextSnapshotAttempt?: Date;
   autoSnapshots: boolean;
   ideaSource?: string;
+  regressionAdjustmentEnabled?: boolean;
+  hasVisualChangesets?: boolean;
 }
 
 export type ExperimentInterfaceStringDates = Omit<

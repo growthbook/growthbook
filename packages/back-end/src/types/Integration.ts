@@ -229,6 +229,7 @@ export interface InformationSchemaInterface {
   databases: InformationSchema[];
   organization: string;
   status: "PENDING" | "COMPLETE";
+  refreshMS: number;
   error?: InformationSchemaError;
   dateCreated: Date;
   dateUpdated: Date;
@@ -242,8 +243,10 @@ export interface InformationSchemaTablesInterface {
   tableSchema: string;
   databaseName: string;
   columns: Column[];
+  refreshMS: number;
   dateCreated: Date;
   dateUpdated: Date;
+  informationSchemaId: string;
 }
 
 export interface SourceIntegrationInterface {
@@ -270,6 +273,11 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
+  getTableData?(
+    databaseName: string,
+    tableSchema: string,
+    tableName: string
+  ): Promise<{ tableData: null | unknown[]; refreshMS: number }>;
   getInformationSchema?(): Promise<InformationSchema[]>;
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;

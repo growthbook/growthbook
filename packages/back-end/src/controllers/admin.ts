@@ -372,7 +372,11 @@ export async function addSampleData(
       if (!data.name) return;
 
       // Create experiment document
-      const exp = await createExperiment(data, org, res.locals.eventAudit);
+      const exp = await createExperiment({
+        data,
+        organization: org,
+        user: res.locals.eventAudit,
+      });
 
       // Add a few experiments to evidence
       if (
@@ -384,7 +388,17 @@ export async function addSampleData(
       }
 
       // Refresh results
-      await createSnapshot(exp, 0, org, null, false, org.settings?.statsEngine);
+      await createSnapshot(
+        exp,
+        res.locals.eventAudit,
+        0,
+        org,
+        null,
+        false,
+        org.settings?.statsEngine,
+        false,
+        []
+      );
     })
   );
 

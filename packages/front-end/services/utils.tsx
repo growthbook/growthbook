@@ -1,5 +1,6 @@
 import { ExperimentPhaseStringDates } from "back-end/types/experiment";
 import React from "react";
+import qs from "query-string";
 
 export function formatTrafficSplit(weights: number[], decimals = 0): string {
   const sum = weights.reduce((sum, n) => sum + n, 0);
@@ -142,4 +143,14 @@ export function isNullUndefinedOrEmpty(x) {
   if (x === "") return true;
   if (typeof x === "object" && !Object.keys(x).length) return true;
   return false;
+}
+
+export function appendQueryParamsToURL(
+  url: string,
+  params: Record<string, string | number | undefined>
+): string {
+  const [root, query] = url.split("?");
+  const parsed = qs.parse(query ?? "");
+  const queryParams = qs.stringify({ ...parsed, ...params });
+  return `${root}?${queryParams}`;
 }

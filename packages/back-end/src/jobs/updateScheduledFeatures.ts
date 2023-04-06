@@ -6,7 +6,7 @@ import {
 } from "../models/FeatureModel";
 import { getNextScheduledUpdate } from "../services/features";
 import { getOrganizationById } from "../services/organizations";
-import { logger } from "../util/logger";
+import { childLogger } from "../util/logger";
 
 type UpdateSingleFeatureJob = Job<{
   featureId: string;
@@ -66,7 +66,7 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
   const organization = job.attrs.data?.organization;
   if (!featureId) return;
 
-  const log = logger.child({
+  const log = childLogger({
     cron: "updateSingleFeature",
     featureId,
   });

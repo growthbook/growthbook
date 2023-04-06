@@ -194,6 +194,19 @@ RA_STATISTICS_DF = pd.DataFrame(
 )
 
 
+class TestGetMetricDf(TestCase):
+    def test_get_metric_df_missing_count(self):
+        rows = MULTI_DIMENSION_STATISTICS_DF.drop("count", axis=1)
+        df = get_metric_df(
+            rows,
+            {"zero": 0, "one": 1},
+            ["zero", "one"],
+        )
+        for i, row in df.iterrows():
+            self.assertEqual(row["baseline_count"], row["baseline_users"])
+            self.assertEqual(row["v1_count"], row["v1_users"])
+
+
 class TestBaseStatisticBuilder(TestCase):
     def test_unknown_metric_type(self):
         with self.assertRaisesRegex(ValueError, expected_regex="metric_type.*not_real"):
