@@ -38,6 +38,8 @@ import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import TableInput from "./TableInput";
+import ColumnInput from "./ColumnInput";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -105,7 +107,13 @@ function getRawSQLPreview({
 }: Partial<MetricInterface>) {
   const cols: string[] = [];
   userIdTypes.forEach((type) => {
-    cols.push(userIdColumns[type] || type + " as " + type);
+    console.log("type", type);
+    console.log("userIdColumns[type]", userIdColumns[type]);
+    if (userIdColumns[type] !== type) {
+      cols.push(userIdColumns[type] + " as " + type);
+    } else {
+      cols.push(userIdColumns[type]);
+    }
   });
 
   cols.push((timestampColumn || "received_at") + " as timestamp");
@@ -162,6 +170,7 @@ const MetricForm: FC<MetricFormProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
+  const [tableId, setTableId] = useState("");
 
   const {
     getMinSampleSizeForMetric,
@@ -314,6 +323,8 @@ const MetricForm: FC<MetricFormProps> = ({
   const supportsSQL = selectedDataSource?.properties?.queryLanguage === "sql";
   const supportsJS =
     selectedDataSource?.properties?.queryLanguage === "javascript";
+  const supportsSchemaBrowser =
+    selectedDataSource?.properties?.supportsInformationSchema;
 
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
@@ -660,13 +671,25 @@ const MetricForm: FC<MetricFormProps> = ({
               ) : (
                 <>
                   <div className="form-group">
-                    {table} Name
-                    <input
-                      type="text"
-                      required
-                      className="form-control"
-                      {...form.register("table")}
-                    />
+                    {/* TODO: Update the input below */}
+                    {supportsSchemaBrowser ? (
+                      <TableInput
+                        label={`${table} Name`}
+                        datasourceId={selectedDataSource.id}
+                        value={form.watch("table")}
+                        onChange={(tableName, id) => {
+                          form.setValue("table", tableName);
+                          setTableId(id);
+                        }}
+                      />
+                    ) : (
+                      <Field
+                        label={`${table} Name`}
+                        {...form.register("table")}
+                        required
+                        type={"text"}
+                      />
+                    )}
                   </div>
                   {value.type !== "binomial" && (
                     <div className="form-group ">
@@ -796,13 +819,26 @@ const MetricForm: FC<MetricFormProps> = ({
                   )}
                   {customzeTimestamp && (
                     <div className="form-group ">
-                      Timestamp Column
-                      <input
-                        type="text"
-                        placeholder={"received_at"}
-                        className="form-control"
-                        {...form.register("timestampColumn")}
-                      />
+                      {/* TODO: Column typeahead goes here */}
+                      {supportsSchemaBrowser && tableId ? (
+                        <ColumnInput
+                          label="Timestamp Column"
+                          datasourceId={selectedDataSource.id}
+                          tableId={tableId}
+                          value={form.watch("timestampColumn")}
+                          onChange={(columnName) =>
+                            form.setValue("timestampColumn", columnName)
+                          }
+                        />
+                      ) : (
+                        <Field
+                          label="Timestamp Column"
+                          type="text"
+                          placeholder={"received_at"}
+                          className="form-control"
+                          {...form.register("timestampColumn")}
+                        />
+                      )}
                     </div>
                   )}
                   {customizeUserIds && (
@@ -823,18 +859,37 @@ const MetricForm: FC<MetricFormProps> = ({
                   {customizeUserIds &&
                     value.userIdTypes.map((type) => {
                       return (
-                        <Field
-                          key={type}
-                          label={type + " Column"}
-                          placeholder={type}
-                          value={value.userIdColumns[type] || ""}
-                          onChange={(e) => {
-                            form.setValue("userIdColumns", {
-                              ...value.userIdColumns,
-                              [type]: e.target.value,
-                            });
-                          }}
-                        />
+                        <>
+                          {/* TODO: This is where the new column goes */}
+                          {supportsSchemaBrowser && tableId ? (
+                            <ColumnInput
+                              datasourceId={selectedDataSource.id}
+                              label={type + " Column"}
+                              tableId={tableId}
+                              value={value.userIdColumns[type] || ""}
+                              placeholder={type}
+                              onChange={(columnName) => {
+                                form.setValue("userIdColumns", {
+                                  ...value.userIdColumns,
+                                  [type]: columnName,
+                                });
+                              }}
+                            />
+                          ) : (
+                            <Field
+                              key={type}
+                              label={type + " Column"}
+                              placeholder={type}
+                              value={value.userIdColumns[type] || ""}
+                              onChange={(e) => {
+                                form.setValue("userIdColumns", {
+                                  ...value.userIdColumns,
+                                  [type]: e.target.value,
+                                });
+                              }}
+                            />
+                          )}
+                        </>
                       );
                     })}
                 </>
