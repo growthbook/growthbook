@@ -45,7 +45,18 @@ export default function TableInput({
 
   return (
     <div
-      onFocus={() => setShowDropdown(true)}
+      onFocus={() => {
+        setShowDropdown(true);
+        if (!value && !filteredItems.length) {
+          setFilteredItems(
+            items.map((item) => {
+              return {
+                item,
+              };
+            })
+          );
+        }
+      }}
       onBlur={(e) => {
         e.preventDefault();
         if (showDropdown) {

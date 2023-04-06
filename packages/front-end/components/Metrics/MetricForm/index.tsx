@@ -693,14 +693,25 @@ const MetricForm: FC<MetricFormProps> = ({
                   </div>
                   {value.type !== "binomial" && (
                     <div className="form-group ">
-                      {supportsSQL ? "Column" : "Event Value"}
-                      <input
-                        type="text"
-                        required={value.type !== "count"}
-                        placeholder={supportsSQL ? "" : "1"}
-                        className="form-control"
-                        {...form.register("column")}
-                      />
+                      {supportsSchemaBrowser && tableId ? (
+                        <ColumnInput
+                          placeholder={column}
+                          datasourceId={selectedDataSource.id}
+                          tableId={tableId}
+                          value={form.watch("column")}
+                          onChange={(columnName) =>
+                            form.setValue("column", columnName)
+                          }
+                        />
+                      ) : (
+                        <Field
+                          label={supportsSQL ? "Column" : "Event Value"}
+                          required={value.type !== "count"}
+                          placeholder={supportsSQL ? "" : "1"}
+                          className="form-control"
+                          {...form.register("column")}
+                        />
+                      )}
                       {!supportsSQL && (
                         <small className="form-text text-muted">
                           Javascript expression to extract a value from each
@@ -729,12 +740,27 @@ const MetricForm: FC<MetricFormProps> = ({
                         >
                           {i > 0 && <div className="col-auto">AND</div>}
                           <div className="col-auto">
-                            <input
-                              required
-                              className="form-control mb-1"
-                              placeholder={column}
-                              {...form.register(`conditions.${i}.column`)}
-                            />
+                            {supportsSchemaBrowser && tableId ? (
+                              <ColumnInput
+                                placeholder={column}
+                                datasourceId={selectedDataSource.id}
+                                tableId={tableId}
+                                value={form.watch(`conditions.${i}.column`)}
+                                onChange={(columnName) =>
+                                  form.setValue(
+                                    `conditions.${i}.column`,
+                                    columnName
+                                  )
+                                }
+                              />
+                            ) : (
+                              <input
+                                required
+                                className="form-control mb-1"
+                                placeholder={column}
+                                {...form.register(`conditions.${i}.column`)}
+                              />
+                            )}
                           </div>
                           <div className="col-auto">
                             <SelectField
