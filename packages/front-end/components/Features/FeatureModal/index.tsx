@@ -226,7 +226,7 @@ export default function FeatureModal({
             setShowTags(true);
           }}
         >
-          add tags
+          + tags
         </a>
       )}
 
@@ -248,7 +248,7 @@ export default function FeatureModal({
             setShowDescription(true);
           }}
         >
-          add description
+          + description
         </a>
       )}
 
