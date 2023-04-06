@@ -675,7 +675,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   setActive={setStatsEngineTab}
                   active={statsEngineTab}
                 >
-                  <Tab anchor="bayesian" id="bayesian" display="Bayesian">
+                  <Tab id="bayesian" display="Bayesian">
                     <h4 className="mb-4 text-purple">Bayesian Settings</h4>
 
                     <div className="form-group mb-2 mr-2 form-inline">
@@ -717,11 +717,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     </div>
                   </Tab>
 
-                  <Tab
-                    anchor="frequentist"
-                    id="frequentist"
-                    display="Frequentist"
-                  >
+                  <Tab id="frequentist" display="Frequentist">
                     <h4 className="mb-4 text-purple">Frequentist Settings</h4>
 
                     <div className="form-group mb-2 mr-2 form-inline">
