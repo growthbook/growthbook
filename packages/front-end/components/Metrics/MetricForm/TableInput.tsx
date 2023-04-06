@@ -1,8 +1,7 @@
 import { InformationSchemaInterface } from "@/../back-end/src/types/Integration";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Fuse from "fuse.js";
 import clsx from "clsx";
-import Field from "@/components/Forms/Field";
 import useApi from "@/hooks/useApi";
 import styles from "./TableInput.module.scss";
 
@@ -20,7 +19,7 @@ export default function TableInput({
   label,
 }: Props) {
   const [filteredItems, setFilteredItems] = useState([]);
-  const [showDropdown, setShowDropdown] = useState(true);
+  const [showDropdown, setShowDropdown] = useState(false);
   const items = [];
   const { data } = useApi<{
     informationSchema: InformationSchemaInterface;
@@ -43,38 +42,47 @@ export default function TableInput({
     keys: ["tableName"],
   });
 
+  const inputRef = useRef(null);
+
+  function handleClick() {
+    if (showDropdown) {
+      inputRef.current.blur();
+    } else {
+      setShowDropdown(true);
+      if (!value && !filteredItems.length) {
+        setFilteredItems(
+          items.map((item) => {
+            return {
+              item,
+            };
+          })
+        );
+      }
+    }
+  }
+
   return (
-    <div
-      onFocus={() => {
-        setShowDropdown(true);
-        if (!value && !filteredItems.length) {
-          setFilteredItems(
-            items.map((item) => {
-              return {
-                item,
-              };
-            })
-          );
-        }
-      }}
-      onBlur={(e) => {
-        e.preventDefault();
-        if (showDropdown) {
-          setShowDropdown(false);
-        }
-      }}
-    >
-      <Field
-        name="table"
-        label={label}
-        className={styles.input}
-        placeholder="Enter a table name..."
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value, "");
-          setFilteredItems(fuse.search(e.target.value));
-        }}
-      />
+    <div>
+      <div className="d-flex flex-column">
+        <label>{label}</label>
+        <div className="d-flex">
+          <input
+            className={(styles.input, "form-control")}
+            placeholder="Enter a table name..."
+            value={value}
+            onClick={() => handleClick()}
+            onChange={(e) => {
+              onChange(e.target.value, "");
+              setFilteredItems(fuse.search(e.target.value));
+            }}
+            ref={inputRef}
+            onBlur={() => {
+              console.log("on blur happened");
+              setShowDropdown(false);
+            }}
+          />
+        </div>
+      </div>
       {filteredItems.length > 0 && showDropdown && (
         <div className={clsx(styles.dropdown, "p-2 border rounded")}>
           {filteredItems.map((item) => (
