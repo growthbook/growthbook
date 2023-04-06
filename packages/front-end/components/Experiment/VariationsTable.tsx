@@ -9,13 +9,14 @@ import {
   VisualChangesetURLPattern,
 } from "back-end/types/visual-changeset";
 import React, { FC, Fragment, useState } from "react";
-import { FaTimesCircle } from "react-icons/fa";
+import { FaPlusCircle, FaTimesCircle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
 import { GBEdit } from "../Icons";
@@ -28,6 +29,7 @@ interface Props {
   mutate: () => void;
   canEdit: boolean;
   className?: string;
+  setVisualEditorModal: (v: boolean) => void;
 }
 
 const ScreenshotCarousel: FC<{
@@ -106,6 +108,7 @@ const VariationsTable: FC<Props> = ({
   canEdit,
   mutate,
   visualChangesets: _visualChangesets,
+  setVisualEditorModal,
 }) => {
   const { variations } = experiment;
   const { apiCall } = useAuth();
@@ -387,6 +390,29 @@ const VariationsTable: FC<Props> = ({
               </Fragment>
             );
           })}
+
+          <div className="px-3 my-2">
+            {hasVisualEditorFeature && canEdit ? (
+              <button
+                className="btn btn-link"
+                onClick={() => {
+                  setVisualEditorModal(true);
+                  track("Open visual editor modal", {
+                    source: "visual-editor-ui",
+                    action: "add",
+                  });
+                }}
+              >
+                <FaPlusCircle /> Add Visual Editor page
+              </button>
+            ) : (
+              <PremiumTooltip commercialFeature={"visual-editor"}>
+                <div className="btn btn-link disabled">
+                  <FaPlusCircle /> Add Visual Editor page
+                </div>
+              </PremiumTooltip>
+            )}
+          </div>
         </div>
       )}
 
