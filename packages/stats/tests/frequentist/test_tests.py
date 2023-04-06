@@ -4,7 +4,11 @@ from unittest import TestCase, main as unittest_main
 
 import numpy as np
 
-from gbstats.frequentist.tests import TwoSidedTTest
+from gbstats.frequentist.tests import (
+    FrequentistConfig,
+    SequentialTwoSidedTTest,
+    TwoSidedTTest,
+)
 from gbstats.shared.models import (
     FrequentistTestResult,
     ProportionStatistic,
@@ -14,6 +18,18 @@ from gbstats.shared.models import (
 
 DECIMALS = 5
 round_ = partial(np.round, decimals=DECIMALS)
+
+
+def _round_result_dict(result_dict):
+    for k, v in result_dict.items():
+        if k == "uplift":
+            v = {
+                kk: round_(vv) if isinstance(vv, float) else vv for kk, vv in v.items()
+            }
+        else:
+            v = [round_(x) for x in v] if isinstance(v, list) else round_(v)
+        result_dict[k] = v
+    return result_dict
 
 
 class TestTwoSidedTTest(TestCase):
@@ -30,18 +46,7 @@ class TestTwoSidedTTest(TestCase):
             )
         )
 
-        # round result
-        for k, v in result_dict.items():
-            if k == "uplift":
-                v = {
-                    kk: round_(vv) if isinstance(vv, float) else vv
-                    for kk, vv in v.items()
-                }
-            else:
-                v = [round_(x) for x in v] if isinstance(v, list) else round_(v)
-            result_dict[k] = v
-
-        self.assertDictEqual(result_dict, expected_rounded_dict)
+        self.assertDictEqual(_round_result_dict(result_dict), expected_rounded_dict)
 
     def test_two_sided_ttest_binom(self):
         stat_a = ProportionStatistic(sum=14, n=28)
@@ -56,18 +61,7 @@ class TestTwoSidedTTest(TestCase):
             )
         )
 
-        # round result
-        for k, v in result_dict.items():
-            if k == "uplift":
-                v = {
-                    kk: round_(vv) if isinstance(vv, float) else vv
-                    for kk, vv in v.items()
-                }
-            else:
-                v = [round_(x) for x in v] if isinstance(v, list) else round_(v)
-            result_dict[k] = v
-
-        self.assertDictEqual(result_dict, expected_rounded_dict)
+        self.assertDictEqual(_round_result_dict(result_dict), expected_rounded_dict)
 
     def test_two_sided_ttest_missing_variance(self):
         stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=2)
@@ -76,6 +70,43 @@ class TestTwoSidedTTest(TestCase):
         result_output = TwoSidedTTest(stat_a, stat_b).compute_result()
 
         self.assertEqual(default_output, result_output)
+
+
+class TestSequentialTTest(TestCase):
+    def test_sequential_test_runs(self):
+        stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3000)
+        stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
+        config = FrequentistConfig(sequential_tuning_parameter=1000)
+        result_dict = asdict(
+            SequentialTwoSidedTTest(stat_a, stat_b, config).compute_result()
+        )
+        expected_dict = asdict(
+            FrequentistTestResult(
+                expected=0.50336,
+                ci=[-0.85121, 1.85793],
+                uplift=Uplift("normal", 0.50336, 0.33341),
+                p_value=1,
+            )
+        )
+
+        self.assertEqual(_round_result_dict(result_dict), expected_dict)
+
+    def test_sequential_test_tuning_as_expected(self):
+        stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3000)
+        stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
+        config_below_n = FrequentistConfig(sequential_tuning_parameter=10)
+        result_below = SequentialTwoSidedTTest(
+            stat_a, stat_b, config_below_n
+        ).compute_result()
+
+
+        config_above_n = FrequentistConfig(sequential_tuning_parameter=10000)
+        result_above = SequentialTwoSidedTTest(
+            stat_a, stat_b, config_above_n
+        ).compute_result()
+
+        # Way underestimating should be worse here
+        self.assertTrue((result_below.ci[0] < result_above.ci[0]) and (result_below.ci[1] > result_above.ci[1]))
 
 
 if __name__ == "__main__":
