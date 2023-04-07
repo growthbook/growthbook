@@ -1,7 +1,8 @@
 import clsx from "clsx";
 import Fuse from "fuse.js";
 import { useEffect, useRef, useState } from "react";
-import styles from "./TableInput.module.scss";
+import { FaAngleDown } from "react-icons/fa";
+import styles from "./TypeaheadInput.module.scss";
 
 type Props = {
   label: string;
@@ -48,10 +49,10 @@ export default function TypeaheadInput({
   return (
     <div>
       <div className="d-flex flex-column">
-        <label>{label}</label>
-        <div className="d-flex">
+        {label && <label>{label}</label>}
+        <div className="input-group mb-3">
           <input
-            className={(styles.input, "form-control")}
+            className={clsx(styles.input, "form-control")}
             placeholder={placeholder}
             value={value}
             onClick={() => handleClick()}
@@ -68,6 +69,22 @@ export default function TypeaheadInput({
               setShowDropdown(false);
             }}
           />
+          <div className={clsx(styles.caret, "input-group-append")}>
+            <button
+              className={clsx(styles.caretBtn, "btn btn-link form-control")}
+              onMouseDown={() => {
+                setShowDropdown(!showDropdown);
+              }}
+              onBlur={() => {
+                if (showDropdown) {
+                  setShowDropdown(false);
+                }
+              }}
+              type="button"
+            >
+              <FaAngleDown style={{ opacity: "25%" }} />
+            </button>
+          </div>
         </div>
       </div>
       {filteredItems.length > 0 && showDropdown && (

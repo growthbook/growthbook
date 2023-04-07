@@ -18,3 +18,12 @@
   background-color: var(--table-row-hover-background-color);
   border-radius: 5px;
 }
+
+.caretBtn {
+  border-left: none;
+}
+
+.caretBtn:focus,
+.caretBtn:active {
+  border-color: var(--border-color-300);
+}
