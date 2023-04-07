@@ -19,6 +19,10 @@ import {
 import { useWatching } from "@/services/WatchProvider";
 import usePermissions from "@/hooks/usePermissions";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import SelectField, {
+  SingleValue,
+  GroupedValue,
+} from "@/components/Forms/SelectField";
 import FeatureValueField from "../FeatureValueField";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
@@ -129,7 +133,7 @@ export default function FeatureModal({
   secondaryCTA,
   featureToDuplicate,
 }: Props) {
-  const { project, refreshTags } = useDefinitions();
+  const { project, refreshTags, projects } = useDefinitions();
   const environments = useEnvironments();
   const permissions = usePermissions();
   const { refreshWatching } = useWatching();
@@ -149,6 +153,19 @@ export default function FeatureModal({
   const [showDescription, setShowDescription] = useState(
     featureToDuplicate?.description?.length > 0
   );
+
+  const availableProjects: (SingleValue | GroupedValue)[] = projects
+    .slice()
+    .sort((a, b) => (a.name > b.name ? 1 : -1))
+    .filter(
+      (p) =>
+        permissions.check("manageFeatures", p.id) &&
+        permissions.check("createFeatureDrafts", p.id)
+    )
+    .map((p) => ({ value: p.id, label: p.name }));
+  const allowAllProjects =
+    permissions.check("manageFeatures", "") &&
+    permissions.check("createFeatureDrafts", "");
 
   const { apiCall } = useAuth();
 
@@ -211,6 +228,19 @@ export default function FeatureModal({
       })}
     >
       <FeatureKeyField keyField={form.register("id")} />
+
+      {!featureToDuplicate && (
+        <div className="form-group">
+          <label>Project</label>
+          <SelectField
+            value={form.watch("project")}
+            onChange={(p) => form.setValue("project", p)}
+            name="project"
+            initialOption={allowAllProjects ? "All Projects" : undefined}
+            options={availableProjects}
+          />
+        </div>
+      )}
 
       {showTags ? (
         <TagsField
