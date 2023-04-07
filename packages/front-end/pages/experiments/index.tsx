@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { RxDesktop } from "react-icons/rx";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
 import { datetime, ago } from "@/services/dates";
@@ -24,6 +23,8 @@ import Toggle from "@/components/Forms/Toggle";
 import AddExperimentModal from "@/components/Experiment/AddExperimentModal";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import { AppFeatures } from "@/types/app-features";
+import { useExperiments } from "@/hooks/useExperiments";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const NUM_PER_PAGE = 20;
 
@@ -32,9 +33,12 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const { ready, project, getMetricById, getProjectById } = useDefinitions();
 
-  const { data, error, mutate } = useApi<{
-    experiments: ExperimentInterfaceStringDates[];
-  }>(`/experiments?project=${project || ""}`);
+  const {
+    experiments: allExperiments,
+    error,
+    mutateExperiments,
+    loading,
+  } = useExperiments(project);
 
   const [tab, setTab] = useAnchor(["running", "drafts", "stopped", "archived"]);
 
@@ -47,7 +51,7 @@ const ExperimentsPage = (): React.ReactElement => {
   const [currentPage, setCurrentPage] = useState(1);
 
   const experiments = useAddComputedFields(
-    data?.experiments,
+    allExperiments,
     (exp) => ({
       ownerName: getUserDisplay(exp.owner, false) || "",
       metricNames: exp.metrics
@@ -128,7 +132,7 @@ const ExperimentsPage = (): React.ReactElement => {
       </div>
     );
   }
-  if (!data || !ready) {
+  if (loading || !ready) {
     return <LoadingOverlay />;
   }
 
@@ -145,7 +149,10 @@ const ExperimentsPage = (): React.ReactElement => {
           data source and defining metrics.
         </p>
         <NewFeatureExperiments />
-        <ExperimentsGetStarted experiments={experiments} mutate={mutate} />
+        <ExperimentsGetStarted
+          experiments={experiments}
+          mutate={mutateExperiments}
+        />
       </div>
     );
   }
@@ -292,8 +299,16 @@ const ExperimentsPage = (): React.ReactElement => {
                       data-title="Experiment name:"
                     >
                       <div className="d-flex flex-column">
-                        <div>
+                        <div className="d-flex">
                           <span className="testname">{e.name}</span>
+                          {e.hasVisualChangesets ? (
+                            <Tooltip
+                              className="d-flex align-items-center ml-2"
+                              body="Visual experiment"
+                            >
+                              <RxDesktop />
+                            </Tooltip>
+                          ) : null}
                         </div>
                         {isFiltered && e.trackingKey && (
                           <span
