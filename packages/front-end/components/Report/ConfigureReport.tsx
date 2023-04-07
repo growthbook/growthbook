@@ -17,7 +17,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
 import { hasFileConfig } from "@/services/env";
 import { GBCuped, GBSequential } from "@/components/Icons";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "@/services/stats";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "@/constants/stats";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";

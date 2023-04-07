@@ -39,7 +39,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import { GBCuped } from "@/components/Icons";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/services/stats";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/constants/stats";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);

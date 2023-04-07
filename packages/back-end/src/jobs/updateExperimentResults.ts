@@ -21,10 +21,8 @@ import { ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
 import { getMetricById } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
-import {
-  analyzeExperimentResults,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-} from "../services/stats";
+import { analyzeExperimentResults } from "../services/stats";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
 import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { childLogger } from "../util/logger";

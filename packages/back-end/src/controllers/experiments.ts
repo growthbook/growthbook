@@ -59,10 +59,8 @@ import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
-import {
-  analyzeExperimentResults,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-} from "../services/stats";
+import { analyzeExperimentResults } from "../services/stats";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
 import { getValidDate } from "../util/dates";
 import { getReportVariations } from "../services/reports";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";

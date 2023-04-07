@@ -14,7 +14,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "@/services/stats";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "@/constants/stats";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";

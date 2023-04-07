@@ -19,9 +19,6 @@ import { QueryMap } from "./queries";
 
 export const MAX_DIMENSIONS = 20;
 
-export const DEFAULT_REGRESSION_ADJUSTMENT_DAYS = 14;
-export const DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER = 5000;
-
 export async function analyzeExperimentMetric(
   variations: ExperimentReportVariation[],
   metric: MetricInterface,

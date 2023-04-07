@@ -34,7 +34,7 @@ import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-} from "@/services/stats";
+} from "@/constants/stats";
 
 function hasChanges(
   value: OrganizationSettings,

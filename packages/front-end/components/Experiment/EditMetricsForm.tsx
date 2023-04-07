@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/services/stats";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/constants/stats";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";

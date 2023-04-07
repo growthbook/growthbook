@@ -34,7 +34,7 @@ import {
   FormatDialect,
 } from "../util/sql";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "../services/stats";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "../constants/stats";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {

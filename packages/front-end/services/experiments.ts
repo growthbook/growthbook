@@ -11,7 +11,7 @@ import {
 } from "back-end/types/organization";
 import { MetricOverride } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/services/stats";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/constants/stats";
 import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
 
 export type ExperimentTableRow = {
