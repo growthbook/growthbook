@@ -492,7 +492,7 @@ export default function ReportPage() {
                     </div>
                     <div>
                       <span className="text-muted">
-                        <GBSequential size={13} /> Sequential: Sequential:
+                        <GBSequential size={13} /> Sequential:
                       </span>{" "}
                       <span>
                         {report.args?.sequentialTestingEnabled

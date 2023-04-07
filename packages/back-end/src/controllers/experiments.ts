@@ -76,6 +76,7 @@ import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { ApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { orgHasPremiumFeature } from "../util/organization.util";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -1518,14 +1519,23 @@ export async function postSnapshot(
     ? statsEngine
     : org.settings?.statsEngine ?? "bayesian") as StatsEngine;
 
+  const hasRegressionAdjustmentFeature = org
+    ? orgHasPremiumFeature(org, "regression-adjustment")
+    : false;
+  const hasSequentialTestingFeature = org
+    ? orgHasPremiumFeature(org, "sequential-testing")
+    : false;
+
   regressionAdjustmentEnabled =
+    hasRegressionAdjustmentFeature && (
     regressionAdjustmentEnabled !== undefined
       ? regressionAdjustmentEnabled
-      : org.settings?.regressionAdjustmentEnabled ?? false;
+      : org.settings?.regressionAdjustmentEnabled ?? false);
 
   const sequentialTestingEnabled =
+    hasSequentialTestingFeature && (
     experiment?.sequentialTestingEnabled ??
-    !!org.settings?.sequentialTestingEnabled;
+    !!org.settings?.sequentialTestingEnabled);
   const sequentialTestingTuningParameter =
     experiment?.sequentialTestingTuningParameter ??
     org.settings?.sequentialTestingTuningParameter ??

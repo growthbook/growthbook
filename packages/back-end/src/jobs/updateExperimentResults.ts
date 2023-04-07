@@ -25,7 +25,11 @@ import { analyzeExperimentResults } from "../services/stats";
 import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { childLogger } from "../util/logger";
-import { ExperimentSnapshotInterface, ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
+import {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+} from "../../types/experiment-snapshot";
+import { orgHasPremiumFeature } from "../util/organization.util";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -126,6 +130,13 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   let lastSnapshot: ExperimentSnapshotInterface | null;
   let currentSnapshot: ExperimentSnapshotInterface;
 
+  const hasRegressionAdjustmentFeature = organization
+    ? orgHasPremiumFeature(organization, "regression-adjustment")
+    : false;
+  const hasSequentialTestingFeature = organization
+    ? orgHasPremiumFeature(organization, "sequential-testing")
+    : false;
+
   try {
     log.info("Start Refreshing Results");
     const datasource = await getDataSourceById(
@@ -145,10 +156,14 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     const experimentSnapshotSettings: ExperimentSnapshotSettings = {
       statsEngine: organization.settings?.statsEngine || "bayesian",
-      regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses: metricRegressionAdjustmentStatuses || [],
-      sequentialTestingEnabled: experiment?.sequentialTestingEnabled ??
-        !!organization.settings?.sequentialTestingEnabled,
+      regressionAdjustmentEnabled:
+        hasRegressionAdjustmentFeature && regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses:
+        metricRegressionAdjustmentStatuses || [],
+      sequentialTestingEnabled:
+        hasSequentialTestingFeature &&
+        (experiment?.sequentialTestingEnabled ??
+          !!organization.settings?.sequentialTestingEnabled),
       sequentialTestingTuningParameter:
         experiment?.sequentialTestingTuningParameter ??
         organization.settings?.sequentialTestingTuningParameter ??

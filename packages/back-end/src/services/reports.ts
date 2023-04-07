@@ -227,8 +227,8 @@ export async function startExperimentAnalysis(
 
   const { queries, result: results } = await startRun(
     queryDocs,
-    async (queryData) =>
-      analyzeExperimentResults(
+    async (queryData) => {
+      return analyzeExperimentResults(
         organization.id,
         args.variations,
         args.dimension,
@@ -236,7 +236,8 @@ export async function startExperimentAnalysis(
         args.statsEngine,
         hasSequentialTestingFeature ? args.sequentialTestingEnabled : false,
         args.sequentialTestingTuningParameter
-      )
+      );
+    }
   );
   return { queries, results };
 }
