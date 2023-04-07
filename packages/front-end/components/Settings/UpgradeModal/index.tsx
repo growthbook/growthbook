@@ -32,7 +32,7 @@ export default function UpgradeModal({ close, source, reason }: Props) {
         <div className="text-center mt-4 mb-5">
           To upgrade, please contact your system administrator.
         </div>
-      ) : isCloud() ? (
+      ) : !isCloud() ? (
         <CloudUpgradeForm
           accountPlan={accountPlan}
           source={source}

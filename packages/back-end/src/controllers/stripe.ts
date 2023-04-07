@@ -90,12 +90,12 @@ export async function postNewSubscription(
 export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
   req.checkPermissions("manageBilling");
 
-  if (!IS_CLOUD) {
-    return res.status(200).json({
-      status: 200,
-      quote: null,
-    });
-  }
+  // if (!IS_CLOUD) {
+  //   return res.status(200).json({
+  //     status: 200,
+  //     quote: null,
+  //   });
+  // }
 
   const { org } = getOrgFromReq(req);
 

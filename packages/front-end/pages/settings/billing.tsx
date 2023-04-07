@@ -15,13 +15,13 @@ const BillingPage: FC = () => {
 
   const permissions = usePermissions();
 
-  if (!isCloud()) {
-    return (
-      <div className="alert alert-info">
-        This page is not available for self-hosted installations.
-      </div>
-    );
-  }
+  // if (!isCloud()) {
+  //   return (
+  //     <div className="alert alert-info">
+  //       This page is not available for self-hosted installations.
+  //     </div>
+  //   );
+  // }
 
   if (loading) {
     return <LoadingOverlay />;

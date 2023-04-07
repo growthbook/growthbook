@@ -23,7 +23,7 @@ export default function useStripeSubscription() {
   const permissions = usePermissions();
   useEffect(() => {
     if (!permissions.manageBilling) return;
-    if (!isCloud()) return;
+    // if (!isCloud()) return;
 
     apiCall<{ quote: SubscriptionQuote }>(`/subscription/quote`)
       .then((data) => {
@@ -81,7 +81,7 @@ export default function useStripeSubscription() {
     showSeatOverageBanner,
     loading: !quote || !organization,
     canSubscribe:
-      isCloud() &&
+      // isCloud() &&
       !disableSelfServeBilling &&
       !organization?.enterprise &&
       selfServePricingEnabled &&
