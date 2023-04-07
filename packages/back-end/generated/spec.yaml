@@ -1623,6 +1623,8 @@ components:
           type: boolean
         includeDraftExperiments:
           type: boolean
+        includeExperimentNames:
+          type: boolean
         key:
           type: string
         proxyEnabled:
