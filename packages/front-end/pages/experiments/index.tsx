@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { RxDesktop } from "react-icons/rx";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
@@ -24,6 +25,7 @@ import Toggle from "@/components/Forms/Toggle";
 import AddExperimentModal from "@/components/Experiment/AddExperimentModal";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import { AppFeatures } from "@/types/app-features";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const NUM_PER_PAGE = 20;
 
@@ -292,8 +294,16 @@ const ExperimentsPage = (): React.ReactElement => {
                       data-title="Experiment name:"
                     >
                       <div className="d-flex flex-column">
-                        <div>
+                        <div className="d-flex">
                           <span className="testname">{e.name}</span>
+                          {e.hasVisualChangesets ? (
+                            <Tooltip
+                              className="d-flex align-items-center ml-2"
+                              body="Visual experiment"
+                            >
+                              <RxDesktop />
+                            </Tooltip>
+                          ) : null}
                         </div>
                         {isFiltered && e.trackingKey && (
                           <span
