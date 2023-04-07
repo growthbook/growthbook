@@ -1,15 +1,14 @@
 import clsx from "clsx";
 import Fuse from "fuse.js";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import styles from "./TableInput.module.scss";
 
 type Props = {
   label: string;
   value: string;
-  items: unknown[];
+  items: { name: string; id: string }[];
   onChange: (e: string, id: string) => void;
   filterKeys: string[];
-  itemName: string;
   placeholder?: string;
 };
 
@@ -19,7 +18,6 @@ export default function TypeaheadInput({
   items,
   onChange,
   filterKeys,
-  itemName,
   placeholder = "received_at",
 }: Props) {
   const [filteredItems, setFilteredItems] = useState([]);
@@ -38,16 +36,14 @@ export default function TypeaheadInput({
     } else {
       setShowDropdown(true);
       if (!value && !filteredItems.length) {
-        setFilteredItems(
-          items.map((item) => {
-            return {
-              item,
-            };
-          })
-        );
+        setFilteredItems(items);
       }
     }
   }
+
+  useEffect(() => {
+    setFilteredItems(items);
+  }, [items]);
 
   return (
     <div>
@@ -62,20 +58,13 @@ export default function TypeaheadInput({
             onChange={(e) => {
               onChange(e.target.value, "");
               if (!e.target.value) {
-                setFilteredItems(
-                  items.map((item) => {
-                    return {
-                      item,
-                    };
-                  })
-                );
+                setFilteredItems(items);
               } else {
                 setFilteredItems(fuse.search(e.target.value));
               }
             }}
             ref={inputRef}
             onBlur={() => {
-              console.log("on blur happened");
               setShowDropdown(false);
             }}
           />
@@ -87,12 +76,10 @@ export default function TypeaheadInput({
             <li
               className={styles.dropdownItem}
               role="button"
-              key={`${item.item[itemName]}-${i}`}
-              onMouseDown={() =>
-                onChange(item.item[itemName], item.item.id || "")
-              }
+              key={`${item.item.name}-${i}`}
+              onMouseDown={() => onChange(item.item.name, item.item.id || "")}
             >
-              {item.item[itemName]}
+              {item.item.name}
             </li>
           ))}
         </div>

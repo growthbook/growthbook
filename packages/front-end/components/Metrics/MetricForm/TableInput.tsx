@@ -26,7 +26,7 @@ export default function TableInput({
     informationSchema.databases.forEach((database) => {
       database.schemas.forEach((schema) => {
         schema.tables.forEach((table) => {
-          items.push(table);
+          items.push({ item: { name: table.tableName, id: table.id } });
         });
       });
     });
@@ -39,7 +39,6 @@ export default function TableInput({
       items={items}
       onChange={onChange}
       filterKeys={["tableName"]}
-      itemName="tableName"
       placeholder="Enter a table name"
     />
   );

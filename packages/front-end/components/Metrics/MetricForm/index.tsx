@@ -107,8 +107,6 @@ function getRawSQLPreview({
 }: Partial<MetricInterface>) {
   const cols: string[] = [];
   userIdTypes.forEach((type) => {
-    console.log("type", type);
-    console.log("userIdColumns[type]", userIdColumns[type]);
     if (userIdColumns[type] !== type) {
       cols.push(userIdColumns[type] + " as " + type);
     } else {

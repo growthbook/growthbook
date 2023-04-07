@@ -25,7 +25,7 @@ export default function ColumnInput({
 
   if (data?.table?.columns.length) {
     data.table.columns.forEach((column) => {
-      items.push(column);
+      items.push({ item: { name: column.columnName, id: "" } });
     });
   }
 
@@ -36,7 +36,6 @@ export default function ColumnInput({
       items={items}
       onChange={onChange}
       filterKeys={["columnName"]}
-      itemName="columnName"
     />
   );
 }
