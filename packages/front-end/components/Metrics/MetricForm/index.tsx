@@ -669,7 +669,6 @@ const MetricForm: FC<MetricFormProps> = ({
               ) : (
                 <>
                   <div className="form-group">
-                    {/* TODO: Update the input below */}
                     {supportsSchemaBrowser ? (
                       <TableInput
                         label={`${table} Name`}
@@ -843,7 +842,6 @@ const MetricForm: FC<MetricFormProps> = ({
                   )}
                   {customzeTimestamp && (
                     <div className="form-group ">
-                      {/* TODO: Column typeahead goes here */}
                       {supportsSchemaBrowser && tableId ? (
                         <ColumnInput
                           label="Timestamp Column"
@@ -884,7 +882,6 @@ const MetricForm: FC<MetricFormProps> = ({
                     value.userIdTypes.map((type) => {
                       return (
                         <>
-                          {/* TODO: This is where the new column goes */}
                           {supportsSchemaBrowser && tableId ? (
                             <ColumnInput
                               datasourceId={selectedDataSource.id}

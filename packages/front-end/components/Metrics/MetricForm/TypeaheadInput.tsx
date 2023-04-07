@@ -50,7 +50,7 @@ export default function TypeaheadInput({
     <div>
       <div className="d-flex flex-column">
         {label && <label>{label}</label>}
-        <div className="input-group mb-3">
+        <div className="input-group">
           <input
             className={clsx(styles.input, "form-control")}
             placeholder={placeholder}
