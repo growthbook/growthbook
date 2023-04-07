@@ -83,7 +83,7 @@ class TestSequentialTTest(TestCase):
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=0.50336,
-                ci=[-0.85121, 1.85793],
+                ci=[-0.53159, 1.53831],
                 uplift=Uplift("normal", 0.50336, 0.33341),
                 p_value=1,
             )
@@ -99,6 +99,11 @@ class TestSequentialTTest(TestCase):
             stat_a, stat_b, config_below_n
         ).compute_result()
 
+        config_near_n = FrequentistConfig(sequential_tuning_parameter=6461)
+        result_near = SequentialTwoSidedTTest(
+            stat_a, stat_b, config_near_n
+        ).compute_result()
+
 
         config_above_n = FrequentistConfig(sequential_tuning_parameter=10000)
         result_above = SequentialTwoSidedTTest(
@@ -107,6 +112,9 @@ class TestSequentialTTest(TestCase):
 
         # Way underestimating should be worse here
         self.assertTrue((result_below.ci[0] < result_above.ci[0]) and (result_below.ci[1] > result_above.ci[1]))
+        # And estimating well should be both
+        self.assertTrue((result_below.ci[0] < result_near.ci[0]) and (result_below.ci[1] > result_near.ci[1]))
+        self.assertTrue((result_above.ci[0] < result_near.ci[0]) and (result_above.ci[1] > result_near.ci[1]))
 
 
 if __name__ == "__main__":
