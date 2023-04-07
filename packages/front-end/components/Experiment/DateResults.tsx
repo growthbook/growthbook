@@ -95,27 +95,27 @@ const DateResults: FC<{
                 let error: [number, number] | undefined = undefined;
                 // Since this is relative uplift, the baseline is a horizontal line at zero
                 let value = 0;
-                // For non-baseline variations and cumulative turned off, include error bars and
-                // prefer CI to stddev it exists
+                // For non-baseline variations and cumulative turned off, include error bars
                 if (i && !cumulative) {
                   const x = uplift?.mean || 0;
                   const sx = uplift?.stddev || 0;
                   const dist = uplift?.dist || "";
-                  if (stats.ci) {
-                    error = stats.ci;
-                  } else {
-                    if (dist === "lognormal") {
-                      // Uplift distribution is lognormal, so need to correct this
-                      // Add 2 standard deviations (~95% CI) for an error bar
+                  error = stats?.ci;
+                  if (dist === "lognormal") {
+                    // Uplift distribution is lognormal, so need to correct this
+                    // Add 2 standard deviations (~95% CI) for an error bar
+                    if (!error) {
                       error = [
                         Math.exp(x - 2 * sx) - 1,
                         Math.exp(x + 2 * sx) - 1,
                       ];
-                      value = Math.exp(x) - 1;
-                    } else {
-                      error = [x - 2 * sx, x + 2 * sx];
-                      value = x;
                     }
+                    value = Math.exp(x) - 1;
+                  } else {
+                    if (!error) {
+                      error = [x - 2 * sx, x + 2 * sx];
+                    }
+                    value = x;
                   }
                 }
                 // For non-baseline variations and cumulative turned ON, calculate uplift from cumulative data
