@@ -9,13 +9,15 @@ slug: sequential
 
 :::note
 
-Sequential Testing is only implemented for the Frequentist statistics engine.
+Sequential Testing is only implemented for the Frequentist statistics engine, and is a premium feature.
 
 :::
 
 ## Why use sequential testing?
 
 Sequential testing allows you to look at your experiment results as many times as you like while still keeping the number of false positives below the expected rate. In other words, it is the frequentist solution to the peeking problem in AB testing.
+
+Sequential not only reduces the risk of false positives in online experimentation; it can also increase the velocity of experimentation. Although sequential testing produces wider confidence intervals than fixed-sample testing, traditional frequentist inference requires an experimenter to wait until a pre-determined sample size is collected. With sequential testing, decisions can be made as soon as significance is reached, without fear of inflating the false positive rate.
 
 ### The peeking problem
 
@@ -50,10 +52,38 @@ In the above, $\hat{\mu}$ is our estimated uplift, $\hat{\sigma}^2$ is the estim
 
 In the above $S$ is essentially a tuning parameter that lets us control how tight these confidence sequences are relative to the standard, fixed-time confidence intervals. It can be thought of as an "estimated sample size." You want to set $S$ to be the number of observations at which you tend to make decisions, because it is at that sample size that the loss in experiment power from using sequential testing will be smallest relative to the traditional confidence intervals.
 
-We default to using 5,000, but we have a long discussion on how to set this parameter and why it matters in our TODO BLOG POST.
+The following figure shows how the increased CI width in sequential analysis is minimized when the sample size is approximately $S$. The y-axis is the ratio of the sequential CIs to the regular CIs; all lines are well above 1.0, showing that sequential analysis results in uniformly wider confidence intervals. On the x-axis is the sample size at which the analysis was executed. As you can see, the ratio is lowest when S is as close to sample size used in the analysis.
+
+<img
+  src="/images/statistics/sequential-tuning.png"
+  alt="Effect of Tuning Sequential Statistics on CI Width"
+  style={{ width: 450, margin: "0 auto" }}
+/>
+
+We default to using 5,000, but the general advice is to set this parameter to the sample size you expect to get when you are most likely to make a decision on this experiment. This value should remain fixed for an experiment.
 
 ## Configuring sequential testing
 
-### Enabling sequential testing
+You can enable or disable sequential testing, as well as select your tuning parameter, both in your organization settings (as a default for all future experiments) or on an individual experiment's page.
 
-### Tuning sequential testing
+Note that the tuning parameter should remain fixed for an experiment.
+
+### Organizational defaults
+
+To set the default usage of sequential testing and the tuning parameter for new experiments, navigate to the Organization Settings page and select your preferred defaults.
+
+<img
+  src="/images/statistics/sequential-settings.png"
+  alt="Sequential Statistics Organization Settings"
+  style={{ width: 600, margin: "0 auto" }}
+/>
+
+### Experiment settings
+
+You can also turn sequential testing on and off for an individual experiment, as well as set a specific tuning parameter for that experiment. Navigate to the Experiment page, click Edit Experiment Settings, and choose your preferred settings.
+
+<img
+  src="/images/statistics/sequential-exp-settings.png"
+  alt="Sequential Statistics Experiment Settings"
+  style={{ width: 600, margin: "0 auto" }}
+/>
