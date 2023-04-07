@@ -8,6 +8,7 @@ import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { GBCuped } from "@/components/Icons";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/services/stats";
 import SelectField from "../Forms/SelectField";
 import Field from "../Forms/Field";
 import { EditMetricsFormInterface } from "./EditMetricsForm";
@@ -381,7 +382,7 @@ export default function MetricsOverridesSelector({
                                       <>
                                         (organization default:{" "}
                                         {settings.regressionAdjustmentDays ??
-                                          14}
+                                          DEFAULT_REGRESSION_ADJUSTMENT_DAYS}
                                         )
                                       </>
                                     )}

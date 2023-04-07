@@ -17,6 +17,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
 import { hasFileConfig } from "@/services/env";
 import { GBCuped, GBSequential } from "@/components/Icons";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "@/services/stats";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -488,8 +489,10 @@ export default function ConfigureReport({
             helpText={
               <>
                 <span className="ml-2">
-                  ({settings.sequentialTestingTuningParameter ?? 5000} is
-                  organization default)
+                  (
+                  {settings.sequentialTestingTuningParameter ??
+                    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                  is organization default)
                 </span>
               </>
             }

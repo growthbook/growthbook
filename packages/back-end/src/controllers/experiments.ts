@@ -59,7 +59,10 @@ import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
-import { analyzeExperimentResults } from "../services/stats";
+import {
+  analyzeExperimentResults,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+} from "../services/stats";
 import { getValidDate } from "../util/dates";
 import { getReportVariations } from "../services/reports";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -70,7 +73,10 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "../services/audit";
-import { ExperimentSnapshotInterface, ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
+import {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+} from "../../types/experiment-snapshot";
 import { StatsEngine } from "../../types/stats";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
@@ -1527,19 +1533,19 @@ export async function postSnapshot(
     : false;
 
   regressionAdjustmentEnabled =
-    hasRegressionAdjustmentFeature && (
-    regressionAdjustmentEnabled !== undefined
+    hasRegressionAdjustmentFeature &&
+    (regressionAdjustmentEnabled !== undefined
       ? regressionAdjustmentEnabled
       : org.settings?.regressionAdjustmentEnabled ?? false);
 
   const sequentialTestingEnabled =
-    hasSequentialTestingFeature && (
-    experiment?.sequentialTestingEnabled ??
-    !!org.settings?.sequentialTestingEnabled);
+    hasSequentialTestingFeature &&
+    (experiment?.sequentialTestingEnabled ??
+      !!org.settings?.sequentialTestingEnabled);
   const sequentialTestingTuningParameter =
     experiment?.sequentialTestingTuningParameter ??
     org.settings?.sequentialTestingTuningParameter ??
-    5000;
+    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
 
   const useCache = !req.query["force"];
 
@@ -1566,7 +1572,8 @@ export async function postSnapshot(
   const experimentSnapshotSettings: ExperimentSnapshotSettings = {
     statsEngine,
     regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses: metricRegressionAdjustmentStatuses || [],
+    metricRegressionAdjustmentStatuses:
+      metricRegressionAdjustmentStatuses || [],
     sequentialTestingEnabled,
     sequentialTestingTuningParameter,
   };

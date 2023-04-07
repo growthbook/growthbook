@@ -34,6 +34,7 @@ import {
   FormatDialect,
 } from "../util/sql";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "../services/stats";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -201,7 +202,8 @@ export default abstract class SqlIntegration
         experimentRegressionAdjustmentEnabled &&
         metricRegressionAdjustmentStatus.regressionAdjustmentEnabled;
       metric.regressionAdjustmentDays =
-        metricRegressionAdjustmentStatus.regressionAdjustmentDays ?? 14;
+        metricRegressionAdjustmentStatus.regressionAdjustmentDays ??
+        DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
       metric.regressionAdjustmentDays = Math.max(
         metric.regressionAdjustmentDays,
         0

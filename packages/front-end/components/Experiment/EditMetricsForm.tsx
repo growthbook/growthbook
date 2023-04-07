@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/services/stats";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
@@ -77,7 +78,8 @@ const EditMetricsForm: FC<{
           metricDefinition.regressionAdjustmentDays;
       } else {
         defaultMetricOverrides[i].regressionAdjustmentDays =
-          settings.regressionAdjustmentDays ?? 14;
+          settings.regressionAdjustmentDays ??
+          DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
       }
     }
   }

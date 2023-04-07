@@ -31,6 +31,10 @@ import SelectField from "@/components/Forms/SelectField";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import Tab from "@/components/Tabs/Tab";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+} from "@/services/stats";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -113,9 +117,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       pValueThreshold: 0.05,
       statsEngine: "bayesian",
       regressionAdjustmentEnabled: false,
-      regressionAdjustmentDays: 14,
+      regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       sequentialTestingEnabled: false,
-      sequentialTestingTuningParameter: 5000,
+      sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       attributionModel: "firstExposure",
     },
   });
@@ -824,7 +828,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           }
                           helpText={
                             <>
-                              <span className="ml-2">(14 is default)</span>
+                              <span className="ml-2">
+                                ({DEFAULT_REGRESSION_ADJUSTMENT_DAYS} is
+                                default)
+                              </span>
                             </>
                           }
                           {...form.register("regressionAdjustmentDays", {
@@ -902,7 +909,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           }
                           helpText={
                             <>
-                              <span className="ml-2">(5000 is default)</span>
+                              <span className="ml-2">
+                                ({DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                                is default)
+                              </span>
                             </>
                           }
                           {...form.register(

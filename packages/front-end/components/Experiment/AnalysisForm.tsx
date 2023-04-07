@@ -14,6 +14,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "@/services/stats";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -85,7 +86,8 @@ const AnalysisForm: FC<{
       sequentialTestingTuningParameter:
         experiment.sequentialTestingEnabled !== undefined
           ? experiment.sequentialTestingTuningParameter
-          : settings.sequentialTestingTuningParameter ?? 5000,
+          : settings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     },
   });
 
@@ -102,7 +104,8 @@ const AnalysisForm: FC<{
         );
         form.setValue(
           "sequentialTestingTuningParameter",
-          settings.sequentialTestingTuningParameter ?? 5000
+          settings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
         );
       }
       setUsingSequentialTestingDefault(enable);
@@ -174,7 +177,8 @@ const AnalysisForm: FC<{
         if (usingSequentialTestingDefault) {
           body.sequentialTestingEnabled = !!settings.sequentialTestingEnabled;
           body.sequentialTestingTuningParameter =
-            settings.sequentialTestingTuningParameter ?? 5000;
+            settings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
         }
 
         await apiCall(`/experiment/${experiment.id}`, {
@@ -419,8 +423,10 @@ const AnalysisForm: FC<{
               helpText={
                 <>
                   <span className="ml-2">
-                    ({settings.sequentialTestingTuningParameter ?? 5000} is
-                    default)
+                    (
+                    {settings.sequentialTestingTuningParameter ??
+                      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                    is default)
                   </span>
                 </>
               }

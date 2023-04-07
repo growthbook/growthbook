@@ -68,7 +68,10 @@ import {
 } from "./reports";
 import { getMetricValue, QueryMap, startRun } from "./queries";
 import { getSourceIntegrationObject } from "./datasource";
-import { analyzeExperimentMetric } from "./stats";
+import {
+  analyzeExperimentMetric,
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+} from "./stats";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -1270,7 +1273,7 @@ export function getRegressionAdjustmentsForMetric({
 
   // start with default RA settings
   let regressionAdjustmentEnabled = true;
-  let regressionAdjustmentDays = 14;
+  let regressionAdjustmentDays = DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
   let reason = "";
 
   // get RA settings from organization
@@ -1287,7 +1290,8 @@ export function getRegressionAdjustmentsForMetric({
   // get RA settings from metric
   if (metric?.regressionAdjustmentOverride) {
     regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
-    regressionAdjustmentDays = metric?.regressionAdjustmentDays ?? 14;
+    regressionAdjustmentDays =
+      metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
     if (!regressionAdjustmentEnabled) {
       reason = "disabled in metric settings";
     }

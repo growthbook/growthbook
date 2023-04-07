@@ -39,6 +39,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import { GBCuped } from "@/components/Icons";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/services/stats";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -245,7 +246,7 @@ const MetricForm: FC<MetricFormProps> = ({
       regressionAdjustmentDays:
         current.regressionAdjustmentDays ??
         settings.regressionAdjustmentDays ??
-        14,
+        DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
     },
   });
 
@@ -1135,7 +1136,9 @@ const MetricForm: FC<MetricFormProps> = ({
                             <>
                               <span className="ml-2">
                                 (organization default:{" "}
-                                {settings.regressionAdjustmentDays ?? 14})
+                                {settings.regressionAdjustmentDays ??
+                                  DEFAULT_REGRESSION_ADJUSTMENT_DAYS}
+                                )
                               </span>
                             </>
                           }

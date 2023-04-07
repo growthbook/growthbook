@@ -19,6 +19,9 @@ import { QueryMap } from "./queries";
 
 export const MAX_DIMENSIONS = 20;
 
+export const DEFAULT_REGRESSION_ADJUSTMENT_DAYS = 14;
+export const DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER = 5000;
+
 export async function analyzeExperimentMetric(
   variations: ExperimentReportVariation[],
   metric: MetricInterface,
@@ -26,7 +29,7 @@ export async function analyzeExperimentMetric(
   maxDimensions: number,
   statsEngine: StatsEngine = "bayesian",
   sequentialTestingEnabled: boolean = false,
-  sequentialTestingTuningParameter: number = 5000
+  sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
 ): Promise<ExperimentMetricAnalysis> {
   if (!rows || !rows.length) {
     return {
@@ -134,7 +137,7 @@ export async function analyzeExperimentResults(
   queryData: QueryMap,
   statsEngine: StatsEngine = "bayesian",
   sequentialTestingEnabled: boolean = false,
-  sequentialTestingTuningParameter: number = 5000
+  sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
 ): Promise<ExperimentReportResults> {
   const metrics = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
