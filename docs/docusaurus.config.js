@@ -21,7 +21,7 @@ const config = {
   // to replace "en" with "zh-Hans".
   i18n: {
     defaultLocale: "en",
-    locales: ["en"],
+    locales: ["en", "pt-BR"],
   },
 
   presets: [
@@ -76,6 +76,10 @@ const config = {
           srcDark: "img/growthbook-docslogo-dark.png",
         },
         items: [
+          {
+            type: 'localeDropdown',
+            position: 'left',
+          },
           {
             to: "/",
             label: "Docs",
