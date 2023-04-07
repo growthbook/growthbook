@@ -34,7 +34,8 @@ function isOutdated(
   experiment: ExperimentInterfaceStringDates,
   snapshot: ExperimentSnapshotInterface,
   statsEngine: StatsEngine,
-  hasRegressionAdjustmentFeature: boolean
+  hasRegressionAdjustmentFeature: boolean,
+  hasSequentialFeature: boolean
 ) {
   if (!snapshot) return false;
   if (isDifferent(experiment.activationMetric, snapshot.activationMetric)) {
@@ -52,6 +53,10 @@ function isOutdated(
   if (isDifferent(experiment.skipPartialData, snapshot.skipPartialData)) {
     return true;
   }
+  if (isDifferent(experiment.attributionModel, snapshot.attributionModel)) {
+    return true;
+  }
+
   const experimentRegressionAdjustmentEnabled =
     statsEngine !== "frequentist" || !hasRegressionAdjustmentFeature
       ? false
@@ -60,6 +65,19 @@ function isOutdated(
     isDifferent(
       experimentRegressionAdjustmentEnabled,
       !!snapshot.regressionAdjustmentEnabled
+    )
+  ) {
+    return true;
+  }
+
+  const experimentSequentialEnabled =
+    statsEngine !== "frequentist" || !hasSequentialFeature
+      ? false
+      : !!experiment.sequentialTestingEnabled;
+  if (
+    isDifferent(
+      experimentSequentialEnabled,
+      !!snapshot.sequentialTestingEnabled
     )
   ) {
     return true;
@@ -109,12 +127,14 @@ export default function AnalysisSettingsBar({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
+  const hasSequentialFeature = hasCommercialFeature("sequential-testing");
 
   const outdated = isOutdated(
     experiment,
     snapshot,
     settings.statsEngine || "bayesian",
-    hasRegressionAdjustmentFeature
+    hasRegressionAdjustmentFeature,
+    hasSequentialFeature
   );
   const [modalOpen, setModalOpen] = useState(false);
 
