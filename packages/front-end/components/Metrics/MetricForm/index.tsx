@@ -38,6 +38,7 @@ import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import { GBCuped } from "@/components/Icons";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -1041,7 +1042,9 @@ const MetricForm: FC<MetricFormProps> = ({
               />
 
               <PremiumTooltip commercialFeature="regression-adjustment">
-                <label className="mb-1">Regression Adjustment (CUPED)</label>
+                <label className="mb-1">
+                  <GBCuped /> Regression Adjustment (CUPED)
+                </label>
               </PremiumTooltip>
               <small className="d-block mb-1 text-muted">
                 Only applicable to frequentist analyses

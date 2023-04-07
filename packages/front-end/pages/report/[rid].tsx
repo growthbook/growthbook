@@ -18,7 +18,12 @@ import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import { useAuth } from "@/services/auth";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
-import { GBCircleArrowLeft, GBCuped, GBEdit } from "@/components/Icons";
+import {
+  GBCircleArrowLeft,
+  GBCuped,
+  GBEdit,
+  GBSequential,
+} from "@/components/Icons";
 import ConfigureReport from "@/components/Report/ConfigureReport";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import Toggle from "@/components/Forms/Toggle";
@@ -477,8 +482,7 @@ export default function ReportPage() {
                   <>
                     <div>
                       <span className="text-muted">
-                        <GBCuped size={12} />
-                        CUPED:
+                        <GBCuped size={13} /> CUPED:
                       </span>{" "}
                       <span>
                         {report.args?.regressionAdjustmentEnabled
@@ -487,7 +491,9 @@ export default function ReportPage() {
                       </span>
                     </div>
                     <div>
-                      <span className="text-muted">Sequential:</span>{" "}
+                      <span className="text-muted">
+                        <GBSequential size={13} /> Sequential: Sequential:
+                      </span>{" "}
                       <span>
                         {report.args?.sequentialTestingEnabled
                           ? "Enabled"

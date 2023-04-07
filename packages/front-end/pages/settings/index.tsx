@@ -22,7 +22,7 @@ import { DocLink } from "@/components/DocLink";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
-import { GBPremiumBadge } from "@/components/Icons";
+import { GBCuped, GBPremiumBadge, GBSequential } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import EditLicenseModal from "@/components/Settings/EditLicenseModal";
 import Toggle from "@/components/Forms/Toggle";
@@ -760,7 +760,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     <div className="p-3 my-3 border rounded">
                       <h5 className="font-weight-bold mb-4">
                         <PremiumTooltip commercialFeature="regression-adjustment">
-                          Regression Adjustment (CUPED)
+                          <GBCuped /> Regression Adjustment (CUPED)
                         </PremiumTooltip>
                       </h5>
                       <div className="form-group mb-0 mr-2">
@@ -849,7 +849,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     <div className="p-3 my-3 border rounded">
                       <h5 className="font-weight-bold mb-4">
                         <PremiumTooltip commercialFeature="sequential-testing">
-                          Sequential Testing
+                          <GBSequential /> Sequential Testing
                         </PremiumTooltip>
                       </h5>
                       <div className="form-group mb-0 mr-2">

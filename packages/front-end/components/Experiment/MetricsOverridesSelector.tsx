@@ -7,6 +7,7 @@ import { useUser } from "@/services/UserContext";
 import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { GBCuped } from "@/components/Icons";
 import SelectField from "../Forms/SelectField";
 import Field from "../Forms/Field";
 import { EditMetricsFormInterface } from "./EditMetricsForm";
@@ -256,7 +257,7 @@ export default function MetricsOverridesSelector({
                   <div className="col">
                     <PremiumTooltip commercialFeature="regression-adjustment">
                       <span className="uppercase-title">
-                        Regression Adjustment (CUPED)
+                        <GBCuped size={14} /> Regression Adjustment (CUPED)
                       </span>
                     </PremiumTooltip>{" "}
                     <span className="small text-muted">(Frequentist only)</span>

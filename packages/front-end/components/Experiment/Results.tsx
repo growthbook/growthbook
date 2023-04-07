@@ -16,7 +16,7 @@ import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import StatusBanner from "@/components/Experiment/StatusBanner";
-import { GBCuped } from "@/components/Icons";
+import { GBCuped, GBSequential } from "@/components/Icons";
 import PValueGuardrailResults from "./PValueGuardrailResults";
 
 const BreakDownResults = dynamic(
@@ -309,8 +309,7 @@ const Results: FC<{
               <>
                 <div>
                   <span className="text-muted">
-                    <GBCuped size={12} />
-                    CUPED:
+                    <GBCuped size={13} /> CUPED:
                   </span>{" "}
                   <span>
                     {snapshot?.regressionAdjustmentEnabled
@@ -319,7 +318,9 @@ const Results: FC<{
                   </span>
                 </div>
                 <div>
-                  <span className="text-muted">Sequential:</span>{" "}
+                  <span className="text-muted">
+                    <GBSequential size={13} /> Sequential:
+                  </span>{" "}
                   <span>
                     {snapshot?.sequentialTestingEnabled
                       ? "Enabled"

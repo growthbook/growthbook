@@ -16,6 +16,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
 import { hasFileConfig } from "@/services/env";
+import { GBCuped, GBSequential } from "@/components/Icons";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -421,7 +422,7 @@ export default function ConfigureReport({
           <SelectField
             label={
               <PremiumTooltip commercialFeature="regression-adjustment">
-                Use Regression Adjustment (CUPED)
+                <GBCuped /> Use Regression Adjustment (CUPED)
               </PremiumTooltip>
             }
             labelClassName="font-weight-bold"
@@ -450,7 +451,7 @@ export default function ConfigureReport({
           <SelectField
             label={
               <PremiumTooltip commercialFeature="regression-adjustment">
-                Use Sequential Testing
+                <GBSequential /> Use Sequential Testing
               </PremiumTooltip>
             }
             labelClassName="font-weight-bold"
