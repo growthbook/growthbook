@@ -12,6 +12,7 @@ from gbstats.frequentist.tests import (
 from gbstats.shared.models import (
     FrequentistTestResult,
     ProportionStatistic,
+    RegressionAdjustedStatistic,
     SampleMeanStatistic,
     Uplift,
 )
@@ -91,6 +92,54 @@ class TestSequentialTTest(TestCase):
 
         self.assertEqual(_round_result_dict(result_dict), expected_dict)
 
+    def test_sequential_test_runs_prop(self):
+        stat_a = ProportionStatistic(sum=1396, n=3000)
+        stat_b = ProportionStatistic(sum=2422, n=3461)
+        result_dict = asdict(SequentialTwoSidedTTest(stat_a, stat_b).compute_result())
+        expected_dict = asdict(
+            FrequentistTestResult(
+                expected=0.50386,
+                ci=[0.40046, 0.60727],
+                uplift=Uplift("normal", 0.50386, 0.03386),
+                p_value=0.0,
+            )
+        )
+        self.assertEqual(_round_result_dict(result_dict), expected_dict)
+
+    def test_sequential_test_runs_ra(self):
+
+        stat_a_pre = SampleMeanStatistic(sum=16.87, sum_squares=527.9767, n=3000)
+        stat_b_pre = SampleMeanStatistic(sum=22.7, sum_squares=1348.29, n=3461)
+        stat_a_post = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3000)
+        stat_b_post = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
+        stat_a_ra = RegressionAdjustedStatistic(
+            n=3000,
+            post_statistic=stat_a_post,
+            pre_statistic=stat_a_pre,
+            post_pre_sum_of_products=12525,
+            theta=0.5,
+        )
+        stat_b_ra = RegressionAdjustedStatistic(
+            n=3461,
+            post_statistic=stat_b_post,
+            pre_statistic=stat_b_pre,
+            post_pre_sum_of_products=3333,
+            theta=0.5,
+        )
+        result_dict = asdict(
+            SequentialTwoSidedTTest(stat_a_ra, stat_b_ra).compute_result()
+        )
+        expected_dict = asdict(
+            FrequentistTestResult(
+                expected=0.50236,
+                ci=[-0.44221, 1.44692],
+                uplift=Uplift("normal", 0.50236, 0.3093),
+                p_value=0.82092,
+            )
+        )
+
+        self.assertEqual(_round_result_dict(result_dict), expected_dict)
+
     def test_sequential_test_tuning_as_expected(self):
         stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3000)
         stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
@@ -104,17 +153,25 @@ class TestSequentialTTest(TestCase):
             stat_a, stat_b, config_near_n
         ).compute_result()
 
-
         config_above_n = FrequentistConfig(sequential_tuning_parameter=10000)
         result_above = SequentialTwoSidedTTest(
             stat_a, stat_b, config_above_n
         ).compute_result()
 
         # Way underestimating should be worse here
-        self.assertTrue((result_below.ci[0] < result_above.ci[0]) and (result_below.ci[1] > result_above.ci[1]))
+        self.assertTrue(
+            (result_below.ci[0] < result_above.ci[0])
+            and (result_below.ci[1] > result_above.ci[1])
+        )
         # And estimating well should be both
-        self.assertTrue((result_below.ci[0] < result_near.ci[0]) and (result_below.ci[1] > result_near.ci[1]))
-        self.assertTrue((result_above.ci[0] < result_near.ci[0]) and (result_above.ci[1] > result_near.ci[1]))
+        self.assertTrue(
+            (result_below.ci[0] < result_near.ci[0])
+            and (result_below.ci[1] > result_near.ci[1])
+        )
+        self.assertTrue(
+            (result_above.ci[0] < result_near.ci[0])
+            and (result_above.ci[1] > result_near.ci[1])
+        )
 
 
 if __name__ == "__main__":
