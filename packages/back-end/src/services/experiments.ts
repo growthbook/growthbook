@@ -61,6 +61,7 @@ import {
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { postMetricValidator } from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "../constants/stats";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -68,10 +69,7 @@ import {
 } from "./reports";
 import { getMetricValue, QueryMap, startRun } from "./queries";
 import { getSourceIntegrationObject } from "./datasource";
-import {
-  analyzeExperimentMetric,
-  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-} from "./stats";
+import { analyzeExperimentMetric } from "./stats";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
