@@ -1,10 +1,6 @@
 import { InformationSchemaTablesInterface } from "@/../back-end/src/types/Integration";
-import { useState } from "react";
-import Fuse from "fuse.js";
-import clsx from "clsx";
-import Field from "@/components/Forms/Field";
 import useApi from "@/hooks/useApi";
-import styles from "./ColumnInput.module.scss";
+import TypeaheadInput from "./TypeaheadInput";
 
 type Props = {
   datasourceId: string;
@@ -20,11 +16,8 @@ export default function ColumnInput({
   tableId,
   value,
   onChange,
-  placeholder = "received_at",
   label,
 }: Props) {
-  const [filteredItems, setFilteredItems] = useState([]);
-  const [showDropdown, setShowDropdown] = useState(true);
   const items = [];
   const { data } = useApi<{
     table: InformationSchemaTablesInterface;
@@ -36,57 +29,14 @@ export default function ColumnInput({
     });
   }
 
-  const fuse = new Fuse(items, {
-    includeScore: false,
-    keys: ["columnName"],
-  });
-
   return (
-    <div
-      onFocus={() => {
-        setShowDropdown(true);
-        if (!value && !filteredItems.length) {
-          setFilteredItems(
-            items.map((item) => {
-              return {
-                item,
-              };
-            })
-          );
-        }
-      }}
-      onBlur={(e) => {
-        e.preventDefault();
-        if (showDropdown) {
-          setShowDropdown(false);
-        }
-      }}
-    >
-      <Field
-        name="table"
-        label={label}
-        className={styles.input}
-        placeholder={placeholder}
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setFilteredItems(fuse.search(e.target.value));
-        }}
-      />
-      {filteredItems.length > 0 && showDropdown && (
-        <div className={clsx(styles.dropdown, "p-2 border rounded")}>
-          {filteredItems.map((item) => (
-            <li
-              className={styles.dropdownItem}
-              role="button"
-              key={item.item.id}
-              onMouseDown={() => onChange(item.item.columnName)}
-            >
-              {item.item.columnName}
-            </li>
-          ))}
-        </div>
-      )}
-    </div>
+    <TypeaheadInput
+      label={label}
+      value={value}
+      items={items}
+      onChange={onChange}
+      filterKeys={["columnName"]}
+      itemName="columnName"
+    />
   );
 }
