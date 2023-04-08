@@ -1,0 +1,198 @@
+{
+  "version.label": {
+    "message": "Próxima",
+    "description": "Rótulo para a versão atual"
+  },
+  "sidebar.docs.category.Self-Hosting Guide": {
+    "message": "Guia de Hospedagem Própria",
+    "description": "O rótulo para a categoria Guia de Hospedagem Própria na barra de documentação lateral"
+  },
+  "sidebar.docs.category.Platform": {
+    "message": "Plataforma",
+    "description": "O rótulo para a categoria Platform na barra de documentação lateral"
+  },
+  "sidebar.docs.category.How to Guides": {
+    "message": "Guias Detalhados",
+    "description": "O rótulo para a categoria How to Guides na barra de documentação lateral"
+  },
+  "sidebar.docs.category.SDKs": {
+    "message": "SDKs",
+    "description": "O rótulo para a categoria SDKs na barra de documentação lateral"
+  },
+  "sidebar.docs.category.Tools": {
+    "message": "Ferramentas",
+    "description": "O rótulo para a categoria Tools na barra de documentação lateral"
+  },
+  "sidebar.docs.category.Statistics": {
+    "message": "Estatísticas",
+    "description": "O rótulo para a categoria Statistics na barra de documentação lateral"
+  },
+  "sidebar.docs.category.Integrations": {
+    "message": "Integrações",
+    "description": "O rótulo para a categoria Integrations na barra de documentação lateral"
+  },
+  "sidebar.docs.link.Guide to A/B Testing": {
+    "message": "Guia de Teste A/B",
+    "description": "The label for link Guide to A/B Testing na barra de documentação lateral, direcionando para https://docs.growthbook.io/open-guide-to-ab-testing.v1.0.pdf"
+  },
+  "sidebar.docs.doc.What is GrowthBook?": {
+    "message": "O que é o GrowthBook?",
+    "description": "O rótulo para o item What is GrowthBook? na barra de documentação lateral, direcionando para overview"
+  },
+  "sidebar.docs.doc.Data Sources": {
+    "message": "Fontes de Dados",
+    "description": "O rótulo para o item Data Sources na barra de documentação lateral, direcionando para app/data-sources"
+  },
+  "sidebar.docs.doc.Metrics": {
+    "message": "Métricas",
+    "description": "O rótulo para o item Metrics na barra de documentação lateral, direcionando para app/metrics"
+  },
+  "sidebar.docs.doc.Features": {
+    "message": "Feature Flags",
+    "description": "O rótulo para o item Features na barra de documentação lateral, direcionando para app/features"
+  },
+  "sidebar.docs.doc.Experiments": {
+    "message": "Experimentos",
+    "description": "O rótulo para o item Experiments na barra de documentação lateral, direcionando para app/experiments"
+  },
+  "sidebar.docs.doc.Dimensions": {
+    "message": "Dimensões",
+    "description": "O rótulo para o item Dimensions na barra de documentação lateral, direcionando para app/dimensions"
+  },
+  "sidebar.docs.doc.Visual Editor": {
+    "message": "Editor Visual",
+    "description": "O rótulo para o item Visual Editor na barra de documentação lateral, direcionando para app/visual-editor"
+  },
+  "sidebar.docs.doc.API": {
+    "message": "API",
+    "description": "O rótulo para o item API na barra de documentação lateral, direcionando para app/api"
+  },
+  "sidebar.docs.doc.Webhooks": {
+    "message": "Webhooks",
+    "description": "O rótulo para o item Webhooks na barra de documentação lateral, direcionando para app/webhooks"
+  },
+  "sidebar.docs.doc.Next.js": {
+    "message": "Next.js",
+    "description": "O rótulo para o item Next.js na barra de documentação lateral, direcionando para guide/nextjs-and-growthbook"
+  },
+  "sidebar.docs.doc.Create React App": {
+    "message": "Create React App",
+    "description": "O rótulo para o item Create React App na barra de documentação lateral, direcionando para guide/create-react-app-and-growthbook"
+  },
+  "sidebar.docs.doc.Google Analytics (GA4)": {
+    "message": "Google Analytics (GA4)",
+    "description": "O rótulo para o item Google Analytics (GA4) na barra de documentação lateral, direcionando para guide/GA4-google-analytics"
+  },
+  "sidebar.docs.doc.Google Analytics (UA)": {
+    "message": "Google Analytics (UA)",
+    "description": "O rótulo para o item Google Analytics (UA) na barra de documentação lateral, direcionando para guide/GA-universal-analytics"
+  },
+  "sidebar.docs.doc.Google Tag Manager (GTM)": {
+    "message": "Google Tag Manager (GTM)",
+    "description": "O rótulo para o item Google Tag Manager (GTM) na barra de documentação lateral, direcionando para guide/google-tag-manager-and-growthbook"
+  },
+  "sidebar.docs.doc.Mixpanel": {
+    "message": "Mixpanel",
+    "description": "O rótulo para o item Mixpanel na barra de documentação lateral, direcionando para guide/mixpanel"
+  },
+  "sidebar.docs.doc.Matomo": {
+    "message": "Matomo",
+    "description": "O rótulo para o item Matomo na barra de documentação lateral, direcionando para guide/matomo"
+  },
+  "sidebar.docs.doc.BigQuery": {
+    "message": "BigQuery",
+    "description": "O rótulo para o item BigQuery na barra de documentação lateral, direcionando para guide/bigquery"
+  },
+  "sidebar.docs.doc.Rudderstack": {
+    "message": "Rudderstack",
+    "description": "O rótulo para o item Rudderstack na barra de documentação lateral, direcionando para guide/rudderstack"
+  },
+  "sidebar.docs.doc.Rudderstack + Next.js": {
+    "message": "Rudderstack + Next.js",
+    "description": "O rótulo para o item Rudderstack + Next.js na barra de documentação lateral, direcionando para guide/rudderstack-and-nextjs-with-growthbook"
+  },
+  "sidebar.docs.doc.Javascript": {
+    "message": "Javascript",
+    "description": "O rótulo para o item Javascript na barra de documentação lateral, direcionando para lib/js"
+  },
+  "sidebar.docs.doc.React": {
+    "message": "React",
+    "description": "O rótulo para o item React na barra de documentação lateral, direcionando para lib/react"
+  },
+  "sidebar.docs.doc.Vue.js": {
+    "message": "Vue.js",
+    "description": "O rótulo para o item Vue.js na barra de documentação lateral, direcionando para lib/vue"
+  },
+  "sidebar.docs.doc.PHP)": {
+    "message": "PHP",
+    "description": "O rótulo para o item PHP) na barra de documentação lateral, direcionando para lib/php"
+  },
+  "sidebar.docs.doc.Ruby": {
+    "message": "Ruby",
+    "description": "O rótulo para o item Ruby na barra de documentação lateral, direcionando para lib/ruby"
+  },
+  "sidebar.docs.doc.Python": {
+    "message": "Python",
+    "description": "O rótulo para o item Python na barra de documentação lateral, direcionando para lib/python"
+  },
+  "sidebar.docs.doc.Java": {
+    "message": "Java",
+    "description": "O rótulo para o item Java na barra de documentação lateral, direcionando para lib/java"
+  },
+  "sidebar.docs.doc.C#": {
+    "message": "C#",
+    "description": "O rótulo para o item C# na barra de documentação lateral, direcionando para lib/csharp"
+  },
+  "sidebar.docs.doc.Go": {
+    "message": "Go",
+    "description": "O rótulo para o item Go na barra de documentação lateral, direcionando para lib/go"
+  },
+  "sidebar.docs.doc.Kotlin (Android)": {
+    "message": "Kotlin (Android)",
+    "description": "O rótulo para o item Kotlin (Android) na barra de documentação lateral, direcionando para lib/kotlin"
+  },
+  "sidebar.docs.doc.Flutter": {
+    "message": "Flutter",
+    "description": "O rótulo para o item Flutter na barra de documentação lateral, direcionando para lib/flutter"
+  },
+  "sidebar.docs.doc.Swift (iOS)": {
+    "message": "Swift (iOS)",
+    "description": "O rótulo para o item Swift (iOS) na barra de documentação lateral, direcionando para lib/swift"
+  },
+  "sidebar.docs.doc.Build Your Own": {
+    "message": "Crie o seu próprio",
+    "description": "O rótulo para o item Build Your Own na barra de documentação lateral, direcionando para lib/build-your-own"
+  },
+  "sidebar.docs.doc.Chrome Extension": {
+    "message": "Extensão para Chrome ",
+    "description": "O rótulo para o item Chrome Extension na barra de documentação lateral, direcionando para tools/chrome-extension"
+  },
+  "sidebar.docs.doc.Visual Studio Code Extension": {
+    "message": "Extensão para Visual Studio Code",
+    "description": "O rótulo para o item Visual Studio Code Extension na barra de documentação lateral, direcionando para tools/vscode-extension"
+  },
+  "sidebar.docs.doc.Command Line Interface (CLI)": {
+    "message": "Command Line Interface (CLI)",
+    "description": "O rótulo para o item Command Line Interface (CLI) na barra de documentação lateral, direcionando para tools/cli"
+  },
+  "sidebar.docs.doc.Statistics Overview": {
+    "message": "Visão Geral da Análise Estatística",
+    "description": "O rótulo para o item Statistics Overview na barra de documentação lateral, direcionando para statistics/overview"
+  },
+  "sidebar.docs.doc.Aggregate Data": {
+    "message": "Agregação de Dados",
+    "description": "O rótulo para o item Aggregate Data na barra de documentação lateral, direcionando para statistics/aggregation"
+  },
+  "sidebar.docs.doc.Regression Adjustment (CUPED)": {
+    "message": "Ajuste de Regressão (CUPED)",
+    "description": "O rótulo para o item Regression Adjustment (CUPED) na barra de documentação lateral, direcionando para statistics/cuped"
+  },
+  "sidebar.docs.doc.Slack alerts": {
+    "message": "Alertas no Slack",
+    "description": "O rótulo para o item Slack alerts na barra de documentação lateral, direcionando para integrations/slack"
+  },
+  "sidebar.docs.doc.FAQ": {
+    "message": "FAQ",
+    "description": "O rótulo para o item FAQ na barra de documentação lateral, direcionando para faq"
+  }
+}
