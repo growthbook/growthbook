@@ -89,8 +89,8 @@ export default class Mssql extends SqlIntegration {
     table_schema,
     COUNT(column_name) as column_count
   FROM
-    \`${databaseName}.INFORMATION_SCHEMA.COLUMNS\`
-    GROUP BY table_name, table_schema`;
+    ${databaseName}.INFORMATION_SCHEMA.COLUMNS
+    GROUP BY table_name, table_schema, table_catalog`;
 
     const results = await this.runQuery(queryString);
 
@@ -110,7 +110,7 @@ export default class Mssql extends SqlIntegration {
           data_type,
           column_name
         FROM
-          \`${databaseName}.INFORMATION_SCHEMA.COLUMNS\`
+          ${databaseName}.INFORMATION_SCHEMA.COLUMNS
         WHERE
           table_name
         IN ('${tableName}')
