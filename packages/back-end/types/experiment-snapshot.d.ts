@@ -33,6 +33,11 @@ export interface SnapshotVariation {
   };
 }
 
+export type pValueCorrection =
+  | "none"
+  | "benjamini-hochberg"
+  | "holm-bonferroni";
+
 export interface ExperimentSnapshotInterface {
   id: string;
   organization: string;

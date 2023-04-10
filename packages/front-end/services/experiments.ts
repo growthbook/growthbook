@@ -1,4 +1,7 @@
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import {
+  SnapshotMetric,
+  pValueCorrection,
+} from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { useState } from "react";
 import {
@@ -383,4 +386,41 @@ export function pValueFormatter(pValue: number): string {
     return "";
   }
   return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
+}
+
+export function correctPvalues(
+  pvalueIndices: number[][],
+  adjustment: pValueCorrection
+): number[][] {
+  if ((adjustment || "none") === "none") {
+    return pvalueIndices;
+  }
+
+  const m = pvalueIndices.length;
+
+  // sort pvalues descending, keeping original position
+  function sortAscendingFirstField(a: number[], b: number[]) {
+    return a[0] - b[0];
+  }
+  pvalueIndices.sort(sortAscendingFirstField);
+
+  // adjust pvalues
+  pvalueIndices.forEach((p, i) => {
+    if (adjustment === "benjamini-hochberg") {
+      pvalueIndices[i][0] = Math.min((p[0] * m) / (i + 1), 1);
+    } else if (adjustment === "holm-bonferroni") {
+      pvalueIndices[i][0] = Math.min(p[0] * (m - i), 1);
+    }
+  });
+
+  // final step
+  let tempval = pvalueIndices[0][0];
+  for (let i = 1; i < m; i++) {
+    if (pvalueIndices[i][0] > tempval) {
+      tempval = pvalueIndices[i][0];
+    } else {
+      pvalueIndices[i][0] = tempval;
+    }
+  }
+  return pvalueIndices;
 }
