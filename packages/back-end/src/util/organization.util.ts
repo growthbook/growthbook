@@ -74,6 +74,7 @@ export function orgHasPremiumFeature(
 export const ENV_SCOPED_PERMISSIONS = [
   "publishFeatures",
   "manageEnvironments",
+  "runExperiments",
 ] as const;
 
 export const PROJECT_SCOPED_PERMISSIONS = [
@@ -151,6 +152,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageEnvironments",
         "manageNamespaces",
         "manageSavedGroups",
+        "runExperiments",
       ],
     },
     {
@@ -181,6 +183,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageEnvironments",
         "manageNamespaces",
         "manageSavedGroups",
+        "runExperiments",
         "createAnalyses",
         "createDimensions",
         "createSegments",
