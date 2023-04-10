@@ -1,8 +1,7 @@
 import React from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useFeature } from "@growthbook/growthbook-react";
+import { useExperiments } from "@/hooks/useExperiments";
 import LoadingOverlay from "../components/LoadingOverlay";
-import useApi from "../hooks/useApi";
 import { useFeaturesList } from "../services/features";
 import GetStarted from "../components/HomePage/GetStarted";
 import { useDefinitions } from "../services/DefinitionsContext";
@@ -16,12 +15,11 @@ const GetStartedPage = (): React.ReactElement => {
   const { ready, error: definitionsError } = useDefinitions();
 
   const {
-    data: experiments,
+    experiments,
     error: experimentsError,
-    mutate: mutateExperiments,
-  } = useApi<{
-    experiments: ExperimentInterfaceStringDates[];
-  }>(`/experiments`);
+    mutateExperiments,
+    loading: experimentsLoading,
+  } = useExperiments();
 
   const { features, error: featuresError } = useFeaturesList();
 
@@ -36,7 +34,7 @@ const GetStartedPage = (): React.ReactElement => {
     );
   }
 
-  if (!experiments || !features || !ready) {
+  if (experimentsLoading || !features || !ready) {
     return <LoadingOverlay />;
   }
 
@@ -45,7 +43,7 @@ const GetStartedPage = (): React.ReactElement => {
       <>
         <div className="container pagecontents position-relative">
           <GuidedGetStarted
-            experiments={experiments?.experiments || []}
+            experiments={experiments}
             features={features}
             mutate={mutateExperiments}
           />
@@ -57,7 +55,7 @@ const GetStartedPage = (): React.ReactElement => {
       <>
         <div className="container pagecontents position-relative">
           <GetStarted
-            experiments={experiments?.experiments || []}
+            experiments={experiments}
             features={features}
             mutateExperiments={mutateExperiments}
             onboardingType={null}

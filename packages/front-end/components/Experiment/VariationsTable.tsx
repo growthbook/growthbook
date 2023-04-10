@@ -15,6 +15,7 @@ import { useUser } from "@/services/UserContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import track from "@/services/track";
+import { appendQueryParamsToURL } from "@/services/utils";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
 import { GBEdit } from "../Icons";
@@ -355,8 +356,26 @@ const VariationsTable: FC<Props> = ({
                               (changes?.domMutations?.length || 0);
                             return (
                               <td key={j} className="px-4 py-1">
-                                {numChanges} visual change
-                                {numChanges === 1 ? "" : "s"}
+                                <div className="d-flex justify-content-between">
+                                  <div>
+                                    {numChanges} visual change
+                                    {numChanges === 1 ? "" : "s"}
+                                  </div>
+                                  <div>
+                                    <a
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      href={appendQueryParamsToURL(
+                                        vc.editorUrl,
+                                        {
+                                          [experiment.trackingKey]: j,
+                                        }
+                                      )}
+                                    >
+                                      Preview
+                                    </a>
+                                  </div>
+                                </div>
                               </td>
                             );
                           })}
