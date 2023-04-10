@@ -78,6 +78,9 @@ export async function postNewSubscription(
         quantity: qty,
       },
     ],
+    subscription_data: {
+      trial_period_days: 14,
+    },
     success_url: `${APP_ORIGIN}/settings/team?org=${org.id}&subscription-success-session={CHECKOUT_SESSION_ID}`,
     cancel_url: `${APP_ORIGIN}${returnUrl}?org=${org.id}`,
   });

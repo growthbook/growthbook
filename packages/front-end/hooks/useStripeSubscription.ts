@@ -62,7 +62,7 @@ export default function useStripeSubscription() {
 
   // eslint-disable-next-line
   let trialEnd = (organization?.subscription?.trialEnd || null) as any;
-  if (trialEnd) {
+  if (typeof trialEnd === "number") {
     trialEnd = getValidDate(trialEnd * 1000);
   }
 

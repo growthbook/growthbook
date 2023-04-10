@@ -15,17 +15,17 @@ const currencyFormatter = new Intl.NumberFormat(undefined, {
 export default function CloudUpgradeForm({
   accountPlan,
   source,
-  reason,
 }: {
   accountPlan: AccountPlan;
   source: string;
-  reason: string;
   setCloseCta: (string) => void;
   close: () => void;
 }) {
-  const { quote, loading } = useStripeSubscription();
+  const { quote, loading, subscriptionStatus } = useStripeSubscription();
   const { apiCall } = useAuth();
   const [error, setError] = useState(null);
+
+  const freeTrialAvailable = !subscriptionStatus;
 
   useEffect(() => {
     track("View Upgrade Modal", {
@@ -78,16 +78,37 @@ export default function CloudUpgradeForm({
   return (
     <>
       {loading && <LoadingOverlay />}
-      <p className="text-center mb-4" style={{ fontSize: "1.5em" }}>
-        {reason} Upgrade to a <strong>Pro Plan</strong>
-      </p>
-      <p className="text-center mb-4">
-        After upgrading, you will be able to add additional users for{" "}
-        <strong>
-          {currencyFormatter.format(quote?.additionalSeatPrice || 0)}
-        </strong>
-        /month.
-      </p>
+      {freeTrialAvailable ? (
+        <>
+          <p className="text-center mb-3" style={{ fontSize: "1.5em" }}>
+            Try GrowthBook Pro for free
+          </p>
+          <p className="text-center mb-2">
+            Try our <strong>Pro</strong> plan for Cloud accounts for{" "}
+            <em>14 days free</em>!
+          </p>
+          <p className="text-center mb-4">
+            After upgrading, you will be able to add additional users for{" "}
+            <strong>
+              {currencyFormatter.format(quote?.additionalSeatPrice || 0)}
+            </strong>
+            /month.
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="text-center mb-4" style={{ fontSize: "1.5em" }}>
+            Upgrade to a <strong>Pro Plan</strong>
+          </p>
+          <p className="text-center mb-4">
+            After upgrading, you will be able to add additional users for{" "}
+            <strong>
+              {currencyFormatter.format(quote?.additionalSeatPrice || 0)}
+            </strong>
+            /month.
+          </p>
+        </>
+      )}
       <div className="row align-items-center justify-content-center">
         <div className="col-auto mb-4 mr-lg-5 pr-lg-5">
           <h3>Pro Plan includes:</h3>
@@ -103,6 +124,14 @@ export default function CloudUpgradeForm({
                     Or make them read-only in Project A and an admin for Project
                     B.
                   </>
+                }
+              />
+            </li>
+            <li>
+              Visual A/B test editor{" "}
+              <Tooltip
+                body={
+                  "Make UI changes using our Visual Editor browser plugin without writing code."
                 }
               />
             </li>
@@ -130,10 +159,15 @@ export default function CloudUpgradeForm({
                 }
               />
             </li>
+            <li>
+              Advanced experimentation features
+              <br />
+              (CUPED, Sequential Testing, etc)
+            </li>
             <li>Early access to new features</li>
           </ul>
         </div>
-        <div className="col-auto mb-4">
+        <div className="col-lg-5 mb-4">
           <div className="bg-light border rounded p-3 p-lg-4">
             <div className="d-flex">
               <div>Current team size</div>
@@ -161,28 +195,59 @@ export default function CloudUpgradeForm({
                 </div>
               </div>
             )}
-            <div className="d-flex py-2 mb-3" style={{ fontSize: "1.3em" }}>
-              <div>Total</div>
-              <div className="ml-auto">
-                <strong>{currencyFormatter.format(quote?.total || 0)}</strong>
-                <small className="text-muted"> / month</small>
+            {freeTrialAvailable ? (
+              <>
+                <div className="d-flex pt-2 mb-2" style={{ fontSize: "1.3em" }}>
+                  <div>Pay Today</div>
+                  <div className="ml-auto">
+                    <strong>{currencyFormatter.format(0)}</strong>
+                  </div>
+                </div>
+                <div className="d-flex pb-2 mb-3">
+                  <div>
+                    After 14 day trial <sup>&#10019;</sup>
+                  </div>
+                  <div className="ml-auto">
+                    {currencyFormatter.format(quote?.total | 0)}
+                    <small className="text-muted"> / month</small>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="d-flex py-2 mb-3" style={{ fontSize: "1.3em" }}>
+                <div>Total</div>
+                <div className="ml-auto">
+                  <strong>{currencyFormatter.format(quote?.total || 0)}</strong>
+                  <small className="text-muted"> / month</small>
+                </div>
               </div>
-            </div>
+            )}
             <div className="text-center px-4 mb-2">
               <Button
                 color="primary"
                 className="btn-block btn-lg"
                 onClick={startStripeSubscription}
               >
-                Upgrade to Pro
+                {freeTrialAvailable ? "Start Free Trial" : "Upgrade to Pro"}
               </Button>
             </div>
             <div
               className="text-center text-muted"
-              style={{ fontSize: "0.8em" }}
+              style={{ fontSize: "0.7em" }}
             >
-              Cancel or modify your subscription anytime.
+              Cancel or modify your subscription at any time.
             </div>
+            {freeTrialAvailable && (
+              <div
+                className="mt-2 text-center text-muted"
+                style={{ fontSize: "0.7em", lineHeight: 1.2 }}
+              >
+                &#10019; After the 14 day trial period ends, your credit card
+                will automatically be charged at the rate of{" "}
+                {currencyFormatter.format(quote?.total || 0)} / month unless you
+                cancel beforehand.
+              </div>
+            )}
           </div>
         </div>
       </div>

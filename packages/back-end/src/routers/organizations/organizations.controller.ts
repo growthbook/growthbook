@@ -93,6 +93,7 @@ import {
   getExperimentsForActivityFeed,
 } from "../../models/ExperimentModel";
 import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
+import { startFreeTrial } from "../../services/stripe";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -1051,6 +1052,15 @@ export async function signup(req: AuthRequest<SignupBody>, res: Response) {
       await sendNewOrgEmail(company, req.email);
     } catch (e) {
       req.log.error(e, "New org email sending failure");
+    }
+
+    // Start a free trial for the organization
+    if (IS_CLOUD) {
+      try {
+        await startFreeTrial(org, { cancelAtPeriodEnd: true });
+      } catch (e) {
+        req.log.error(e, "Error starting free trial");
+      }
     }
 
     res.status(200).json({
