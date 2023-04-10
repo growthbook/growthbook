@@ -48,7 +48,7 @@ jobs:
         with:
           push: true
           context: .
-          project: TODO
+          project: vmp2ssvj9r
           tags: |
             growthbook/growthbook:latest
             growthbook/growthbook:git-${{ steps.metadata.outputs.sha }}
