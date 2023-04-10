@@ -73,6 +73,9 @@ export default class Athena extends SqlIntegration {
         count(column_name) as column_count
       FROM
         ${defaultCatalog}.information_schema.columns
+        WHERE
+        table_schema
+      NOT IN ('information_schema')
       GROUP BY (table_name, table_schema, table_catalog)`;
 
     const results = await this.runQuery(sql);
