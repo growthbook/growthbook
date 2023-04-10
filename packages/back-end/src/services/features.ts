@@ -1,6 +1,7 @@
 import { webcrypto as crypto } from "node:crypto";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import { FeatureDefinition } from "../../types/api";
 import {
   FeatureDraftChanges,
@@ -245,15 +246,12 @@ async function getFeatureDefinitionsResponse({
   }
 
   if (!includeExperimentNames) {
-    // Remove meta info from every visual experiment
-    experiments.forEach((exp) => {
-      // TODO: We are mutating the experiments argument, should we clone it first?
-      if (exp.meta) {
-        exp.meta.forEach((meta) => {
-          delete meta.name;
-        });
-      }
-      delete exp.name;
+    // Remove experiment/variation name from every visual experiment
+    experiments = experiments?.map((exp) => {
+      return {
+        ...omit(exp, ["name", "meta"]),
+        meta: exp.meta ? exp.meta.map((m) => omit(m, ["name"])) : undefined,
+      };
     });
   }
 
