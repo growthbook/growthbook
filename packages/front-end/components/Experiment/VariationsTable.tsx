@@ -295,28 +295,28 @@ const VariationsTable: FC<Props> = ({
                         </div>
                       </div>
                       <div style={{ flex: 1 }} />
-                      {hasVisualEditorFeature && experiment.status === "draft" && (
+                      {canEdit && experiment.status === "draft" && (
                         <div className="col-auto">
-                          <OpenVisualEditorLink
-                            id={vc.id}
-                            changeIndex={1}
-                            visualEditorUrl={vc.editorUrl}
-                          />
-                          {canEdit && (
-                            <DeleteButton
-                              className="btn-sm ml-4"
-                              onClick={async () => {
-                                await apiCall(`/visual-changesets/${vc.id}`, {
-                                  method: "DELETE",
-                                });
-                                mutate();
-                                track("Delete visual changeset", {
-                                  source: "visual-editor-ui",
-                                });
-                              }}
-                              displayName="Visual Changes"
+                          {hasVisualEditorFeature && (
+                            <OpenVisualEditorLink
+                              id={vc.id}
+                              changeIndex={1}
+                              visualEditorUrl={vc.editorUrl}
                             />
                           )}
+                          <DeleteButton
+                            className="btn-sm ml-4"
+                            onClick={async () => {
+                              await apiCall(`/visual-changesets/${vc.id}`, {
+                                method: "DELETE",
+                              });
+                              mutate();
+                              track("Delete visual changeset", {
+                                source: "visual-editor-ui",
+                              });
+                            }}
+                            displayName="Visual Changes"
+                          />
                         </div>
                       )}
                     </div>
