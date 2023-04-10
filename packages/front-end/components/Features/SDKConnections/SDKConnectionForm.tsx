@@ -233,11 +233,11 @@ export default function SDKConnectionForm({
                           This can help add context when debugging or tracking
                           events.
                         </p>
-                        <p>
-                          However, if used in a client-side or mobile app, be
-                          careful of exposing potentially sensitive information
-                          to your users.
-                        </p>
+                        <div>
+                          However, this could expose potentially sensitive
+                          information to your users if enabled for a client-side
+                          or mobile application.
+                        </div>
                       </>
                     }
                   >
