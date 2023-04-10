@@ -309,6 +309,19 @@ The value passed in the URL is cast at runtime based on the generic type argumen
 
 All keys must be prefixed with `gb~`.
 
+## Using with Proguard and R8
+
+Many Android projects use code-shrinking and obfuscation tools like Proguard and R8 in production.
+
+If you are experiencing unexpected feature evaluation results with your release Android builds that do not occur in your debug builds, it's most likely related to this.
+
+You will need to add the following to your `proguard-rules.pro` file to ensure that all of the GrowthBook SDK classes are kept so that your features are evaluated properly in projects that use Proguard and R8:
+
+```
+# Growthbook Java SDK classes
+-keep class growthbook.sdk.java.** { *; }
+```
+
 ## Code Examples
 
 - [JVM with Spring Web example <ExternalLink/>](https://github.com/growthbook/examples/tree/main/jvm-spring-web)
