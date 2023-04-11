@@ -75,20 +75,25 @@ export default function TypeaheadInput({
             }}
           />
           <div className={clsx(styles.caret, "input-group-append")}>
-            <button
-              className={clsx(styles.caretBtn, "btn btn-link form-control")}
-              onMouseDown={() => {
-                setShowDropdown(!showDropdown);
-              }}
-              onBlur={() => {
-                if (showDropdown) {
-                  setShowDropdown(false);
-                }
-              }}
-              type="button"
-            >
-              <FaAngleDown style={{ opacity: "25%" }} />
-            </button>
+            {items.length > 0 && (
+              <button
+                className={clsx(styles.caretBtn, "btn btn-link form-control")}
+                onMouseDown={() => {
+                  setShowDropdown(!showDropdown);
+                  if (!value && !filteredItems.length) {
+                    setFilteredItems(formatItems(items));
+                  }
+                }}
+                onBlur={() => {
+                  if (showDropdown) {
+                    setShowDropdown(false);
+                  }
+                }}
+                type="button"
+              >
+                <FaAngleDown style={{ opacity: "25%" }} />
+              </button>
+            )}
           </div>
         </div>
       </div>
