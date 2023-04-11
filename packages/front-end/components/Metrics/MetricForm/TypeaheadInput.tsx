@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import Fuse from "fuse.js";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { FaAngleDown } from "react-icons/fa";
 import styles from "./TypeaheadInput.module.scss";
 
@@ -9,7 +9,6 @@ type Props = {
   value: string;
   items: { name: string; id: string }[];
   onChange: (e: string, id: string) => void;
-  filterKeys: string[];
   placeholder?: string;
 };
 
@@ -18,7 +17,6 @@ export default function TypeaheadInput({
   value,
   items,
   onChange,
-  filterKeys,
   placeholder = "received_at",
 }: Props) {
   const [filteredItems, setFilteredItems] = useState([]);
@@ -26,8 +24,16 @@ export default function TypeaheadInput({
 
   const fuse = new Fuse(items, {
     includeScore: false,
-    keys: filterKeys,
+    keys: ["name"],
   });
+
+  function formatItems(items) {
+    return items.map((item) => {
+      return {
+        item: { name: item.name, id: item.id },
+      };
+    });
+  }
 
   const inputRef = useRef(null);
 
@@ -37,14 +43,10 @@ export default function TypeaheadInput({
     } else {
       setShowDropdown(true);
       if (!value && !filteredItems.length) {
-        setFilteredItems(items);
+        setFilteredItems(formatItems(items));
       }
     }
   }
-
-  useEffect(() => {
-    setFilteredItems(items);
-  }, [items]);
 
   return (
     <div>
@@ -57,9 +59,12 @@ export default function TypeaheadInput({
             value={value}
             onClick={() => handleClick()}
             onChange={(e) => {
-              onChange(e.target.value, "");
+              const id = filteredItems.find(
+                (item) => item.item.name === e.target.value
+              )?.item.id;
+              onChange(e.target.value, id || "");
               if (!e.target.value) {
-                setFilteredItems(items);
+                setFilteredItems(formatItems(items));
               } else {
                 setFilteredItems(fuse.search(e.target.value));
               }
@@ -89,16 +94,18 @@ export default function TypeaheadInput({
       </div>
       {filteredItems.length > 0 && showDropdown && (
         <div className={clsx(styles.dropdown, "p-2 border rounded")}>
-          {filteredItems.map((item, i) => (
-            <li
-              className={styles.dropdownItem}
-              role="button"
-              key={`${item.item.name}-${i}`}
-              onMouseDown={() => onChange(item.item.name, item.item.id || "")}
-            >
-              {item.item.name}
-            </li>
-          ))}
+          {filteredItems.map((item, i) => {
+            return (
+              <li
+                className={styles.dropdownItem}
+                role="button"
+                key={`${item.item.name}-${i}`}
+                onMouseDown={() => onChange(item.item.name, item.item.id || "")}
+              >
+                {item.item.name}
+              </li>
+            );
+          })}
         </div>
       )}
     </div>

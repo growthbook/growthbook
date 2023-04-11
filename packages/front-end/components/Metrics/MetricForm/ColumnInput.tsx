@@ -17,6 +17,7 @@ export default function ColumnInput({
   value,
   onChange,
   label,
+  placeholder,
 }: Props) {
   const items = [];
   const { data } = useApi<{
@@ -25,7 +26,7 @@ export default function ColumnInput({
 
   if (data?.table?.columns.length) {
     data.table.columns.forEach((column) => {
-      items.push({ item: { name: column.columnName, id: "" } });
+      items.push({ name: column.columnName, id: "" });
     });
   }
 
@@ -35,7 +36,7 @@ export default function ColumnInput({
       value={value}
       items={items}
       onChange={onChange}
-      filterKeys={["columnName"]}
+      placeholder={placeholder}
     />
   );
 }

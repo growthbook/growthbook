@@ -20,13 +20,11 @@ export default function TableInput({
     informationSchema: InformationSchemaInterface;
   }>(`/datasource/${datasourceId}/schema`);
 
-  const informationSchema = data?.informationSchema;
-
-  if (informationSchema?.databases.length) {
-    informationSchema.databases.forEach((database) => {
+  if (data.informationSchema?.databases.length) {
+    data.informationSchema.databases.forEach((database) => {
       database.schemas.forEach((schema) => {
         schema.tables.forEach((table) => {
-          items.push({ item: { name: table.tableName, id: table.id } });
+          items.push({ name: table.tableName, id: table.id });
         });
       });
     });
@@ -38,7 +36,6 @@ export default function TableInput({
       value={value}
       items={items}
       onChange={onChange}
-      filterKeys={["tableName"]}
       placeholder="Enter a table name"
     />
   );
