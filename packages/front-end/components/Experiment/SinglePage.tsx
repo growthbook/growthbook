@@ -644,6 +644,7 @@ export default function SinglePage({
               visualChangesets={visualChangesets}
               mutate={mutate}
               canEdit={canEdit}
+              setVisualEditorModal={setVisualEditorModal}
             />
           </div>
         </div>
