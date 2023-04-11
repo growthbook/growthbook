@@ -40,6 +40,7 @@ export type CommercialFeature =
   | "schedule-feature-flag"
   | "override-metrics"
   | "regression-adjustment"
+  | "audit-logging"
   | "visual-editor";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
