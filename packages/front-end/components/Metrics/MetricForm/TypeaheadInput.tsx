@@ -48,7 +48,7 @@ export default function TypeaheadInput({
 
   return (
     <div>
-      <div className="d-flex flex-column">
+      <div className="d-flex flex-column pb-1">
         {label && <label>{label}</label>}
         <div className="input-group">
           <input

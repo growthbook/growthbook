@@ -1,9 +1,9 @@
 .dropdown {
   position: absolute;
-  z-index: 100;
+  z-index: 10;
   background-color: var(--surface-background-color);
   width: calc(100% - 15px);
-  box-shadow: -1px 2px 4px var(--table-row-hover-background-color);
+  box-shadow: 5px 2px 5px var(--table-row-hover-background-color);
   max-height: 200px;
   overflow-y: scroll;
 }
