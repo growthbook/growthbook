@@ -10,10 +10,13 @@ import useApi from "@/hooks/useApi";
 import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
 import LoadingSpinner from "../../LoadingSpinner";
 import { EventsTableRow } from "./EventsTableRow";
+import { useUser } from "@/services/UserContext";
 
 type EventsPageProps = {
   isLoading: boolean;
-  hasError: boolean;
+  shouldShowExportButton: boolean;
+  hasLoadError: boolean;
+  hasExportError: boolean;
   performDownload: () => void;
   isDownloading: boolean;
   events: EventInterface<
@@ -27,7 +30,9 @@ type EventsPageProps = {
 
 export const EventsPage: FC<EventsPageProps> = ({
   events = [],
-  hasError,
+  shouldShowExportButton,
+  hasLoadError,
+  hasExportError,
   isLoading,
   performDownload,
   isDownloading,
@@ -40,24 +45,32 @@ export const EventsPage: FC<EventsPageProps> = ({
         </div>
 
         <div className="col-6 text-right ">
-          <button
-            onClick={performDownload}
-            disabled={isDownloading}
-            className="btn btn-primary"
-          >
-            <span className="mr-1">
-              <FaDownload />
-            </span>{" "}
-            Export
-          </button>
+          {shouldShowExportButton && (
+            <button
+              onClick={performDownload}
+              disabled={isDownloading}
+              className="btn btn-primary"
+            >
+              <span className="mr-1">
+                <FaDownload />
+              </span>{" "}
+              Export
+            </button>
+          )}
         </div>
       </div>
 
-      {hasError && (
+      {hasLoadError && (
         <div className="alert alert-danger">
           There was an error loading the events.
         </div>
       )}
+      {hasExportError && (
+        <div className="alert alert-danger">
+          There was an error exporting the events.
+        </div>
+      )}
+
       {isLoading && <LoadingSpinner />}
       {events.length === 0 ? (
         // Empty state
@@ -99,14 +112,23 @@ export const EventsPageContainer = () => {
     >[];
   }>("/events");
 
-  const { isDownloading, performDownload } = useDownloadDataExport({
+  const {
+    isDownloading,
+    performDownload,
+    hasError: hasExportError,
+  } = useDownloadDataExport({
     url: "/data-export/events?type=json",
   });
 
+  const { hasCommercialFeature } = useUser();
+  const enableExports = hasCommercialFeature("audit-logging");
+
   return (
     <EventsPage
+      shouldShowExportButton={enableExports}
       isLoading={isValidating}
-      hasError={!!error}
+      hasLoadError={!!error}
+      hasExportError={hasExportError}
       events={data?.events || []}
       isDownloading={isDownloading}
       performDownload={performDownload}

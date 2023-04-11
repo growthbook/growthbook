@@ -5,6 +5,7 @@ import { getOrgFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { getLatestEventsForOrganization } from "../../models/EventModel";
 import { DataExportFileResponse } from "../../../types/data-exports";
+import { orgHasPremiumFeature } from "../../util/organization.util";
 
 /**
  * GET /data-export/events
@@ -22,6 +23,12 @@ export const getDataExportForEvents = async (
   req.checkPermissions("viewEvents");
 
   const { org } = getOrgFromReq(req);
+
+  if (!orgHasPremiumFeature(org, "audit-logging")) {
+    return res.status(403).json({
+      message: "Organization does not have premium feature: audit-logging",
+    });
+  }
 
   const events = await getLatestEventsForOrganization(org.id, 0);
 
