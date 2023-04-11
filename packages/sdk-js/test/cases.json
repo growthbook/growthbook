@@ -1671,6 +1671,33 @@
       }
     ],
     [
+      "force rules - coverage with bad hash version",
+      {
+        "attributes": {
+          "id": "1"
+        },
+        "features": {
+          "feature": {
+            "defaultValue": 2,
+            "rules": [
+              {
+                "force": 1,
+                "coverage": 1.0,
+                "hashVersion": 99
+              }
+            ]
+          }
+        }
+      },
+      "feature",
+      {
+        "value": 2,
+        "on": true,
+        "off": false,
+        "source": "defaultValue"
+      }
+    ],
+    [
       "ignores empty rules",
       {
         "features": {
