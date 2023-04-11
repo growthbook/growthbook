@@ -3297,7 +3297,7 @@
         "hashVersion": 2,
         "variations": [0, 1],
         "weights": [0.5, 0.5],
-        "coverage": [0.99]
+        "coverage": 0.99
       },
       1,
       true,
