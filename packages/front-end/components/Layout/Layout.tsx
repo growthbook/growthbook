@@ -191,6 +191,12 @@ const navlinks: SidebarLinkProps[] = [
         permissions: ["manageWebhooks"],
       },
       {
+        name: "Logs",
+        href: "/events",
+        path: /^events/,
+        permissions: ["viewEvents"],
+      },
+      {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
