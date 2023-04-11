@@ -83,12 +83,9 @@ export default function CloudUpgradeForm({
       {freeTrialAvailable ? (
         <>
           <p className="text-center mb-4" style={{ fontSize: "1.5em" }}>
-            Try GrowthBook Pro for free
+            Try <strong>GrowthBook Pro</strong> free for 14 days
           </p>
-          <p className="text-center mb-4">
-            Try our <strong>Pro</strong> plan for Cloud accounts for{" "}
-            <em>14 days free</em>!
-          </p>
+          <p className="text-center mb-4">No credit card required</p>
         </>
       ) : (
         <>
@@ -126,7 +123,7 @@ export default function CloudUpgradeForm({
               Visual A/B test editor{" "}
               <Tooltip
                 body={
-                  "Make UI changes using our Visual Editor browser plugin without writing code."
+                  "A/B test UI changes using our Visual Editor browser plugin without writing code."
                 }
               />
             </li>
@@ -256,8 +253,7 @@ export default function CloudUpgradeForm({
                 <strong>
                   {currencyFormatter.format(quote?.total || 0)} / month
                 </strong>{" "}
-                by providing payment information to your subscription from the
-                Billing page.
+                by adding a credit card to your account.
               </div>
             )}
           </div>
