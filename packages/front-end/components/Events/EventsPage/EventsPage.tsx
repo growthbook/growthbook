@@ -8,9 +8,9 @@ import {
 import { FaDownload } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
+import { useUser } from "@/services/UserContext";
 import LoadingSpinner from "../../LoadingSpinner";
 import { EventsTableRow } from "./EventsTableRow";
-import { useUser } from "@/services/UserContext";
 
 type EventsPageProps = {
   isLoading: boolean;
@@ -61,12 +61,12 @@ export const EventsPage: FC<EventsPageProps> = ({
       </div>
 
       {hasLoadError && (
-        <div className="alert alert-danger">
+        <div className="alert alert-danger mt-2">
           There was an error loading the events.
         </div>
       )}
       {hasExportError && (
-        <div className="alert alert-danger">
+        <div className="alert alert-danger mt-2">
           There was an error exporting the events.
         </div>
       )}
