@@ -303,6 +303,10 @@ app.use(organizationsRouter);
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post("/subscription/checkout", stripeController.postNewSubscription);
 app.get("/subscription/quote", stripeController.getSubscriptionQuote);
+app.get(
+  "/subscription/valid-payment-method",
+  stripeController.getHasValidPaymentMethod
+);
 app.post("/subscription/manage", stripeController.postCreateBillingSession);
 app.post("/subscription/success", stripeController.postSubscriptionSuccess);
 app.get("/queries/:ids", datasourcesController.getQueries);

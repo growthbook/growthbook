@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AccountPlan } from "back-end/types/organization";
+import { useUser } from "@/services/UserContext";
 import useStripeSubscription from "../../../hooks/useStripeSubscription";
 import { redirectWithTimeout, useAuth } from "../../../services/auth";
 import track from "../../../services/track";
@@ -21,11 +22,12 @@ export default function CloudUpgradeForm({
   setCloseCta: (string) => void;
   close: () => void;
 }) {
-  const { quote, loading, subscriptionStatus } = useStripeSubscription();
+  const { quote, loading } = useStripeSubscription();
   const { apiCall } = useAuth();
+  const { organization } = useUser();
   const [error, setError] = useState(null);
 
-  const freeTrialAvailable = !subscriptionStatus;
+  const freeTrialAvailable = !organization.freeTrialDate;
 
   useEffect(() => {
     track("View Upgrade Modal", {
@@ -80,19 +82,12 @@ export default function CloudUpgradeForm({
       {loading && <LoadingOverlay />}
       {freeTrialAvailable ? (
         <>
-          <p className="text-center mb-3" style={{ fontSize: "1.5em" }}>
+          <p className="text-center mb-4" style={{ fontSize: "1.5em" }}>
             Try GrowthBook Pro for free
           </p>
-          <p className="text-center mb-2">
+          <p className="text-center mb-4">
             Try our <strong>Pro</strong> plan for Cloud accounts for{" "}
             <em>14 days free</em>!
-          </p>
-          <p className="text-center mb-4">
-            After upgrading, you will be able to add additional users for{" "}
-            <strong>
-              {currencyFormatter.format(quote?.additionalSeatPrice || 0)}
-            </strong>
-            /month.
           </p>
         </>
       ) : (
@@ -175,15 +170,34 @@ export default function CloudUpgradeForm({
                 <strong>{quote?.activeAndInvitedUsers || 0}</strong> users
               </div>
             </div>
-            <div className="d-flex border-bottom py-2 mb-2">
-              <div>Price per user</div>
-              <div className="ml-auto">
-                <strong>
-                  {currencyFormatter.format(quote?.unitPrice || 0)}
-                </strong>
-                <small className="text-muted"> / month</small>
+            {freeTrialAvailable ? (
+              <div className="d-flex border-bottom py-2 mb-2">
+                <div>Price per user</div>
+                <div className="ml-auto text-right">
+                  <div>
+                    <strong
+                      className="text-warning-orange"
+                      style={{ textDecoration: "line-through" }}
+                    >
+                      {currencyFormatter.format(quote?.unitPrice || 0)}
+                    </strong>
+                    <small className="text-muted"> / month</small>
+                  </div>
+                  <strong>{currencyFormatter.format(0)}</strong>
+                  <small className="text-muted"> / month</small>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="d-flex border-bottom py-2 mb-2">
+                <div>Price per user</div>
+                <div className="ml-auto">
+                  <strong>
+                    {currencyFormatter.format(quote?.unitPrice || 0)}
+                  </strong>
+                  <small className="text-muted"> / month</small>
+                </div>
+              </div>
+            )}
             {quote?.discountAmount < 0 && quote?.discountMessage && (
               <div className="d-flex border-bottom py-2 mb-2">
                 <div>{quote.discountMessage}</div>
@@ -198,19 +212,14 @@ export default function CloudUpgradeForm({
             {freeTrialAvailable ? (
               <>
                 <div className="d-flex pt-2 mb-2" style={{ fontSize: "1.3em" }}>
-                  <div>Pay Today</div>
+                  <div>Total</div>
                   <div className="ml-auto">
                     <strong>{currencyFormatter.format(0)}</strong>
                   </div>
                 </div>
-                <div className="d-flex pb-2 mb-3">
-                  <div>
-                    After 14 day trial <sup>&#10019;</sup>
-                  </div>
-                  <div className="ml-auto">
-                    {currencyFormatter.format(quote?.total | 0)}
-                    <small className="text-muted"> / month</small>
-                  </div>
+                <div className="pb-2 mt-2 mb-3 small">
+                  You will <strong>not be charged</strong> after your trial ends
+                  unless you opt in <sup>&#10019;</sup>
                 </div>
               </>
             ) : (
@@ -242,10 +251,13 @@ export default function CloudUpgradeForm({
                 className="mt-2 text-center text-muted"
                 style={{ fontSize: "0.7em", lineHeight: 1.2 }}
               >
-                &#10019; After the 14 day trial period ends, your credit card
-                will automatically be charged at the rate of{" "}
-                {currencyFormatter.format(quote?.total || 0)} / month unless you
-                cancel beforehand.
+                &#10019; You may opt to continue your subscription at the rate
+                of{" "}
+                <strong>
+                  {currencyFormatter.format(quote?.total || 0)} / month
+                </strong>{" "}
+                by providing payment information to your subscription from the
+                Billing page.
               </div>
             )}
           </div>

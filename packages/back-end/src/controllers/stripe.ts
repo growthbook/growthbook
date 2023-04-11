@@ -20,6 +20,7 @@ import {
 } from "../services/stripe";
 import { SubscriptionQuote } from "../../types/organization";
 import { isActiveSubscriptionStatus } from "../util/organization.util";
+import { updateOrganization } from "../models/OrganizationModel";
 
 export async function postNewSubscription(
   req: AuthRequest<{ qty: number; returnUrl: string }>,
@@ -60,10 +61,11 @@ export async function postNewSubscription(
       );
     }
   });
-
   await Promise.all(promises);
 
-  const session = await stripe.checkout.sessions.create({
+  const startFreeTrial = !org.freeTrialDate;
+
+  const payload: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
     payment_method_types: ["card"],
     customer: stripeCustomerId,
@@ -78,12 +80,30 @@ export async function postNewSubscription(
         quantity: qty,
       },
     ],
-    subscription_data: {
-      trial_period_days: 14,
-    },
     success_url: `${APP_ORIGIN}/settings/team?org=${org.id}&subscription-success-session={CHECKOUT_SESSION_ID}`,
     cancel_url: `${APP_ORIGIN}${returnUrl}?org=${org.id}`,
-  });
+  };
+
+  if (startFreeTrial) {
+    payload.subscription_data = {
+      trial_period_days: 14,
+      trial_settings: {
+        end_behavior: {
+          missing_payment_method: "cancel",
+        },
+      },
+    };
+    payload.payment_method_collection = "if_required";
+  }
+
+  const session = await stripe.checkout.sessions.create(payload);
+
+  if (startFreeTrial) {
+    await updateOrganization(org.id, {
+      freeTrialDate: new Date(),
+    });
+  }
+
   res.status(200).json({
     status: 200,
     session,
@@ -130,6 +150,36 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
   return res.status(200).json({
     status: 200,
     quote,
+  });
+}
+
+export async function getHasValidPaymentMethod(
+  req: AuthRequest,
+  res: Response
+) {
+  req.checkPermissions("manageBilling");
+
+  if (!IS_CLOUD) {
+    return res.status(200).json({
+      status: 200,
+      hasValidPaymentMethod: null,
+    });
+  }
+
+  const { org } = getOrgFromReq(req);
+
+  if (!org.stripeCustomerId) {
+    throw new Error("Missing customer id");
+  }
+
+  const paymentMethods = await stripe.paymentMethods.list({
+    customer: org.stripeCustomerId,
+    type: "card",
+  });
+
+  res.status(200).json({
+    status: 200,
+    hasValidPaymentMethod: paymentMethods.data.length > 0,
   });
 }
 

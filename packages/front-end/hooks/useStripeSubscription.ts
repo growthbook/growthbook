@@ -18,9 +18,13 @@ export default function useStripeSubscription() {
   const freeSeats = organization?.freeSeats || 3;
 
   const [quote, setQuote] = useState<SubscriptionQuote | null>(null);
+  const [hasValidPaymentMethod, setHasValidPaymentMethod] = useState<
+    boolean | null
+  >(null);
 
   const { apiCall } = useAuth();
   const permissions = usePermissions();
+
   useEffect(() => {
     if (!permissions.manageBilling) return;
     if (!isCloud()) return;
@@ -31,6 +35,19 @@ export default function useStripeSubscription() {
       })
       .catch((e) => console.error(e));
   }, [freeSeats, isCloud(), permissions.manageBilling]);
+
+  useEffect(() => {
+    if (!permissions.manageBilling) return;
+    if (!isCloud()) return;
+
+    apiCall<{ hasValidPaymentMethod: boolean | null }>(
+      "/subscription/valid-payment-method"
+    )
+      .then((data) => {
+        setHasValidPaymentMethod(data.hasValidPaymentMethod);
+      })
+      .catch((e) => console.error(e));
+  }, [isCloud(), permissions.manageBilling]);
 
   const activeAndInvitedUsers = quote?.activeAndInvitedUsers || 0;
 
@@ -74,6 +91,7 @@ export default function useStripeSubscription() {
     dateToBeCanceled,
     cancelationDate,
     subscriptionStatus,
+    hasValidPaymentMethod,
     pendingCancelation,
     activeAndInvitedUsers,
     hasActiveSubscription,

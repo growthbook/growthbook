@@ -64,6 +64,7 @@ const organizationSchema = new mongoose.Schema({
   priceId: String,
   freeSeats: Number,
   disableSelfServeBilling: Boolean,
+  freeTrialDate: Date,
   enterprise: Boolean,
   subscription: {
     id: String,

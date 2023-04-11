@@ -204,6 +204,7 @@ export interface OrganizationInterface {
   discountCode?: string;
   priceId?: string;
   disableSelfServeBilling?: boolean;
+  freeTrialDate?: Date;
   enterprise?: boolean;
   subscription?: {
     id: string;

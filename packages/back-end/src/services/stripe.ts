@@ -1,5 +1,5 @@
 import { Stripe } from "stripe";
-import { STRIPE_PRICE, STRIPE_SECRET } from "../util/secrets";
+import { STRIPE_SECRET } from "../util/secrets";
 import {
   updateOrganization,
   updateOrganizationByStripeId,
@@ -9,7 +9,7 @@ import { logger } from "../util/logger";
 import { isActiveSubscriptionStatus } from "../util/organization.util";
 
 export const stripe = new Stripe(STRIPE_SECRET || "", {
-  apiVersion: "2020-08-27",
+  apiVersion: "2022-11-15",
 });
 
 /**
@@ -121,26 +121,4 @@ export async function getStripeCustomerId(org: OrganizationInterface) {
   });
 
   return id;
-}
-
-export async function startFreeTrial(
-  org: OrganizationInterface,
-  options?: {
-    cancelAtPeriodEnd?: boolean;
-  }
-) {
-  const customerId = await getStripeCustomerId(org);
-
-  const subscription = await stripe.subscriptions.create({
-    customer: customerId,
-    items: [
-      {
-        price: org.priceId || STRIPE_PRICE,
-      },
-    ],
-    trial_period_days: 14,
-    cancel_at_period_end: !!options.cancelAtPeriodEnd,
-  });
-
-  await updateSubscriptionInDb(subscription);
 }
