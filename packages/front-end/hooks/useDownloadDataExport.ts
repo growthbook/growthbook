@@ -1,6 +1,5 @@
 import { useCallback, useState } from "react";
 import { DataExportFileResponse } from "back-end/types/data-exports";
-import { ApiErrorResponse } from "back-end/types/api";
 import { useAuth } from "@/services/auth";
 import { saveAs } from "@/services/files";
 
@@ -47,21 +46,11 @@ export const useDownloadDataExport = ({
     setIsDownloading(true);
 
     apiCall(url)
-      .then((response: DataExportFileResponse | ApiErrorResponse) => {
-        if (Object.prototype.hasOwnProperty.call(response, "data")) {
-          const successResponse = response as DataExportFileResponse;
-          saveAs({
-            textContent: successResponse.data,
-            fileName: successResponse.fileName,
-          });
-
-          setHasError(false);
-        } else {
-          const failedResponse = response as ApiErrorResponse;
-
-          setHasError(true);
-          console.error(failedResponse.message);
-        }
+      .then((response: DataExportFileResponse) => {
+        saveAs({
+          textContent: response.data,
+          fileName: response.fileName,
+        });
 
         setTimeout(() => {
           // Re-enable after some time to avoid spam
