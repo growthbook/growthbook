@@ -9,6 +9,7 @@ import { FaDownload } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
 import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LoadingSpinner from "../../LoadingSpinner";
 import { EventsTableRow } from "./EventsTableRow";
 
@@ -44,19 +45,23 @@ export const EventsPage: FC<EventsPageProps> = ({
           <h1>Events</h1>
         </div>
 
-        <div className="col-6 text-right ">
-          {shouldShowExportButton && (
-            <button
-              onClick={performDownload}
-              disabled={isDownloading}
-              className="btn btn-primary"
-            >
-              <span className="mr-1">
-                <FaDownload />
-              </span>{" "}
-              Export
-            </button>
-          )}
+        <div className="col-6 text-right">
+          <PremiumTooltip commercialFeature="audit-logging">
+            {shouldShowExportButton
+              ? ""
+              : "Exporting events is available to Enterprise customers"}
+          </PremiumTooltip>
+
+          <button
+            onClick={performDownload}
+            disabled={isDownloading || !shouldShowExportButton}
+            className="btn btn-primary ml-3"
+          >
+            <span className="mr-1">
+              <FaDownload />
+            </span>{" "}
+            Export
+          </button>
         </div>
       </div>
 
