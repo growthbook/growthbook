@@ -77,6 +77,7 @@ const organizationSchema = new mongoose.Schema({
     cancel_at_period_end: Boolean,
     planNickname: String,
     priceId: String,
+    hasPaymentMethod: Boolean,
   },
   licenseKey: String,
   connections: {

@@ -1,8 +1,9 @@
 import { Stripe } from "stripe";
 import { STRIPE_SECRET } from "../util/secrets";
 import {
+  findOrganizationByStripeCustomerId,
   updateOrganization,
-  updateOrganizationByStripeId,
+  updateOrganizationByStripeId
 } from "../models/OrganizationModel";
 import { OrganizationInterface } from "../../types/organization";
 import { logger } from "../util/logger";
@@ -34,6 +35,22 @@ export async function updateSubscriptionInDb(
       ? subscription.customer
       : subscription.customer.id;
 
+  const org = await findOrganizationByStripeCustomerId(stripeCustomerId);
+  if (!org) {
+    throw new Error("Organization not found");
+  }
+
+  // update the payment method via API call (webhook body doesn't always include the payment method)
+  let hasPaymentMethod = false;
+  await stripe.paymentMethods.list({
+    customer: org.stripeCustomerId,
+    type: "card",
+  }).then((paymentMethodsResponse) => {
+    hasPaymentMethod = paymentMethodsResponse.data.length > 0;
+  }).catch((e) => {
+    logger.error(e, "Failed to get payment methods from Stripe");
+  });
+
   const item = subscription.items?.data?.[0];
 
   await updateOrganizationByStripeId(stripeCustomerId, {
@@ -50,9 +67,19 @@ export async function updateSubscriptionInDb(
       cancel_at_period_end: subscription.cancel_at_period_end,
       planNickname: item?.plan?.nickname,
       priceId: item?.price?.id,
+      hasPaymentMethod: hasPaymentMethod,
     },
     priceId: item?.price?.id,
   });
+
+  // update free trial status
+  if (subscription.status === "trialing") {
+    if (org && !org.freeTrialDate) {
+      await updateOrganization(org.id, {
+        freeTrialDate: new Date(),
+      });
+    }
+  }
 }
 
 const priceData: {

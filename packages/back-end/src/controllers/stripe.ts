@@ -20,7 +20,6 @@ import {
 } from "../services/stripe";
 import { SubscriptionQuote } from "../../types/organization";
 import { isActiveSubscriptionStatus } from "../util/organization.util";
-import { updateOrganization } from "../models/OrganizationModel";
 
 export async function postNewSubscription(
   req: AuthRequest<{ qty: number; returnUrl: string }>,
@@ -98,12 +97,6 @@ export async function postNewSubscription(
 
   const session = await stripe.checkout.sessions.create(payload);
 
-  if (startFreeTrial) {
-    await updateOrganization(org.id, {
-      freeTrialDate: new Date(),
-    });
-  }
-
   res.status(200).json({
     status: 200,
     session,
@@ -150,36 +143,6 @@ export async function getSubscriptionQuote(req: AuthRequest, res: Response) {
   return res.status(200).json({
     status: 200,
     quote,
-  });
-}
-
-export async function getHasValidPaymentMethod(
-  req: AuthRequest,
-  res: Response
-) {
-  req.checkPermissions("manageBilling");
-
-  if (!IS_CLOUD) {
-    return res.status(200).json({
-      status: 200,
-      hasValidPaymentMethod: null,
-    });
-  }
-
-  const { org } = getOrgFromReq(req);
-
-  if (!org.stripeCustomerId) {
-    throw new Error("Missing customer id");
-  }
-
-  const paymentMethods = await stripe.paymentMethods.list({
-    customer: org.stripeCustomerId,
-    type: "card",
-  });
-
-  res.status(200).json({
-    status: 200,
-    hasValidPaymentMethod: paymentMethods.data.length > 0,
   });
 }
 

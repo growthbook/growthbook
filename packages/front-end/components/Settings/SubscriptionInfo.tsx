@@ -20,7 +20,7 @@ export default function SubscriptionInfo() {
     dateToBeCanceled,
     cancelationDate,
     subscriptionStatus,
-    hasValidPaymentMethod,
+    hasPaymentMethod,
     pendingCancelation,
     quote,
     loading,
@@ -69,7 +69,7 @@ export default function SubscriptionInfo() {
             <strong>Next Bill Date: </strong>
             {nextBillDate}
           </div>
-          {hasValidPaymentMethod === true ? (
+          {hasPaymentMethod === true ? (
             <div
               className="mt-3 px-3 py-2 alert alert-success row"
               style={{ maxWidth: 650 }}
@@ -82,7 +82,7 @@ export default function SubscriptionInfo() {
                 automatically on this date.
               </div>
             </div>
-          ) : hasValidPaymentMethod === false ? (
+          ) : hasPaymentMethod === false ? (
             <div
               className="mt-3 px-3 py-2 alert alert-warning row"
               style={{ maxWidth: 550 }}
