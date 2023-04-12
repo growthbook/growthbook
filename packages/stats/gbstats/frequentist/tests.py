@@ -161,38 +161,36 @@ class SequentialTwoSidedTTest(TTest):
         super().__init__(stat_a, stat_b, config, test_value)
         self.sequential_tuning_parameter = config.sequential_tuning_parameter
 
-    def boundary(self, rho, alpha):
-        """Boundary from eq. 14 in Howard et al., but using estimated variance"""
+    @property
+    def confidence_interval(self) -> List[float]:
+        # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
         N = self.stat_a.n + self.stat_b.n
+        rho = self.rho
         s2 = self.variance * N
-        v = s2 * N
-        sum_width: float = np.sqrt(
-            (v + rho) * np.log((v + rho) / (rho * np.power(alpha, 2)))
-        )  # boundary for summation process as dictated in eq. 14
-        width = sum_width / N  # boundary for mean
+
+        width: float = np.sqrt(s2) * np.sqrt(
+            (
+                (2 * (N * np.power(rho, 2) + 1))
+                * np.log(np.sqrt(N * np.power(rho, 2) + 1) / self.alpha)
+                / (np.power(N * rho, 2))
+            )
+        )
         return [self.point_estimate - width, self.point_estimate + width]
 
     @property
     def rho(self) -> float:
-        # Akin to https://github.com/gostevehoward/confseq/blob/29c07072322a1defd623f6a957177e0173d32914/src/confseq/uniform_boundaries.h#L418-L422
-        # using N as V
-        N = self.stat_a.n + self.stat_b.n
-        s2 = self.variance * N
-        return (self.sequential_tuning_parameter * 2 * s2) / (
-            2 * np.log(1 / self.alpha) + np.log(1 + 2 * np.log(1 / self.alpha))
+        # eq 161 in https://arxiv.org/pdf/2103.06476v7.pdf
+        return np.sqrt(
+            (-2 * np.log(self.alpha) + np.log(-2 * np.log(self.alpha) + 1))
+            / (self.sequential_tuning_parameter * 2)
         )
 
     @property
     def p_value(self) -> float:
-        """P-value that corresponds to Howard (14) (1 - alpha) CS calculated analytically."""
+        # eq 155 in https://arxiv.org/pdf/2103.06476v7.pdf
         N = self.stat_a.n + self.stat_b.n
-        x = np.abs(self.point_estimate - self.test_value) * N / np.sqrt(self.rho)
-        s2 = self.variance * N
-        tp1 = s2 * N / self.rho + 1
-        evalue = np.exp(np.square(x) / (2 * tp1)) / np.sqrt(tp1)
+        # slight reparameterization for this quantity below
+        st2 = np.power(self.point_estimate - self.test_value, 2) * N / (self.variance)
+        tr2p1 = N * np.power(self.rho, 2) + 1
+        evalue = np.exp(np.power(self.rho, 2) * st2 / (2 * tr2p1)) / np.sqrt(tr2p1)
         return min(1 / evalue, 1)
-
-    @property
-    def confidence_interval(self) -> List[float]:
-        """Akin to implementing eq. 14 in Howard et al., but using estimated variance"""
-        return self.boundary(self.rho, self.alpha)
