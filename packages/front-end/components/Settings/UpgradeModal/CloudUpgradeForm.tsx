@@ -67,6 +67,7 @@ export default function CloudUpgradeForm({
           discountMessage: quote?.discountMessage || "",
           subtotal: quote?.subtotal,
           total: quote?.total,
+          isFreeTrial: freeTrialAvailable,
         });
         await redirectWithTimeout(resp.session.url);
       } else {
