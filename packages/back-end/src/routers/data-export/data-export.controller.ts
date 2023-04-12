@@ -1,10 +1,11 @@
 import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { getLatestEventsForOrganization } from "../../models/EventModel";
 import { DataExportFileResponse } from "../../../types/data-exports";
+import { orgHasPremiumFeature } from "../../util/organization.util";
+import { PrivateApiErrorResponse } from "../../../types/api";
 
 /**
  * GET /data-export/events
@@ -15,13 +16,20 @@ import { DataExportFileResponse } from "../../../types/data-exports";
 export const getDataExportForEvents = async (
   req: AuthRequest,
   res: Response<
-    DataExportFileResponse | ApiErrorResponse,
+    DataExportFileResponse | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
   >
 ) => {
   req.checkPermissions("viewEvents");
 
   const { org } = getOrgFromReq(req);
+
+  if (!orgHasPremiumFeature(org, "audit-logging")) {
+    return res.status(403).json({
+      status: 403,
+      message: "Organization does not have premium feature: audit-logging",
+    });
+  }
 
   const events = await getLatestEventsForOrganization(org.id, 0);
 

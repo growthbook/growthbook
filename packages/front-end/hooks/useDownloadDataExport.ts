@@ -47,9 +47,10 @@ export const useDownloadDataExport = ({
 
     apiCall(url)
       .then((response: DataExportFileResponse) => {
-        saveAs({ textContent: response.data, fileName: response.fileName });
-
-        setHasError(false);
+        saveAs({
+          textContent: response.data,
+          fileName: response.fileName,
+        });
 
         setTimeout(() => {
           // Re-enable after some time to avoid spam
