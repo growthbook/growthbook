@@ -741,7 +741,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           key={i}
                         >
                           {i > 0 && <div className="col-auto">AND</div>}
-                          <div className="col-auto">
+                          <div className="col-auto mb-1">
                             {supportsSchemaBrowser && tableId ? (
                               <TypeaheadColumnInput
                                 placeholder={column}
@@ -766,7 +766,7 @@ const MetricForm: FC<MetricFormProps> = ({
                               />
                             )}
                           </div>
-                          <div className="col-auto">
+                          <div className="col-auto mb-1">
                             <SelectField
                               value={form.watch(`conditions.${i}.operator`)}
                               onChange={(v) =>
@@ -805,7 +805,7 @@ const MetricForm: FC<MetricFormProps> = ({
                               sort={false}
                             />
                           </div>
-                          <div className="col-auto">
+                          <div className="col-auto mb-1">
                             <Field
                               required
                               placeholder="Value"
@@ -816,7 +816,7 @@ const MetricForm: FC<MetricFormProps> = ({
                               {...form.register(`conditions.${i}.value`)}
                             />
                           </div>
-                          <div className="col-auto">
+                          <div className="col-auto mb-1">
                             <button
                               className="btn btn-danger"
                               type="button"
