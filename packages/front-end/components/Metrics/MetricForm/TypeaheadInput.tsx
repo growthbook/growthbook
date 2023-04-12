@@ -1,48 +1,30 @@
-import { InformationSchemaTablesInterface } from "@/../back-end/src/types/Integration";
 import { useRef, useState } from "react";
 import CreatableSelect from "react-select/creatable";
-import useApi from "@/hooks/useApi";
 
 type Props = {
-  datasourceId: string;
-  tableId: string;
   currentValue: string;
-  onChange: (e: string) => void;
+  onChange: (label: string, value?: string) => void;
   placeholder?: string;
   label?: string;
+  options: { label: string; value: string }[];
 };
 
-export default function TypeaheadColumnInput({
-  datasourceId,
-  tableId,
+export default function TypeaheadInput({
   currentValue,
   onChange,
   label,
   placeholder,
+  options,
 }: Props) {
   const [inputValue, setInputValue] = useState("");
-  const items: { label: string; value: string }[] = [];
 
   const inputRef = useRef(null);
-
-  const { data } = useApi<{
-    table: InformationSchemaTablesInterface;
-  }>(`/datasource/${datasourceId}/schema/table/${tableId}`);
-
-  if (data?.table?.columns.length) {
-    data.table.columns.forEach((column) => {
-      items.push({
-        label: column.columnName,
-        value: column.columnName,
-      });
-    });
-  }
 
   function currentOption(): { label: string; value: string } | undefined {
     if (!currentValue) return undefined;
 
     return (
-      items.find((item) => item.label === currentValue) || {
+      options.find((item) => item.label === currentValue) || {
         label: currentValue,
         value: "",
       }
@@ -58,7 +40,7 @@ export default function TypeaheadColumnInput({
         placeholder={placeholder}
         inputValue={inputValue}
         options={
-          items.map((t) => {
+          options.map((t) => {
             return {
               value: t.value,
               label: t.label,
@@ -67,27 +49,27 @@ export default function TypeaheadColumnInput({
         }
         onChange={(val: { label: string; value: string }) => {
           if (!val) {
-            onChange("");
+            onChange("", "");
           } else {
-            onChange(val.label);
+            onChange(val.label, val.value);
           }
         }}
         onBlur={() => {
           if (!inputValue) return;
-          const currentItem = items.find(
+          const currentItem = options.find(
             (item) => item.label === inputValue
           ) || {
             label: inputValue,
             value: "",
           };
-          onChange(currentItem.label);
+          onChange(currentItem.label, currentItem.value);
         }}
         onInputChange={(val) => {
           setInputValue(val);
         }}
         onKeyDown={(event) => {
           if (!inputValue) return;
-          const currentItem = items.find(
+          const currentItem = options.find(
             (item) => item.label === inputValue
           ) || {
             label: inputValue,
@@ -97,13 +79,13 @@ export default function TypeaheadColumnInput({
             case "Enter":
             case "Tab":
             case " ":
-              onChange(currentItem.label);
+              onChange(currentItem.label, currentItem.value);
               setInputValue("");
               inputRef.current.blur();
           }
         }}
         onCreateOption={(val) => {
-          onChange(val);
+          onChange(val, "");
         }}
         noOptionsMessage={() => null}
         isValidNewOption={() => false}

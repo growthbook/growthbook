@@ -11,6 +11,10 @@ import {
   FaExternalLinkAlt,
   FaTimes,
 } from "react-icons/fa";
+import {
+  InformationSchemaInterface,
+  InformationSchemaTablesInterface,
+} from "@/../back-end/src/types/Integration";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -38,8 +42,8 @@ import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
-import TypeaheadTableInput from "./TypeaheadTableInput";
-import TypeaheadColumnInput from "./TypeaheadColumnInput";
+import useApi from "@/hooks/useApi";
+import TypeaheadInput from "./TypeaheadInput";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -440,6 +444,37 @@ const MetricForm: FC<MetricFormProps> = ({
     }
   }, [type, form]);
 
+  const tableOptions: { label: string; value: string }[] = [];
+
+  const { data: TableData } = useApi<{
+    informationSchema: InformationSchemaInterface;
+  }>(`/datasource/${selectedDataSource.id}/schema`);
+
+  if (TableData?.informationSchema?.databases.length) {
+    TableData.informationSchema.databases.forEach((database) => {
+      database.schemas.forEach((schema) => {
+        schema.tables.forEach((table) => {
+          tableOptions.push({ label: table.tableName, value: table.id });
+        });
+      });
+    });
+  }
+
+  const columnOptions: { label: string; value: string }[] = [];
+
+  const { data: columnData } = useApi<{
+    table: InformationSchemaTablesInterface;
+  }>(`/datasource/${selectedDataSource.id}/schema/table/${tableId}`);
+
+  if (columnData?.table?.columns.length) {
+    columnData.table.columns.forEach((column) => {
+      columnOptions.push({
+        label: column.columnName,
+        value: column.columnName,
+      });
+    });
+  }
+
   return (
     <>
       {supportsSQL && sqlOpen && (
@@ -674,14 +709,14 @@ const MetricForm: FC<MetricFormProps> = ({
                 <>
                   <div className="form-group">
                     {supportsSchemaBrowser ? (
-                      <TypeaheadTableInput
+                      <TypeaheadInput
                         label={`${table} Name`}
-                        datasourceId={selectedDataSource.id}
                         currentValue={form.watch("table")}
                         onChange={(tableName, id) => {
                           form.setValue("table", tableName);
                           setTableId(id);
                         }}
+                        options={tableOptions}
                       />
                     ) : (
                       <Field
@@ -695,11 +730,10 @@ const MetricForm: FC<MetricFormProps> = ({
                   {value.type !== "binomial" && (
                     <div className="form-group ">
                       {supportsSchemaBrowser && tableId ? (
-                        <TypeaheadColumnInput
+                        <TypeaheadInput
                           placeholder={column}
                           label={supportsSQL ? "Column" : "Event Value"}
-                          datasourceId={selectedDataSource.id}
-                          tableId={tableId}
+                          options={columnOptions}
                           currentValue={form.watch("column")}
                           onChange={(columnName) =>
                             form.setValue("column", columnName)
@@ -743,10 +777,9 @@ const MetricForm: FC<MetricFormProps> = ({
                           {i > 0 && <div className="col-auto">AND</div>}
                           <div className="col-auto mb-1">
                             {supportsSchemaBrowser && tableId ? (
-                              <TypeaheadColumnInput
+                              <TypeaheadInput
                                 placeholder={column}
-                                datasourceId={selectedDataSource.id}
-                                tableId={tableId}
+                                options={columnOptions}
                                 currentValue={form.watch(
                                   `conditions.${i}.column`
                                 )}
@@ -850,10 +883,9 @@ const MetricForm: FC<MetricFormProps> = ({
                   {customzeTimestamp && (
                     <div className="form-group ">
                       {supportsSchemaBrowser && tableId ? (
-                        <TypeaheadColumnInput
+                        <TypeaheadInput
                           label="Timestamp Column"
-                          datasourceId={selectedDataSource.id}
-                          tableId={tableId}
+                          options={columnOptions}
                           currentValue={form.watch("timestampColumn")}
                           onChange={(columnName) =>
                             form.setValue("timestampColumn", columnName)
@@ -890,10 +922,9 @@ const MetricForm: FC<MetricFormProps> = ({
                       return (
                         <>
                           {supportsSchemaBrowser && tableId ? (
-                            <TypeaheadColumnInput
-                              datasourceId={selectedDataSource.id}
+                            <TypeaheadInput
                               label={type + " Column"}
-                              tableId={tableId}
+                              options={columnOptions}
                               currentValue={value.userIdColumns[type] || ""}
                               placeholder={type}
                               onChange={(columnName) => {
