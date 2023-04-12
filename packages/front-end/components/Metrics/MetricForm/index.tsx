@@ -38,8 +38,8 @@ import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
-import TableInput from "./TableInput";
-import ColumnInput from "./ColumnInput";
+import TypeaheadTableInput from "./TypeaheadTableInput";
+import TypeaheadColumnInput from "./TypeaheadColumnInput";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -674,7 +674,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 <>
                   <div className="form-group">
                     {supportsSchemaBrowser ? (
-                      <TableInput
+                      <TypeaheadTableInput
                         label={`${table} Name`}
                         datasourceId={selectedDataSource.id}
                         currentValue={form.watch("table")}
@@ -695,8 +695,9 @@ const MetricForm: FC<MetricFormProps> = ({
                   {value.type !== "binomial" && (
                     <div className="form-group ">
                       {supportsSchemaBrowser && tableId ? (
-                        <ColumnInput
+                        <TypeaheadColumnInput
                           placeholder={column}
+                          label={supportsSQL ? "Column" : "Event Value"}
                           datasourceId={selectedDataSource.id}
                           tableId={tableId}
                           currentValue={form.watch("column")}
@@ -742,7 +743,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           {i > 0 && <div className="col-auto">AND</div>}
                           <div className="col-auto">
                             {supportsSchemaBrowser && tableId ? (
-                              <ColumnInput
+                              <TypeaheadColumnInput
                                 placeholder={column}
                                 datasourceId={selectedDataSource.id}
                                 tableId={tableId}
@@ -849,7 +850,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   {customzeTimestamp && (
                     <div className="form-group ">
                       {supportsSchemaBrowser && tableId ? (
-                        <ColumnInput
+                        <TypeaheadColumnInput
                           label="Timestamp Column"
                           datasourceId={selectedDataSource.id}
                           tableId={tableId}
@@ -889,7 +890,7 @@ const MetricForm: FC<MetricFormProps> = ({
                       return (
                         <>
                           {supportsSchemaBrowser && tableId ? (
-                            <ColumnInput
+                            <TypeaheadColumnInput
                               datasourceId={selectedDataSource.id}
                               label={type + " Column"}
                               tableId={tableId}

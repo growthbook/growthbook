@@ -1,21 +1,24 @@
-import { InformationSchemaInterface } from "@/../back-end/src/types/Integration";
-import CreatableSelect from "react-select/creatable";
+import { InformationSchemaTablesInterface } from "@/../back-end/src/types/Integration";
 import { useRef, useState } from "react";
+import CreatableSelect from "react-select/creatable";
 import useApi from "@/hooks/useApi";
-import { ReactSelectProps } from "@/components/Forms/SelectField";
 
 type Props = {
   datasourceId: string;
+  tableId: string;
   currentValue: string;
-  onChange: (label: string, value: string) => void;
-  label: string;
+  onChange: (e: string) => void;
+  placeholder?: string;
+  label?: string;
 };
 
-export default function TableInput({
+export default function TypeaheadColumnInput({
   datasourceId,
+  tableId,
   currentValue,
   onChange,
   label,
+  placeholder,
 }: Props) {
   const [inputValue, setInputValue] = useState("");
   const items: { label: string; value: string }[] = [];
@@ -23,15 +26,14 @@ export default function TableInput({
   const inputRef = useRef(null);
 
   const { data } = useApi<{
-    informationSchema: InformationSchemaInterface;
-  }>(`/datasource/${datasourceId}/schema`);
+    table: InformationSchemaTablesInterface;
+  }>(`/datasource/${datasourceId}/schema/table/${tableId}`);
 
-  if (data?.informationSchema?.databases.length) {
-    data.informationSchema.databases.forEach((database) => {
-      database.schemas.forEach((schema) => {
-        schema.tables.forEach((table) => {
-          items.push({ label: table.tableName, value: table.id });
-        });
+  if (data?.table?.columns.length) {
+    data.table.columns.forEach((column) => {
+      items.push({
+        label: column.columnName,
+        value: column.columnName,
       });
     });
   }
@@ -49,10 +51,11 @@ export default function TableInput({
 
   return (
     <>
-      <label>{label}</label>
+      {label && <label>{label}</label>}
       <CreatableSelect
         ref={inputRef}
         isClearable
+        placeholder={placeholder}
         inputValue={inputValue}
         options={
           items.map((t) => {
@@ -64,9 +67,9 @@ export default function TableInput({
         }
         onChange={(val: { label: string; value: string }) => {
           if (!val) {
-            onChange("", "");
+            onChange("");
           } else {
-            onChange(val.label, val.value);
+            onChange(val.label);
           }
         }}
         onBlur={() => {
@@ -77,7 +80,7 @@ export default function TableInput({
             label: inputValue,
             value: "",
           };
-          onChange(currentItem.label, currentItem.value);
+          onChange(currentItem.label);
         }}
         onInputChange={(val) => {
           setInputValue(val);
@@ -94,19 +97,17 @@ export default function TableInput({
             case "Enter":
             case "Tab":
             case " ":
-              onChange(currentItem.label, currentItem.value);
+              onChange(currentItem.label);
               setInputValue("");
               inputRef.current.blur();
           }
         }}
         onCreateOption={(val) => {
-          onChange(val, "");
+          onChange(val);
         }}
         noOptionsMessage={() => null}
         isValidNewOption={() => false}
-        placeholder="Enter a table name"
         value={currentOption()}
-        {...ReactSelectProps}
       />
     </>
   );
