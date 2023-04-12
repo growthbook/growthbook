@@ -107,6 +107,7 @@ export default function TypeaheadTableInput({
         placeholder="Enter a table name"
         value={currentOption()}
         {...ReactSelectProps}
+        menuPosition={"fixed"}
       />
     </>
   );

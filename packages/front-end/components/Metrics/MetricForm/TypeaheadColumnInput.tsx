@@ -108,6 +108,7 @@ export default function TypeaheadColumnInput({
         noOptionsMessage={() => null}
         isValidNewOption={() => false}
         value={currentOption()}
+        menuPosition={"fixed"}
       />
     </>
   );
