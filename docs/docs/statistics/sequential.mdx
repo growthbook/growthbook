@@ -38,19 +38,17 @@ Sequential testing is one such estimator; it will let us check our results early
 
 There are many approaches to sequential testing, several of which are well explained and compared in [this Spotify blogpost](https://engineering.atspotify.com/2023/03/choosing-sequential-testing-framework-comparisons-and-discussions/).
 
-For GrowthBook, we selected a method that would work for the wide variety of experimenters that we serve, while also providing experimenters with a way to tune the approach for their setting. To that end, we implement the Generalized Anytime Valid Inference (GAVI) confidence sequences described by Spotify in the above post and introduced by [Howard et al. (2022)](https://arxiv.org/pdf/1810.08240.pdf).
+For GrowthBook, we selected a method that would work for the wide variety of experimenters that we serve, while also providing experimenters with a way to tune the approach for their setting. To that end, we implement Asymptotic Confidence Sequences introduced by [Waudby-Smith et al. (2023)](https://arxiv.org/pdf/2103.06476v7.pdf); these are very similar to the Generalized Anytime Valid Inference confidence sequences described by Spotify in the above post and introduced by [Howard et al. (2022)](https://arxiv.org/pdf/1810.08240.pdf), although the Waudby-Smith et al. approach more transparently applies to the situation where we are estimating causal experiment lift in a generalized experimentation platform.
 
 Specifically, our confidence sequences, which take the place of confidence intervals, become:
 
-$$[\hat{\mu} - B, \hat{\mu} + B]$$
+$$\left(\hat{\mu} \pm \hat{\sigma}^2*N * \sqrt{\frac{2(N\rho^2 + 1)}{N^2\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\right)$$
 
-$$B = \frac{1}{N}\sqrt{\left((\hat{\sigma}^2*N + \rho) * \text{ln}\left(\frac{(\hat{\sigma}^2*N + \rho)}{\rho + \alpha^2}\right) \right)}$$
-
-$$\rho = \frac{2 * S * \hat{\sigma}^2*N}{2 * \text{ln}(\alpha^{-1}) + \text{ln}\left(1 + 2 * \text{ln}(\alpha^{-1})\right)}$$
+$$\rho = \sqrt{\frac{-2\text{log}(\alpha) + \text{log}(-2 \text{log}(\alpha) + 1)}{N^*}}$$
 
 In the above, $\hat{\mu}$ is our estimated uplift, $\hat{\sigma}^2$ is the estimated variance of the uplift, $\alpha$ is our significance level (defaults to 0.05), and $N$ is the sum of the two variation's sample sizes.
 
-In the above $S$ is essentially a tuning parameter that lets us control how tight these confidence sequences are relative to the standard, fixed-time confidence intervals. It can be thought of as an "estimated sample size." You want to set $S$ to be the number of observations at which you tend to make decisions, because it is at that sample size that the loss in experiment power from using sequential testing will be smallest relative to the traditional confidence intervals.
+In the above $N^*$ is a tuning parameter that lets us control how tight these confidence sequences are relative to the standard, fixed-time confidence intervals. It can be thought of as an "estimated sample size." You want to set $N^*$ to be the number of observations at which you tend to make decisions, because it is at that sample size that the loss in experiment power from using sequential testing will be smallest relative to the traditional confidence intervals.
 
 The following figure shows how the increased CI width in sequential analysis is minimized when the sample size is approximately $S$. The y-axis is the ratio of the sequential CIs to the regular CIs; all lines are well above 1.0, showing that sequential analysis results in uniformly wider confidence intervals. On the x-axis is the sample size at which the analysis was executed. As you can see, the ratio is lowest when S is as close to sample size used in the analysis.
 
