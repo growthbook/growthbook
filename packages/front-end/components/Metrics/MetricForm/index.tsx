@@ -673,7 +673,7 @@ const MetricForm: FC<MetricFormProps> = ({
                       <TableInput
                         label={`${table} Name`}
                         datasourceId={selectedDataSource.id}
-                        value={form.watch("table")}
+                        currentValue={form.watch("table")}
                         onChange={(tableName, id) => {
                           form.setValue("table", tableName);
                           setTableId(id);
@@ -695,7 +695,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           placeholder={column}
                           datasourceId={selectedDataSource.id}
                           tableId={tableId}
-                          value={form.watch("column")}
+                          currentValue={form.watch("column")}
                           onChange={(columnName) =>
                             form.setValue("column", columnName)
                           }
@@ -742,7 +742,9 @@ const MetricForm: FC<MetricFormProps> = ({
                                 placeholder={column}
                                 datasourceId={selectedDataSource.id}
                                 tableId={tableId}
-                                value={form.watch(`conditions.${i}.column`)}
+                                currentValue={form.watch(
+                                  `conditions.${i}.column`
+                                )}
                                 onChange={(columnName) =>
                                   form.setValue(
                                     `conditions.${i}.column`,
@@ -847,7 +849,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           label="Timestamp Column"
                           datasourceId={selectedDataSource.id}
                           tableId={tableId}
-                          value={form.watch("timestampColumn")}
+                          currentValue={form.watch("timestampColumn")}
                           onChange={(columnName) =>
                             form.setValue("timestampColumn", columnName)
                           }
@@ -887,7 +889,7 @@ const MetricForm: FC<MetricFormProps> = ({
                               datasourceId={selectedDataSource.id}
                               label={type + " Column"}
                               tableId={tableId}
-                              value={value.userIdColumns[type] || ""}
+                              currentValue={value.userIdColumns[type] || ""}
                               placeholder={type}
                               onChange={(columnName) => {
                                 form.setValue("userIdColumns", {
