@@ -100,12 +100,13 @@ export default function ColumnInput({
               onChange(currentItem.label);
               setInputValue("");
               inputRef.current.blur();
-              event.preventDefault();
           }
         }}
         onCreateOption={(val) => {
           onChange(val);
         }}
+        noOptionsMessage={() => null}
+        isValidNewOption={() => false}
         value={currentOption()}
       />
     </>

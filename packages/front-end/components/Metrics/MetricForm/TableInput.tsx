@@ -2,6 +2,7 @@ import { InformationSchemaInterface } from "@/../back-end/src/types/Integration"
 import CreatableSelect from "react-select/creatable";
 import { useRef, useState } from "react";
 import useApi from "@/hooks/useApi";
+import { ReactSelectProps } from "@/components/Forms/SelectField";
 
 type Props = {
   datasourceId: string;
@@ -21,7 +22,6 @@ export default function TableInput({
 
   const inputRef = useRef(null);
 
-  //TODO: Can I change this so instead of using the hook, I just call it and wrap it with useMemo?
   const { data } = useApi<{
     informationSchema: InformationSchemaInterface;
   }>(`/datasource/${datasourceId}/schema`);
@@ -54,7 +54,6 @@ export default function TableInput({
         ref={inputRef}
         isClearable
         inputValue={inputValue}
-        placeholder="Enter a table name"
         options={
           items.map((t) => {
             return {
@@ -98,13 +97,16 @@ export default function TableInput({
               onChange(currentItem.label, currentItem.value);
               setInputValue("");
               inputRef.current.blur();
-              event.preventDefault();
           }
         }}
         onCreateOption={(val) => {
           onChange(val, "");
         }}
+        noOptionsMessage={() => null}
+        isValidNewOption={() => false}
+        placeholder="Enter a table name"
         value={currentOption()}
+        {...ReactSelectProps}
       />
     </>
   );

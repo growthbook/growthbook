@@ -114,7 +114,11 @@ function getRawSQLPreview({
     }
   });
 
-  cols.push((timestampColumn || "received_at") + " as timestamp");
+  if (timestampColumn !== "timestamp") {
+    cols.push((timestampColumn || "received_at") + " as timestamp");
+  } else {
+    cols.push(timestampColumn);
+  }
   if (type !== "binomial") {
     cols.push((column || "1") + " as value");
   }
