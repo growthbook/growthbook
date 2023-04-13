@@ -31,15 +31,13 @@ import {
   inNamespace,
   inRange,
   isURLTargeted,
+  decrypt,
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
-
-const base64ToBuf = (b: string) =>
-  Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
 
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -168,43 +166,14 @@ export class GrowthBook<
     decryptionKey?: string,
     subtle?: SubtleCrypto
   ): Promise<void> {
-    const features = await this._decrypt<Record<string, FeatureDefinition>>(
+    const featuresJSON = await decrypt(
       encryptedString,
-      decryptionKey,
+      decryptionKey || this._ctx.decryptionKey,
       subtle
     );
-    this.setFeatures(features);
-  }
-
-  private async _decrypt<T>(
-    encryptedString: string,
-    decryptionKey?: string,
-    subtle?: SubtleCrypto
-  ): Promise<T> {
-    decryptionKey = decryptionKey || this._ctx.decryptionKey || "";
-    subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
-    if (!subtle) {
-      throw new Error("No SubtleCrypto implementation found");
-    }
-    try {
-      const key = await subtle.importKey(
-        "raw",
-        base64ToBuf(decryptionKey),
-        { name: "AES-CBC", length: 128 },
-        true,
-        ["encrypt", "decrypt"]
-      );
-      const [iv, cipherText] = encryptedString.split(".");
-      const plainTextBuffer = await subtle.decrypt(
-        { name: "AES-CBC", iv: base64ToBuf(iv) },
-        key,
-        base64ToBuf(cipherText)
-      );
-
-      return JSON.parse(new TextDecoder().decode(plainTextBuffer)) as T;
-    } catch (e) {
-      throw new Error("Failed to decrypt");
-    }
+    this.setFeatures(
+      JSON.parse(featuresJSON) as Record<string, FeatureDefinition>
+    );
   }
 
   public setExperiments(experiments: AutoExperiment[]): void {
@@ -218,12 +187,12 @@ export class GrowthBook<
     decryptionKey?: string,
     subtle?: SubtleCrypto
   ): Promise<void> {
-    const experiments = await this._decrypt<AutoExperiment[]>(
+    const experimentsJSON = await decrypt(
       encryptedString,
-      decryptionKey,
+      decryptionKey || this._ctx.decryptionKey,
       subtle
     );
-    this.setExperiments(experiments);
+    this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
   }
 
   public setAttributes(attributes: Attributes) {
