@@ -1,12 +1,18 @@
+import { get } from "lodash";
 import { DataSourceInterface } from "../../types/datasource";
-import { ExperimentInterface } from "../../types/experiment";
+import { ExperimentInterface, AttributionModel } from "../../types/experiment";
 import { MetricInterface } from "../../types/metric";
 import {
-  OrganizationInterface,
   OrganizationSettings,
+  NorthStarMetric,
+  MetricDefaults,
+  ExperimentUpdateSchedule,
+  MemberRoleInfo,
 } from "../../types/organization";
+import { StatsEngine } from "../../types/stats";
 import { ProjectInterface } from "../../types/project";
 import { ReportInterface } from "../../types/report";
+import { DEFAULT_METRIC_ANALYSIS_DAYS } from "./experiments";
 
 interface SettingMetadata {
   reason?: string;
@@ -18,7 +24,7 @@ interface Setting<T> {
 }
 
 interface SettingsContext {
-  baseSettings: Partial<ScopedSettings>;
+  baseSettings: ScopedSettings;
   scopes?: ScopeDefinition;
 }
 
@@ -39,15 +45,32 @@ type ScopeSettingsFn = (
   scopeSettings: ScopeSettingsFn;
 };
 
-type ScopedSettings = Record<
-  keyof OrganizationSettings,
-  Setting<OrganizationSettings[keyof OrganizationSettings]>
->;
+interface Settings {
+  confidenceLevel: number;
+  northStar: NorthStarMetric | null;
+  metricDefaults: MetricDefaults;
+  pastExperimentsMinLength: number;
+  metricAnalysisDays: number;
+  updateSchedule: ExperimentUpdateSchedule | null;
+  sdkInstructionsViewed: boolean;
+  videoInstructionsViewed: boolean;
+  multipleExposureMinPercent: number;
+  defaultRole: MemberRoleInfo;
+  statsEngine: StatsEngine;
+  pValueThreshold: number;
+  regressionAdjustmentEnabled: boolean;
+  regressionAdjustmentDays: number;
+  attributionModel: AttributionModel;
+}
 
-interface UseOrgSettingsReturn {
+type ScopedSettings = Record<keyof Settings, Setting<Settings[keyof Settings]>>;
+
+interface UseSettingsReturn {
   settings: ScopedSettings;
   scopeSettings: ScopeSettingsFn;
 }
+
+type InputSettings = OrganizationSettings | Settings;
 
 const scopeOrder: Array<keyof ScopeDefinition> = [
   "project",
@@ -58,18 +81,23 @@ const scopeOrder: Array<keyof ScopeDefinition> = [
 ];
 
 const genDefaultResolver = (
-  fieldName: keyof OrganizationSettings,
+  baseFieldName: keyof Settings,
   scopesToApply:
-    | Partial<Record<keyof ScopeDefinition, boolean>>
+    | Partial<Record<keyof ScopeDefinition, boolean | string>>
     | undefined = {}
-): SettingsResolver<OrganizationSettings[keyof OrganizationSettings]> => {
-  const filteredScopes = scopeOrder.filter((s) => scopesToApply[s]);
+): SettingsResolver<Settings[keyof Settings]> => {
+  const filteredScopes = scopeOrder
+    .filter((s) => scopesToApply[s])
+    .map((s) => ({
+      scope: s,
+      fieldName:
+        typeof scopesToApply[s] === "string" ? scopesToApply[s] : baseFieldName,
+    }));
   return (ctx) => {
-    const orgSetting = ctx.baseSettings[fieldName]?.value;
+    const baseSetting = ctx.baseSettings[baseFieldName]?.value;
     return filteredScopes.reduce(
-      (acc, scope) => {
-        // @ts-expect-error we know that scopes may or may not have fieldnames defined
-        const scopedValue = ctx.scopes?.[scope]?.[fieldName];
+      (acc, { scope, fieldName }) => {
+        const scopedValue = get(ctx.scopes, `${scope}.${fieldName}`);
         if (!scopedValue) return acc;
         return {
           value: scopedValue,
@@ -79,7 +107,7 @@ const genDefaultResolver = (
         };
       },
       {
-        value: orgSetting,
+        value: baseSetting,
         meta: {
           reason: "org-level setting applied",
         },
@@ -89,8 +117,8 @@ const genDefaultResolver = (
 };
 
 export const resolvers: Record<
-  keyof OrganizationSettings,
-  SettingsResolver<OrganizationSettings[keyof OrganizationSettings]>
+  keyof Settings,
+  SettingsResolver<Settings[keyof Settings]>
 > = {
   confidenceLevel: genDefaultResolver("confidenceLevel", {
     project: true,
@@ -102,7 +130,8 @@ export const resolvers: Record<
     project: true,
   }),
   metricDefaults: genDefaultResolver("metricDefaults", {
-    project: true,
+    // Example use of string to override the field name
+    project: "metricDefaults",
     experiment: true,
     metric: true,
     report: true,
@@ -142,7 +171,7 @@ export const resolvers: Record<
     // TODO implement killswitch logic
     return (
       ctx.baseSettings.regressionAdjustmentEnabled || {
-        value: "",
+        value: null,
         meta: {
           reason: "no setting found",
         },
@@ -160,22 +189,10 @@ export const resolvers: Record<
     experiment: true,
     report: true,
   }),
-  // deprecated - to remove
-  visualEditorEnabled: genDefaultResolver("visualEditorEnabled"),
-  customized: genDefaultResolver("customized"),
-  logoPath: genDefaultResolver("logoPath"),
-  primaryColor: genDefaultResolver("primaryColor"),
-  secondaryColor: genDefaultResolver("secondaryColor"),
-  namespaces: genDefaultResolver("namespaces"), // move to top-level of org interface
-  datasources: genDefaultResolver("datasources"),
-  techsources: genDefaultResolver("techsources"),
-  attributeSchema: genDefaultResolver("attributeSchema"), // move to top-level of org interface
-  environments: genDefaultResolver("environments"), // move to top-level of org interface
-  implementationTypes: genDefaultResolver("implementationTypes"),
 };
 
 const scopeSettings = (
-  baseSettings: Partial<ScopedSettings>,
+  baseSettings: ScopedSettings,
   scopes?: ScopeDefinition
 ): {
   settings: ScopedSettings;
@@ -189,7 +206,7 @@ const scopeSettings = (
   // iterate over resolvers and apply them to the base settings
   const settings = Object.entries(resolvers).reduce(
     (acc, [fieldName, resolver]) => {
-      acc[fieldName as keyof ScopedSettings] = resolver(ctx);
+      acc[fieldName as keyof Settings] = resolver(ctx);
       return acc;
     },
     {} as ScopedSettings
@@ -201,26 +218,57 @@ const scopeSettings = (
   };
 };
 
-// transform org settings into Setting objects
-const normalizeOrgSettings = (
-  orgSettings: OrganizationSettings
-): Partial<ScopedSettings> => {
-  const settings: ScopedSettings = {} as ScopedSettings;
-  for (const [key, value] of Object.entries(orgSettings)) {
-    settings[key as keyof OrganizationSettings] = {
-      value,
+// Default values for Settings
+const genBaseSettingsObject = (): Settings => ({
+  confidenceLevel: 0.95,
+  attributionModel: "firstExposure",
+  defaultRole: {
+    environments: [],
+    limitAccessByEnvironment: false,
+    role: "collaborator",
+  },
+  metricAnalysisDays: DEFAULT_METRIC_ANALYSIS_DAYS,
+  metricDefaults: {
+    maxPercentageChange: 0.5,
+    minPercentageChange: 0.005,
+    minimumSampleSize: 150,
+  },
+  multipleExposureMinPercent: 0.01,
+  northStar: null,
+  pastExperimentsMinLength: 6,
+  pValueThreshold: 0.05,
+  regressionAdjustmentDays: 14,
+  regressionAdjustmentEnabled: false,
+  sdkInstructionsViewed: false,
+  statsEngine: "bayesian",
+  updateSchedule: null,
+  videoInstructionsViewed: false,
+});
+
+const normalizeInputSettings = (
+  inputSettings: InputSettings
+): ScopedSettings => {
+  const scopedSettings: ScopedSettings = {} as ScopedSettings;
+  const baseSettings = genBaseSettingsObject();
+
+  for (const key in baseSettings) {
+    scopedSettings[key as keyof Settings] = {
+      value:
+        inputSettings[key as keyof Settings] ??
+        baseSettings[key as keyof Settings],
       meta: {
         reason: "org-level setting applied",
       },
     };
   }
-  return settings;
+
+  return scopedSettings;
 };
 
-export const useOrgSettings = (
-  org: OrganizationInterface,
+export const useSettings = (
+  baseSettings: InputSettings,
   scopes?: ScopeDefinition
-): UseOrgSettingsReturn => {
-  const settings = org.settings ? normalizeOrgSettings(org.settings) : {};
+): UseSettingsReturn => {
+  const settings = normalizeInputSettings(baseSettings);
   return scopeSettings(settings, scopes);
 };
