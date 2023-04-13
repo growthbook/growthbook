@@ -166,8 +166,8 @@ export default abstract class SqlIntegration
   }
   replaceDateDimensionString(minDateDimString: string): string {
     return `REGEXP_REPLACE(${minDateDimString}, ${this.castToString(
-      ".*____"
-    )}, ${this.castToString("")})`;
+      "'.*____'"
+    )}, ${this.castToString("''")})`;
   }
 
   applyMetricOverrides(
@@ -670,9 +670,11 @@ export default abstract class SqlIntegration
         `MIN(
           CONCAT(
             CONCAT(${this.castDateToStandardString("e.timestamp")}, 
-            ${this.castToString("____")}
+            ${this.castToString("'____'")}
             ), 
-            coalesce(${this.castToString("e.dimension")},'${missingDimString}')
+            coalesce(${this.castToString("e.dimension")}, ${this.castToString(
+          `'${missingDimString}'`
+        )})
           )
         )`
       );
