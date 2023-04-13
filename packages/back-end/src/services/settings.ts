@@ -65,7 +65,7 @@ interface Settings {
 
 type ScopedSettings = Record<keyof Settings, Setting<Settings[keyof Settings]>>;
 
-interface UseSettingsReturn {
+interface UseScopedSettingsReturn {
   settings: ScopedSettings;
   scopeSettings: ScopeSettingsFn;
 }
@@ -265,10 +265,10 @@ const normalizeInputSettings = (
   return scopedSettings;
 };
 
-export const useSettings = (
+export const useScopedSettings = (
   baseSettings: InputSettings,
   scopes?: ScopeDefinition
-): UseSettingsReturn => {
+): UseScopedSettingsReturn => {
   const settings = normalizeInputSettings(baseSettings);
   return scopeSettings(settings, scopes);
 };

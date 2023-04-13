@@ -1,4 +1,4 @@
-import { useSettings } from "../../src/services/settings";
+import { useScopedSettings } from "../../src/services/settings";
 import {
   OrganizationInterface,
   OrganizationSettings,
@@ -29,12 +29,14 @@ const genOrgWithSettings = (settings: Partial<OrganizationSettings>) => ({
 });
 
 describe("settings", () => {
-  describe("useSettings fn", () => {
+  describe("useScopedSettings fn", () => {
     it("returns org settings if no scopes are applied", () => {
       const settings = { pValueThreshold: 0.001 };
       const organization = genOrgWithSettings(settings);
 
-      const { settings: newSettings } = useSettings(organization.settings);
+      const { settings: newSettings } = useScopedSettings(
+        organization.settings
+      );
 
       expect(newSettings.pValueThreshold.value).toEqual(
         settings.pValueThreshold
@@ -50,9 +52,12 @@ describe("settings", () => {
         pValueThreshold: 0.06,
       };
 
-      const { settings: newSettings } = useSettings(organization.settings, {
-        project: projectWithPValueOverride,
-      });
+      const { settings: newSettings } = useScopedSettings(
+        organization.settings,
+        {
+          project: projectWithPValueOverride,
+        }
+      );
 
       expect(newSettings.pValueThreshold.value).toEqual(
         projectWithPValueOverride.pValueThreshold
