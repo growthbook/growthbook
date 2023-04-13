@@ -149,3 +149,27 @@ export const putVisualChangeValidator = {
   querySchema: z.never(),
   paramsSchema: z.object({"id":z.string(),"visualChangeId":z.string()}).strict(),
 };
+
+export const listSavedGroupsValidator = {
+  bodySchema: z.never(),
+  querySchema: z.object({"limit":z.coerce.number().int().default(10),"offset":z.coerce.number().int().optional()}).strict(),
+  paramsSchema: z.never(),
+};
+
+export const postSavedGroupValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
+export const getSavedGroupValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const postSavedGroupValidator = {
+  bodySchema: z.object({}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};

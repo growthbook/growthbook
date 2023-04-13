@@ -1,0 +1,30 @@
+type: object
+required:
+  - id
+  - dateCreated
+  - dateUpdated
+  - groupName
+  - attributeKey
+  - organization
+  - values
+properties:
+  id:
+    type: string
+  dateCreated:
+    type: string
+    format: date-time
+  dateUpdated:
+    type: string
+    format: date-time
+  groupName:
+    type: string
+  owner:
+    type: string
+  attributeKey:
+    type: string
+  organization:
+    type: string
+  values:
+    type: array
+    items:
+      type: string

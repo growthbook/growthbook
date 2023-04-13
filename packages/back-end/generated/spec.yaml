@@ -81,6 +81,9 @@ tags:
   - name: visual-changesets
     x-displayName: Visual Changesets
     description: Groups of visual changes made by the visual editor to a single page
+  - name: saved-groups
+    x-displayName: Saved Groups
+    description: Defined sets of attribute values which can be used with feature rules for targeting features at particular users.
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -129,6 +132,9 @@ tags:
   - name: Project_model
     x-displayName: Project
     description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
+  - name: SavedGroup_model
+    x-displayName: SavedGroup
+    description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
   - name: SdkConnection_model
     x-displayName: SdkConnection
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
@@ -1001,6 +1007,122 @@ paths:
                 properties:
                   nModified:
                     type: number
+  /saved-groups:
+    get:
+      summary: Get all saved group
+      tags:
+        - saved-groups
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      operationId: listSavedGroups
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/saved-groups \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - savedGroups
+                    properties:
+                      savedGroups:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SavedGroup'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - saved-groups
+      summary: Create a single saved group
+      operationId: postSavedGroup
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/saved-groups \
+              -d '{}' # TODO: Example JSON
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: []
+              properties: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - savedGroup
+                properties:
+                  savedGroup:
+                    $ref: '#/components/schemas/SavedGroup'
+  '/saved-groups/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - saved-groups
+      summary: Get a single saved group
+      operationId: getSavedGroup
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/saved-groups/ds_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - savedGroup
+                properties:
+                  savedGroup:
+                    $ref: '#/components/schemas/SavedGroup'
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - saved-groups
+      summary: Update a single saved group
+      operationId: postSavedGroup
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/saved-groups \
+              -d '{}' # TODO: Example JSON
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: []
+              properties: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - savedGroup
+                properties:
+                  savedGroup:
+                    $ref: '#/components/schemas/SavedGroup'
 components:
   parameters:
     id:
@@ -2162,6 +2284,37 @@ components:
                 type: string
               value:
                 type: string
+    SavedGroup:
+      type: object
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - groupName
+        - attributeKey
+        - organization
+        - values
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        groupName:
+          type: string
+        owner:
+          type: string
+        attributeKey:
+          type: string
+        organization:
+          type: string
+        values:
+          type: array
+          items:
+            type: string
   securitySchemes:
     bearerAuth:
       type: http
@@ -2207,6 +2360,7 @@ x-tagGroups:
       - segments
       - sdk-connections
       - visual-changesets
+      - saved-groups
   - name: Models
     tags:
       - DataSource_model
@@ -2225,6 +2379,7 @@ x-tagGroups:
       - Metric_model
       - PaginationFields_model
       - Project_model
+      - SavedGroup_model
       - SdkConnection_model
       - Segment_model
       - VisualChange_model

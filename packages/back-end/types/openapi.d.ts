@@ -171,6 +171,18 @@ export interface paths {
       };
     };
   };
+  "/saved-groups": {
+    /** Get all saved group */
+    get: operations["listSavedGroups"];
+    /** Create a single saved group */
+    post: operations["postSavedGroup"];
+  };
+  "/saved-groups/{id}": {
+    /** Get a single saved group */
+    get: operations["getSavedGroup"];
+    /** Update a single saved group */
+    put: operations["postSavedGroup"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -854,6 +866,18 @@ export interface components {
           attribute: string;
           value?: string;
         })[];
+    };
+    SavedGroup: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      groupName: string;
+      owner?: string;
+      attributeKey: string;
+      organization: string;
+      values: (string)[];
     };
   };
   responses: {
@@ -2455,6 +2479,107 @@ export interface operations {
       };
     };
   };
+  listSavedGroups: {
+    /** Get all saved group */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            savedGroups: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                groupName: string;
+                owner?: string;
+                attributeKey: string;
+                organization: string;
+                values: (string)[];
+              })[];
+          } & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  postSavedGroup: {
+    /** Update a single saved group */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": any;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            savedGroup: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              groupName: string;
+              owner?: string;
+              attributeKey: string;
+              organization: string;
+              values: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  getSavedGroup: {
+    /** Get a single saved group */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            savedGroup: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              groupName: string;
+              owner?: string;
+              attributeKey: string;
+              organization: string;
+              values: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
 }
 
 // Schemas
@@ -2478,6 +2603,7 @@ export type ApiExperimentResults = components["schemas"]["ExperimentResults"];
 export type ApiDataSource = components["schemas"]["DataSource"];
 export type ApiVisualChangeset = components["schemas"]["VisualChangeset"];
 export type ApiVisualChange = components["schemas"]["VisualChange"];
+export type ApiSavedGroup = components["schemas"]["SavedGroup"];
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -2504,3 +2630,7 @@ export type GetVisualChangesetResponse = operations["getVisualChangeset"]["respo
 export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PostVisualChangeResponse = operations["postVisualChange"]["responses"]["200"]["content"]["application/json"];
 export type PutVisualChangeResponse = operations["putVisualChange"]["responses"]["200"]["content"]["application/json"];
+export type ListSavedGroupsResponse = operations["listSavedGroups"]["responses"]["200"]["content"]["application/json"];
+export type PostSavedGroupResponse = operations["postSavedGroup"]["responses"]["200"]["content"]["application/json"];
+export type GetSavedGroupResponse = operations["getSavedGroup"]["responses"]["200"]["content"]["application/json"];
+export type PostSavedGroupResponse = operations["postSavedGroup"]["responses"]["200"]["content"]["application/json"];

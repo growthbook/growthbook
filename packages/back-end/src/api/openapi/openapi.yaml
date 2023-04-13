@@ -81,6 +81,9 @@ tags:
   - name: visual-changesets
     x-displayName: Visual Changesets
     description: Groups of visual changes made by the visual editor to a single page
+  - name: saved-groups
+    x-displayName: Saved Groups
+    description: Defined sets of attribute values which can be used with feature rules for targeting features at particular users.
 paths:
   /features:
     $ref: "./paths/listFeatures.yaml"
@@ -133,6 +136,16 @@ paths:
     $ref: "./paths/postVisualChange.yaml"
   /visual-changesets/{id}/visual-change/{visualChangeId}:
     $ref: "./paths/putVisualChange.yaml"
+  /saved-groups:
+    get:
+      $ref: "./paths/listSavedGroups.yaml"
+    post:
+      $ref: "./paths/postSavedGroup.yaml"
+  /saved-groups/{id}:
+    get:
+      $ref: "./paths/getSavedGroup.yaml"
+    put:
+      $ref: "./paths/putSavedGroup.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:
