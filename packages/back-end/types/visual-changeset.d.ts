@@ -3,6 +3,8 @@ interface DOMMutation {
   action: "append" | "set" | "remove";
   attribute: string;
   value: string;
+  parentSelector?: string;
+  insertBeforeSelector?: string;
 }
 
 interface VisualChange {
