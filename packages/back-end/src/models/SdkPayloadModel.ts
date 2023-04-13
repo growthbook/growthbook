@@ -1,12 +1,13 @@
 import mongoose from "mongoose";
 import { FeatureDefinition } from "../../types/api";
 import {
+  SDKExperiment,
   SDKPayloadContents,
   SDKPayloadInterface,
   SDKStringifiedPayloadInterface,
 } from "../../types/sdk-payload";
 
-// Increment this if we change the shape of the payload contents
+// Increment this if we change the payload contents in a backwards-incompatible way
 export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;
 
 const sdkPayloadSchema = new mongoose.Schema({
@@ -34,7 +35,7 @@ function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
     const contents = JSON.parse(doc.contents);
 
     // TODO: better validation here to make sure contents are the correct type?
-    if (!contents.features) return null;
+    if (!contents.features && !contents.experiments) return null;
 
     return {
       ...doc,
@@ -53,7 +54,7 @@ export async function getSDKPayload({
   organization: string;
   project: string;
   environment: string;
-}) {
+}): Promise<SDKPayloadInterface | null> {
   const doc = await SDKPayloadModel.findOne({
     organization,
     project,
@@ -68,14 +69,17 @@ export async function updateSDKPayload({
   project,
   environment,
   featureDefinitions,
+  experimentsDefinitions,
 }: {
   organization: string;
   project: string;
   environment: string;
   featureDefinitions: Record<string, FeatureDefinition>;
+  experimentsDefinitions: SDKExperiment[];
 }) {
   const contents: SDKPayloadContents = {
     features: featureDefinitions,
+    experiments: experimentsDefinitions,
   };
 
   await SDKPayloadModel.updateOne(

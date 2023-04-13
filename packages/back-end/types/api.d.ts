@@ -1,3 +1,4 @@
+import { EventAuditUser } from "../src/events/event-types";
 import { AuditInterface } from "./audit";
 import { ExperimentStatus } from "./experiment";
 import { OrganizationInterface } from "./organization";
@@ -45,9 +46,18 @@ export interface ErrorResponse {
 export interface ApiRequestLocals {
   apiKey: string;
   organization: OrganizationInterface;
+  eventAudit: EventAuditUser;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
 }
 
 export interface ApiErrorResponse {
+  message: string;
+}
+
+/**
+ * In the private API, there is a convention to add `status: number` to all response types.
+ */
+export interface PrivateApiErrorResponse {
+  status: number;
   message: string;
 }

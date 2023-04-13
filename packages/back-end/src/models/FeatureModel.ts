@@ -21,12 +21,13 @@ import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
-} from "../events/base-events";
+} from "../events/notification-events";
 import { EventNotifier } from "../events/notifiers/EventNotifier";
 import {
   getAffectedSDKPayloadKeys,
   getSDKPayloadKeysByDiff,
 } from "../util/features";
+import { EventAuditUser } from "../events/event-types";
 import { saveRevision } from "./FeatureRevisionModel";
 import { createEvent } from "./EventModel";
 
@@ -116,33 +117,37 @@ export async function getFeature(
 
 export async function createFeature(
   org: OrganizationInterface,
+  user: EventAuditUser,
   data: FeatureInterface
 ) {
   const feature = await FeatureModel.create(data);
   await saveRevision(toInterface(feature));
-  onFeatureCreate(org, feature);
+  onFeatureCreate(org, user, feature);
 }
 
 export async function deleteFeature(
   org: OrganizationInterface,
+  user: EventAuditUser,
   feature: FeatureInterface
 ) {
   await FeatureModel.deleteOne({ organization: org.id, id: feature.id });
-  onFeatureDelete(org, feature);
+  onFeatureDelete(org, user, feature);
 }
 
 /**
  * Given the common {@link FeatureInterface} for both previous and next states, and the organization,
  * will log an update event in the events collection
  * @param organization
+ * @param user
  * @param previous
  * @param current
  */
 async function logFeatureUpdatedEvent(
   organization: OrganizationInterface,
+  user: EventAuditUser,
   previous: FeatureInterface,
   current: FeatureInterface
-): Promise<string> {
+): Promise<string | undefined> {
   const savedGroupMap = await getSavedGroupMap(organization);
 
   const payload: FeatureUpdatedNotificationEvent = {
@@ -152,65 +157,76 @@ async function logFeatureUpdatedEvent(
       current: getApiFeatureObj(current, organization, savedGroupMap),
       previous: getApiFeatureObj(previous, organization, savedGroupMap),
     },
+    user,
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent.id).perform();
-
-  return emittedEvent.id;
+  if (emittedEvent) {
+    new EventNotifier(emittedEvent.id).perform();
+    return emittedEvent.id;
+  }
 }
 
 /**
  * @param organization
+ * @param user
  * @param feature
  * @returns event.id
  */
 async function logFeatureCreatedEvent(
   organization: OrganizationInterface,
+  user: EventAuditUser,
   feature: FeatureInterface
-): Promise<string> {
+): Promise<string | undefined> {
   const savedGroupMap = await getSavedGroupMap(organization);
 
   const payload: FeatureCreatedNotificationEvent = {
     object: "feature",
     event: "feature.created",
+    user,
     data: {
       current: getApiFeatureObj(feature, organization, savedGroupMap),
     },
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent.id).perform();
-
-  return emittedEvent.id;
+  if (emittedEvent) {
+    new EventNotifier(emittedEvent.id).perform();
+    return emittedEvent.id;
+  }
 }
 
 /**
  * @param organization
+ * @param user
  * @param previousFeature
  */
 async function logFeatureDeletedEvent(
   organization: OrganizationInterface,
+  user: EventAuditUser,
   previousFeature: FeatureInterface
-): Promise<string> {
+): Promise<string | undefined> {
   const savedGroupMap = await getSavedGroupMap(organization);
 
   const payload: FeatureDeletedNotificationEvent = {
     object: "feature",
     event: "feature.deleted",
+    user,
     data: {
       previous: getApiFeatureObj(previousFeature, organization, savedGroupMap),
     },
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent.id).perform();
-
-  return emittedEvent.id;
+  if (emittedEvent) {
+    new EventNotifier(emittedEvent.id).perform();
+    return emittedEvent.id;
+  }
 }
 
 async function onFeatureCreate(
   organization: OrganizationInterface,
+  user: EventAuditUser,
   feature: FeatureInterface
 ) {
   await refreshSDKPayloadCache(
@@ -218,11 +234,12 @@ async function onFeatureCreate(
     getAffectedSDKPayloadKeys([feature])
   );
 
-  await logFeatureCreatedEvent(organization, feature);
+  await logFeatureCreatedEvent(organization, user, feature);
 }
 
 async function onFeatureDelete(
   organization: OrganizationInterface,
+  user: EventAuditUser,
   feature: FeatureInterface
 ) {
   await refreshSDKPayloadCache(
@@ -230,11 +247,12 @@ async function onFeatureDelete(
     getAffectedSDKPayloadKeys([feature])
   );
 
-  await logFeatureDeletedEvent(organization, feature);
+  await logFeatureDeletedEvent(organization, user, feature);
 }
 
 export async function onFeatureUpdate(
   organization: OrganizationInterface,
+  user: EventAuditUser,
   feature: FeatureInterface,
   updatedFeature: FeatureInterface
 ) {
@@ -244,11 +262,12 @@ export async function onFeatureUpdate(
   );
 
   // New event-based webhooks
-  await logFeatureUpdatedEvent(organization, feature, updatedFeature);
+  await logFeatureUpdatedEvent(organization, user, feature, updatedFeature);
 }
 
 export async function updateFeature(
   org: OrganizationInterface,
+  user: EventAuditUser,
   feature: FeatureInterface,
   updates: Partial<FeatureInterface>
 ): Promise<FeatureInterface> {
@@ -270,7 +289,7 @@ export async function updateFeature(
     dateUpdated,
   };
 
-  onFeatureUpdate(org, feature, updatedFeature);
+  onFeatureUpdate(org, user, feature, updatedFeature);
 
   return updatedFeature;
 }
@@ -287,10 +306,11 @@ export async function getScheduledFeaturesToUpdate() {
 
 export async function archiveFeature(
   org: OrganizationInterface,
+  user: EventAuditUser,
   feature: FeatureInterface,
   isArchived: boolean
 ) {
-  return await updateFeature(org, feature, { archived: isArchived });
+  return await updateFeature(org, user, feature, { archived: isArchived });
 }
 
 function setEnvironmentSettings(
@@ -314,6 +334,7 @@ function setEnvironmentSettings(
 
 export async function toggleMultipleEnvironments(
   organization: OrganizationInterface,
+  user: EventAuditUser,
   feature: FeatureInterface,
   toggles: Record<string, boolean>
 ) {
@@ -332,7 +353,7 @@ export async function toggleMultipleEnvironments(
 
   // If there are changes we need to apply
   if (hasChanges) {
-    const updatedFeature = await updateFeature(organization, feature, {
+    const updatedFeature = await updateFeature(organization, user, feature, {
       environmentSettings: featureCopy.environmentSettings,
     });
     return updatedFeature;
@@ -343,11 +364,12 @@ export async function toggleMultipleEnvironments(
 
 export async function toggleFeatureEnvironment(
   organization: OrganizationInterface,
+  user: EventAuditUser,
   feature: FeatureInterface,
   environment: string,
   state: boolean
 ) {
-  return await toggleMultipleEnvironments(organization, feature, {
+  return await toggleMultipleEnvironments(organization, user, feature, {
     [environment]: state,
   });
 }
@@ -362,6 +384,7 @@ export function getDraftRules(feature: FeatureInterface, environment: string) {
 
 export async function addFeatureRule(
   org: OrganizationInterface,
+  user: EventAuditUser,
   feature: FeatureInterface,
   environment: string,
   rule: FeatureRule
@@ -370,7 +393,7 @@ export async function addFeatureRule(
     rule.id = generateRuleId();
   }
 
-  await setFeatureDraftRules(org, feature, environment, [
+  await setFeatureDraftRules(org, user, feature, environment, [
     ...getDraftRules(feature, environment),
     rule,
   ]);
@@ -378,6 +401,7 @@ export async function addFeatureRule(
 
 export async function editFeatureRule(
   org: OrganizationInterface,
+  user: EventAuditUser,
   feature: FeatureInterface,
   environment: string,
   i: number,
@@ -393,11 +417,12 @@ export async function editFeatureRule(
     ...updates,
   } as FeatureRule;
 
-  await setFeatureDraftRules(org, feature, environment, rules);
+  await setFeatureDraftRules(org, user, feature, environment, rules);
 }
 
 export async function setFeatureDraftRules(
   org: OrganizationInterface,
+  user: EventAuditUser,
   feature: FeatureInterface,
   environment: string,
   rules: FeatureRule[]
@@ -406,11 +431,12 @@ export async function setFeatureDraftRules(
   draft.rules = draft.rules || {};
   draft.rules[environment] = rules;
 
-  await updateDraft(org, feature, draft);
+  await updateDraft(org, user, feature, draft);
 }
 
 export async function removeTagInFeature(
   organization: OrganizationInterface,
+  user: EventAuditUser,
   tag: string
 ) {
   const query = { organization: organization.id, tags: tag };
@@ -428,13 +454,14 @@ export async function removeTagInFeature(
       tags: (feature.tags || []).filter((t) => t !== tag),
     };
 
-    onFeatureUpdate(organization, feature, updatedFeature);
+    onFeatureUpdate(organization, user, feature, updatedFeature);
   });
 }
 
 export async function removeProjectFromFeatures(
   project: string,
-  organization: OrganizationInterface
+  organization: OrganizationInterface,
+  user: EventAuditUser
 ) {
   const query = { organization: organization.id, project };
 
@@ -449,27 +476,29 @@ export async function removeProjectFromFeatures(
       project: "",
     };
 
-    onFeatureUpdate(organization, feature, updatedFeature);
+    onFeatureUpdate(organization, user, feature, updatedFeature);
   });
 }
 
 export async function setDefaultValue(
   org: OrganizationInterface,
+  user: EventAuditUser,
   feature: FeatureInterface,
   defaultValue: string
 ) {
   const draft = getDraft(feature);
   draft.defaultValue = defaultValue;
 
-  return updateDraft(org, feature, draft);
+  return updateDraft(org, user, feature, draft);
 }
 
 export async function updateDraft(
   org: OrganizationInterface,
+  user: EventAuditUser,
   feature: FeatureInterface,
   draft: FeatureDraftChanges
 ) {
-  return await updateFeature(org, feature, { draft });
+  return await updateFeature(org, user, feature, { draft });
 }
 
 function getDraft(feature: FeatureInterface) {
@@ -488,13 +517,14 @@ function getDraft(feature: FeatureInterface) {
 
 export async function discardDraft(
   org: OrganizationInterface,
+  user: EventAuditUser,
   feature: FeatureInterface
 ) {
   if (!feature.draft?.active) {
     throw new Error("There are no draft changes to discard.");
   }
 
-  await updateFeature(org, feature, {
+  await updateFeature(org, user, feature, {
     draft: {
       active: false,
     },
@@ -547,7 +577,12 @@ export async function publishDraft(
     date: new Date(),
     publishedBy: user,
   };
-  const updatedFeature = await updateFeature(organization, feature, changes);
+  const updatedFeature = await updateFeature(
+    organization,
+    { ...user, type: "dashboard" },
+    feature,
+    changes
+  );
 
   await saveRevision(updatedFeature);
   return updatedFeature;

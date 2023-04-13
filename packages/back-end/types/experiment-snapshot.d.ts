@@ -2,6 +2,7 @@ import { QueryLanguage } from "./datasource";
 import { MetricStats } from "./metric";
 import { StatsEngine } from "./stats";
 import { Queries } from "./query";
+import { MetricRegressionAdjustmentStatus } from "./report";
 
 export interface SnapshotMetric {
   value: number;
@@ -59,4 +60,6 @@ export interface ExperimentSnapshotInterface {
   activationMetric?: string;
   skipPartialData?: boolean;
   statsEngine?: StatsEngine;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
 }

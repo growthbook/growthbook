@@ -7,6 +7,7 @@ from unittest import TestCase, main as unittest_main
 import numpy as np
 
 from gbstats.shared.models import (
+    compute_theta,
     SampleMeanStatistic,
     ProportionStatistic,
     RatioStatistic,
@@ -126,6 +127,42 @@ class TestRegressionAdjustedStatistic(TestCase):
         )
         self.assertEqual(ra_stat.variance, 0)
 
+
+
+class TestComputeTheta(TestCase):
+    def test_returns_0_no_variance(self):
+        pre_stat_a = SampleMeanStatistic(
+            sum=np.sum(METRIC_1), sum_squares=np.sum(np.power(METRIC_1, 2)), n=N
+        )
+        post_stat_a = SampleMeanStatistic(
+            sum=np.sum(METRIC_3), sum_squares=np.sum(np.power(METRIC_3, 2)), n=N
+        )
+        pre_stat_b = SampleMeanStatistic(
+            sum=np.sum(METRIC_1), sum_squares=np.sum(np.power(METRIC_1, 2)), n=N
+        )
+        post_stat_b = SampleMeanStatistic(
+            sum=np.sum(METRIC_3), sum_squares=np.sum(np.power(METRIC_3, 2)), n=N
+        )
+        ra_stat_a = RegressionAdjustedStatistic(
+            post_statistic=post_stat_a,
+            pre_statistic=pre_stat_a,
+            n=N,
+            post_pre_sum_of_products=np.sum(METRIC_1 * METRIC_3),
+            theta=999
+        )
+        ra_stat_b = RegressionAdjustedStatistic(
+            post_statistic=post_stat_b,
+            pre_statistic=pre_stat_b,
+            n=N,
+            post_pre_sum_of_products=np.sum(METRIC_1 * METRIC_3),
+            theta=999
+        )
+        self.assertEqual(round(compute_theta(ra_stat_a, ra_stat_b), 5), 0.01864)
+        ra_stat_a.pre_statistic.sum = 0
+        ra_stat_a.pre_statistic.sum_squares = 0
+        ra_stat_b.pre_statistic.sum = 0
+        ra_stat_b.pre_statistic.sum_squares = 0
+        self.assertEqual(compute_theta(ra_stat_a, ra_stat_b), 0)
 
 if __name__ == "__main__":
     unittest_main()

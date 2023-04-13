@@ -87,6 +87,9 @@ def get_metric_df(
             prefix = f"v{i}" if i > 0 else "baseline"
             for col in SUM_COLS:
                 dimensions[dim][f"{prefix}_{col}"] = getattr(row, col, 0)
+            # Special handling for count, if missing returnes a method, so override with user value
+            if callable(getattr(row, "count")):
+                dimensions[dim][f"{prefix}_count"] = getattr(row, "users", 0)
 
     return pd.DataFrame(dimensions.values())
 
@@ -165,12 +168,19 @@ def analyze_metric_df(df, weights, inverse=False, engine=StatsEngine.BAYESIAN):
                 stat_a, RegressionAdjustedStatistic
             ):
                 theta = compute_theta(stat_a, stat_b)
-                stat_a.theta = theta
-                stat_b.theta = theta
+                if theta == 0:
+                    # revert to non-RA under the hood if no variance in a time period
+                    stat_a = stat_a.post_statistic
+                    stat_b = stat_b.post_statistic
+                else:
+                    stat_a.theta = theta
+                    stat_b.theta = theta
 
             s[f"v{i}_cr"] = stat_b.unadjusted_mean
             s[f"v{i}_expected"] = (
-                (stat_b.mean / stat_a.mean) - 1 if stat_a.mean > 0 else 0
+                (stat_b.mean - stat_a.mean) / stat_a.unadjusted_mean
+                if stat_a.unadjusted_mean > 0
+                else 0
             )
             s[f"v{i}_mean"] = stat_b.unadjusted_mean
             s[f"v{i}_stddev"] = stat_b.stddev

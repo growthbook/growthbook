@@ -17,7 +17,6 @@ import {
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
-  logExperimentCreated,
   createExperiment,
   getSampleExperiment,
 } from "../models/ExperimentModel";
@@ -38,8 +37,15 @@ import {
   getMetricsByDatasource,
   getSampleMetrics,
 } from "../models/MetricModel";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
 
-export async function postSampleData(req: AuthRequest, res: Response) {
+export async function postSampleData(
+  req: AuthRequest,
+  res: Response<
+    { status: 200; experiment: string },
+    EventAuditUserForResponseLocals
+  >
+) {
   req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
 
@@ -167,8 +173,11 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
       ],
     };
 
-    const createdExperiment = await createExperiment(experiment, org);
-    await logExperimentCreated(org, createdExperiment);
+    await createExperiment({
+      data: experiment,
+      organization: org,
+      user: res.locals.eventAudit,
+    });
 
     await createManualSnapshot(
       experiment,

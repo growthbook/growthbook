@@ -1,7 +1,8 @@
 import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
+import { PrivateApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
+import { EventAuditUserForResponseLocals } from '../../events/event-types';
 
 // region GET /{{kebabCase resource}}
 
@@ -23,7 +24,10 @@ type Get{{pascalCase resource}}sResponse = {
  */
 export const get{{pascalCase resource}}s = async (
   req: Get{{pascalCase resource}}sRequest,
-  res: Response<Get{{pascalCase resource}}sResponse | ApiErrorResponse>
+  res: Response<
+    Get{{pascalCase resource}}sResponse | PrivateApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) => {
   req.checkPermissions("some permission");
 
@@ -54,7 +58,10 @@ type Get{{pascalCase resource}}Response = {
  */
 export const get{{pascalCase resource}} = async (
   req: Get{{pascalCase resource}}Request,
-  res: Response<Get{{pascalCase resource}}Response | ApiErrorResponse>
+  res: Response<
+    Get{{pascalCase resource}}Response | PrivateApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) => {
   req.checkPermissions("some permission");
 
@@ -85,7 +92,10 @@ type Create{{pascalCase resource}}Response = {
  */
 export const post{{pascalCase resource}} = async (
   req: Create{{pascalCase resource}}Request,
-  res: Response<Create{{pascalCase resource}}Response | ApiErrorResponse>
+  res: Response<
+    Create{{pascalCase resource}}Response | PrivateApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) => {
   req.checkPermissions("some permission");
 
@@ -117,7 +127,10 @@ type Put{{pascalCase resource}}Response = {
  */
 export const put{{pascalCase resource}} = async (
   req: Put{{pascalCase resource}}Request,
-  res: Response<Put{{pascalCase resource}}Response | ApiErrorResponse>
+  res: Response<
+    Put{{pascalCase resource}}Response | PrivateApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) => {
   req.checkPermissions("some permission");
 
@@ -147,7 +160,10 @@ type Delete{{pascalCase resource}}Response = Record<string, never>;
  */
 export const delete{{pascalCase resource}} = async (
   req: Delete{{pascalCase resource}}Request,
-  res: Response<Delete{{pascalCase resource}}Response | ApiErrorResponse>
+  res: Response<
+    Delete{{pascalCase resource}}Response | PrivateApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
 ) => {
   req.checkPermissions("some permission");
 

@@ -20,6 +20,10 @@ import {
   SSOConnectionIdCookie,
 } from "../../util/cookie";
 import { getPermissionsByRole } from "../../util/organization.util";
+import {
+  EventAuditUserForResponseLocals,
+  EventAuditUserLoggedIn,
+} from "../../events/event-types";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
@@ -61,7 +65,7 @@ function getInitialDataFromJWT(user: IdToken): JWTInfo {
 export async function processJWT(
   // eslint-disable-next-line
   req: AuthRequest & { user: IdToken },
-  res: Response,
+  res: Response<unknown, EventAuditUserForResponseLocals>,
   next: NextFunction
 ) {
   const { email, name, verified } = getInitialDataFromJWT(req.user);
@@ -185,13 +189,21 @@ export async function processJWT(
       }
     }
 
+    const eventAudit: EventAuditUserLoggedIn = {
+      type: "dashboard",
+      id: user.id,
+      email: user.email,
+      name: user.name || "",
+    };
+    res.locals.eventAudit = eventAudit;
+
     req.audit = async (data: Partial<AuditInterface>) => {
       await insertAudit({
         ...data,
         user: {
           id: user.id,
           email: user.email,
-          name: user.name,
+          name: user.name || "",
         },
         organization: req.organization?.id,
         dateCreated: new Date(),

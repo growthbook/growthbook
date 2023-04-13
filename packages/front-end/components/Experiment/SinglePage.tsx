@@ -1,23 +1,35 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useState } from "react";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import {
   FaArrowDown,
+  FaExclamationTriangle,
   FaExternalLinkAlt,
   FaLink,
-  FaPalette,
   FaQuestionCircle,
 } from "react-icons/fa";
+import { MdRocketLaunch } from "react-icons/md";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
+import uniq from "lodash/uniq";
+import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import { getDefaultConversionWindowHours } from "@/services/env";
-import { applyMetricOverrides } from "@/services/experiments";
+import {
+  applyMetricOverrides,
+  getRegressionAdjustmentsForMetric,
+} from "@/services/experiments";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { AppFeatures } from "@/types/app-features";
+import track from "@/services/track";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -32,6 +44,8 @@ import Modal from "../Modal";
 import HistoryTable from "../HistoryTable";
 import Code from "../SyntaxHighlighting/Code";
 import Tooltip from "../Tooltip/Tooltip";
+import Button from "../Button";
+import PremiumTooltip from "../Marketing/PremiumTooltip";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import ResultsIndicator from "./ResultsIndicator";
 import EditStatusModal from "./EditStatusModal";
@@ -39,31 +53,33 @@ import EditExperimentNameForm from "./EditExperimentNameForm";
 import { useSnapshot } from "./SnapshotProvider";
 import ExperimentReportsList from "./ExperimentReportsList";
 import AnalysisForm from "./AnalysisForm";
-import VariationBox from "./VariationBox";
 import Results from "./Results";
 import StatusIndicator from "./StatusIndicator";
 import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
-
-function getColWidth(v: number) {
-  // 2 across
-  if (v <= 2) return 6;
-
-  // 3 across
-  if (v === 3 || v === 6 || v === 9) return 4;
-
-  // 4 across
-  return 3;
-}
+import VariationsTable from "./VariationsTable";
+import VisualChangesetModal from "./VisualChangesetModal";
 
 function drawMetricRow(
   m: string,
   metric: MetricInterface,
-  experiment: ExperimentInterfaceStringDates
+  experiment: ExperimentInterfaceStringDates,
+  ignoreConversionEnd: boolean
 ) {
   const { newMetric, overrideFields } = applyMetricOverrides(
     metric,
     experiment.metricOverrides
   );
+  if (!newMetric) return null;
+
+  const conversionStart = newMetric.conversionDelayHours || 0;
+  const conversionEnd =
+    (newMetric.conversionDelayHours || 0) +
+    (newMetric.conversionWindowHours || getDefaultConversionWindowHours());
+
+  const hasOverrides =
+    overrideFields.includes("conversionDelayHours") ||
+    (!ignoreConversionEnd && overrideFields.includes("conversionWindowHours"));
+
   return (
     <div className="row align-items-top" key={m}>
       <div className="col-sm-5">
@@ -79,13 +95,10 @@ function drawMetricRow(
       <div className="col-sm-5 ml-2">
         {newMetric && (
           <div className="small">
-            {newMetric.conversionDelayHours || 0} to{" "}
-            {(newMetric.conversionDelayHours || 0) +
-              (newMetric.conversionWindowHours ||
-                getDefaultConversionWindowHours())}{" "}
+            {conversionStart}{" "}
+            {ignoreConversionEnd ? "" : "to " + conversionEnd + " "}
             hours{" "}
-            {(overrideFields.includes("conversionDelayHours") ||
-              overrideFields.includes("conversionWindowHours")) && (
+            {hasOverrides && (
               <span className="font-italic text-purple">(override)</span>
             )}
           </div>
@@ -94,7 +107,10 @@ function drawMetricRow(
       <div className="col-sm-1">
         <div className="small">
           {overrideFields.includes("winRisk") ||
-          overrideFields.includes("loseRisk") ? (
+          overrideFields.includes("loseRisk") ||
+          overrideFields.includes("regressionAdjustmentOverride") ||
+          overrideFields.includes("regressionAdjustmentEnabled") ||
+          overrideFields.includes("regressionAdjustmentDays") ? (
             <span className="font-italic text-purple">override</span>
           ) : (
             <span className="text-muted">default</span>
@@ -108,6 +124,7 @@ function drawMetricRow(
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   idea?: IdeaInterface;
+  visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
   editMetrics?: () => void;
   editResult?: () => void;
@@ -123,6 +140,7 @@ export interface Props {
 export default function SinglePage({
   experiment,
   idea,
+  visualChangesets,
   mutate,
   editMetrics,
   editResult,
@@ -152,6 +170,9 @@ export default function SinglePage({
   const [auditModal, setAuditModal] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
+  const [visualEditorModal, setVisualEditorModal] = useState(false);
+
+  const growthbook = useGrowthBook<AppFeatures>();
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
@@ -159,7 +180,10 @@ export default function SinglePage({
   const watcherIds = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
-  const { users } = useUser();
+  const settings = useOrgSettings();
+  const { users, hasCommercialFeature } = useUser();
+
+  const { data: sdkConnectionsData } = useSDKConnections();
 
   const project = getProjectById(experiment.project || "");
   const datasource = getDatasourceById(experiment.datasource);
@@ -171,17 +195,117 @@ export default function SinglePage({
     (q) => q.id === experiment.exposureQueryId
   );
 
+  const statsEngine = settings.statsEngine || "bayesian";
+
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
+
+  const allExperimentMetricIds = uniq([
+    ...experiment.metrics,
+    ...(experiment.guardrails ?? []),
+  ]);
+  const allExperimentMetrics = allExperimentMetricIds.map((m) =>
+    getMetricById(m)
+  );
+  const denominatorMetricIds = uniq(
+    allExperimentMetrics.map((m) => m?.denominator).filter((m) => m)
+  );
+  const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
+
+  const [
+    regressionAdjustmentAvailable,
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses,
+  ] = useMemo(() => {
+    const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
+    let regressionAdjustmentAvailable = true;
+    let regressionAdjustmentEnabled = false;
+    for (const metric of allExperimentMetrics) {
+      if (!metric) continue;
+      const {
+        metricRegressionAdjustmentStatus,
+      } = getRegressionAdjustmentsForMetric({
+        metric: metric,
+        denominatorMetrics: denominatorMetrics,
+        experimentRegressionAdjustmentEnabled: !!experiment.regressionAdjustmentEnabled,
+        organizationSettings: settings,
+        metricOverrides: experiment.metricOverrides,
+      });
+      if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
+        regressionAdjustmentEnabled = true;
+      }
+      metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
+    }
+    if (!experiment.regressionAdjustmentEnabled) {
+      regressionAdjustmentEnabled = false;
+    }
+    if (!settings.statsEngine || settings.statsEngine === "bayesian") {
+      regressionAdjustmentAvailable = false;
+      regressionAdjustmentEnabled = false;
+    }
+    if (
+      !datasource?.type ||
+      datasource?.type === "google_analytics" ||
+      datasource?.type === "mixpanel"
+    ) {
+      // these do not implement getExperimentMetricQuery
+      regressionAdjustmentAvailable = false;
+      regressionAdjustmentEnabled = false;
+    }
+    if (!hasRegressionAdjustmentFeature) {
+      regressionAdjustmentEnabled = false;
+    }
+    return [
+      regressionAdjustmentAvailable,
+      regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses,
+    ];
+  }, [
+    allExperimentMetrics,
+    denominatorMetrics,
+    settings,
+    experiment.regressionAdjustmentEnabled,
+    experiment.metricOverrides,
+    datasource?.type,
+    hasRegressionAdjustmentFeature,
+  ]);
+
+  const onRegressionAdjustmentChange = async (enabled: boolean) => {
+    await apiCall(`/experiment/${experiment.id}/`, {
+      method: "POST",
+      body: JSON.stringify({
+        regressionAdjustmentEnabled: !!enabled,
+      }),
+    });
+    mutate();
+  };
+
   const hasPermission = permissions.check("createAnalyses", experiment.project);
+
+  const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
 
   const canEdit = hasPermission && !experiment.archived;
 
-  const variationCols = getColWidth(experiment.variations.length);
+  const ignoreConversionEnd =
+    experiment.attributionModel === "experimentDuration";
 
   // Get name or email of all active users watching this experiment
   const usersWatching = (watcherIds?.data?.userIds || [])
     .map((id) => users.get(id))
     .filter(Boolean)
     .map((u) => u.name || u.email);
+
+  const hasSDKWithVisualExperimentsEnabled = sdkConnectionsData?.connections.some(
+    (connection) => connection.includeVisualExperiments
+  );
+
+  // See if at least one visual change has been made with the editor
+  const hasSomeVisualChanges = visualChangesets?.some((vc) =>
+    vc.visualChanges.some(
+      (changes) => changes.css || changes.domMutations?.length > 0
+    )
+  );
 
   return (
     <div className="container-fluid experiment-details pagecontents">
@@ -241,6 +365,14 @@ export default function SinglePage({
             ))}
           </ul>
         </Modal>
+      )}
+      {visualEditorModal && (
+        <VisualChangesetModal
+          mode="add"
+          experiment={experiment}
+          mutate={mutate}
+          close={() => setVisualEditorModal(false)}
+        />
       )}
       {statusModal && (
         <EditStatusModal
@@ -468,60 +600,52 @@ export default function SinglePage({
       )}
       <div className="row mb-4">
         <div className="col-md-8">
-          <div className="appbox p-3 h-100">
-            <MarkdownInlineEdit
-              value={experiment.description}
-              save={async (description) => {
-                await apiCall(`/experiment/${experiment.id}`, {
-                  method: "POST",
-                  body: JSON.stringify({ description }),
-                });
-                mutate();
-              }}
-              canCreate={canEdit}
-              canEdit={canEdit}
-              className="mb-4"
-              header="Description"
-            />
-            <MarkdownInlineEdit
-              value={experiment.hypothesis}
-              save={async (hypothesis) => {
-                await apiCall(`/experiment/${experiment.id}`, {
-                  method: "POST",
-                  body: JSON.stringify({ hypothesis }),
-                });
-                mutate();
-              }}
-              canCreate={canEdit}
-              canEdit={canEdit}
-              className="mb-4"
-              label="hypothesis"
-              header="Hypothesis"
-            />
-            <HeaderWithEdit edit={editVariations}>Variations</HeaderWithEdit>
-            {experiment.implementation === "visual" && (
-              <div className="alert alert-info">
-                <FaPalette /> This is a <strong>Visual Experiment</strong>.{" "}
-                {experiment.status === "draft" && canEdit && (
-                  <Link href={`/experiments/designer/${experiment.id}`}>
-                    <a className="d-none d-md-inline">Open the Editor</a>
-                  </Link>
-                )}
-              </div>
-            )}
-            <div className="row">
-              {experiment.variations.map((v, i) => (
-                <div key={i} className={`col-md-${variationCols} mb-2`}>
-                  <VariationBox
-                    canEdit={canEdit}
-                    experimentId={experiment.id}
-                    i={i}
-                    mutate={mutate}
-                    v={v}
-                  />
-                </div>
-              ))}
+          <div className="appbox h-100">
+            <div className="p-3">
+              <MarkdownInlineEdit
+                value={experiment.description}
+                save={async (description) => {
+                  await apiCall(`/experiment/${experiment.id}`, {
+                    method: "POST",
+                    body: JSON.stringify({ description }),
+                  });
+                  mutate();
+                }}
+                canCreate={canEdit}
+                canEdit={canEdit}
+                className="mb-4"
+                header="Description"
+              />
+              <MarkdownInlineEdit
+                value={experiment.hypothesis}
+                save={async (hypothesis) => {
+                  await apiCall(`/experiment/${experiment.id}`, {
+                    method: "POST",
+                    body: JSON.stringify({ hypothesis }),
+                  });
+                  mutate();
+                }}
+                canCreate={canEdit}
+                canEdit={canEdit}
+                className="mb-4"
+                label="hypothesis"
+                header="Hypothesis"
+              />{" "}
             </div>
+            <div className="px-3">
+              <HeaderWithEdit edit={editVariations}>
+                <>
+                  Variations <small>({experiment.variations.length})</small>
+                </>
+              </HeaderWithEdit>
+            </div>
+            <VariationsTable
+              experiment={experiment}
+              visualChangesets={visualChangesets}
+              mutate={mutate}
+              canEdit={canEdit}
+              setVisualEditorModal={setVisualEditorModal}
+            />
           </div>
         </div>
         <div className="col-md-4">
@@ -594,8 +718,8 @@ export default function SinglePage({
               <RightRailSectionGroup title="Attribution Model" type="custom">
                 <AttributionModelTooltip>
                   <strong>
-                    {experiment.attributionModel === "allExposures"
-                      ? "All Exposures"
+                    {experiment.attributionModel === "experimentDuration"
+                      ? "Experiment Duration"
                       : "First Exposure"}
                   </strong>{" "}
                   <FaQuestionCircle />
@@ -613,10 +737,14 @@ export default function SinglePage({
               <div className="row mb-1 text-muted">
                 <div className="col-5">Goals</div>
                 <div className="col-5">
-                  Conversion Window{" "}
+                  Conversion {ignoreConversionEnd ? "Delay" : "Window"}{" "}
                   <Tooltip
-                    body={`After a user sees the experiment, only include
-                          metric conversions within the specified time window.`}
+                    body={
+                      ignoreConversionEnd
+                        ? `Wait this long after viewing the experiment before we start counting conversions for a user.`
+                        : `After a user sees the experiment, only include
+                          metric conversions within the specified time window.`
+                    }
                   >
                     <FaQuestionCircle />
                   </Tooltip>
@@ -626,18 +754,30 @@ export default function SinglePage({
               <>
                 {experiment.metrics.map((m) => {
                   const metric = getMetricById(m);
-                  return drawMetricRow(m, metric, experiment);
+                  return drawMetricRow(
+                    m,
+                    metric,
+                    experiment,
+                    ignoreConversionEnd
+                  );
                 })}
                 {experiment.guardrails?.length > 0 && (
                   <>
                     <div className="row mb-1 mt-3 text-muted">
                       <div className="col-5">Guardrails</div>
-                      <div className="col-5">Conversion Window</div>
+                      <div className="col-5">
+                        Conversion {ignoreConversionEnd ? "Delay" : "Window"}
+                      </div>
                       <div className="col-sm-2">Behavior</div>
                     </div>
                     {experiment.guardrails.map((m) => {
                       const metric = getMetricById(m);
-                      return drawMetricRow(m, metric, experiment);
+                      return drawMetricRow(
+                        m,
+                        metric,
+                        experiment,
+                        ignoreConversionEnd
+                      );
                     })}
                   </>
                 )}
@@ -645,13 +785,16 @@ export default function SinglePage({
                   <>
                     <div className="row mb-1 mt-3 text-muted">
                       <div className="col-5">Activation Metric</div>
-                      <div className="col-5">Conversion Window</div>
+                      <div className="col-5">
+                        Conversion {ignoreConversionEnd ? "Delay" : "Window"}
+                      </div>
                       <div className="col-sm-2">Behavior</div>
                     </div>
                     {drawMetricRow(
                       experiment.activationMetric,
                       getMetricById(experiment.activationMetric),
-                      experiment
+                      experiment,
+                      ignoreConversionEnd
                     )}
                   </>
                 )}
@@ -695,42 +838,167 @@ export default function SinglePage({
           </RightRailSection>
         </div>
       </div>
-      <div className="mb-4 position-relative">
-        <div style={{ position: "absolute", top: -70 }} id="results"></div>
-        <h3>
-          Results{" "}
-          <a
-            href="#results"
-            className="small"
-            style={{ verticalAlign: "middle" }}
-          >
-            <FaLink />
-          </a>
-        </h3>
-        <div className="appbox">
-          {experiment.phases?.length > 0 ? (
-            <Results
-              experiment={experiment}
-              mutateExperiment={mutate}
-              editMetrics={editMetrics}
-              editResult={editResult}
-              editPhases={editPhases}
-              alwaysShowPhaseSelector={true}
-              reportDetailsLink={false}
-            />
+
+      {growthbook.isOn("visual-editor-ui") &&
+      experiment.status === "draft" &&
+      experiment.phases.length > 0 ? (
+        <div>
+          {visualChangesets.length > 0 ? (
+            <div className="mb-4">
+              {!hasSomeVisualChanges ? (
+                <div className="alert alert-info">
+                  Open the Visual Editor above and add at least one change to
+                  your experiment before you start
+                </div>
+              ) : hasSDKWithVisualExperimentsEnabled ? (
+                <div className="appbox text-center px-3 py-5">
+                  <p>Done setting everything up?</p>
+                  <Button
+                    color="primary"
+                    className="btn-lg"
+                    onClick={async () => {
+                      await apiCall(`/experiment/${experiment.id}/status`, {
+                        method: "POST",
+                        body: JSON.stringify({
+                          status: "running",
+                        }),
+                      });
+                      await mutate();
+                      track("Start experiment", {
+                        source: "visual-editor-ui",
+                        action: "main CTA",
+                      });
+                    }}
+                  >
+                    Start Experiment <MdRocketLaunch />
+                  </Button>{" "}
+                  <Button
+                    className="ml-2"
+                    color="link"
+                    onClick={async () => {
+                      editPhase(experiment.phases.length - 1);
+                      track("Edit phase", { source: "visual-editor-ui" });
+                    }}
+                  >
+                    Edit Targeting
+                  </Button>
+                </div>
+              ) : (
+                <div className="w-100 mt-2 mb-0 alert alert-warning">
+                  <div className="mb-2">
+                    <strong>
+                      <FaExclamationTriangle /> You must configure one of your
+                      SDK Connections to include Visual Experiments before
+                      starting
+                    </strong>
+                  </div>
+                  Go to <Link href="/sdks">SDK Connections</Link>
+                </div>
+              )}
+            </div>
           ) : (
-            <div className="text-center my-5">
-              <p>There are no experiment phases yet.</p>
-              <button className="btn btn-primary btn-lg" onClick={newPhase}>
-                Add a Phase
-              </button>
+            <div className="appbox text-center px-3 pt-4 pb-3 mb-4">
+              <p>
+                Use our Visual Editor to make changes to your site without
+                deploying code
+              </p>
+
+              {hasVisualEditorFeature && canEdit ? (
+                <button
+                  className="btn btn-primary btn-lg"
+                  onClick={() => {
+                    setVisualEditorModal(true);
+                    track("Open visual editor modal", {
+                      source: "visual-editor-ui",
+                      action: "add",
+                    });
+                  }}
+                >
+                  Open Visual Editor
+                </button>
+              ) : (
+                <div className="ml-3">
+                  <PremiumTooltip commercialFeature={"visual-editor"}>
+                    <div className="btn btn-primary btn-lg disabled">
+                      Open Visual Editor
+                    </div>
+                  </PremiumTooltip>
+                </div>
+              )}
+
+              <div className="text-right">
+                <p className="mb-1 text-muted small">Want to skip this step?</p>
+                <Button
+                  color=""
+                  className="btn-sm btn-outline-primary"
+                  onClick={async () => {
+                    await apiCall(`/experiment/${experiment.id}/status`, {
+                      method: "POST",
+                      body: JSON.stringify({
+                        status: "running",
+                      }),
+                    });
+                    await mutate();
+                    track("Start experiment", {
+                      source: "visual-editor-ui",
+                      action: "bypass visual editor",
+                    });
+                  }}
+                >
+                  Start Experiment <MdRocketLaunch />
+                </Button>
+              </div>
             </div>
           )}
         </div>
-      </div>
-      <div className="mb-4">
-        <ExperimentReportsList experiment={experiment} />
-      </div>
+      ) : (
+        <>
+          <div className="mb-4 position-relative">
+            <div style={{ position: "absolute", top: -70 }} id="results"></div>
+            <h3>
+              Results{" "}
+              <a
+                href="#results"
+                className="small"
+                style={{ verticalAlign: "middle" }}
+              >
+                <FaLink />
+              </a>
+            </h3>
+            <div className="appbox" style={{ overflowX: "initial" }}>
+              {experiment.phases?.length > 0 ? (
+                <Results
+                  experiment={experiment}
+                  mutateExperiment={mutate}
+                  editMetrics={editMetrics}
+                  editResult={editResult}
+                  editPhases={editPhases}
+                  alwaysShowPhaseSelector={true}
+                  reportDetailsLink={false}
+                  statsEngine={statsEngine}
+                  regressionAdjustmentAvailable={regressionAdjustmentAvailable}
+                  regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                  metricRegressionAdjustmentStatuses={
+                    metricRegressionAdjustmentStatuses
+                  }
+                  onRegressionAdjustmentChange={onRegressionAdjustmentChange}
+                />
+              ) : (
+                <div className="text-center my-5">
+                  <p>There are no experiment phases yet.</p>
+                  <button className="btn btn-primary btn-lg" onClick={newPhase}>
+                    Add a Phase
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="mb-4">
+            <ExperimentReportsList experiment={experiment} />
+          </div>
+        </>
+      )}
+
       <div className="pb-3">
         <h2>Discussion</h2>
         <DiscussionThread

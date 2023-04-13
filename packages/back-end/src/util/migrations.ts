@@ -285,8 +285,11 @@ export function upgradeOrganizationDoc(
 ): OrganizationInterface {
   const org = cloneDeep(doc);
 
+  // Add settings from config.json
+  const configSettings = getConfigOrganizationSettings();
+  org.settings = Object.assign({}, org.settings || {}, configSettings);
+
   // Add dev/prod environments if there are none yet
-  org.settings = org.settings || {};
   if (!org.settings?.environments?.length) {
     org.settings.environments = [
       {
@@ -321,10 +324,6 @@ export function upgradeOrganizationDoc(
     };
   }
 
-  // Add settings from config.json
-  const configSettings = getConfigOrganizationSettings();
-  org.settings = Object.assign({}, org.settings || {}, configSettings);
-
   // Default attribute schema
   if (!org.settings.attributeSchema) {
     org.settings.attributeSchema = [
@@ -337,6 +336,11 @@ export function upgradeOrganizationDoc(
       { property: "browser", datatype: "string" },
       { property: "url", datatype: "string" },
     ];
+  }
+
+  // Add statsEngine setting if not defined
+  if (!org.settings.statsEngine) {
+    org.settings.statsEngine = "bayesian";
   }
 
   // Rename legacy roles
@@ -388,6 +392,11 @@ export function upgradeExperimentDoc(
         range: [0, 1],
       };
     });
+  }
+
+  // Upgrade the attribution model
+  if (experiment.attributionModel === "allExposures") {
+    experiment.attributionModel = "experimentDuration";
   }
 
   // Add hashAttribute field

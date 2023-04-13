@@ -596,7 +596,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     expandedMembers.push({
       email,
       verified,
-      name,
+      name: name || "",
       ...memberInfo,
       dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
     });
@@ -622,6 +622,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       licenseKey,
       freeSeats,
       disableSelfServeBilling,
+      freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
       settings,

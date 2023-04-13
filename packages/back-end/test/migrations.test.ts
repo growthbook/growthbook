@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import cloneDeep from "lodash/cloneDeep";
 import { MetricInterface } from "../types/metric";
 import {
@@ -6,6 +8,7 @@ import {
   upgradeFeatureInterface,
   upgradeFeatureRule,
   upgradeMetricDoc,
+  upgradeOrganizationDoc,
 } from "../src/util/migrations";
 import { DataSourceInterface, DataSourceSettings } from "../types/datasource";
 import { encryptParams } from "../src/services/datasource";
@@ -17,6 +20,7 @@ import {
   FeatureRule,
   LegacyFeatureInterface,
 } from "../types/feature";
+import { OrganizationInterface } from "../types/organization";
 
 describe("backend", () => {
   it("updates old metric objects - earlyStart", () => {
@@ -201,6 +205,7 @@ describe("backend", () => {
       dateCreated: new Date(),
       dateUpdated: new Date(),
       id: "",
+      description: "",
       name: "",
       organization: "",
       params: encryptParams({
@@ -253,6 +258,7 @@ describe("backend", () => {
     const ds: DataSourceInterface = {
       dateCreated: new Date(),
       dateUpdated: new Date(),
+      description: "",
       id: "",
       name: "",
       organization: "",
@@ -316,6 +322,7 @@ describe("backend", () => {
       dateUpdated: new Date(),
       id: "",
       name: "",
+      description: "",
       organization: "",
       params: encryptParams({
         database: "",
@@ -384,7 +391,7 @@ describe("backend", () => {
       defaultValue: "true",
       valueType: "boolean",
       id: "",
-    };
+    } as any;
 
     expect(
       upgradeFeatureInterface({
@@ -766,10 +773,10 @@ describe("backend", () => {
     expect(newFeature.draft.rules["dev"][0]).toEqual(newRule);
   });
 
-  it("upgrades experiment variation ids, keys, and phase names", () => {
-    // eslint-disable-next-line
+  it("upgrades experiment objects", () => {
     const exp: any = {
       trackingKey: "test",
+      attributionModel: "allExposures",
       variations: [
         {
           screenshots: [],
@@ -800,6 +807,7 @@ describe("backend", () => {
       trackingKey: "test",
       hashAttribute: "",
       releasedVariationId: "",
+      attributionModel: "experimentDuration",
       variations: [
         {
           id: "0",
@@ -901,6 +909,67 @@ describe("backend", () => {
       results: "won",
       winner: 2,
       releasedVariationId: "foo",
+    });
+
+    // Doesn't overwrite other attribution models
+    expect(
+      upgradeExperimentDoc({
+        ...exp,
+        attributionModel: "firstExposure",
+      })
+    ).toEqual({
+      ...upgraded,
+      attributionModel: "firstExposure",
+    });
+  });
+
+  it("Upgrades old Organization objects", () => {
+    const org: OrganizationInterface = {
+      dateCreated: new Date(),
+      id: "",
+      invites: [],
+      members: [],
+      name: "",
+      ownerEmail: "",
+      url: "",
+    };
+
+    expect(
+      upgradeOrganizationDoc({
+        ...org,
+      })
+    ).toEqual({
+      ...org,
+      settings: {
+        attributeSchema: [
+          { property: "id", datatype: "string", hashAttribute: true },
+          { property: "deviceId", datatype: "string", hashAttribute: true },
+          { property: "company", datatype: "string", hashAttribute: true },
+          { property: "loggedIn", datatype: "boolean" },
+          { property: "employee", datatype: "boolean" },
+          { property: "country", datatype: "string" },
+          { property: "browser", datatype: "string" },
+          { property: "url", datatype: "string" },
+        ],
+        defaultRole: {
+          role: "collaborator",
+          environments: [],
+          limitAccessByEnvironment: false,
+        },
+        statsEngine: "bayesian",
+        environments: [
+          {
+            id: "dev",
+            description: "",
+            toggleOnList: true,
+          },
+          {
+            id: "production",
+            description: "",
+            toggleOnList: true,
+          },
+        ],
+      },
     });
   });
 });

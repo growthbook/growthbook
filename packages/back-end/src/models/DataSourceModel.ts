@@ -10,11 +10,13 @@ import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics"
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
   encryptParams,
+  getSourceIntegrationObject,
   testDataSourceConnection,
 } from "../services/datasource";
 import { usingFileConfig, getConfigDatasources } from "../init/config";
 import { upgradeDatasourceObject } from "../util/migrations";
 import { ApiDataSource } from "../../types/openapi";
+import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
 
 const dataSourceSchema = new mongoose.Schema({
   id: String,
@@ -162,9 +164,16 @@ export async function createDataSource(
     projects,
   };
 
-  // Test the connection and create in the database
   await testDataSourceConnection(datasource);
   const model = await DataSourceModel.create(datasource);
+
+  const integration = getSourceIntegrationObject(datasource);
+  if (
+    integration.getInformationSchema &&
+    integration.getSourceProperties().supportsInformationSchema
+  ) {
+    await queueCreateInformationSchema(datasource.id, organization);
+  }
 
   return toInterface(model);
 }

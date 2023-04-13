@@ -10,7 +10,11 @@ import {
 } from "../../models/AuthRefreshModel";
 import { RefreshTokenCookie } from "../../util/cookie";
 import { UnauthenticatedResponse } from "../../../types/sso-connection";
-import { getUserById } from "../users";
+import {
+  getAuditableUserPropertiesFromRequest,
+  getUserById,
+  trackLoginForUser,
+} from "../users";
 import { AuthConnection, TokensResponse } from "./AuthConnection";
 import { isNewInstallation } from ".";
 
@@ -53,6 +57,16 @@ export class LocalAuthConnection implements AuthConnection {
   ): Promise<TokensResponse> {
     const idToken = this.generateJWT(user);
     const refreshToken = await createRefreshToken(req, user);
+
+    const email = user?.email;
+    if (email) {
+      const trackingProperties = getAuditableUserPropertiesFromRequest(req);
+      trackLoginForUser({
+        ...trackingProperties,
+        email,
+      });
+    }
+
     return { idToken, refreshToken, expiresIn: 1800 };
   }
   async logout(req: Request): Promise<string> {

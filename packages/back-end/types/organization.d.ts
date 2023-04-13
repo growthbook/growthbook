@@ -4,7 +4,7 @@ import {
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
 } from "../src/util/organization.util";
-import { ImplementationType } from "./experiment";
+import { AttributionModel, ImplementationType } from "./experiment";
 import type { StatsEngine } from "./stats";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
@@ -37,8 +37,11 @@ export type CommercialFeature =
   | "sso"
   | "advanced-permissions"
   | "encrypt-features-endpoint"
+  | "schedule-feature-flag"
   | "override-metrics"
-  | "schedule-feature-flag";
+  | "regression-adjustment"
+  | "audit-logging"
+  | "visual-editor";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {
@@ -154,8 +157,11 @@ export interface OrganizationSettings {
   defaultRole?: MemberRoleInfo;
   statsEngine?: StatsEngine;
   pValueThreshold?: number;
+  regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentDays?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
+  attributionModel?: AttributionModel;
 }
 
 export interface SubscriptionQuote {
@@ -199,6 +205,7 @@ export interface OrganizationInterface {
   discountCode?: string;
   priceId?: string;
   disableSelfServeBilling?: boolean;
+  freeTrialDate?: Date;
   enterprise?: boolean;
   subscription?: {
     id: string;
@@ -211,6 +218,7 @@ export interface OrganizationInterface {
     cancel_at_period_end: boolean;
     planNickname: string | null;
     priceId?: string;
+    hasPaymentMethod?: boolean;
   };
   licenseKey?: string;
   autoApproveMembers?: boolean;
