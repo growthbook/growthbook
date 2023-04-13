@@ -1097,7 +1097,7 @@ paths:
       tags:
         - saved-groups
       summary: Update a single saved group
-      operationId: postSavedGroup
+      operationId: putSavedGroup
       x-codeSamples:
         - lang: cURL
           source: |

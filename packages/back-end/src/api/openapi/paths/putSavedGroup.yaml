@@ -3,9 +3,9 @@ parameters:
 tags:
   - saved-groups
 summary: Update a single saved group
-operationId: postSavedGroup
+operationId: putSavedGroup
 x-codeSamples:
-  - lang: 'cURL'
+  - lang: "cURL"
     source: |
       curl -X PUT https://api.growthbook.io/api/v1/saved-groups \
         -d '{}' # TODO: Example JSON
