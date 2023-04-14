@@ -137,7 +137,6 @@ def analyze_metric_df(
     engine: StatsEngine = StatsEngine.BAYESIAN,
     engine_config: Dict[str, Any] = {},
 ) -> pd.DataFrame:
-
     num_variations = df.at[0, "variations"]
 
     # Add new columns to the dataframe with placeholder values

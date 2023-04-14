@@ -24,6 +24,8 @@ import RefreshSnapshotButton from "./RefreshSnapshotButton";
 import ResultMoreMenu from "./ResultMoreMenu";
 import PhaseSelector from "./PhaseSelector";
 import { useSnapshot } from "./SnapshotProvider";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { FaInfoCircle } from "react-icons/fa";
 
 function isDifferent(val1?: string | boolean, val2?: string | boolean) {
   if (!val1 && !val2) return false;
@@ -34,24 +36,27 @@ function isOutdated(
   experiment: ExperimentInterfaceStringDates,
   snapshot: ExperimentSnapshotInterface,
   statsEngine: StatsEngine,
-  hasRegressionAdjustmentFeature: boolean
-) {
-  if (!snapshot) return false;
+  hasRegressionAdjustmentFeature: boolean,
+  hasSequentialFeature: boolean
+): {outdated: boolean, reason: string} {
+  if (!snapshot) return {outdated: false, reason: ""};
   if (isDifferent(experiment.activationMetric, snapshot.activationMetric)) {
-    return true;
+    return {outdated: true, reason: "activation metric changed"};
   }
   if (isDifferent(experiment.segment, snapshot.segment)) {
-    return true;
+    return {outdated: true, reason: "segment changed"};
   }
   if (isDifferent(experiment.queryFilter, snapshot.queryFilter)) {
-    return true;
+    return {outdated: true, reason: "query filter changed"};
   }
   if (experiment.datasource && !("skipPartialData" in snapshot)) {
-    return true;
+    return {outdated: true, reason: "datasource changed"};
   }
   if (isDifferent(experiment.skipPartialData, snapshot.skipPartialData)) {
-    return true;
+    return {outdated: true, reason: "in-progress conversion behavior changed"};
   }
+  // todo: attribution model? (which doesn't live in the snapshot currently)
+
   const experimentRegressionAdjustmentEnabled =
     statsEngine !== "frequentist" || !hasRegressionAdjustmentFeature
       ? false
@@ -62,10 +67,23 @@ function isOutdated(
       !!snapshot.regressionAdjustmentEnabled
     )
   ) {
-    return true;
+    return {outdated: true, reason: "CUPED settings changed"};
   }
 
-  return false;
+  const experimentSequentialEnabled =
+    statsEngine !== "frequentist" || !hasSequentialFeature
+      ? false
+      : !!experiment.sequentialTestingEnabled;
+  if (
+    isDifferent(
+      experimentSequentialEnabled,
+      !!snapshot.sequentialTestingEnabled
+    )
+  ) {
+    return {outdated: true, reason: "sequential testing settings changed"};
+  }
+
+  return {outdated: false, reason: ""};
 }
 
 export default function AnalysisSettingsBar({
@@ -109,12 +127,14 @@ export default function AnalysisSettingsBar({
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
+  const hasSequentialFeature = hasCommercialFeature("sequential-testing");
 
-  const outdated = isOutdated(
+  const { outdated, reason } = isOutdated(
     experiment,
     snapshot,
     settings.statsEngine || "bayesian",
-    hasRegressionAdjustmentFeature
+    hasRegressionAdjustmentFeature,
+    hasSequentialFeature
   );
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -200,12 +220,14 @@ export default function AnalysisSettingsBar({
         <div className="col-auto">
           {hasData &&
             (outdated && status !== "running" ? (
-              <div
-                className="badge badge-warning d-block py-1"
-                style={{ width: 100, marginBottom: 3 }}
-              >
-                Out of Date
-              </div>
+              <Tooltip body={reason}>
+                <div
+                  className="badge badge-warning d-block py-1"
+                  style={{ width: 100, marginBottom: 3 }}
+                >
+                  Out of Date <FaInfoCircle />
+                </div>
+              </Tooltip>
             ) : (
               <div
                 className="text-muted text-right"

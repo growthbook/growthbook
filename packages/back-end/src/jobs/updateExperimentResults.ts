@@ -22,10 +22,15 @@ import { getStatusEndpoint } from "../services/queries";
 import { getMetricById } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { analyzeExperimentResults } from "../services/stats";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
 import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { childLogger } from "../util/logger";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+} from "../../types/experiment-snapshot";
+import { orgHasPremiumFeature } from "../util/organization.util";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -126,6 +131,13 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   let lastSnapshot: ExperimentSnapshotInterface | null;
   let currentSnapshot: ExperimentSnapshotInterface;
 
+  const hasRegressionAdjustmentFeature = organization
+    ? orgHasPremiumFeature(organization, "regression-adjustment")
+    : false;
+  const hasSequentialTestingFeature = organization
+    ? orgHasPremiumFeature(organization, "sequential-testing")
+    : false;
+
   try {
     log.info("Start Refreshing Results");
     const datasource = await getDataSourceById(
@@ -143,17 +155,28 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       metricRegressionAdjustmentStatuses,
     } = await getRegressionAdjustmentInfo(experiment, organization);
 
-    currentSnapshot = await createSnapshot(
+    const experimentSnapshotSettings: ExperimentSnapshotSettings = {
+      statsEngine: organization.settings?.statsEngine || "bayesian",
+      regressionAdjustmentEnabled:
+        hasRegressionAdjustmentFeature && regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses:
+        metricRegressionAdjustmentStatuses || [],
+      sequentialTestingEnabled:
+        hasSequentialTestingFeature &&
+        (experiment?.sequentialTestingEnabled ??
+          !!organization.settings?.sequentialTestingEnabled),
+      sequentialTestingTuningParameter:
+        experiment?.sequentialTestingTuningParameter ??
+        organization.settings?.sequentialTestingTuningParameter ??
+        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    };
+
+    currentSnapshot = await createSnapshot({
       experiment,
-      null,
-      experiment.phases.length - 1,
       organization,
-      null,
-      false,
-      organization.settings?.statsEngine,
-      regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses
-    );
+      phaseIndex: experiment.phases.length - 1,
+      experimentSnapshotSettings,
+    });
 
     await new Promise<void>((resolve, reject) => {
       const check = async () => {
@@ -171,7 +194,11 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
               getReportVariations(experiment, phase),
               undefined,
               queryData,
-              currentSnapshot.statsEngine ?? organization.settings?.statsEngine
+              currentSnapshot.statsEngine ?? organization.settings?.statsEngine,
+              currentSnapshot.sequentialTestingEnabled ??
+                organization.settings?.sequentialTestingEnabled,
+              currentSnapshot.sequentialTestingTuningParameter ??
+                organization.settings?.sequentialTestingTuningParameter
             );
           },
           async (updates, results, error) => {

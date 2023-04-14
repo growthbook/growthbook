@@ -18,7 +18,12 @@ import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import { useAuth } from "@/services/auth";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
-import { GBCircleArrowLeft, GBCuped, GBEdit } from "@/components/Icons";
+import {
+  GBCircleArrowLeft,
+  GBCuped,
+  GBEdit,
+  GBSequential,
+} from "@/components/Icons";
 import ConfigureReport from "@/components/Report/ConfigureReport";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import Toggle from "@/components/Forms/Toggle";
@@ -56,6 +61,9 @@ export default function ReportPage() {
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
+  );
+  const hasSequentialTestingFeature = hasCommercialFeature(
+    "sequential-testing"
   );
 
   const form = useForm({
@@ -109,6 +117,9 @@ export default function ReportPage() {
     hasRegressionAdjustmentFeature &&
     regressionAdjustmentAvailable &&
     !!report.args.regressionAdjustmentEnabled;
+
+  const sequentialTestingEnabled =
+    hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
 
   return (
     <div className="container-fluid pagecontents experiment-details">
@@ -369,6 +380,7 @@ export default function ReportPage() {
                 metricRegressionAdjustmentStatuses={
                   report.args.metricRegressionAdjustmentStatuses
                 }
+                sequentialTestingEnabled={sequentialTestingEnabled}
               />
             ))}
           {report.results && !report.args.dimension && (
@@ -416,6 +428,7 @@ export default function ReportPage() {
                 metricRegressionAdjustmentStatuses={
                   report.args.metricRegressionAdjustmentStatuses
                 }
+                sequentialTestingEnabled={sequentialTestingEnabled}
               />
               {report.args.guardrails?.length > 0 && (
                 <div className="mt-1 px-3">
@@ -466,17 +479,28 @@ export default function ReportPage() {
                   </span>
                 </div>
                 {report.args?.statsEngine === "frequentist" && (
-                  <div>
-                    <span className="text-muted">
-                      <GBCuped size={12} />
-                      CUPED:
-                    </span>{" "}
-                    <span>
-                      {report.args?.regressionAdjustmentEnabled
-                        ? "Enabled"
-                        : "Disabled"}
-                    </span>
-                  </div>
+                  <>
+                    <div>
+                      <span className="text-muted">
+                        <GBCuped size={13} /> CUPED:
+                      </span>{" "}
+                      <span>
+                        {report.args?.regressionAdjustmentEnabled
+                          ? "Enabled"
+                          : "Disabled"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted">
+                        <GBSequential size={13} /> Sequential:
+                      </span>{" "}
+                      <span>
+                        {report.args?.sequentialTestingEnabled
+                          ? "Enabled"
+                          : "Disabled"}
+                      </span>
+                    </div>
+                  </>
                 )}
                 <div>
                   <span className="text-muted">Run date:</span>{" "}

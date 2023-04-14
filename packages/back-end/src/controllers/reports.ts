@@ -284,7 +284,11 @@ export async function getReportStatus(
           report.args.variations,
           report.args.dimension || undefined,
           queryData,
-          report.args.statsEngine || org.settings?.statsEngine
+          report.args.statsEngine || org.settings?.statsEngine,
+          report.args.sequentialTestingEnabled ??
+            org.settings?.sequentialTestingEnabled,
+          report.args.sequentialTestingTuningParameter ??
+            org.settings?.sequentialTestingTuningParameter
         );
       }
       throw new Error("Unsupported report type");
