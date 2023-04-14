@@ -2521,7 +2521,16 @@ export interface operations {
     /** Create a single saved group */
     requestBody: {
       content: {
-        "application/json": any;
+        "application/json": {
+          /** @description The display name of the Saved Group */
+          groupName: string;
+          /** @description A single string that contains a comma separated list of attributeKeys to target. */
+          groupList: string;
+          /** @description The parameter you want to target users with. Ex: userId, orgId, ... */
+          attributeKey: string;
+          /** @description (Optional) - The user in your GrowthBook account that owns this Saved Group. */
+          owner?: string;
+        };
       };
     };
     responses: {
@@ -2584,7 +2593,14 @@ export interface operations {
     };
     requestBody: {
       content: {
-        "application/json": any;
+        "application/json": {
+          /** @description The display name of the Saved Group */
+          groupName: string;
+          /** @description A single string that contains a comma separated list of attributeKeys to target. */
+          groupList: string;
+          /** @description (Optional) - The full name of the user in your GrowthBook account that owns this Saved Group. */
+          owner?: string;
+        };
       };
     };
     responses: {

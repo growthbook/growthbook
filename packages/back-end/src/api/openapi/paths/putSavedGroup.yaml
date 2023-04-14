@@ -8,7 +8,7 @@ x-codeSamples:
   - lang: "cURL"
     source: |
       curl -X PUT https://api.growthbook.io/api/v1/saved-groups \
-        -d '{}' # TODO: Example JSON
+        -d '{groupName: "interal-users", groupList: "userId-123, userId-345, userId-678, ..."}'
         -u secret_abc123DEF456:
 requestBody:
   required: true
@@ -16,8 +16,19 @@ requestBody:
     application/json:
       schema:
         type: object
-        required: []
-        properties: []
+        required:
+          - groupName
+          - groupList
+        properties:
+          groupName:
+            type: string
+            description: The display name of the Saved Group
+          groupList:
+            type: string
+            description: A single string that contains a comma separated list of attributeKeys to target.
+          owner:
+            type: string
+            description: (Optional) - The full name of the user in your GrowthBook account that owns this Saved Group.
 responses:
   "200":
     content:

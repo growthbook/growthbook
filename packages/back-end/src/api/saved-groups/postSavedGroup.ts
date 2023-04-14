@@ -10,7 +10,6 @@ import { postSavedGroupValidator } from "../../validators/openapi";
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req): Promise<PostSavedGroupResponse> => {
     const { groupName, attributeKey, groupList } = req.body;
-    //TODO: Is this the right way to handle this?
     let { owner } = req.body;
     const values = parseSavedGroupString(groupList);
 
