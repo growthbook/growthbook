@@ -123,6 +123,8 @@ describe("settings", () => {
       expect(metricSettings_testvar.regressionAdjustmentDays.value).toEqual(12);
       expect(metricSettings_testvar.winRisk.value).toEqual(0.0015);
       expect(metricSettings_testvar.loseRisk.value).toEqual(0.0225);
+
+      // todo: add test for CUPED: denominator is count
     });
   });
 });
