@@ -33,8 +33,10 @@ export default class Mssql extends SqlIntegration {
     return results.recordset;
   }
 
+  // MS SQL Server doesn't support the LIMIT keyword, so we have to use the OFFSET and FETCH keywords instead.
+  // (and those only work when there is an ORDER BY clause) (could use TOP here, but not sure about the performance)
   limit(limit: number): string {
-    return `OFFSET 0 ROWS FETCH FIRST ${limit} ROWS ONLY`;
+    return `ORDER BY 2 DESC OFFSET 0 ROWS FETCH FIRST ${limit} ROWS ONLY`;
   }
 
   addTime(
