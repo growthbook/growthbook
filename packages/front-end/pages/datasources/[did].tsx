@@ -1,12 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
-import {
-  FaAngleLeft,
-  FaDatabase,
-  FaExternalLinkAlt,
-  FaKey,
-} from "react-icons/fa";
+import { FaDatabase, FaExternalLinkAlt, FaKey } from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -26,6 +21,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
+import { GBCircleArrowLeft } from "@/components/Icons";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -86,15 +82,21 @@ const DataSourcePage: FC = () => {
   );
 
   if (error) {
-    return <div className="alert alert-danger">{error}</div>;
+    return (
+      <div className="container pagecontents">
+        <div className="alert alert-danger">{error}</div>
+      </div>
+    );
   }
   if (!ready) {
     return <LoadingOverlay />;
   }
   if (!d) {
     return (
-      <div className="alert alert-danger">
-        Datasource <code>{did}</code> does not exist.
+      <div className="container pagecontents">
+        <div className="alert alert-danger">
+          Datasource <code>{did}</code> does not exist.
+        </div>
       </div>
     );
   }
@@ -103,11 +105,11 @@ const DataSourcePage: FC = () => {
   const supportsEvents = d.properties?.events || false;
 
   return (
-    <div className="container mt-3 pagecontents">
+    <div className="container pagecontents">
       <div className="mb-2">
         <Link href="/datasources">
           <a>
-            <FaAngleLeft /> All Data Sources
+            <GBCircleArrowLeft /> Back to all data sources
           </a>
         </Link>
       </div>

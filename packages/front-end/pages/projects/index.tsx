@@ -1,0 +1,153 @@
+import React, { useState, FC } from "react";
+import { FaFolderPlus, FaPencilAlt } from "react-icons/fa";
+import { ProjectInterface } from "back-end/types/project";
+import { useRouter } from "next/router";
+import Link from "next/link";
+import usePermissions from "@/hooks/usePermissions";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import ProjectModal from "@/components/Projects/ProjectModal";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { date } from "@/services/dates";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+
+const ProjectsPage: FC = () => {
+  const { projects, mutateDefinitions } = useDefinitions();
+  const router = useRouter();
+
+  const { apiCall } = useAuth();
+
+  const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
+    null
+  );
+
+  const permissions = usePermissions();
+  const manageProjectsPermissions: { [id: string]: boolean } = {};
+  projects.forEach(
+    (p) =>
+      (manageProjectsPermissions[p.id] = permissions.check(
+        "manageProjects",
+        p.id
+      ))
+  );
+
+  return (
+    <div className="container-fluid  pagecontents">
+      {modalOpen && (
+        <ProjectModal
+          existing={modalOpen}
+          close={() => setModalOpen(null)}
+          onSuccess={() => mutateDefinitions()}
+        />
+      )}
+
+      <div className="filters md-form row mb-3 align-items-center">
+        <div className="col-auto d-flex">
+          <h1>Projects</h1>
+        </div>
+        <div style={{ flex: 1 }} />
+        <div className="col-auto">
+          <button
+            className="btn btn-primary"
+            onClick={(e) => {
+              e.preventDefault();
+              setModalOpen({});
+            }}
+          >
+            <FaFolderPlus /> Create Project
+          </button>
+        </div>
+      </div>
+
+      <p>
+        Group your ideas and experiments into <strong>Projects</strong> to keep
+        things organized and easy to manage.
+      </p>
+      {projects.length > 0 ? (
+        <table className="table appbox gbtable table-hover">
+          <thead>
+            <tr>
+              <th className="col-3">Project Name</th>
+              <th className="col-3">Description</th>
+              <th className="col-2">Id</th>
+              <th className="col-2">Date Created</th>
+              <th className="col-2">Date Updated</th>
+              <th className="w-50"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {projects.map((p) => {
+              const canManage = manageProjectsPermissions[p.id];
+              return (
+                <tr
+                  key={p.id}
+                  onClick={
+                    canManage
+                      ? (e) => {
+                          e.preventDefault();
+                          router.push(`/project/${p.id}`);
+                        }
+                      : null
+                  }
+                  style={canManage ? { cursor: "pointer" } : null}
+                >
+                  <td>
+                    {canManage ? (
+                      <Link href={`/project/${p.id}`}>
+                        <a className="font-weight-bold">{p.name}</a>
+                      </Link>
+                    ) : (
+                      <span className="font-weight-bold">{p.name}</span>
+                    )}
+                  </td>
+                  <td className="pr-5 text-gray" style={{ fontSize: 12 }}>
+                    {p.description}
+                  </td>
+                  <td>{p.id}</td>
+                  <td>{date(p.dateCreated)}</td>
+                  <td>{date(p.dateUpdated)}</td>
+                  <td
+                    style={{ cursor: "initial" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                    }}
+                  >
+                    {canManage && (
+                      <MoreMenu>
+                        <button
+                          className="btn dropdown-item py-2"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setModalOpen(p);
+                          }}
+                        >
+                          <FaPencilAlt /> Edit
+                        </button>{" "}
+                        <DeleteButton
+                          className="btn dropdown-item py-2"
+                          displayName="project"
+                          text="Delete"
+                          onClick={async () => {
+                            await apiCall(`/projects/${p.id}`, {
+                              method: "DELETE",
+                            });
+                            mutateDefinitions();
+                          }}
+                        />
+                      </MoreMenu>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      ) : (
+        <p>Click the button below to create your first project!</p>
+      )}
+    </div>
+  );
+};
+export default ProjectsPage;

@@ -14,6 +14,7 @@ router.post(
     body: z
       .object({
         name: z.string(),
+        description: z.string(),
       })
       .strict(),
   }),
@@ -31,6 +32,7 @@ router.put(
     body: z
       .object({
         name: z.string(),
+        description: z.string(),
       })
       .strict(),
   }),

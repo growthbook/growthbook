@@ -254,6 +254,7 @@ export interface components {
     Project: {
       id: string;
       name: string;
+      description: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */

@@ -13,6 +13,7 @@ const projectSchema = new mongoose.Schema({
     index: true,
   },
   name: String,
+  description: String,
   dateCreated: Date,
   dateUpdated: Date,
 });
@@ -75,6 +76,7 @@ export function toProjectApiInterface(project: ProjectInterface): ApiProject {
   return {
     id: project.id,
     name: project.name,
+    description: project.description || "",
     dateCreated: project.dateCreated.toISOString(),
     dateUpdated: project.dateUpdated.toISOString(),
   };

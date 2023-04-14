@@ -19,7 +19,7 @@ import { EventAuditUserForResponseLocals } from "../../events/event-types";
 
 // region POST /projects
 
-type CreateProjectRequest = AuthRequest<{ name: string }>;
+type CreateProjectRequest = AuthRequest<{ name: string; description: string }>;
 
 type CreateProjectResponse = {
   status: 200;
@@ -41,11 +41,12 @@ export const postProject = async (
 ) => {
   req.checkPermissions("manageProjects");
 
-  const { name } = req.body;
+  const { name, description } = req.body;
   const { org } = getOrgFromReq(req);
 
   const doc = await createProject(org.id, {
     name,
+    description,
   });
 
   res.status(200).json({
@@ -94,10 +95,11 @@ export const putProject = async (
     return;
   }
 
-  const { name } = req.body;
+  const { name, description } = req.body;
 
   await updateProject(id, project.organization, {
     name,
+    description,
     dateUpdated: new Date(),
   });
 
