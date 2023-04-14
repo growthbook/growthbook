@@ -1,6 +1,6 @@
 export interface UserInterface {
   id: string;
-  name: string;
+  name?: string;
   email: string;
   verified: boolean;
   passwordHash?: string;

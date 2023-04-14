@@ -1,13 +1,13 @@
 import Agenda, { Job } from "agenda";
 import { getOrganizationsWithNorthStars } from "../models/OrganizationModel";
 import {
-  refreshMetric,
   DEFAULT_METRIC_ANALYSIS_DAYS,
+  refreshMetric,
 } from "../services/experiments";
 import { getMetricById } from "../models/MetricModel";
 import { METRIC_REFRESH_FREQUENCY } from "../util/secrets";
 import { OrganizationSettings } from "../../types/organization";
-import { logger } from "../util/logger";
+import { childLogger } from "../util/logger";
 
 const QUEUE_METRIC_UPDATES = "queueMetricUpdates";
 
@@ -81,7 +81,7 @@ async function updateSingleMetric(job: UpdateSingleMetricJob) {
   const orgId = job.attrs.data?.orgId;
   const orgSettings = job.attrs.data?.orgSettings;
 
-  const log = logger.child({
+  const log = childLogger({
     cron: "updateSingleMetric",
     metricId,
     orgId,

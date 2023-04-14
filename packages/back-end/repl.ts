@@ -1,4 +1,5 @@
 import repl from "node:repl";
+import * as Sentry from "@sentry/node";
 import * as Organization from "./src/models/OrganizationModel";
 import * as Event from "./src/models/EventModel";
 import * as EventWebHook from "./src/models/EventWebhookModel";
@@ -7,6 +8,11 @@ import * as SlackIntegration from "./src/models/SlackIntegrationModel";
 import * as InformationSchema from "./src/models/InformationSchemaModel";
 import * as VisualChangeset from "./src/models/VisualChangesetModel";
 import mongoInit from "./src/init/mongo";
+
+const SENTRY_DSN = process.env.SENTRY_DSN;
+if (SENTRY_DSN) {
+  Sentry.init({ dsn: SENTRY_DSN });
+}
 
 (async () => {
   const replServer = repl.start({
