@@ -6,9 +6,10 @@ operationId: postSavedGroup
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl -X POST https://api.growthbook.io/api/v1/saved-groups \
-        -d {groupName: "interal-users", groupList: "userId-123, userId-345, userId-678, ...", attributeKey: "userId"}
-        -u secret_abc123DEF456:
+      curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
+        -H "Content-Type: application/json" \
+        -u secret_abc123DEF456: \
+        -d '{"groupName": "interal-users", "groupList": "userId-123, userId-345, userId-678", "attributeKey": "userId"}'
 requestBody:
   required: true
   content:
@@ -31,7 +32,7 @@ requestBody:
             description: "The parameter you want to target users with. Ex: userId, orgId, ..."
           owner:
             type: string
-            description: (Optional) - The user in your GrowthBook account that owns this Saved Group.
+            description: (Optional) - The name of the user in your GrowthBook account that owns this Saved Group.
 responses:
   "200":
     content:

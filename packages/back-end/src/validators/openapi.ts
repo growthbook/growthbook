@@ -157,7 +157,7 @@ export const listSavedGroupsValidator = {
 };
 
 export const postSavedGroupValidator = {
-  bodySchema: z.object({"groupName":z.string().describe("The display name of the Saved Group"),"groupList":z.string().describe("A single string that contains a comma separated list of attributeKeys to target."),"attributeKey":z.string().describe("The parameter you want to target users with. Ex: userId, orgId, ..."),"owner":z.string().describe("(Optional) - The user in your GrowthBook account that owns this Saved Group.").optional()}).strict(),
+  bodySchema: z.object({"groupName":z.string().describe("The display name of the Saved Group"),"groupList":z.string().describe("A single string that contains a comma separated list of attributeKeys to target."),"attributeKey":z.string().describe("The parameter you want to target users with. Ex: userId, orgId, ..."),"owner":z.string().describe("(Optional) - The name of the user in your GrowthBook account that owns this Saved Group.").optional()}).strict(),
   querySchema: z.never(),
   paramsSchema: z.never(),
 };
@@ -169,7 +169,7 @@ export const getSavedGroupValidator = {
 };
 
 export const putSavedGroupValidator = {
-  bodySchema: z.object({"groupName":z.string().describe("The display name of the Saved Group"),"groupList":z.string().describe("A single string that contains a comma separated list of attributeKeys to target."),"owner":z.string().describe("(Optional) - The full name of the user in your GrowthBook account that owns this Saved Group.").optional()}).strict(),
+  bodySchema: z.object({"groupName":z.string().describe("The display name of the Saved Group").optional(),"groupList":z.string().describe("A single string that contains a comma separated list of attributeKeys to target.").optional(),"owner":z.string().describe("The name of the user in your GrowthBook account that owns this Saved Group.").optional()}).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({"id":z.string()}).strict(),
 };
