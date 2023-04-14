@@ -426,7 +426,7 @@ const Layout = (): React.ReactElement => {
                 </>
               ) : (
                 <>
-                  Upgrade to Pro <GBPremiumBadge />
+                  Try Pro <GBPremiumBadge />
                 </>
               )}
             </button>
