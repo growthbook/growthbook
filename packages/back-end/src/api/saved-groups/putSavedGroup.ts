@@ -10,31 +10,26 @@ import { putSavedGroupValidator } from "../../validators/openapi";
 
 export const putSavedGroup = createApiRequestHandler(putSavedGroupValidator)(
   async (req): Promise<PutSavedGroupResponse> => {
-    const { groupName, groupList } = req.body;
+    const { groupName, groupList, owner } = req.body;
     const { id } = req.params;
-    let { owner } = req.body;
-
-    if (!owner) {
-      owner = "";
-    }
-
-    const values = parseSavedGroupString(groupList);
-
-    await updateSavedGroup(id, req.organization.id, {
-      values,
-      groupName,
-      owner,
-    });
 
     const savedGroup = await getSavedGroupById(id, req.organization.id);
 
-    //TODO: Is this right, I don't know if I should have to add this logic.
     if (!savedGroup) {
       throw new Error(`Unable to locate the saved-group: ${id}`);
     }
 
+    const updatedSavedGroup = await updateSavedGroup(id, req.organization.id, {
+      values: groupList ? parseSavedGroupString(groupList) : savedGroup.values,
+      groupName: groupName ? groupName : savedGroup?.groupName,
+      owner: owner ? owner : savedGroup?.owner,
+    });
+
     return {
-      savedGroup: toSavedGroupApiInterface(savedGroup),
+      savedGroup: toSavedGroupApiInterface({
+        ...savedGroup,
+        ...updatedSavedGroup,
+      }),
     };
   }
 );
