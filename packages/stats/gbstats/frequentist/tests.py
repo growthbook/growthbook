@@ -182,7 +182,7 @@ class SequentialTwoSidedTTest(TTest):
         # eq 161 in https://arxiv.org/pdf/2103.06476v7.pdf
         return np.sqrt(
             (-2 * np.log(self.alpha) + np.log(-2 * np.log(self.alpha) + 1))
-            / (self.sequential_tuning_parameter * 2)
+            / self.sequential_tuning_parameter
         )
 
     @property
