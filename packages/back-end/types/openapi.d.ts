@@ -182,6 +182,8 @@ export interface paths {
     get: operations["getSavedGroup"];
     /** Update a single saved group */
     put: operations["putSavedGroup"];
+    /** Partially update a single saved group */
+    patch: operations["patchSavedGroup"];
   };
 }
 
@@ -2591,6 +2593,46 @@ export interface operations {
       content: {
         "application/json": {
           /** @description The display name of the Saved Group */
+          name: string;
+          /** @description An array of values to target (Ex: a list of userId's). */
+          values: (string)[];
+          /** @description The name of the user in your GrowthBook account that owns this Saved Group. If no owner, you can pass in an empty string. */
+          owner: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            savedGroup: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              groupName: string;
+              owner?: string;
+              attributeKey: string;
+              values: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  patchSavedGroup: {
+    /** Partially update a single saved group */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The display name of the Saved Group */
           name?: string;
           /** @description An array of values to target (Ex: a list of userId's). */
           values?: (string)[];
@@ -2673,3 +2715,4 @@ export type ListSavedGroupsResponse = operations["listSavedGroups"]["responses"]
 export type PostSavedGroupResponse = operations["postSavedGroup"]["responses"]["200"]["content"]["application/json"];
 export type GetSavedGroupResponse = operations["getSavedGroup"]["responses"]["200"]["content"]["application/json"];
 export type PutSavedGroupResponse = operations["putSavedGroup"]["responses"]["200"]["content"]["application/json"];
+export type PatchSavedGroupResponse = operations["patchSavedGroup"]["responses"]["200"]["content"]["application/json"];

@@ -1129,6 +1129,53 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - name
+                - values
+                - owner
+              properties:
+                name:
+                  type: string
+                  description: The display name of the Saved Group
+                values:
+                  type: array
+                  items:
+                    type: string
+                  description: 'An array of values to target (Ex: a list of userId''s).'
+                owner:
+                  type: string
+                  description: 'The name of the user in your GrowthBook account that owns this Saved Group. If no owner, you can pass in an empty string.'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - savedGroup
+                properties:
+                  savedGroup:
+                    $ref: '#/components/schemas/SavedGroup'
+    patch:
+      summary: Partially update a single saved group
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - saved-groups
+      operationId: patchSavedGroup
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PATCH https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
+              -H "Content-Type: application/json" \
+              -u secret_abc123DEF456: \
+              -d '{"name": "interal-users", "values": "userId-123, userId-345, userId-678"}'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
               required: []
               properties:
                 name:

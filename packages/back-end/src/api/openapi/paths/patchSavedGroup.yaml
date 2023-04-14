@@ -1,13 +1,13 @@
+summary: Partially update a single saved group
 parameters:
   - $ref: "../parameters.yaml#/id"
 tags:
   - saved-groups
-summary: Update a single saved group
-operationId: putSavedGroup
+operationId: patchSavedGroup
 x-codeSamples:
   - lang: "cURL"
     source: |
-      curl -X PUT https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
+      curl -X PATCH https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
         -H "Content-Type: application/json" \
         -u secret_abc123DEF456: \
         -d '{"name": "interal-users", "values": "userId-123, userId-345, userId-678"}'
@@ -17,10 +17,7 @@ requestBody:
     application/json:
       schema:
         type: object
-        required:
-          - name
-          - values
-          - owner
+        required: []
         properties:
           name:
             type: string
@@ -32,7 +29,7 @@ requestBody:
             description: "An array of values to target (Ex: a list of userId's)."
           owner:
             type: string
-            description: The name of the user in your GrowthBook account that owns this Saved Group. If no owner, you can pass in an empty string.
+            description: The name of the user in your GrowthBook account that owns this Saved Group.
 responses:
   "200":
     content:

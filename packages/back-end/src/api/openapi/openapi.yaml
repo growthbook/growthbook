@@ -146,6 +146,8 @@ paths:
       $ref: "./paths/getSavedGroup.yaml"
     put:
       $ref: "./paths/putSavedGroup.yaml"
+    patch:
+      $ref: "./paths/patchSavedGroup.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:
