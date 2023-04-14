@@ -1,9 +1,8 @@
 import mssql from "mssql";
 import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
-import { format, FormatDialect, replaceSQLVars } from "../util/sql";
+import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
-import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 
 export default class Mssql extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
