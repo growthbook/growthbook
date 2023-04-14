@@ -1,7 +1,6 @@
 import { PostSavedGroupResponse } from "../../../types/openapi";
 import {
   createSavedGroup,
-  parseSavedGroupString,
   toSavedGroupApiInterface,
 } from "../../models/SavedGroupModel";
 import { createApiRequestHandler } from "../../util/handler";
@@ -9,16 +8,15 @@ import { postSavedGroupValidator } from "../../validators/openapi";
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req): Promise<PostSavedGroupResponse> => {
-    const { groupName, attributeKey, groupList } = req.body;
+    const { name, attributeKey, values } = req.body;
     let { owner } = req.body;
-    const values = parseSavedGroupString(groupList);
 
     if (!owner) {
       owner = "";
     }
     const savedGroup = await createSavedGroup({
       values,
-      groupName,
+      groupName: name,
       owner,
       attributeKey,
       organization: req.organization.id,

@@ -118,7 +118,6 @@ export function toSavedGroupApiInterface(
     values: savedGroup.values,
     groupName: savedGroup.groupName,
     attributeKey: savedGroup.attributeKey,
-    organization: savedGroup.organization,
     dateCreated: savedGroup.dateCreated.toISOString(),
     dateUpdated: savedGroup.dateUpdated.toISOString(),
     owner: savedGroup.owner || "",

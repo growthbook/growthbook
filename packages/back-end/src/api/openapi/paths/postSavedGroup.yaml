@@ -9,7 +9,7 @@ x-codeSamples:
       curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
         -H "Content-Type: application/json" \
         -u secret_abc123DEF456: \
-        -d '{"groupName": "interal-users", "groupList": "userId-123, userId-345, userId-678", "attributeKey": "userId"}'
+        -d '{"name": "interal-users", "values": "userId-123, userId-345, userId-678", "attributeKey": "userId"}'
 requestBody:
   required: true
   content:
@@ -17,16 +17,18 @@ requestBody:
       schema:
         type: object
         required:
-          - groupName
-          - groupList
+          - name
+          - values
           - attributeKey
         properties:
-          groupName:
+          name:
             type: string
             description: The display name of the Saved Group
-          groupList:
-            type: string
-            description: A single string that contains a comma separated list of attributeKeys to target.
+          values:
+            type: array
+            items:
+              type: string
+            description: "An array of values to target (Ex: a list of userId's)."
           attributeKey:
             type: string
             description: "The parameter you want to target users with. Ex: userId, orgId, ..."

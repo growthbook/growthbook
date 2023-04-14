@@ -1,7 +1,6 @@
 import { PutSavedGroupResponse } from "../../../types/openapi";
 import {
   getSavedGroupById,
-  parseSavedGroupString,
   toSavedGroupApiInterface,
   updateSavedGroup,
 } from "../../models/SavedGroupModel";
@@ -10,7 +9,7 @@ import { putSavedGroupValidator } from "../../validators/openapi";
 
 export const putSavedGroup = createApiRequestHandler(putSavedGroupValidator)(
   async (req): Promise<PutSavedGroupResponse> => {
-    const { groupName, groupList, owner } = req.body;
+    const { name, values, owner } = req.body;
     const { id } = req.params;
 
     const savedGroup = await getSavedGroupById(id, req.organization.id);
@@ -20,8 +19,8 @@ export const putSavedGroup = createApiRequestHandler(putSavedGroupValidator)(
     }
 
     const updatedSavedGroup = await updateSavedGroup(id, req.organization.id, {
-      values: groupList ? parseSavedGroupString(groupList) : savedGroup.values,
-      groupName: groupName ? groupName : savedGroup?.groupName,
+      values: values ? values : savedGroup.values,
+      groupName: name ? name : savedGroup?.groupName,
       owner: owner ? owner : savedGroup?.owner,
     });
 

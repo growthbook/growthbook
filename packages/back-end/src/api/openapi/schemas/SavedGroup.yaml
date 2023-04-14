@@ -5,7 +5,6 @@ required:
   - dateUpdated
   - groupName
   - attributeKey
-  - organization
   - values
 properties:
   id:
@@ -21,8 +20,6 @@ properties:
   owner:
     type: string
   attributeKey:
-    type: string
-  organization:
     type: string
   values:
     type: array
