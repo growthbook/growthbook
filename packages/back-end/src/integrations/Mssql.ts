@@ -1,8 +1,9 @@
 import mssql from "mssql";
 import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
-import { FormatDialect } from "../util/sql";
+import { format, FormatDialect, replaceSQLVars } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
+import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 
 export default class Mssql extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -31,6 +32,10 @@ export default class Mssql extends SqlIntegration {
 
     const results = await conn.request().query(sqlStr);
     return results.recordset;
+  }
+
+  limit(limit: number): string {
+    return `OFFSET 0 ROWS FETCH FIRST ${limit} ROWS ONLY`;
   }
 
   addTime(

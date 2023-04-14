@@ -167,6 +167,9 @@ export default abstract class SqlIntegration
   replaceDateDimensionString(minDateDimString: string): string {
     return `REGEXP_REPLACE(${minDateDimString}, '.*____', '')`;
   }
+  limit(limit: number): string {
+    return `LIMIT ${limit}`;
+  }
 
   applyMetricOverrides(
     metric: MetricInterface,
@@ -537,7 +540,7 @@ export default abstract class SqlIntegration
       `WITH __table as (
         ${query}
       )
-      SELECT * FROM __table LIMIT 5`,
+      SELECT * FROM __table ${this.limit(5)}`,
       {
         startDate,
       }
