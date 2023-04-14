@@ -377,7 +377,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           </>
                         ) : (
                           <>
-                            Upgrade to Pro <GBPremiumBadge />
+                            Try Pro <GBPremiumBadge />
                           </>
                         )}
                       </button>

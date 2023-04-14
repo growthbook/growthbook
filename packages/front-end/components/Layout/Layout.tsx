@@ -191,6 +191,12 @@ const navlinks: SidebarLinkProps[] = [
         permissions: ["manageWebhooks"],
       },
       {
+        name: "Logs",
+        href: "/events",
+        path: /^events/,
+        permissions: ["viewEvents"],
+      },
+      {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
@@ -420,7 +426,7 @@ const Layout = (): React.ReactElement => {
                 </>
               ) : (
                 <>
-                  Upgrade to Pro <GBPremiumBadge />
+                  Try Pro <GBPremiumBadge />
                 </>
               )}
             </button>

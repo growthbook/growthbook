@@ -9,13 +9,14 @@ import {
   VisualChangesetURLPattern,
 } from "back-end/types/visual-changeset";
 import React, { FC, Fragment, useState } from "react";
-import { FaTimesCircle } from "react-icons/fa";
+import { FaPlusCircle, FaTimesCircle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
 import { GBEdit } from "../Icons";
@@ -28,6 +29,7 @@ interface Props {
   mutate: () => void;
   canEdit: boolean;
   className?: string;
+  setVisualEditorModal: (v: boolean) => void;
 }
 
 const ScreenshotCarousel: FC<{
@@ -106,6 +108,7 @@ const VariationsTable: FC<Props> = ({
   canEdit,
   mutate,
   visualChangesets: _visualChangesets,
+  setVisualEditorModal,
 }) => {
   const { variations } = experiment;
   const { apiCall } = useAuth();
@@ -241,12 +244,16 @@ const VariationsTable: FC<Props> = ({
 
             return (
               <Fragment key={i}>
-                <div className={`${i !== 0 && "mt-2"}`}>
-                  {hasVisualEditorFeature && (
-                    <div className="px-3">
-                      <div className="row mt-1 mb-2 d-flex align-items-end">
-                        <div className="col">
-                          <label className="mb-1">
+                <div
+                  className={`${
+                    i !== 0 && "mt-2"
+                  } appbox bg-light py-2 mx-3 mb-4 `}
+                >
+                  <div className="px-3">
+                    <div className="row mt-1 mb-3 d-flex align-items-end">
+                      <div className="col">
+                        <div className="col-auto px-3 py-2 rounded bg-muted-yellow">
+                          <label className="d-block mb-1 font-weight-bold">
                             URL Targeting
                             {canEdit && (
                               <a
@@ -265,63 +272,55 @@ const VariationsTable: FC<Props> = ({
                               </a>
                             )}
                           </label>
-                          <div className="col-auto px-3 py-2 rounded bg-muted-yellow">
-                            {simpleUrlPatterns.length > 0 && (
-                              <>
-                                {!onlySimpleRules && (
-                                  <div className="uppercase-title mt-1">
-                                    Simple:
-                                  </div>
-                                )}
-                                {simpleUrlPatterns.map((p, j) =>
-                                  drawUrlPattern(p, j, vc.urlPatterns.length)
-                                )}
-                              </>
-                            )}
-                            {regexUrlPatterns.length > 0 && (
-                              <>
+                          {simpleUrlPatterns.length > 0 && (
+                            <>
+                              {!onlySimpleRules && (
                                 <div className="uppercase-title mt-1">
-                                  Regex:
+                                  Simple:
                                 </div>
-                                {regexUrlPatterns.map((p, j) =>
-                                  drawUrlPattern(p, j, vc.urlPatterns.length)
-                                )}
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        <div style={{ flex: 1 }} />
-                        {hasVisualEditorFeature &&
-                          experiment.status === "draft" && (
-                            <div className="col-auto">
-                              <OpenVisualEditorLink
-                                id={vc.id}
-                                changeIndex={1}
-                                visualEditorUrl={vc.editorUrl}
-                              />
-                              {canEdit && (
-                                <DeleteButton
-                                  className="btn-sm ml-4"
-                                  onClick={async () => {
-                                    await apiCall(
-                                      `/visual-changesets/${vc.id}`,
-                                      {
-                                        method: "DELETE",
-                                      }
-                                    );
-                                    mutate();
-                                    track("Delete visual changeset", {
-                                      source: "visual-editor-ui",
-                                    });
-                                  }}
-                                  displayName="Visual Changes"
-                                />
                               )}
-                            </div>
+                              {simpleUrlPatterns.map((p, j) =>
+                                drawUrlPattern(p, j, vc.urlPatterns.length)
+                              )}
+                            </>
                           )}
+                          {regexUrlPatterns.length > 0 && (
+                            <>
+                              <div className="uppercase-title mt-1">Regex:</div>
+                              {regexUrlPatterns.map((p, j) =>
+                                drawUrlPattern(p, j, vc.urlPatterns.length)
+                              )}
+                            </>
+                          )}
+                        </div>
                       </div>
+                      <div style={{ flex: 1 }} />
+                      {canEdit && experiment.status === "draft" && (
+                        <div className="col-auto">
+                          {hasVisualEditorFeature && (
+                            <OpenVisualEditorLink
+                              id={vc.id}
+                              changeIndex={1}
+                              visualEditorUrl={vc.editorUrl}
+                            />
+                          )}
+                          <DeleteButton
+                            className="btn-sm ml-4"
+                            onClick={async () => {
+                              await apiCall(`/visual-changesets/${vc.id}`, {
+                                method: "DELETE",
+                              });
+                              mutate();
+                              track("Delete visual changeset", {
+                                source: "visual-editor-ui",
+                              });
+                            }}
+                            displayName="Visual Changes"
+                          />
+                        </div>
+                      )}
                     </div>
-                  )}
+                  </div>
 
                   <div
                     className="w-100 fade-mask-1rem"
@@ -330,7 +329,7 @@ const VariationsTable: FC<Props> = ({
                     }}
                   >
                     <table
-                      className="table table-borderless mx-3 w100-1rem"
+                      className="table table-borderless mx-3 my-0 w100-1rem"
                       style={{ tableLayout: "fixed" }}
                     >
                       <thead>
@@ -387,6 +386,29 @@ const VariationsTable: FC<Props> = ({
               </Fragment>
             );
           })}
+
+          <div className="px-3 my-2">
+            {hasVisualEditorFeature && canEdit ? (
+              <button
+                className="btn btn-link"
+                onClick={() => {
+                  setVisualEditorModal(true);
+                  track("Open visual editor modal", {
+                    source: "visual-editor-ui",
+                    action: "add",
+                  });
+                }}
+              >
+                <FaPlusCircle /> Add Visual Editor page
+              </button>
+            ) : (
+              <PremiumTooltip commercialFeature={"visual-editor"}>
+                <div className="btn btn-link disabled">
+                  <FaPlusCircle /> Add Visual Editor page
+                </div>
+              </PremiumTooltip>
+            )}
+          </div>
         </div>
       )}
 

@@ -2,6 +2,7 @@ import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
+import uniq from "lodash/uniq";
 import {
   Changeset,
   ExperimentInterface,
@@ -892,7 +893,7 @@ export const getAllVisualExperiments = async (
   const experiments = (
     await findExperiments({
       id: {
-        $in: visualChangesets.map((changeset) => changeset.experiment),
+        $in: uniq(visualChangesets.map((changeset) => changeset.experiment)),
       },
       ...(project ? { project } : {}),
       organization,

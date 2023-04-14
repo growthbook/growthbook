@@ -31,9 +31,9 @@ import {
 import {
   deleteSnapshotById,
   findSnapshotById,
+  getLatestSnapshot,
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
-  getLatestSnapshot,
 } from "../models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
@@ -78,7 +78,7 @@ import {
 import { StatsEngine } from "../../types/stats";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { ApiErrorResponse } from "../../types/api";
+import { PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { orgHasPremiumFeature } from "../util/organization.util";
 
@@ -472,7 +472,7 @@ export async function postExperiments(
   res: Response<
     | { status: 200; experiment: ExperimentInterface }
     | { status: 200; duplicateTrackingKey: boolean; existingId: string }
-    | ({ status: number } & ApiErrorResponse),
+    | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
   >
 ) {
@@ -622,7 +622,7 @@ export async function postExperiment(
   >,
   res: Response<
     | { status: number; experiment?: ExperimentInterface | null }
-    | ApiErrorResponse,
+    | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
   >
 ) {
@@ -1319,7 +1319,7 @@ export async function getWatchingUsers(
 export async function deleteExperiment(
   req: AuthRequest<ExperimentInterface, { id: string }>,
   res: Response<
-    { status: 200 } | ({ status: number } & ApiErrorResponse),
+    { status: 200 } | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
   >
 ) {
