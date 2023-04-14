@@ -31,15 +31,13 @@ import {
   inNamespace,
   inRange,
   isURLTargeted,
+  decrypt,
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
-
-const base64ToBuf = (b: string) =>
-  Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
 
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -73,7 +71,7 @@ export class GrowthBook<
   private _attributeOverrides: Attributes;
   private _activeAutoExperiments: Map<
     string,
-    { valueHash: number; undo: () => void }
+    { valueHash: string; undo: () => void }
   >;
 
   constructor(context?: Context) {
@@ -168,43 +166,14 @@ export class GrowthBook<
     decryptionKey?: string,
     subtle?: SubtleCrypto
   ): Promise<void> {
-    const features = await this._decrypt<Record<string, FeatureDefinition>>(
+    const featuresJSON = await decrypt(
       encryptedString,
-      decryptionKey,
+      decryptionKey || this._ctx.decryptionKey,
       subtle
     );
-    this.setFeatures(features);
-  }
-
-  private async _decrypt<T>(
-    encryptedString: string,
-    decryptionKey?: string,
-    subtle?: SubtleCrypto
-  ): Promise<T> {
-    decryptionKey = decryptionKey || this._ctx.decryptionKey || "";
-    subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
-    if (!subtle) {
-      throw new Error("No SubtleCrypto implementation found");
-    }
-    try {
-      const key = await subtle.importKey(
-        "raw",
-        base64ToBuf(decryptionKey),
-        { name: "AES-CBC", length: 128 },
-        true,
-        ["encrypt", "decrypt"]
-      );
-      const [iv, cipherText] = encryptedString.split(".");
-      const plainTextBuffer = await subtle.decrypt(
-        { name: "AES-CBC", iv: base64ToBuf(iv) },
-        key,
-        base64ToBuf(cipherText)
-      );
-
-      return JSON.parse(new TextDecoder().decode(plainTextBuffer)) as T;
-    } catch (e) {
-      throw new Error("Failed to decrypt");
-    }
+    this.setFeatures(
+      JSON.parse(featuresJSON) as Record<string, FeatureDefinition>
+    );
   }
 
   public setExperiments(experiments: AutoExperiment[]): void {
@@ -218,12 +187,12 @@ export class GrowthBook<
     decryptionKey?: string,
     subtle?: SubtleCrypto
   ): Promise<void> {
-    const experiments = await this._decrypt<AutoExperiment[]>(
+    const experimentsJSON = await decrypt(
       encryptedString,
-      decryptionKey,
+      decryptionKey || this._ctx.decryptionKey,
       subtle
     );
-    this.setExperiments(experiments);
+    this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
   }
 
   public setAttributes(attributes: Attributes) {
@@ -334,7 +303,7 @@ export class GrowthBook<
     const result = this.run(experiment);
 
     // A hash to quickly tell if the assigned value changed
-    const valueHash = hash("", JSON.stringify(result.value), 2);
+    const valueHash = JSON.stringify(result.value);
 
     // If the changes are already active, no need to re-apply them
     if (result.inExperiment && existing && existing.valueHash === valueHash) {
@@ -666,6 +635,7 @@ export class GrowthBook<
     }
 
     const n = hash(seed, hashValue, hashVersion || 1);
+    if (n === null) return false;
 
     return range
       ? inRange(n, range)
@@ -683,6 +653,7 @@ export class GrowthBook<
       const { hashValue } = this._getHashAttribute(filter.attribute);
       if (!hashValue) return true;
       const n = hash(filter.seed, hashValue, filter.hashVersion || 2);
+      if (n === null) return true;
       return !filter.ranges.some((r) => inRange(n, r));
     });
   }
@@ -833,6 +804,14 @@ export class GrowthBook<
       hashValue,
       experiment.hashVersion || 1
     );
+    if (n === null) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Skip because of invalid hash version", {
+          id: key,
+        });
+      return this._getResult(experiment, -1, false, featureId);
+    }
+
     const ranges =
       experiment.ranges ||
       getBucketRanges(
