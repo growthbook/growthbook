@@ -161,13 +161,8 @@ export default abstract class SqlIntegration
   useAliasInGroupBy(): boolean {
     return true;
   }
-  castDateToStandardString(col: string): string {
+  formatDateTimeString(col: string): string {
     return this.castToString(col);
-  }
-  replaceDateDimensionString(minDateDimString: string): string {
-    return `REGEXP_REPLACE(${minDateDimString}, ${this.castToString(
-      "'.*____'"
-    )}, ${this.castToString("''")})`;
   }
 
   applyMetricOverrides(
@@ -666,18 +661,17 @@ export default abstract class SqlIntegration
     } else if (dimension.type === "date") {
       return `MIN(${this.formatDate(this.dateTrunc("e.timestamp"))})`;
     } else if (dimension.type === "experiment") {
-      return this.replaceDateDimensionString(
-        `MIN(
-          CONCAT(
-            CONCAT(${this.castDateToStandardString("e.timestamp")}, 
-            ${this.castToString("'____'")}
-            ), 
+      return `SUBSTRING(
+        MIN(
+          CONCAT(SUBSTRING(${this.formatDateTimeString("e.timestamp")}, 1, 19), 
             coalesce(${this.castToString("e.dimension")}, ${this.castToString(
-          `'${missingDimString}'`
-        )})
+        `'${missingDimString}'`
+      )})
           )
-        )`
-      );
+        ),
+        20, 
+        99999
+      )`;
     }
 
     throw new Error("Unknown dimension type: " + (dimension as Dimension).type);
