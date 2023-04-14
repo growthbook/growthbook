@@ -608,7 +608,7 @@ class TestAnalyzeMetricDfSequential(TestCase):
             weights=[0.5, 0.5],
             inverse=False,
             engine=StatsEngine.FREQUENTIST,
-            engine_config={"sequential": True, "sequential_tuning_parameter": 300},
+            engine_config={"sequential": True, "sequential_tuning_parameter": 600},
         )
 
         self.assertEqual(len(result.index), 2)

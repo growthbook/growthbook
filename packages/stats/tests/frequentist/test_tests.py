@@ -84,7 +84,7 @@ class TestSequentialTTest(TestCase):
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=0.50336,
-                ci=[-0.53159, 1.53831],
+                ci=[-0.55844, 1.56516],
                 uplift=Uplift("normal", 0.50336, 0.33341),
                 p_value=1,
             )
@@ -99,7 +99,7 @@ class TestSequentialTTest(TestCase):
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=0.50386,
-                ci=[0.40046, 0.60727],
+                ci=[0.40098, 0.60675],
                 uplift=Uplift("normal", 0.50386, 0.03386),
                 p_value=0.0,
             )
@@ -107,7 +107,6 @@ class TestSequentialTTest(TestCase):
         self.assertEqual(_round_result_dict(result_dict), expected_dict)
 
     def test_sequential_test_runs_ra(self):
-
         stat_a_pre = SampleMeanStatistic(sum=16.87, sum_squares=527.9767, n=3000)
         stat_b_pre = SampleMeanStatistic(sum=22.7, sum_squares=1348.29, n=3461)
         stat_a_post = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3000)
@@ -132,9 +131,9 @@ class TestSequentialTTest(TestCase):
         expected_dict = asdict(
             FrequentistTestResult(
                 expected=0.50236,
-                ci=[-0.44221, 1.44692],
+                ci=[-0.43745, 1.44217],
                 uplift=Uplift("normal", 0.50236, 0.3093),
-                p_value=0.82092,
+                p_value=1,
             )
         )
 
