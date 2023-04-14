@@ -41,6 +41,7 @@ def create_notebook(
     run_query="",
     metrics=[],
     stats_engine=StatsEngine.BAYESIAN,
+    engine_config={},
 ):
     summary_cols = [
         "dimension",
@@ -86,6 +87,8 @@ def create_notebook(
             f"weights = {str(weights)}\n"
             "# Statistics engine to use\n"
             f"stats_engine = {str(stats_engine)}\n"
+            "# Engine config\n"
+            f"engine_config = {str(engine_config)}\n"
             f"# Columns to show in the result summary\n"
             f"summary_cols = {str(summary_cols)}"
         ),
@@ -162,7 +165,11 @@ def create_notebook(
         cells.append(nbf.new_markdown_cell("### Result"))
 
         result = analyze_metric_df(
-            df=df, weights=weights, inverse=inverse, engine=stats_engine
+            df=df,
+            weights=weights,
+            inverse=inverse,
+            engine=stats_engine,
+            engine_config=engine_config,
         )
         cells.append(
             code_cell_df(
@@ -173,7 +180,8 @@ def create_notebook(
                     f"    df=m{i}_reduced,\n"
                     f"    weights=weights,\n"
                     f"    inverse={inverse},\n"
-                    f"    engine=stats_engine\n"
+                    f"    engine=stats_engine,\n"
+                    f"    engine_config=engine_config,\n"
                     f")\n"
                     f"display(m{i}_result[summary_cols].T)"
                 ),
