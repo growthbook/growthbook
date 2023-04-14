@@ -17,30 +17,30 @@ Sequential Testing is only implemented for the Frequentist statistics engine, an
 
 Sequential testing allows you to look at your experiment results as many times as you like while still keeping the number of false positives below the expected rate. In other words, it is the frequentist solution to the peeking problem in AB testing.
 
-Sequential not only reduces the risk of false positives in online experimentation; it can also increase the velocity of experimentation. Although sequential testing produces wider confidence intervals than fixed-sample testing, traditional frequentist inference requires an experimenter to wait until a pre-determined sample size is collected. With sequential testing, decisions can be made as soon as significance is reached, without fear of inflating the false positive rate.
+Sequential testing not only reduces the risk of false positives in online experimentation; it can also increase the velocity of experimentation. Although sequential testing produces wider confidence intervals than fixed-sample testing, traditional frequentist inference requires an experimenter to wait until a pre-determined sample size is collected. With sequential testing, decisions can be made as soon as significance is reached, without fear of inflating the false positive rate.
 
 ### The peeking problem
 
 What is peeking? First, some background on frequentist testing.
 
-When running a frequentist analysis, the experimenter sets a confidence level, often written as $\alpha$. Many people, and GrowthBook, default to using $\alpha = 5%$ (sometimes it is written as $\alpha = 0.05$). These all mean the same thing: for a correctly specified frequentist analysis, you will only reject the null hypothesis 5% of the time when the null hypothesis is true. Usually in online experimentation, the 5% represents the expected number of times that our experiment would say that our treatment and control are different when really they are not. In other words, $\alpha$ controls the _False Positive Rate_.
+When running a frequentist analysis, the experimenter sets a confidence level, often written as $\alpha$. Many people, and GrowthBook, default to using $\alpha = 5\%$ (sometimes it is written as $\alpha = 0.05$). These all mean the same thing: for a correctly specified frequentist analysis, you will only reject the null hypothesis 5% of the time when the null hypothesis is true. Usually in online experimentation, our null hypothesis is that metric averages in two variations are the same. In other words, $\alpha$ controls the _False Positive Rate_.
 
-However, experimenters often violate a fundamental assumption underpinning frequentist analysis: you must wait until for some pre-specified time (or sample size) before looking at and acting upon experiment results for the above guarantee to hold. If you violate this assumption, and _peek_ at your results, you will end up with an inflated _False Positive Rate_, far above your nominal 5% level. In other words, if we check an experiment as it runs, we are essentially increasing the number of times we can get a positive, even if there is no experiment effect, just through random noise.
+However, experimenters often violate a fundamental assumption underpinning frequentist analysis: that one must wait until for some pre-specified time (or sample size) before looking at and acting upon experiment results. If you violate this assumption, and _peek_ at your results, you will end up with an inflated _False Positive Rate_, far above your nominal 5% level. In other words, if we check an experiment as it runs, we are essentially increasing the number of times we can get a positive, even if there is no experiment effect, just through random noise.
 
 We have two options:
 
 1. Stop checking early. This is possible, but in a lot of cases it can make decision making worse! It is powerful to be able to see bad results and shut a feature down early; or conversely to see a great feature do well right away, end the experiment, and ship to everyone.
 2. Use an estimator that returns our control over false positive rates.
 
-Sequential testing is one such estimator; it will let us check our results early without fear of inflating the false positive rate.
+Sequential testing provides estimators for the second option; it allows us peeking at your results without fear of inflating the false positive rate beyond your specified $alpha$.
 
 ## GrowthBook's implementation
 
 There are many approaches to sequential testing, several of which are well explained and compared in [this Spotify blogpost](https://engineering.atspotify.com/2023/03/choosing-sequential-testing-framework-comparisons-and-discussions/).
 
-For GrowthBook, we selected a method that would work for the wide variety of experimenters that we serve, while also providing experimenters with a way to tune the approach for their setting. To that end, we implement Asymptotic Confidence Sequences introduced by [Waudby-Smith et al. (2023)](https://arxiv.org/pdf/2103.06476v7.pdf); these are very similar to the Generalized Anytime Valid Inference confidence sequences described by Spotify in the above post and introduced by [Howard et al. (2022)](https://arxiv.org/pdf/1810.08240.pdf), although the Waudby-Smith et al. approach more transparently applies to the situation where we are estimating causal experiment lift in a generalized experimentation platform.
+For GrowthBook, we selected a method that would work for the wide variety of experimenters that we serve, while also providing experimenters with a way to tune the approach for their setting. To that end, we implement Asymptotic Confidence Sequences introduced by [Waudby-Smith et al. (2023)](https://arxiv.org/pdf/2103.06476v7.pdf); these are very similar to the Generalized Anytime Valid Inference confidence sequences described by Spotify in the above post and introduced by [Howard et al. (2022)](https://arxiv.org/pdf/1810.08240.pdf), although the Waudby-Smith et al. approach more transparently applies to our setting.
 
-Specifically, our confidence sequences, which take the place of confidence intervals, become:
+Specifically, GrowthBook's confidence sequences, which take the place of confidence intervals, become:
 
 $$\left(\hat{\mu} \pm \hat{\sigma}^2*N * \sqrt{\frac{2(N\rho^2 + 1)}{N^2\rho^2}\log\left(\frac{\sqrt{N\rho^2 + 1}}{\alpha}\right)}\right)$$
 
@@ -50,7 +50,7 @@ In the above, $\hat{\mu}$ is our estimated uplift, $\hat{\sigma}^2$ is the estim
 
 In the above $N^*$ is a tuning parameter that lets us control how tight these confidence sequences are relative to the standard, fixed-time confidence intervals. It can be thought of as an "estimated sample size." You want to set $N^*$ to be the number of observations at which you tend to make decisions, because it is at that sample size that the loss in experiment power from using sequential testing will be smallest relative to the traditional confidence intervals.
 
-The following figure shows how the increased CI width in sequential analysis is minimized when the sample size is approximately $S$. The y-axis is the ratio of the sequential CIs to the regular CIs; all lines are well above 1.0, showing that sequential analysis results in uniformly wider confidence intervals. On the x-axis is the sample size at which the analysis was executed. As you can see, the ratio is lowest when S is as close to sample size used in the analysis.
+The following figure shows how the increased CI width in sequential analysis is minimized when the sample size is approximately $N^*$. The y-axis is the ratio of the sequential CIs to the regular CIs; all lines are well above 1.0, showing that sequential analysis results in uniformly wider confidence intervals. On the x-axis is the sample size at which the analysis was executed. As you can see, the ratio is lowest when $N^*$ is as close to sample size used in the analysis.
 
 <img
   src="/images/statistics/sequential-tuning.png"
@@ -63,6 +63,8 @@ We default to using 5,000, but the general advice is to set this parameter to th
 ## Configuring sequential testing
 
 You can enable or disable sequential testing, as well as select your tuning parameter, both in your organization settings (as a default for all future experiments) or on an individual experiment's page.
+
+You can also play with the settings in an ad-hoc report.
 
 Note that the tuning parameter should remain fixed for an experiment.
 
