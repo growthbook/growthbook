@@ -128,15 +128,23 @@ print(json.dumps({
   return parsed;
 }
 
-export async function analyzeExperimentResults(
-  organization: string,
-  variations: ExperimentReportVariation[],
-  dimension: string | undefined,
-  queryData: QueryMap,
-  statsEngine: StatsEngine = "bayesian",
-  sequentialTestingEnabled: boolean = false,
-  sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
-): Promise<ExperimentReportResults> {
+export async function analyzeExperimentResults({
+  organization,
+  variations,
+  dimension = null,
+  queryData,
+  statsEngine = "bayesian",
+  sequentialTestingEnabled = false,
+  sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+}: {
+  organization: string;
+  variations: ExperimentReportVariation[];
+  dimension?: string | null;
+  queryData: QueryMap;
+  statsEngine?: StatsEngine;
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
+}): Promise<ExperimentReportResults> {
   const metrics = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
   metrics.forEach((m) => {

@@ -1444,17 +1444,19 @@ export async function getSnapshotStatus(
     snapshot,
     org.id,
     (queryData) =>
-      analyzeExperimentResults(
-        org.id,
-        getReportVariations(experiment, phase),
-        snapshot.dimension || undefined,
+      analyzeExperimentResults({
+        organization: org.id,
+        variations: getReportVariations(experiment, phase),
+        dimension: snapshot.dimension,
         queryData,
-        snapshot.statsEngine ?? org.settings?.statsEngine,
-        snapshot.sequentialTestingEnabled ??
+        statsEngine: snapshot.statsEngine ?? org.settings?.statsEngine,
+        sequentialTestingEnabled:
+          snapshot.sequentialTestingEnabled ??
           org.settings?.sequentialTestingEnabled,
-        snapshot.sequentialTestingTuningParameter ??
-          org.settings?.sequentialTestingTuningParameter
-      ),
+        sequentialTestingTuningParameter:
+          snapshot.sequentialTestingTuningParameter ??
+          org.settings?.sequentialTestingTuningParameter,
+      }),
     async (updates, results, error) => {
       await updateSnapshot(org.id, id, {
         ...updates,

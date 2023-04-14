@@ -175,6 +175,7 @@ const AnalysisForm: FC<{
           body.phaseEndDate = dateEnded;
         }
         if (usingSequentialTestingDefault) {
+          // User checked the org default checkbox; ignore form values
           body.sequentialTestingEnabled = !!settings.sequentialTestingEnabled;
           body.sequentialTestingTuningParameter =
             settings.sequentialTestingTuningParameter ??

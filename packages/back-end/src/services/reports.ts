@@ -228,15 +228,17 @@ export async function startExperimentAnalysis(
   const { queries, result: results } = await startRun(
     queryDocs,
     async (queryData) => {
-      return analyzeExperimentResults(
-        organization.id,
-        args.variations,
-        args.dimension,
+      return analyzeExperimentResults({
+        organization: organization.id,
+        variations: args.variations,
+        dimension: args.dimension,
         queryData,
-        args.statsEngine,
-        hasSequentialTestingFeature ? args.sequentialTestingEnabled : false,
-        args.sequentialTestingTuningParameter
-      );
+        statsEngine: args.statsEngine,
+        sequentialTestingEnabled: hasSequentialTestingFeature
+          ? args.sequentialTestingEnabled
+          : false,
+        sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
+      });
     }
   );
   return { queries, results };

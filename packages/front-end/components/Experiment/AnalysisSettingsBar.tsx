@@ -7,6 +7,7 @@ import {
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { StatsEngine } from "back-end/types/stats";
+import { FaInfoCircle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { ago, datetime } from "@/services/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -16,6 +17,7 @@ import { GBCuped } from "@/components/Icons";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import DimensionChooser from "../Dimensions/DimensionChooser";
@@ -24,8 +26,6 @@ import RefreshSnapshotButton from "./RefreshSnapshotButton";
 import ResultMoreMenu from "./ResultMoreMenu";
 import PhaseSelector from "./PhaseSelector";
 import { useSnapshot } from "./SnapshotProvider";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { FaInfoCircle } from "react-icons/fa";
 
 function isDifferent(val1?: string | boolean, val2?: string | boolean) {
   if (!val1 && !val2) return false;
@@ -38,22 +38,25 @@ function isOutdated(
   statsEngine: StatsEngine,
   hasRegressionAdjustmentFeature: boolean,
   hasSequentialFeature: boolean
-): {outdated: boolean, reason: string} {
-  if (!snapshot) return {outdated: false, reason: ""};
+): { outdated: boolean; reason: string } {
+  if (!snapshot) return { outdated: false, reason: "" };
   if (isDifferent(experiment.activationMetric, snapshot.activationMetric)) {
-    return {outdated: true, reason: "activation metric changed"};
+    return { outdated: true, reason: "activation metric changed" };
   }
   if (isDifferent(experiment.segment, snapshot.segment)) {
-    return {outdated: true, reason: "segment changed"};
+    return { outdated: true, reason: "segment changed" };
   }
   if (isDifferent(experiment.queryFilter, snapshot.queryFilter)) {
-    return {outdated: true, reason: "query filter changed"};
+    return { outdated: true, reason: "query filter changed" };
   }
   if (experiment.datasource && !("skipPartialData" in snapshot)) {
-    return {outdated: true, reason: "datasource changed"};
+    return { outdated: true, reason: "datasource changed" };
   }
   if (isDifferent(experiment.skipPartialData, snapshot.skipPartialData)) {
-    return {outdated: true, reason: "in-progress conversion behavior changed"};
+    return {
+      outdated: true,
+      reason: "in-progress conversion behavior changed",
+    };
   }
   // todo: attribution model? (which doesn't live in the snapshot currently)
 
@@ -67,7 +70,7 @@ function isOutdated(
       !!snapshot.regressionAdjustmentEnabled
     )
   ) {
-    return {outdated: true, reason: "CUPED settings changed"};
+    return { outdated: true, reason: "CUPED settings changed" };
   }
 
   const experimentSequentialEnabled =
@@ -80,10 +83,10 @@ function isOutdated(
       !!snapshot.sequentialTestingEnabled
     )
   ) {
-    return {outdated: true, reason: "sequential testing settings changed"};
+    return { outdated: true, reason: "sequential testing settings changed" };
   }
 
-  return {outdated: false, reason: ""};
+  return { outdated: false, reason: "" };
 }
 
 export default function AnalysisSettingsBar({

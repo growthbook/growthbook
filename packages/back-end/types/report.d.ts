@@ -39,7 +39,7 @@ export interface ExperimentReportArgs {
   exposureQueryId: string;
   startDate: Date;
   endDate?: Date;
-  dimension?: string;
+  dimension?: string | null;
   variations: ExperimentReportVariation[];
   segment?: string;
   metrics: string[];

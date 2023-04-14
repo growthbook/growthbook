@@ -189,17 +189,20 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
           currentSnapshot,
           currentSnapshot.organization,
           (queryData) => {
-            return analyzeExperimentResults(
-              experiment.organization,
-              getReportVariations(experiment, phase),
-              undefined,
+            return analyzeExperimentResults({
+              organization: experiment.organization,
+              variations: getReportVariations(experiment, phase),
               queryData,
-              currentSnapshot.statsEngine ?? organization.settings?.statsEngine,
-              currentSnapshot.sequentialTestingEnabled ??
+              statsEngine:
+                currentSnapshot.statsEngine ??
+                organization.settings?.statsEngine,
+              sequentialTestingEnabled:
+                currentSnapshot.sequentialTestingEnabled ??
                 organization.settings?.sequentialTestingEnabled,
-              currentSnapshot.sequentialTestingTuningParameter ??
-                organization.settings?.sequentialTestingTuningParameter
-            );
+              sequentialTestingTuningParameter:
+                currentSnapshot.sequentialTestingTuningParameter ??
+                organization.settings?.sequentialTestingTuningParameter,
+            });
           },
           async (updates, results, error) => {
             await updateSnapshot(experiment.organization, currentSnapshot.id, {
