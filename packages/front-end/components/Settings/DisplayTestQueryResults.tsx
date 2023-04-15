@@ -50,7 +50,7 @@ export default function DisplayTestQueryResults({
       <div className="border p-2 bg-light">
         <div className="row">
           <div className="col-auto">
-            <strong>Sample {results?.length || 5} Rows</strong>
+            <strong>Sample {results?.length} Rows</strong>
           </div>
           <div className="col-auto ml-auto">
             <div className="text-success">
