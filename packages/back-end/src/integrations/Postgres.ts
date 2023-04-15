@@ -41,6 +41,9 @@ export default class Postgres extends SqlIntegration {
   formatDate(col: string) {
     return `to_char(${col}, 'YYYY-MM-DD')`;
   }
+  formatDateTimeString(col: string): string {
+    return `to_char(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`;
+  }
 
   async getInformationSchema(): Promise<InformationSchema[]> {
     const sql = `SELECT

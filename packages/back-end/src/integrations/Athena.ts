@@ -36,6 +36,9 @@ export default class Athena extends SqlIntegration {
   formatDate(col: string): string {
     return `substr(to_iso8601(${col}),1,10)`;
   }
+  formatDateTimeString(col: string): string {
+    return `to_iso8601(${col})`;
+  }
   dateDiff(startCol: string, endCol: string) {
     return `date_diff('day', ${startCol}, ${endCol})`;
   }
