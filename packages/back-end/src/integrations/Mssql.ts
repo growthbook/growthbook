@@ -35,8 +35,8 @@ export default class Mssql extends SqlIntegration {
 
   // MS SQL Server doesn't support the LIMIT keyword, so we have to use the TOP or OFFSET and FETCH keywords instead.
   // (and OFFSET/FETCH only work when there is an ORDER BY clause)
-  selectSampleRows(limit: number): string {
-    return `SELECT TOP ${limit} * FROM __table`;
+  selectSampleRows(table: string, limit: number): string {
+    return `SELECT TOP ${limit} * FROM ${table}`;
   }
 
   addTime(

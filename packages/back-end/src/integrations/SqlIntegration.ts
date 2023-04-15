@@ -164,8 +164,8 @@ export default abstract class SqlIntegration
   formatDateTimeString(col: string): string {
     return this.castToString(col);
   }
-  selectSampleRows(limit: number): string {
-    return `SELECT * FROM __table LIMIT ${limit}`;
+  selectSampleRows(table: string, limit: number): string {
+    return `SELECT * FROM ${table} LIMIT ${limit}`;
   }
 
   applyMetricOverrides(
@@ -537,7 +537,7 @@ export default abstract class SqlIntegration
       `WITH __table as (
         ${query}
       )
-      ${this.selectSampleRows(5)}`,
+      ${this.selectSampleRows("__table", 5)}`,
       {
         startDate,
       }
