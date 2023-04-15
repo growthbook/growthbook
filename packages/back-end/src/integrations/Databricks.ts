@@ -36,6 +36,9 @@ export default class Databricks extends SqlIntegration {
   formatDate(col: string) {
     return `date_format(${col}, 'y-MM-dd')`;
   }
+  formatDateTimeString(col: string) {
+    return `date_format(${col}, 'y-MM-dd H:m:s.S')`;
+  }
   castToString(col: string): string {
     return `cast(${col} as string)`;
   }

@@ -40,6 +40,7 @@ export type CommercialFeature =
   | "schedule-feature-flag"
   | "override-metrics"
   | "regression-adjustment"
+  | "sequential-testing"
   | "audit-logging"
   | "visual-editor";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
@@ -162,6 +163,8 @@ export interface OrganizationSettings {
   /** @deprecated */
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
 }
 
 export interface SubscriptionQuote {

@@ -37,7 +37,13 @@ import MarkdownInlineEdit from "../Markdown/MarkdownInlineEdit";
 import DiscussionThread from "../DiscussionThread";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import DeleteButton from "../DeleteButton/DeleteButton";
-import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../Icons";
+import {
+  GBAddCircle,
+  GBCircleArrowLeft,
+  GBCuped,
+  GBEdit,
+  GBSequential,
+} from "../Icons";
 import RightRailSection from "../Layout/RightRailSection";
 import RightRailSectionGroup from "../Layout/RightRailSectionGroup";
 import Modal from "../Modal";
@@ -725,6 +731,32 @@ export default function SinglePage({
                   <FaQuestionCircle />
                 </AttributionModelTooltip>
               </RightRailSectionGroup>
+              {settings.statsEngine === "frequentist" && (
+                <>
+                  <RightRailSectionGroup
+                    title={
+                      <>
+                        <GBCuped size={16} /> Regression Adjustment (CUPED)
+                      </>
+                    }
+                    type="custom"
+                  >
+                    {regressionAdjustmentEnabled ? "Enabled" : "Disabled"}
+                  </RightRailSectionGroup>
+                  <RightRailSectionGroup
+                    title={
+                      <>
+                        <GBSequential size={16} /> Sequential Testing
+                      </>
+                    }
+                    type="custom"
+                  >
+                    {experiment.sequentialTestingEnabled
+                      ? "Enabled"
+                      : "Disabled"}
+                  </RightRailSectionGroup>
+                </>
+              )}
             </div>
           </RightRailSection>
           <div className="mb-4"></div>

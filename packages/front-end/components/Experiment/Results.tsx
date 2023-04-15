@@ -16,7 +16,7 @@ import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import StatusBanner from "@/components/Experiment/StatusBanner";
-import { GBCuped } from "@/components/Icons";
+import { GBCuped, GBSequential } from "@/components/Icons";
 import PValueGuardrailResults from "./PValueGuardrailResults";
 
 const BreakDownResults = dynamic(
@@ -220,6 +220,7 @@ const Results: FC<{
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses
             }
+            sequentialTestingEnabled={snapshot.sequentialTestingEnabled}
           />
         ))}
       {hasData && !snapshot.dimension && (
@@ -250,6 +251,7 @@ const Results: FC<{
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses
             }
+            sequentialTestingEnabled={snapshot.sequentialTestingEnabled}
           />
           {experiment.guardrails?.length > 0 && (
             <div className="mt-1 px-3">
@@ -304,17 +306,28 @@ const Results: FC<{
               </span>
             </div>
             {snapshot?.statsEngine === "frequentist" && (
-              <div>
-                <span className="text-muted">
-                  <GBCuped size={12} />
-                  CUPED:
-                </span>{" "}
-                <span>
-                  {snapshot?.regressionAdjustmentEnabled
-                    ? "Enabled"
-                    : "Disabled"}
-                </span>
-              </div>
+              <>
+                <div>
+                  <span className="text-muted">
+                    <GBCuped size={13} /> CUPED:
+                  </span>{" "}
+                  <span>
+                    {snapshot?.regressionAdjustmentEnabled
+                      ? "Enabled"
+                      : "Disabled"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted">
+                    <GBSequential size={13} /> Sequential:
+                  </span>{" "}
+                  <span>
+                    {snapshot?.sequentialTestingEnabled
+                      ? "Enabled"
+                      : "Disabled"}
+                  </span>
+                </div>
+              </>
             )}
             <div>
               <span className="text-muted">Run date:</span>{" "}

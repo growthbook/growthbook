@@ -40,6 +40,7 @@ const BreakDownResults: FC<{
   statsEngine?: StatsEngine;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  sequentialTestingEnabled?: boolean;
 }> = ({
   dimensionId,
   results,
@@ -55,6 +56,7 @@ const BreakDownResults: FC<{
   statsEngine,
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
+  sequentialTestingEnabled,
 }) => {
   const { getDimensionById, getMetricById, ready } = useDefinitions();
 
@@ -178,6 +180,7 @@ const BreakDownResults: FC<{
               rows={table.rows}
               fullStats={fullStats}
               statsEngine={statsEngine}
+              sequentialTestingEnabled={sequentialTestingEnabled}
               {...risk}
             />
           </div>

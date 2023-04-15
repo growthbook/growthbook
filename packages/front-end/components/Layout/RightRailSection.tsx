@@ -2,7 +2,7 @@ import { ReactNode, FC } from "react";
 
 const RightRailSection: FC<{
   open?: () => void;
-  title: string;
+  title: string | ReactNode;
   canOpen?: boolean;
   children: ReactNode;
 }> = ({ open, title, children, canOpen = false }) => {

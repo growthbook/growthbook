@@ -150,6 +150,8 @@ const experimentSchema = new mongoose.Schema({
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
   hasVisualChangesets: Boolean,
+  sequentialTestingEnabled: Boolean,
+  sequentialTestingTuningParameter: Number,
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;

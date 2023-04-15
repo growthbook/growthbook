@@ -34,6 +34,9 @@ export default class Snowflake extends SqlIntegration {
   formatDate(col: string): string {
     return `TO_VARCHAR(${col}, 'YYYY-MM-DD')`;
   }
+  formatDateTimeString(col: string): string {
+    return `TO_VARCHAR(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`;
+  }
   castToString(col: string): string {
     return `TO_VARCHAR(${col})`;
   }
