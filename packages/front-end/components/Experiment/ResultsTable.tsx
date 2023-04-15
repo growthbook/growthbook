@@ -36,6 +36,7 @@ export type ResultsTableProps = {
   riskVariation: number;
   setRiskVariation: (riskVariation: number) => void;
   statsEngine?: StatsEngine;
+  sequentialTestingEnabled?: boolean;
 };
 
 const numberFormatter = new Intl.NumberFormat();
@@ -60,10 +61,12 @@ export default function ResultsTable({
   riskVariation,
   setRiskVariation,
   statsEngine,
+  sequentialTestingEnabled,
 }: ResultsTableProps) {
   const domain = useDomain(variations, rows);
   const orgSettings = useOrgSettings();
   statsEngine = statsEngine ?? orgSettings.statsEngine ?? "bayesian";
+  sequentialTestingEnabled = sequentialTestingEnabled ?? false;
 
   return (
     <table
@@ -136,9 +139,22 @@ export default function ResultsTable({
                   className={`variation${i} head-last-row text-center pt-2`}
                   style={{ minWidth: 110 }}
                 >
-                  {statsEngine === "frequentist"
-                    ? "P-value"
-                    : "Chance to Beat Control"}
+                  {statsEngine === "frequentist" ? (
+                    <>
+                      P-value
+                      {sequentialTestingEnabled && (
+                        <Tooltip
+                          innerClassName="text-left"
+                          body="Because sequential testing is enabled, these are always valid p-values (in other words, they are immune to peeking). They can still be interpreted in a similar way: your result is statistically significant if it drops below your threshold (default 0.05)."
+                        >
+                          {" "}
+                          <FaQuestionCircle />
+                        </Tooltip>
+                      )}
+                    </>
+                  ) : (
+                    "Chance to Beat Control"
+                  )}
                 </th>
               )}
               {i > 0 && (
@@ -147,12 +163,34 @@ export default function ResultsTable({
                   {fullStats && (
                     <>
                       {hasRisk && statsEngine === "bayesian" && (
-                        <Tooltip body="This is a 95% credible interval. The true value is more likely to be in the thicker parts of the graph.">
+                        <Tooltip
+                          innerClassName="text-left"
+                          body="This is a 95% credible interval. The true value is more likely to be in the thicker parts of the graph."
+                        >
                           <FaQuestionCircle />
                         </Tooltip>
                       )}
                       {statsEngine === "frequentist" && (
-                        <Tooltip body="This is a 95% confidence interval. If you re-ran the experiment 100 times, the true value would be in this range 95% of the time.">
+                        <Tooltip
+                          innerClassName="text-left"
+                          body={
+                            <>
+                              <p className="mb-0">
+                                This is a 95% confidence interval. If you re-ran
+                                the experiment 100 times, the true value would
+                                be in this range 95% of the time.
+                              </p>
+                              {sequentialTestingEnabled && (
+                                <p className="mt-4 mb-0">
+                                  Because sequential testing is enabled, these
+                                  confidence intervals are valid no matter how
+                                  many times you analyze (or peek at) this
+                                  experiment as it runs.
+                                </p>
+                              )}
+                            </>
+                          }
+                        >
                           <FaQuestionCircle />
                         </Tooltip>
                       )}
