@@ -7,13 +7,22 @@
     <a href="https://slack.growthbook.io?ref=readme-badge"><img src="https://img.shields.io/badge/slack-join-E01E5A?logo=slack" alt="Join us on Slack" height="22"/></a>
 </p>
 
-
 Get up and running in 1 minute with:
+
+Intel Chip
 
 ```sh
 git clone https://github.com/growthbook/growthbook.git
 cd growthbook
 docker-compose up -d
+```
+
+Apple Silicon
+
+```sh
+git clone https://github.com/growthbook/growthbook.git
+cd growthbook
+DOCKER_DEFAULT_PLATFORM=linux/amd64 docker-compose up -d
 ```
 
 Then visit http://localhost:3000
