@@ -181,6 +181,7 @@ const BreakDownResults: FC<{
               fullStats={fullStats}
               statsEngine={statsEngine}
               sequentialTestingEnabled={sequentialTestingEnabled}
+              pValueCorrection={pValueCorrection}
               {...risk}
             />
           </div>
