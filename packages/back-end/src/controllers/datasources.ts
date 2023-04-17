@@ -51,7 +51,7 @@ export async function postSampleData(
 
   const { org, userId } = getOrgFromReq(req);
   const orgId = org.id;
-  const statsEngine = org.settings?.statsEngine;
+  const statsEngine = org.settings?.statsEngine || "bayesian";
 
   const existingMetrics = await getSampleMetrics(orgId);
 
@@ -213,7 +213,13 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
           },
         ],
       },
-      statsEngine
+      {
+        statsEngine,
+        regressionAdjustmentEnabled: false,
+        metricRegressionAdjustmentStatuses: [],
+        sequentialTestingEnabled: false,
+        sequentialTestingTuningParameter: 0,
+      }
     );
   }
 

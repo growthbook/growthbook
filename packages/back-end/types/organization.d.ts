@@ -40,6 +40,8 @@ export type CommercialFeature =
   | "schedule-feature-flag"
   | "override-metrics"
   | "regression-adjustment"
+  | "sequential-testing"
+  | "audit-logging"
   | "visual-editor";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
@@ -161,6 +163,8 @@ export interface OrganizationSettings {
   /** @deprecated */
   implementationTypes?: ImplementationType[];
   attributionModel?: AttributionModel;
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
 }
 
 export interface SubscriptionQuote {
@@ -204,6 +208,7 @@ export interface OrganizationInterface {
   discountCode?: string;
   priceId?: string;
   disableSelfServeBilling?: boolean;
+  freeTrialDate?: Date;
   enterprise?: boolean;
   subscription?: {
     id: string;
@@ -216,6 +221,7 @@ export interface OrganizationInterface {
     cancel_at_period_end: boolean;
     planNickname: string | null;
     priceId?: string;
+    hasPaymentMethod?: boolean;
   };
   licenseKey?: string;
   autoApproveMembers?: boolean;

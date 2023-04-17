@@ -60,10 +60,11 @@ export async function postNewSubscription(
       );
     }
   });
-
   await Promise.all(promises);
 
-  const session = await stripe.checkout.sessions.create({
+  const startFreeTrial = !org.freeTrialDate;
+
+  const payload: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
     payment_method_types: ["card"],
     customer: stripeCustomerId,
@@ -80,7 +81,22 @@ export async function postNewSubscription(
     ],
     success_url: `${APP_ORIGIN}/settings/team?org=${org.id}&subscription-success-session={CHECKOUT_SESSION_ID}`,
     cancel_url: `${APP_ORIGIN}${returnUrl}?org=${org.id}`,
-  });
+  };
+
+  if (startFreeTrial) {
+    payload.subscription_data = {
+      trial_period_days: 14,
+      trial_settings: {
+        end_behavior: {
+          missing_payment_method: "cancel",
+        },
+      },
+    };
+    payload.payment_method_collection = "if_required";
+  }
+
+  const session = await stripe.checkout.sessions.create(payload);
+
   res.status(200).json({
     status: 200,
     session,
