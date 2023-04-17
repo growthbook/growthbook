@@ -1,6 +1,10 @@
 import { get } from "lodash";
 import { DataSourceInterface } from "../../types/datasource";
-import { ExperimentInterface, AttributionModel } from "../../types/experiment";
+import {
+  ExperimentInterface,
+  AttributionModel,
+  MetricOverride,
+} from "../../types/experiment";
 import { MetricInterface } from "../../types/metric";
 import {
   OrganizationSettings,
@@ -45,7 +49,14 @@ type ScopeSettingsFn = (
   scopeSettings: ScopeSettingsFn;
 };
 
-interface Settings {
+interface MetricSettings {
+  conversionWindowHours: number | null;
+  conversionDelayHours: number | null;
+  winRisk: number | null;
+  loseRisk: number | null;
+}
+
+interface BaseSettings {
   confidenceLevel: number;
   northStar: NorthStarMetric | null;
   metricDefaults: MetricDefaults;
@@ -63,6 +74,8 @@ interface Settings {
   attributionModel: AttributionModel;
 }
 
+type Settings = BaseSettings & MetricSettings;
+
 type ScopedSettings = Record<keyof Settings, Setting<Settings[keyof Settings]>>;
 
 interface UseScopedSettingsReturn {
@@ -70,7 +83,7 @@ interface UseScopedSettingsReturn {
   scopeSettings: ScopeSettingsFn;
 }
 
-type InputSettings = OrganizationSettings | Settings;
+type InputSettings = Partial<OrganizationSettings & Settings>;
 
 const scopeOrder: Array<keyof ScopeDefinition> = [
   "project",
@@ -98,7 +111,7 @@ const genDefaultResolver = (
     return filteredScopes.reduce(
       (acc, { scope, fieldName }) => {
         const scopedValue = get(ctx.scopes, `${scope}.${fieldName}`);
-        if (!scopedValue) return acc;
+        if (typeof scopedValue === "undefined") return acc;
         return {
           value: scopedValue,
           meta: {
@@ -113,6 +126,42 @@ const genDefaultResolver = (
         },
       }
     );
+  };
+};
+
+const genMetricOverrideResolver = (
+  fieldName: keyof Omit<MetricOverride, "id">
+): SettingsResolver<Settings[keyof Settings]> => {
+  return (ctx) => {
+    const metricOverride = ctx.scopes?.experiment?.metricOverrides?.find(
+      (mo) => mo.id === ctx.scopes?.metric?.id
+    );
+
+    const value =
+      metricOverride?.[fieldName] ??
+      ctx.scopes?.metric?.[fieldName] ??
+      (fieldName === "regressionAdjustmentEnabled"
+        ? ctx.scopes?.experiment?.[fieldName]
+        : null) ??
+      null;
+
+    let reason = "org-level setting applied";
+
+    if (typeof metricOverride?.[fieldName] !== "undefined") {
+      reason = "experiment-level metric override applied";
+    } else if (typeof ctx.scopes?.metric?.[fieldName] !== "undefined") {
+      reason = "metric-level setting applied";
+    } else if (
+      fieldName === "regressionAdjustmentEnabled" &&
+      typeof ctx.scopes?.experiment?.[fieldName] !== "undefined"
+    ) {
+      reason = "experiment-level setting applied";
+    }
+
+    return {
+      value,
+      meta: { reason },
+    };
   };
 };
 
@@ -167,28 +216,21 @@ export const resolvers: Record<
     metric: true,
     report: true,
   }),
-  regressionAdjustmentEnabled: (ctx) => {
-    // TODO implement killswitch logic
-    return (
-      ctx.baseSettings.regressionAdjustmentEnabled || {
-        value: null,
-        meta: {
-          reason: "no setting found",
-        },
-      }
-    );
-  },
-  regressionAdjustmentDays: genDefaultResolver("regressionAdjustmentDays", {
-    project: true,
-    experiment: true,
-    metric: true,
-    report: true,
-  }),
+  regressionAdjustmentEnabled: genMetricOverrideResolver(
+    "regressionAdjustmentEnabled"
+  ),
+  regressionAdjustmentDays: genMetricOverrideResolver(
+    "regressionAdjustmentDays"
+  ),
   attributionModel: genDefaultResolver("attributionModel", {
     project: true,
     experiment: true,
     report: true,
   }),
+  conversionDelayHours: genMetricOverrideResolver("conversionDelayHours"),
+  conversionWindowHours: genMetricOverrideResolver("conversionWindowHours"),
+  winRisk: genMetricOverrideResolver("winRisk"),
+  loseRisk: genMetricOverrideResolver("loseRisk"),
 };
 
 const scopeSettings = (
@@ -243,6 +285,10 @@ const genBaseSettingsObject = (): Settings => ({
   statsEngine: "bayesian",
   updateSchedule: null,
   videoInstructionsViewed: false,
+  conversionDelayHours: null,
+  conversionWindowHours: null,
+  loseRisk: null,
+  winRisk: null,
 });
 
 const normalizeInputSettings = (
