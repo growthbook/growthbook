@@ -60,6 +60,7 @@ import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { analyzeExperimentResults } from "../services/stats";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
 import { getValidDate } from "../util/dates";
 import { getReportVariations } from "../services/reports";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
@@ -70,12 +71,16 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "../services/audit";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+} from "../../types/experiment-snapshot";
 import { StatsEngine } from "../../types/stats";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { orgHasPremiumFeature } from "../util/organization.util";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -722,6 +727,8 @@ export async function postExperiment(
     "project",
     "regressionAdjustmentEnabled",
     "hasVisualChangesets",
+    "sequentialTestingEnabled",
+    "sequentialTestingTuningParameter",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
@@ -1437,13 +1444,19 @@ export async function getSnapshotStatus(
     snapshot,
     org.id,
     (queryData) =>
-      analyzeExperimentResults(
-        org.id,
-        getReportVariations(experiment, phase),
-        snapshot.dimension || undefined,
+      analyzeExperimentResults({
+        organization: org.id,
+        variations: getReportVariations(experiment, phase),
+        dimension: snapshot.dimension,
         queryData,
-        snapshot.statsEngine ?? org.settings?.statsEngine
-      ),
+        statsEngine: snapshot.statsEngine ?? org.settings?.statsEngine,
+        sequentialTestingEnabled:
+          snapshot.sequentialTestingEnabled ??
+          org.settings?.sequentialTestingEnabled,
+        sequentialTestingTuningParameter:
+          snapshot.sequentialTestingTuningParameter ??
+          org.settings?.sequentialTestingTuningParameter,
+      }),
     async (updates, results, error) => {
       await updateSnapshot(org.id, id, {
         ...updates,
@@ -1503,26 +1516,42 @@ export async function postSnapshot(
 
   let { statsEngine, regressionAdjustmentEnabled } = req.body;
   const { metricRegressionAdjustmentStatuses } = req.body;
+  const { id } = req.params;
+  const { phase, dimension } = req.body;
+  const experiment = await getExperimentById(org.id, id);
 
   statsEngine = (typeof statsEngine === "string" &&
   ["bayesian", "frequentist"].includes(statsEngine)
     ? statsEngine
     : org.settings?.statsEngine ?? "bayesian") as StatsEngine;
 
+  const hasRegressionAdjustmentFeature = org
+    ? orgHasPremiumFeature(org, "regression-adjustment")
+    : false;
+  const hasSequentialTestingFeature = org
+    ? orgHasPremiumFeature(org, "sequential-testing")
+    : false;
+
   regressionAdjustmentEnabled =
-    regressionAdjustmentEnabled !== undefined
+    hasRegressionAdjustmentFeature &&
+    (regressionAdjustmentEnabled !== undefined
       ? regressionAdjustmentEnabled
-      : org.settings?.regressionAdjustmentEnabled ?? false;
+      : org.settings?.regressionAdjustmentEnabled ?? false);
+
+  const sequentialTestingEnabled =
+    hasSequentialTestingFeature &&
+    (experiment?.sequentialTestingEnabled ??
+      !!org.settings?.sequentialTestingEnabled);
+  const sequentialTestingTuningParameter =
+    experiment?.sequentialTestingTuningParameter ??
+    org.settings?.sequentialTestingTuningParameter ??
+    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
 
   const useCache = !req.query["force"];
 
   // This is doing an expensive analytics SQL query, so may take a long time
   // Set timeout to 30 minutes
   req.setTimeout(30 * 60 * 1000);
-
-  const { id } = req.params;
-  const { phase, dimension } = req.body;
-  const experiment = await getExperimentById(org.id, id);
 
   if (!experiment) {
     res.status(404).json({
@@ -1540,6 +1569,15 @@ export async function postSnapshot(
     return;
   }
 
+  const experimentSnapshotSettings: ExperimentSnapshotSettings = {
+    statsEngine,
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses:
+      metricRegressionAdjustmentStatuses || [],
+    sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
+  };
+
   // Manual snapshot
   if (!experiment.datasource) {
     const { users, metrics } = req.body;
@@ -1553,7 +1591,7 @@ export async function postSnapshot(
         phase,
         users,
         metrics,
-        statsEngine
+        experimentSnapshotSettings
       );
       res.status(200).json({
         status: 200,
@@ -1593,17 +1631,16 @@ export async function postSnapshot(
   }
 
   try {
-    const snapshot = await createSnapshot(
+    const snapshot = await createSnapshot({
       experiment,
-      res.locals.eventAudit,
-      phase,
-      org,
-      dimension || null,
+      organization: org,
+      user: res.locals.eventAudit,
+      phaseIndex: phase,
       useCache,
-      statsEngine,
-      regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses ?? []
-    );
+      dimension,
+      experimentSnapshotSettings,
+    });
+
     await req.audit({
       event: "experiment.refresh",
       entity: {

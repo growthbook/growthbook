@@ -39,7 +39,7 @@ export interface ExperimentReportArgs {
   exposureQueryId: string;
   startDate: Date;
   endDate?: Date;
-  dimension?: string;
+  dimension?: string | null;
   variations: ExperimentReportVariation[];
   segment?: string;
   metrics: string[];
@@ -52,6 +52,8 @@ export interface ExperimentReportArgs {
   statsEngine?: StatsEngine;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
 }
 export interface ExperimentReportResultDimension {
   name: string;
