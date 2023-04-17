@@ -854,6 +854,7 @@ describe("backend", () => {
           },
         },
       ],
+      sequentialTestingEnabled: false,
     };
 
     expect(upgradeExperimentDoc(exp)).toEqual(upgraded);
