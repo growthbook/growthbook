@@ -423,5 +423,9 @@ export function upgradeExperimentDoc(
     }
   }
 
+  if (!("sequentialTestingEnabled" in experiment)) {
+    experiment.sequentialTestingEnabled = false;
+  }
+
   return experiment as ExperimentInterface;
 }

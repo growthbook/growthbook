@@ -37,7 +37,11 @@ import {
 } from "../models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
-import { getOrgFromReq, userHasAccess } from "../services/organizations";
+import {
+  getOrganizationById,
+  getOrgFromReq,
+  userHasAccess,
+} from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import {
   cancelRun,
@@ -477,6 +481,7 @@ export async function postExperiments(
   >
 ) {
   const { org, userId } = getOrgFromReq(req);
+  const organization = await getOrganizationById(org.id);
 
   const data = req.body;
   data.organization = org.id;
@@ -557,6 +562,10 @@ export async function postExperiments(
     previewURL: data.previewURL || "",
     targetURLRegex: data.targetURLRegex || "",
     ideaSource: data.ideaSource || "",
+    // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
+    sequentialTestingEnabled:
+      data.sequentialTestingEnabled ??
+      !!organization?.settings?.sequentialTestingEnabled,
   };
 
   try {
