@@ -37,11 +37,7 @@ import {
 } from "../models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
-import {
-  getOrganizationById,
-  getOrgFromReq,
-  userHasAccess,
-} from "../services/organizations";
+import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import {
   cancelRun,
@@ -481,7 +477,6 @@ export async function postExperiments(
   >
 ) {
   const { org, userId } = getOrgFromReq(req);
-  const organization = await getOrganizationById(org.id);
 
   const data = req.body;
   data.organization = org.id;
@@ -565,10 +560,10 @@ export async function postExperiments(
     // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
     sequentialTestingEnabled:
       data.sequentialTestingEnabled ??
-      !!organization?.settings?.sequentialTestingEnabled,
+      !!org?.settings?.sequentialTestingEnabled,
     sequentialTestingTuningParameter:
       data.sequentialTestingTuningParameter ??
-      organization?.settings?.sequentialTestingTuningParameter ??
+      org?.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   };
 
