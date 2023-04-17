@@ -169,8 +169,7 @@ describe("settings", () => {
         expect(
           settings_revenue_1.regressionAdjustmentEnabled.meta.reason
         ).toEqual("stats engine is bayesian");
-        expect(settings_revenue_1.pValueThreshold.value).toEqual(undefined);
-        expect(settings_revenue_1.pValueThreshold.meta.reason).toEqual(
+        expect(settings_revenue_1.pValueThreshold.meta.warning).toEqual(
           "stats engine is bayesian"
         );
         expect(settings_revenue_1.confidenceLevel.value).toEqual(0.95);
@@ -195,17 +194,14 @@ describe("settings", () => {
           true
         );
         expect(settings_revenue_2.pValueThreshold.value).toEqual(0.05);
-        expect(settings_revenue_2.confidenceLevel.value).toEqual(undefined);
-        expect(settings_revenue_2.confidenceLevel.meta.reason).toEqual(
+        expect(settings_revenue_2.confidenceLevel.meta.warning).toEqual(
           "stats engine is frequentist"
         );
         // metric level:
-        expect(settings_revenue_1.winRisk.value).toEqual(undefined);
-        expect(settings_revenue_1.winRisk.meta.reason).toEqual(
+        expect(settings_revenue_1.winRisk.meta.warning).toEqual(
           "stats engine is bayesian"
         );
-        expect(settings_revenue_1.loseRisk.value).toEqual(undefined);
-        expect(settings_revenue_1.loseRisk.meta.reason).toEqual(
+        expect(settings_revenue_1.loseRisk.meta.warning).toEqual(
           "stats engine is bayesian"
         );
       });
