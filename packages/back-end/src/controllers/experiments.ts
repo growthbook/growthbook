@@ -566,6 +566,10 @@ export async function postExperiments(
     sequentialTestingEnabled:
       data.sequentialTestingEnabled ??
       !!organization?.settings?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      data.sequentialTestingTuningParameter ??
+      organization?.settings?.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   };
 
   try {

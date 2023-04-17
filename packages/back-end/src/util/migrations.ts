@@ -19,6 +19,7 @@ import {
   ExperimentInterface,
   LegacyExperimentInterface,
 } from "../../types/experiment";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -425,6 +426,9 @@ export function upgradeExperimentDoc(
 
   if (!("sequentialTestingEnabled" in experiment)) {
     experiment.sequentialTestingEnabled = false;
+  }
+  if (!("sequentialTestingTuningParameter" in experiment)) {
+    experiment.sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   }
 
   return experiment as ExperimentInterface;
