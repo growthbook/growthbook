@@ -62,6 +62,8 @@ export function reportArgsFromSnapshot(
     regressionAdjustmentEnabled: !!snapshot.regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses:
       snapshot.metricRegressionAdjustmentStatuses || [],
+    sequentialTestingEnabled: snapshot.sequentialTestingEnabled,
+    sequentialTestingTuningParameter: snapshot.sequentialTestingTuningParameter,
   };
 }
 
@@ -72,6 +74,9 @@ export async function startExperimentAnalysis(
 ) {
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
+    : false;
+  const hasSequentialTestingFeature = organization
+    ? orgHasPremiumFeature(organization, "sequential-testing")
     : false;
   const metricObjs = await getMetricsByOrganization(organization.id);
   const metricMap = new Map<string, MetricInterface>();
@@ -222,14 +227,19 @@ export async function startExperimentAnalysis(
 
   const { queries, result: results } = await startRun(
     queryDocs,
-    async (queryData) =>
-      analyzeExperimentResults(
-        organization.id,
-        args.variations,
-        args.dimension,
+    async (queryData) => {
+      return analyzeExperimentResults({
+        organization: organization.id,
+        variations: args.variations,
+        dimension: args.dimension,
         queryData,
-        args.statsEngine
-      )
+        statsEngine: args.statsEngine,
+        sequentialTestingEnabled: hasSequentialTestingFeature
+          ? args.sequentialTestingEnabled
+          : false,
+        sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
+      });
+    }
   );
   return { queries, results };
 }

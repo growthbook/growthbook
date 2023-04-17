@@ -28,7 +28,7 @@
     "@databricks/sql": "^1.1.0",
     "@google-cloud/bigquery": "5",
     "@google-cloud/storage": "^5.20.5",
-    "@growthbook/growthbook": "^0.24.0",
+    "@growthbook/growthbook": "^0.25.0",
     "@sentry/node": "^7.14.2",
     "@slack/web-api": "^5.14.0",
     "agenda": "^5.0.0",
@@ -73,7 +73,7 @@
     "snowflake-promise": "^4.5.0",
     "sql-formatter": "^11.0.2",
     "string-env-interpolation": "^1.0.1",
-    "stripe": "^9.14.0",
+    "stripe": "^12.0.0",
     "uniqid": "^5.3.0",
     "zod": "^3.20.6"
   },

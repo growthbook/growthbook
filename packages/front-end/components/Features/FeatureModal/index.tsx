@@ -2,38 +2,28 @@ import { useForm } from "react-hook-form";
 import {
   FeatureEnvironment,
   FeatureInterface,
-  FeatureRule,
   FeatureValueType,
 } from "back-end/types/feature";
 import dJSON from "dirty-json";
-import cloneDeep from "lodash/cloneDeep";
-import { ReactElement } from "react";
+import { ReactElement, useState } from "react";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
-  getDefaultRuleValue,
   getDefaultValue,
-  getDefaultVariationValue,
-  useAttributeSchema,
-  validateFeatureRule,
   validateFeatureValue,
   useEnvironments,
   genDuplicatedKey,
-  generateVariationId,
 } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
 import usePermissions from "@/hooks/usePermissions";
+import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import FeatureValueField from "../FeatureValueField";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
 import TagsField from "./TagsField";
 import ValueTypeField from "./ValueTypeField";
-import RuleSelect from "./RuleSelect";
-import RolloutRuleDefaultValuesField from "./RolloutRuleDefaultValuesField";
-import ForceRuleDefaultValuesField from "./ForceRuleDefaultValuesField";
-import ExperimentRuleDefaultValuesField from "./ExperimentRuleDefaultValuesField";
 
 export type Props = {
   close?: () => void;
@@ -43,7 +33,6 @@ export type Props = {
   secondaryCTA?: ReactElement;
   featureToDuplicate?: FeatureInterface;
   features?: FeatureInterface[];
-  initialRule?: boolean;
 };
 
 function parseDefaultValue(
@@ -120,7 +109,6 @@ const genFormDefaultValues = ({
         project: featureToDuplicate.project ?? project,
         tags: featureToDuplicate.tags,
         environmentSettings,
-        rule: null,
       }
     : {
         valueType: "boolean",
@@ -130,7 +118,6 @@ const genFormDefaultValues = ({
         project,
         tags: [],
         environmentSettings,
-        rule: null,
       };
 };
 
@@ -141,7 +128,6 @@ export default function FeatureModal({
   cta = "Create",
   secondaryCTA,
   featureToDuplicate,
-  initialRule = true,
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
@@ -157,12 +143,17 @@ export default function FeatureModal({
 
   const form = useForm({ defaultValues });
 
+  const [showTags, setShowTags] = useState(
+    featureToDuplicate?.tags?.length > 0
+  );
+  const [showDescription, setShowDescription] = useState(
+    featureToDuplicate?.description?.length > 0
+  );
+
   const { apiCall } = useAuth();
-  const attributeSchema = useAttributeSchema();
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
-  const rule = form.watch("rule");
 
   const modalHeader = featureToDuplicate
     ? `Duplicate Feature (${featureToDuplicate.id})`
@@ -178,30 +169,18 @@ export default function FeatureModal({
       close={close}
       secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
-        const { rule, defaultValue, ...feature } = values;
+        const { defaultValue, ...feature } = values;
         const valueType = feature.valueType as FeatureValueType;
 
         const newDefaultValue = validateFeatureValue(
           valueType,
           defaultValue,
-          rule ? "Fallback Value" : "Value"
+          "Value"
         );
         let hasChanges = false;
         if (newDefaultValue !== defaultValue) {
           form.setValue("defaultValue", newDefaultValue);
           hasChanges = true;
-        }
-
-        if (rule) {
-          feature.environmentSettings = cloneDeep(feature.environmentSettings);
-          const newRule = validateFeatureRule(rule, valueType);
-          if (newRule) {
-            form.setValue("rule", newRule);
-            hasChanges = true;
-          }
-          Object.keys(feature.environmentSettings).forEach((env) => {
-            feature.environmentSettings[env].rules.push(rule);
-          });
         }
 
         if (hasChanges) {
@@ -223,17 +202,8 @@ export default function FeatureModal({
         track("Feature Created", {
           valueType: values.valueType,
           hasDescription: values.description.length > 0,
-          initialRule: rule?.type ?? "none",
+          initialRule: "none",
         });
-        if (rule) {
-          track("Save Feature Rule", {
-            source: "create-feature",
-            ruleIndex: 0,
-            type: rule.type,
-            hasCondition: rule.condition.length > 2,
-            hasDescription: false,
-          });
-        }
         refreshTags(values.tags);
         refreshWatching();
 
@@ -242,10 +212,56 @@ export default function FeatureModal({
     >
       <FeatureKeyField keyField={form.register("id")} />
 
-      <TagsField
-        value={form.watch("tags")}
-        onChange={(tags) => form.setValue("tags", tags)}
-      />
+      {showTags ? (
+        <TagsField
+          value={form.watch("tags")}
+          onChange={(tags) => form.setValue("tags", tags)}
+        />
+      ) : (
+        <a
+          href="#"
+          className="badge badge-light badge-pill mr-3 mb-3"
+          onClick={(e) => {
+            e.preventDefault();
+            setShowTags(true);
+          }}
+        >
+          + tags
+        </a>
+      )}
+
+      {showDescription ? (
+        <div className="form-group">
+          <label>Description</label>
+          <MarkdownInput
+            value={form.watch("description")}
+            setValue={(value) => form.setValue("description", value)}
+            autofocus={!featureToDuplicate?.description?.length}
+          />
+        </div>
+      ) : (
+        <a
+          href="#"
+          className="badge badge-light badge-pill mb-3"
+          onClick={(e) => {
+            e.preventDefault();
+            setShowDescription(true);
+          }}
+        >
+          + description
+        </a>
+      )}
+
+      {!featureToDuplicate && (
+        <ValueTypeField
+          value={valueType}
+          onChange={(val) => {
+            const defaultValue = getDefaultValue(val);
+            form.setValue("valueType", val);
+            form.setValue("defaultValue", defaultValue);
+          }}
+        />
+      )}
 
       <EnvironmentSelect
         environmentSettings={environmentSettings}
@@ -262,159 +278,20 @@ export default function FeatureModal({
       */}
       {!featureToDuplicate && (
         <>
-          <hr />
-
-          <h5>When Enabled</h5>
-
-          <ValueTypeField
-            value={valueType}
-            onChange={(val) => {
-              const defaultValue = getDefaultValue(val);
-              form.setValue("valueType", val);
-
-              // Update values in rest of modal
-              if (!rule) {
-                form.setValue("defaultValue", defaultValue);
-              } else if (rule.type === "force") {
-                const otherVal = getDefaultVariationValue(defaultValue);
-                form.setValue("defaultValue", otherVal);
-                form.setValue("rule.value", defaultValue);
-              } else if (rule.type === "rollout") {
-                const otherVal = getDefaultVariationValue(defaultValue);
-                form.setValue("defaultValue", otherVal);
-                form.setValue("rule.value", defaultValue);
-              } else if (rule.type === "experiment") {
-                const otherVal = getDefaultVariationValue(defaultValue);
-                form.setValue("defaultValue", otherVal);
-                form.setValue("rule.coverage", 1);
-                if (val === "boolean") {
-                  form.setValue("rule.values", [
-                    {
-                      value: otherVal,
-                      weight: 0.5,
-                      name: "",
-                      id: generateVariationId(),
-                    },
-                    {
-                      value: defaultValue,
-                      weight: 0.5,
-                      name: "",
-                      id: generateVariationId(),
-                    },
-                  ]);
-                } else {
-                  for (let i = 0; i < rule.values.length; i++) {
-                    form.setValue(
-                      `rule.values.${i}.value`,
-                      i ? defaultValue : otherVal
-                    );
-                    form.setValue(`rule.values.${i}.id`, generateVariationId());
-                  }
-                }
-              }
-            }}
+          <FeatureValueField
+            label={"Default Value when Enabled"}
+            id="defaultValue"
+            value={form.watch("defaultValue")}
+            setValue={(v) => form.setValue("defaultValue", v)}
+            valueType={valueType}
           />
 
-          {initialRule && (
-            <RuleSelect
-              value={rule?.type || ""}
-              setValue={(value: FeatureRule["type"]) => {
-                let defaultValue = getDefaultValue(valueType);
-
-                if (!value) {
-                  form.setValue("rule", null);
-                  form.setValue("defaultValue", defaultValue);
-                } else {
-                  defaultValue = getDefaultVariationValue(defaultValue);
-                  form.setValue("defaultValue", defaultValue);
-                  const defaultRuleValue = getDefaultRuleValue({
-                    defaultValue: defaultValue,
-                    ruleType: value,
-                    attributeSchema,
-                  });
-                  if (defaultRuleValue.type === "experiment") {
-                    defaultRuleValue.values = defaultRuleValue.values.map(
-                      (v) => ({
-                        ...v,
-                        id: generateVariationId(),
-                      })
-                    );
-                  }
-                  form.setValue("rule", defaultRuleValue);
-                }
-              }}
-            />
-          )}
-
-          {!rule ? (
-            <FeatureValueField
-              label={"Value"}
-              id="defaultValue"
-              value={form.watch("defaultValue")}
-              setValue={(v) => form.setValue("defaultValue", v)}
-              valueType={valueType}
-            />
-          ) : rule?.type === "rollout" ? (
-            <RolloutRuleDefaultValuesField
-              {...form.register("rule.hashAttribute")}
-              coverageValue={form.watch("rule.coverage")}
-              setCoverageValue={(n) => form.setValue("rule.coverage", n)}
-              conditionValue={rule?.condition}
-              setConditionValue={(cond) =>
-                form.setValue("rule.condition", cond)
-              }
-              rolloutValue={form.watch("rule.value")}
-              setRolloutValue={(v) => form.setValue("rule.value", v)}
-              valueType={valueType}
-              fallbackValue={form.watch("defaultValue")}
-              setFallbackValue={(v) => form.setValue("defaultValue", v)}
-            />
-          ) : rule?.type === "force" ? (
-            <ForceRuleDefaultValuesField
-              valueType={valueType}
-              conditionValue={rule?.condition}
-              setConditionValue={(cond) =>
-                form.setValue("rule.condition", cond)
-              }
-              ruleValue={form.watch("rule.value")}
-              setRuleValue={(v) => form.setValue("rule.value", v)}
-              fallbackValue={form.watch("defaultValue")}
-              setFallbackValue={(v) => form.setValue("defaultValue", v)}
-            />
-          ) : (
-            <ExperimentRuleDefaultValuesField
-              featureKey={form.watch("id")}
-              hashAttributeFormField={form.register("rule.hashAttribute")}
-              trackingKeyFormField={form.register(`rule.trackingKey`)}
-              trackingKeyValue={form.watch("rule.trackingKey")}
-              conditionValue={rule?.condition}
-              setConditionValue={(cond) => {
-                form.setValue("rule.condition", cond);
-              }}
-              coverageValue={form.watch("rule.coverage")}
-              setCoverageValue={(coverage) =>
-                form.setValue("rule.coverage", coverage)
-              }
-              setWeight={(i, weight) =>
-                form.setValue(`rule.values.${i}.weight`, weight)
-              }
-              variations={form.watch("rule.values") || []}
-              setVariations={(variations) =>
-                form.setValue("rule.values", variations)
-              }
-              variationsDefaultValue={rule?.values?.[0]?.value}
-              valueType={valueType}
-              form={form}
-              fallbackValue={form.watch("defaultValue")}
-              setFallbackValue={(v) => form.setValue("defaultValue", v)}
-            />
-          )}
-          {!initialRule && (
-            <p>
-              You can add complex rules later to control exactly how and when
-              this feature gets released to users.
-            </p>
-          )}
+          <div className="alert alert-info">
+            After creating your feature, you will be able to add targeted rules
+            such as <strong>A/B Tests</strong> and{" "}
+            <strong>Percentage Rollouts</strong> to control exactly how it gets
+            released to users.
+          </div>
         </>
       )}
     </Modal>

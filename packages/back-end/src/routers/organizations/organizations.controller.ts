@@ -622,6 +622,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       licenseKey,
       freeSeats,
       disableSelfServeBilling,
+      freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
       settings,

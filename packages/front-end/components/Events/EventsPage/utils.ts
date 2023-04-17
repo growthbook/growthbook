@@ -1,14 +1,15 @@
 import {
   EventInterface,
+  ExperimentCreatedNotificationEvent,
+  ExperimentDeletedNotificationEvent,
+  ExperimentUpdatedNotificationEvent,
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
-  ExperimentCreatedNotificationEvent,
-  ExperimentUpdatedNotificationEvent,
-  ExperimentDeletedNotificationEvent,
   NotificationEventName,
   NotificationEventPayload,
   NotificationEventResource,
+  UserLoginNotificationEvent,
 } from "back-end/types/event";
 
 export const getEventText = (
@@ -21,6 +22,11 @@ export const getEventText = (
   >
 ): string => {
   switch (event.data.event) {
+    case "user.login":
+      return getTitleForUserLogin(
+        (event.data as unknown) as UserLoginNotificationEvent
+      );
+
     case "experiment.created":
       return getTitleForExperimentCreated(
         (event.data as unknown) as ExperimentCreatedNotificationEvent
@@ -50,6 +56,11 @@ export const getEventText = (
       return getTitleForFeatureDeleted(
         (event.data as unknown) as FeatureDeletedNotificationEvent
       );
+
+    default:
+      // This fallthrough case prevents empty strings.
+      // TODO: Remove this default case once we've fixed https://github.com/growthbook/growthbook/issues/1114
+      return event.data.event;
   }
 };
 
@@ -102,3 +113,11 @@ const getTitleForExperimentDeleted = ({
 };
 
 // endregion Experiment
+
+// region User
+
+const getTitleForUserLogin = ({ data }: UserLoginNotificationEvent): string => {
+  return `The user ${data.current.name} (${data.current.email}) has logged in`;
+};
+
+// endregion User

@@ -38,6 +38,14 @@ export type pValueCorrection =
   | "benjamini-hochberg"
   | "holm-bonferroni";
 
+export interface ExperimentSnapshotSettings {
+  statsEngine: StatsEngine;
+  regressionAdjustmentEnabled: boolean;
+  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
+  sequentialTestingEnabled: boolean;
+  sequentialTestingTuningParameter: number;
+}
+
 export interface ExperimentSnapshotInterface {
   id: string;
   organization: string;
@@ -67,4 +75,6 @@ export interface ExperimentSnapshotInterface {
   statsEngine?: StatsEngine;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
 }

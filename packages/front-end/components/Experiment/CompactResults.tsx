@@ -37,6 +37,7 @@ const CompactResults: FC<{
   statsEngine?: StatsEngine;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  sequentialTestingEnabled?: boolean;
 }> = ({
   results,
   variations,
@@ -52,6 +53,7 @@ const CompactResults: FC<{
   statsEngine,
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
+  sequentialTestingEnabled,
 }) => {
   const { getMetricById, ready } = useDefinitions();
 
@@ -134,6 +136,7 @@ const CompactResults: FC<{
           labelHeader="Metric"
           users={users}
           statsEngine={statsEngine}
+          sequentialTestingEnabled={sequentialTestingEnabled}
           renderLabelColumn={(label, metric, row) => {
             const metricLink = (
               <Tooltip
