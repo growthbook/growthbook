@@ -71,13 +71,12 @@ def create_notebook(
         ),
         nbf.new_markdown_cell("## Notebook Setup"),
         nbf.new_code_cell(
-            "# Requires gbstats version 0.5.0\n"
-            "from importlib.metadata import version\n"
-            "if version('gbstats') != '0.5.0':\n"
-            "    raise ValueError(\n"
-            '        f"""Current gbstats version: {version(\'gbstats\')}.\n'
-            '        Use `pip install gbstats` to upgrade to 0.5.0 from PyPI"""\n'
-            "    )\n"
+            "# This notebook requires gbstats version 0.5.0 or later\n"
+            "try:\n"
+            "    import gbstats.utils\n"
+            "    gbstats.utils.check_gbstats_compatibility('0.5.0')\n"
+            "except ModuleNotFoundError:\n"
+            "    raise ValueError('Upgrade gbstats to 0.5.0 or later from PyPI using `pip install gbstats`')\n"
             "from gbstats.gbstats import (\n"
             "    detect_unknown_variations,\n"
             "    analyze_metric_df,\n"
