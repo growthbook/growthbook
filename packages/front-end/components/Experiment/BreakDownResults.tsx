@@ -6,10 +6,11 @@ import {
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
-import { StatsEngine } from "back-end/types/stats";
+import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
+  correctPvalues,
   ExperimentTableRow,
   useRiskVariation,
 } from "@/services/experiments";
@@ -19,8 +20,8 @@ import UsersTable from "./UsersTable";
 
 const FULL_STATS_LIMIT = 5;
 
-type TableDef = {
-  metric: MetricInterface;
+export type TableDef = {
+  metric?: MetricInterface;
   isGuardrail: boolean;
   rows: ExperimentTableRow[];
 };
@@ -38,6 +39,7 @@ const BreakDownResults: FC<{
   activationMetric?: string;
   status: ExperimentStatus;
   statsEngine?: StatsEngine;
+  pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
@@ -54,6 +56,7 @@ const BreakDownResults: FC<{
   status,
   reportDate,
   statsEngine,
+  pValueCorrection,
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
   sequentialTestingEnabled,
@@ -69,7 +72,7 @@ const BreakDownResults: FC<{
   const [fullStatsToggle, setFullStats] = useState(false);
   const fullStats = !tooManyDimensions || fullStatsToggle;
 
-  const tables = useMemo<TableDef[]>(() => {
+  let tables = useMemo<TableDef[]>(() => {
     if (!ready) return [];
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
@@ -109,6 +112,12 @@ const BreakDownResults: FC<{
     guardrails,
     ready,
   ]);
+
+
+  // apply pvalue correction
+  if (((pValueCorrection ?? 'none') !== 'none') && statsEngine === "frequentist") {
+    tables = correctPvalues(tables, pValueCorrection);
+  }
 
   const risk = useRiskVariation(
     variations.length,

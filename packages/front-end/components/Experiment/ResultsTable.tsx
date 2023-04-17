@@ -4,7 +4,7 @@ import { FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
-import { StatsEngine } from "back-end/types/stats";
+import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { ExperimentTableRow, useDomain } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "../Tooltip/Tooltip";
@@ -36,6 +36,7 @@ export type ResultsTableProps = {
   riskVariation: number;
   setRiskVariation: (riskVariation: number) => void;
   statsEngine?: StatsEngine;
+  pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
 };
 
@@ -61,6 +62,7 @@ export default function ResultsTable({
   riskVariation,
   setRiskVariation,
   statsEngine,
+  pValueCorrection,
   sequentialTestingEnabled,
 }: ResultsTableProps) {
   const domain = useDomain(variations, rows);
@@ -296,6 +298,7 @@ export default function ResultsTable({
                           startDate={startDate}
                           metric={row.metric}
                           snapshotDate={dateCreated}
+                          pValueCorrection={pValueCorrection || "none"}
                         />
                       ) : (
                         <ChanceToWinColumn

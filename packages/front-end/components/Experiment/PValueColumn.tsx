@@ -3,6 +3,7 @@ import { FC } from "react";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentStatus } from "back-end/types/experiment";
+import { PValueCorrection } from "back-end/types/stats";
 import {
   hasEnoughData,
   isBelowMinChange,
@@ -25,6 +26,7 @@ const PValueColumn: FC<{
   snapshotDate: Date;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
+  pValueCorrection: PValueCorrection;
 }> = ({
   metric,
   status,
@@ -33,6 +35,7 @@ const PValueColumn: FC<{
   snapshotDate,
   baseline,
   stats,
+  pValueCorrection,
 }) => {
   const {
     getMinSampleSizeForMetric,
@@ -85,6 +88,12 @@ const PValueColumn: FC<{
     className += " draw";
   }
 
+  let pValText = pValueFormatter(stats?.pValue);
+  console.log(pValText);
+  if (stats?.pValueAdjusted !== undefined && pValueCorrection !== 'none') {
+    pValText = pValueFormatter(stats?.pValueAdjusted) + ' Unadjusted: ' + pValText;
+  }
+
   return (
     <td
       className={clsx(
@@ -126,7 +135,7 @@ const PValueColumn: FC<{
             phaseStart={startDate}
           />
         ) : (
-          <>{pValueFormatter(stats?.pValue) || "P-value missing"}</>
+          <>{pValText || "P-value missing"}</>
         )}
       </Tooltip>
     </td>

@@ -6,6 +6,7 @@ import {
   rebalance,
 } from "../services/utils";
 import { correctPvalues } from "../services/experiments";
+import { TableDef } from "@/components/Experiment/BreakDownResults";
 
 describe("variation weighting functions", () => {
   it("getEqualWeights with default precision", () => {
@@ -119,45 +120,38 @@ describe("variation weighting functions", () => {
   });
 });
 
+function mockTable(pvalues: number[], adjustedPvalues?: number[]) {
+  let table: TableDef = {
+    isGuardrail: false,
+    rows: [{label: '', metric: undefined, variations: []}]
+  };
+  pvalues.forEach((p, i) => {
+    let variation = {pValue: p, value: 0, cr: 0, users: 0, pValueAdjusted: null};
+    if (adjustedPvalues !== undefined) {
+      variation.pValueAdjusted = adjustedPvalues[i];
+    }
+    table.rows[0].variations.push(variation);
+ });
+  return table;
+}
+
 describe("pvalue correction method", () => {
   it("does HB procedure correctly", () => {
+    const startPvals = [0.01, 0.04, 0.03, 0.005, 0.55, 0.6];
     expect(
       correctPvalues(
-        [
-          [0.01, 0],
-          [0.04, 1],
-          [0.03, 2],
-          [0.005, 3],
-          [0.55, 4],
-          [0.6, 5],
-        ],
+        [mockTable(startPvals)],
         "holm-bonferroni"
       )
-    ).toEqual([
-      [0.03, 3],
-      [0.05, 0],
-      [0.12, 2],
-      [0.12, 1],
-      [1, 4],
-      [1, 5],
-    ]);
+    ).toEqual([mockTable(startPvals, [0.05, 0.12, 0.12, 0.03, 1, 1])])
   });
   it("does BH procedure correctly", () => {
+    const startPvals = [0.01, 0.04, 0.03, 0.005];
     expect(
       correctPvalues(
-        [
-          [0.01, 0],
-          [0.04, 1],
-          [0.03, 2],
-          [0.005, 3],
-        ],
+        [mockTable(startPvals)],
         "benjamini-hochberg"
       )
-    ).toEqual([
-      [0.02, 3],
-      [0.02, 0],
-      [0.04, 2],
-      [0.04, 1],
-    ]);
+    ).toEqual([mockTable(startPvals, [0.02, 0.04, 0.04, 0.02])])
   });
 });

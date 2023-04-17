@@ -216,6 +216,7 @@ const Results: FC<{
             variations={variations}
             key={snapshot.dimension}
             statsEngine={snapshot.statsEngine}
+            pValueCorrection={settings.pValueCorrection ?? 'none'}
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses
@@ -247,6 +248,7 @@ const Results: FC<{
             multipleExposures={snapshot.multipleExposures || 0}
             variations={variations}
             statsEngine={snapshot.statsEngine}
+            pValueCorrection={settings.pValueCorrection ?? 'none'}
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses

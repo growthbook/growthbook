@@ -6,12 +6,13 @@ import {
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
-import { StatsEngine } from "back-end/types/stats";
+import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
 import { FaTimes } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
+  correctPvalues,
   ExperimentTableRow,
   useRiskVariation,
 } from "@/services/experiments";
@@ -21,6 +22,7 @@ import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
+import { TableDef } from "./BreakDownResults";
 
 const CompactResults: FC<{
   editMetrics?: () => void;
@@ -35,6 +37,7 @@ const CompactResults: FC<{
   metricOverrides: MetricOverride[];
   id: string;
   statsEngine?: StatsEngine;
+  pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
@@ -51,6 +54,7 @@ const CompactResults: FC<{
   metricOverrides,
   id,
   statsEngine,
+  pValueCorrection,
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
   sequentialTestingEnabled,
@@ -91,12 +95,21 @@ const CompactResults: FC<{
     metricRegressionAdjustmentStatuses,
     ready,
   ]);
+  
+  let table: TableDef = {
+    isGuardrail: false,
+    rows: rows,
+  }
+  // apply pvalue correction
+  if (((pValueCorrection ?? 'none') !== 'none') && statsEngine === "frequentist") {
+    table = correctPvalues([table], pValueCorrection)[0];
+  }
 
   const users = useMemo(() => {
     const vars = results?.variations;
     return variations.map((v, i) => vars?.[i]?.users || 0);
   }, [results]);
-  const risk = useRiskVariation(variations.length, rows);
+  const risk = useRiskVariation(variations.length, table.rows);
 
   return (
     <>
@@ -130,13 +143,14 @@ const CompactResults: FC<{
           startDate={startDate}
           status={status}
           variations={variations}
-          rows={rows}
+          rows={table.rows}
           id={id}
           {...risk}
           labelHeader="Metric"
           users={users}
           statsEngine={statsEngine}
           sequentialTestingEnabled={sequentialTestingEnabled}
+          pValueCorrection={pValueCorrection}
           renderLabelColumn={(label, metric, row) => {
             const metricLink = (
               <Tooltip

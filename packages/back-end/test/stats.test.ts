@@ -1,4 +1,4 @@
-import { checkSrm } from "../src/util/stats";
+import { checkSrm, correctPvalues } from "../src/util/stats";
 
 describe("backend", () => {
   it("calculates SRM correctly", () => {
@@ -34,5 +34,49 @@ describe("backend", () => {
 
     // Completely equal
     expect(+checkSrm([500, 500], [0.5, 0.5]).toFixed(9)).toEqual(1);
+  });
+});
+
+
+describe("pvalue correction method", () => {
+  it("does HB procedure correctly", () => {
+    expect(
+      correctPvalues(
+        [
+          [0.01, 0],
+          [0.04, 1],
+          [0.03, 2],
+          [0.005, 3],
+          [0.55, 4],
+          [0.6, 5],
+        ],
+        "holm-bonferroni"
+      )
+    ).toEqual([
+      [0.03, 3],
+      [0.05, 0],
+      [0.12, 2],
+      [0.12, 1],
+      [1, 4],
+      [1, 5],
+    ]);
+  });
+  it("does BH procedure correctly", () => {
+    expect(
+      correctPvalues(
+        [
+          [0.01, 0],
+          [0.04, 1],
+          [0.03, 2],
+          [0.005, 3],
+        ],
+        "benjamini-hochberg"
+      )
+    ).toEqual([
+      [0.02, 3],
+      [0.02, 0],
+      [0.04, 2],
+      [0.04, 1],
+    ]);
   });
 });

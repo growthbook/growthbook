@@ -9,7 +9,7 @@ import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import cronstrue from "cronstrue";
 import { AttributionModel } from "back-end/types/experiment";
-import { pValueCorrection } from "@/../back-end/types/experiment-snapshot";
+import { PValueCorrection } from "back-end/types/stats";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -769,7 +769,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         className="ml-2"
                         value={form.watch("pValueCorrection") ?? "none"}
                         onChange={(value) => {
-                          const correction = value as pValueCorrection;
+                          const correction = value as PValueCorrection;
                           form.setValue("pValueCorrection", correction);
                         }}
                         sort={false}

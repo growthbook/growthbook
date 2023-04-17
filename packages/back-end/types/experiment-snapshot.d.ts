@@ -14,6 +14,7 @@ export interface SnapshotMetric {
   risk?: [number, number];
   stats?: MetricStats;
   pValue?: number;
+  pValueAdjusted?: number;
   uplift?: {
     dist: string;
     mean?: number;
@@ -32,11 +33,6 @@ export interface SnapshotVariation {
     [key: string]: SnapshotMetric;
   };
 }
-
-export type pValueCorrection =
-  | "none"
-  | "benjamini-hochberg"
-  | "holm-bonferroni";
 
 export interface ExperimentSnapshotSettings {
   statsEngine: StatsEngine;

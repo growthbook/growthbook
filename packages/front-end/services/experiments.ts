@@ -1,8 +1,8 @@
 import {
   SnapshotMetric,
-  pValueCorrection,
 } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
+import { PValueCorrection } from "back-end/types/stats";
 import { useState } from "react";
 import {
   ExperimentReportVariation,
@@ -16,6 +16,7 @@ import { MetricOverride } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/constants/stats";
 import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
+import { TableDef } from "@/components/Experiment/BreakDownResults";
 
 export type ExperimentTableRow = {
   label: string;
@@ -390,39 +391,54 @@ export function pValueFormatter(pValue: number): string {
   return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
 }
 
+type IndexedPValue = {
+  pValue: number;
+  index: number[];
+}
+
 export function correctPvalues(
-  pvalueIndices: number[][],
-  adjustment: pValueCorrection
-): number[][] {
-  if ((adjustment || "none") === "none") {
-    return pvalueIndices;
+  tables: TableDef[],
+  adjustment: PValueCorrection
+): TableDef[] {
+  if (adjustment === "none") {
+    return tables;
   }
 
-  const m = pvalueIndices.length;
+  let pValueIndices: IndexedPValue[] = [];
 
+  tables.forEach((t, i) => {
+    t.rows.forEach((r, j) => {
+      r.variations.forEach((v, k) => {
+        if (v.pValue !== undefined && !t.isGuardrail) {
+          pValueIndices.push({pValue: v.pValue, index: [i, j, k]})
+        }
+      });
+    });
+  });
+  const m = pValueIndices.length;
   // sort pvalues descending, keeping original position
-  function sortAscendingFirstField(a: number[], b: number[]) {
-    return a[0] - b[0];
+  function sortAscendingFirstField(a: IndexedPValue, b: IndexedPValue) {
+    return a.pValue - b.pValue;
   }
-  pvalueIndices.sort(sortAscendingFirstField);
+  pValueIndices.sort(sortAscendingFirstField);
 
   // adjust pvalues
-  pvalueIndices.forEach((p, i) => {
+  pValueIndices.forEach((p, i) => {
     if (adjustment === "benjamini-hochberg") {
-      pvalueIndices[i][0] = Math.min((p[0] * m) / (i + 1), 1);
+      pValueIndices[i].pValue = Math.min((p.pValue * m) / (i + 1), 1);
     } else if (adjustment === "holm-bonferroni") {
-      pvalueIndices[i][0] = Math.min(p[0] * (m - i), 1);
+      pValueIndices[i].pValue = Math.min(p.pValue * (m - i), 1);
     }
   });
 
-  // final step
-  let tempval = pvalueIndices[0][0];
+  // final step, non-descending pvalues to original row object
+  let tempval = pValueIndices[0].pValue;
+  tables[pValueIndices[0].index[0]].rows[pValueIndices[0].index[1]].variations[pValueIndices[0  ].index[2]].pValueAdjusted = tempval;
   for (let i = 1; i < m; i++) {
-    if (pvalueIndices[i][0] > tempval) {
-      tempval = pvalueIndices[i][0];
-    } else {
-      pvalueIndices[i][0] = tempval;
+    if (pValueIndices[i].pValue > tempval) {
+      tempval = pValueIndices[i].pValue;
     }
+    tables[pValueIndices[i].index[0]].rows[pValueIndices[i].index[1]].variations[pValueIndices[i].index[2]].pValueAdjusted = tempval;
   }
-  return pvalueIndices;
+  return tables;
 }
