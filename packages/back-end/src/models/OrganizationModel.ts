@@ -64,6 +64,7 @@ const organizationSchema = new mongoose.Schema({
   priceId: String,
   freeSeats: Number,
   disableSelfServeBilling: Boolean,
+  freeTrialDate: Date,
   enterprise: Boolean,
   subscription: {
     id: String,
@@ -76,6 +77,7 @@ const organizationSchema = new mongoose.Schema({
     cancel_at_period_end: Boolean,
     planNickname: String,
     priceId: String,
+    hasPaymentMethod: Boolean,
   },
   licenseKey: String,
   connections: {

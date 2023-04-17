@@ -34,6 +34,7 @@ import {
   FormatDialect,
 } from "../util/sql";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "../constants/stats";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -161,11 +162,8 @@ export default abstract class SqlIntegration
   useAliasInGroupBy(): boolean {
     return true;
   }
-  castDateToStandardString(col: string): string {
+  formatDateTimeString(col: string): string {
     return this.castToString(col);
-  }
-  replaceDateDimensionString(minDateDimString: string): string {
-    return `REGEXP_REPLACE(${minDateDimString}, '.*____', '')`;
   }
 
   applyMetricOverrides(
@@ -201,7 +199,8 @@ export default abstract class SqlIntegration
         experimentRegressionAdjustmentEnabled &&
         metricRegressionAdjustmentStatus.regressionAdjustmentEnabled;
       metric.regressionAdjustmentDays =
-        metricRegressionAdjustmentStatus.regressionAdjustmentDays ?? 14;
+        metricRegressionAdjustmentStatus.regressionAdjustmentDays ??
+        DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
       metric.regressionAdjustmentDays = Math.max(
         metric.regressionAdjustmentDays,
         0
@@ -664,13 +663,17 @@ export default abstract class SqlIntegration
     } else if (dimension.type === "date") {
       return `MIN(${this.formatDate(this.dateTrunc("e.timestamp"))})`;
     } else if (dimension.type === "experiment") {
-      return this.replaceDateDimensionString(
-        `MIN(CONCAT(${this.castDateToStandardString(
-          "e.timestamp"
-        )}, '____', coalesce(${this.castToString(
-          "e.dimension"
-        )},'${missingDimString}')))`
-      );
+      return `SUBSTRING(
+        MIN(
+          CONCAT(SUBSTRING(${this.formatDateTimeString("e.timestamp")}, 1, 19), 
+            coalesce(${this.castToString("e.dimension")}, ${this.castToString(
+        `'${missingDimString}'`
+      )})
+          )
+        ),
+        20, 
+        99999
+      )`;
     }
 
     throw new Error("Unknown dimension type: " + (dimension as Dimension).type);

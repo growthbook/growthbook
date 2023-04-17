@@ -69,7 +69,7 @@ export default class Mssql extends SqlIntegration {
   castToString(col: string): string {
     return `cast(${col} as varchar(256))`;
   }
-  castDateToStandardString(col: string): string {
+  formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
   replaceDateDimensionString(minDateDimString: string): string {
