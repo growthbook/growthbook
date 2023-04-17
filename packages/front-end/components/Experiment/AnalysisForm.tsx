@@ -450,7 +450,7 @@ const AnalysisForm: FC<{
                   setSequentialTestingToDefault(e.target.checked)
                 }
               />
-              Use Organization Default
+              Reset to Organization Default
             </label>
           </div>
         </div>
