@@ -83,6 +83,9 @@ export default class ClickHouse extends SqlIntegration {
   formatDate(col: string): string {
     return `formatDateTime(${col}, '%F')`;
   }
+  formatDateTimeString(col: string): string {
+    return `formatDateTime(${col}, '%Y-%m-%d %H:%i:%S.%f')`;
+  }
   ifElse(condition: string, ifTrue: string, ifFalse: string) {
     return `if(${condition}, ${ifTrue}, ${ifFalse})`;
   }

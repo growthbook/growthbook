@@ -11,6 +11,7 @@ import {
 } from "back-end/types/organization";
 import { MetricOverride } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/constants/stats";
 import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
 
 export type ExperimentTableRow = {
@@ -286,7 +287,7 @@ export function getRegressionAdjustmentsForMetric({
 
   // start with default RA settings
   let regressionAdjustmentEnabled = false;
-  let regressionAdjustmentDays = 14;
+  let regressionAdjustmentDays = DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
   let reason = "";
 
   // get RA settings from organization
@@ -303,7 +304,8 @@ export function getRegressionAdjustmentsForMetric({
   // get RA settings from metric
   if (metric?.regressionAdjustmentOverride) {
     regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
-    regressionAdjustmentDays = metric?.regressionAdjustmentDays ?? 14;
+    regressionAdjustmentDays =
+      metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
     if (!regressionAdjustmentEnabled) {
       reason = "disabled in metric settings";
     }

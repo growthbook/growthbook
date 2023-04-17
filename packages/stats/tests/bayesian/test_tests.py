@@ -4,7 +4,14 @@ from unittest import TestCase, main as unittest_main
 
 import numpy as np
 
-from gbstats.bayesian.tests import BinomialBayesianABTest, GaussianBayesianABTest
+from gbstats.bayesian.tests import (
+    BetaPrior,
+    BinomialBayesianABTest,
+    BinomialBayesianConfig,
+    GaussianBayesianABTest,
+    GaussianPrior,
+    GaussianBayesianConfig,
+)
 from gbstats.shared.models import (
     BayesianTestResult,
     Uplift,
@@ -49,6 +56,31 @@ class TestBinom(TestCase):
         result_rounded_dict = round_results_dict(asdict(result))
         self.assertDictEqual(result_rounded_dict, expected_rounded_dict)
 
+    def test_bayesian_binomial_ab_test_with_prior(self):
+        stat_a = ProportionStatistic(sum=49, n=100)
+        stat_b = ProportionStatistic(sum=51, n=100)
+        result = BinomialBayesianABTest(
+            stat_a,
+            stat_b,
+            BinomialBayesianConfig(
+                prior_a=BetaPrior(0, 0), prior_b=BetaPrior(100, 100)
+            ),
+        ).compute_result()
+
+        expected_rounded_dict = asdict(
+            BayesianTestResult(
+                expected=0.0309,
+                ci=[-0.18162, 0.2986],
+                uplift=Uplift(dist="lognormal", mean=0.03043, stddev=0.11778),
+                chance_to_win=0.60193,
+                risk=[0.03025, 0.01692],
+                relative_risk=[0.05931, 0.03317],
+            )
+        )
+
+        result_rounded_dict = round_results_dict(asdict(result))
+        self.assertDictEqual(result_rounded_dict, expected_rounded_dict)
+
     def test_missing_data(self):
         result = BinomialBayesianABTest(
             ProportionStatistic(0, 0),
@@ -75,6 +107,29 @@ class TestNorm(TestCase):
             )
         )
 
+        result_rounded_dict = round_results_dict(asdict(result))
+        self.assertDictEqual(result_rounded_dict, expected_rounded_dict)
+
+    def test_bayesian_gaussian_ab_test_priors(self):
+        result = GaussianBayesianABTest(
+            SampleMeanStatistic(sum=100, sum_squares=1002.25, n=10),
+            SampleMeanStatistic(sum=105, sum_squares=1111.5, n=10),
+            config=GaussianBayesianConfig(
+                prior_a=GaussianPrior(0, 100, 1), prior_b=GaussianPrior(0, 20, 1)
+            ),
+        ).compute_result()
+
+        # TODO: final testing on these values
+        expected_rounded_dict = asdict(
+            BayesianTestResult(
+                expected=0.04974,
+                ci=[-0.01797, 0.12212],
+                uplift=Uplift(dist="lognormal", mean=0.04854, stddev=0.03402),
+                chance_to_win=0.9232,
+                risk=[0.51017, 0.01277],
+                relative_risk=[0.04859, 0.00122],
+            )
+        )
         result_rounded_dict = round_results_dict(asdict(result))
         self.assertDictEqual(result_rounded_dict, expected_rounded_dict)
 
