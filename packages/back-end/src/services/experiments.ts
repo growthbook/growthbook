@@ -351,7 +351,7 @@ export async function createManualSnapshot(
 }
 
 export async function parseDimensionId(
-  dimension: string | undefined,
+  dimension: string | null | undefined,
   organization: string
 ): Promise<Dimension | null> {
   if (dimension) {

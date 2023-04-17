@@ -1637,6 +1637,7 @@ export async function postSnapshot(
       user: res.locals.eventAudit,
       phaseIndex: phase,
       useCache,
+      dimension,
       experimentSnapshotSettings,
     });
 

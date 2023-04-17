@@ -8,6 +8,7 @@ import {
 } from "back-end/types/report";
 import { StatsEngine } from "back-end/types/stats";
 import { FaInfoCircle } from "react-icons/fa";
+import { OrganizationSettings } from "back-end/types/organization";
 import { useAuth } from "@/services/auth";
 import { ago, datetime } from "@/services/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -18,6 +19,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "@/constants/stats";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import DimensionChooser from "../Dimensions/DimensionChooser";
@@ -35,6 +37,7 @@ function isDifferent(val1?: string | boolean, val2?: string | boolean) {
 function isOutdated(
   experiment: ExperimentInterfaceStringDates,
   snapshot: ExperimentSnapshotInterface,
+  orgSettings: OrganizationSettings,
   statsEngine: StatsEngine,
   hasRegressionAdjustmentFeature: boolean,
   hasSequentialFeature: boolean
@@ -77,15 +80,21 @@ function isOutdated(
     statsEngine !== "frequentist" || !hasSequentialFeature
       ? false
       : !!experiment.sequentialTestingEnabled;
+  const experimentSequentialTuningParameter: number =
+    experiment.sequentialTestingTuningParameter ??
+    orgSettings.sequentialTestingTuningParameter ??
+    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   if (
     isDifferent(
       experimentSequentialEnabled,
       !!snapshot.sequentialTestingEnabled
-    )
+    ) ||
+    (experimentSequentialEnabled &&
+      experimentSequentialTuningParameter !==
+        snapshot.sequentialTestingTuningParameter)
   ) {
     return { outdated: true, reason: "sequential testing settings changed" };
   }
-
   return { outdated: false, reason: "" };
 }
 
@@ -135,6 +144,7 @@ export default function AnalysisSettingsBar({
   const { outdated, reason } = isOutdated(
     experiment,
     snapshot,
+    settings,
     settings.statsEngine || "bayesian",
     hasRegressionAdjustmentFeature,
     hasSequentialFeature
