@@ -1,8 +1,8 @@
 import { FC, useMemo, useState } from "react";
-import qs from "query-string";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { getApiHost } from "@/services/env";
 import track from "@/services/track";
+import { appendQueryParamsToURL } from "@/services/utils";
 import Modal from "./Modal";
 
 // TODO - parameterize this
@@ -27,21 +27,12 @@ const OpenVisualEditorLink: FC<{
   const url = useMemo(() => {
     if (!visualEditorUrl) return "";
 
-    const parsed = qs.parse(
-      visualEditorUrl.indexOf("?") > -1 ? visualEditorUrl.split("?")[1] : ""
-    );
-
-    const queryParams = {
-      ...parsed,
+    return appendQueryParamsToURL(visualEditorUrl, {
       "vc-id": id,
       "v-idx": changeIndex,
       "exp-url": encodeURIComponent(window.location.href),
       "api-host": encodeURIComponent(apiHost),
-    };
-
-    const root = visualEditorUrl.split("?")[0];
-
-    return `${root}?${qs.stringify(queryParams)}`;
+    });
   }, [visualEditorUrl, id, changeIndex, apiHost]);
 
   return (

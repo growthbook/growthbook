@@ -1,7 +1,7 @@
 import type { Response } from "express";
 import uniqid from "uniqid";
 import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
+import { PrivateApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
 import { DimensionInterface } from "../../../types/dimension";
 import {
@@ -30,7 +30,7 @@ type GetDimensionsResponse = {
  */
 export const getDimensions = async (
   req: GetDimensionsRequest,
-  res: Response<GetDimensionsResponse | ApiErrorResponse>
+  res: Response<GetDimensionsResponse | PrivateApiErrorResponse>
 ) => {
   const { org } = getOrgFromReq(req);
   const dimensions = await findDimensionsByOrganization(org.id);
@@ -64,7 +64,7 @@ type CreateDimensionResponse = {
  */
 export const postDimension = async (
   req: CreateDimensionRequest,
-  res: Response<CreateDimensionResponse | ApiErrorResponse>
+  res: Response<CreateDimensionResponse | PrivateApiErrorResponse>
 ) => {
   req.checkPermissions("createDimensions");
 
@@ -173,7 +173,7 @@ type DeleteDimensionResponse = {
  */
 export const deleteDimension = async (
   req: DeleteDimensionRequest,
-  res: Response<DeleteDimensionResponse | ApiErrorResponse>
+  res: Response<DeleteDimensionResponse | PrivateApiErrorResponse>
 ) => {
   req.checkPermissions("createDimensions");
 
