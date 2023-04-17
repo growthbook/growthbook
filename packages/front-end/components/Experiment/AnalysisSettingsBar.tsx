@@ -79,7 +79,8 @@ function isOutdated(
   const experimentSequentialEnabled =
     statsEngine !== "frequentist" || !hasSequentialFeature
       ? false
-      : !!experiment.sequentialTestingEnabled;
+      : experiment.sequentialTestingEnabled ??
+        !!orgSettings.sequentialTestingEnabled;
   const experimentSequentialTuningParameter: number =
     experiment.sequentialTestingTuningParameter ??
     orgSettings.sequentialTestingTuningParameter ??
