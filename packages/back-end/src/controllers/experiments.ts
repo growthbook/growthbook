@@ -557,6 +557,14 @@ export async function postExperiments(
     previewURL: data.previewURL || "",
     targetURLRegex: data.targetURLRegex || "",
     ideaSource: data.ideaSource || "",
+    // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
+    sequentialTestingEnabled:
+      data.sequentialTestingEnabled ??
+      !!org?.settings?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      data.sequentialTestingTuningParameter ??
+      org?.settings?.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   };
 
   try {
