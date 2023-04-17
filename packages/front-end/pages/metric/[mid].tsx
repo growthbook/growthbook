@@ -55,7 +55,7 @@ import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import ProjectBadges from "@/components/ProjectBadges";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
-import { GBEdit } from "@/components/Icons";
+import { GBCuped, GBEdit } from "@/components/Icons";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
@@ -1156,7 +1156,7 @@ const MetricPage: FC = () => {
                 <ul className="right-rail-subsection list-unstyled mb-2">
                   <li className="mt-3 mb-2">
                     <span className="uppercase-title lg">
-                      Regression Adjustment (CUPED)
+                      <GBCuped size={14} /> Regression Adjustment (CUPED)
                     </span>
                     <small className="d-block mb-1 text-muted">
                       Only applicable to frequentist analyses

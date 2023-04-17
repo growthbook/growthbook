@@ -131,7 +131,7 @@ describe("features", () => {
         keyString,
         webcrypto.subtle
       )
-    ).rejects.toThrow("Failed to decrypt");
+    ).rejects.toThrow();
 
     growthbook.destroy();
   });

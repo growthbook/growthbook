@@ -2,7 +2,7 @@ import React, { Children, CSSProperties, FC, ReactNode } from "react";
 import SortedTags from "../Tags/SortedTags";
 
 const RightRailSectionGroup: FC<{
-  title?: string;
+  title?: string | ReactNode;
   type?:
     | "badge"
     | "code"

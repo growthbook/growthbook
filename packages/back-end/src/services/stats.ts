@@ -15,6 +15,7 @@ import { getMetricsByOrganization } from "../models/MetricModel";
 import { promiseAllChunks } from "../util/promise";
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
 import { QueryMap } from "./queries";
 
 export const MAX_DIMENSIONS = 20;
@@ -24,7 +25,9 @@ export async function analyzeExperimentMetric(
   metric: MetricInterface,
   rows: ExperimentMetricQueryResponse,
   maxDimensions: number,
-  statsEngine: StatsEngine = "bayesian"
+  statsEngine: StatsEngine = "bayesian",
+  sequentialTestingEnabled: boolean = false,
+  sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
 ): Promise<ExperimentMetricAnalysis> {
   if (!rows || !rows.length) {
     return {
@@ -95,6 +98,11 @@ result = analyze_metric_df(
     statsEngine === "frequentist"
       ? "StatsEngine.FREQUENTIST"
       : "StatsEngine.BAYESIAN"
+  },
+  engine_config=${
+    statsEngine === "frequentist" && sequentialTestingEnabled
+      ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameter}}`
+      : "{}"
   }
 )
 
@@ -120,13 +128,23 @@ print(json.dumps({
   return parsed;
 }
 
-export async function analyzeExperimentResults(
-  organization: string,
-  variations: ExperimentReportVariation[],
-  dimension: string | undefined,
-  queryData: QueryMap,
-  statsEngine: StatsEngine = "bayesian"
-): Promise<ExperimentReportResults> {
+export async function analyzeExperimentResults({
+  organization,
+  variations,
+  dimension = null,
+  queryData,
+  statsEngine = "bayesian",
+  sequentialTestingEnabled = false,
+  sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+}: {
+  organization: string;
+  variations: ExperimentReportVariation[];
+  dimension?: string | null;
+  queryData: QueryMap;
+  statsEngine?: StatsEngine;
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
+}): Promise<ExperimentReportResults> {
   const metrics = await getMetricsByOrganization(organization);
   const metricMap = new Map<string, MetricInterface>();
   metrics.forEach((m) => {
@@ -200,7 +218,9 @@ export async function analyzeExperimentResults(
           metric,
           data.rows,
           dimension === "pre:date" ? 100 : MAX_DIMENSIONS,
-          statsEngine
+          statsEngine,
+          sequentialTestingEnabled,
+          sequentialTestingTuningParameter
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(

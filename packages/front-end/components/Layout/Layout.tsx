@@ -4,12 +4,12 @@ import clsx from "clsx";
 import { useRouter } from "next/router";
 import { BsFlag, BsClipboardCheck, BsLightbulb, BsPlug } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
-import { getGrowthBookBuild } from "../../services/env";
+import { getGrowthBookBuild } from "@/services/env";
+import { useUser } from "@/services/UserContext";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
 import { inferDocUrl } from "../DocLink";
 import UpgradeModal from "../Settings/UpgradeModal";
-import { useUser } from "../../services/UserContext";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
@@ -426,7 +426,7 @@ const Layout = (): React.ReactElement => {
                 </>
               ) : (
                 <>
-                  Upgrade to Pro <GBPremiumBadge />
+                  Try Pro <GBPremiumBadge />
                 </>
               )}
             </button>
