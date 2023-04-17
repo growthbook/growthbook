@@ -414,7 +414,7 @@ export default function ConfigureReport({
             checked={usingStatsEngineDefault}
             onChange={(e) => setStatsEngineToDefault(e.target.checked)}
           />
-          Use Organization Default
+          Reset to Organization Default
         </label>
       </div>
 

@@ -751,7 +751,8 @@ export default function SinglePage({
                     }
                     type="custom"
                   >
-                    {experiment.sequentialTestingEnabled
+                    {experiment.sequentialTestingEnabled ??
+                    !!settings.sequentialTestingEnabled
                       ? "Enabled"
                       : "Disabled"}
                   </RightRailSectionGroup>
