@@ -205,6 +205,7 @@ export interface OrganizationInterface {
   discountCode?: string;
   priceId?: string;
   disableSelfServeBilling?: boolean;
+  freeTrialDate?: Date;
   enterprise?: boolean;
   subscription?: {
     id: string;
@@ -217,6 +218,7 @@ export interface OrganizationInterface {
     cancel_at_period_end: boolean;
     planNickname: string | null;
     priceId?: string;
+    hasPaymentMethod?: boolean;
   };
   licenseKey?: string;
   autoApproveMembers?: boolean;
