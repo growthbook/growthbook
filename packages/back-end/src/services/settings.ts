@@ -20,6 +20,7 @@ import { DEFAULT_METRIC_ANALYSIS_DAYS } from "./experiments";
 
 interface SettingMetadata {
   reason?: string;
+  warning?: string;
 }
 
 interface Setting<T> {
