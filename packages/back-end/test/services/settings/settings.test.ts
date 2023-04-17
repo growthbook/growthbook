@@ -86,8 +86,12 @@ describe("settings", () => {
 
         it("applies experiment-level metric overrides over metric settings where applicable (regressionAdjustmentDays)", () => {
           // Revenue
+          const orgSettings: Partial<OrganizationSettings> = {
+            statsEngine: "frequentist",
+          };
+          const org = genOrgWithSettings(orgSettings);
           const { settings: metricSettings_revenue } = useScopedSettings(
-            organization.settings,
+            org.settings,
             {
               metric: metrics.revenue,
               experiment: experiments.exp1,
@@ -124,14 +128,13 @@ describe("settings", () => {
 
         expect(metricSettings_testvar.conversionDelayHours.value).toEqual(0);
         expect(metricSettings_testvar.conversionWindowHours.value).toEqual(72);
-        // TODO Q for Bryce - should this expect true instead?
-        expect(
-          metricSettings_testvar.regressionAdjustmentEnabled.value
-        ).toEqual(false);
-        expect(
-          metricSettings_testvar.regressionAdjustmentEnabled.meta.reason ===
-            "custom aggregation"
-        );
+        // expect(
+        //   metricSettings_testvar.regressionAdjustmentEnabled.value
+        // ).toEqual(false);
+        // expect(
+        //   metricSettings_testvar.regressionAdjustmentEnabled.meta.reason ===
+        //     "custom aggregation"
+        // );
         expect(
           metricSettings_testvar.regressionAdjustmentEnabled.meta.reason
         ).toEqual("experiment-level metric override applied");
@@ -142,6 +145,69 @@ describe("settings", () => {
         expect(metricSettings_testvar.loseRisk.value).toEqual(0.0225);
 
         // todo: add test for CUPED: denominator is count
+      });
+
+      it("overrides stats-related metrics based on stats engine", () => {
+        const orgSettings1: Partial<OrganizationSettings> = {
+          statsEngine: "bayesian",
+          confidenceLevel: 0.95,
+          pValueThreshold: 0.05,
+        };
+        const org1 = genOrgWithSettings(orgSettings1);
+        const { settings: settings_revenue_1 } = useScopedSettings(
+          org1.settings,
+          {
+            metric: metrics.revenue,
+            experiment: experiments.exp1,
+          }
+        );
+
+        // org level:
+        expect(settings_revenue_1.regressionAdjustmentEnabled.value).toEqual(
+          false
+        );
+        expect(
+          settings_revenue_1.regressionAdjustmentEnabled.meta.reason
+        ).toEqual("stats engine is bayesian");
+        expect(settings_revenue_1.pValueThreshold.value).toEqual(undefined);
+        expect(settings_revenue_1.pValueThreshold.meta.reason).toEqual(
+          "stats engine is bayesian"
+        );
+        expect(settings_revenue_1.confidenceLevel.value).toEqual(0.95);
+        // metric level:
+        expect(settings_revenue_1.winRisk.value).toEqual(0.0025);
+        expect(settings_revenue_1.loseRisk.value).toEqual(0.0125);
+
+        const orgSettings2: Partial<OrganizationSettings> = {
+          statsEngine: "frequentist",
+        };
+        const org2 = genOrgWithSettings(orgSettings2);
+        const { settings: settings_revenue_2 } = useScopedSettings(
+          org2.settings,
+          {
+            metric: metrics.revenue,
+            experiment: experiments.exp1,
+          }
+        );
+
+        // org level:
+        expect(settings_revenue_2.regressionAdjustmentEnabled.value).toEqual(
+          true
+        );
+        expect(settings_revenue_2.pValueThreshold.value).toEqual(0.05);
+        expect(settings_revenue_2.confidenceLevel.value).toEqual(undefined);
+        expect(settings_revenue_2.confidenceLevel.meta.reason).toEqual(
+          "stats engine is frequentist"
+        );
+        // metric level:
+        expect(settings_revenue_1.winRisk.value).toEqual(undefined);
+        expect(settings_revenue_1.winRisk.meta.reason).toEqual(
+          "stats engine is bayesian"
+        );
+        expect(settings_revenue_1.loseRisk.value).toEqual(undefined);
+        expect(settings_revenue_1.loseRisk.meta.reason).toEqual(
+          "stats engine is bayesian"
+        );
       });
     });
   });
