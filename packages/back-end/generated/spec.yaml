@@ -1169,7 +1169,7 @@ paths:
             curl -X PATCH https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
               -H "Content-Type: application/json" \
               -u secret_abc123DEF456: \
-              -d '{"name": "interal-users", "values": "userId-123, userId-345, userId-678"}'
+              -d '{"values": [ "userId-123", "userId-345" ]}'
       requestBody:
         required: true
         content:
