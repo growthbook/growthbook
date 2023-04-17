@@ -5,6 +5,7 @@ import {
 } from "../../../types/organization";
 import { ProjectInterface } from "../../../types/project";
 import { experiments, metrics } from "./test-objects";
+import { MetricInterface } from "../../../types/metric";
 
 const baseOrganization: OrganizationInterface = {
   dateCreated: new Date("2020-01-01"),
@@ -115,36 +116,50 @@ describe("settings", () => {
           );
           expect(metricSettings_revenue.winRisk.value).toEqual(0.0025);
           expect(metricSettings_revenue.loseRisk.value).toEqual(0.0125);
+
+
+          // Testvar
+          const { settings: metricSettings_testvar } = useScopedSettings(
+            organization.settings,
+            {
+              metric: metrics.testvar,
+              experiment: experiments.exp1,
+            }
+          );
+
+          expect(metricSettings_testvar.conversionDelayHours.value).toEqual(0);
+          expect(metricSettings_testvar.conversionWindowHours.value).toEqual(72);
+          expect(
+            metricSettings_testvar.regressionAdjustmentEnabled.value
+          ).toEqual(false);
+          expect(
+            metricSettings_testvar.regressionAdjustmentEnabled.meta.reason ===
+            "custom aggregation"
+          );
+          expect(
+            metricSettings_testvar.regressionAdjustmentEnabled.meta.reason
+          ).toEqual("experiment-level metric override applied");
+          expect(metricSettings_testvar.regressionAdjustmentDays.value).toEqual(
+            12
+          );
+          expect(metricSettings_testvar.winRisk.value).toEqual(0.0015);
+          expect(metricSettings_testvar.loseRisk.value).toEqual(0.0225);
+
+
+          // CUPED denominator is count rejection
+          const conversions_as_count: MetricInterface = { ...metrics.conversions, type: "count" };
+          // todo: how do we pass in this dependency while checking the `testvar` metric?
+          const { settings: metricSettings_testvar_2 } = useScopedSettings(
+            org.settings,
+            {
+              metric: metrics.testvar,
+              // otherMetrics: [conversions_as_count],
+              experiment: experiments.exp1,
+            }
+          );
+          expect(metricSettings_testvar_2.regressionAdjustmentEnabled.value).toEqual(false);
+          expect(metricSettings_testvar_2.regressionAdjustmentEnabled.meta.reason).toEqual("denominator is count");
         });
-
-        // Testvar
-        const { settings: metricSettings_testvar } = useScopedSettings(
-          organization.settings,
-          {
-            metric: metrics.testvar,
-            experiment: experiments.exp1,
-          }
-        );
-
-        expect(metricSettings_testvar.conversionDelayHours.value).toEqual(0);
-        expect(metricSettings_testvar.conversionWindowHours.value).toEqual(72);
-        // expect(
-        //   metricSettings_testvar.regressionAdjustmentEnabled.value
-        // ).toEqual(false);
-        // expect(
-        //   metricSettings_testvar.regressionAdjustmentEnabled.meta.reason ===
-        //     "custom aggregation"
-        // );
-        expect(
-          metricSettings_testvar.regressionAdjustmentEnabled.meta.reason
-        ).toEqual("experiment-level metric override applied");
-        expect(metricSettings_testvar.regressionAdjustmentDays.value).toEqual(
-          12
-        );
-        expect(metricSettings_testvar.winRisk.value).toEqual(0.0015);
-        expect(metricSettings_testvar.loseRisk.value).toEqual(0.0225);
-
-        // todo: add test for CUPED: denominator is count
       });
 
       it("overrides stats-related metrics based on stats engine", () => {
