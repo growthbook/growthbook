@@ -130,7 +130,7 @@ export async function generateNotebook(
   const statsEngine = args.statsEngine ?? "bayesian";
   const configString =
     statsEngine === "frequentist" && (args.sequentialTestingEnabled ?? false)
-      ? `engine_config={'sequential': True, 'sequential_tuning_parameter': ${
+      ? `{'sequential': True, 'sequential_tuning_parameter': ${
           args.sequentialTestingTuningParameter ??
           DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
         }}`
@@ -169,7 +169,7 @@ print(create_notebook(
         ? "StatsEngine.FREQUENTIST"
         : "StatsEngine.BAYESIAN"
     },
-    ${configString}
+    engine_config=${configString}
 ))`,
     {}
   );
