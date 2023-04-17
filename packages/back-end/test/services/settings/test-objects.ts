@@ -229,8 +229,7 @@ experiments["exp1"] = {
       name: "Control",
       screenshots: [
         {
-          path:
-            "http://localhost:3100/upload/org_1234/2023-04/img_1234.jpg",
+          path: "http://localhost:3100/upload/org_1234/2023-04/img_1234.jpg",
           description: "",
         },
       ],

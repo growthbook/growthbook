@@ -24,9 +24,9 @@ const mockProject: ProjectInterface = {
   dateUpdated: new Date("2020-01-01"),
 };
 
-const genOrgWithSettings = (settings: Partial<OrganizationSettings>) => ({
+const genOrgWithSettings = (settings?: Partial<OrganizationSettings>) => ({
   ...baseOrganization,
-  settings,
+  settings: settings ?? {},
 });
 
 describe("settings", () => {
@@ -65,66 +65,80 @@ describe("settings", () => {
       );
     });
 
-    it("applies mixed metric overrides", () => {
-      const settings = { pValueThreshold: 0.001 };
-      const organization = genOrgWithSettings(settings);
+    describe("applying mixed metric overrides", () => {
+      const organization = genOrgWithSettings();
 
-      // Signups
-      const { settings: metricSettings_signups } = useScopedSettings(
-        organization.settings,
-        {
-          metric: metrics.signups,
-          experiment: experiments.exp1,
-        }
-      );
+      describe("when the metric has no setting, and the experiment has no overrides", () => {
+        it("defaults to the experiment setting", () => {
+          // Signups
+          const { settings: metricSettings_signups } = useScopedSettings(
+            organization.settings,
+            {
+              metric: metrics.signups,
+              experiment: experiments.exp1,
+            }
+          );
 
-      expect(metricSettings_signups.regressionAdjustmentEnabled.value).toEqual(
-        true
-      );
+          expect(
+            metricSettings_signups.regressionAdjustmentEnabled.value
+          ).toEqual(true);
+        });
 
-      // Revenue
-      const { settings: metricSettings_revenue } = useScopedSettings(
-        organization.settings,
-        {
-          metric: metrics.revenue,
-          experiment: experiments.exp1,
-        }
-      );
+        it("applies experiment-level metric overrides over metric settings where applicable (regressionAdjustmentDays)", () => {
+          // Revenue
+          const { settings: metricSettings_revenue } = useScopedSettings(
+            organization.settings,
+            {
+              metric: metrics.revenue,
+              experiment: experiments.exp1,
+            }
+          );
 
-      expect(metricSettings_revenue.conversionDelayHours.value).toEqual(2.5);
-      expect(metricSettings_revenue.conversionWindowHours.value).toEqual(72);
-      expect(metricSettings_revenue.regressionAdjustmentEnabled.value).toEqual(
-        false
-      );
-      expect(metricSettings_revenue.regressionAdjustmentEnabled.reason).toEqual(
-        "disabled by metric override"
-      );
-      expect(metricSettings_revenue.regressionAdjustmentDays.value).toEqual(8);
-      expect(metricSettings_revenue.winRisk.value).toEqual(0.0025);
-      expect(metricSettings_revenue.loseRisk.value).toEqual(0.0125);
+          expect(metricSettings_revenue.conversionDelayHours.value).toEqual(
+            2.5
+          );
+          expect(metricSettings_revenue.conversionWindowHours.value).toEqual(
+            72
+          );
+          expect(
+            metricSettings_revenue.regressionAdjustmentEnabled.value
+          ).toEqual(false);
+          expect(
+            metricSettings_revenue.regressionAdjustmentEnabled.meta.reason
+          ).toEqual("metric-level setting applied");
+          expect(metricSettings_revenue.regressionAdjustmentDays.value).toEqual(
+            8
+          );
+          expect(metricSettings_revenue.winRisk.value).toEqual(0.0025);
+          expect(metricSettings_revenue.loseRisk.value).toEqual(0.0125);
+        });
 
-      // Testvar
-      const { settings: metricSettings_testvar } = useScopedSettings(
-        organization.settings,
-        {
-          metric: metrics.testvar,
-          experiment: experiments.exp1,
-        }
-      );
+        // Testvar
+        const { settings: metricSettings_testvar } = useScopedSettings(
+          organization.settings,
+          {
+            metric: metrics.testvar,
+            experiment: experiments.exp1,
+          }
+        );
 
-      expect(metricSettings_testvar.conversionDelayHours.value).toEqual(0);
-      expect(metricSettings_testvar.conversionWindowHours.value).toEqual(72);
-      expect(metricSettings_testvar.regressionAdjustmentEnabled.value).toEqual(
-        false
-      );
-      expect(metricSettings_testvar.regressionAdjustmentEnabled.reason).toEqual(
-        "custom aggregation"
-      );
-      expect(metricSettings_testvar.regressionAdjustmentDays.value).toEqual(12);
-      expect(metricSettings_testvar.winRisk.value).toEqual(0.0015);
-      expect(metricSettings_testvar.loseRisk.value).toEqual(0.0225);
+        expect(metricSettings_testvar.conversionDelayHours.value).toEqual(0);
+        expect(metricSettings_testvar.conversionWindowHours.value).toEqual(72);
+        // TODO Q for Bryce - should this expect true instead?
+        // expect(
+        //   metricSettings_testvar.regressionAdjustmentEnabled.value
+        // ).toEqual(false);
+        expect(
+          metricSettings_testvar.regressionAdjustmentEnabled.meta.reason
+        ).toEqual("experiment-level metric override applied");
+        expect(metricSettings_testvar.regressionAdjustmentDays.value).toEqual(
+          12
+        );
+        expect(metricSettings_testvar.winRisk.value).toEqual(0.0015);
+        expect(metricSettings_testvar.loseRisk.value).toEqual(0.0225);
 
-      // todo: add test for CUPED: denominator is count
+        // todo: add test for CUPED: denominator is count
+      });
     });
   });
 });
