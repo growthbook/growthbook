@@ -72,9 +72,6 @@ export default class Mssql extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
-  replaceDateDimensionString(minDateDimString: string): string {
-    return `SUBSTRING(${minDateDimString}, 29, 99999)`;
-  }
   async getInformationSchema(): Promise<InformationSchema[]> {
     const databaseName = this.params.database;
 
