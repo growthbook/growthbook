@@ -125,9 +125,13 @@ describe("settings", () => {
         expect(metricSettings_testvar.conversionDelayHours.value).toEqual(0);
         expect(metricSettings_testvar.conversionWindowHours.value).toEqual(72);
         // TODO Q for Bryce - should this expect true instead?
-        // expect(
-        //   metricSettings_testvar.regressionAdjustmentEnabled.value
-        // ).toEqual(false);
+        expect(
+          metricSettings_testvar.regressionAdjustmentEnabled.value
+        ).toEqual(false);
+        expect(
+          metricSettings_testvar.regressionAdjustmentEnabled.meta.reason ===
+            "custom aggregation"
+        );
         expect(
           metricSettings_testvar.regressionAdjustmentEnabled.meta.reason
         ).toEqual("experiment-level metric override applied");
