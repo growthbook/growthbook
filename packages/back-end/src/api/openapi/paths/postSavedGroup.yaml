@@ -28,13 +28,13 @@ requestBody:
             type: array
             items:
               type: string
-            description: "An array of values to target (Ex: a list of userId's)."
+            description: "An array of values to target (Ex: a list of userIds)."
           attributeKey:
             type: string
             description: "The parameter you want to target users with. Ex: userId, orgId, ..."
           owner:
             type: string
-            description: (Optional) - The name of the user in your GrowthBook account that owns this Saved Group.
+            description: "The person or team that owns this Saved Group. If no owner, you can pass an empty string."
 responses:
   "200":
     content:

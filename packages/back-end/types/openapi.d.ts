@@ -2524,11 +2524,11 @@ export interface operations {
         "application/json": {
           /** @description The display name of the Saved Group */
           name: string;
-          /** @description An array of values to target (Ex: a list of userId's). */
+          /** @description An array of values to target (Ex: a list of userIds). */
           values: (string)[];
           /** @description The parameter you want to target users with. Ex: userId, orgId, ... */
           attributeKey: string;
-          /** @description (Optional) - The name of the user in your GrowthBook account that owns this Saved Group. */
+          /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
         };
       };
@@ -2594,9 +2594,9 @@ export interface operations {
         "application/json": {
           /** @description The display name of the Saved Group */
           name: string;
-          /** @description An array of values to target (Ex: a list of userId's). */
+          /** @description An array of values to target (Ex: a list of userIds). */
           values: (string)[];
-          /** @description The name of the user in your GrowthBook account that owns this Saved Group. If no owner, you can pass in an empty string. */
+          /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner: string;
         };
       };
@@ -2634,9 +2634,9 @@ export interface operations {
         "application/json": {
           /** @description The display name of the Saved Group */
           name?: string;
-          /** @description An array of values to target (Ex: a list of userId's). */
+          /** @description An array of values to target (Ex: a list of userIds). */
           values?: (string)[];
-          /** @description The name of the user in your GrowthBook account that owns this Saved Group. */
+          /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
           owner?: string;
         };
       };
