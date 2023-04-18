@@ -24,6 +24,7 @@ export type ResultsTableProps = {
   startDate: string;
   rows: ExperimentTableRow[];
   users?: number[];
+  tableRowAxis: "metric" | "dimension";
   labelHeader: string;
   renderLabelColumn: (
     label: string,
@@ -53,6 +54,7 @@ export default function ResultsTable({
   rows,
   labelHeader,
   users,
+  tableRowAxis,
   variations,
   startDate,
   renderLabelColumn,
@@ -69,6 +71,38 @@ export default function ResultsTable({
   const orgSettings = useOrgSettings();
   statsEngine = statsEngine ?? orgSettings.statsEngine ?? "bayesian";
   sequentialTestingEnabled = sequentialTestingEnabled ?? false;
+
+  let pValueTooltipBody = <></>;
+  if (sequentialTestingEnabled) {
+    pValueTooltipBody = (
+      <p className="mb-0">
+        Sequential testing is enabled. These are &apos;always valid
+        p-values&apos; and robust to peeking. They have a slightly different
+        interpretation to normal p-values and can often be 1.000. Nonetheless,
+        the interpretation remains that the result is still statistically
+        significant if it drops below your threshold (
+        {orgSettings.pValueThreshold ?? 0.05}).
+      </p>
+    );
+  }
+  if (pValueCorrection !== "none") {
+    let correctionText = "all non-guardrail metrics and variations";
+    if (tableRowAxis === "dimension") {
+      correctionText =
+        "all dimension values, non-guardrail metrics, and variations";
+    }
+    pValueTooltipBody = (
+      <>
+        {pValueTooltipBody}
+        <p className="mb-0 mt-4">
+          The p-values presented below are corrected for multiple comparisons
+          using the {pValueCorrection} method. P-values were corrected across
+          tests for {correctionText}. The uncorrected p-values are returned in
+          parentheses.
+        </p>
+      </>
+    );
+  }
 
   return (
     <table
@@ -147,7 +181,7 @@ export default function ResultsTable({
                       {sequentialTestingEnabled && (
                         <Tooltip
                           innerClassName="text-left"
-                          body="Because sequential testing is enabled, these are always valid p-values (in other words, they are immune to peeking). They can still be interpreted in a similar way: your result is statistically significant if it drops below your threshold (default 0.05)."
+                          body={pValueTooltipBody}
                         >
                           {" "}
                           <FaQuestionCircle />

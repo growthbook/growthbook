@@ -184,6 +184,7 @@ const BreakDownResults: FC<{
               status={status}
               variations={variations}
               id={table.metric.id}
+              tableRowAxis="dimension"
               labelHeader={dimension}
               renderLabelColumn={(label) => label || <em>unknown</em>}
               rows={table.rows}

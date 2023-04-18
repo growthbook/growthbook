@@ -146,6 +146,7 @@ const CompactResults: FC<{
           rows={table.rows}
           id={id}
           {...risk}
+          tableRowAxis="metric"
           labelHeader="Metric"
           users={users}
           statsEngine={statsEngine}
