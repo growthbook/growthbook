@@ -174,6 +174,12 @@ const sidebars = {
           label: "Regression Adjustment (CUPED)",
           className: "pill-new",
         },
+        {
+          type: "doc",
+          id: "statistics/sequential",
+          label: "Sequential Testing",
+          className: "pill-new",
+        },
       ],
     },
     {
