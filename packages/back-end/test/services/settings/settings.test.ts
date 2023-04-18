@@ -96,7 +96,7 @@ describe("settings", () => {
           const { settings: metricSettings_revenue } = useScopedSettings(
             org.settings,
             {
-              metric: metrics.revenue,
+              metric: metrics.revenue2,
               experiment: experiments.exp1,
             }
           );
@@ -114,12 +114,9 @@ describe("settings", () => {
             metricSettings_revenue.regressionAdjustmentEnabled.meta.reason
           ).toEqual("disabled by metric override");
 
-          // Q for Bryce - if RA is disabled, this should be 0, right?
-          //
-          // expect(metricSettings_revenue.regressionAdjustmentDays.value).toEqual(
-          //   8
-          // );
-          //
+          expect(metricSettings_revenue.regressionAdjustmentDays.value).toEqual(
+            0
+          );
           expect(metricSettings_revenue.winRisk.value).toEqual(0.0025);
           expect(metricSettings_revenue.loseRisk.value).toEqual(0.0125);
 
@@ -136,21 +133,14 @@ describe("settings", () => {
           expect(metricSettings_testvar.conversionWindowHours.value).toEqual(
             72
           );
-          // Q for Bryce - Does metric_testvar need  to be of type 'binomial' for custom aggregation override to work?
-          //
-          // expect(
-          //   metricSettings_testvar.regressionAdjustmentEnabled.value
-          // ).toEqual(false);
-          // expect(
-          //   metricSettings_testvar.regressionAdjustmentEnabled.meta.reason ===
-          //     "custom aggregation"
-          // );
-
+          expect(
+            metricSettings_testvar.regressionAdjustmentEnabled.value
+          ).toEqual(false);
           expect(
             metricSettings_testvar.regressionAdjustmentEnabled.meta.reason
-          ).toEqual("experiment-level metric override applied");
+          ).toEqual("custom aggregation");
           expect(metricSettings_testvar.regressionAdjustmentDays.value).toEqual(
-            12
+            0
           );
           expect(metricSettings_testvar.winRisk.value).toEqual(0.0015);
           expect(metricSettings_testvar.loseRisk.value).toEqual(0.0225);
@@ -160,12 +150,10 @@ describe("settings", () => {
           //   ...metrics.conversions,
           //   type: "count",
           // };
-          // todo: how do we pass in this dependency while checking the `testvar` metric?
-          // Answer for Bryce: see `denominatorMetric` below
           const { settings: metricSettings_testvar_2 } = useScopedSettings(
             org.settings,
             {
-              metric: metrics.testvar,
+              metric: metrics.testvar2,
               denominatorMetric: {
                 ...metrics.conversions,
                 type: "count",
@@ -227,12 +215,9 @@ describe("settings", () => {
       );
 
       // org level:
-      // Q for Bryce: exp1 does not have regressionAdjustmentEnabled defined for the metric override (check `met_r1`).
-      // does that need to be updated or should this change to expect false?
-      //
-      // expect(settings_revenue_2.regressionAdjustmentEnabled.value).toEqual(
-      //   true
-      // );
+      expect(settings_revenue_2.regressionAdjustmentEnabled.value).toEqual(
+        true
+      );
       expect(settings_revenue_2.pValueThreshold.value).toEqual(0.05);
       // TODO
       // expect(settings_revenue_2.confidenceLevel.meta.warning).toEqual(
