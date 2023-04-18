@@ -37,6 +37,7 @@ export interface ScopeDefinition {
   datasource?: DataSourceInterface;
   experiment?: ExperimentInterface;
   metric?: MetricInterface;
+  denominatorMetric?: MetricInterface;
   report?: ReportInterface;
 }
 

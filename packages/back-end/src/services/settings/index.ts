@@ -1,6 +1,6 @@
-import genDefaultResolver from "./genDefaultResolver";
-import genMetricOverrideResolver from "./genMetricOverrideResolver";
-import genDefaultSettings from "./genDefaultSettings";
+import genDefaultResolver from "./resolvers/genDefaultResolver";
+import genMetricOverrideResolver from "./resolvers/genMetricOverrideResolver";
+import genDefaultSettings from "./resolvers/genDefaultSettings";
 import {
   Settings,
   SettingsResolver,
@@ -11,6 +11,7 @@ import {
   InputSettings,
   UseScopedSettingsReturn,
 } from "./types";
+import regressionAdjustmentResolver from "./resolvers/regressionAdjustmentEnabledResolver";
 
 export const resolvers: Record<
   keyof Settings,
@@ -63,12 +64,8 @@ export const resolvers: Record<
     metric: true,
     report: true,
   }),
-  regressionAdjustmentEnabled: genMetricOverrideResolver(
-    "regressionAdjustmentEnabled"
-  ),
-  regressionAdjustmentDays: genMetricOverrideResolver(
-    "regressionAdjustmentDays"
-  ),
+  regressionAdjustmentEnabled: regressionAdjustmentResolver("enabled"),
+  regressionAdjustmentDays: regressionAdjustmentResolver("days"),
   attributionModel: genDefaultResolver("attributionModel", {
     project: true,
     experiment: true,
@@ -132,5 +129,15 @@ export const useScopedSettings = (
   scopes?: ScopeDefinition
 ): UseScopedSettingsReturn => {
   const settings = normalizeInputSettings(baseSettings);
+
+  if (
+    scopes?.metric &&
+    scopes.metric.denominator &&
+    !scopes.denominatorMetric
+  ) {
+    // eslint-disable-next-line no-console
+    console.warn('Scope "metric" requires "denominatorMetric"');
+  }
+
   return scopeSettings(settings, scopes);
 };
