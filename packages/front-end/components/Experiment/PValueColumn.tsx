@@ -91,10 +91,14 @@ const PValueColumn: FC<{
     className += " draw";
   }
 
-  let pValText = pValueFormatter(stats?.pValue);
+  let pValText = <>{pValueFormatter(stats?.pValue)}</>;
   if (stats?.pValueAdjusted !== undefined && pValueCorrection !== "none") {
-    pValText =
-      pValueFormatter(stats?.pValueAdjusted) + " Unadjusted: " + pValText;
+    pValText = (
+      <>
+        <div>{pValueFormatter(stats?.pValueAdjusted)}</div>
+        <div className="small text-muted">(unadjusted: {pValText})</div>
+      </>
+    );
   }
 
   return (
