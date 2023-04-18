@@ -57,10 +57,7 @@ const regressionAdjustmentResolver = (
     }
 
     // metrics with custom aggregation
-    if (
-      ctx.scopes?.metric?.type === "binomial" &&
-      ctx.scopes.metric.aggregation
-    ) {
+    if (ctx.scopes?.metric?.aggregation) {
       regressionAdjustmentEnabled = false;
       reason = "custom aggregation";
     }

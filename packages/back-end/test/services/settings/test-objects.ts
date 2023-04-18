@@ -77,6 +77,11 @@ metrics["revenue"] = {
   regressionAdjustmentOverride: false,
 };
 
+metrics["revenue2"] = {
+  ...metrics["revenue"],
+  id: "met_r2",
+};
+
 metrics["conversions"] = {
   userIdTypes: ["anonymous_id", "user_id"],
   tags: [],
@@ -165,6 +170,11 @@ metrics["testvar"] = {
   regressionAdjustmentOverride: true,
 };
 
+metrics["testvar2"] = {
+  ...metrics["testvar"],
+  aggregation: undefined,
+};
+
 experiments["exp1"] = {
   id: "exp_1",
   tags: ["foo"],
@@ -182,6 +192,13 @@ experiments["exp1"] = {
     {
       id: "met_r1",
       regressionAdjustmentOverride: true,
+      regressionAdjustmentEnabled: true,
+      regressionAdjustmentDays: 8,
+    },
+    {
+      id: "met_r2",
+      regressionAdjustmentOverride: true,
+      regressionAdjustmentEnabled: false,
       regressionAdjustmentDays: 8,
     },
     {
