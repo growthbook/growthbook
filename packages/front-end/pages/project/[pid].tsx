@@ -14,6 +14,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import { useUser } from "@/services/UserContext";
 
 // todo: use proper interface
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -28,6 +29,7 @@ function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
 const settings: ProjectSettings = {};
 
 const ProjectPage: FC = () => {
+  const { refreshOrganization } = useUser();
   const { getProjectById, mutateDefinitions, ready, error } = useDefinitions();
   const { pid } = router.query as { pid: string };
   const p = getProjectById(pid);
