@@ -6,7 +6,7 @@ import {
   rebalance,
 } from "../services/utils";
 import { correctPvalues } from "../services/experiments";
-import { TableDef } from "@/components/Experiment/BreakDownResults";
+import { TableDef } from "../components/Experiment/BreakDownResults";
 
 describe("variation weighting functions", () => {
   it("getEqualWeights with default precision", () => {
@@ -121,37 +121,37 @@ describe("variation weighting functions", () => {
 });
 
 function mockTable(pvalues: number[], adjustedPvalues?: number[]) {
-  let table: TableDef = {
+  const table: TableDef = {
     isGuardrail: false,
-    rows: [{label: '', metric: undefined, variations: []}]
+    rows: [{ label: "", metric: undefined, variations: [] }],
   };
   pvalues.forEach((p, i) => {
-    let variation = {pValue: p, value: 0, cr: 0, users: 0, pValueAdjusted: null};
+    const variation = {
+      pValue: p,
+      value: 0,
+      cr: 0,
+      users: 0,
+      pValueAdjusted: null,
+    };
     if (adjustedPvalues !== undefined) {
       variation.pValueAdjusted = adjustedPvalues[i];
     }
     table.rows[0].variations.push(variation);
- });
+  });
   return table;
 }
 
 describe("pvalue correction method", () => {
   it("does HB procedure correctly", () => {
     const startPvals = [0.01, 0.04, 0.03, 0.005, 0.55, 0.6];
-    expect(
-      correctPvalues(
-        [mockTable(startPvals)],
-        "holm-bonferroni"
-      )
-    ).toEqual([mockTable(startPvals, [0.05, 0.12, 0.12, 0.03, 1, 1])])
+    expect(correctPvalues([mockTable(startPvals)], "holm-bonferroni")).toEqual([
+      mockTable(startPvals, [0.05, 0.12, 0.12, 0.03, 1, 1]),
+    ]);
   });
   it("does BH procedure correctly", () => {
     const startPvals = [0.01, 0.04, 0.03, 0.005];
     expect(
-      correctPvalues(
-        [mockTable(startPvals)],
-        "benjamini-hochberg"
-      )
-    ).toEqual([mockTable(startPvals, [0.02, 0.04, 0.04, 0.02])])
+      correctPvalues([mockTable(startPvals)], "benjamini-hochberg")
+    ).toEqual([mockTable(startPvals, [0.02, 0.04, 0.04, 0.02])]);
   });
 });

@@ -65,7 +65,10 @@ const PValueColumn: FC<{
     belowMinChange,
   });
 
-  const statSig = isStatSig(stats, pValueThreshold);
+  const statSig = isStatSig(
+    stats.pValueAdjusted ?? stats.pValue ?? 1,
+    pValueThreshold
+  );
   const expectedDirection = isExpectedDirection(stats, metric);
 
   let sigText: string | JSX.Element = "";
@@ -89,9 +92,9 @@ const PValueColumn: FC<{
   }
 
   let pValText = pValueFormatter(stats?.pValue);
-  console.log(pValText);
-  if (stats?.pValueAdjusted !== undefined && pValueCorrection !== 'none') {
-    pValText = pValueFormatter(stats?.pValueAdjusted) + ' Unadjusted: ' + pValText;
+  if (stats?.pValueAdjusted !== undefined && pValueCorrection !== "none") {
+    pValText =
+      pValueFormatter(stats?.pValueAdjusted) + " Unadjusted: " + pValText;
   }
 
   return (

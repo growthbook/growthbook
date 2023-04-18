@@ -377,10 +377,9 @@ export function isExpectedDirection(
 }
 
 export function isStatSig(
-  stats: SnapshotMetric,
+  pValue: number,
   pValueThreshold: number
 ): boolean {
-  const pValue: number = stats?.pValue ?? 1;
   return pValue < pValueThreshold;
 }
 
