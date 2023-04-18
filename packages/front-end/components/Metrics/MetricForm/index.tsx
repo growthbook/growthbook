@@ -11,10 +11,6 @@ import {
   FaExternalLinkAlt,
   FaTimes,
 } from "react-icons/fa";
-import {
-  InformationSchemaInterface,
-  InformationSchemaTablesInterface,
-} from "@/../back-end/src/types/Integration";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -42,7 +38,7 @@ import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
-import useApi from "@/hooks/useApi";
+import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import TypeaheadInput from "./TypeaheadInput";
 
 const weekAgo = new Date();
@@ -176,7 +172,6 @@ const MetricForm: FC<MetricFormProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
-  const [tableId, setTableId] = useState("");
 
   const {
     getMinSampleSizeForMetric,
@@ -329,8 +324,6 @@ const MetricForm: FC<MetricFormProps> = ({
   const supportsSQL = selectedDataSource?.properties?.queryLanguage === "sql";
   const supportsJS =
     selectedDataSource?.properties?.queryLanguage === "javascript";
-  const supportsSchemaBrowser =
-    selectedDataSource?.properties?.supportsInformationSchema;
 
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
@@ -444,36 +437,9 @@ const MetricForm: FC<MetricFormProps> = ({
     }
   }, [type, form]);
 
-  const tableOptions: { label: string; value: string }[] = [];
-
-  const { data: TableData } = useApi<{
-    informationSchema: InformationSchemaInterface;
-  }>(`/datasource/${selectedDataSource.id}/schema`);
-
-  if (TableData?.informationSchema?.databases.length) {
-    TableData.informationSchema.databases.forEach((database) => {
-      database.schemas.forEach((schema) => {
-        schema.tables.forEach((table) => {
-          tableOptions.push({ label: table.tableName, value: table.id });
-        });
-      });
-    });
-  }
-
-  const columnOptions: { label: string; value: string }[] = [];
-
-  const { data: columnData } = useApi<{
-    table: InformationSchemaTablesInterface;
-  }>(`/datasource/${selectedDataSource.id}/schema/table/${tableId}`);
-
-  if (columnData?.table?.columns.length) {
-    columnData.table.columns.forEach((column) => {
-      columnOptions.push({
-        label: column.columnName,
-        value: column.columnName,
-      });
-    });
-  }
+  const { setTableId, tableOptions, columnOptions } = useSchemaFormOptions(
+    selectedDataSource?.id
+  );
 
   return (
     <>
@@ -708,46 +674,30 @@ const MetricForm: FC<MetricFormProps> = ({
               ) : (
                 <>
                   <div className="form-group">
-                    {supportsSchemaBrowser ? (
-                      <TypeaheadInput
-                        label={`${table} Name`}
-                        currentValue={form.watch("table")}
-                        onChange={(tableName, id) => {
-                          form.setValue("table", tableName);
-                          setTableId(id);
-                        }}
-                        options={tableOptions}
-                      />
-                    ) : (
-                      <Field
-                        label={`${table} Name`}
-                        {...form.register("table")}
-                        required
-                        type={"text"}
-                      />
-                    )}
+                    <TypeaheadInput
+                      label={`${table} Name`}
+                      placeholder="Enter a table name"
+                      currentValue={form.watch("table")}
+                      onChange={(tableName, id) => {
+                        form.setValue("table", tableName);
+                        setTableId(id);
+                      }}
+                      options={tableOptions}
+                      required
+                    />
                   </div>
                   {value.type !== "binomial" && (
                     <div className="form-group ">
-                      {supportsSchemaBrowser && tableId ? (
-                        <TypeaheadInput
-                          placeholder={column}
-                          label={supportsSQL ? "Column" : "Event Value"}
-                          options={columnOptions}
-                          currentValue={form.watch("column")}
-                          onChange={(columnName) =>
-                            form.setValue("column", columnName)
-                          }
-                        />
-                      ) : (
-                        <Field
-                          label={supportsSQL ? "Column" : "Event Value"}
-                          required={value.type !== "count"}
-                          placeholder={supportsSQL ? "" : "1"}
-                          className="form-control"
-                          {...form.register("column")}
-                        />
-                      )}
+                      <TypeaheadInput
+                        placeholder={column}
+                        label={supportsSQL ? "Column" : "Event Value"}
+                        options={columnOptions}
+                        currentValue={form.watch("column")}
+                        onChange={(columnName) =>
+                          form.setValue("column", columnName)
+                        }
+                        required={value.type !== "count"}
+                      />
                       {!supportsSQL && (
                         <small className="form-text text-muted">
                           Javascript expression to extract a value from each
@@ -776,28 +726,20 @@ const MetricForm: FC<MetricFormProps> = ({
                         >
                           {i > 0 && <div className="col-auto">AND</div>}
                           <div className="col-auto mb-1">
-                            {supportsSchemaBrowser && tableId ? (
-                              <TypeaheadInput
-                                placeholder={column}
-                                options={columnOptions}
-                                currentValue={form.watch(
-                                  `conditions.${i}.column`
-                                )}
-                                onChange={(columnName) =>
-                                  form.setValue(
-                                    `conditions.${i}.column`,
-                                    columnName
-                                  )
-                                }
-                              />
-                            ) : (
-                              <input
-                                required
-                                className="form-control mb-1"
-                                placeholder={column}
-                                {...form.register(`conditions.${i}.column`)}
-                              />
-                            )}
+                            <TypeaheadInput
+                              placeholder={column}
+                              options={columnOptions}
+                              currentValue={form.watch(
+                                `conditions.${i}.column`
+                              )}
+                              onChange={(columnName) =>
+                                form.setValue(
+                                  `conditions.${i}.column`,
+                                  columnName
+                                )
+                              }
+                              required
+                            />
                           </div>
                           <div className="col-auto mb-1">
                             <SelectField
@@ -882,24 +824,15 @@ const MetricForm: FC<MetricFormProps> = ({
                   )}
                   {customzeTimestamp && (
                     <div className="form-group ">
-                      {supportsSchemaBrowser && tableId ? (
-                        <TypeaheadInput
-                          label="Timestamp Column"
-                          options={columnOptions}
-                          currentValue={form.watch("timestampColumn")}
-                          onChange={(columnName) =>
-                            form.setValue("timestampColumn", columnName)
-                          }
-                        />
-                      ) : (
-                        <Field
-                          label="Timestamp Column"
-                          type="text"
-                          placeholder={"received_at"}
-                          className="form-control"
-                          {...form.register("timestampColumn")}
-                        />
-                      )}
+                      <TypeaheadInput
+                        label="Timestamp Column"
+                        options={columnOptions}
+                        currentValue={form.watch("timestampColumn")}
+                        onChange={(columnName) =>
+                          form.setValue("timestampColumn", columnName)
+                        }
+                        placeholder={"received_at"}
+                      />
                     </div>
                   )}
                   {customizeUserIds && (
@@ -921,33 +854,18 @@ const MetricForm: FC<MetricFormProps> = ({
                     value.userIdTypes.map((type) => {
                       return (
                         <>
-                          {supportsSchemaBrowser && tableId ? (
-                            <TypeaheadInput
-                              label={type + " Column"}
-                              options={columnOptions}
-                              currentValue={value.userIdColumns[type] || ""}
-                              placeholder={type}
-                              onChange={(columnName) => {
-                                form.setValue("userIdColumns", {
-                                  ...value.userIdColumns,
-                                  [type]: columnName,
-                                });
-                              }}
-                            />
-                          ) : (
-                            <Field
-                              key={type}
-                              label={type + " Column"}
-                              placeholder={type}
-                              value={value.userIdColumns[type] || ""}
-                              onChange={(e) => {
-                                form.setValue("userIdColumns", {
-                                  ...value.userIdColumns,
-                                  [type]: e.target.value,
-                                });
-                              }}
-                            />
-                          )}
+                          <TypeaheadInput
+                            label={type + " Column"}
+                            options={columnOptions}
+                            currentValue={value.userIdColumns[type] || ""}
+                            placeholder={type}
+                            onChange={(columnName) => {
+                              form.setValue("userIdColumns", {
+                                ...value.userIdColumns,
+                                [type]: columnName,
+                              });
+                            }}
+                          />
                         </>
                       );
                     })}
