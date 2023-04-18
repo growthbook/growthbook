@@ -1,5 +1,6 @@
-import { DEFAULT_METRIC_ANALYSIS_DAYS } from "../experiments";
-import { Settings } from "./types";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "../../../constants/stats";
+import { DEFAULT_METRIC_ANALYSIS_DAYS } from "../../experiments";
+import { Settings } from "../types";
 
 export default function genDefaultSettings(): Settings {
   return {
@@ -20,7 +21,7 @@ export default function genDefaultSettings(): Settings {
     northStar: null,
     pastExperimentsMinLength: 6,
     pValueThreshold: 0.05,
-    regressionAdjustmentDays: 14,
+    regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
     regressionAdjustmentEnabled: false,
     sdkInstructionsViewed: false,
     statsEngine: "bayesian",

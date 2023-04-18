@@ -1,5 +1,5 @@
-import { MetricOverride } from "../../../types/experiment";
-import { SettingsResolver, Settings } from "./types";
+import { MetricOverride } from "../../../../types/experiment";
+import { SettingsResolver, Settings } from "../types";
 
 export default function genMetricOverrideResolver(
   fieldName: keyof Omit<MetricOverride, "id">
