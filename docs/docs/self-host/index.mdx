@@ -57,7 +57,7 @@ services:
     environment:
       - MONGO_INITDB_ROOT_USERNAME=root
       - MONGO_INITDB_ROOT_PASSWORD=password
-    platform: linux/x86_64
+    platform: linux/amd64
   growthbook:
     image: "growthbook/growthbook:latest"
     ports:
@@ -69,7 +69,7 @@ services:
       - MONGODB_URI=mongodb://root:password@mongo:27017/
     volumes:
       - uploads:/usr/local/src/app/packages/back-end/uploads
-    platform: linux/x86_64
+    platform: linux/amd64
 volumes:
   uploads:
   ```
