@@ -574,8 +574,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       className="ml-2"
                       value={form.watch("attributionModel")}
                       onChange={(value) => {
-                        const model = value as AttributionModel;
-                        form.setValue("attributionModel", model);
+                        form.setValue(
+                          "attributionModel",
+                          value as AttributionModel
+                        );
                       }}
                       options={[
                         {
@@ -768,10 +770,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         label={"Multiple comparisons correction to use: "}
                         className="ml-2"
                         value={form.watch("pValueCorrection") ?? "none"}
-                        onChange={(value) => {
-                          const correction = value as PValueCorrection;
-                          form.setValue("pValueCorrection", correction);
-                        }}
+                        onChange={(value) =>
+                          form.setValue(
+                            "pValueCorrection",
+                            value as PValueCorrection
+                          )
+                        }
                         sort={false}
                         options={[
                           {
