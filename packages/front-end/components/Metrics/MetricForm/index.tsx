@@ -438,7 +438,7 @@ const MetricForm: FC<MetricFormProps> = ({
   }, [type, form]);
 
   const { setTableId, tableOptions, columnOptions } = useSchemaFormOptions(
-    selectedDataSource?.id
+    selectedDataSource
   );
 
   return (
