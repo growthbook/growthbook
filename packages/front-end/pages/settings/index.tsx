@@ -673,7 +673,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
                 <ControlledTabs
                   newStyle={true}
-                  className="mt-3"
+                  className="mt-3 w-100"
                   buttonsClassName="px-5"
                   tabContentsClassName="border"
                   setActive={setStatsEngineTab}
