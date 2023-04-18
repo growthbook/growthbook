@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import CreatableSelect from "react-select/creatable";
 
 type Props = {
@@ -20,7 +20,7 @@ export default function TypeaheadInput({
 
   const inputRef = useRef(null);
 
-  function currentOption(): { label: string; value: string } | undefined {
+  const currentOption = useMemo(() => {
     if (!currentValue) return undefined;
 
     return (
@@ -29,24 +29,17 @@ export default function TypeaheadInput({
         value: "",
       }
     );
-  }
+  }, [currentValue, options]);
 
   return (
-    <>
+    <div className="form-group">
       {label && <label>{label}</label>}
       <CreatableSelect
         ref={inputRef}
         isClearable
         placeholder={placeholder}
         inputValue={inputValue}
-        options={
-          options.map((t) => {
-            return {
-              value: t.value,
-              label: t.label,
-            };
-          }) ?? []
-        }
+        options={options || []}
         onChange={(val: { label: string; value: string }) => {
           if (!val) {
             onChange("", "");
@@ -78,7 +71,6 @@ export default function TypeaheadInput({
           switch (event.key) {
             case "Enter":
             case "Tab":
-            case " ":
               onChange(currentItem.label, currentItem.value);
               setInputValue("");
               inputRef.current.blur();
@@ -89,9 +81,9 @@ export default function TypeaheadInput({
         }}
         noOptionsMessage={() => null}
         isValidNewOption={() => false}
-        value={currentOption()}
+        value={currentOption}
         menuPosition={"fixed"}
       />
-    </>
+    </div>
   );
 }
