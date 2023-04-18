@@ -46,6 +46,41 @@ volumes:
 
 Then, just run `docker-compose up -d` to start everything and view the app at [http://localhost:3000](http://localhost:3000)
 
+If you use Apple silicon, modify it like this
+
+```yml
+# docker-compose.yml
+version: "3"
+services:
+  mongo:
+    image: "mongo:latest"
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=password
+    platform: linux/x86_64
+  growthbook:
+    image: "growthbook/growthbook:latest"
+    ports:
+      - "3000:3000"
+      - "3100:3100"
+    depends_on:
+      - mongo
+    environment:
+      - MONGODB_URI=mongodb://root:password@mongo:27017/
+    volumes:
+      - uploads:/usr/local/src/app/packages/back-end/uploads
+    platform: linux/x86_64
+volumes:
+  uploads:
+  ```
+or use the following command to start the docker-compose
+
+```bash
+DOCKER_DEFAULT_PLATFORM=linux/amd64 docker-compose up -d
+```
+
+
+
 ## Docker Tags
 
 Builds are published automatically from the [GitHub repo](https://github.com/growthbook/growthbook) main branch. The most recent commit is tagged with `latest`.
