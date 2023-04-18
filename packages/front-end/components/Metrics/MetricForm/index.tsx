@@ -39,6 +39,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
+import { GBCuped } from "@/components/Icons";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/constants/stats";
 import TypeaheadInput from "./TypeaheadInput";
 
 const weekAgo = new Date();
@@ -254,7 +256,7 @@ const MetricForm: FC<MetricFormProps> = ({
       regressionAdjustmentDays:
         current.regressionAdjustmentDays ??
         settings.regressionAdjustmentDays ??
-        14,
+        DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
     },
   });
 
@@ -1073,7 +1075,9 @@ const MetricForm: FC<MetricFormProps> = ({
               />
 
               <PremiumTooltip commercialFeature="regression-adjustment">
-                <label className="mb-1">Regression Adjustment (CUPED)</label>
+                <label className="mb-1">
+                  <GBCuped /> Regression Adjustment (CUPED)
+                </label>
               </PremiumTooltip>
               <small className="d-block mb-1 text-muted">
                 Only applicable to frequentist analyses
@@ -1164,7 +1168,9 @@ const MetricForm: FC<MetricFormProps> = ({
                             <>
                               <span className="ml-2">
                                 (organization default:{" "}
-                                {settings.regressionAdjustmentDays ?? 14})
+                                {settings.regressionAdjustmentDays ??
+                                  DEFAULT_REGRESSION_ADJUSTMENT_DAYS}
+                                )
                               </span>
                             </>
                           }

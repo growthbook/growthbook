@@ -16154,10 +16154,17 @@ qs@6.10.3:
   dependencies:
     side-channel "^1.0.4"
 
-qs@^6.10.0, qs@^6.10.3, qs@^6.4.0, qs@^6.7.0:
+qs@^6.10.0, qs@^6.4.0, qs@^6.7.0:
   version "6.11.0"
   resolved "https://registry.yarnpkg.com/qs/-/qs-6.11.0.tgz#fd0d963446f7a65e1367e01abd85429453f0c37a"
   integrity sha512-MvjoMCJwEarSbUYk5O+nmoSzSutSsTwF85zcHPQ9OrlFoZOYIjaqBAJIqIXjptyD5vThxGq52Xu/MaJzRkIk4Q==
+  dependencies:
+    side-channel "^1.0.4"
+
+qs@^6.11.0:
+  version "6.11.1"
+  resolved "https://registry.yarnpkg.com/qs/-/qs-6.11.1.tgz#6c29dff97f0c0060765911ba65cbc9764186109f"
+  integrity sha512-0wsrzgTz/kAVIeuxSjnpGC56rzYtr6JT/2BwEvMaPhFIoYa1aGO8LbzuU1R0uUYQkLpWBTOj0l/CLAJB64J6nQ==
   dependencies:
     side-channel "^1.0.4"
 
@@ -18346,13 +18353,13 @@ strip-json-comments@^3.1.0, strip-json-comments@^3.1.1:
   resolved "https://registry.yarnpkg.com/strip-json-comments/-/strip-json-comments-3.1.1.tgz#31f1281b3832630434831c310c01cccda8cbe006"
   integrity sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==
 
-stripe@^9.14.0:
-  version "9.14.0"
-  resolved "https://registry.yarnpkg.com/stripe/-/stripe-9.14.0.tgz#4f78d7adb932ba2ea1b696cc2dea8a5ba9efbb33"
-  integrity sha512-nonEpYI7kPxZI8BGqlichBont9oHTBKFdKQV4LW6SvMAfYyQ95pL3vw1kqnW38oAui/c1sJqDOE2t8AoosOC9w==
+stripe@^12.0.0:
+  version "12.0.0"
+  resolved "https://registry.yarnpkg.com/stripe/-/stripe-12.0.0.tgz#7261f2dcc2179256f3f57856012fc65b512cecb1"
+  integrity sha512-9zdcWApF4Yg2WG4GVv1qnvAv+h5KD103gKwbTsTyk5G3lf9h4vN0FXGQ5d5eWKP9itAjt0D5gZtWG7cLPzyLxw==
   dependencies:
     "@types/node" ">=8.1.0"
-    qs "^6.10.3"
+    qs "^6.11.0"
 
 strnum@^1.0.5:
   version "1.0.5"
@@ -19802,10 +19809,8 @@ watchpack@^1.7.4:
   resolved "https://registry.yarnpkg.com/watchpack/-/watchpack-1.7.5.tgz#1267e6c55e0b9b5be44c2023aed5437a2c26c453"
   integrity sha512-9P3MWk6SrKjHsGkLT2KHXdQ/9SNkyoJbabxnKOoJepsvJjJG8uYTR3yTPxPQvNDI3w4Nz1xnE0TLHK4RIVe/MQ==
   dependencies:
-    chokidar "^3.4.1"
     graceful-fs "^4.1.2"
     neo-async "^2.5.0"
-    watchpack-chokidar2 "^2.0.1"
   optionalDependencies:
     chokidar "^3.4.1"
     watchpack-chokidar2 "^2.0.1"
