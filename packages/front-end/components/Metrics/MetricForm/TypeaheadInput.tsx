@@ -37,7 +37,7 @@ export default function TypeaheadInput({
   }, [currentValue, options]);
 
   return (
-    <div className="form-group">
+    <div>
       {options.length > 0 ? (
         <>
           {label && <label>{label}</label>}
