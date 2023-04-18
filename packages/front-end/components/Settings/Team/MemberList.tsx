@@ -18,7 +18,18 @@ import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 const MemberList: FC<{
   mutate: () => void;
   project: string;
-}> = ({ mutate, project }) => {
+  canEditRoles?: boolean;
+  canDeleteMembers?: boolean;
+  canInviteMembers?: boolean;
+  maxHeight?: number | null;
+}> = ({
+  mutate,
+  project,
+  canEditRoles = true,
+  canDeleteMembers = true,
+  canInviteMembers = true,
+  maxHeight = null,
+}) => {
   const [inviting, setInviting] = useState(false);
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
@@ -38,10 +49,10 @@ const MemberList: FC<{
   return (
     <div className="my-4">
       <h5>Active Members{` (${users.size})`}</h5>
-      {inviting && (
+      {canInviteMembers && inviting && (
         <InviteModal close={() => setInviting(false)} mutate={mutate} />
       )}
-      {roleModal && roleModalUser && (
+      {canEditRoles && roleModal && roleModalUser && (
         <ChangeRoleModal
           displayInfo={roleModalUser.name || roleModalUser.email}
           roleInfo={{
@@ -60,123 +71,129 @@ const MemberList: FC<{
           }}
         />
       )}
-      {passwordResetModal && (
+      {canEditRoles && passwordResetModal && (
         <AdminSetPasswordModal
           close={() => setPasswordResetModal(null)}
           member={passwordResetModal}
         />
       )}
-      <table className="table appbox gbtable">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Date Joined</th>
-            <th>{project ? "Project Role" : "Global Role"}</th>
-            {!project && <th>Project Roles</th>}
-            {environments.map((env) => (
-              <th key={env.id}>{env.id}</th>
-            ))}
-            <th style={{ width: 50 }} />
-          </tr>
-        </thead>
-        <tbody>
-          {Array.from(users).map(([id, member]) => {
-            const roleInfo =
-              (project &&
-                member.projectRoles?.find((r) => r.project === project)) ||
-              member;
-            return (
-              <tr key={id}>
-                <td>{member.name}</td>
-                <td>{member.email}</td>
-                <td>{member.dateCreated && datetime(member.dateCreated)}</td>
-                <td>{roleInfo.role}</td>
-                {!project && (
-                  <td className="col-3">
-                    {member.projectRoles.map((pr) => {
-                      const p = projects.find((p) => p.id === pr.project);
-                      if (p?.name) {
-                        return (
-                          <div key={`project-tags-${p.id}`}>
-                            <ProjectBadges
-                              projectIds={[p.id]}
-                              className="badge-ellipsis align-middle font-weight-normal"
-                            />
-                            — {pr.role}
-                          </div>
-                        );
-                      }
-                      return null;
-                    })}
-                  </td>
-                )}
-                {environments.map((env) => {
-                  const access = roleHasAccessToEnv(roleInfo, env.id);
-                  return (
-                    <td key={env.id}>
-                      {access === "N/A" ? (
-                        <span className="text-muted">N/A</span>
-                      ) : access === "yes" ? (
-                        <FaCheck className="text-success" />
-                      ) : (
-                        <FaTimes className="text-danger" />
-                      )}
+      <div style={maxHeight ? { maxHeight, overflowY: "auto" } : null}>
+        <table className="table appbox gbtable">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Date Joined</th>
+              <th>{project ? "Project Role" : "Global Role"}</th>
+              {!project && <th>Project Roles</th>}
+              {environments.map((env) => (
+                <th key={env.id}>{env.id}</th>
+              ))}
+              <th style={{ width: 50 }} />
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from(users).map(([id, member]) => {
+              const roleInfo =
+                (project &&
+                  member.projectRoles?.find((r) => r.project === project)) ||
+                member;
+              return (
+                <tr key={id}>
+                  <td>{member.name}</td>
+                  <td>{member.email}</td>
+                  <td>{member.dateCreated && datetime(member.dateCreated)}</td>
+                  <td>{roleInfo.role}</td>
+                  {!project && (
+                    <td className="col-3">
+                      {member.projectRoles.map((pr) => {
+                        const p = projects.find((p) => p.id === pr.project);
+                        if (p?.name) {
+                          return (
+                            <div key={`project-tags-${p.id}`}>
+                              <ProjectBadges
+                                projectIds={[p.id]}
+                                className="badge-ellipsis align-middle font-weight-normal"
+                              />
+                              — {pr.role}
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
                     </td>
-                  );
-                })}
-                <td>
-                  {member.id !== userId && (
-                    <>
-                      <MoreMenu>
-                        <button
-                          className="dropdown-item"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setRoleModal(member.id);
-                          }}
-                        >
-                          Edit Role
-                        </button>
-                        {!usingSSO() && (
+                  )}
+                  {environments.map((env) => {
+                    const access = roleHasAccessToEnv(roleInfo, env.id);
+                    return (
+                      <td key={env.id}>
+                        {access === "N/A" ? (
+                          <span className="text-muted">N/A</span>
+                        ) : access === "yes" ? (
+                          <FaCheck className="text-success" />
+                        ) : (
+                          <FaTimes className="text-danger" />
+                        )}
+                      </td>
+                    );
+                  })}
+                  <td>
+                    {canEditRoles && member.id !== userId && (
+                      <>
+                        <MoreMenu>
                           <button
                             className="dropdown-item"
                             onClick={(e) => {
                               e.preventDefault();
-                              setPasswordResetModal(member);
+                              setRoleModal(member.id);
                             }}
                           >
-                            Reset Password
+                            Edit Role
                           </button>
-                        )}
-                        <DeleteButton
-                          link={true}
-                          text="Remove User"
-                          useIcon={false}
-                          className="dropdown-item"
-                          displayName={member.email}
-                          onClick={async () => {
-                            await apiCall(`/member/${member.id}`, {
-                              method: "DELETE",
-                            });
-                            mutate();
-                          }}
-                        />
-                      </MoreMenu>
-                    </>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-      <button className="btn btn-primary mt-3" onClick={onInvite}>
-        <span className="h4 pr-2 m-0 d-inline-block align-top">
-          <GBAddCircle />
-        </span>
-        Invite Member
-      </button>
+                          {canDeleteMembers && !usingSSO() && (
+                            <button
+                              className="dropdown-item"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setPasswordResetModal(member);
+                              }}
+                            >
+                              Reset Password
+                            </button>
+                          )}
+                          {canDeleteMembers && (
+                            <DeleteButton
+                              link={true}
+                              text="Remove User"
+                              useIcon={false}
+                              className="dropdown-item"
+                              displayName={member.email}
+                              onClick={async () => {
+                                await apiCall(`/member/${member.id}`, {
+                                  method: "DELETE",
+                                });
+                                mutate();
+                              }}
+                            />
+                          )}
+                        </MoreMenu>
+                      </>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      {canInviteMembers && (
+        <button className="btn btn-primary mt-3" onClick={onInvite}>
+          <span className="h4 pr-2 m-0 d-inline-block align-top">
+            <GBAddCircle />
+          </span>
+          Invite Member
+        </button>
+      )}
     </div>
   );
 };

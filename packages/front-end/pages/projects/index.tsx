@@ -124,7 +124,7 @@ const ProjectsPage: FC = () => {
                           }}
                         >
                           <FaPencilAlt /> Edit
-                        </button>{" "}
+                        </button>
                         <DeleteButton
                           className="btn dropdown-item py-2"
                           displayName="project"
