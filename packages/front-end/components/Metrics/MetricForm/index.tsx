@@ -855,7 +855,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   {customizeUserIds &&
                     value.userIdTypes.map((type) => {
                       return (
-                        <>
+                        <div key={type}>
                           <TypeaheadInput
                             label={type + " Column"}
                             options={columnOptions}
@@ -868,7 +868,7 @@ const MetricForm: FC<MetricFormProps> = ({
                               });
                             }}
                           />
-                        </>
+                        </div>
                       );
                     })}
                 </>
