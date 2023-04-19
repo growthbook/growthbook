@@ -18,7 +18,7 @@ export default function useSchemaFormOptions(
   const { data } = useApi<{
     informationSchema: InformationSchemaInterface;
   }>(
-    supportsInformationSchema && datasource.id
+    supportsInformationSchema && datasource?.id
       ? `/datasource/${datasource.id}/schema`
       : null
   );
@@ -37,7 +37,11 @@ export default function useSchemaFormOptions(
 
   const { data: columnData } = useApi<{
     table: InformationSchemaTablesInterface;
-  }>(tableId ? `/datasource/${datasource.id}/schema/table/${tableId}` : null);
+  }>(
+    tableId && datasource?.id
+      ? `/datasource/${datasource.id}/schema/table/${tableId}`
+      : null
+  );
 
   if (columnData?.table?.columns.length) {
     columnData.table.columns.forEach((column) => {
