@@ -53,6 +53,12 @@ You can set this for your organization in the Organization -> Settings page, as 
 
 Once you make a selection, adjustments will happen on-the-fly in experiment results and reports. For now, these adjusted p-values are only available in the UI and not exportable via the API or CSV.
 
+:::tip
+
+The corrections do not apply to the confidence intervals. GrowthBook's methods improve the power of your tests relative to approaches that also have corresponding CIs, but GrowthBook's methods do not have direct translations to confidence interval widths.
+
+:::
+
 #### Holm-Bonferroni (controlling FWER)
 
 To control the FWER, we implement the [Holm-Bonferroni method](https://en.wikipedia.org/wiki/Holm%E2%80%93Bonferroni_method). This method is an adaptation of the well known Bonferroni method, which simply multiplies p-values by the number of tests in the family.

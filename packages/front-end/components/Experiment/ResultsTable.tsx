@@ -225,6 +225,17 @@ export default function ResultsTable({
                                   experiment as it runs.
                                 </p>
                               )}
+                              {pValueTooltipBody && (
+                                <p className="mt-4 mb-0">
+                                  These confidence intervals are not adjusted
+                                  for multiple comparisons. The methods
+                                  GrowthBook implements only have associated
+                                  p-values and do not have direct translations
+                                  to confidence intervals. Therefore these
+                                  confidence intervals are not adjusted for
+                                  multiple comparisons.
+                                </p>
+                              )}
                             </>
                           }
                         >

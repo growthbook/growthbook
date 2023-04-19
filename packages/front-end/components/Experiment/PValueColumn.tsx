@@ -96,7 +96,7 @@ const PValueColumn: FC<{
     pValText = (
       <>
         <div>{pValueFormatter(stats?.pValueAdjusted)}</div>
-        <div className="small text-muted">(unadjusted: {pValText})</div>
+        <div className="small text-muted">(unadj.: {pValText})</div>
       </>
     );
   }

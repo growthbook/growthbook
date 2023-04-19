@@ -422,6 +422,7 @@ export function adjustPValuesHolmBonferroni(
   indexedPValues.forEach((p, i) => {
     indexedPValues[i].pValue = Math.min(p.pValue * (m - i), 1);
   });
+  console.log(indexedPValues);
 
   let tempval = indexedPValues[0].pValue;
   for (let i = 1; i < m; i++) {
@@ -446,18 +447,14 @@ export function setAdjustedPValues(
   let indexedPValues: IndexedPValue[] = [];
   results.forEach((r, i) => {
     r.variations.forEach((v, j) => {
-      for (const metric in v.metrics) {
-        // only add pvalues that exist and that are in the non-guardrail set
-        if (
-          v.metrics[metric].pValue !== undefined &&
-          metric in nonGuardrailMetrics
-        ) {
+      nonGuardrailMetrics.forEach((m) => {
+        if (v.metrics[m]?.pValue !== undefined) {
           indexedPValues.push({
-            pValue: v.metrics[metric].pValue,
-            index: [i, j, metric],
+            pValue: v.metrics[m].pValue,
+            index: [i, j, m],
           });
         }
-      }
+      });
     });
   });
 
