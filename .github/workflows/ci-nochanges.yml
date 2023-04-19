@@ -20,7 +20,7 @@ jobs:
           echo Downloading latest Docker Image
           docker pull growthbook/growthbook:latest
           echo run the container and get a shell
-          docker run --gb growthbook/growthbook:latest -d -i -t /bin/bash
+          docker run growthbook/growthbook:latest -d -i -t /bin/bash
           echo docker exec
           docker exec -d growthbook/growthbook:latest cd packages/front-end/.next/static/chunks
           echo ls
