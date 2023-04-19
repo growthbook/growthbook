@@ -20,7 +20,7 @@ jobs:
           echo Downloading latest Docker Image
           docker pull growthbook/growthbook:latest
           echo downloading 
-          docker run growthbook/growthbook:latest bash
+          docker run -it growthbook/growthbook:latest bash
           echo moving into static chunk folder
           cd packages/front-end/.next/static/chunks
           echo ls
