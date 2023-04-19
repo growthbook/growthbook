@@ -15,7 +15,11 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - run: echo env
+      run: |
+        echo 1. Starting CI process bro...
+        echo 2. What environment variables are available?
+        env
+      # - run: echo env
       # - run: 'echo "No changes, skipping - is this thing on?"'
       # - run:
       #   # Download the docker image
