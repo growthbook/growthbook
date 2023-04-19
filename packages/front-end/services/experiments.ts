@@ -385,12 +385,56 @@ export function pValueFormatter(pValue: number): string {
   return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
 }
 
-type IndexedPValue = {
+export type IndexedPValue = {
   pValue: number;
   index: number[];
 };
 
-export function correctPvalues(
+export function adjustPValuesBenjaminiHochberg(
+  indexedPValues: IndexedPValue[]
+): IndexedPValue[] {
+  const m = indexedPValues.length;
+  indexedPValues.sort((a, b) => {
+    return b.pValue - a.pValue;
+  });
+  indexedPValues.forEach((p, i) => {
+    indexedPValues[i].pValue = Math.min((p.pValue * m) / (m - i), 1);
+  });
+
+  let tempval = indexedPValues[0].pValue;
+  for (let i = 1; i < m; i++) {
+    if (indexedPValues[i].pValue < tempval) {
+      tempval = indexedPValues[i].pValue;
+    } else {
+      indexedPValues[i].pValue = tempval;
+    }
+  }
+  return indexedPValues;
+}
+
+export function adjustPValuesHolmBonferroni(
+  indexedPValues: IndexedPValue[]
+): IndexedPValue[] {
+  const m = indexedPValues.length;
+  indexedPValues.sort((a, b) => {
+    return a.pValue - b.pValue;
+  });
+  indexedPValues.forEach((p, i) => {
+    indexedPValues[i].pValue = Math.min(p.pValue * (m - i), 1);
+  });
+
+  let tempval = indexedPValues[0].pValue;
+  for (let i = 1; i < m; i++) {
+    if (indexedPValues[i].pValue > tempval) {
+      tempval = indexedPValues[i].pValue;
+    } else {
+      indexedPValues[i].pValue = tempval;
+    }
+  }
+  return indexedPValues;
+}
+
+export function setAdjustedPValues(
   tables: TableDef[],
   adjustment: PValueCorrection
 ): TableDef[] {
@@ -398,45 +442,26 @@ export function correctPvalues(
     return tables;
   }
 
-  const pValueIndices: IndexedPValue[] = [];
-
+  let indexedPValues: IndexedPValue[] = [];
   tables.forEach((t, i) => {
     t.rows.forEach((r, j) => {
       r.variations.forEach((v, k) => {
-        if (v.pValue !== undefined && !t.isGuardrail) {
-          pValueIndices.push({ pValue: v.pValue, index: [i, j, k] });
+        if (v?.pValue !== undefined && !t.isGuardrail) {
+          indexedPValues.push({ pValue: v.pValue, index: [i, j, k] });
         }
       });
     });
   });
-  const m = pValueIndices.length;
-  // sort pvalues descending, keeping original position
-  function sortAscendingFirstField(a: IndexedPValue, b: IndexedPValue) {
-    return a.pValue - b.pValue;
-  }
-  pValueIndices.sort(sortAscendingFirstField);
 
-  // adjust pvalues
-  pValueIndices.forEach((p, i) => {
-    if (adjustment === "benjamini-hochberg") {
-      pValueIndices[i].pValue = Math.min((p.pValue * m) / (i + 1), 1);
-    } else if (adjustment === "holm-bonferroni") {
-      pValueIndices[i].pValue = Math.min(p.pValue * (m - i), 1);
-    }
+  if (adjustment === "benjamini-hochberg") {
+    indexedPValues = adjustPValuesBenjaminiHochberg(indexedPValues);
+  } else if (adjustment === "holm-bonferroni") {
+    indexedPValues = adjustPValuesHolmBonferroni(indexedPValues);
+  }
+
+  indexedPValues.forEach((ip) => {
+    const ijk = ip.index;
+    tables[ijk[0]].rows[ijk[1]].variations[ijk[2]].pValueAdjusted = ip.pValue;
   });
-
-  // final step, non-descending pvalues to original row object
-  let tempval = pValueIndices[0].pValue;
-  tables[pValueIndices[0].index[0]].rows[pValueIndices[0].index[1]].variations[
-    pValueIndices[0].index[2]
-  ].pValueAdjusted = tempval;
-  for (let i = 1; i < m; i++) {
-    if (pValueIndices[i].pValue > tempval) {
-      tempval = pValueIndices[i].pValue;
-    }
-    tables[pValueIndices[i].index[0]].rows[
-      pValueIndices[i].index[1]
-    ].variations[pValueIndices[i].index[2]].pValueAdjusted = tempval;
-  }
   return tables;
 }

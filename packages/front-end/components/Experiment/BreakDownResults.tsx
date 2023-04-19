@@ -10,7 +10,7 @@ import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
-  correctPvalues,
+  setAdjustedPValues,
   ExperimentTableRow,
   useRiskVariation,
 } from "@/services/experiments";
@@ -115,7 +115,7 @@ const BreakDownResults: FC<{
 
   // apply pvalue correction
   if (pValueCorrection && statsEngine === "frequentist") {
-    tables = correctPvalues(tables, pValueCorrection);
+    tables = setAdjustedPValues(tables, pValueCorrection);
   }
 
   const risk = useRiskVariation(

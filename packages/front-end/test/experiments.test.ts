@@ -5,8 +5,11 @@ import {
   percentToDecimal,
   rebalance,
 } from "../services/utils";
-import { correctPvalues } from "../services/experiments";
-import { TableDef } from "../components/Experiment/BreakDownResults";
+import {
+  IndexedPValue,
+  adjustPValuesBenjaminiHochberg,
+  adjustPValuesHolmBonferroni,
+} from "../services/experiments";
 
 describe("variation weighting functions", () => {
   it("getEqualWeights with default precision", () => {
@@ -120,38 +123,37 @@ describe("variation weighting functions", () => {
   });
 });
 
-function mockTable(pvalues: number[], adjustedPvalues?: number[]) {
-  const table: TableDef = {
-    isGuardrail: false,
-    rows: [{ label: "", metric: undefined, variations: [] }],
-  };
-  pvalues.forEach((p, i) => {
-    const variation = {
-      pValue: p,
-      value: 0,
-      cr: 0,
-      users: 0,
-      pValueAdjusted: null,
-    };
-    if (adjustedPvalues !== undefined) {
-      variation.pValueAdjusted = adjustedPvalues[i];
-    }
-    table.rows[0].variations.push(variation);
+function mockIndexedPvalue(
+  pvalues: number[],
+  index?: number[]
+): IndexedPValue[] {
+  return pvalues.map((p, i) => {
+    return { pValue: p, index: [index ? index[i] : i] };
   });
-  return table;
 }
 
 describe("pvalue correction method", () => {
   it("does HB procedure correctly", () => {
-    const startPvals = [0.01, 0.04, 0.03, 0.005, 0.55, 0.6];
-    expect(correctPvalues([mockTable(startPvals)], "holm-bonferroni")).toEqual([
-      mockTable(startPvals, [0.05, 0.12, 0.12, 0.03, 1, 1]),
-    ]);
+    expect(
+      adjustPValuesHolmBonferroni(
+        mockIndexedPvalue([0.01, 0.04, 0.03, 0.005, 0.55, 0.6])
+      )
+    ).toEqual(
+      mockIndexedPvalue([0.03, 0.05, 0.12, 0.12, 1, 1], [3, 0, 2, 1, 4, 5])
+    );
   });
   it("does BH procedure correctly", () => {
-    const startPvals = [0.01, 0.04, 0.03, 0.005];
     expect(
-      correctPvalues([mockTable(startPvals)], "benjamini-hochberg")
-    ).toEqual([mockTable(startPvals, [0.02, 0.04, 0.04, 0.02])]);
+      adjustPValuesBenjaminiHochberg(
+        mockIndexedPvalue([0.898, 0.138, 0.007, 0.964, 0.538, 0.006, 0.138])
+      ).map((x) => {
+        return { pValue: +x.pValue.toFixed(8), index: x.index };
+      })
+    ).toEqual(
+      mockIndexedPvalue(
+        [0.964, 0.964, 0.7532, 0.2415, 0.2415, 0.0245, 0.0245],
+        [3, 0, 4, 1, 6, 2, 5]
+      )
+    );
   });
 });

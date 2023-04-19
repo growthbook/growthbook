@@ -12,7 +12,7 @@ import { FaTimes } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
-  correctPvalues,
+  setAdjustedPValues,
   ExperimentTableRow,
   useRiskVariation,
 } from "@/services/experiments";
@@ -102,7 +102,7 @@ const CompactResults: FC<{
   };
   // apply pvalue correction
   if (pValueCorrection && statsEngine === "frequentist") {
-    table = correctPvalues([table], pValueCorrection)[0];
+    table = setAdjustedPValues([table], pValueCorrection)[0];
   }
 
   const users = useMemo(() => {

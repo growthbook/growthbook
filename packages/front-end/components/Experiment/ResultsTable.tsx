@@ -333,7 +333,7 @@ export default function ResultsTable({
                           startDate={startDate}
                           metric={row.metric}
                           snapshotDate={dateCreated}
-                          pValueCorrection={pValueCorrection ?? ""}
+                          pValueCorrection={pValueCorrection}
                         />
                       ) : (
                         <ChanceToWinColumn
