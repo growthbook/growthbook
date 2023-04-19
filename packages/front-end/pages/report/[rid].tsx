@@ -376,7 +376,7 @@ export default function ReportPage() {
                 variations={variations}
                 key={report.args.dimension}
                 statsEngine={report.args.statsEngine}
-                pValueCorrection={settings.pValueCorrection ?? 'none'}
+                pValueCorrection={settings.pValueCorrection}
                 regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                 metricRegressionAdjustmentStatuses={
                   report.args.metricRegressionAdjustmentStatuses
@@ -425,7 +425,7 @@ export default function ReportPage() {
                 multipleExposures={report.results?.multipleExposures || 0}
                 variations={variations}
                 statsEngine={report.args.statsEngine}
-                pValueCorrection={settings.pValueCorrection ?? 'none'}
+                pValueCorrection={settings.pValueCorrection}
                 regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                 metricRegressionAdjustmentStatuses={
                   report.args.metricRegressionAdjustmentStatuses
