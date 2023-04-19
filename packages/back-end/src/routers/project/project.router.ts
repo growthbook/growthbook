@@ -51,4 +51,18 @@ router.delete(
   projectController.deleteProject
 );
 
+router.put(
+  "/:id/settings",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        settings: z.object({
+          statsEngine: z.string()
+        }),
+      })
+      .strict(),
+  }),
+  projectController.putProjectSettings
+)
+
 export { router as projectRouter };

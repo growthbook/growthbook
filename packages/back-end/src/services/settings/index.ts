@@ -55,7 +55,7 @@ export const resolvers: Record<
   defaultRole: genDefaultResolver("defaultRole"),
   statsEngine: genDefaultResolver("statsEngine", {
     project: true,
-    experiment: true,
+    // experiment: true,
     report: true,
   }),
   pValueThreshold: genDefaultResolver("pValueThreshold", {

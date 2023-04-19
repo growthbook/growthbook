@@ -2,12 +2,12 @@ import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
-import { ProjectInterface } from "../../../types/project";
+import { ProjectInterface, ProjectSettings } from "../../../types/project";
 import {
   createProject,
   deleteProjectById,
   findProjectById,
-  updateProject,
+  updateProject, updateProjectSettings
 } from "../../models/ProjectModel";
 import { removeProjectFromDatasources } from "../../models/DataSourceModel";
 import { removeProjectFromMetrics } from "../../models/MetricModel";
@@ -82,10 +82,11 @@ export const putProject = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("manageProjects");
+  const { id } = req.params;
+  req.checkPermissions("manageProjects", id);
 
   const { org } = getOrgFromReq(req);
-  const { id } = req.params;
+
   const project = await findProjectById(id, org.id);
 
   if (!project) {
@@ -131,9 +132,9 @@ export const deleteProject = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("manageProjects");
-
   const { id } = req.params;
+  req.checkPermissions("manageProjects", id);
+
   const { org } = getOrgFromReq(req);
 
   await deleteProjectById(id, org.id);
@@ -158,3 +159,52 @@ export const deleteProject = async (
 };
 
 // endregion DELETE /projects/:id
+
+
+type PutProjectSettingsRequest = AuthRequest<
+  { settings: ProjectSettings },
+  { id: string }
+>;
+type PutProjectSettingsResponse = {
+  status: 200;
+  settings: ProjectSettings;
+}
+export const putProjectSettings = async (
+  req: PutProjectSettingsRequest,
+  res: Response<PutProjectSettingsResponse | ApiErrorResponse>
+) => {
+  const { id } = req.params;
+  req.checkPermissions("manageProjects", id);
+
+  const { org } = getOrgFromReq(req);
+
+  const project = await findProjectById(id, org.id);
+
+  if (!project) {
+    res.status(404).json({
+      message: "Could not find project",
+    });
+    return;
+  }
+
+  const { settings } = req.body;
+
+  const set: Partial<ProjectSettings> = {};
+  const unset: (keyof ProjectSettings)[] = [];
+
+  let key: keyof ProjectSettings;
+  for (key in settings) {
+    if (settings[key] !== undefined) {
+      set[key] = settings[key];
+    } else {
+      unset.push(key);
+    }
+  }
+
+  await updateProjectSettings(id, project.organization, set, unset);
+
+  res.status(200).json({
+    status: 200,
+    settings,
+  });
+};

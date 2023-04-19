@@ -99,6 +99,7 @@ export const GLOBAL_PERMISSIONS = [
   "createSegments",
   "organizationSettings",
   "superDelete",
+  "manageProjects",
   "manageTeam",
   "manageTags",
   "manageApiKeys",

@@ -55,7 +55,7 @@ export default function StatsEngineSelect({
         showDefault &&
         scope && (
           <span className="ml-1">
-            ({parentScope && parentScope + " "}default: {scope.statsEngine})
+            ({parentScope && parentScope + " "}default: {capitalizeFirstLetter(scope.statsEngine)})
           </span>
         )
       }

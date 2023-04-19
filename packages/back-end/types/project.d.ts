@@ -1,3 +1,5 @@
+import { StatsEngine } from "./stats";
+
 export interface ProjectInterface {
   id: string;
   organization: string;
@@ -5,4 +7,10 @@ export interface ProjectInterface {
   description?: string;
   dateCreated: Date;
   dateUpdated: Date;
+  settings?: ProjectSettings;
 }
+
+export interface ProjectSettings {
+  statsEngine?: StatsEngine;
+}
+

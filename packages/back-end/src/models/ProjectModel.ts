@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { ApiProject } from "../../types/openapi";
-import { ProjectInterface } from "../../types/project";
+import { ProjectInterface, ProjectSettings } from "../../types/project";
 
 const projectSchema = new mongoose.Schema({
   id: {
@@ -16,6 +16,7 @@ const projectSchema = new mongoose.Schema({
   description: String,
   dateCreated: Date,
   dateUpdated: Date,
+  settings: {},
 });
 
 type ProjectDocument = mongoose.Document & ProjectInterface;
@@ -69,6 +70,47 @@ export async function updateProject(
     {
       $set: update,
     }
+  );
+}
+
+export async function updateProjectSettings(
+  id: string,
+  organization: string,
+  set: Partial<ProjectSettings>,
+  unset?: (keyof ProjectSettings)[]
+) {
+  // prefix set and unset with "settings."
+  const setObj = Object.keys(set).reduce(
+    (acc, k) => ({
+      ...acc,
+      [`settings.${k}`]: set[k as keyof ProjectSettings],
+    }),
+    {}
+  );
+  // unset: convert to {key: 1, key2: 1, ...} object
+  const unsetObj =
+    unset
+      ?.map((k) => `settings.${k}`)
+      ?.reduce(
+        (acc, k) => ({
+          ...acc,
+          [k]: 1,
+        }),
+        {}
+      ) || {};
+  const update = {
+    $set: {
+      dateUpdated: new Date(),
+      ...setObj,
+    },
+    $unset: unsetObj,
+  };
+  await ProjectModel.updateOne(
+    {
+      id,
+      organization,
+    },
+    update
   );
 }
 

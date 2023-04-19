@@ -1,9 +1,9 @@
-import React, { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useMemo, useState } from "react";
 import router from "next/router";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectInterface, ProjectSettings } from "back-end/types/project";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -15,10 +15,7 @@ import ProjectModal from "@/components/Projects/ProjectModal";
 import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useUser } from "@/services/UserContext";
-
-// todo: use proper interface
-/* eslint-disable @typescript-eslint/no-explicit-any */
-type ProjectSettings = any;
+import { useAuth } from "@/services/auth";
 
 function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   if (!existing) return true;
@@ -26,21 +23,17 @@ function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   return !isEqual(value, existing);
 }
 
-const settings: ProjectSettings = {};
-
 const ProjectPage: FC = () => {
   const { refreshOrganization } = useUser();
   const { getProjectById, mutateDefinitions, ready, error } = useDefinitions();
   const { pid } = router.query as { pid: string };
   const p = getProjectById(pid);
-  // const settings = p?.settings;
-  // todo: replace with project settings (above)
-  // const settings: ProjectSettings = {};
+  const settings = useMemo(() => p?.settings || {}, [p]);
 
   // todo: use scope function to get defaults
   const orgSettings = useOrgSettings();
 
-  // const { apiCall } = useAuth();
+  const { apiCall } = useAuth();
 
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
     null
@@ -55,7 +48,7 @@ const ProjectPage: FC = () => {
 
   const form = useForm<ProjectSettings>({
     defaultValues: {
-      statsEngine: settings?.statsEngine || "",
+      statsEngine: settings.statsEngine,
     },
   });
 
@@ -63,59 +56,28 @@ const ProjectPage: FC = () => {
     if (settings) {
       const newVal = { ...form.getValues() };
       Object.keys(newVal).forEach((k) => {
-        const hasExistingMetrics = typeof settings?.[k] !== "undefined";
         newVal[k] = settings?.[k] || newVal[k];
-
-        // Existing values are stored as a multiplier, e.g. 50% on the UI is stored as 0.5
-        // Transform these values from the UI format
-        if (k === "metricDefaults" && hasExistingMetrics) {
-          newVal.metricDefaults = {
-            ...newVal.metricDefaults,
-            maxPercentageChange:
-              newVal.metricDefaults.maxPercentageChange * 100,
-            minPercentageChange:
-              newVal.metricDefaults.minPercentageChange * 100,
-          };
-        }
-        if (k === "confidenceLevel" && newVal?.confidenceLevel <= 1) {
-          newVal.confidenceLevel = newVal.confidenceLevel * 100;
-        }
       });
       form.reset(newVal);
       setOriginalValue(newVal);
     }
-    //eslint-disable-next-line
-  }, [settings, form]);
+  }, [form, settings]);
 
   const value = form.getValues();
 
   const ctaEnabled = hasChanges(value, originalValue);
 
   const saveSettings = form.handleSubmit(async (value) => {
-    const transformedProjectSettings = {
-      ...value,
-      metrics: {
-        ...value.metrics,
-        maxPercentageChange: value.metrics.maxPercentageChange / 100,
-        minPercentageChange: value.metrics.minPercentageChange / 100,
-      },
-      experiments: {
-        bayesian: {
-          confidenceLevel: value.experiments.bayesian.confidenceLevel / 100,
-        },
-      },
-    };
-    console.log("save", transformedProjectSettings);
-
-    // await apiCall(`/organization`, {
-    //   method: "PUT",
-    //   body: JSON.stringify({
-    //     settings: transformedProjectSettings,
-    //   }),
-    // });
+    await apiCall(`/projects/${pid}/settings`, {
+      method: "PUT",
+      body: JSON.stringify({
+        settings: value,
+      }),
+    });
 
     // show the user that the settings have saved:
     setSaveMsg(true);
+    mutateDefinitions();
   });
 
   if (!canEditSettings) {

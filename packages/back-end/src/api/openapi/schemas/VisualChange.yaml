@@ -26,3 +26,7 @@ properties:
           type: string
         value:
           type: string
+        parentSelector:
+          type: string
+        insertBeforeSelector:
+          type: string

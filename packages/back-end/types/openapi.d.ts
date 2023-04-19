@@ -254,7 +254,6 @@ export interface components {
     Project: {
       id: string;
       name: string;
-      description: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
@@ -841,6 +840,8 @@ export interface components {
               action: "append" | "set" | "remove";
               attribute: string;
               value?: string;
+              parentSelector?: string;
+              insertBeforeSelector?: string;
             })[];
         })[];
     };
@@ -854,6 +855,8 @@ export interface components {
           action: "append" | "set" | "remove";
           attribute: string;
           value?: string;
+          parentSelector?: string;
+          insertBeforeSelector?: string;
         })[];
     };
   };
@@ -2275,6 +2278,8 @@ export interface operations {
                         action: "append" | "set" | "remove";
                         attribute: string;
                         value?: string;
+                        parentSelector?: string;
+                        insertBeforeSelector?: string;
                       })[];
                   })[];
               })[];
@@ -2319,6 +2324,8 @@ export interface operations {
                       action: "append" | "set" | "remove";
                       attribute: string;
                       value?: string;
+                      parentSelector?: string;
+                      insertBeforeSelector?: string;
                     })[];
                 })[];
             };
