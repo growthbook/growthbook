@@ -27,7 +27,8 @@ jobs:
         run: |
           echo 1. Starting CI process bro...
           echo 2. What environment variables are available?
-          env
+          echo 3. ${{ secrets.AWS_ACCESS_KEY_ID }}
+          ${{ secrets.AWS_ACCESS_KEY_ID }}
 
       # - run: echo env
       # - run: 'echo "No changes, skipping - is this thing on?"'
