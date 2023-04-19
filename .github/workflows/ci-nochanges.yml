@@ -17,5 +17,7 @@ jobs:
     steps:
       - name: Show env variables
         run: |
-          echo Testing 123....
-          echo another test
+          echo Downloading latest Docker Image
+          docker pull growthbook/growthbook:latest
+          echo opening docker bash shell
+          docker run -it growthbook/growthbook:latest bash
