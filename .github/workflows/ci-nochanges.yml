@@ -16,5 +16,4 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Show env variables
-        run: |
-        echo Testing 123....
+        run: echo Testing 123....
