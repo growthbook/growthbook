@@ -19,14 +19,14 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: '16'
-          cache: 'yarn'
+          node-version: "16"
+          cache: "yarn"
 
       - name: Set up Python 3.8
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
-          cache: 'pip'
+          cache: "pip"
 
       - name: Cache eslint
         uses: actions/cache@v2
@@ -35,7 +35,7 @@ jobs:
           key: ${{ runner.os }}-eslint-${{ hashFiles('**/yarn.lock') }}-${{ hashFiles('**/*.ts', '**/*.tsx') }}
           restore-keys: |
             ${{ runner.os }}-eslint-
-      
+
       - name: Install dependencies
         run: |
           # Main app
@@ -44,7 +44,12 @@ jobs:
           # Stats engine
           pip install numpy scipy pandas pytest black flake8 nbformat gbstats
 
-      - name: Build, lint, type-check, and test 
+      - name: Test Upload to S3
+        run: |
+          # Echo Something
+          echo "Is this thing working?"
+
+      - name: Build, lint, type-check, and test
         run: |
           # Build SDK packages (required for linting/type checks to work)
           yarn workspace @growthbook/growthbook build
