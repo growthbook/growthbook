@@ -19,5 +19,5 @@ jobs:
         run: |
           echo Downloading latest Docker Image
           docker pull growthbook/growthbook:latest
-          echo opening docker bash shell
-          docker run -it growthbook/growthbook:latest bash
+          echo downloading 
+          docker run growthbook/growthbook:latest bash
