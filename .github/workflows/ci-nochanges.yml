@@ -14,12 +14,9 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    container: growthbook/growthbook:latest
     steps:
       - name: Show env variables
         run: |
-          echo Downloading latest Docker Image
-          docker pull growthbook/growthbook:latest
-          echo run the container and get a shell
-          docker run growthbook/growthbook:latest /bin/bash
           echo ls
           ls
