@@ -116,7 +116,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
       pValueThreshold: 0.05,
-      pValueCorrection: "none",
+      pValueCorrection: "",
       statsEngine: "bayesian",
       regressionAdjustmentEnabled: false,
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -769,7 +769,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       <SelectField
                         label={"Multiple comparisons correction to use: "}
                         className="ml-2"
-                        value={form.watch("pValueCorrection") ?? "none"}
+                        value={form.watch("pValueCorrection") ?? ""}
                         onChange={(value) =>
                           form.setValue(
                             "pValueCorrection",
@@ -780,7 +780,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         options={[
                           {
                             label: "None",
-                            value: "none",
+                            value: "",
                           },
                           {
                             label: "Holm-Bonferroni (Control FWER)",

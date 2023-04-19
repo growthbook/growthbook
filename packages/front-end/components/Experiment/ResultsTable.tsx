@@ -72,7 +72,7 @@ export default function ResultsTable({
   statsEngine = statsEngine ?? orgSettings.statsEngine ?? "bayesian";
   sequentialTestingEnabled = sequentialTestingEnabled ?? false;
 
-  let pValueTooltipBody = <></>;
+  let pValueTooltipBody = null;
   if (sequentialTestingEnabled) {
     pValueTooltipBody = (
       <p className="mb-0">
@@ -85,7 +85,7 @@ export default function ResultsTable({
       </p>
     );
   }
-  if (pValueCorrection !== "none") {
+  if (pValueCorrection) {
     let correctionText = "all non-guardrail metrics and variations";
     if (tableRowAxis === "dimension") {
       correctionText =
@@ -94,7 +94,8 @@ export default function ResultsTable({
     pValueTooltipBody = (
       <>
         {pValueTooltipBody}
-        <p className="mb-0 mt-4">
+        {sequentialTestingEnabled ? <p></p> : <></>}
+        <p className="mb-0">
           The p-values presented below are corrected for multiple comparisons
           using the {pValueCorrection} method. P-values were corrected across
           tests for {correctionText}. The uncorrected p-values are returned in
@@ -178,7 +179,7 @@ export default function ResultsTable({
                   {statsEngine === "frequentist" ? (
                     <>
                       P-value
-                      {sequentialTestingEnabled && (
+                      {pValueTooltipBody && (
                         <Tooltip
                           innerClassName="text-left"
                           body={pValueTooltipBody}
@@ -332,7 +333,7 @@ export default function ResultsTable({
                           startDate={startDate}
                           metric={row.metric}
                           snapshotDate={dateCreated}
-                          pValueCorrection={pValueCorrection || "none"}
+                          pValueCorrection={pValueCorrection ?? ""}
                         />
                       ) : (
                         <ChanceToWinColumn

@@ -95,13 +95,13 @@ const CompactResults: FC<{
     metricRegressionAdjustmentStatuses,
     ready,
   ]);
-  
+
   let table: TableDef = {
     isGuardrail: false,
     rows: rows,
-  }
+  };
   // apply pvalue correction
-  if (((pValueCorrection ?? 'none') !== 'none') && statsEngine === "frequentist") {
+  if (pValueCorrection && statsEngine === "frequentist") {
     table = correctPvalues([table], pValueCorrection)[0];
   }
 

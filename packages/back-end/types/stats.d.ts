@@ -2,10 +2,7 @@ import type { MetricStats } from "./metric";
 
 export type StatsEngine = "bayesian" | "frequentist";
 
-export type PValueCorrection =
-  | "none"
-  | "benjamini-hochberg"
-  | "holm-bonferroni";
+export type PValueCorrection = "" | "benjamini-hochberg" | "holm-bonferroni";
 
 interface BaseVariationResponse {
   cr: number;

@@ -9,13 +9,13 @@ slug: multiple-corrections
 
 :::note
 
-Multiple Testing Corrections are only implemented for the Frequentist statistics engine.
+Multiple testing corrections are only implemented for the Frequentist statistics engine.
 
 :::
 
 If you test a bunch of things at once, you will naturally get some results that look good, but aren't real! This page explains this problem in detail and how you can control it with GrowthBook.
 
-### What is the multiple testing problem?
+## What is the multiple testing problem?
 
 In the frequentist framework, testing more than one hypothesis at a time increases the probability that you find a false positive, beyond the user's specified rate of $\alpha$, often 0.05. This is often known as the [multiple testing](https://en.wikipedia.org/wiki/Multiple_comparisons_problem), or multiple comparisons, problem.
 
@@ -23,56 +23,83 @@ In online AB testing, experimenters will often be running hundreds of tests, if 
 
 ### Error rates
 
-To understand approaches to solving this issue, let's first define two the False Discovery Rate and the Family Wise Error Rate:
-
-$$\text{False Discovery Rate} = \text{FDR} = \text{E}[\frac{V}{V+R}]$$
-
-$$\text{Family-wise Error Rate} = \text{FWER} = \text{Pr}(V \geq 1)$$
-
-where $V$ is the number of tests that are statistically significant but are false positives and $R$ are the number of tests that are statistically signficant.
+To understand approaches to solving this issue, let's first define two the False Discovery Rate (FDR) and the Family Wise Error Rate (FWER).
 
 In plain English, the FDR is proportion of your significant results that are false. If you control your FDR at 0.05 (or 5%), and you get 20 significant results, on average only 1 of these should be a false positive.
 
 The FWER is the probability of at least one test being a false positive. This tends to be much stricter as the number of tests grows.
 
+We can write both as follows, where $V$ is the number of tests that are statistically significant but are false positives and $R$ are the number of tests that are statistically signficant.
+
+$$\text{False Discovery Rate} = \text{FDR} = \text{E}[\frac{V}{V+R}]$$
+
+$$\text{Family-wise Error Rate} = \text{FWER} = \text{Pr}(V \geq 1)$$
+
 ## Corrections in GrowthBook
 
 ### Statistical methods
 
-Growthbook allows you to choose no multiple testing correction, a correction that controls your False Discovery Rate (Benjamini-Hochberg), and a correction that controls your Family-wise Error Rate (Holm-Bonferroni).
+Growthbook allows you to choose no multiple testing correction, a correction that controls the Family-wise Error Rate (Holm-Bonferroni), and a correction that controls the False Discovery Rate (Benjamini-Hochberg).
+
+Which you choose depends on your tolerance for false positives, the number of tests you are running, and your comfort with each procedure. General guidance would be that if your analysis is more exploratory, controlling the FDR and having a slightly higher false positive rate may be better, while controlling the FWER will give you more guarantees that your results are reliable. However, with enough tests, controlling the FWER may completely undermine your test power.
 
 You can set this for your organization in the Organization -> Settings page, as seen below:
 
-TODO SCREENSHOT
+<img
+  src="/images/statistics/pvals-adjustment-org.png"
+  alt="Org-level Multiple Testing Correction Settings"
+  style={{ width: 500, margin: "0 auto" }}
+/>
 
-Which you choose depends on your tolerance for false positives, the number of tests you are running, and your comfort with each procedure. General guidance would be that if your analysis is more exploratory, controlling the FDR and having a slightly higher false positive rate may be better, while controlling the FWER will give you more guarantees that your results are reliable. However, with enough tests, controlling the FWER may completely undermine your test power.
+Once you make a selection, adjustments will happen on-the-fly in experiment results and reports. For now, these adjusted p-values are only available in the UI and not exportable via the API or CSV.
 
 #### Holm-Bonferroni (controlling FWER)
 
 To control the FWER, we implement the [Holm-Bonferroni method](https://en.wikipedia.org/wiki/Holm%E2%80%93Bonferroni_method). This method is an adaptation of the well known Bonferroni method, which simply multiplies p-values by the number of tests in the family.
 
-The Holm-Bonferroni does just as well as the Bonferroni method to control the FWER, but it also has more power (e.g. it is less conservative). The main trade-off is that the implementation is slightly more complex, and one cannot adjust the confidence intervals in a meaningful way.
-
-There are other approaches that will be even less conservative, but they require making assumptions about the dependence between tests.
+The Holm-Bonferroni does just as well as the Bonferroni method to control the FWER, but it is less conservative. The main trade-off is that the implementation is slightly more complex, and one cannot adjust the confidence intervals in a meaningful way. There are other approaches that are even less conservative, but they require making assumptions about the dependence between tests to guarantee FWER control.
 
 #### Benjamini-Hochberg (controlling FDR)
 
-To control the FDR< we implement the [Benjamini-Hochberg procedure](https://en.wikipedia.org/wiki/False_discovery_rate#Benjamini%E2%80%93Hochberg_procedure). While the Holm-Bonferroni method made no additional assumptions to controlling the FWER, this method does assume that the tests are independent or postively correlated. There are methods that make fewer assumptions (such as the Benjamini-Yekutieli method), but they can be even more conservative than Bonferroni corrections.
+To control the FDR, we implement the [Benjamini-Hochberg procedure](https://en.wikipedia.org/wiki/False_discovery_rate#Benjamini%E2%80%93Hochberg_procedure). This method does assume that the tests are independent or postively correlated. There are methods that make fewer assumptions (such as the Benjamini-Yekutieli method), but they can be even more conservative than Bonferroni corrections.
 
 Therefore, in order to provide a reasonably powered approach that controls the FDR in some conditions, and to select an approach that has widespread adoption, we implemented the Benjamini-Hochberg procedure.
 
 ### Defining a family of tests
 
-GrowthBook allows experimenters to run a wide variety of analyses at regular intervals and on an ad-hoc basis. Controlling for multiple comparisons across all of these tests, even within the context of one experiment, is impractical and costly, in terms of statistical power.
+Controlling for multiple comparisons across all of the tests one can run in GrowthBook, even within the context of one experiment, is impractical and can be prohibitively costly in terms of statistical power. Instead, GrowthBook corrects across all metrics, variations, (and dimension values, if available) in a particular result view.
 
-As such, GrowthBook defines the following family of tests and applies your chosen correction within them:
+:::tip
+
+We correct using all p-values that you can see on one experiment results page, _excluding guardrail metrics_
+
+:::
+
+#### On overall results
 
 On the _experiment results overall page_, we collect all tests across non-guardrail metrics and variations to be part of a family, and correct within those values. The following image circles the p-values that we collect and adjust for on the overall results page for an experiment.
 
-TODO SCREENSHOT
+<img
+  src="/images/statistics/pvals-adjusted.png"
+  alt="Demonstrating Correction in Results"
+  style={{ width: 500, margin: "0 auto" }}
+/>
 
-If you look within dimensional slices, to account for the additional increase in tests from dimensional splits, we collect all tests across all dimensions, all non-guardrail metrics, and all variations and correc within that family. The following image circles the p-values we collect and adjust for on a dimension split page.
+#### Within dimensional slices
 
-TODO SCREENSHOT
+If you look within dimensional slices, to account for the additional increase in tests from dimensional splits, we collect correct within the family of tests across all dimension groups, non-guardrail metrics, and variations. The following video scrolls through a corrected set of dimension results; the ones that are adjusted are the non-guardrail metrics, and we include all adjusted p-values in this video (across dimensions and metrics) in one family for correction.
 
-This means that we never correct across overall _and_ dimension splits at the same time.
+<div>
+<iframe 
+    src="https://www.loom.com/embed/5b2c9583c60b449b8fa6e000e2b21c68?hide_owner=true&hide_share=true&hide_share=true&hideEmbedTopBar=true" 
+    frameborder="0" 
+    webkitallowfullscreen mozallowfullscreen allowfullscreen
+    style={{ width: 400, height: 597 }} 
+/>
+</div>
+
+:::tip
+
+We never correct across overall _and_ dimension splits at the same time.
+
+:::

@@ -92,7 +92,7 @@ const PValueColumn: FC<{
   }
 
   let pValText = <>{pValueFormatter(stats?.pValue)}</>;
-  if (stats?.pValueAdjusted !== undefined && pValueCorrection !== "none") {
+  if (stats?.pValueAdjusted !== undefined && pValueCorrection) {
     pValText = (
       <>
         <div>{pValueFormatter(stats?.pValueAdjusted)}</div>

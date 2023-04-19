@@ -1,6 +1,4 @@
-import {
-  SnapshotMetric,
-} from "back-end/types/experiment-snapshot";
+import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { PValueCorrection } from "back-end/types/stats";
 import { useState } from "react";
@@ -15,8 +13,8 @@ import {
 import { MetricOverride } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/constants/stats";
-import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
 import { TableDef } from "@/components/Experiment/BreakDownResults";
+import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
 
 export type ExperimentTableRow = {
   label: string;
@@ -376,10 +374,7 @@ export function isExpectedDirection(
   return expected > 0;
 }
 
-export function isStatSig(
-  pValue: number,
-  pValueThreshold: number
-): boolean {
+export function isStatSig(pValue: number, pValueThreshold: number): boolean {
   return pValue < pValueThreshold;
 }
 
@@ -393,23 +388,23 @@ export function pValueFormatter(pValue: number): string {
 type IndexedPValue = {
   pValue: number;
   index: number[];
-}
+};
 
 export function correctPvalues(
   tables: TableDef[],
   adjustment: PValueCorrection
 ): TableDef[] {
-  if (adjustment === "none") {
+  if (!adjustment) {
     return tables;
   }
 
-  let pValueIndices: IndexedPValue[] = [];
+  const pValueIndices: IndexedPValue[] = [];
 
   tables.forEach((t, i) => {
     t.rows.forEach((r, j) => {
       r.variations.forEach((v, k) => {
         if (v.pValue !== undefined && !t.isGuardrail) {
-          pValueIndices.push({pValue: v.pValue, index: [i, j, k]})
+          pValueIndices.push({ pValue: v.pValue, index: [i, j, k] });
         }
       });
     });
@@ -432,12 +427,16 @@ export function correctPvalues(
 
   // final step, non-descending pvalues to original row object
   let tempval = pValueIndices[0].pValue;
-  tables[pValueIndices[0].index[0]].rows[pValueIndices[0].index[1]].variations[pValueIndices[0  ].index[2]].pValueAdjusted = tempval;
+  tables[pValueIndices[0].index[0]].rows[pValueIndices[0].index[1]].variations[
+    pValueIndices[0].index[2]
+  ].pValueAdjusted = tempval;
   for (let i = 1; i < m; i++) {
     if (pValueIndices[i].pValue > tempval) {
       tempval = pValueIndices[i].pValue;
     }
-    tables[pValueIndices[i].index[0]].rows[pValueIndices[i].index[1]].variations[pValueIndices[i].index[2]].pValueAdjusted = tempval;
+    tables[pValueIndices[i].index[0]].rows[
+      pValueIndices[i].index[1]
+    ].variations[pValueIndices[i].index[2]].pValueAdjusted = tempval;
   }
   return tables;
 }

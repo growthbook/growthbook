@@ -113,9 +113,8 @@ const BreakDownResults: FC<{
     ready,
   ]);
 
-
   // apply pvalue correction
-  if (((pValueCorrection ?? 'none') !== 'none') && statsEngine === "frequentist") {
+  if (pValueCorrection && statsEngine === "frequentist") {
     tables = correctPvalues(tables, pValueCorrection);
   }
 
