@@ -15,7 +15,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      - run: echo 'hi'
+      - run: echo env
       # - run: 'echo "No changes, skipping - is this thing on?"'
       # - run:
       #   # Download the docker image
