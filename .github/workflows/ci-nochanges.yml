@@ -11,33 +11,9 @@ on:
 # If nothing of importance changed, the normal CI workflow is skipped
 # Skipped steps do not count as successful, which will block the PR from being merged
 # This is a dummy workflow for those cases so it gets marked as successful in GitHub
-# jobs:
-#   ci:
-#     runs-on: ubuntu-latest
-#     steps:
-#       run: |
-#         echo 1. Starting CI process bro...
-#         echo 2. What environment variables are available?
-#         env
 jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
-      name: Show env variables
-      run: |
-        echo 1. Starting CI process bro...
-        echo 2. What environment variables are available?
-        env
-
-      # - run: echo env
-      # - run: 'echo "No changes, skipping - is this thing on?"'
-      # - run:
-      #   # Download the docker image
-      #   'docker pull growthbook/growthbook:latest'
-      #   # Pull out static assets
-      #   'docker run -it growthbook/growthbook:latest bash'
-      #   # (I don't think I need this anymore) cd packages/front-end/.next/static/chunks
-      #   # Download all of the files in the current directory
-      #   'wget -r -l1 --no-parent /front-end/.next/static/chunks'
-      #   # Echo env variables
-      #   'echo env'
+      - name: Show env variables
+        run: Testing 123....
