@@ -96,9 +96,9 @@ export default function ResultsTable({
         {pValueTooltipBody}
         {sequentialTestingEnabled ? <p></p> : <></>}
         <p className="mb-0">
-          The p-values presented below are corrected for multiple comparisons
-          using the {pValueCorrection} method. P-values were corrected across
-          tests for {correctionText}. The uncorrected p-values are returned in
+          The p-values presented below are adjusted for multiple comparisons
+          using the {pValueCorrection} method. P-values were adjusted across
+          tests for {correctionText}. The unadjusted p-values are returned in
           parentheses.
         </p>
       </>
@@ -228,7 +228,7 @@ export default function ResultsTable({
                               {pValueTooltipBody && (
                                 <p className="mt-4 mb-0">
                                   These confidence intervals are not adjusted
-                                  for multiple comparisons. The methods
+                                  for multiple comparisons. The adjustments
                                   GrowthBook implements only have associated
                                   p-values and do not have direct translations
                                   to confidence intervals. Therefore these
