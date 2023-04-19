@@ -66,24 +66,20 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
 
-      - name: Upload static assets to S3
-        run: |
-          # Download the docker image
-          docker pull growthbook/growthbook:latest // Is this needed?
-          # Pull out static assets
-          docker run -it growthbook/growthbook:latest bash
-          # (I don't think I need this anymore) cd packages/front-end/.next/static/chunks
-          # Download all of the files in the current directory
-          wget -r -l1 --no-parent /front-end/.next/static/chunks
-          # Upload to S3 (with access keys above)
-        uses: shallwefootball/s3-upload-action@master
-        name: Upload S3
-        id: S3
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-          source_dir: '/front-end/.next/static/chunks'
-
+      - name: Copy static files from Docker Container
+          run: docker pull growthbook/growthbook
+      - name: Start the container with the name 'gb'
+          run:
+            docker run --name gb growthbook/growthbook
+      - name: Get the container id
+          run: docker ps -aqf "name=gb"
+          register: CONTAINER_ID
+      - name: Create a tmp folder
+          run: mkdir tmp && cd tmp && pwd
+          register: TEMP_PATH
+      - name: Copy the static chunks to the temp folder
+          run: docker cp ${{ CONTAINER_ID }}:/usr/local/src/app/packages/front-end/.next/static/chunks ${{ TEMP_PATH }}
+      - name: Upload content of tmp folder to S3 bucket
+        run: aws s3 cp ${{ TEMP_PATH }} s3://mk-github-action-test-bucket --recursive
       - name: Deploy docker image to ECS for GrowthBook Cloud API
         run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1
