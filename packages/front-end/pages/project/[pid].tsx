@@ -191,8 +191,8 @@ const ProjectPage: FC = () => {
             <div className="col-sm-9">
               <StatsEngineSelect
                 form={form}
-                scope={orgSettings}
-                currentScope="project"
+                parentScope={orgSettings}
+                scopeId="project"
               />
             </div>
           </div>

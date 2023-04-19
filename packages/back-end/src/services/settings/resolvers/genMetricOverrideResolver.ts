@@ -1,5 +1,5 @@
 import { MetricOverride } from "../../../../types/experiment";
-import { SettingsResolver, Settings } from "../types";
+import { SettingsResolver, Settings, ScopeDefinition } from "../types";
 
 export default function genMetricOverrideResolver(
   fieldName: keyof Omit<MetricOverride, "id">
@@ -17,22 +17,29 @@ export default function genMetricOverrideResolver(
         : null) ??
       null;
 
+    let scopeApplied: keyof ScopeDefinition | "organization" = "organization";
     let reason = "org-level setting applied";
 
     if (typeof metricOverride?.[fieldName] !== "undefined") {
+      scopeApplied = "experiment";
       reason = "experiment-level metric override applied";
     } else if (typeof ctx.scopes?.metric?.[fieldName] !== "undefined") {
+      scopeApplied = "metric";
       reason = "metric-level setting applied";
     } else if (
       fieldName === "regressionAdjustmentEnabled" &&
       typeof ctx.scopes?.experiment?.[fieldName] !== "undefined"
     ) {
+      scopeApplied = "experiment";
       reason = "experiment-level setting applied";
     }
 
     return {
       value,
-      meta: { reason },
+      meta: {
+        scopeApplied,
+        reason,
+      },
     };
   };
 }

@@ -31,6 +31,7 @@ export default function genDefaultResolver(
         return {
           value: scopedValue,
           meta: {
+            scopeApplied: scope,
             reason: `${scope}-level setting applied`,
           },
         };
@@ -38,6 +39,7 @@ export default function genDefaultResolver(
       {
         value: baseSetting,
         meta: {
+          scopeApplied: "organization",
           reason: "org-level setting applied",
         },
       }

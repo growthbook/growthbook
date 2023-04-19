@@ -117,6 +117,7 @@ const normalizeInputSettings = (
         baseSettings[key as keyof Settings],
       meta: {
         reason: "org-level setting applied",
+        scopeApplied: "organization",
       },
     };
   }

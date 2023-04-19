@@ -16,6 +16,7 @@ import { ProjectInterface } from "../../../types/project";
 import { ReportInterface } from "../../../types/report";
 
 interface SettingMetadata {
+  scopeApplied?: keyof ScopeDefinition | "organization";
   reason?: string;
   warning?: string;
 }
