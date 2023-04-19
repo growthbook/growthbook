@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # - run: 'echo "No changes, skipping - is this thing on?"'
-      - run: |
+      - run:
         # Download the docker image
         docker pull growthbook/growthbook:latest
         # Pull out static assets
