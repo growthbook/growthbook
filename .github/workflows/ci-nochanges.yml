@@ -15,14 +15,15 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
+      - run: echo 'hi'
       # - run: 'echo "No changes, skipping - is this thing on?"'
-      - run:
-        # Download the docker image
-        docker pull growthbook/growthbook:latest
-        # Pull out static assets
-        docker run -it growthbook/growthbook:latest bash
-        # (I don't think I need this anymore) cd packages/front-end/.next/static/chunks
-        # Download all of the files in the current directory
-        wget -r -l1 --no-parent /front-end/.next/static/chunks
-        # Echo env variables
-        echo env
+      # - run:
+      #   # Download the docker image
+      #   'docker pull growthbook/growthbook:latest'
+      #   # Pull out static assets
+      #   'docker run -it growthbook/growthbook:latest bash'
+      #   # (I don't think I need this anymore) cd packages/front-end/.next/static/chunks
+      #   # Download all of the files in the current directory
+      #   'wget -r -l1 --no-parent /front-end/.next/static/chunks'
+      #   # Echo env variables
+      #   'echo env'
