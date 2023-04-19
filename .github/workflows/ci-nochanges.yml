@@ -11,6 +11,14 @@ on:
 # If nothing of importance changed, the normal CI workflow is skipped
 # Skipped steps do not count as successful, which will block the PR from being merged
 # This is a dummy workflow for those cases so it gets marked as successful in GitHub
+# jobs:
+#   ci:
+#     runs-on: ubuntu-latest
+#     steps:
+#       run: |
+#         echo 1. Starting CI process bro...
+#         echo 2. What environment variables are available?
+#         env
 jobs:
   ci:
     runs-on: ubuntu-latest
@@ -19,6 +27,7 @@ jobs:
         echo 1. Starting CI process bro...
         echo 2. What environment variables are available?
         env
+
       # - run: echo env
       # - run: 'echo "No changes, skipping - is this thing on?"'
       # - run:
