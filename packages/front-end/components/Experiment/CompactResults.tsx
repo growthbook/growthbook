@@ -22,7 +22,6 @@ import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
-import { TableDef } from "./BreakDownResults";
 
 const CompactResults: FC<{
   editMetrics?: () => void;
@@ -63,6 +62,9 @@ const CompactResults: FC<{
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     if (!results || !results.variations || !ready) return [];
+    if (pValueCorrection && statsEngine === "frequentist") {
+      results = setAdjustedPValues([results], metrics, pValueCorrection)[0];
+    }
     return metrics
       .map((metricId) => {
         const metric = getMetricById(metricId);
@@ -96,20 +98,11 @@ const CompactResults: FC<{
     ready,
   ]);
 
-  let table: TableDef = {
-    isGuardrail: false,
-    rows: rows,
-  };
-  // apply pvalue correction
-  if (pValueCorrection && statsEngine === "frequentist") {
-    table = setAdjustedPValues([table], pValueCorrection)[0];
-  }
-
   const users = useMemo(() => {
     const vars = results?.variations;
     return variations.map((v, i) => vars?.[i]?.users || 0);
   }, [results]);
-  const risk = useRiskVariation(variations.length, table.rows);
+  const risk = useRiskVariation(variations.length, rows);
 
   return (
     <>
@@ -143,7 +136,7 @@ const CompactResults: FC<{
           startDate={startDate}
           status={status}
           variations={variations}
-          rows={table.rows}
+          rows={rows}
           id={id}
           {...risk}
           tableRowAxis="metric"

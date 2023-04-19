@@ -20,8 +20,8 @@ import UsersTable from "./UsersTable";
 
 const FULL_STATS_LIMIT = 5;
 
-export type TableDef = {
-  metric?: MetricInterface;
+type TableDef = {
+  metric: MetricInterface;
   isGuardrail: boolean;
   rows: ExperimentTableRow[];
 };
@@ -72,8 +72,11 @@ const BreakDownResults: FC<{
   const [fullStatsToggle, setFullStats] = useState(false);
   const fullStats = !tooManyDimensions || fullStatsToggle;
 
-  let tables = useMemo<TableDef[]>(() => {
+  const tables = useMemo<TableDef[]>(() => {
     if (!ready) return [];
+    if (pValueCorrection && statsEngine === "frequentist") {
+      results = setAdjustedPValues(results, metrics, pValueCorrection);
+    }
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
         const metric = getMetricById(metricId);
@@ -112,11 +115,6 @@ const BreakDownResults: FC<{
     guardrails,
     ready,
   ]);
-
-  // apply pvalue correction
-  if (pValueCorrection && statsEngine === "frequentist") {
-    tables = setAdjustedPValues(tables, pValueCorrection);
-  }
 
   const risk = useRiskVariation(
     variations.length,

@@ -3,6 +3,7 @@ import { MetricInterface } from "back-end/types/metric";
 import { PValueCorrection } from "back-end/types/stats";
 import { useState } from "react";
 import {
+  ExperimentReportResultDimension,
   ExperimentReportVariation,
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
@@ -13,7 +14,6 @@ import {
 import { MetricOverride } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/constants/stats";
-import { TableDef } from "@/components/Experiment/BreakDownResults";
 import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
 
 export type ExperimentTableRow = {
@@ -387,7 +387,7 @@ export function pValueFormatter(pValue: number): string {
 
 export type IndexedPValue = {
   pValue: number;
-  index: number[];
+  index: (number | string)[];
 };
 
 export function adjustPValuesBenjaminiHochberg(
@@ -435,21 +435,29 @@ export function adjustPValuesHolmBonferroni(
 }
 
 export function setAdjustedPValues(
-  tables: TableDef[],
+  results: ExperimentReportResultDimension[],
+  nonGuardrailMetrics: string[],
   adjustment: PValueCorrection
-): TableDef[] {
+): ExperimentReportResultDimension[] {
   if (!adjustment) {
-    return tables;
+    return results;
   }
 
   let indexedPValues: IndexedPValue[] = [];
-  tables.forEach((t, i) => {
-    t.rows.forEach((r, j) => {
-      r.variations.forEach((v, k) => {
-        if (v?.pValue !== undefined && !t.isGuardrail) {
-          indexedPValues.push({ pValue: v.pValue, index: [i, j, k] });
+  results.forEach((r, i) => {
+    r.variations.forEach((v, j) => {
+      for (const metric in v.metrics) {
+        // only add pvalues that exist and that are in the non-guardrail set
+        if (
+          v.metrics[metric].pValue !== undefined &&
+          metric in nonGuardrailMetrics
+        ) {
+          indexedPValues.push({
+            pValue: v.metrics[metric].pValue,
+            index: [i, j, metric],
+          });
         }
-      });
+      }
     });
   });
 
@@ -461,7 +469,8 @@ export function setAdjustedPValues(
 
   indexedPValues.forEach((ip) => {
     const ijk = ip.index;
-    tables[ijk[0]].rows[ijk[1]].variations[ijk[2]].pValueAdjusted = ip.pValue;
+    results[ijk[0]].variations[ijk[1]].metrics[ijk[2]].pValueAdjusted =
+      ip.pValue;
   });
-  return tables;
+  return results;
 }
