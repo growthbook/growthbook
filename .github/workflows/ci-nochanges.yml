@@ -23,6 +23,7 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
+      name: Show env variables
       run: |
         echo 1. Starting CI process bro...
         echo 2. What environment variables are available?
