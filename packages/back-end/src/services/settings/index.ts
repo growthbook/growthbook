@@ -1,6 +1,6 @@
 import genDefaultResolver from "./resolvers/genDefaultResolver";
 import genMetricOverrideResolver from "./resolvers/genMetricOverrideResolver";
-import genDefaultSettings from "./resolvers/genDefaultSettings";
+import { genDefaultSettings } from "./defaultSettings";
 import {
   Settings,
   SettingsResolver,
