@@ -15,4 +15,8 @@ jobs:
   ci:
     runs-on: ubuntu-latest
     steps:
+      - name: Test Upload to S3
+          run: |
+            # Echo Something
+            echo "Is this thing working?"
       - run: 'echo "No changes, skipping"'

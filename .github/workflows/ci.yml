@@ -44,11 +44,6 @@ jobs:
           # Stats engine
           pip install numpy scipy pandas pytest black flake8 nbformat gbstats
 
-      - name: Test Upload to S3
-        run: |
-          # Echo Something
-          echo "Is this thing working?"
-
       - name: Build, lint, type-check, and test
         run: |
           # Build SDK packages (required for linting/type checks to work)
