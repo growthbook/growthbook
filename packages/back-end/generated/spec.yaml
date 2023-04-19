@@ -2130,6 +2130,10 @@ components:
                       type: string
                     value:
                       type: string
+                    parentSelector:
+                      type: string
+                    insertBeforeSelector:
+                      type: string
     VisualChange:
       type: object
       required:
@@ -2161,6 +2165,10 @@ components:
               attribute:
                 type: string
               value:
+                type: string
+              parentSelector:
+                type: string
+              insertBeforeSelector:
                 type: string
   securitySchemes:
     bearerAuth:
