@@ -16,6 +16,7 @@ import MemberList from "@/components/Settings/Team/MemberList";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
+import { useScopedSettings } from "@/services/settings";
 
 function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
   if (!existing) return true;
@@ -32,6 +33,7 @@ const ProjectPage: FC = () => {
 
   // todo: use scope function to get defaults
   const orgSettings = useOrgSettings();
+  const { settings: parentSettings } = useScopedSettings(orgSettings);
 
   const { apiCall } = useAuth();
 
@@ -191,7 +193,7 @@ const ProjectPage: FC = () => {
             <div className="col-sm-9">
               <StatsEngineSelect
                 form={form}
-                parentScope={orgSettings}
+                parentSettings={parentSettings}
                 scopeId="project"
               />
             </div>

@@ -103,6 +103,7 @@ export async function updateProjectSettings(
       dateUpdated: new Date(),
       ...setObj,
     },
+    // todo: doesn't seem to be removing the field, just nulling/""ing it:
     $unset: unsetObj,
   };
   await ProjectModel.updateOne(

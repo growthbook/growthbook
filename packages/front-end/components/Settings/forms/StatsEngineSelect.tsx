@@ -1,33 +1,20 @@
 import React from "react";
 import { UseFormReturn } from "react-hook-form";
-// todo: use front-end types
-import {
-  ScopedSettings,
-  ScopeDefinition,
-} from "back-end/src/services/settings/types";
 import SelectField from "@/components/Forms/SelectField";
 import { capitalizeFirstLetter } from "@/services/utils";
-
-// todo: replace this with meta.appliedScope
-const scopeParents = {
-  project: "organization",
-  experiment: "project",
-  report: "experiment",
-};
+import { ScopedSettings } from "@/services/settings/types";
 
 export default function StatsEngineSelect({
   form,
-  parentScope,
-  scopeId,
+  parentSettings,
   showDefault = true,
 }: {
   // eslint-disable-next-line
   form: UseFormReturn<any>;
-  parentScope?: ScopedSettings;
-  scopeId?: keyof ScopeDefinition | "organization";
+  parentSettings?: ScopedSettings;
   showDefault?: boolean;
 }) {
-  const parentScopeId = scopeParents[scopeId];
+  const parentScopeId = parentSettings.statsEngine.meta.scopeApplied;
   const options = [
     {
       label: "Bayesian",
@@ -56,10 +43,10 @@ export default function StatsEngineSelect({
       onChange={(v) => form.setValue("statsEngine", v ?? undefined)}
       helpText={
         showDefault &&
-        parentScope && (
+        parentSettings.statsEngine.value && (
           <span className="ml-1">
             ({parentScopeId && parentScopeId + " "}default:{" "}
-            {capitalizeFirstLetter(parentScope.statsEngine)})
+            {capitalizeFirstLetter(parentSettings.statsEngine.value)})
           </span>
         )
       }
