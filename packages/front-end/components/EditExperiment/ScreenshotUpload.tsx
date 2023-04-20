@@ -27,10 +27,11 @@ const ScreenshotUpload = ({
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(0);
 
-  const onDrop = (files: File[]) => {
+  const onDrop = async (files: File[]) => {
+    console.log("onDrop was called");
     setLoading(loading + files.length);
 
-    files.forEach(async (file) => {
+    for (const file of files) {
       try {
         const { fileURL } = await uploadFile(apiCall, file);
 
@@ -56,7 +57,7 @@ const ScreenshotUpload = ({
         alert(e.message);
         setLoading(loading - 1);
       }
-    });
+    }
   };
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
 
