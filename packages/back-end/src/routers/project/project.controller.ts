@@ -7,7 +7,8 @@ import {
   createProject,
   deleteProjectById,
   findProjectById,
-  updateProject, updateProjectSettings
+  updateProject,
+  updateProjectSettings,
 } from "../../models/ProjectModel";
 import { removeProjectFromDatasources } from "../../models/DataSourceModel";
 import { removeProjectFromMetrics } from "../../models/MetricModel";
@@ -160,7 +161,6 @@ export const deleteProject = async (
 
 // endregion DELETE /projects/:id
 
-
 type PutProjectSettingsRequest = AuthRequest<
   { settings: ProjectSettings },
   { id: string }
@@ -168,7 +168,7 @@ type PutProjectSettingsRequest = AuthRequest<
 type PutProjectSettingsResponse = {
   status: 200;
   settings: ProjectSettings;
-}
+};
 export const putProjectSettings = async (
   req: PutProjectSettingsRequest,
   res: Response<PutProjectSettingsResponse | ApiErrorResponse>
@@ -189,19 +189,7 @@ export const putProjectSettings = async (
 
   const { settings } = req.body;
 
-  const set: Partial<ProjectSettings> = {};
-  const unset: (keyof ProjectSettings)[] = [];
-
-  let key: keyof ProjectSettings;
-  for (key in settings) {
-    if (settings[key] !== undefined) {
-      set[key] = settings[key];
-    } else {
-      unset.push(key);
-    }
-  }
-
-  await updateProjectSettings(id, project.organization, set, unset);
+  await updateProjectSettings(id, project.organization, settings);
 
   res.status(200).json({
     status: 200,

@@ -76,35 +76,13 @@ export async function updateProject(
 export async function updateProjectSettings(
   id: string,
   organization: string,
-  set: Partial<ProjectSettings>,
-  unset?: (keyof ProjectSettings)[]
+  settings: Partial<ProjectSettings>,
 ) {
-  // prefix set and unset with "settings."
-  const setObj = Object.keys(set).reduce(
-    (acc, k) => ({
-      ...acc,
-      [`settings.${k}`]: set[k as keyof ProjectSettings],
-    }),
-    {}
-  );
-  // unset: convert to {key: 1, key2: 1, ...} object
-  const unsetObj =
-    unset
-      ?.map((k) => `settings.${k}`)
-      ?.reduce(
-        (acc, k) => ({
-          ...acc,
-          [k]: 1,
-        }),
-        {}
-      ) || {};
   const update = {
     $set: {
       dateUpdated: new Date(),
-      ...setObj,
-    },
-    // todo: doesn't seem to be removing the field, just nulling/""ing it:
-    $unset: unsetObj,
+      settings,
+    }
   };
   await ProjectModel.updateOne(
     {

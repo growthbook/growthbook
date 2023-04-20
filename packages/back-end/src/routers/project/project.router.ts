@@ -57,7 +57,7 @@ router.put(
     body: z
       .object({
         settings: z.object({
-          statsEngine: z.string()
+          statsEngine: z.string().optional()
         }),
       })
       .strict(),

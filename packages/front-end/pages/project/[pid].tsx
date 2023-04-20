@@ -61,9 +61,7 @@ const ProjectPage: FC = () => {
     }
   }, [form, settings]);
 
-  const value = form.getValues();
-
-  const ctaEnabled = hasChanges(value, originalValue);
+  const ctaEnabled = hasChanges(form.getValues(), originalValue);
 
   const saveSettings = form.handleSubmit(async (value) => {
     await apiCall(`/projects/${pid}/settings`, {
