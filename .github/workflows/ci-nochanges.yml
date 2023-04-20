@@ -37,3 +37,9 @@ jobs:
 
       - name: Copy the static chunks to the temp folder
         run: docker cp $CONTAINER_ID:/usr/local/src/app/packages/front-end/.next/static/chunks $TEMP_PATH
+
+      - name: Change directory to temp folder
+        run: ch $TEMP_PATH
+
+      - name: ls $TEMP_PATH
+        run: ls
