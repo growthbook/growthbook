@@ -22,10 +22,10 @@
     "packages/*"
   ],
   "dependencies": {
-    "eslint-plugin-no-async-foreach": "^0.1.1",
     "wsrun": "^5.2.4"
   },
   "devDependencies": {
+    "eslint-plugin-no-async-foreach": "^0.1.1",
     "@next/eslint-plugin-next": "^12.2.3",
     "@types/eslint": "^8.4.5",
     "@typescript-eslint/eslint-plugin": "^5.31.0",
