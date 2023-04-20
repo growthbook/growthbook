@@ -39,7 +39,7 @@ jobs:
         run: docker cp $CONTAINER_ID:/usr/local/src/app/packages/front-end/.next/static/chunks $TEMP_PATH
 
       - name: Change directory to temp folder
-        run: ch $TEMP_PATH
+        run: cd $TEMP_PATH
 
       - name: ls $TEMP_PATH
         run: ls
