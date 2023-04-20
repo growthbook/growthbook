@@ -41,5 +41,8 @@ jobs:
       - name: Change directory to temp folder
         run: cd $TEMP_PATH
 
-      - name: ls $TEMP_PATH
+      - name: cd tmp
+        run: cd tmp
+
+      - name: ls $TEMP_PATH/tmp
         run: ls
