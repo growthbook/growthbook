@@ -96,7 +96,6 @@ function isOutdated(
   ) {
     return { outdated: true, reason: "sequential testing settings changed" };
   }
-
   return { outdated: false, reason: "" };
 }
 

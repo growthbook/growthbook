@@ -85,8 +85,3 @@ export const logger: BaseLogger = {
     httpLogger.logger.warn(...args);
   },
 };
-
-/**
- * pino's logger.child function
- */
-export const childLogger = httpLogger.logger.child;
