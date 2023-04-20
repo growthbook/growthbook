@@ -24,7 +24,7 @@ jobs:
         run: docker run --name gb --entrypoint /bin/bash growthbook/growthbook
 
       - name: Get the container id
-          run: echo "CONTAINER_ID=$(docker ps -aqf "name=gb")" >> $GITHUB_ENV
+        run: echo "CONTAINER_ID=$(docker ps -aqf "name=gb")" >> $GITHUB_ENV
 
       - name: Echo CONTAINER_ID
         run: echo $CONTAINER_ID
