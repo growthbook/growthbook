@@ -9533,6 +9533,13 @@ eslint-plugin-import@^2.26.0:
     resolve "^1.22.0"
     tsconfig-paths "^3.14.1"
 
+eslint-plugin-no-async-foreach@^0.1.1:
+  version "0.1.1"
+  resolved "https://registry.yarnpkg.com/eslint-plugin-no-async-foreach/-/eslint-plugin-no-async-foreach-0.1.1.tgz#0459df17cb8891b5d0d0d3380cb680729c144a77"
+  integrity sha512-SXiJCpXWyNijyT8F4K51oXwqnYv3G2JTHMhg+qE/BcWyj7E395pDScmHIP4NkeKi8B650BQBIMOLgMI47Mj26A==
+  dependencies:
+    requireindex "~1.1.0"
+
 eslint-plugin-prettier@^3.1.3:
   version "3.4.1"
   resolved "https://registry.yarnpkg.com/eslint-plugin-prettier/-/eslint-plugin-prettier-3.4.1.tgz#e9ddb200efb6f3d05ffe83b1665a716af4a387e5"
@@ -17085,6 +17092,11 @@ require-main-filename@^2.0.0:
   version "2.0.0"
   resolved "https://registry.yarnpkg.com/require-main-filename/-/require-main-filename-2.0.0.tgz#d0b329ecc7cc0f61649f62215be69af54aa8989b"
   integrity sha512-NKN5kMDylKuldxYLSUfrbo5Tuzh4hd+2E8NPPX02mZtn1VuREQToYe/ZdlJy+J3uCpfaiGF05e7B8W0iXbQHmg==
+
+requireindex@~1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/requireindex/-/requireindex-1.1.0.tgz#e5404b81557ef75db6e49c5a72004893fe03e162"
+  integrity sha512-LBnkqsDE7BZKvqylbmn7lTIVdpx4K/QCduRATpO5R+wtPmky/a8pN1bO2D6wXppn1497AJF9mNjqAXr6bdl9jg==
 
 resize-observer-polyfill@1.5.1, resize-observer-polyfill@^1.5.1:
   version "1.5.1"
