@@ -26,7 +26,7 @@ jobs:
           CONTAINER_ID: docker ps -aqf "name="gb
 
       - name: Echo CONTAINER_ID
-        run: echo CONTAINER_ID
+        run: echo $${{ CONTAINER_ID }}
 
       # - name: Get the container id
       #   run: docker ps -aqf "name=gb"
