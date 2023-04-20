@@ -36,4 +36,5 @@ jobs:
         run: echo $TEMP_PATH
 
       - name: Copy the static chunks to the temp folder
-        run: docker cp ${{ CONTAINER_ID }}:/usr/local/src/app/packages/front-end/.next/static/chunks ${{ TEMP_PATH }}
+        # run: docker cp ${{ CONTAINER_ID }}:/usr/local/src/app/packages/front-end/.next/static/chunks ${{ TEMP_PATH }}
+        run: echo testing...
