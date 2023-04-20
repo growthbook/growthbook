@@ -2,6 +2,7 @@ import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
+import uniq from "lodash/uniq";
 import {
   Changeset,
   ExperimentInterface,
@@ -149,6 +150,8 @@ const experimentSchema = new mongoose.Schema({
   ideaSource: String,
   regressionAdjustmentEnabled: Boolean,
   hasVisualChangesets: Boolean,
+  sequentialTestingEnabled: Boolean,
+  sequentialTestingTuningParameter: Number,
 });
 
 type ExperimentDocument = mongoose.Document & ExperimentInterface;
@@ -616,7 +619,7 @@ const logExperimentCreated = async (
   organization: OrganizationInterface,
   user: EventAuditUser,
   experiment: ExperimentInterface
-): Promise<string> => {
+): Promise<string | undefined> => {
   const payload: ExperimentCreatedNotificationEvent = {
     object: "experiment",
     event: "experiment.created",
@@ -627,9 +630,10 @@ const logExperimentCreated = async (
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent.id).perform();
-
-  return emittedEvent.id;
+  if (emittedEvent) {
+    new EventNotifier(emittedEvent.id).perform();
+    return emittedEvent.id;
+  }
 };
 
 /**
@@ -647,7 +651,7 @@ const logExperimentUpdated = async ({
   user: EventAuditUser;
   current: ExperimentInterface;
   previous: ExperimentInterface;
-}): Promise<string> => {
+}): Promise<string | undefined> => {
   const payload: ExperimentUpdatedNotificationEvent = {
     object: "experiment",
     event: "experiment.updated",
@@ -659,9 +663,10 @@ const logExperimentUpdated = async ({
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent.id).perform();
-
-  return emittedEvent.id;
+  if (emittedEvent) {
+    new EventNotifier(emittedEvent.id).perform();
+    return emittedEvent.id;
+  }
 };
 
 /**
@@ -847,7 +852,7 @@ export const logExperimentDeleted = async (
   organization: OrganizationInterface,
   user: EventAuditUser,
   experiment: ExperimentInterface
-): Promise<string> => {
+): Promise<string | undefined> => {
   const payload: ExperimentDeletedNotificationEvent = {
     object: "experiment",
     event: "experiment.deleted",
@@ -858,9 +863,10 @@ export const logExperimentDeleted = async (
   };
 
   const emittedEvent = await createEvent(organization.id, payload);
-  new EventNotifier(emittedEvent.id).perform();
-
-  return emittedEvent.id;
+  if (emittedEvent) {
+    new EventNotifier(emittedEvent.id).perform();
+    return emittedEvent.id;
+  }
 };
 
 // type guard
@@ -887,7 +893,7 @@ export const getAllVisualExperiments = async (
   const experiments = (
     await findExperiments({
       id: {
-        $in: visualChangesets.map((changeset) => changeset.experiment),
+        $in: uniq(visualChangesets.map((changeset) => changeset.experiment)),
       },
       ...(project ? { project } : {}),
       organization,

@@ -14,18 +14,23 @@ import {
 } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
 import {
-  updateSnapshot,
   getLatestSnapshot,
+  updateSnapshot,
 } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
 import { getMetricById } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { analyzeExperimentResults } from "../services/stats";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
 import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+} from "../../types/experiment-snapshot";
+import { orgHasPremiumFeature } from "../util/organization.util";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -111,11 +116,6 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const orgId = job.attrs.data?.organization;
   if (!experimentId || !orgId) return;
 
-  const log = logger.child({
-    cron: "updateSingleExperiment",
-    experimentId,
-  });
-
   const experiment = await getExperimentById(orgId, experimentId);
   if (!experiment) return;
 
@@ -123,17 +123,23 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   if (!organization) return;
   if (organization?.settings?.updateSchedule?.type === "never") return;
 
-  let lastSnapshot: ExperimentSnapshotInterface | null;
-  let currentSnapshot: ExperimentSnapshotInterface;
+  const hasRegressionAdjustmentFeature = organization
+    ? orgHasPremiumFeature(organization, "regression-adjustment")
+    : false;
+  const hasSequentialTestingFeature = organization
+    ? orgHasPremiumFeature(organization, "sequential-testing")
+    : false;
 
   try {
-    log.info("Start Refreshing Results");
+    logger.info("Start Refreshing Results for expeirment " + experimentId);
     const datasource = await getDataSourceById(
       experiment.datasource || "",
       experiment.organization
     );
-    if (!datasource) return;
-    lastSnapshot = await getLatestSnapshot(
+    if (!datasource) {
+      throw new Error("Error refreshing experiment, could not find datasource");
+    }
+    const lastSnapshot = await getLatestSnapshot(
       experiment.id,
       experiment.phases.length - 1
     );
@@ -143,17 +149,28 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       metricRegressionAdjustmentStatuses,
     } = await getRegressionAdjustmentInfo(experiment, organization);
 
-    currentSnapshot = await createSnapshot(
+    const experimentSnapshotSettings: ExperimentSnapshotSettings = {
+      statsEngine: organization.settings?.statsEngine || "bayesian",
+      regressionAdjustmentEnabled:
+        hasRegressionAdjustmentFeature && regressionAdjustmentEnabled,
+      metricRegressionAdjustmentStatuses:
+        metricRegressionAdjustmentStatuses || [],
+      sequentialTestingEnabled:
+        hasSequentialTestingFeature &&
+        (experiment?.sequentialTestingEnabled ??
+          !!organization.settings?.sequentialTestingEnabled),
+      sequentialTestingTuningParameter:
+        experiment?.sequentialTestingTuningParameter ??
+        organization.settings?.sequentialTestingTuningParameter ??
+        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+    };
+
+    const currentSnapshot = await createSnapshot({
       experiment,
-      null,
-      experiment.phases.length - 1,
       organization,
-      null,
-      false,
-      organization.settings?.statsEngine,
-      regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses
-    );
+      phaseIndex: experiment.phases.length - 1,
+      experimentSnapshotSettings,
+    });
 
     await new Promise<void>((resolve, reject) => {
       const check = async () => {
@@ -166,13 +183,20 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
           currentSnapshot,
           currentSnapshot.organization,
           (queryData) => {
-            return analyzeExperimentResults(
-              experiment.organization,
-              getReportVariations(experiment, phase),
-              undefined,
+            return analyzeExperimentResults({
+              organization: experiment.organization,
+              variations: getReportVariations(experiment, phase),
               queryData,
-              currentSnapshot.statsEngine ?? organization.settings?.statsEngine
-            );
+              statsEngine:
+                currentSnapshot.statsEngine ??
+                organization.settings?.statsEngine,
+              sequentialTestingEnabled:
+                currentSnapshot.sequentialTestingEnabled ??
+                organization.settings?.sequentialTestingEnabled,
+              sequentialTestingTuningParameter:
+                currentSnapshot.sequentialTestingTuningParameter ??
+                organization.settings?.sequentialTestingTuningParameter,
+            });
           },
           async (updates, results, error) => {
             await updateSnapshot(experiment.organization, currentSnapshot.id, {
@@ -200,13 +224,11 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       setTimeout(check, 2000);
     });
 
-    log.info("Success");
-
     if (lastSnapshot) {
       await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
     }
   } catch (e) {
-    log.error("Failure - " + e.message);
+    logger.error(e, "Failed to update experiment: " + experimentId);
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
       await updateExperiment({
@@ -219,7 +241,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       });
       // TODO: email user and let them know it failed
     } catch (e) {
-      log.error("Failed to turn off autoSnapshots - " + e.message);
+      logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
     }
   }
 }
@@ -229,11 +251,6 @@ async function sendSignificanceEmail(
   lastSnapshot: ExperimentSnapshotInterface,
   currentSnapshot: ExperimentSnapshotInterface
 ) {
-  const log = logger.child({
-    cron: "sendSignificanceEmail",
-    experimentId: experiment.id,
-  });
-
   // If email is not configured, there's nothing else to do
   if (!isEmailEnabled()) {
     return;
@@ -301,11 +318,6 @@ async function sendSignificanceEmail(
 
     if (experimentChanges.length) {
       // send an email to any subscribers on this test:
-      log.info(
-        "Significant change - detected " +
-          experimentChanges.length +
-          " significant changes"
-      );
       const watchers = await getExperimentWatchers(
         experiment.id,
         experiment.organization
@@ -320,6 +332,6 @@ async function sendSignificanceEmail(
       );
     }
   } catch (e) {
-    log.error(e.message);
+    logger.error(e, "Failed to send significance email");
   }
 }

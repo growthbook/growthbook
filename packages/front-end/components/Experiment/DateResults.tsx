@@ -100,16 +100,21 @@ const DateResults: FC<{
                   const x = uplift?.mean || 0;
                   const sx = uplift?.stddev || 0;
                   const dist = uplift?.dist || "";
+                  error = stats?.ci;
                   if (dist === "lognormal") {
                     // Uplift distribution is lognormal, so need to correct this
                     // Add 2 standard deviations (~95% CI) for an error bar
-                    error = [
-                      Math.exp(x - 2 * sx) - 1,
-                      Math.exp(x + 2 * sx) - 1,
-                    ];
+                    if (!error) {
+                      error = [
+                        Math.exp(x - 2 * sx) - 1,
+                        Math.exp(x + 2 * sx) - 1,
+                      ];
+                    }
                     value = Math.exp(x) - 1;
                   } else {
-                    error = [x - 2 * sx, x + 2 * sx];
+                    if (!error) {
+                      error = [x - 2 * sx, x + 2 * sx];
+                    }
                     value = x;
                   }
                 }
@@ -119,7 +124,6 @@ const DateResults: FC<{
                   const crB = totalUsers[i] ? totalValue[i] / totalUsers[i] : 0;
                   value = crA ? (crB - crA) / crA : 0;
                 }
-
                 // Baseline should show the actual conversion rate
                 // Variations should show the relative uplift on top of this conversion rate
                 const label = i
