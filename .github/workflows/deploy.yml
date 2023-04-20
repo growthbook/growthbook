@@ -67,19 +67,27 @@ jobs:
           aws-region: us-east-1
 
       - name: Copy static files from Docker Container
-          run: docker pull growthbook/growthbook
+        run: docker pull growthbook/growthbook
+
       - name: Start the container with the name 'gb'
-          run:
-            docker run --name gb growthbook/growthbook
+        run: docker run --name gb --entrypoint /bin/bash growthbook/growthbook
+
       - name: Get the container id
-          run: docker ps -aqf "name=gb"
-          register: CONTAINER_ID
+        run: echo "CONTAINER_ID=$(docker ps -aqf "name=gb")" >> $GITHUB_ENV
+
+      - name: Echo CONTAINER_ID
+        run: echo $CONTAINER_ID
+
       - name: Create a tmp folder
-          run: mkdir tmp && cd tmp && pwd
-          register: TEMP_PATH
+        run: echo "TEMP_PATH=$(mkdir tmp && cd tmp && pwd)" >> $GITHUB_ENV
+
+      - name: Echo TEMP_PATH
+        run: echo $TEMP_PATH
+
       - name: Copy the static chunks to the temp folder
-          run: docker cp ${{ CONTAINER_ID }}:/usr/local/src/app/packages/front-end/.next/static/chunks ${{ TEMP_PATH }}
+        run: docker cp $CONTAINER_ID:/usr/local/src/app/packages/front-end/.next/static/chunks $TEMP_PATH
+
       - name: Upload content of tmp folder to S3 bucket
-        run: aws s3 cp ${{ TEMP_PATH }} s3://mk-github-action-test-bucket --recursive
+        run: aws s3 cp $TEMP_PATH s3://${{ secrets.S3_STATIC_FILES }} --recursive
       - name: Deploy docker image to ECS for GrowthBook Cloud API
         run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1

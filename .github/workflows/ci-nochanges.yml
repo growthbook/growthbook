@@ -14,35 +14,5 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
-    # needs: [docker]
     steps:
-      # - run: 'echo "No changes, skipping"'
-      - name: Copy static files from Docker Container
-        run: docker pull growthbook/growthbook
-
-      - name: Start the container with the name 'gb'
-        run: docker run --name gb --entrypoint /bin/bash growthbook/growthbook
-
-      - name: Get the container id
-        run: echo "CONTAINER_ID=$(docker ps -aqf "name=gb")" >> $GITHUB_ENV
-
-      - name: Echo CONTAINER_ID
-        run: echo $CONTAINER_ID
-
-      - name: Create a tmp folder
-        run: echo "TEMP_PATH=$(mkdir tmp && cd tmp && pwd)" >> $GITHUB_ENV
-
-      - name: Echo TEMP_PATH
-        run: echo $TEMP_PATH
-
-      - name: Copy the static chunks to the temp folder
-        run: docker cp $CONTAINER_ID:/usr/local/src/app/packages/front-end/.next/static/chunks $TEMP_PATH
-
-      - name: Change directory to temp folder
-        run: cd $TEMP_PATH
-
-      - name: cd tmp
-        run: cd tmp
-
-      - name: ls $TEMP_PATH/tmp
-        run: ls
+      - run: 'echo "No changes, skipping"'
