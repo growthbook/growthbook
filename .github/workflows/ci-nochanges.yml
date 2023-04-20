@@ -25,7 +25,7 @@ jobs:
 
       - name: Get the container id
         run: docker ps -aqf "name=gb"
-        # register: CONTAINER_ID
+        register: CONTAINER_ID
 
       - name: Echo CONTAINER_ID
         run: echo ${{ CONTAINER_ID }}
