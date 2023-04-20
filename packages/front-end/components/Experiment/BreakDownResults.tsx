@@ -10,7 +10,7 @@ import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
-  setAdjustedPValues,
+  setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
 } from "@/services/experiments";
@@ -75,7 +75,7 @@ const BreakDownResults: FC<{
   const tables = useMemo<TableDef[]>(() => {
     if (!ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
-      results = setAdjustedPValues(results, metrics, pValueCorrection);
+      setAdjustedPValuesOnResults(results, metrics, pValueCorrection);
     }
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
@@ -112,6 +112,7 @@ const BreakDownResults: FC<{
     metricOverrides,
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
+    pValueCorrection,
     guardrails,
     ready,
   ]);

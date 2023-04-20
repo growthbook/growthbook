@@ -12,7 +12,7 @@ import { FaTimes } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
-  setAdjustedPValues,
+  setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
 } from "@/services/experiments";
@@ -63,7 +63,7 @@ const CompactResults: FC<{
   const rows = useMemo<ExperimentTableRow[]>(() => {
     if (!results || !results.variations || !ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
-      results = setAdjustedPValues([results], metrics, pValueCorrection)[0];
+      setAdjustedPValuesOnResults([results], metrics, pValueCorrection);
     }
     return metrics
       .map((metricId) => {
@@ -95,6 +95,7 @@ const CompactResults: FC<{
     metricOverrides,
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
+    pValueCorrection,
     ready,
   ]);
 

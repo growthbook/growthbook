@@ -228,12 +228,10 @@ export default function ResultsTable({
                               {pValueTooltipBody && (
                                 <p className="mt-4 mb-0">
                                   These confidence intervals are not adjusted
-                                  for multiple comparisons. The adjustments
-                                  GrowthBook implements only have associated
-                                  p-values and do not have direct translations
-                                  to confidence intervals. Therefore these
-                                  confidence intervals are not adjusted for
-                                  multiple comparisons.
+                                  for multiple comparisons as the multiple
+                                  comparisons adjustments GrowthBook implements
+                                  only have associated adjusted p-values, not
+                                  confidence intervals.
                                 </p>
                               )}
                             </>

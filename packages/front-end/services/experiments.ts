@@ -393,55 +393,57 @@ export type IndexedPValue = {
 export function adjustPValuesBenjaminiHochberg(
   indexedPValues: IndexedPValue[]
 ): IndexedPValue[] {
-  const m = indexedPValues.length;
-  indexedPValues.sort((a, b) => {
+  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
+  const m = newIndexedPValues.length;
+
+  newIndexedPValues.sort((a, b) => {
     return b.pValue - a.pValue;
   });
-  indexedPValues.forEach((p, i) => {
-    indexedPValues[i].pValue = Math.min((p.pValue * m) / (m - i), 1);
+  newIndexedPValues.forEach((p, i) => {
+    newIndexedPValues[i].pValue = Math.min((p.pValue * m) / (m - i), 1);
   });
 
-  let tempval = indexedPValues[0].pValue;
+  let tempval = newIndexedPValues[0].pValue;
   for (let i = 1; i < m; i++) {
-    if (indexedPValues[i].pValue < tempval) {
-      tempval = indexedPValues[i].pValue;
+    if (newIndexedPValues[i].pValue < tempval) {
+      tempval = newIndexedPValues[i].pValue;
     } else {
-      indexedPValues[i].pValue = tempval;
+      newIndexedPValues[i].pValue = tempval;
     }
   }
-  return indexedPValues;
+  return newIndexedPValues;
 }
 
 export function adjustPValuesHolmBonferroni(
   indexedPValues: IndexedPValue[]
 ): IndexedPValue[] {
-  const m = indexedPValues.length;
-  indexedPValues.sort((a, b) => {
+  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
+  const m = newIndexedPValues.length;
+  newIndexedPValues.sort((a, b) => {
     return a.pValue - b.pValue;
   });
-  indexedPValues.forEach((p, i) => {
-    indexedPValues[i].pValue = Math.min(p.pValue * (m - i), 1);
+  newIndexedPValues.forEach((p, i) => {
+    newIndexedPValues[i].pValue = Math.min(p.pValue * (m - i), 1);
   });
-  console.log(indexedPValues);
 
-  let tempval = indexedPValues[0].pValue;
+  let tempval = newIndexedPValues[0].pValue;
   for (let i = 1; i < m; i++) {
-    if (indexedPValues[i].pValue > tempval) {
-      tempval = indexedPValues[i].pValue;
+    if (newIndexedPValues[i].pValue > tempval) {
+      tempval = newIndexedPValues[i].pValue;
     } else {
-      indexedPValues[i].pValue = tempval;
+      newIndexedPValues[i].pValue = tempval;
     }
   }
-  return indexedPValues;
+  return newIndexedPValues;
 }
 
-export function setAdjustedPValues(
+export function setAdjustedPValuesOnResults(
   results: ExperimentReportResultDimension[],
   nonGuardrailMetrics: string[],
   adjustment: PValueCorrection
-): ExperimentReportResultDimension[] {
+): void {
   if (!adjustment) {
-    return results;
+    return;
   }
 
   let indexedPValues: IndexedPValue[] = [];
@@ -464,10 +466,11 @@ export function setAdjustedPValues(
     indexedPValues = adjustPValuesHolmBonferroni(indexedPValues);
   }
 
+  // modify results in place
   indexedPValues.forEach((ip) => {
     const ijk = ip.index;
     results[ijk[0]].variations[ijk[1]].metrics[ijk[2]].pValueAdjusted =
       ip.pValue;
   });
-  return results;
+  return;
 }
