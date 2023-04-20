@@ -14,14 +14,21 @@ on:
 jobs:
   ci:
     runs-on: ubuntu-latest
+    needs: [docker]
     steps:
-      - name: Show env variables
-        run: |
-          echo Downloading latest Docker Image
-          docker pull growthbook/growthbook:latest
-          echo run the container and get a shell
-          docker run growthbook/growthbook:latest -d -i -t /bin/sh
-          echo docker exec
-          docker exec -d growthbook/growthbook:latest cd packages/front-end/.next/static/chunks
-          echo ls
-          ls
+      # - run: 'echo "No changes, skipping"'
+      - name: Copy static files from Docker Container
+          run: docker pull growthbook/growthbook
+      - name: Start the container with the name 'gb'
+          run:
+            docker run --name gb growthbook/growthbook
+      - name: Get the container id
+          run: docker ps -aqf "name=gb"
+          register: CONTAINER_ID
+      - name : Echo CONTAINER_ID
+          run: echo ${{ CONTAINER_ID }}
+      - name: Create a tmp folder
+          run: mkdir tmp && cd tmp && pwd
+          register: TEMP_PATH
+      - name : Echo TEMP_PATH
+          run: echo ${{ TEMP_PATH }}
