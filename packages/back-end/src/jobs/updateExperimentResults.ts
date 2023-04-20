@@ -25,7 +25,7 @@ import { analyzeExperimentResults } from "../services/stats";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
 import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
-import { childLogger } from "../util/logger";
+import { logger } from "../util/logger";
 import {
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
@@ -116,11 +116,6 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   const orgId = job.attrs.data?.organization;
   if (!experimentId || !orgId) return;
 
-  const log = childLogger({
-    cron: "updateSingleExperiment",
-    experimentId,
-  });
-
   const experiment = await getExperimentById(orgId, experimentId);
   if (!experiment) return;
 
@@ -139,7 +134,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     : false;
 
   try {
-    log.info("Start Refreshing Results");
+    logger.info("Start Refreshing Results for expeirment " + experimentId);
     const datasource = await getDataSourceById(
       experiment.datasource || "",
       experiment.organization
@@ -230,13 +225,11 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       setTimeout(check, 2000);
     });
 
-    log.info("Success");
-
     if (lastSnapshot) {
       await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
     }
   } catch (e) {
-    log.error("Failure - " + e.message);
+    logger.error(e, "Failed to update experiment: " + experimentId);
     // If we failed to update the experiment, turn off auto-updating for the future
     try {
       await updateExperiment({
@@ -249,7 +242,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       });
       // TODO: email user and let them know it failed
     } catch (e) {
-      log.error("Failed to turn off autoSnapshots - " + e.message);
+      logger.error(e, "Failed to turn off autoSnapshots: " + experimentId);
     }
   }
 }
@@ -259,11 +252,6 @@ async function sendSignificanceEmail(
   lastSnapshot: ExperimentSnapshotInterface,
   currentSnapshot: ExperimentSnapshotInterface
 ) {
-  const log = childLogger({
-    cron: "sendSignificanceEmail",
-    experimentId: experiment.id,
-  });
-
   // If email is not configured, there's nothing else to do
   if (!isEmailEnabled()) {
     return;
@@ -331,11 +319,6 @@ async function sendSignificanceEmail(
 
     if (experimentChanges.length) {
       // send an email to any subscribers on this test:
-      log.info(
-        "Significant change - detected " +
-          experimentChanges.length +
-          " significant changes"
-      );
       const watchers = await getExperimentWatchers(
         experiment.id,
         experiment.organization
@@ -350,6 +333,6 @@ async function sendSignificanceEmail(
       );
     }
   } catch (e) {
-    log.error(e.message);
+    logger.error(e, "Failed to send significance email");
   }
 }
