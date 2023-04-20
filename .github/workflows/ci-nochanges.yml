@@ -17,8 +17,8 @@ jobs:
     # needs: [docker]
     steps:
       # - run: 'echo "No changes, skipping"'
-      - name: "Testing"
-        run: 'echo "Testing"'
+      - name: Copy static files from Docker Container
+        run: docker pull growthbook/growthbook
       # - name: Copy static files from Docker Container
       #   run: docker pull growthbook/growthbook
       # - name: Start the container with the name 'gb'
