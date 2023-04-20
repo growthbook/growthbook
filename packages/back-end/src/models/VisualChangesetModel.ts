@@ -86,6 +86,8 @@ const visualChangesetSchema = new mongoose.Schema({
             },
             attribute: { type: String, required: true },
             value: String,
+            parentSelector: String,
+            insertBeforeSelector: String,
           },
         ],
       },
