@@ -9,6 +9,7 @@ import {
   IndexedPValue,
   adjustPValuesBenjaminiHochberg,
   adjustPValuesHolmBonferroni,
+  setAdjustedPValuesOnResults,
 } from "../services/experiments";
 
 describe("variation weighting functions", () => {
@@ -142,6 +143,104 @@ describe("pvalue correction method", () => {
       mockIndexedPvalue([0.03, 0.05, 0.12, 0.12, 1, 1], [3, 0, 2, 1, 4, 5])
     );
   });
+  it("does BH procedure correctly", () => {
+    expect(
+      adjustPValuesBenjaminiHochberg(
+        mockIndexedPvalue([0.898, 0.138, 0.007, 0.964, 0.538, 0.006, 0.138])
+      ).map((x) => {
+        return { pValue: +x.pValue.toFixed(8), index: x.index };
+      })
+    ).toEqual(
+      mockIndexedPvalue(
+        [0.964, 0.964, 0.7532, 0.2415, 0.2415, 0.0245, 0.0245],
+        [3, 0, 4, 1, 6, 2, 5]
+      )
+    );
+  });
+});
+
+describe("results edited in place", () => {
+  it("pvals adjusted in place", () => {
+    const results = [
+      {
+        name: "res1",
+        srm: 0.5,
+        variations: [
+          {
+            users: 100,
+            metrics: {
+              met1: { value: 0, cr: 0, users: 0, pValue: 0.025 },
+              met2: { value: 0, cr: 0, users: 0, pValue: 0.03 },
+            },
+          },
+        ],
+      },
+    ];
+    const expectedResultsHB = [
+      {
+        name: "res1",
+        srm: 0.5,
+        variations: [
+          {
+            users: 100,
+            metrics: {
+              met1: {
+                value: 0,
+                cr: 0,
+                users: 0,
+                pValue: 0.025,
+                pValueAdjusted: 0.05,
+              },
+              met2: {
+                value: 0,
+                cr: 0,
+                users: 0,
+                pValue: 0.03,
+                pValueAdjusted: 0.05,
+              },
+            },
+          },
+        ],
+      },
+    ];
+    const expectedResultsBH = [
+      {
+        name: "res1",
+        srm: 0.5,
+        variations: [
+          {
+            users: 100,
+            metrics: {
+              met1: {
+                value: 0,
+                cr: 0,
+                users: 0,
+                pValue: 0.025,
+                pValueAdjusted: 0.03,
+              },
+              met2: {
+                value: 0,
+                cr: 0,
+                users: 0,
+                pValue: 0.03,
+                pValueAdjusted: 0.03,
+              },
+            },
+          },
+        ],
+      },
+    ];
+
+    setAdjustedPValuesOnResults(results, ["met1", "met2"], "holm-bonferroni");
+    expect(results).toEqual(expectedResultsHB);
+    setAdjustedPValuesOnResults(
+      results,
+      ["met1", "met2"],
+      "benjamini-hochberg"
+    );
+    expect(results).toEqual(expectedResultsBH);
+  });
+
   it("does BH procedure correctly", () => {
     expect(
       adjustPValuesBenjaminiHochberg(
