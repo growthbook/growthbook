@@ -23,12 +23,12 @@ jobs:
       - name: Start the container with the name 'gb'
         run: docker run --name gb --entrypoint /bin/bash growthbook/growthbook
 
-      - name: Get the container id
-        run: docker ps -aqf "name=gb"
-        register: CONTAINER_ID
+      # - name: Get the container id
+      #   run: docker ps -aqf "name=gb"
+      #   register: CONTAINER_ID
 
-      - name: Echo CONTAINER_ID
-        run: echo ${{ CONTAINER_ID }}
+      # - name: Echo CONTAINER_ID
+      #   run: echo ${{ CONTAINER_ID }}
 
       # - name: Copy static files from Docker Container
       #   run: docker pull growthbook/growthbook
