@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import genDefaultResolver from "./resolvers/genDefaultResolver";
 import genMetricOverrideResolver from "./resolvers/genMetricOverrideResolver";
 import genDefaultSettings from "./resolvers/genDefaultSettings";
@@ -129,16 +130,18 @@ export const useScopedSettings = (
   baseSettings: InputSettings,
   scopes?: ScopeDefinition
 ): UseScopedSettingsReturn => {
-  const settings = normalizeInputSettings(baseSettings);
+  return useMemo(() => {
+    const settings = normalizeInputSettings(baseSettings);
 
-  if (
-    scopes?.metric &&
-    scopes.metric.denominator &&
-    !scopes.denominatorMetric
-  ) {
-    // eslint-disable-next-line no-console
-    console.warn('Scope "metric" requires "denominatorMetric"');
-  }
+    if (
+      scopes?.metric &&
+      scopes.metric.denominator &&
+      !scopes.denominatorMetric
+    ) {
+      // eslint-disable-next-line no-console
+      console.warn('Scope "metric" requires "denominatorMetric"');
+    }
 
-  return scopeSettings(settings, scopes);
+    return scopeSettings(settings, scopes);
+  }, [baseSettings, scopes]);
 };

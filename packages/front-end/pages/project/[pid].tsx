@@ -191,11 +191,7 @@ const ProjectPage: FC = () => {
               <h4>Experiment Settings</h4>
             </div>
             <div className="col-sm-9">
-              <StatsEngineSelect
-                form={form}
-                parentSettings={parentSettings}
-                scopeId="project"
-              />
+              <StatsEngineSelect form={form} parentSettings={parentSettings} />
             </div>
           </div>
         </div>
