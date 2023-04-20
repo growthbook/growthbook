@@ -75,19 +75,14 @@ jobs:
       - name: Get the container id
         run: echo "CONTAINER_ID=$(docker ps -aqf "name=gb")" >> $GITHUB_ENV
 
-      - name: Echo CONTAINER_ID
-        run: echo $CONTAINER_ID
-
       - name: Create a tmp folder
         run: echo "TEMP_PATH=$(mkdir tmp && cd tmp && pwd)" >> $GITHUB_ENV
-
-      - name: Echo TEMP_PATH
-        run: echo $TEMP_PATH
 
       - name: Copy the static chunks to the temp folder
         run: docker cp $CONTAINER_ID:/usr/local/src/app/packages/front-end/.next/static/chunks $TEMP_PATH
 
       - name: Upload content of tmp folder to S3 bucket
         run: aws s3 cp $TEMP_PATH s3://${{ secrets.S3_STATIC_FILES }} --recursive
+
       - name: Deploy docker image to ECS for GrowthBook Cloud API
         run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1
