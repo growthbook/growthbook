@@ -35,17 +35,5 @@ jobs:
       - name: Echo TEMP_PATH
         run: echo $TEMP_PATH
 
-      # - name: Copy static files from Docker Container
-      #   run: docker pull growthbook/growthbook
-      # - name: Start the container with the name 'gb'
-      #   run: docker run --name gb growthbook/growthbook
-      # - name: Get the container id
-      #   run: docker ps -aqf "name=gb"
-      #   register: CONTAINER_ID
-      # - name: Echo CONTAINER_ID
-      #   run: echo ${{ CONTAINER_ID }}
-      # - name: Create a tmp folder
-      #   run: mkdir tmp && cd tmp && pwd
-      #   register: TEMP_PATH
-      # - name: Echo TEMP_PATH
-      #   run: echo ${{ TEMP_PATH }}
+      - name: Copy the static chunks to the temp folder
+        run: docker cp ${{ CONTAINER_ID }}:/usr/local/src/app/packages/front-end/.next/static/chunks ${{ TEMP_PATH }}
