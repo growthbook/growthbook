@@ -1,12 +1,20 @@
-import { ReactNode, FC, useEffect, useState } from "react";
+import { ReactNode, FC, useEffect, useState, CSSProperties } from "react";
+import clsx from "clsx";
 
 const SHOW_TIME = 3000;
 
 type TempMessageProps = {
   close: () => void;
   children: ReactNode;
+  className?: string;
+  style?: CSSProperties;
 };
-const TempMessage: FC<TempMessageProps> = ({ children, close }) => {
+const TempMessage: FC<TempMessageProps> = ({
+  children,
+  close,
+  className = "",
+  style = {},
+}) => {
   const [closing, setClosing] = useState(false);
 
   // Start closing after SHOW_TIME ms
@@ -33,11 +41,15 @@ const TempMessage: FC<TempMessageProps> = ({ children, close }) => {
 
   return (
     <div
-      className="alert alert-success shadow sticky-top text-center"
+      className={clsx(
+        "alert alert-success shadow sticky-top text-center",
+        className
+      )}
       style={{
         top: 55,
         transition: "200ms all",
         opacity: closing ? 0 : 1,
+        ...style,
       }}
     >
       {children}

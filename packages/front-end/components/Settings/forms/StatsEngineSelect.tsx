@@ -1,16 +1,18 @@
 import React from "react";
 import { UseFormReturn } from "react-hook-form";
+import { StatsEngine } from "back-end/types/stats";
 import SelectField from "@/components/Forms/SelectField";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { ScopedSettings } from "@/services/settings/types";
+
+type FormReturn = UseFormReturn<{ statsEngine?: StatsEngine }>;
 
 export default function StatsEngineSelect({
   form,
   parentSettings,
   showDefault = true,
 }: {
-  // eslint-disable-next-line
-  form: UseFormReturn<any>;
+  form: FormReturn;
   parentSettings?: ScopedSettings;
   showDefault?: boolean;
 }) {
@@ -40,7 +42,9 @@ export default function StatsEngineSelect({
       sort={false}
       options={options}
       value={form.watch("statsEngine") ?? ""}
-      onChange={(v) => form.setValue("statsEngine", v ?? undefined)}
+      onChange={(v) =>
+        form.setValue("statsEngine", (v as StatsEngine) ?? undefined)
+      }
       helpText={
         showDefault &&
         parentSettings.statsEngine.value && (

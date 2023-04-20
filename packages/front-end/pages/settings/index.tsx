@@ -300,15 +300,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       )}
 
       <div className="container-fluid pagecontents">
-        {saveMsg && (
-          <TempMessage
-            close={() => {
-              setSaveMsg(false);
-            }}
-          >
-            Settings saved
-          </TempMessage>
-        )}
         {editOpen && (
           <EditOrganizationModal
             name={organization.name}
@@ -1048,20 +1039,34 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
       <div
         className="bg-main-color position-sticky w-100 py-3 border-top"
-        style={{ bottom: 0 }}
+        style={{ bottom: 0, height: 70 }}
       >
-        <div className="container-fluid pagecontents d-flex flex-row-reverse">
-          <Button
-            style={{ marginRight: "4rem" }}
-            color={"primary"}
-            disabled={!ctaEnabled}
-            onClick={async () => {
-              if (!ctaEnabled) return;
-              await saveSettings();
-            }}
-          >
-            Save
-          </Button>
+        <div className="container-fluid pagecontents d-flex">
+          <div className="flex-grow-1 mr-4">
+            {saveMsg && (
+              <TempMessage
+                className="mb-0 py-2"
+                close={() => {
+                  setSaveMsg(false);
+                }}
+              >
+                Settings saved
+              </TempMessage>
+            )}
+          </div>
+          <div>
+            <Button
+              style={{ marginRight: "4rem" }}
+              color={"primary"}
+              disabled={!ctaEnabled}
+              onClick={async () => {
+                if (!ctaEnabled) return;
+                await saveSettings();
+              }}
+            >
+              Save
+            </Button>
+          </div>
         </div>
       </div>
     </>

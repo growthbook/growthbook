@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useMemo, useState } from "react";
+import React, { FC, useEffect, useState } from "react";
 import router from "next/router";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -27,11 +27,11 @@ function hasChanges(value: ProjectSettings, existing: ProjectSettings) {
 const ProjectPage: FC = () => {
   const { refreshOrganization } = useUser();
   const { getProjectById, mutateDefinitions, ready, error } = useDefinitions();
+
   const { pid } = router.query as { pid: string };
   const p = getProjectById(pid);
-  const settings = useMemo(() => p?.settings || {}, [p]);
+  const settings = p?.settings;
 
-  // todo: use scope function to get defaults
   const orgSettings = useOrgSettings();
   const { settings: parentSettings } = useScopedSettings(orgSettings);
 
@@ -48,16 +48,12 @@ const ProjectPage: FC = () => {
   // todo: should this also be project scoped?
   const canManageTeam = permissions.check("manageTeam");
 
-  const form = useForm<ProjectSettings>({
-    defaultValues: {
-      statsEngine: settings.statsEngine,
-    },
-  });
+  const form = useForm<ProjectSettings>();
 
   useEffect(() => {
     if (settings) {
       const newVal = { ...form.getValues() };
-      Object.keys(newVal).forEach((k) => {
+      Object.keys(settings).forEach((k) => {
         newVal[k] = settings?.[k] || newVal[k];
       });
       form.reset(newVal);
@@ -172,15 +168,6 @@ const ProjectPage: FC = () => {
         </div>
 
         <h2 className="mt-4 mb-4">Project Settings</h2>
-        {saveMsg && (
-          <TempMessage
-            close={() => {
-              setSaveMsg(false);
-            }}
-          >
-            Settings saved
-          </TempMessage>
-        )}
         {/*<div className="text-muted mb-4">*/}
         {/*  Override organization-wide settings for this project. Leave fields*/}
         {/*  blank to use the organization default.*/}
@@ -198,21 +185,35 @@ const ProjectPage: FC = () => {
       </div>
 
       <div
-        className="bg-main-color position-sticky w-100 py-3 border-top"
-        style={{ bottom: 0 }}
+        className="bg-main-color position-sticky w-100 py-3"
+        style={{ bottom: 0, height: 70 }}
       >
-        <div className="container-fluid pagecontents d-flex flex-row-reverse">
-          <Button
-            style={{ marginRight: "4rem" }}
-            color={"primary"}
-            disabled={!ctaEnabled}
-            onClick={async () => {
-              if (!ctaEnabled) return;
-              await saveSettings();
-            }}
-          >
-            Save
-          </Button>
+        <div className="container-fluid pagecontents d-flex">
+          <div className="flex-grow-1 mr-4">
+            {saveMsg && (
+              <TempMessage
+                className="mb-0 py-2"
+                close={() => {
+                  setSaveMsg(false);
+                }}
+              >
+                Settings saved
+              </TempMessage>
+            )}
+          </div>
+          <div>
+            <Button
+              style={{ marginRight: "4rem" }}
+              color={"primary"}
+              disabled={!ctaEnabled}
+              onClick={async () => {
+                if (!ctaEnabled) return;
+                await saveSettings();
+              }}
+            >
+              Save
+            </Button>
+          </div>
         </div>
       </div>
     </>
