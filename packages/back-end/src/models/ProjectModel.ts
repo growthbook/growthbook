@@ -121,5 +121,8 @@ export function toProjectApiInterface(project: ProjectInterface): ApiProject {
     description: project.description || "",
     dateCreated: project.dateCreated.toISOString(),
     dateUpdated: project.dateUpdated.toISOString(),
+    settings: {
+      statsEngine: project.settings?.statsEngine || "bayesian",
+    },
   };
 }
