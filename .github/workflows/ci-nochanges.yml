@@ -29,6 +29,12 @@ jobs:
       - name: Echo CONTAINER_ID
         run: echo $CONTAINER_ID
 
+      - name: Create a tmp folder
+        run: echo "TEMP_PATH=$(mkdir tmp && cd tmp && pwd)" >> $GITHUB_ENV
+
+      - name: Echo TEMP_PATH
+        run: echo $TEMP_PATH
+
       # - name: Copy static files from Docker Container
       #   run: docker pull growthbook/growthbook
       # - name: Start the container with the name 'gb'
