@@ -22,6 +22,11 @@ jobs:
 
       - name: Start the container with the name 'gb'
         run: docker run --name gb --entrypoint /bin/bash growthbook/growthbook
+        env:
+          CONTAINER_ID: docker ps -aqf "name="gb
+
+      - name: Echo CONTAINER_ID
+        run: echo CONTAINER_ID
 
       # - name: Get the container id
       #   run: docker ps -aqf "name=gb"
