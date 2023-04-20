@@ -20,8 +20,11 @@ jobs:
       - name: Copy static files from Docker Container
         run: docker pull growthbook/growthbook
 
+      - name: Echo docker ps
+        run: docker ps
+
       - name: Start the container with the name 'gb'
-        run: docker run -it --name gb --entrypoint /bin/bash growthbook/growthbook
+        run: docker run --name gb --entrypoint /bin/bash growthbook/growthbook
 
       - name: Get the container id
         run: docker ps -aqf "name=gb"
