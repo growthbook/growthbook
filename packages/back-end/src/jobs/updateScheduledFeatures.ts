@@ -6,7 +6,7 @@ import {
 } from "../models/FeatureModel";
 import { getNextScheduledUpdate } from "../services/features";
 import { getOrganizationById } from "../services/organizations";
-import { childLogger } from "../util/logger";
+import { logger } from "../util/logger";
 
 type UpdateSingleFeatureJob = Job<{
   featureId: string;
@@ -66,11 +66,6 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
   const organization = job.attrs.data?.organization;
   if (!featureId) return;
 
-  const log = childLogger({
-    cron: "updateSingleFeature",
-    featureId,
-  });
-
   const org = await getOrganizationById(organization);
   if (!org) return;
 
@@ -88,6 +83,6 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
       nextScheduledUpdate: nextScheduledUpdate,
     });
   } catch (e) {
-    log.error("Failure - " + e.message);
+    logger.error(e, "Failed updating feature " + featureId);
   }
 }
