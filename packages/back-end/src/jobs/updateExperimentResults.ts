@@ -123,9 +123,6 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
   if (!organization) return;
   if (organization?.settings?.updateSchedule?.type === "never") return;
 
-  let lastSnapshot: ExperimentSnapshotInterface | null;
-  let currentSnapshot: ExperimentSnapshotInterface;
-
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
     : false;
@@ -139,8 +136,10 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       experiment.datasource || "",
       experiment.organization
     );
-    if (!datasource) return;
-    lastSnapshot = await getLatestSnapshot(
+    if (!datasource) {
+      throw new Error("Error refreshing experiment, could not find datasource");
+    }
+    const lastSnapshot = await getLatestSnapshot(
       experiment.id,
       experiment.phases.length - 1
     );
@@ -166,7 +165,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     };
 
-    currentSnapshot = await createSnapshot({
+    const currentSnapshot = await createSnapshot({
       experiment,
       organization,
       phaseIndex: experiment.phases.length - 1,
