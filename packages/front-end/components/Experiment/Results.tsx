@@ -6,7 +6,6 @@ import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ago, getValidDate } from "@/services/dates";
 import usePermissions from "@/hooks/usePermissions";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -37,6 +36,7 @@ const Results: FC<{
   statsEngine?: StatsEngine;
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentHasValidMetrics?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
 }> = ({
@@ -50,11 +50,11 @@ const Results: FC<{
   statsEngine,
   regressionAdjustmentAvailable = false,
   regressionAdjustmentEnabled = false,
+  regressionAdjustmentHasValidMetrics = false,
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
 }) => {
   const { getMetricById } = useDefinitions();
-  const settings = useOrgSettings();
 
   const { apiCall } = useAuth();
 
@@ -82,8 +82,7 @@ const Results: FC<{
 
   const hasData =
     snapshot?.results?.[0]?.variations?.length > 0 &&
-    (snapshot.statsEngine || "bayesian") ===
-      (settings.statsEngine || "bayesian");
+    (snapshot.statsEngine || "bayesian") === statsEngine;
 
   const phaseObj = experiment.phases?.[phase];
 
@@ -113,6 +112,9 @@ const Results: FC<{
         statsEngine={statsEngine}
         regressionAdjustmentAvailable={regressionAdjustmentAvailable}
         regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+        regressionAdjustmentHasValidMetrics={
+          regressionAdjustmentHasValidMetrics
+        }
         metricRegressionAdjustmentStatuses={metricRegressionAdjustmentStatuses}
         onRegressionAdjustmentChange={onRegressionAdjustmentChange}
       />
@@ -270,7 +272,7 @@ const Results: FC<{
                       className={`col-12 col-xl-${xlargeCols} col-lg-6`}
                       key={g}
                     >
-                      {settings.statsEngine === "frequentist" ? (
+                      {snapshot.statsEngine === "frequentist" ? (
                         <PValueGuardrailResults
                           data={data}
                           variations={variations}

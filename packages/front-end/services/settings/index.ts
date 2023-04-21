@@ -10,7 +10,7 @@ import {
   SettingsContext,
   ScopeSettingsFn,
   InputSettings,
-  UseScopedSettingsReturn,
+  ScopedSettingsReturn,
 } from "./types";
 import regressionAdjustmentResolver from "./resolvers/regressionAdjustmentEnabledResolver";
 
@@ -137,7 +137,7 @@ const normalizeInputSettings = (
 export const useScopedSettings = (
   baseSettings: InputSettings,
   scopes?: ScopeDefinition
-): UseScopedSettingsReturn => {
+): ScopedSettingsReturn => {
   return useMemo(() => {
     const settings = normalizeInputSettings(baseSettings);
 

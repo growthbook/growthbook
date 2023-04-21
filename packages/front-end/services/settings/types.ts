@@ -2,6 +2,7 @@ import { DataSourceInterface } from "back-end/types/datasource";
 import {
   ExperimentInterface,
   AttributionModel,
+  ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { MetricInterface } from "back-end/types/metric";
 import {
@@ -36,7 +37,7 @@ export type SettingsResolver<T> = (ctx: SettingsContext) => Setting<T>;
 export interface ScopeDefinition {
   project?: ProjectSettings;
   datasource?: DataSourceInterface;
-  experiment?: ExperimentInterface;
+  experiment?: ExperimentInterface | ExperimentInterfaceStringDates;
   metric?: MetricInterface;
   denominatorMetric?: MetricInterface;
   report?: ReportInterface;
@@ -85,7 +86,7 @@ export type ScopedSettings = {
   [K in keyof Settings]: Setting<Settings[K]>;
 };
 
-export interface UseScopedSettingsReturn {
+export interface ScopedSettingsReturn {
   settings: ScopedSettings;
   scopeSettings: ScopeSettingsFn;
 }

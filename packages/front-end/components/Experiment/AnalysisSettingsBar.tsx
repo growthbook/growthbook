@@ -7,7 +7,7 @@ import {
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { StatsEngine } from "back-end/types/stats";
-import { FaInfoCircle } from "react-icons/fa";
+import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import { OrganizationSettings } from "back-end/types/organization";
 import { useAuth } from "@/services/auth";
 import { ago, datetime } from "@/services/dates";
@@ -108,6 +108,7 @@ export default function AnalysisSettingsBar({
   statsEngine,
   regressionAdjustmentAvailable,
   regressionAdjustmentEnabled,
+  regressionAdjustmentHasValidMetrics,
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
 }: {
@@ -119,6 +120,7 @@ export default function AnalysisSettingsBar({
   statsEngine?: StatsEngine;
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentHasValidMetrics?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
 }) {
@@ -133,7 +135,7 @@ export default function AnalysisSettingsBar({
   } = useSnapshot();
 
   const { getDatasourceById } = useDefinitions();
-  const settings = useOrgSettings();
+  const orgSettings = useOrgSettings();
   const datasource = getDatasourceById(experiment.datasource);
 
   const { hasCommercialFeature } = useUser();
@@ -145,8 +147,8 @@ export default function AnalysisSettingsBar({
   const { outdated, reason } = isOutdated(
     experiment,
     snapshot,
-    settings,
-    settings.statsEngine || "bayesian",
+    orgSettings,
+    statsEngine,
     hasRegressionAdjustmentFeature,
     hasSequentialFeature
   );
@@ -227,6 +229,30 @@ export default function AnalysisSettingsBar({
                   style={{ transform: "scale(0.8)" }}
                   disabled={!hasRegressionAdjustmentFeature}
                 />
+                {!regressionAdjustmentHasValidMetrics && (
+                  <Tooltip
+                    popperClassName="text-left"
+                    body={
+                      <>
+                        <p>
+                          This experiment does not have any metrics suitable for
+                          CUPED regression adjustment.
+                        </p>
+                        <p className="mb-0">
+                          Please check your metric defintions, as well as any
+                          experiment-level metric overrides.
+                        </p>
+                      </>
+                    }
+                  >
+                    <div
+                      className="text-warning-orange position-absolute p-1"
+                      style={{ top: -11, right: 2 }}
+                    >
+                      <FaExclamationCircle />
+                    </div>
+                  </Tooltip>
+                )}
               </label>
             </PremiumTooltip>
           )}

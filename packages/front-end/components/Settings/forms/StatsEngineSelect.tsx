@@ -46,7 +46,7 @@ export default function StatsEngineSelect({
       label={label}
       className="w-200px"
       containerClassName="mb-3"
-      labelClassName="font-weight-bold text-muted"
+      labelClassName="font-weight-bold text-muted mr-2"
       sort={false}
       options={options}
       value={form.watch("statsEngine") ?? options[0].value}

@@ -1,10 +1,9 @@
-import { useScopedSettings } from "../../../src/services/settings";
+import { getScopedSettings } from "../../../src/services/settings";
 import {
   OrganizationInterface,
   OrganizationSettings,
 } from "../../../types/organization";
 import { ProjectSettings } from "../../../types/project";
-// import { MetricInterface } from "../../../types/metric";
 import { experiments, metrics } from "./test-objects";
 
 const baseOrganization: OrganizationInterface = {
@@ -27,12 +26,12 @@ const genOrgWithSettings = (settings?: Partial<OrganizationSettings>) => ({
 });
 
 describe("settings", () => {
-  describe("useScopedSettings fn", () => {
+  describe("getScopedSettings fn", () => {
     it("returns org settings if no scopes are applied", () => {
       const settings = { pValueThreshold: 0.001 };
       const organization = genOrgWithSettings(settings);
 
-      const { settings: newSettings } = useScopedSettings(
+      const { settings: newSettings } = getScopedSettings(
         organization.settings
       );
 
@@ -50,7 +49,7 @@ describe("settings", () => {
         pValueThreshold: 0.06,
       };
 
-      const { settings: newSettings } = useScopedSettings(
+      const { settings: newSettings } = getScopedSettings(
         organization.settings,
         {
           project: projectWithPValueOverride,
@@ -70,7 +69,7 @@ describe("settings", () => {
       describe("when the metric has no setting, and the experiment has no overrides", () => {
         it("defaults to the experiment setting", () => {
           // Signups
-          const { settings: metricSettings_signups } = useScopedSettings(
+          const { settings: metricSettings_signups } = getScopedSettings(
             organization.settings,
             {
               metric: metrics.signups,
@@ -92,7 +91,7 @@ describe("settings", () => {
             statsEngine: "frequentist",
           };
           const org = genOrgWithSettings(orgSettings);
-          const { settings: metricSettings_revenue } = useScopedSettings(
+          const { settings: metricSettings_revenue } = getScopedSettings(
             org.settings,
             {
               metric: metrics.revenue2,
@@ -120,7 +119,7 @@ describe("settings", () => {
           expect(metricSettings_revenue.loseRisk.value).toEqual(0.0125);
 
           // Testvar
-          const { settings: metricSettings_testvar } = useScopedSettings(
+          const { settings: metricSettings_testvar } = getScopedSettings(
             organization.settings,
             {
               metric: metrics.testvar,
@@ -149,7 +148,7 @@ describe("settings", () => {
           //   ...metrics.conversions,
           //   type: "count",
           // };
-          const { settings: metricSettings_testvar_2 } = useScopedSettings(
+          const { settings: metricSettings_testvar_2 } = getScopedSettings(
             org.settings,
             {
               metric: metrics.testvar2,
@@ -177,7 +176,7 @@ describe("settings", () => {
         pValueThreshold: 0.05,
       };
       const org1 = genOrgWithSettings(orgSettings1);
-      const { settings: settings_revenue_1 } = useScopedSettings(
+      const { settings: settings_revenue_1 } = getScopedSettings(
         org1.settings,
         {
           metric: metrics.revenue,
@@ -205,7 +204,7 @@ describe("settings", () => {
         statsEngine: "frequentist",
       };
       const org2 = genOrgWithSettings(orgSettings2);
-      const { settings: settings_revenue_2 } = useScopedSettings(
+      const { settings: settings_revenue_2 } = getScopedSettings(
         org2.settings,
         {
           metric: metrics.revenue,

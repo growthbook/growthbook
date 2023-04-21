@@ -284,7 +284,7 @@ export async function getReportStatus(
           variations: report.args.variations,
           dimension: report.args.dimension,
           queryData,
-          statsEngine: report.args.statsEngine || org.settings?.statsEngine,
+          statsEngine: report.args.statsEngine,
           sequentialTestingEnabled:
             report.args.sequentialTestingEnabled ??
             org.settings?.sequentialTestingEnabled,

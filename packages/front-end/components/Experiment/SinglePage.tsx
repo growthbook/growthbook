@@ -16,7 +16,6 @@ import { MetricInterface } from "back-end/types/metric";
 import uniq from "lodash/uniq";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { StatsEngine } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -188,14 +187,15 @@ export default function SinglePage({
   const watcherIds = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
-  const settings = useOrgSettings();
+  const orgSettings = useOrgSettings();
   const { users, hasCommercialFeature } = useUser();
 
   const { data: sdkConnectionsData } = useSDKConnections();
 
   const project = getProjectById(experiment.project || "");
-  const { settings: scopedSettings } = useScopedSettings(settings, {
+  const { settings: scopedSettings } = useScopedSettings(orgSettings, {
     project: project?.settings,
+    experiment: experiment,
   });
 
   const datasource = getDatasourceById(experiment.datasource);
@@ -207,8 +207,7 @@ export default function SinglePage({
     (q) => q.id === experiment.exposureQueryId
   );
 
-  // todo: revise useScopedSettings to make .value type specific
-  const statsEngine = scopedSettings.statsEngine.value as StatsEngine;
+  const statsEngine = scopedSettings.statsEngine.value;
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
@@ -230,10 +229,12 @@ export default function SinglePage({
     regressionAdjustmentAvailable,
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
+    regressionAdjustmentHasValidMetrics,
   ] = useMemo(() => {
     const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
     let regressionAdjustmentAvailable = true;
-    let regressionAdjustmentEnabled = false;
+    let regressionAdjustmentEnabled = true;
+    let regressionAdjustmentHasValidMetrics = false;
     for (const metric of allExperimentMetrics) {
       if (!metric) continue;
       const {
@@ -242,11 +243,12 @@ export default function SinglePage({
         metric: metric,
         denominatorMetrics: denominatorMetrics,
         experimentRegressionAdjustmentEnabled: !!experiment.regressionAdjustmentEnabled,
-        organizationSettings: settings,
+        organizationSettings: orgSettings,
         metricOverrides: experiment.metricOverrides,
       });
       if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
         regressionAdjustmentEnabled = true;
+        regressionAdjustmentHasValidMetrics = true;
       }
       metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
     }
@@ -273,11 +275,12 @@ export default function SinglePage({
       regressionAdjustmentAvailable,
       regressionAdjustmentEnabled,
       metricRegressionAdjustmentStatuses,
+      regressionAdjustmentHasValidMetrics,
     ];
   }, [
     allExperimentMetrics,
     denominatorMetrics,
-    settings,
+    orgSettings,
     statsEngine,
     experiment.regressionAdjustmentEnabled,
     experiment.metricOverrides,
@@ -739,7 +742,7 @@ export default function SinglePage({
                   <FaQuestionCircle />
                 </AttributionModelTooltip>
               </RightRailSectionGroup>
-              {settings.statsEngine === "frequentist" && (
+              {statsEngine === "frequentist" && (
                 <>
                   <RightRailSectionGroup
                     title={
@@ -760,7 +763,7 @@ export default function SinglePage({
                     type="custom"
                   >
                     {experiment.sequentialTestingEnabled ??
-                    !!settings.sequentialTestingEnabled
+                    !!orgSettings.sequentialTestingEnabled
                       ? "Enabled"
                       : "Disabled"}
                   </RightRailSectionGroup>
@@ -1019,6 +1022,9 @@ export default function SinglePage({
                   statsEngine={statsEngine}
                   regressionAdjustmentAvailable={regressionAdjustmentAvailable}
                   regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                  regressionAdjustmentHasValidMetrics={
+                    regressionAdjustmentHasValidMetrics
+                  }
                   metricRegressionAdjustmentStatuses={
                     metricRegressionAdjustmentStatuses
                   }

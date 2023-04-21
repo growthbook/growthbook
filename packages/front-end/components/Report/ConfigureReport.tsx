@@ -102,7 +102,7 @@ export default function ConfigureReport({
       endDate: report.args.endDate
         ? getValidDate(report.args.endDate).toISOString().substr(0, 16)
         : undefined,
-      statsEngine: report.args.statsEngine || parentSettings.statsEngine,
+      statsEngine: report.args.statsEngine || parentSettings.statsEngine.value,
       regressionAdjustmentEnabled:
         hasRegressionAdjustmentFeature &&
         !!report.args.regressionAdjustmentEnabled,

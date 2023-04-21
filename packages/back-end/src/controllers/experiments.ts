@@ -1457,7 +1457,7 @@ export async function getSnapshotStatus(
         variations: getReportVariations(experiment, phase),
         dimension: snapshot.dimension,
         queryData,
-        statsEngine: snapshot.statsEngine ?? org.settings?.statsEngine,
+        statsEngine: snapshot.statsEngine,
         sequentialTestingEnabled:
           snapshot.sequentialTestingEnabled ??
           org.settings?.sequentialTestingEnabled,
@@ -1521,6 +1521,7 @@ export async function postSnapshot(
   req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
+  const orgSettings = org.settings || {};
 
   let { statsEngine, regressionAdjustmentEnabled } = req.body;
   const { metricRegressionAdjustmentStatuses } = req.body;
@@ -1544,15 +1545,16 @@ export async function postSnapshot(
     hasRegressionAdjustmentFeature &&
     (regressionAdjustmentEnabled !== undefined
       ? regressionAdjustmentEnabled
-      : org.settings?.regressionAdjustmentEnabled ?? false);
+      : orgSettings?.regressionAdjustmentEnabled ?? false);
 
   const sequentialTestingEnabled =
     hasSequentialTestingFeature &&
+    statsEngine === "frequentist" &&
     (experiment?.sequentialTestingEnabled ??
-      !!org.settings?.sequentialTestingEnabled);
+      !!orgSettings?.sequentialTestingEnabled);
   const sequentialTestingTuningParameter =
     experiment?.sequentialTestingTuningParameter ??
-    org.settings?.sequentialTestingTuningParameter ??
+    orgSettings?.sequentialTestingTuningParameter ??
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
 
   const useCache = !req.query["force"];

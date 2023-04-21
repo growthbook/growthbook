@@ -31,6 +31,8 @@ import {
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
 import { orgHasPremiumFeature } from "../util/organization.util";
+import { getScopedSettings } from "../services/settings";
+import { findProjectById } from "../models/ProjectModel";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -126,6 +128,16 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
   const organization = await findOrganizationById(experiment.organization);
   if (!organization) return;
+  const orgSettings = organization.settings || {};
+
+  let project = null;
+  if (experiment.project) {
+    project = await findProjectById(experiment.project, organization.id);
+  }
+  const { settings: scopedSettings } = getScopedSettings(orgSettings, {
+    project: project?.settings,
+  });
+
   if (organization?.settings?.updateSchedule?.type === "never") return;
 
   let lastSnapshot: ExperimentSnapshotInterface | null;
@@ -155,14 +167,17 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       metricRegressionAdjustmentStatuses,
     } = await getRegressionAdjustmentInfo(experiment, organization);
 
+    const statsEngine = scopedSettings.statsEngine.value;
+
     const experimentSnapshotSettings: ExperimentSnapshotSettings = {
-      statsEngine: organization.settings?.statsEngine || "bayesian",
+      statsEngine,
       regressionAdjustmentEnabled:
         hasRegressionAdjustmentFeature && regressionAdjustmentEnabled,
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
       sequentialTestingEnabled:
         hasSequentialTestingFeature &&
+        statsEngine === "frequentist" &&
         (experiment?.sequentialTestingEnabled ??
           !!organization.settings?.sequentialTestingEnabled),
       sequentialTestingTuningParameter:
@@ -193,9 +208,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
               organization: experiment.organization,
               variations: getReportVariations(experiment, phase),
               queryData,
-              statsEngine:
-                currentSnapshot.statsEngine ??
-                organization.settings?.statsEngine,
+              statsEngine: currentSnapshot.statsEngine,
               sequentialTestingEnabled:
                 currentSnapshot.sequentialTestingEnabled ??
                 organization.settings?.sequentialTestingEnabled,

@@ -639,9 +639,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   </div>
                   <StatsEngineSelect
                     form={form}
-                    label={
-                      <span className="mr-2">Default Statistics Engine</span>
-                    }
+                    label="Default Statistics Engine"
                     onChange={(value) => {
                       setStatsEngineTab(value);
                     }}
