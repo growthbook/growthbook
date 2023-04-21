@@ -277,7 +277,7 @@ export interface SourceIntegrationInterface {
     databaseName: string,
     tableSchema: string,
     tableName: string
-  ): Promise<{ tableData: null | unknown[]; refreshMS: number }>;
+  ): Promise<{ tableData: null | unknown[] }>;
   getInformationSchema?(): Promise<InformationSchema[]>;
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;

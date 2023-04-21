@@ -4,6 +4,7 @@ import {
   DataSourceSettings,
   DataSourceProperties,
   ExposureQuery,
+  DataSourceType,
 } from "../../types/datasource";
 import {
   MetricValueParams,
@@ -18,6 +19,9 @@ import {
   Dimension,
   TestQueryResult,
   MetricAggregationType,
+  InformationSchema,
+  MissingDatasourceParamsError,
+  RawInformationSchema,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
@@ -35,6 +39,7 @@ import {
 } from "../util/sql";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "../constants/stats";
+import { formatInformationSchema } from "../util/informationSchemas";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -79,7 +84,7 @@ export default abstract class SqlIntegration
       experimentSegments: true,
       activationDimension: true,
       pastExperiments: true,
-      supportsInformationSchema: false,
+      supportsInformationSchema: true,
     };
   }
 
@@ -92,6 +97,9 @@ export default abstract class SqlIntegration
     return "";
   }
   getFormatDialect(): FormatDialect {
+    return "";
+  }
+  getType(): DataSourceType {
     return "";
   }
   toTimestamp(date: Date) {
@@ -1231,6 +1239,173 @@ export default abstract class SqlIntegration
   }
   async getExperimentResults(): Promise<ExperimentQueryResponses> {
     throw new Error("Not implemented");
+  }
+  async getInformationSchema(): Promise<InformationSchema[]> {
+    let sql = "";
+
+    const type = this.getType();
+
+    switch (type) {
+      // TODO: Athena's getFormDialect returns trino, rather than athena, which is an issue
+      case "trino" || "presto":
+        if (!this.params.catalog)
+          throw new MissingDatasourceParamsError(
+            `To view the information schema for an ${type} dataset, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings.`
+          );
+        //TODO: Option 1
+        sql = `SELECT 
+          table_name, 
+          table_catalog,
+          table_schema,
+          count(column_name) as column_count
+        FROM
+          ${this.params.catalog}.information_schema.columns
+          WHERE
+          table_schema
+        NOT IN ('information_schema')
+        GROUP BY (table_name, table_schema, table_catalog)`;
+        break;
+      case "clickhouse" || "mysql":
+        if (!this.params.database)
+          throw new Error(
+            `No database name provided in ${type} connection. Please add a database by editing the connection settings.`
+          );
+        //TODO: Option 2
+        sql = `SELECT
+          table_name as table_name,
+          table_catalog as table_catalog,
+          table_schema as table_schema,
+          count(column_name) as column_count
+        FROM
+          information_schema.columns
+        WHERE
+          table_schema
+        IN ('${this.params.database}')
+        GROUP BY (table_name, table_schema, table_catalog)`;
+        break;
+      case "biqquery":
+        if (!this.params.projectId)
+          throw new Error(
+            "No projectId provided. In order to get the information schema, you must provide a projectId."
+          );
+        if (!this.params.defaultDataset)
+          throw new MissingDatasourceParamsError(
+            "To view the information schema for a BigQuery dataset, you must define a default dataset. Please add a default dataset by editing the datasource's connection settings."
+          );
+        //TODO: Option 3
+        sql = `SELECT
+            table_name,
+            '${this.params.projectId}' as table_catalog,
+            table_schema,
+            COUNT(column_name) as column_count
+          FROM
+            \`${this.params.projectId}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\`
+            GROUP BY table_name, table_schema`;
+        break;
+      case "postgressql" || "redshift":
+        //TODO: Option 4
+        sql = `SELECT
+          table_name,
+          table_catalog,
+          table_schema,
+          count(column_name) as column_count
+        FROM
+          ${
+            type === "postgresql" ? "information_schema.columns" : "SVV_COLUMNS"
+          }
+        WHERE
+          table_schema
+        NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+        GROUP BY (table_name, table_schema, table_catalog)`;
+        break;
+      case "snowflake" || "mssql":
+        if (!this.params.database) {
+          throw new Error(
+            "No database provided. In order to get the information schema, you must provide a database."
+          );
+        }
+        //TODO: Option 4
+        sql = `SELECT
+          table_name,
+          table_catalog,
+          table_schema,
+          count(column_name) as column_count
+        FROM
+            ${this.params.database}.INFORMATION_SCHEMA.COLUMNS
+        WHERE
+            table_schema
+          NOT IN ('INFORMATION_SCHEMA')
+        GROUP BY (table_name, table_schema, table_catalog)`;
+        break;
+    }
+
+    const results = await this.runQuery(sql);
+
+    if (!results.length) {
+      throw new Error(`No tables found.`);
+    }
+
+    return formatInformationSchema(
+      results as RawInformationSchema[],
+      this.getType()
+    ); //TODO: Fix the 2nd arg here
+  }
+  async getTableData(
+    databaseName: string,
+    tableSchema: string,
+    tableName: string
+  ): Promise<{ tableData: null | unknown[] }> {
+    let sql = "";
+
+    switch (this.getType()) {
+      // TODO: Clickhouse doesn't have a getFormDialect() method
+      case "postgresql" || "clickhouse" || "redshift" || "mysql":
+        sql = `SELECT
+        data_type as data_type,
+        column_name as column_name
+        FROM
+          information_schema.columns
+        WHERE
+          table_catalog
+        IN ('${databaseName}')
+        AND
+          table_schema
+        IN ('${tableSchema}')
+        AND
+          table_name
+        IN ('${tableName}')`;
+        break;
+      case "athena" || "mssql" || "presto" || "snowflake":
+        sql = `SELECT
+          data_type,
+          column_name
+        FROM
+          ${databaseName}.INFORMATION_SCHEMA.COLUMNS
+        WHERE
+          table_name
+        IN ('${tableName}')
+        AND
+          table_schema
+        IN ('${tableSchema}')`;
+        break;
+      case "bigquery":
+        sql = `SELECT
+          data_type,
+          column_name
+        FROM
+          \`${databaseName}.${tableSchema}.INFORMATION_SCHEMA.COLUMNS\`
+        WHERE
+          table_name
+        IN ('${tableName}')
+        AND
+          table_schema
+        IN ('${tableSchema}')`;
+        break;
+    }
+
+    const tableData = await this.runQuery(sql);
+
+    return { tableData };
   }
 
   private getMetricQueryFormat(metric: MetricInterface) {

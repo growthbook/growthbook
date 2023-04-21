@@ -1,9 +1,7 @@
 import { ClickHouse as ClickHouseClient } from "clickhouse";
 import { decryptDataSourceParams } from "../services/datasource";
 import { ClickHouseConnectionParams } from "../../types/integrations/clickhouse";
-import { DataSourceProperties } from "../../types/datasource";
-import { InformationSchema, RawInformationSchema } from "../types/Integration";
-import { formatInformationSchema } from "../util/informationSchemas";
+import { DataSourceType } from "../../types/datasource";
 import SqlIntegration from "./SqlIntegration";
 
 export default class ClickHouse extends SqlIntegration {
@@ -24,14 +22,11 @@ export default class ClickHouse extends SqlIntegration {
       delete this.params.host;
     }
   }
-  getSourceProperties(): DataSourceProperties {
-    return {
-      ...super.getSourceProperties(),
-      supportsInformationSchema: true,
-    };
-  }
   getSensitiveParamKeys(): string[] {
     return ["password"];
+  }
+  getType(): DataSourceType {
+    return "clickhouse";
   }
   async runQuery(sql: string) {
     const client = new ClickHouseClient({
@@ -91,62 +86,5 @@ export default class ClickHouse extends SqlIntegration {
   }
   castToString(col: string): string {
     return `toString(${col})`;
-  }
-  async getInformationSchema(): Promise<InformationSchema[]> {
-    const databaseName = this.params.database;
-    if (!databaseName)
-      throw new Error(
-        "No database name provided in ClickHouse connection. Please add a database by editing the connection settings."
-      );
-
-    const sql = `SELECT
-        table_name,
-        table_catalog,
-        table_schema,
-        count(column_name) as column_count
-      FROM
-        information_schema.columns
-      WHERE
-        table_schema
-      IN ('${databaseName}')
-      GROUP BY (table_name, table_schema, table_catalog)`;
-
-    const results = await this.runQuery(sql);
-
-    if (!results.length) {
-      throw new Error(`No tables found.`);
-    }
-
-    return formatInformationSchema(
-      results as RawInformationSchema[],
-      "clickhouse"
-    );
-  }
-
-  async getTableData(
-    databaseName: string,
-    tableSchema: string,
-    tableName: string
-  ): Promise<{ tableData: null | unknown[]; refreshMS: number }> {
-    const sql = `SELECT
-        data_type,
-        column_name
-      FROM
-        information_schema.columns
-      WHERE
-        table_catalog
-      IN ('${databaseName}')
-      AND
-        table_schema
-      IN ('${tableSchema}')
-      AND
-        table_name
-      IN ('${tableName}')`;
-
-    const queryStartTime = Date.now();
-    const tableData = await this.runQuery(sql);
-    const queryEndTime = Date.now();
-
-    return { tableData, refreshMS: queryEndTime - queryStartTime };
   }
 }

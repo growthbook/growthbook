@@ -1,3 +1,4 @@
+import { DataSourceProperties } from "../../types/datasource";
 import { DatabricksConnectionParams } from "../../types/integrations/databricks";
 import { runDatabricksQuery } from "../services/databricks";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -10,6 +11,12 @@ export default class Databricks extends SqlIntegration {
     this.params = decryptDataSourceParams<DatabricksConnectionParams>(
       encryptedParams
     );
+  }
+  getSourceProperties(): DataSourceProperties {
+    return {
+      ...super.getSourceProperties(),
+      supportsInformationSchema: false,
+    };
   }
   getFormatDialect(): FormatDialect {
     // sql-formatter doesn't support databricks explicitly yet, so using their generic formatter instead
