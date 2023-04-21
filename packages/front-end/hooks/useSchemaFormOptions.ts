@@ -11,7 +11,10 @@ export default function useSchemaFormOptions(
 ) {
   const [tableId, setTableId] = useState("");
 
-  const tableOptions: { label: string; value: string }[] = [];
+  const tableOptions: {
+    schemaName: string;
+    options: { label: string; value: string; queryValue: string }[];
+  }[] = [];
   const supportsInformationSchema =
     datasource?.properties?.supportsInformationSchema;
 
@@ -26,14 +29,23 @@ export default function useSchemaFormOptions(
   if (data?.informationSchema?.databases.length) {
     data.informationSchema.databases.forEach((database) => {
       database?.schemas?.forEach((schema) => {
+        const option = { schemaName: schema.schemaName, options: [] };
         schema?.tables?.forEach((table) => {
-          tableOptions.push({ label: table.tableName, value: table.id });
+          option.options.push({
+            label: table.tableName,
+            value: table.id,
+            queryValue: table.path,
+          });
         });
+        tableOptions.push(option);
       });
     });
   }
 
-  const columnOptions: { label: string; value: string }[] = [];
+  const columnOptions: {
+    schemaName: string;
+    options: { label: string; value: string; queryValue: string }[];
+  }[] = [];
 
   const { data: columnData } = useApi<{
     table: InformationSchemaTablesInterface;
@@ -44,12 +56,15 @@ export default function useSchemaFormOptions(
   );
 
   if (columnData?.table?.columns.length) {
+    const option = { schemaName: columnData.table.tableSchema, options: [] };
     columnData.table.columns.forEach((column) => {
-      columnOptions.push({
+      option.options.push({
         label: column.columnName,
         value: column.columnName,
+        queryValue: column.columnName,
       });
     });
+    columnOptions.push(option);
   }
 
   return {

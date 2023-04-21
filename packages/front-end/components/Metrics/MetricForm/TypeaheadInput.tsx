@@ -2,12 +2,21 @@ import { useMemo, useRef, useState } from "react";
 import CreatableSelect from "react-select/creatable";
 import Field from "@/components/Forms/Field";
 
+type Option = {
+  schemaName: string;
+  options: {
+    label: string;
+    value: string;
+    queryValue: string;
+  }[];
+};
+
 type Props = {
   currentValue: string;
   onChange: (label: string, value?: string) => void;
   placeholder?: string;
   label?: string;
-  options: { label: string; value: string }[];
+  groupedOptions: Option[];
   helpText?: string;
   required?: boolean;
 };
@@ -17,7 +26,7 @@ export default function TypeaheadInput({
   onChange,
   label,
   placeholder,
-  options,
+  groupedOptions,
   helpText,
   required,
 }: Props) {
@@ -25,80 +34,109 @@ export default function TypeaheadInput({
 
   const inputRef = useRef(null);
 
+  const formatGroupLabel = (data: Option) => {
+    return (
+      <div>
+        <span>{data.schemaName}</span>
+      </div>
+    );
+  };
+
+  const getCurrentItem = (inputValue: string) => {
+    const value = {
+      label: inputValue,
+      value: "",
+      queryValue: inputValue,
+    };
+
+    for (const option of groupedOptions) {
+      option.options.forEach((item) => {
+        if (item.queryValue === inputValue) {
+          value.label = item.label;
+          value.value = item.value;
+          value.queryValue = item.queryValue;
+        }
+      });
+    }
+
+    return value;
+  };
+
   const currentOption = useMemo(() => {
     if (!currentValue) return undefined;
 
-    return (
-      options.find((item) => item.label === currentValue) || {
-        label: currentValue,
-        value: "",
-      }
-    );
-  }, [currentValue, options]);
+    const value = {
+      label: currentValue,
+      value: "",
+      queryValue: currentValue,
+    };
+
+    for (const option of groupedOptions) {
+      option.options.forEach((item) => {
+        if (item.queryValue === currentValue) {
+          value.label = item.label;
+          value.value = item.value;
+          value.queryValue = item.queryValue;
+        }
+      });
+    }
+
+    return value;
+  }, [currentValue, groupedOptions]);
 
   return (
     <>
-      {options.length > 0 ? (
+      {groupedOptions.length > 0 ? (
         <Field
+          helpText={helpText}
           label={label}
           render={() => {
             return (
-              <>
-                {label && <label>{label}</label>}
-                <CreatableSelect
-                  ref={inputRef}
-                  isClearable
-                  placeholder={placeholder}
-                  inputValue={inputValue}
-                  options={options || []}
-                  onChange={(val: { label: string; value: string }) => {
-                    if (!val) {
-                      onChange("", "");
-                    } else {
-                      onChange(val.label, val.value);
-                    }
-                  }}
-                  onBlur={() => {
-                    if (!inputValue) return;
-                    const currentItem = options.find(
-                      (item) => item.label === inputValue
-                    ) || {
-                      label: inputValue,
-                      value: "",
-                    };
-                    onChange(currentItem.label, currentItem.value);
-                  }}
-                  onInputChange={(val) => {
-                    setInputValue(val);
-                  }}
-                  onKeyDown={(event) => {
-                    if (!inputValue) return;
-                    const currentItem = options.find(
-                      (item) => item.label === inputValue
-                    ) || {
-                      label: inputValue,
-                      value: "",
-                    };
-                    switch (event.key) {
-                      case "Enter":
-                      case "Tab":
-                        onChange(currentItem.label, currentItem.value);
-                        setInputValue("");
-                        inputRef.current.blur();
-                    }
-                  }}
-                  onCreateOption={(val) => {
-                    onChange(val, "");
-                  }}
-                  noOptionsMessage={() => null}
-                  isValidNewOption={() => false}
-                  value={currentOption}
-                  menuPosition={"fixed"}
-                />
-                {helpText && (
-                  <small className="form-text text-muted">{helpText}</small>
-                )}
-              </>
+              <CreatableSelect
+                ref={inputRef}
+                isClearable
+                placeholder={placeholder}
+                inputValue={inputValue}
+                options={groupedOptions || []}
+                onChange={(val: {
+                  label: string;
+                  value: string;
+                  queryValue: string;
+                }) => {
+                  if (!val) {
+                    onChange("", "");
+                  } else {
+                    onChange(val.queryValue, val.value);
+                  }
+                }}
+                onBlur={() => {
+                  if (!inputValue) return;
+                  const currentItem = getCurrentItem(inputValue);
+                  onChange(currentItem.label, currentItem.value);
+                }}
+                onInputChange={(val) => {
+                  setInputValue(val);
+                }}
+                onKeyDown={(event) => {
+                  if (!inputValue) return;
+                  const currentItem = getCurrentItem(inputValue);
+                  switch (event.key) {
+                    case "Enter":
+                    case "Tab":
+                      onChange(currentItem.queryValue, currentItem.value);
+                      setInputValue("");
+                      inputRef.current.blur();
+                  }
+                }}
+                onCreateOption={(val) => {
+                  onChange(val, "");
+                }}
+                noOptionsMessage={() => null}
+                isValidNewOption={() => false}
+                value={currentOption}
+                menuPosition={"fixed"}
+                formatGroupLabel={formatGroupLabel}
+              />
             );
           }}
         />

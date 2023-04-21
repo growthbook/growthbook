@@ -684,7 +684,7 @@ const MetricForm: FC<MetricFormProps> = ({
                         form.setValue("table", tableName);
                         setTableId(id);
                       }}
-                      options={tableOptions}
+                      groupedOptions={tableOptions}
                       required
                     />
                   </div>
@@ -693,7 +693,7 @@ const MetricForm: FC<MetricFormProps> = ({
                       <TypeaheadInput
                         placeholder={column}
                         label={supportsSQL ? "Column" : "Event Value"}
-                        options={columnOptions}
+                        groupedOptions={columnOptions}
                         currentValue={form.watch("column")}
                         onChange={(columnName) =>
                           form.setValue("column", columnName)
@@ -730,7 +730,7 @@ const MetricForm: FC<MetricFormProps> = ({
                           <div className="col-auto mb-1">
                             <TypeaheadInput
                               placeholder={column}
-                              options={columnOptions}
+                              groupedOptions={columnOptions}
                               currentValue={form.watch(
                                 `conditions.${i}.column`
                               )}
@@ -828,7 +828,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     <div className="form-group ">
                       <TypeaheadInput
                         label="Timestamp Column"
-                        options={columnOptions}
+                        groupedOptions={columnOptions}
                         currentValue={form.watch("timestampColumn")}
                         onChange={(columnName) =>
                           form.setValue("timestampColumn", columnName)
@@ -858,7 +858,7 @@ const MetricForm: FC<MetricFormProps> = ({
                         <div key={type}>
                           <TypeaheadInput
                             label={type + " Column"}
-                            options={columnOptions}
+                            groupedOptions={columnOptions}
                             currentValue={value.userIdColumns[type] || ""}
                             placeholder={type}
                             onChange={(columnName) => {
