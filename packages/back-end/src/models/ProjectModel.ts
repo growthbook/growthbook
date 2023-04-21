@@ -24,7 +24,9 @@ type ProjectDocument = mongoose.Document & ProjectInterface;
 const ProjectModel = mongoose.model<ProjectDocument>("Project", projectSchema);
 
 function toInterface(doc: ProjectDocument): ProjectInterface {
-  return doc.toJSON();
+  const ret = doc.toJSON();
+  ret.settings = ret.settings || {};
+  return ret;
 }
 
 export async function createProject(
@@ -76,13 +78,13 @@ export async function updateProject(
 export async function updateProjectSettings(
   id: string,
   organization: string,
-  settings: Partial<ProjectSettings>,
+  settings: Partial<ProjectSettings>
 ) {
   const update = {
     $set: {
       dateUpdated: new Date(),
       settings,
-    }
+    },
   };
   await ProjectModel.updateOne(
     {

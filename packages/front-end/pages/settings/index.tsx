@@ -35,6 +35,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "@/constants/stats";
+import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -636,28 +637,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       </div>
                     )}
                   </div>
-                  <div className="form-group">
-                    <div className="form-group mb-2 mr-2">
-                      <Field
-                        label="Default Statistics Engine"
-                        className="ml-2"
-                        options={[
-                          {
-                            display: "Bayesian",
-                            value: "bayesian",
-                          },
-                          {
-                            display: "Frequentist",
-                            value: "frequentist",
-                          },
-                        ]}
-                        {...form.register("statsEngine", {
-                          onChange: () =>
-                            setStatsEngineTab(form.watch("statsEngine")),
-                        })}
-                      />
-                    </div>
-                  </div>
+                  <StatsEngineSelect
+                    form={form}
+                    label={
+                      <span className="mr-2">Default Statistics Engine</span>
+                    }
+                    onChange={(value) => {
+                      setStatsEngineTab(value);
+                    }}
+                  />
                 </div>
 
                 <h4>Stats Engine Settings</h4>

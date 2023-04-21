@@ -1,22 +1,27 @@
-import React from "react";
+import { ReactNode } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { StatsEngine } from "back-end/types/stats";
 import SelectField from "@/components/Forms/SelectField";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { ScopedSettings } from "@/services/settings/types";
 
-type FormReturn = UseFormReturn<{ statsEngine?: StatsEngine }>;
-
 export default function StatsEngineSelect({
   form,
   parentSettings,
   showDefault = true,
+  allowUndefined = true,
+  label = "Statistics Engine",
+  onChange,
 }: {
-  form: FormReturn;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  form: UseFormReturn<any>;
   parentSettings?: ScopedSettings;
   showDefault?: boolean;
+  allowUndefined?: boolean;
+  label?: ReactNode;
+  onChange?: (v: StatsEngine) => void;
 }) {
-  const parentScopeId = parentSettings.statsEngine.meta.scopeApplied;
+  const parentScopeId = parentSettings?.statsEngine?.meta?.scopeApplied;
   const options = [
     {
       label: "Bayesian",
@@ -27,30 +32,34 @@ export default function StatsEngineSelect({
       value: "frequentist",
     },
   ];
-  if (parentScopeId) {
+  if (allowUndefined) {
     options.unshift({
-      label: `${capitalizeFirstLetter(parentScopeId)} default`,
+      label: parentScopeId
+        ? capitalizeFirstLetter(parentScopeId) + " default"
+        : "Default",
       value: "",
     });
   }
 
   return (
     <SelectField
-      label="Statistics Engine"
-      containerClassName="mb-3"
+      label={label}
       className="w-200px"
+      containerClassName="mb-3"
+      labelClassName="font-weight-bold text-muted"
       sort={false}
       options={options}
-      value={form.watch("statsEngine") ?? ""}
-      onChange={(v) =>
-        form.setValue("statsEngine", (v as StatsEngine) ?? undefined)
-      }
+      value={form.watch("statsEngine") ?? options[0].value}
+      onChange={(v) => {
+        onChange?.(v as StatsEngine);
+        form.setValue("statsEngine", (v as StatsEngine) || undefined);
+      }}
       helpText={
         showDefault &&
-        parentSettings.statsEngine.value && (
+        parentSettings?.statsEngine?.value && (
           <span className="ml-1">
             ({parentScopeId && parentScopeId + " "}default:{" "}
-            {capitalizeFirstLetter(parentSettings.statsEngine.value)})
+            {capitalizeFirstLetter(parentSettings?.statsEngine?.value)})
           </span>
         )
       }

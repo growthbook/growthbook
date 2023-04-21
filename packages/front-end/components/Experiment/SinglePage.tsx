@@ -16,6 +16,7 @@ import { MetricInterface } from "back-end/types/metric";
 import uniq from "lodash/uniq";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { StatsEngine } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -30,6 +31,7 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { AppFeatures } from "@/types/app-features";
 import track from "@/services/track";
+import { useScopedSettings } from "@/services/settings";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -192,6 +194,10 @@ export default function SinglePage({
   const { data: sdkConnectionsData } = useSDKConnections();
 
   const project = getProjectById(experiment.project || "");
+  const { settings: scopedSettings } = useScopedSettings(settings, {
+    project: project?.settings,
+  });
+
   const datasource = getDatasourceById(experiment.datasource);
   const segment = getSegmentById(experiment.segment || "");
   const activationMetric = getMetricById(experiment.activationMetric || "");
@@ -201,7 +207,8 @@ export default function SinglePage({
     (q) => q.id === experiment.exposureQueryId
   );
 
-  const statsEngine = settings.statsEngine || "bayesian";
+  // todo: revise useScopedSettings to make .value type specific
+  const statsEngine = scopedSettings.statsEngine.value as StatsEngine;
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
@@ -246,7 +253,7 @@ export default function SinglePage({
     if (!experiment.regressionAdjustmentEnabled) {
       regressionAdjustmentEnabled = false;
     }
-    if (!settings.statsEngine || settings.statsEngine === "bayesian") {
+    if (statsEngine === "bayesian") {
       regressionAdjustmentAvailable = false;
       regressionAdjustmentEnabled = false;
     }
@@ -271,6 +278,7 @@ export default function SinglePage({
     allExperimentMetrics,
     denominatorMetrics,
     settings,
+    statsEngine,
     experiment.regressionAdjustmentEnabled,
     experiment.metricOverrides,
     datasource?.type,

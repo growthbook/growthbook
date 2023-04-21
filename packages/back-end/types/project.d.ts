@@ -7,10 +7,9 @@ export interface ProjectInterface {
   description?: string;
   dateCreated: Date;
   dateUpdated: Date;
-  settings?: ProjectSettings;
+  settings: ProjectSettings;
 }
 
 export interface ProjectSettings {
   statsEngine?: StatsEngine;
 }
-

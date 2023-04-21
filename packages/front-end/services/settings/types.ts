@@ -12,7 +12,7 @@ import {
   MemberRoleInfo,
 } from "back-end/types/organization";
 import { StatsEngine } from "back-end/types/stats";
-import { ProjectInterface } from "back-end/types/project";
+import { ProjectSettings } from "back-end/types/project";
 import { ReportInterface } from "back-end/types/report";
 
 interface SettingMetadata {
@@ -34,7 +34,7 @@ export interface SettingsContext {
 export type SettingsResolver<T> = (ctx: SettingsContext) => Setting<T>;
 
 export interface ScopeDefinition {
-  project?: ProjectInterface;
+  project?: ProjectSettings;
   datasource?: DataSourceInterface;
   experiment?: ExperimentInterface;
   metric?: MetricInterface;
@@ -76,10 +76,14 @@ interface BaseSettings {
 
 export type Settings = BaseSettings & MetricSettings;
 
-export type ScopedSettings = Record<
-  keyof Settings,
-  Setting<Settings[keyof Settings]>
->;
+// export type ScopedSettings = Record<
+//   keyof Settings,
+//   Setting<Settings[keyof Settings]>
+// >;
+
+export type ScopedSettings = {
+  [K in keyof Settings]: Setting<Settings[K]>;
+};
 
 export interface UseScopedSettingsReturn {
   settings: ScopedSettings;

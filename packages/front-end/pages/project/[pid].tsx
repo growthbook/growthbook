@@ -176,7 +176,11 @@ const ProjectPage: FC = () => {
               <h4>Experiment Settings</h4>
             </div>
             <div className="col-sm-9">
-              <StatsEngineSelect form={form} parentSettings={parentSettings} />
+              <StatsEngineSelect
+                form={form}
+                label="Default Statistics Engine"
+                parentSettings={parentSettings}
+              />
             </div>
           </div>
         </div>

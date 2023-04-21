@@ -3,7 +3,7 @@ import {
   OrganizationInterface,
   OrganizationSettings,
 } from "../../../types/organization";
-import { ProjectInterface } from "../../../types/project";
+import { ProjectSettings } from "../../../types/project";
 // import { MetricInterface } from "../../../types/metric";
 import { experiments, metrics } from "./test-objects";
 
@@ -17,12 +17,8 @@ const baseOrganization: OrganizationInterface = {
   url: "test-org",
 };
 
-const mockProject: ProjectInterface = {
-  id: "1",
-  name: "Test Project",
-  organization: "1",
-  dateCreated: new Date("2020-01-01"),
-  dateUpdated: new Date("2020-01-01"),
+const mockProject: ProjectSettings = {
+  statsEngine: "frequentist",
 };
 
 const genOrgWithSettings = (settings?: Partial<OrganizationSettings>) => ({
@@ -85,6 +81,9 @@ describe("settings", () => {
           expect(
             metricSettings_signups.regressionAdjustmentEnabled.value
           ).toEqual(true);
+          expect(metricSettings_signups.statsEngine.value).toEqual(
+            "frequentist"
+          );
         });
 
         it("applies experiment-level metric overrides over metric settings where applicable (regressionAdjustmentDays)", () => {
