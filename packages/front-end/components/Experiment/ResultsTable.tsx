@@ -75,14 +75,14 @@ export default function ResultsTable({
   let pValueTooltipBody = null;
   if (sequentialTestingEnabled) {
     pValueTooltipBody = (
-      <p className="mb-0">
+      <div>
         Sequential testing is enabled. These are &apos;always valid
         p-values&apos; and robust to peeking. They have a slightly different
         interpretation to normal p-values and can often be 1.000. Nonetheless,
         the interpretation remains that the result is still statistically
         significant if it drops below your threshold (
         {orgSettings.pValueThreshold ?? 0.05}).
-      </p>
+      </div>
     );
   }
   if (pValueCorrection) {
@@ -93,14 +93,13 @@ export default function ResultsTable({
     }
     pValueTooltipBody = (
       <>
-        {pValueTooltipBody}
-        {sequentialTestingEnabled ? <p></p> : <></>}
-        <p className="mb-0">
+        {pValueTooltipBody && <div className="mb-3">{pValueTooltipBody}</div>}
+        <div>
           The p-values presented below are adjusted for multiple comparisons
           using the {pValueCorrection} method. P-values were adjusted across
           tests for {correctionText}. The unadjusted p-values are returned in
           parentheses.
-        </p>
+        </div>
       </>
     );
   }

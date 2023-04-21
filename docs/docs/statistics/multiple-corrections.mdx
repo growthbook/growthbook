@@ -67,7 +67,7 @@ The Holm-Bonferroni does just as well as the Bonferroni method to control the FW
 
 #### Benjamini-Hochberg (controlling FDR)
 
-To control the FDR, we implement the [Benjamini-Hochberg procedure](https://en.wikipedia.org/wiki/False_discovery_rate#Benjamini%E2%80%93Hochberg_procedure). This method does assume that the tests are independent or postively correlated. There are methods that make fewer assumptions (such as the Benjamini-Yekutieli method), but they can be even more conservative than Bonferroni corrections.
+To control the FDR, we implement the [Benjamini-Hochberg procedure](https://en.wikipedia.org/wiki/False_discovery_rate#Benjamini%E2%80%93Hochberg_procedure). This method does assume that the tests are independent or positively correlated. There are methods that make fewer assumptions (such as the Benjamini-Yekutieli method), but they can be even more conservative than Bonferroni corrections.
 
 Therefore, in order to provide a reasonably powered approach that controls the FDR in some conditions, and to select an approach that has widespread adoption, we implemented the Benjamini-Hochberg procedure.
 

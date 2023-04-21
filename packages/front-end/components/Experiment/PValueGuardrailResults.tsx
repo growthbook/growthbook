@@ -91,7 +91,7 @@ const PValueGuardrailResults: FC<{
     return variations.map((v, i) => {
       const stats = data[i]?.metrics?.[metric.id];
       const expectedDirection = isExpectedDirection(stats, metric);
-      const statSig = isStatSig(stats.pValue ?? 1, pValueThreshold);
+      const statSig = isStatSig(stats?.pValue ?? 1, pValueThreshold);
       const users = data[i].users;
       const name = v.name;
       return {
