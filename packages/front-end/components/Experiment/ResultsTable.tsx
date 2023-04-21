@@ -72,38 +72,6 @@ export default function ResultsTable({
   statsEngine = statsEngine ?? orgSettings.statsEngine ?? "bayesian";
   sequentialTestingEnabled = sequentialTestingEnabled ?? false;
 
-  let pValueTooltipBody = null;
-  if (sequentialTestingEnabled) {
-    pValueTooltipBody = (
-      <div>
-        Sequential testing is enabled. These are &apos;always valid
-        p-values&apos; and robust to peeking. They have a slightly different
-        interpretation to normal p-values and can often be 1.000. Nonetheless,
-        the interpretation remains that the result is still statistically
-        significant if it drops below your threshold (
-        {orgSettings.pValueThreshold ?? 0.05}).
-      </div>
-    );
-  }
-  if (pValueCorrection) {
-    let correctionText = "all non-guardrail metrics and variations";
-    if (tableRowAxis === "dimension") {
-      correctionText =
-        "all dimension values, non-guardrail metrics, and variations";
-    }
-    pValueTooltipBody = (
-      <>
-        {pValueTooltipBody && <div className="mb-3">{pValueTooltipBody}</div>}
-        <div>
-          The p-values presented below are adjusted for multiple comparisons
-          using the {pValueCorrection} method. P-values were adjusted across
-          tests for {correctionText}. The unadjusted p-values are returned in
-          parentheses.
-        </div>
-      </>
-    );
-  }
-
   return (
     <table
       className={`table experiment-compact aligned-graph`}
@@ -178,10 +146,39 @@ export default function ResultsTable({
                   {statsEngine === "frequentist" ? (
                     <>
                       P-value
-                      {pValueTooltipBody && (
+                      {(sequentialTestingEnabled || pValueCorrection) && (
                         <Tooltip
                           innerClassName="text-left"
-                          body={pValueTooltipBody}
+                          body={
+                            <>
+                              {sequentialTestingEnabled && (
+                                <div className={pValueCorrection ? "mb-3" : ""}>
+                                  Sequential testing is enabled. These are
+                                  &apos;always valid p-values&apos; and robust
+                                  to peeking. They have a slightly different
+                                  interpretation to normal p-values and can
+                                  often be 1.000. Nonetheless, the
+                                  interpretation remains that the result is
+                                  still statistically significant if it drops
+                                  below your threshold (
+                                  {orgSettings.pValueThreshold ?? 0.05}).
+                                </div>
+                              )}
+                              {pValueCorrection && (
+                                <div>
+                                  The p-values presented below are adjusted for
+                                  multiple comparisons using the{" "}
+                                  {pValueCorrection} method. P-values were
+                                  adjusted across tests for
+                                  {tableRowAxis === "dimension"
+                                    ? "all dimension values, non-guardrail metrics, and variations"
+                                    : "all non-guardrail metrics and variations"}
+                                  . The unadjusted p-values are returned in
+                                  parentheses.
+                                </div>
+                              )}
+                            </>
+                          }
                         >
                           {" "}
                           <FaQuestionCircle />
@@ -224,7 +221,7 @@ export default function ResultsTable({
                                   experiment as it runs.
                                 </p>
                               )}
-                              {pValueTooltipBody && (
+                              {pValueCorrection && (
                                 <p className="mt-4 mb-0">
                                   These confidence intervals are not adjusted
                                   for multiple comparisons as the multiple
