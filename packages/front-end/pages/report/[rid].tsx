@@ -35,7 +35,6 @@ import { useUser } from "@/services/UserContext";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResults";
-import useOrgSettings from "@/hooks/useOrgSettings";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -57,7 +56,6 @@ export default function ReportPage() {
   const [refreshError, setRefreshError] = useState("");
 
   const { apiCall } = useAuth();
-  const settings = useOrgSettings();
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
@@ -109,8 +107,7 @@ export default function ReportPage() {
   const phaseAgeMinutes =
     (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
 
-  const statsEngine =
-    data?.report?.args?.statsEngine || settings?.statsEngine || "bayesian";
+  const statsEngine = data?.report?.args?.statsEngine || "bayesian";
   const regressionAdjustmentAvailable =
     hasRegressionAdjustmentFeature && statsEngine === "frequentist";
   const regressionAdjustmentEnabled =

@@ -6,7 +6,6 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { StatsEngine } from "back-end/types/stats";
 import { ExperimentTableRow, useDomain } from "@/services/experiments";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "../Tooltip/Tooltip";
 import SelectField from "../Forms/SelectField";
 import AlignedGraph from "./AlignedGraph";
@@ -64,8 +63,7 @@ export default function ResultsTable({
   sequentialTestingEnabled,
 }: ResultsTableProps) {
   const domain = useDomain(variations, rows);
-  const orgSettings = useOrgSettings();
-  statsEngine = statsEngine ?? orgSettings.statsEngine ?? "bayesian";
+  statsEngine = statsEngine ?? "bayesian";
   sequentialTestingEnabled = sequentialTestingEnabled ?? false;
 
   return (

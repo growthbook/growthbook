@@ -1557,7 +1557,7 @@ export async function postSnapshot(
 
   statsEngine = ["bayesian", "frequentist"].includes(statsEngine + "")
     ? statsEngine
-    : scopedSettings?.statsEngine.value;
+    : scopedSettings.statsEngine.value;
 
   const hasRegressionAdjustmentFeature = org
     ? orgHasPremiumFeature(org, "regression-adjustment")
