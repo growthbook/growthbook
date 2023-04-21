@@ -62,6 +62,7 @@ import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { postMetricValidator } from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "../constants/stats";
+import { findProjectById } from "../models/ProjectModel";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -70,6 +71,7 @@ import {
 import { getMetricValue, QueryMap, startRun } from "./queries";
 import { getSourceIntegrationObject } from "./datasource";
 import { analyzeExperimentMetric } from "./stats";
+import { getScopedSettings } from "./settings";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -448,10 +450,7 @@ export async function createSnapshot({
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
     skipPartialData: experiment.skipPartialData || false,
-    statsEngine:
-      experimentSnapshotSettings?.statsEngine ||
-      organization.settings?.statsEngine ||
-      "bayesian",
+    statsEngine: experimentSnapshotSettings?.statsEngine || "bayesian",
     regressionAdjustmentEnabled:
       experimentSnapshotSettings?.regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses:
@@ -652,10 +651,22 @@ function getExperimentMetric(
   return ret;
 }
 
-export function toExperimentApiInterface(
+export async function toExperimentApiInterface(
   organization: OrganizationInterface,
   experiment: ExperimentInterface
-): ApiExperiment {
+): Promise<ApiExperiment> {
+  let project = null;
+  if (experiment.project) {
+    project = await findProjectById(experiment.project, organization.id);
+  }
+  const { settings: scopedSettings } = getScopedSettings(
+    organization.settings || {},
+    {
+      project: project?.settings,
+      // todo: experiment settings
+    }
+  );
+
   const activationMetric = experiment.activationMetric;
   return {
     id: experiment.id,
@@ -705,7 +716,7 @@ export function toExperimentApiInterface(
       queryFilter: experiment.queryFilter || "",
       inProgressConversions: experiment.skipPartialData ? "exclude" : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
-      statsEngine: organization.settings?.statsEngine || "bayesian",
+      statsEngine: scopedSettings.statsEngine.value || "bayesian",
       goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
       guardrails: (experiment.guardrails || []).map((m) =>
         getExperimentMetric(experiment, m)

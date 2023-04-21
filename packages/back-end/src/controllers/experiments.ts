@@ -81,6 +81,8 @@ import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { orgHasPremiumFeature } from "../util/organization.util";
+import { findProjectById } from "../models/ProjectModel";
+import { getScopedSettings } from "../services/settings";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -1529,10 +1531,33 @@ export async function postSnapshot(
   const { phase, dimension } = req.body;
   const experiment = await getExperimentById(org.id, id);
 
-  statsEngine = (typeof statsEngine === "string" &&
-  ["bayesian", "frequentist"].includes(statsEngine)
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  if (!experiment.phases[phase]) {
+    res.status(404).json({
+      status: 404,
+      message: "Phase not found",
+    });
+    return;
+  }
+
+  let project = null;
+  if (experiment.project) {
+    project = await findProjectById(experiment.project, org.id);
+  }
+  const { settings: scopedSettings } = getScopedSettings(orgSettings, {
+    project: project?.settings,
+  });
+
+  statsEngine = ["bayesian", "frequentist"].includes(statsEngine + "")
     ? statsEngine
-    : org.settings?.statsEngine ?? "bayesian") as StatsEngine;
+    : scopedSettings?.statsEngine.value;
 
   const hasRegressionAdjustmentFeature = org
     ? orgHasPremiumFeature(org, "regression-adjustment")
@@ -1563,24 +1588,8 @@ export async function postSnapshot(
   // Set timeout to 30 minutes
   req.setTimeout(30 * 60 * 1000);
 
-  if (!experiment) {
-    res.status(404).json({
-      status: 404,
-      message: "Experiment not found",
-    });
-    return;
-  }
-
-  if (!experiment.phases[phase]) {
-    res.status(404).json({
-      status: 404,
-      message: "Phase not found",
-    });
-    return;
-  }
-
   const experimentSnapshotSettings: ExperimentSnapshotSettings = {
-    statsEngine,
+    statsEngine: statsEngine as StatsEngine,
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses:
       metricRegressionAdjustmentStatuses || [],

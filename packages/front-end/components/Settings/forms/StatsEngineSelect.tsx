@@ -37,7 +37,7 @@ export default function StatsEngineSelect({
       label: parentScopeId
         ? capitalizeFirstLetter(parentScopeId) + " default"
         : "Default",
-      value: "",
+      value: null,
     });
   }
 
