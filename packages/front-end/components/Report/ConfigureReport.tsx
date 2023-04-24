@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useFieldArray, useForm, UseFormReturn } from "react-hook-form";
 import {
   MetricRegressionAdjustmentStatus,
   ReportInterface,
@@ -85,7 +85,7 @@ export default function ConfigureReport({
 
   // todo: type this form
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const form = useForm<any>({
+  const form = useForm({
     defaultValues: {
       ...report.args,
       exposureQueryId:
@@ -393,7 +393,10 @@ export default function ConfigureReport({
       )}
 
       <StatsEngineSelect
-        form={form}
+        form={
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          form as UseFormReturn<any>
+        }
         parentSettings={parentSettings}
         allowUndefined={false}
       />
