@@ -2363,7 +2363,7 @@ components:
         dateUpdated:
           type: string
           format: date-time
-        groupName:
+        name:
           type: string
         owner:
           type: string
