@@ -41,7 +41,6 @@ import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import { GBCuped } from "@/components/Icons";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/constants/stats";
-import TypeaheadInput from "./TypeaheadInput";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -675,38 +674,31 @@ const MetricForm: FC<MetricFormProps> = ({
                 />
               ) : (
                 <>
-                  <div className="form-group">
-                    <TypeaheadInput
-                      label={`${table} Name`}
-                      placeholder="Enter a table name"
-                      currentValue={form.watch("table")}
-                      onChange={(tableName, id) => {
-                        form.setValue("table", tableName);
-                        setTableId(id);
-                      }}
-                      groupedOptions={tableOptions}
-                      required
-                    />
-                  </div>
+                  <SelectField
+                    label={`${table} Name`}
+                    createable
+                    placeholder={`${table} name...`}
+                    value={form.watch("table")}
+                    onChange={(value) => {
+                      form.setValue("table", value);
+                      setTableId(value);
+                    }}
+                    options={tableOptions}
+                    required
+                  />
                   {value.type !== "binomial" && (
-                    <div className="form-group ">
-                      <TypeaheadInput
-                        placeholder={column}
-                        label={supportsSQL ? "Column" : "Event Value"}
-                        groupedOptions={columnOptions}
-                        currentValue={form.watch("column")}
-                        onChange={(columnName) =>
-                          form.setValue("column", columnName)
-                        }
-                        required={value.type !== "count"}
-                      />
-                      {!supportsSQL && (
-                        <small className="form-text text-muted">
-                          Javascript expression to extract a value from each
-                          event.
-                        </small>
-                      )}
-                    </div>
+                    <SelectField
+                      placeholder={column}
+                      label={supportsSQL ? "Column" : "Event Value"}
+                      options={columnOptions}
+                      createable
+                      value={form.watch("column")}
+                      onChange={(value) => form.setValue("column", value)}
+                      required={value.type !== "count"}
+                      helpText={
+                        !supportsSQL && "Javascript expression to extract a value from each event."
+                      }
+                    />
                   )}
                   {value.type !== "binomial" && !supportsSQL && (
                     <Field
@@ -728,17 +720,13 @@ const MetricForm: FC<MetricFormProps> = ({
                         >
                           {i > 0 && <div className="col-auto">AND</div>}
                           <div className="col-auto mb-1">
-                            <TypeaheadInput
+                            <SelectField
+                              createable
                               placeholder={column}
-                              groupedOptions={columnOptions}
-                              currentValue={form.watch(
-                                `conditions.${i}.column`
-                              )}
-                              onChange={(columnName) =>
-                                form.setValue(
-                                  `conditions.${i}.column`,
-                                  columnName
-                                )
+                              options={columnOptions}
+                              value={form.watch(`conditions.${i}.column`)}
+                              onChange={(value) =>
+                                form.setValue(`conditions.${i}.column`, value)
                               }
                               required
                             />
@@ -825,17 +813,16 @@ const MetricForm: FC<MetricFormProps> = ({
                     </div>
                   )}
                   {customzeTimestamp && (
-                    <div className="form-group ">
-                      <TypeaheadInput
-                        label="Timestamp Column"
-                        groupedOptions={columnOptions}
-                        currentValue={form.watch("timestampColumn")}
-                        onChange={(columnName) =>
-                          form.setValue("timestampColumn", columnName)
-                        }
-                        placeholder={"received_at"}
-                      />
-                    </div>
+                    <SelectField
+                      label="Timestamp Column"
+                      createable
+                      options={columnOptions}
+                      value={form.watch("timestampColumn")}
+                      onChange={(value) =>
+                        form.setValue("timestampColumn", value)
+                      }
+                      placeholder={"received_at"}
+                    />
                   )}
                   {customizeUserIds && (
                     <MultiSelectField
@@ -856,10 +843,11 @@ const MetricForm: FC<MetricFormProps> = ({
                     value.userIdTypes.map((type) => {
                       return (
                         <div key={type}>
-                          <TypeaheadInput
+                          <SelectField
                             label={type + " Column"}
-                            groupedOptions={columnOptions}
-                            currentValue={value.userIdColumns[type] || ""}
+                            createable
+                            options={columnOptions}
+                            value={value.userIdColumns[type] || ""}
                             placeholder={type}
                             onChange={(columnName) => {
                               form.setValue("userIdColumns", {
