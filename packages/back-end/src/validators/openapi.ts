@@ -173,3 +173,9 @@ export const updateSavedGroupValidator = {
   querySchema: z.never(),
   paramsSchema: z.object({"id":z.string()}).strict(),
 };
+
+export const deleteSavedGroupValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};

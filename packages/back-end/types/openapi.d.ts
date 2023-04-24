@@ -182,6 +182,8 @@ export interface paths {
     get: operations["getSavedGroup"];
     /** Partially update a single saved group */
     post: operations["updateSavedGroup"];
+    /** Deletes a single saved group */
+    delete: operations["deleteSavedGroup"];
   };
 }
 
@@ -2627,6 +2629,22 @@ export interface operations {
       };
     };
   };
+  deleteSavedGroup: {
+    /** Deletes a single saved group */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": unknown;
+        };
+      };
+    };
+  };
 }
 
 // Schemas
@@ -2681,3 +2699,4 @@ export type ListSavedGroupsResponse = operations["listSavedGroups"]["responses"]
 export type PostSavedGroupResponse = operations["postSavedGroup"]["responses"]["200"]["content"]["application/json"];
 export type GetSavedGroupResponse = operations["getSavedGroup"]["responses"]["200"]["content"]["application/json"];
 export type UpdateSavedGroupResponse = operations["updateSavedGroup"]["responses"]["200"]["content"]["application/json"];
+export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses"]["200"]["content"]["application/json"];

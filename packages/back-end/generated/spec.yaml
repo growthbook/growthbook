@@ -1153,6 +1153,27 @@ paths:
                 properties:
                   savedGroup:
                     $ref: '#/components/schemas/SavedGroup'
+    delete:
+      summary: Deletes a single saved group
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - saved-groups
+      operationId: deleteSavedGroup
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
+              -u secret_abc123DEF456: \
+      responses:
+        '200':
+          content:
+            application/json:
+              type: object
+              required:
+                - deletedId
+              properties:
+                deletedId: string
 components:
   parameters:
     id:

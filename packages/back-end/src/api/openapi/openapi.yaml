@@ -146,6 +146,8 @@ paths:
       $ref: "./paths/getSavedGroup.yaml"
     post:
       $ref: "./paths/updateSavedGroup.yaml"
+    delete:
+      $ref: "./paths/deleteSavedGroup.yaml"
   # PLOP_INSERT_PATHS_HERE
 components:
   parameters:
