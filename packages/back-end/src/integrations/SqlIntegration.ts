@@ -100,7 +100,7 @@ export default abstract class SqlIntegration
     return "";
   }
   getType(): DataSourceType {
-    return "";
+    return "bigquery"; //TODO: This is just a placeholder
   }
   toTimestamp(date: Date) {
     return `'${date.toISOString().substr(0, 19).replace("T", " ")}'`;
@@ -1246,13 +1246,11 @@ export default abstract class SqlIntegration
     const type = this.getType();
 
     switch (type) {
-      // TODO: Athena's getFormDialect returns trino, rather than athena, which is an issue
-      case "trino" || "presto":
+      case "athena" || "presto":
         if (!this.params.catalog)
           throw new MissingDatasourceParamsError(
             `To view the information schema for an ${type} dataset, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings.`
           );
-        //TODO: Option 1
         sql = `SELECT 
           table_name, 
           table_catalog,
@@ -1270,7 +1268,6 @@ export default abstract class SqlIntegration
           throw new Error(
             `No database name provided in ${type} connection. Please add a database by editing the connection settings.`
           );
-        //TODO: Option 2
         sql = `SELECT
           table_name as table_name,
           table_catalog as table_catalog,
@@ -1283,7 +1280,7 @@ export default abstract class SqlIntegration
         IN ('${this.params.database}')
         GROUP BY (table_name, table_schema, table_catalog)`;
         break;
-      case "biqquery":
+      case "bigquery":
         if (!this.params.projectId)
           throw new Error(
             "No projectId provided. In order to get the information schema, you must provide a projectId."
@@ -1292,7 +1289,6 @@ export default abstract class SqlIntegration
           throw new MissingDatasourceParamsError(
             "To view the information schema for a BigQuery dataset, you must define a default dataset. Please add a default dataset by editing the datasource's connection settings."
           );
-        //TODO: Option 3
         sql = `SELECT
             table_name,
             '${this.params.projectId}' as table_catalog,
@@ -1302,17 +1298,14 @@ export default abstract class SqlIntegration
             \`${this.params.projectId}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\`
             GROUP BY table_name, table_schema`;
         break;
-      case "postgressql" || "redshift":
-        //TODO: Option 4
+      case "postgres" || "redshift":
         sql = `SELECT
           table_name,
           table_catalog,
           table_schema,
           count(column_name) as column_count
         FROM
-          ${
-            type === "postgresql" ? "information_schema.columns" : "SVV_COLUMNS"
-          }
+          ${type === "postgres" ? "information_schema.columns" : "SVV_COLUMNS"}
         WHERE
           table_schema
         NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
@@ -1324,7 +1317,6 @@ export default abstract class SqlIntegration
             "No database provided. In order to get the information schema, you must provide a database."
           );
         }
-        //TODO: Option 4
         sql = `SELECT
           table_name,
           table_catalog,
@@ -1348,7 +1340,7 @@ export default abstract class SqlIntegration
     return formatInformationSchema(
       results as RawInformationSchema[],
       this.getType()
-    ); //TODO: Fix the 2nd arg here
+    );
   }
   async getTableData(
     databaseName: string,
@@ -1358,8 +1350,7 @@ export default abstract class SqlIntegration
     let sql = "";
 
     switch (this.getType()) {
-      // TODO: Clickhouse doesn't have a getFormDialect() method
-      case "postgresql" || "clickhouse" || "redshift" || "mysql":
+      case "postgres" || "clickhouse" || "redshift" || "mysql":
         sql = `SELECT
         data_type as data_type,
         column_name as column_name
