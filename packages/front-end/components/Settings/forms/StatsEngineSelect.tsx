@@ -1,6 +1,8 @@
 import { ReactNode } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { StatsEngine } from "back-end/types/stats";
+import { ProjectSettings } from "back-end/types/project";
+import { OrganizationSettings } from "back-end/types/organization";
 import SelectField from "@/components/Forms/SelectField";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { ScopedSettings } from "@/services/settings/types";
@@ -13,8 +15,7 @@ export default function StatsEngineSelect({
   label = "Statistics Engine",
   onChange,
 }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  form: UseFormReturn<any>;
+  form: UseFormReturn<OrganizationSettings | ProjectSettings>;
   parentSettings?: ScopedSettings;
   showDefault?: boolean;
   allowUndefined?: boolean;
@@ -63,6 +64,12 @@ export default function StatsEngineSelect({
           </span>
         )
       }
+      formatOptionLabel={({ value, label }) => {
+        if (!value) {
+          return <em className="text-muted">{label}</em>;
+        }
+        return label;
+      }}
     />
   );
 }

@@ -57,12 +57,12 @@ router.put(
     body: z
       .object({
         settings: z.object({
-          statsEngine: z.string().optional()
+          statsEngine: z.string().optional(),
         }),
       })
       .strict(),
   }),
   projectController.putProjectSettings
-)
+);
 
 export { router as projectRouter };

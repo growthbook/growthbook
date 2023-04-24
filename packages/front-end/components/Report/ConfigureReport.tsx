@@ -83,7 +83,9 @@ export default function ConfigureReport({
   );
   const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
 
-  const form = useForm({
+  // todo: type this form
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const form = useForm<any>({
     defaultValues: {
       ...report.args,
       exposureQueryId:
@@ -431,7 +433,7 @@ export default function ConfigureReport({
             <div className="col-3">
               <SelectField
                 label={
-                  <PremiumTooltip commercialFeature="regression-adjustment">
+                  <PremiumTooltip commercialFeature="sequential-testing">
                     <GBSequential /> Use Sequential Testing
                   </PremiumTooltip>
                 }

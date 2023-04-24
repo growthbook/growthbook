@@ -43,6 +43,9 @@ function isOutdated(
   hasSequentialFeature: boolean
 ): { outdated: boolean; reason: string } {
   if (!snapshot) return { outdated: false, reason: "" };
+  if (isDifferent(snapshot.statsEngine, statsEngine)) {
+    return { outdated: true, reason: "stats engine changed" };
+  }
   if (isDifferent(experiment.activationMetric, snapshot.activationMetric)) {
     return { outdated: true, reason: "activation metric changed" };
   }

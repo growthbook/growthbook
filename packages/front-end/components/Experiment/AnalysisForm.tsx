@@ -15,6 +15,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "@/constants/stats";
+import { GBSequential } from "@/components/Icons";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -380,8 +381,8 @@ const AnalysisForm: FC<{
           <div className="col-5">
             <SelectField
               label={
-                <PremiumTooltip commercialFeature="regression-adjustment">
-                  Use Sequential Testing
+                <PremiumTooltip commercialFeature="sequential-testing">
+                  <GBSequential /> Use Sequential Testing
                 </PremiumTooltip>
               }
               labelClassName="font-weight-bold"

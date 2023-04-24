@@ -640,6 +640,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   <StatsEngineSelect
                     form={form}
                     label="Default Statistics Engine"
+                    allowUndefined={false}
                     onChange={(value) => {
                       setStatsEngineTab(value);
                     }}
