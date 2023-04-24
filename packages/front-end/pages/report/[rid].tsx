@@ -58,7 +58,7 @@ export default function ReportPage() {
 
   const { apiCall } = useAuth();
 
-  // todo: move to snapshot property
+  // todo: move to report args
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;
 
