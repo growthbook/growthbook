@@ -84,7 +84,6 @@ export default function ConfigureReport({
   const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
 
   // todo: type this form
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm({
     defaultValues: {
       ...report.args,
