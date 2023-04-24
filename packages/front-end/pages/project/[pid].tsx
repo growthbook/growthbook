@@ -139,7 +139,9 @@ const ProjectPage: FC = () => {
         </div>
 
         <div className="d-flex align-items-center mb-2">
-          <div className="text-gray">{p.description}</div>
+          <div className="text-gray">
+            {p.description ?? <em>add description</em>}
+          </div>
           <div className="ml-1">
             <a
               href="#"
