@@ -99,6 +99,8 @@ const SelectField: FC<
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
   let selected = map.get(value);
+  console.log("selected", selected);
+  console.log("value", value);
 
   if (!selected && value && createable) {
     selected = {
@@ -130,6 +132,8 @@ const SelectField: FC<
     );
   }
 
+  console.log("inputValue", inputValue);
+
   return (
     <Field
       {...fieldProps}
@@ -158,6 +162,7 @@ const SelectField: FC<
                 autoFocus={autoFocus}
                 onChange={(selected) => {
                   onChange(selected?.value || "");
+                  setInputValue("");
                 }}
                 onFocus={() => {
                   if (!map.has(selected?.value)) {

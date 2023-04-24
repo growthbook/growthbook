@@ -4,8 +4,8 @@ import {
   InformationSchemaTablesInterface,
 } from "@/../back-end/src/types/Integration";
 import { DataSourceInterfaceWithParams } from "@/../back-end/types/datasource";
-import useApi from "./useApi";
 import { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
+import useApi from "./useApi";
 
 export default function useSchemaFormOptions(
   datasource: DataSourceInterfaceWithParams
@@ -32,16 +32,16 @@ export default function useSchemaFormOptions(
         if (!group) {
           group = {
             label: schema.schemaName,
-            options: []
-          }
+            options: [],
+          };
           tableGroups.set(schema.schemaName, group);
         }
 
         schema?.tables?.forEach((table) => {
           group.options.push({
             label: table.tableName,
-            value: table.path
-          })
+            value: table.path,
+          });
           tableIdMapping.set(table.path, table.id);
         });
       });
@@ -58,12 +58,11 @@ export default function useSchemaFormOptions(
 
   const columnOptions: SingleValue[] = [];
   if (columnData?.table?.columns.length) {
-    const option = { schemaName: columnData.table.tableSchema, options: [] };
     columnData.table.columns.forEach((column) => {
       columnOptions.push({
         label: column.columnName,
-        value: column.columnName
-      })
+        value: column.columnName,
+      });
     });
   }
 
