@@ -8,7 +8,7 @@ x-codeSamples:
   - lang: "cURL"
     source: |
       curl -X DELETE https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
-        -u secret_abc123DEF456: \
+        -u secret_abc123DEF456:
 responses:
   "200":
     content:

@@ -1048,7 +1048,7 @@ paths:
             curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
               -H "Content-Type: application/json" \
               -u secret_abc123DEF456: \
-              -d '{"name": "interal-users", "values": "userId-123, userId-345, userId-678", "attributeKey": "userId"}'
+              -d '{"name": "interal-users", "values": ["userId-123", "userId-345", "userId-678"], "attributeKey": "userId", "owner": ""}'
       requestBody:
         required: true
         content:
@@ -1164,7 +1164,7 @@ paths:
         - lang: cURL
           source: |
             curl -X DELETE https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
-              -u secret_abc123DEF456: \
+              -u secret_abc123DEF456:
       responses:
         '200':
           content:
