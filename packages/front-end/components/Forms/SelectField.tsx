@@ -99,8 +99,6 @@ const SelectField: FC<
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
   let selected = map.get(value);
-  console.log("selected", selected);
-  console.log("value", value);
 
   if (!selected && value && createable) {
     selected = {
@@ -131,8 +129,6 @@ const SelectField: FC<
       />
     );
   }
-
-  console.log("inputValue", inputValue);
 
   return (
     <Field
