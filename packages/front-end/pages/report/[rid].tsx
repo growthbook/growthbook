@@ -35,6 +35,7 @@ import { useUser } from "@/services/UserContext";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResults";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -56,6 +57,10 @@ export default function ReportPage() {
   const [refreshError, setRefreshError] = useState("");
 
   const { apiCall } = useAuth();
+
+  // todo: move to snapshot property
+  const orgSettings = useOrgSettings();
+  const pValueCorrection = orgSettings?.pValueCorrection;
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
@@ -373,7 +378,7 @@ export default function ReportPage() {
                 variations={variations}
                 key={report.args.dimension}
                 statsEngine={report.args.statsEngine}
-                pValueCorrection={settings.pValueCorrection}
+                pValueCorrection={pValueCorrection}
                 regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                 metricRegressionAdjustmentStatuses={
                   report.args.metricRegressionAdjustmentStatuses
@@ -422,7 +427,7 @@ export default function ReportPage() {
                 multipleExposures={report.results?.multipleExposures || 0}
                 variations={variations}
                 statsEngine={report.args.statsEngine}
-                pValueCorrection={settings.pValueCorrection}
+                pValueCorrection={pValueCorrection}
                 regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                 metricRegressionAdjustmentStatuses={
                   report.args.metricRegressionAdjustmentStatuses

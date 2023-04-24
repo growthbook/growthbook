@@ -16,6 +16,7 @@ import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import StatusBanner from "@/components/Experiment/StatusBanner";
 import { GBCuped, GBSequential } from "@/components/Icons";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import PValueGuardrailResults from "./PValueGuardrailResults";
 
 const BreakDownResults = dynamic(
@@ -57,6 +58,10 @@ const Results: FC<{
   const { getMetricById } = useDefinitions();
 
   const { apiCall } = useAuth();
+
+  // todo: move to snapshot property
+  const orgSettings = useOrgSettings();
+  const pValueCorrection = orgSettings?.pValueCorrection;
 
   const {
     error,
@@ -205,20 +210,20 @@ const Results: FC<{
           />
         ) : (
           <BreakDownResults
-            isLatestPhase={phase === experiment.phases.length - 1}
+            key={snapshot.dimension}
+            results={snapshot.results || []}
+            variations={variations}
             metrics={experiment.metrics}
             metricOverrides={experiment.metricOverrides}
-            reportDate={snapshot.dateCreated}
-            results={snapshot.results || []}
-            status={experiment.status}
-            startDate={phaseObj?.dateStarted}
-            dimensionId={snapshot.dimension}
-            activationMetric={experiment.activationMetric}
             guardrails={experiment.guardrails}
-            variations={variations}
-            key={snapshot.dimension}
+            dimensionId={snapshot.dimension}
+            isLatestPhase={phase === experiment.phases.length - 1}
+            startDate={phaseObj?.dateStarted}
+            reportDate={snapshot.dateCreated}
+            activationMetric={experiment.activationMetric}
+            status={experiment.status}
             statsEngine={snapshot.statsEngine}
-            pValueCorrection={settings.pValueCorrection}
+            pValueCorrection={pValueCorrection}
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses
@@ -239,18 +244,18 @@ const Results: FC<{
           )}
           <CompactResults
             editMetrics={editMetrics}
-            id={experiment.id}
+            variations={variations}
+            multipleExposures={snapshot.multipleExposures || 0}
+            results={snapshot.results?.[0]}
+            reportDate={snapshot.dateCreated}
+            startDate={phaseObj?.dateStarted}
             isLatestPhase={phase === experiment.phases.length - 1}
+            status={experiment.status}
             metrics={experiment.metrics}
             metricOverrides={experiment.metricOverrides}
-            reportDate={snapshot.dateCreated}
-            results={snapshot.results?.[0]}
-            status={experiment.status}
-            startDate={phaseObj?.dateStarted}
-            multipleExposures={snapshot.multipleExposures || 0}
-            variations={variations}
+            id={experiment.id}
             statsEngine={snapshot.statsEngine}
-            pValueCorrection={settings.pValueCorrection}
+            pValueCorrection={pValueCorrection}
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses
