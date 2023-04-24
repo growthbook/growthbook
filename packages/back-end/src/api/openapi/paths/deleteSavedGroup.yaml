@@ -13,8 +13,9 @@ responses:
   "200":
     content:
       application/json:
-        type: object
-        required:
-          - deletedId
-        properties:
-          deletedId: string
+        schema:
+          type: object
+          required:
+            - deletedId
+          properties:
+            deletedId: string

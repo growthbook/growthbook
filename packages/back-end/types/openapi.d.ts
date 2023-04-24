@@ -2640,7 +2640,9 @@ export interface operations {
     responses: {
       200: {
         content: {
-          "application/json": unknown;
+          "application/json": {
+            deletedId: string;
+          };
         };
       };
     };
