@@ -1174,7 +1174,8 @@ paths:
                 required:
                   - deletedId
                 properties:
-                  deletedId: string
+                  deletedId:
+                    type: string
 components:
   parameters:
     id:

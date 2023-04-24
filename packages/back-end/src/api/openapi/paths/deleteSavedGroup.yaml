@@ -18,4 +18,5 @@ responses:
           required:
             - deletedId
           properties:
-            deletedId: string
+            deletedId:
+              type: string
