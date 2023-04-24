@@ -879,7 +879,7 @@ export interface components {
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
-      name?: string;
+      name: string;
       owner?: string;
       attributeKey: string;
       values: (string)[];
@@ -2508,7 +2508,7 @@ export interface operations {
                 dateCreated: string;
                 /** Format: date-time */
                 dateUpdated: string;
-                name?: string;
+                name: string;
                 owner?: string;
                 attributeKey: string;
                 values: (string)[];
@@ -2551,7 +2551,7 @@ export interface operations {
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
-              name?: string;
+              name: string;
               owner?: string;
               attributeKey: string;
               values: (string)[];
@@ -2579,7 +2579,7 @@ export interface operations {
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
-              name?: string;
+              name: string;
               owner?: string;
               attributeKey: string;
               values: (string)[];
@@ -2619,7 +2619,7 @@ export interface operations {
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
-              name?: string;
+              name: string;
               owner?: string;
               attributeKey: string;
               values: (string)[];

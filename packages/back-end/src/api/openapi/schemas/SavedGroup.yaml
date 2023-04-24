@@ -3,7 +3,7 @@ required:
   - id
   - dateCreated
   - dateUpdated
-  - groupName
+  - name
   - attributeKey
   - values
 properties:
