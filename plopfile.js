@@ -110,6 +110,13 @@ module.exports = function (plop) {
         type: "add",
         skipIfExists: true,
         path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/delete{{pascalCase object}}.ts",
+        templateFile: "./plop-templates/back-end/api/delete.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
           "./packages/back-end/src/api/openapi/schemas/{{pascalCase object}}.yaml",
         templateFile: "./plop-templates/back-end/api/openapi_model.hbs",
       },
@@ -142,6 +149,13 @@ module.exports = function (plop) {
         templateFile: "./plop-templates/back-end/api/openapi_get.hbs",
       },
       {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/paths/delete{{pascalCase object}}.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_delete.hbs",
+      },
+      {
         type: "append",
         path: "./packages/back-end/src/api/openapi/schemas/_index.yaml",
         template: `
@@ -162,7 +176,9 @@ module.exports = function (plop) {
     get:
       $ref: "./paths/get{{pascalCase object}}.yaml"
     post:
-      $ref: "./paths/update{{pascalCase object}}.yaml"`,
+      $ref: "./paths/update{{pascalCase object}}.yaml"
+    delete:
+      $ref: "./paths/delete{{pascalCase object}}.yaml"`,
       },
     ],
   });
