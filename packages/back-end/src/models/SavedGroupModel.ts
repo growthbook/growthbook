@@ -116,7 +116,7 @@ export function toSavedGroupApiInterface(
   return {
     id: savedGroup.id,
     values: savedGroup.values,
-    groupName: savedGroup.groupName,
+    name: savedGroup.groupName,
     attributeKey: savedGroup.attributeKey,
     dateCreated: savedGroup.dateCreated.toISOString(),
     dateUpdated: savedGroup.dateUpdated.toISOString(),
