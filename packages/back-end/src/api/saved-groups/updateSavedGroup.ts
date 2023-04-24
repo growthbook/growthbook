@@ -1,16 +1,16 @@
-import { PutSavedGroupResponse } from "../../../types/openapi";
+import { UpdateSavedGroupResponse } from "../../../types/openapi";
 import {
   getSavedGroupById,
   toSavedGroupApiInterface,
-  updateSavedGroup,
+  updateSavedGroupById,
 } from "../../models/SavedGroupModel";
 import { createApiRequestHandler } from "../../util/handler";
-import { patchSavedGroupValidator } from "../../validators/openapi";
+import { updateSavedGroupValidator } from "../../validators/openapi";
 
-export const patchSavedGroup = createApiRequestHandler(
-  patchSavedGroupValidator
+export const updateSavedGroup = createApiRequestHandler(
+  updateSavedGroupValidator
 )(
-  async (req): Promise<PutSavedGroupResponse> => {
+  async (req): Promise<UpdateSavedGroupResponse> => {
     const { name, values } = req.body;
     let { owner } = req.body;
 
@@ -34,11 +34,15 @@ export const patchSavedGroup = createApiRequestHandler(
       owner = savedGroup.owner;
     }
 
-    const updatedSavedGroup = await updateSavedGroup(id, req.organization.id, {
-      values: values ? values : savedGroup.values,
-      groupName: name ? name : savedGroup.groupName,
-      owner,
-    });
+    const updatedSavedGroup = await updateSavedGroupById(
+      id,
+      req.organization.id,
+      {
+        values: values ? values : savedGroup.values,
+        groupName: name ? name : savedGroup.groupName,
+        owner,
+      }
+    );
 
     return {
       savedGroup: toSavedGroupApiInterface({

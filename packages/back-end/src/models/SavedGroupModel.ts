@@ -78,7 +78,7 @@ export async function getSavedGroupById(
   return savedGroup?.toJSON() || null;
 }
 
-export async function updateSavedGroup(
+export async function updateSavedGroupById(
   savedGroupId: string,
   organization: string,
   group: UpdateSavedGroupProps

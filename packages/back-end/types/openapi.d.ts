@@ -180,10 +180,8 @@ export interface paths {
   "/saved-groups/{id}": {
     /** Get a single saved group */
     get: operations["getSavedGroup"];
-    /** Update a single saved group */
-    put: operations["putSavedGroup"];
     /** Partially update a single saved group */
-    patch: operations["patchSavedGroup"];
+    post: operations["updateSavedGroup"];
   };
 }
 
@@ -2589,47 +2587,7 @@ export interface operations {
       };
     };
   };
-  putSavedGroup: {
-    /** Update a single saved group */
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
-    requestBody: {
-      content: {
-        "application/json": {
-          /** @description The display name of the Saved Group */
-          name: string;
-          /** @description An array of values to target (Ex: a list of userIds). */
-          values: (string)[];
-          /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
-          owner: string;
-        };
-      };
-    };
-    responses: {
-      200: {
-        content: {
-          "application/json": {
-            savedGroup: {
-              id: string;
-              /** Format: date-time */
-              dateCreated: string;
-              /** Format: date-time */
-              dateUpdated: string;
-              groupName: string;
-              owner?: string;
-              attributeKey: string;
-              values: (string)[];
-            };
-          };
-        };
-      };
-    };
-  };
-  patchSavedGroup: {
+  updateSavedGroup: {
     /** Partially update a single saved group */
     parameters: {
         /** @description The id of the requested resource */
@@ -2722,5 +2680,4 @@ export type PutVisualChangeResponse = operations["putVisualChange"]["responses"]
 export type ListSavedGroupsResponse = operations["listSavedGroups"]["responses"]["200"]["content"]["application/json"];
 export type PostSavedGroupResponse = operations["postSavedGroup"]["responses"]["200"]["content"]["application/json"];
 export type GetSavedGroupResponse = operations["getSavedGroup"]["responses"]["200"]["content"]["application/json"];
-export type PutSavedGroupResponse = operations["putSavedGroup"]["responses"]["200"]["content"]["application/json"];
-export type PatchSavedGroupResponse = operations["patchSavedGroup"]["responses"]["200"]["content"]["application/json"];
+export type UpdateSavedGroupResponse = operations["updateSavedGroup"]["responses"]["200"]["content"]["application/json"];
