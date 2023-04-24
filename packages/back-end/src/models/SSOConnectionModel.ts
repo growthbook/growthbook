@@ -6,10 +6,6 @@ const ssoConnectionSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
-  /* @deprecated */
-  emailDomain: {
-    type: String,
-  },
   emailDomains: {
     type: [String],
     index: true,
@@ -35,26 +31,7 @@ const SSOConnectionModel = mongoose.model<SSOConnectionDocument>(
 );
 
 function toInterface(doc: SSOConnectionDocument): SSOConnectionInterface {
-  const conn = doc.toJSON();
-  if (conn?.emailDomain) {
-    // quick migration for emailDomain -> emailDomains
-    conn.emailDomains = [conn.emailDomain];
-    delete conn.emailDomain;
-
-    // update the document in the background
-    const { id, organization } = conn;
-    if (id && organization) {
-      SSOConnectionModel.updateOne(
-        { id, organization },
-        {
-          $set: { emailDomains: conn.emailDomains },
-          $unset: { emailDomain: 1 },
-        }
-      );
-    }
-  }
-
-  return conn;
+  return doc.toJSON();
 }
 
 export async function getSSOConnectionById(

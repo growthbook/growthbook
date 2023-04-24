@@ -4,8 +4,6 @@ export interface SSOConnectionInterface {
   id?: string;
   dateCreated?: Date;
   organization?: string;
-  /* @deprecated */
-  emailDomain?: string;
   emailDomains?: string[];
   additionalScope?: string;
   idpType?: string;

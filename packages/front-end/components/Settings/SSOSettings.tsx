@@ -18,7 +18,7 @@ export default function SSOSettings({ ssoConnection }: Props) {
       <div className="d-flex">
         <div>
           <h3>Enterprise SSO Enabled</h3>
-          {ssoConnection?.emailDomain?.length > 0 && (
+          {ssoConnection?.emailDomains?.length > 0 && (
             <div>
               Users can auto-join your account when signing in through your
               Identity Provider with an email matching{" "}
