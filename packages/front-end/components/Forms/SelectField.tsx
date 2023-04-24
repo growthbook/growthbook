@@ -1,7 +1,8 @@
-import { FC, useMemo, useRef, ReactNode } from "react";
+import { FC, useMemo, useRef, ReactNode, useState } from "react";
 import ReactSelect from "react-select";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
+import CreatableSelect from "react-select/creatable";
 import Field, { FieldProps } from "./Field";
 
 export type SingleValue = { label: string; value: string; tooltip?: string };
@@ -77,6 +78,7 @@ const SelectField: FC<
     initialOption?: string;
     onChange: (value: string) => void;
     sort?: boolean;
+    createable?: boolean;
     formatOptionLabel?: (value: SingleValue) => ReactNode;
   }
 > = ({
@@ -91,16 +93,42 @@ const SelectField: FC<
   required,
   style,
   className,
+  createable = false,
   formatOptionLabel,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
-  const selected = map.get(value);
+  let selected = map.get(value);
+
+  if (!selected && value && createable) {
+    selected = {
+      label: value,
+      value: value,
+    };
+  }
+
+  const [inputValue, setInputValue] = useState("");
 
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
 
   const selectRef = useRef(null);
+
+  if (!options.length && createable) {
+    return (
+      <Field
+        {...fieldProps}
+        ref={selectRef}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        disabled={disabled}
+        autoFocus={autoFocus}
+        required={required}
+        className={className}
+      />
+    );
+  }
 
   return (
     <Field
@@ -116,21 +144,69 @@ const SelectField: FC<
               className
             )}
           >
-            <ReactSelect
-              {...ReactSelectProps}
-              id={id}
-              ref={ref}
-              classNamePrefix="gb-select"
-              isDisabled={disabled || false}
-              options={sorted}
-              onChange={(selected) => {
-                onChange(selected?.value || "");
-              }}
-              autoFocus={autoFocus}
-              value={selected}
-              placeholder={initialOption ?? placeholder}
-              formatOptionLabel={formatOptionLabel}
-            />
+            {createable ? (
+              <CreatableSelect
+                {...ReactSelectProps}
+                id={id}
+                ref={ref}
+                classNamePrefix="gb-select"
+                isClearable
+                isDisabled={disabled || false}
+                placeholder={placeholder}
+                inputValue={inputValue}
+                options={sorted}
+                autoFocus={autoFocus}
+                onChange={(selected) => {
+                  onChange(selected?.value || "");
+                }}
+                onFocus={() => {
+                  if (!map.has(selected?.value)) {
+                    // If this was a custom option, reset the input value so it's editable
+                    setInputValue(selected?.value || "");
+                  }
+                }}
+                onBlur={() => {
+                  if (!inputValue) return;
+                  onChange(inputValue);
+                }}
+                onInputChange={(val) => {
+                  setInputValue(val);
+                }}
+                onKeyDown={(event) => {
+                  if (!inputValue) return;
+                  switch (event.key) {
+                    case "Enter":
+                    case "Tab":
+                      onChange(inputValue);
+                      setInputValue("");
+                      ref.current.blur();
+                  }
+                }}
+                onCreateOption={(val) => {
+                  onChange(val);
+                }}
+                noOptionsMessage={() => null}
+                isValidNewOption={() => false}
+                value={selected}
+                formatOptionLabel={formatOptionLabel}
+              />
+            ) : (
+              <ReactSelect
+                {...ReactSelectProps}
+                id={id}
+                ref={ref}
+                classNamePrefix="gb-select"
+                isDisabled={disabled || false}
+                options={sorted}
+                onChange={(selected) => {
+                  onChange(selected?.value || "");
+                }}
+                autoFocus={autoFocus}
+                value={selected}
+                placeholder={initialOption ?? placeholder}
+                formatOptionLabel={formatOptionLabel}
+              />
+            )}
             {required && (
               <input
                 tabIndex={-1}

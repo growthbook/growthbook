@@ -5,16 +5,13 @@ import {
 } from "@/../back-end/src/types/Integration";
 import { DataSourceInterfaceWithParams } from "@/../back-end/types/datasource";
 import useApi from "./useApi";
+import { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
 
 export default function useSchemaFormOptions(
   datasource: DataSourceInterfaceWithParams
 ) {
   const [tableId, setTableId] = useState("");
 
-  const tableOptions: {
-    schemaName: string;
-    options: { label: string; value: string; queryValue: string }[];
-  }[] = [];
   const supportsInformationSchema =
     datasource?.properties?.supportsInformationSchema;
 
@@ -26,26 +23,30 @@ export default function useSchemaFormOptions(
       : null
   );
 
+  const tableGroups: Map<string, GroupedValue> = new Map();
+  const tableIdMapping: Map<string, string> = new Map();
   if (data?.informationSchema?.databases.length) {
-    data.informationSchema.databases.forEach((database) => {
+    data.informationSchema?.databases?.forEach((database) => {
       database?.schemas?.forEach((schema) => {
-        const option = { schemaName: schema.schemaName, options: [] };
+        let group = tableGroups.get(schema.schemaName);
+        if (!group) {
+          group = {
+            label: schema.schemaName,
+            options: []
+          }
+          tableGroups.set(schema.schemaName, group);
+        }
+
         schema?.tables?.forEach((table) => {
-          option.options.push({
+          group.options.push({
             label: table.tableName,
-            value: table.id,
-            queryValue: table.path,
-          });
+            value: table.path
+          })
+          tableIdMapping.set(table.path, table.id);
         });
-        tableOptions.push(option);
       });
     });
   }
-
-  const columnOptions: {
-    schemaName: string;
-    options: { label: string; value: string; queryValue: string }[];
-  }[] = [];
 
   const { data: columnData } = useApi<{
     table: InformationSchemaTablesInterface;
@@ -55,21 +56,23 @@ export default function useSchemaFormOptions(
       : null
   );
 
+  const columnOptions: SingleValue[] = [];
   if (columnData?.table?.columns.length) {
     const option = { schemaName: columnData.table.tableSchema, options: [] };
     columnData.table.columns.forEach((column) => {
-      option.options.push({
+      columnOptions.push({
         label: column.columnName,
-        value: column.columnName,
-        queryValue: column.columnName,
-      });
+        value: column.columnName
+      })
     });
-    columnOptions.push(option);
   }
 
   return {
-    setTableId,
-    tableOptions,
+    // The table path is passed in, need to look up the id from this
+    setTableId: (value: string) => {
+      setTableId(tableIdMapping.get(value) || "");
+    },
+    tableOptions: Array.from(tableGroups.values()),
     columnOptions,
   };
 }
