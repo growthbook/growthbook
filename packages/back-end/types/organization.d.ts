@@ -5,7 +5,7 @@ import {
   PROJECT_SCOPED_PERMISSIONS,
 } from "../src/util/organization.util";
 import { AttributionModel, ImplementationType } from "./experiment";
-import type { StatsEngine } from "./stats";
+import type { PValueCorrection, StatsEngine } from "./stats";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -158,6 +158,7 @@ export interface OrganizationSettings {
   defaultRole?: MemberRoleInfo;
   statsEngine?: StatsEngine;
   pValueThreshold?: number;
+  pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentDays?: number;
   /** @deprecated */
