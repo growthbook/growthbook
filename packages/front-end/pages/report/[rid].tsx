@@ -244,7 +244,7 @@ export default function ReportPage() {
                   >
                     <div
                       className="font-weight-bold"
-                      style={{ lineHeight: 1.5 }}
+                      style={{ lineHeight: 1.2 }}
                     >
                       updated
                     </div>

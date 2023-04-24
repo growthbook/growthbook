@@ -6,6 +6,7 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { ExperimentTableRow, useDomain } from "@/services/experiments";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "../Tooltip/Tooltip";
 import SelectField from "../Forms/SelectField";
 import AlignedGraph from "./AlignedGraph";
@@ -62,13 +63,13 @@ export default function ResultsTable({
   hasRisk,
   riskVariation,
   setRiskVariation,
-  statsEngine,
+  statsEngine = "bayesian",
   pValueCorrection,
-  sequentialTestingEnabled,
+  sequentialTestingEnabled = false,
 }: ResultsTableProps) {
+  const orgSettings = useOrgSettings();
+
   const domain = useDomain(variations, rows);
-  statsEngine = statsEngine ?? "bayesian";
-  sequentialTestingEnabled = sequentialTestingEnabled ?? false;
 
   return (
     <table

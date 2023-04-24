@@ -277,7 +277,7 @@ export default function AnalysisSettingsBar({
                 style={{ width: 100, fontSize: "0.8em" }}
                 title={datetime(snapshot.dateCreated)}
               >
-                <div className="font-weight-bold" style={{ lineHeight: 1.5 }}>
+                <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
                   last updated
                 </div>
                 <div className="d-inline-block" style={{ lineHeight: 1 }}>
