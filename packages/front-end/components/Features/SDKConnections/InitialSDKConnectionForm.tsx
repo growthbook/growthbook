@@ -101,6 +101,7 @@ export default function InitialSDKConnectionForm({
           encryptPayload: false,
           includeVisualExperiments: false,
           includeDraftExperiments: false,
+          includeExperimentNames: false,
           environment: environments[0]?.id || "production",
           project: "",
           proxyEnabled: false,

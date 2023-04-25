@@ -1,0 +1,27 @@
+type: object
+required:
+  - id
+  - dateCreated
+  - dateUpdated
+  - name
+  - attributeKey
+  - values
+properties:
+  id:
+    type: string
+  dateCreated:
+    type: string
+    format: date-time
+  dateUpdated:
+    type: string
+    format: date-time
+  name:
+    type: string
+  owner:
+    type: string
+  attributeKey:
+    type: string
+  values:
+    type: array
+    items:
+      type: string
