@@ -1,7 +1,9 @@
 import { FC, useState } from "react";
 import { IconType } from "react-icons";
 import { GoBeaker, GoGraph } from "react-icons/go";
+import clsx from "clsx";
 import track from "@/services/track";
+import usePermissions from "@/hooks/usePermissions";
 import Modal from "../Modal";
 import styles from "./AddExperimentModal.module.scss";
 import ImportExperimentModal from "./ImportExperimentModal";
@@ -12,11 +14,24 @@ type CTA = {
   onClick: () => void;
   cta: string;
   description: string;
+  enabled: boolean;
 };
 
-const CreateExperimentCTA: FC<CTA> = ({ Icon, onClick, cta, description }) => {
+const CreateExperimentCTA: FC<CTA> = ({
+  Icon,
+  onClick,
+  cta,
+  description,
+  enabled,
+}) => {
   return (
-    <div className={styles.ctaContainer} onClick={onClick}>
+    <div
+      className={clsx(
+        styles.ctaContainer,
+        enabled ? styles.enabled : styles.disabled
+      )}
+      onClick={enabled ? onClick : null}
+    >
       <div className={styles.ctaButton}>
         <div className={styles.ctaIconContainer}>
           <Icon size={96} />
@@ -34,6 +49,13 @@ const AddExperimentModal: FC<{
   onClose: () => void;
   source?: string;
 }> = ({ onClose, source }) => {
+  const permissions = usePermissions();
+  const hasRunExperimentsPermission = permissions.check(
+    "runExperiments",
+    "",
+    []
+  );
+
   const [mode, setMode] = useState<"new" | "import" | null>(null);
 
   const ctas: CTA[] = [
@@ -46,6 +68,7 @@ const AddExperimentModal: FC<{
         setMode("import");
         track("Analyze an Existing Experiment", { source });
       },
+      enabled: true,
     },
     {
       cta: "Design a New Experiment",
@@ -56,6 +79,7 @@ const AddExperimentModal: FC<{
         setMode("new");
         track("Design a New Experiment", { source });
       },
+      enabled: hasRunExperimentsPermission,
     },
   ];
 
@@ -79,13 +103,14 @@ const AddExperimentModal: FC<{
               flexWrap: "wrap",
             }}
           >
-            {ctas.map(({ cta, description, Icon, onClick }, index) => (
+            {ctas.map(({ cta, description, Icon, onClick, enabled }, index) => (
               <CreateExperimentCTA
                 key={index}
                 cta={cta}
                 Icon={Icon}
                 onClick={onClick}
                 description={description}
+                enabled={enabled}
               />
             ))}
           </div>

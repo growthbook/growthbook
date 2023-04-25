@@ -27,7 +27,8 @@ interface Props {
   experiment: ExperimentInterfaceStringDates;
   visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
-  canEdit: boolean;
+  canEditExperiment: boolean;
+  canEditVisualChangesets: boolean;
   className?: string;
   setVisualEditorModal: (v: boolean) => void;
 }
@@ -35,16 +36,16 @@ interface Props {
 const ScreenshotCarousel: FC<{
   index: number;
   variation: Variation;
-  canEdit: boolean;
+  canEditExperiment: boolean;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
-}> = ({ canEdit, experiment, index, variation, mutate }) => {
+}> = ({ canEditExperiment, experiment, index, variation, mutate }) => {
   const { apiCall } = useAuth();
 
   return (
     <Carousel
       deleteImage={
-        !canEdit
+        !canEditExperiment
           ? null
           : async (j) => {
               const { status, message } = await apiCall<{
@@ -105,7 +106,8 @@ const drawUrlPattern = (
 
 const VariationsTable: FC<Props> = ({
   experiment,
-  canEdit,
+  canEditExperiment,
+  canEditVisualChangesets,
   mutate,
   visualChangesets: _visualChangesets,
   setVisualEditorModal,
@@ -178,11 +180,11 @@ const VariationsTable: FC<Props> = ({
                 <td
                   key={i}
                   scope="col"
-                  className={`align-top ${canEdit ? "pb-1" : ""}`}
+                  className={`align-top ${canEditExperiment ? "pb-1" : ""}`}
                   style={{
                     minWidth: "17.5rem",
                     height: "inherit",
-                    borderBottom: canEdit ? 0 : null,
+                    borderBottom: canEditExperiment ? 0 : null,
                   }}
                 >
                   <div className="d-flex flex-column h-100">
@@ -191,7 +193,7 @@ const VariationsTable: FC<Props> = ({
                         key={i}
                         index={i}
                         variation={v}
-                        canEdit={canEdit}
+                        canEditExperiment={canEditExperiment}
                         experiment={experiment}
                         mutate={mutate}
                       />
@@ -200,7 +202,7 @@ const VariationsTable: FC<Props> = ({
                 </td>
               ))}
             </tr>
-            {canEdit && (
+            {canEditExperiment && (
               <tr>
                 {variations.map((v, i) => (
                   <td
@@ -255,7 +257,7 @@ const VariationsTable: FC<Props> = ({
                         <div className="col-auto px-3 py-2 rounded bg-muted-yellow">
                           <label className="d-block mb-1 font-weight-bold">
                             URL Targeting
-                            {canEdit && (
+                            {canEditVisualChangesets && (
                               <a
                                 className="ml-2"
                                 href="#"
@@ -295,30 +297,31 @@ const VariationsTable: FC<Props> = ({
                         </div>
                       </div>
                       <div style={{ flex: 1 }} />
-                      {canEdit && experiment.status === "draft" && (
-                        <div className="col-auto">
-                          {hasVisualEditorFeature && (
-                            <OpenVisualEditorLink
-                              id={vc.id}
-                              changeIndex={1}
-                              visualEditorUrl={vc.editorUrl}
+                      {canEditVisualChangesets &&
+                        experiment.status === "draft" && (
+                          <div className="col-auto">
+                            {hasVisualEditorFeature && (
+                              <OpenVisualEditorLink
+                                id={vc.id}
+                                changeIndex={1}
+                                visualEditorUrl={vc.editorUrl}
+                              />
+                            )}
+                            <DeleteButton
+                              className="btn-sm ml-4"
+                              onClick={async () => {
+                                await apiCall(`/visual-changesets/${vc.id}`, {
+                                  method: "DELETE",
+                                });
+                                mutate();
+                                track("Delete visual changeset", {
+                                  source: "visual-editor-ui",
+                                });
+                              }}
+                              displayName="Visual Changes"
                             />
-                          )}
-                          <DeleteButton
-                            className="btn-sm ml-4"
-                            onClick={async () => {
-                              await apiCall(`/visual-changesets/${vc.id}`, {
-                                method: "DELETE",
-                              });
-                              mutate();
-                              track("Delete visual changeset", {
-                                source: "visual-editor-ui",
-                              });
-                            }}
-                            displayName="Visual Changes"
-                          />
-                        </div>
-                      )}
+                          </div>
+                        )}
                     </div>
                   </div>
 
@@ -388,7 +391,7 @@ const VariationsTable: FC<Props> = ({
           })}
 
           <div className="px-3 my-2">
-            {hasVisualEditorFeature && canEdit ? (
+            {hasVisualEditorFeature && canEditVisualChangesets ? (
               <button
                 className="btn btn-link"
                 onClick={() => {
