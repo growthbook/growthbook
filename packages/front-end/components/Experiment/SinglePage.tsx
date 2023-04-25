@@ -1,6 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import {
@@ -191,7 +191,11 @@ export default function SinglePage({
 
   const { data: sdkConnectionsData } = useSDKConnections();
 
+  const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
+  const projectName = project?.name || null;
+  const projectIsOprhaned = projectId && !projectName;
+
   const datasource = getDatasourceById(experiment.datasource);
   const segment = getSegmentById(experiment.segment || "");
   const activationMetric = getMetricById(experiment.activationMetric || "");
@@ -506,17 +510,30 @@ export default function SinglePage({
         </div>
       </div>
       <div className="row align-items-center mb-4">
-        {projects.length > 0 && (
+        {(projects.length > 0 || projectIsOprhaned) && (
           <div className="col-auto">
             Project:{" "}
-            {project ? (
-              <span className="badge badge-secondary">{project.name}</span>
+            {projectIsOprhaned ? (
+              <Tooltip
+                body={
+                  <>
+                    Project <code>{projectId}</code> not found
+                  </>
+                }
+              >
+                <span className="text-danger">
+                  <FaExclamationTriangle /> Invalid project
+                </span>
+              </Tooltip>
+            ) : projectId ? (
+              <strong>{projectName}</strong>
             ) : (
-              <em>None</em>
+              <em className="text-muted">None</em>
             )}{" "}
             {editProject && (
               <a
                 href="#"
+                className="ml-2 cursor-pointer"
                 onClick={(e) => {
                   e.preventDefault();
                   editProject();

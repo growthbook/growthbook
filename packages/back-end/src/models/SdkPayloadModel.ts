@@ -6,8 +6,6 @@ import {
   SDKPayloadInterface,
   SDKStringifiedPayloadInterface,
 } from "../../types/sdk-payload";
-import { logger } from "../util/logger";
-import { findProjectById } from "./ProjectModel";
 
 // Increment this if we change the payload contents in a backwards-incompatible way
 export const LATEST_SDK_PAYLOAD_SCHEMA_VERSION = 1;
@@ -84,14 +82,6 @@ export async function updateSDKPayload({
     features: featureDefinitions,
     experiments: experimentsDefinitions,
   };
-
-  const projectDoc = project
-    ? await findProjectById(project, organization)
-    : null;
-  if (project && !projectDoc) {
-    logger.error(`Cannot update SDK payload: project ${project} not found`);
-    return;
-  }
 
   await SDKPayloadModel.updateOne(
     {

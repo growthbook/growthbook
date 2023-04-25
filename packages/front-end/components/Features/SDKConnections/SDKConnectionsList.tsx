@@ -115,7 +115,7 @@ export default function SDKConnectionsList() {
                         </Tooltip>
                       ) : (
                         projectName ?? <em>All Projects</em>
-                      )}{" "}
+                      )}
                     </td>
                   )}
                   <td>

@@ -49,6 +49,16 @@ export async function findProjectById(id: string, organization: string) {
   const doc = await ProjectModel.findOne({ id, organization });
   return doc ? toInterface(doc) : null;
 }
+export async function findProjectsByIds(
+  ids: string[],
+  organization: string
+) {
+  const docs = await ProjectModel.find({
+    id: { $in: ids },
+    organization,
+  });
+  return docs.map(toInterface);
+}
 export async function deleteProjectById(id: string, organization: string) {
   await ProjectModel.deleteOne({
     id,

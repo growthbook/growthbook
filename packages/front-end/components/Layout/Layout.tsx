@@ -33,7 +33,7 @@ const navlinks: SidebarLinkProps[] = [
     autoClose: true,
     subLinks: [
       {
-        name: "All Features",
+        name: "Features",
         href: "/features",
         path: /^features/,
       },

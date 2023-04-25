@@ -27,6 +27,8 @@ import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { getEnvironments, getOrganizationById } from "./organizations";
+import { findProjectById, findProjectsByIds } from "../models/ProjectModel";
+import uniq from "lodash/uniq";
 
 export type AttributeMap = Map<string, string>;
 
@@ -170,6 +172,8 @@ export async function refreshSDKPayloadCache(
   const groupMap = await getSavedGroupMap(organization);
   allFeatures = allFeatures || (await getAllFeatures(organization.id));
   const allVisualExperiments = await getAllVisualExperiments(organization.id);
+  const payloadKeysProjectIds = uniq(payloadKeys.map(key => key.project).filter(Boolean));
+  const allProjects = await findProjectsByIds(payloadKeysProjectIds, organization.id);
 
   // For each affected project/environment pair, generate a new SDK payload and update the cache
   const promises: (() => Promise<void>)[] = [];
@@ -195,15 +199,19 @@ export async function refreshSDKPayloadCache(
       groupMap
     );
 
-    promises.push(async () => {
-      await updateSDKPayload({
-        organization: organization.id,
-        project: key.project,
-        environment: key.environment,
-        featureDefinitions,
-        experimentsDefinitions,
+    if (key.project && !allProjects.find((p) => p.id === key.project)) {
+      logger.error(`Cannot update SDK payload: project ${key.project} not found`);
+    } else {
+      promises.push(async () => {
+        await updateSDKPayload({
+          organization: organization.id,
+          project: key.project,
+          environment: key.environment,
+          featureDefinitions,
+          experimentsDefinitions,
+        });
       });
-    });
+    }
   }
 
   // If there are no changes, we don't need to do anything
@@ -323,14 +331,22 @@ export async function getFeatureDefinitions(
     groupMap
   );
 
-  // Cache in Mongo
-  await updateSDKPayload({
-    organization,
-    project: project || "",
-    environment,
-    featureDefinitions,
-    experimentsDefinitions,
-  });
+  const projectDoc = project
+    ? await findProjectById(project, organization)
+    : null;
+
+  if (project && !projectDoc) {
+    logger.error(`Cannot update SDK payload: project ${project} not found`);
+  } else {
+    // Cache in Mongo
+    await updateSDKPayload({
+      organization,
+      project: project || "",
+      environment,
+      featureDefinitions,
+      experimentsDefinitions,
+    });
+  }
 
   return await getFeatureDefinitionsResponse(
     featureDefinitions,

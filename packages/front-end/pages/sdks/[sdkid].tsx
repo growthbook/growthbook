@@ -241,7 +241,7 @@ export default function SDKConnectionPage() {
               <Tooltip
                 body={
                   <>
-                    Project <code>{connection.project}</code> not found
+                    Project <code>{projectId}</code> not found
                   </>
                 }
               >
@@ -249,7 +249,7 @@ export default function SDKConnectionPage() {
                   <FaExclamationTriangle /> Invalid project
                 </span>
               </Tooltip>
-            ) : connection.project ? (
+            ) : projectId ? (
               <strong>{projectName}</strong>
             ) : (
               <em className="text-muted">All Projects</em>
