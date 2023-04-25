@@ -34,7 +34,7 @@
     "agenda": "^5.0.0",
     "asn1.js": "^5.4.1",
     "async": "^3.1.0",
-    "aws-sdk": "^2.696.0",
+    "aws-sdk": "^2.1354.0",
     "body-parser": "^1.19.0",
     "clickhouse": "^2.4.0",
     "compression": "^1.7.4",
