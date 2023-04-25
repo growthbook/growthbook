@@ -28,7 +28,7 @@ export default function SSOSettings({ ssoConnection }: Props) {
                   or any of the following email domains:{" "}
                   {ssoConnection.emailDomains.slice(1).map((d, i) => (
                     <>
-                      <strong key={i}>d</strong>
+                      <strong key={i}>{d}</strong>
                       {i < ssoConnection.emailDomains.length - 2 && ", "}
                     </>
                   ))}
