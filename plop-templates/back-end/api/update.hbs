@@ -1,14 +1,14 @@
 import { Put{{pascalCase object}}Response } from "../../../types/openapi";
 import {
-  put{{pascalCase object}},
+  update{{pascalCase object}},
   to{{pascalCase object}}ApiInterface
 } from "../../models/{{pascalCase object}}Model";
 import { createApiRequestHandler } from "../../util/handler";
-import { put{{pascalCase object}}Validator } from "../../validators/openapi";
+import { update{{pascalCase object}}Validator } from "../../validators/openapi";
 
-export const put{{pascalCase object}} = createApiRequestHandler(put{{pascalCase object}}Validator)(
+export const update{{pascalCase object}} = createApiRequestHandler(update{{pascalCase object}}Validator)(
   async (req): Promise<Put{{pascalCase object}}Response> => {
-    const {{camelCase object}} = await put{{pascalCase object}}(/* */);
+    const {{camelCase object}} = await update{{pascalCase object}}(/* */);
 
     return {
       {{camelCase object}}: to{{pascalCase object}}ApiInterface({{camelCase object}}),
