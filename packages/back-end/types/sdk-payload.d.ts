@@ -45,7 +45,9 @@ interface DOMMutation {
   selector: string;
   action: "append" | "set" | "remove";
   attribute: string;
-  value: string;
+  value?: string;
+  parentSelector?: string;
+  insertBeforeSelector?: string;
 }
 
 interface VariationMeta {

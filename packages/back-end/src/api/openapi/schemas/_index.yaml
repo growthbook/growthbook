@@ -38,3 +38,5 @@ VisualChangeset:
   $ref: './VisualChangeset.yaml'
 VisualChange:
   $ref: './VisualChange.yaml'
+SavedGroup:
+  $ref: './SavedGroup.yaml'
