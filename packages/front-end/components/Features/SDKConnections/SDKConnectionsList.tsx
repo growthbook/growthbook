@@ -76,7 +76,7 @@ export default function SDKConnectionsList() {
                 >
                   <td style={{ verticalAlign: "middle", width: 20 }}>
                     {projectIsOprhaned ? (
-                      <Tooltip body="This connection is scoped to a project that no longer exists">
+                      <Tooltip body='This SDK connection is scoped to a project that no longer exists. This connection will no longer work until either a valid project or "All Projects" is selected.'>
                         <FaExclamationTriangle className="text-danger" />
                       </Tooltip>
                     ) : (
@@ -111,9 +111,7 @@ export default function SDKConnectionsList() {
                             </>
                           }
                         >
-                          <span className="text-danger">
-                            <FaExclamationTriangle /> Invalid project
-                          </span>
+                          <span className="text-danger">Invalid project</span>
                         </Tooltip>
                       ) : (
                         projectName ?? <em>All Projects</em>

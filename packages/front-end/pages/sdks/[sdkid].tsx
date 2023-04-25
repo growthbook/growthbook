@@ -267,6 +267,14 @@ export default function SDKConnectionPage() {
         )}
       </div>
 
+      {projectIsOprhaned && (
+        <div className="alert alert-danger">
+          This SDK connection is scoped to a project that no longer exists. This
+          connection will no longer work until either a valid project or
+          &quot;All Projects&quot; is selected.
+        </div>
+      )}
+
       <div className="row mb-2 align-items-center">
         <div className="col-auto">
           <h2 className="mb-0">Connection</h2>
