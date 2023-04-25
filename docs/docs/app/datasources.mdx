@@ -295,7 +295,7 @@ We require 4 things to query the Universal Analytics API:
 
 When tracking experiment views, the custom dimension value must be formatted as `{experiment-key}{delimiter}{variation-index}`. For example: `my-test:0` for the control and `my-test:1` for the 1st variation.
 
-### Schema Browser
+## Schema Browser
 
 When you connect a supported data source to GrowthBook, we automatically generate metadata that is used by our Schema Browser. The Schema Browser is a user-friendly interface that makes writing queries easier as you can easily explore information about the datasource such as databases, schemas, tables, columns, and data types.
 
@@ -314,4 +314,6 @@ Below are the data sources that currently support the Schema Browser:
 - Redshift
 - Snowflake
 
+:::note
 **Note:** If you added a supported data source prior to GrowthBook v2.0, you can generate the schema manually by clicking "Data Sources" on the left-nav, selecting the data source, and then clicking the "View Schema Browser" button and following the on-screen prompt.
+:::
