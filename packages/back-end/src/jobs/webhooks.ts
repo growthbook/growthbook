@@ -29,11 +29,12 @@ export default function (ag: Agenda) {
 
     if (!webhook) return;
 
-    const { features, dateUpdated } = await getFeatureDefinitions(
-      webhook.organization,
-      webhook.environment === undefined ? "production" : webhook.environment,
-      webhook.project || ""
-    );
+    const { features, dateUpdated } = await getFeatureDefinitions({
+      organization: webhook.organization,
+      environment:
+        webhook.environment === undefined ? "production" : webhook.environment,
+      project: webhook.project || "",
+    });
 
     // eslint-disable-next-line
     const body: any = {
