@@ -17,9 +17,8 @@ import {
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
-import { getRules } from "@/services/features";
+import { getRules, isRuleFullyCovered } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
-import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { Rule, SortableRule } from "./Rule";
 
 export default function RuleList({
@@ -71,32 +70,8 @@ export default function RuleList({
   items.forEach((item, i) => {
     if (unreachableIndex) return;
 
-    // get the schedules on any of the rules:
-    const upcomingScheduleRule = getUpcomingScheduleRule(item);
-
-    const scheduleCompletedAndDisabled =
-      !upcomingScheduleRule &&
-      item?.scheduleRules?.length &&
-      item.scheduleRules.at(-1)?.timestamp !== null;
-
-    const ruleDisabled =
-      scheduleCompletedAndDisabled ||
-      upcomingScheduleRule?.enabled ||
-      !item.enabled;
-
-    // rollouts and experiments at 100%:
-    if (
-      (item.type === "rollout" || item.type === "experiment") &&
-      item.coverage === 1 &&
-      item.enabled === true &&
-      item.condition === "{}" &&
-      !ruleDisabled
-    ) {
-      unreachableIndex = i + 1;
-    }
-
-    // force rule at 100%: (doesn't have coverage)
-    if (item.type === "force" && item.condition === "{}" && !ruleDisabled) {
+    // if this rule covers 100% of traffic, no additional rules are reachable.
+    if (isRuleFullyCovered(item)) {
       unreachableIndex = i + 1;
     }
   });
