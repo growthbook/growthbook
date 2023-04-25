@@ -165,14 +165,26 @@ const sidebars = {
         },
         {
           type: "doc",
-          id: "statistics/aggregation",
-          label: "Aggregate Data",
-        },
-        {
-          type: "doc",
           id: "statistics/cuped",
           label: "Regression Adjustment (CUPED)",
           className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "statistics/multiple-corrections",
+          label: "Multiple Testing Corrections",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "statistics/sequential",
+          label: "Sequential Testing",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "statistics/aggregation",
+          label: "Aggregate Data",
         },
       ],
     },

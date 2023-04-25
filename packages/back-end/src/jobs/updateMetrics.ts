@@ -7,7 +7,7 @@ import {
 import { getMetricById } from "../models/MetricModel";
 import { METRIC_REFRESH_FREQUENCY } from "../util/secrets";
 import { OrganizationSettings } from "../../types/organization";
-import { childLogger } from "../util/logger";
+import { logger } from "../util/logger";
 
 const QUEUE_METRIC_UPDATES = "queueMetricUpdates";
 
@@ -81,31 +81,23 @@ async function updateSingleMetric(job: UpdateSingleMetricJob) {
   const orgId = job.attrs.data?.orgId;
   const orgSettings = job.attrs.data?.orgSettings;
 
-  const log = childLogger({
-    cron: "updateSingleMetric",
-    metricId,
-    orgId,
-  });
-
-  if (!metricId || !orgId) {
-    log.error("Error getting metricId from job");
-    return false;
-  }
-  const metric = await getMetricById(metricId, orgId, true);
-
-  if (!metric) {
-    log.error("Error getting metric to refresh: " + metricId);
-    return false;
-  }
-
   try {
-    log.info("Start Refreshing Metric: " + metricId);
+    if (!metricId || !orgId) {
+      throw new Error("Error getting metricId or orgId from job");
+    }
+    const metric = await getMetricById(metricId, orgId, true);
+
+    if (!metric) {
+      throw new Error("Error getting metric to refresh: " + metricId);
+    }
+
+    logger.info("Start Refreshing Metric: " + metricId);
     const days =
       orgSettings?.metricAnalysisDays || DEFAULT_METRIC_ANALYSIS_DAYS;
     await refreshMetric(metric, orgId, days);
+    logger.info("Successfully Refreshed Metric: " + metricId);
   } catch (e) {
-    log.error("Error refreshing metric: " + e.message);
+    logger.error(e, "Error refreshing metric");
+    return false;
   }
-
-  log.info("Success");
 }
