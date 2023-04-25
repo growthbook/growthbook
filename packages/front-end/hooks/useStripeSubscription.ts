@@ -21,6 +21,7 @@ export default function useStripeSubscription() {
 
   const { apiCall } = useAuth();
   const permissions = usePermissions();
+
   useEffect(() => {
     if (!permissions.manageBilling) return;
     if (!isCloud()) return;
@@ -35,6 +36,8 @@ export default function useStripeSubscription() {
   const activeAndInvitedUsers = quote?.activeAndInvitedUsers || 0;
 
   const subscriptionStatus = organization?.subscription?.status;
+
+  const hasPaymentMethod = organization?.subscription?.hasPaymentMethod;
 
   // We will treat past_due as active so as to not interrupt users
   const hasActiveSubscription = ["active", "trialing", "past_due"].includes(
@@ -62,7 +65,7 @@ export default function useStripeSubscription() {
 
   // eslint-disable-next-line
   let trialEnd = (organization?.subscription?.trialEnd || null) as any;
-  if (trialEnd) {
+  if (typeof trialEnd === "number") {
     trialEnd = getValidDate(trialEnd * 1000);
   }
 
@@ -74,6 +77,7 @@ export default function useStripeSubscription() {
     dateToBeCanceled,
     cancelationDate,
     subscriptionStatus,
+    hasPaymentMethod,
     pendingCancelation,
     activeAndInvitedUsers,
     hasActiveSubscription,
