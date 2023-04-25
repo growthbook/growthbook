@@ -8,7 +8,7 @@ import {
   deleteSavedGroupById,
   getSavedGroupById,
   parseSavedGroupString,
-  updateSavedGroup,
+  updateSavedGroupById,
 } from "../../models/SavedGroupModel";
 import {
   auditDetailsCreate,
@@ -118,7 +118,7 @@ export const putSavedGroup = async (
 
   const values = parseSavedGroupString(groupList);
 
-  const changes = await updateSavedGroup(id, org.id, {
+  const changes = await updateSavedGroupById(id, org.id, {
     values,
     groupName,
     owner,
