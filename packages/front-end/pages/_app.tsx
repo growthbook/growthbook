@@ -3,6 +3,7 @@ import "../styles/global.scss";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import { sayHi } from "shared";
 import { AuthProvider } from "../services/auth";
 import ProtectedPage from "../components/ProtectedPage";
 import { DefinitionsProvider } from "../services/DefinitionsContext";
@@ -54,6 +55,10 @@ function App({
   const preAuth = Component.preAuth || false;
 
   const liteLayout = Component.liteLayout || false;
+
+  useEffect(() => {
+    sayHi("Front-end");
+  }, []);
 
   useEffect(() => {
     initEnv()
