@@ -19,7 +19,6 @@ export const languageMapping: Record<
     label: string;
     docs: DocSection;
     supportsEncryption: boolean;
-    usesEntireEndpoint: boolean;
     supportsVisualExperiments: boolean;
   }
 > = {
@@ -29,7 +28,6 @@ export const languageMapping: Record<
     label: "React",
     docs: "tsx",
     supportsEncryption: true,
-    usesEntireEndpoint: false,
     supportsVisualExperiments: true,
   },
   ruby: {
@@ -38,7 +36,6 @@ export const languageMapping: Record<
     label: "Ruby",
     docs: "ruby",
     supportsEncryption: false,
-    usesEntireEndpoint: true,
     supportsVisualExperiments: false,
   },
   python: {
@@ -47,7 +44,6 @@ export const languageMapping: Record<
     label: "Python",
     docs: "python",
     supportsEncryption: false,
-    usesEntireEndpoint: true,
     supportsVisualExperiments: false,
   },
   android: {
@@ -56,7 +52,6 @@ export const languageMapping: Record<
     label: "Kotlin",
     docs: "kotlin",
     supportsEncryption: false,
-    usesEntireEndpoint: false,
     supportsVisualExperiments: false,
   },
   csharp: {
@@ -65,7 +60,6 @@ export const languageMapping: Record<
     label: "C Sharp",
     docs: "csharp",
     supportsEncryption: false,
-    usesEntireEndpoint: true,
     supportsVisualExperiments: false,
   },
   flutter: {
@@ -74,7 +68,6 @@ export const languageMapping: Record<
     label: "Flutter",
     docs: "flutter",
     supportsEncryption: false,
-    usesEntireEndpoint: false,
     supportsVisualExperiments: false,
   },
   go: {
@@ -83,7 +76,6 @@ export const languageMapping: Record<
     label: "Golang",
     docs: "go",
     supportsEncryption: false,
-    usesEntireEndpoint: true,
     supportsVisualExperiments: false,
   },
   ios: {
@@ -92,7 +84,6 @@ export const languageMapping: Record<
     label: "Swift",
     docs: "swift",
     supportsEncryption: true,
-    usesEntireEndpoint: true,
     supportsVisualExperiments: false,
   },
   java: {
@@ -101,7 +92,6 @@ export const languageMapping: Record<
     label: "Java",
     docs: "java",
     supportsEncryption: true,
-    usesEntireEndpoint: true,
     supportsVisualExperiments: false,
   },
   javascript: {
@@ -110,7 +100,6 @@ export const languageMapping: Record<
     label: "Javascript",
     docs: "javascript",
     supportsEncryption: true,
-    usesEntireEndpoint: false,
     supportsVisualExperiments: true,
   },
   php: {
@@ -119,7 +108,6 @@ export const languageMapping: Record<
     label: "PHP",
     docs: "php",
     supportsEncryption: false,
-    usesEntireEndpoint: true,
     supportsVisualExperiments: false,
   },
   nodejs: {
@@ -128,7 +116,6 @@ export const languageMapping: Record<
     label: "Node.js",
     docs: "javascript",
     supportsEncryption: true,
-    usesEntireEndpoint: false,
     supportsVisualExperiments: false,
   },
   other: {
@@ -137,7 +124,6 @@ export const languageMapping: Record<
     label: "Other",
     docs: "sdks",
     supportsEncryption: false,
-    usesEntireEndpoint: true,
     supportsVisualExperiments: false,
   },
 };
