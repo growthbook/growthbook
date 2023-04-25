@@ -48,7 +48,7 @@ export async function getSSOConnectionByEmailDomain(
 ): Promise<null | SSOConnectionInterface> {
   if (!emailDomain) return null;
   const doc = await SSOConnectionModel.findOne({
-    emailDomains: { $in: [emailDomain] },
+    emailDomains: emailDomain,
   });
 
   return doc ? toInterface(doc) : null;
