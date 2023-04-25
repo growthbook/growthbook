@@ -50,6 +50,9 @@ jobs:
           yarn workspace @growthbook/growthbook build
           yarn workspace @growthbook/growthbook-react build
 
+          # Build shared package (required for linting/type checks to work)
+          yarn workspace shared build
+
           # Linting
           yarn lint
           yarn workspace stats lint
