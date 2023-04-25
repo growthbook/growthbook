@@ -1,4 +1,4 @@
-import { DataSourceType } from "aws-sdk/clients/appsync";
+import { DataSourceType } from "../../types/datasource";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runPostgresQuery } from "../services/postgres";

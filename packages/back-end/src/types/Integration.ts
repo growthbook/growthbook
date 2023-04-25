@@ -274,7 +274,7 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
-  getType(): DataSourceType | "";
+  getType?(): DataSourceType | "";
   getTableData?(
     databaseName: string,
     tableSchema: string,
