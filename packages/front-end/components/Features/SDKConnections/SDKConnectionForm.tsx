@@ -3,10 +3,10 @@ import {
   SDKConnectionInterface,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { FaInfoCircle } from "react-icons/fa";
+import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -34,7 +34,7 @@ export default function SDKConnectionForm({
   mutate: () => void;
 }) {
   const environments = useEnvironments();
-  const { project, projects } = useDefinitions();
+  const { project, projects, getProjectById } = useDefinitions();
   const { apiCall } = useAuth();
   const router = useRouter();
 
@@ -79,6 +79,20 @@ export default function SDKConnectionForm({
   const hasNoSDKsWithVisualExperimentSupport = languages.every(
     (l) => !languageMapping[l].supportsVisualExperiments
   );
+
+  const projectsOptions = projects.map((p) => ({
+    label: p.name,
+    value: p.id,
+  }));
+  const projectId = initialValue.project;
+  const projectName = getProjectById(projectId)?.name || null;
+  const projectIsOprhaned = projectId && !projectName;
+  if (projectIsOprhaned) {
+    projectsOptions.push({
+      label: "Invalid project",
+      value: projectId,
+    });
+  }
 
   return (
     <Modal
@@ -149,16 +163,35 @@ export default function SDKConnectionForm({
         </small>
       </div>
 
-      {projects.length > 0 && (
+      {(projects.length > 0 || projectIsOprhaned) && (
         <SelectField
           label="Project"
           initialOption="All Projects"
           value={form.watch("project")}
           onChange={(project) => form.setValue("project", project)}
-          options={projects.map((p) => ({
-            label: p.name,
-            value: p.id,
-          }))}
+          options={projectsOptions}
+          sort={false}
+          formatOptionLabel={({ value, label }) => {
+            if (value === "") {
+              return <em>{label}</em>;
+            }
+            if (value === projectId && projectIsOprhaned) {
+              return (
+                <Tooltip
+                  body={
+                    <>
+                      Project <code>{value}</code> not found
+                    </>
+                  }
+                >
+                  <span className="text-danger">
+                    <FaExclamationTriangle /> <code>{value}</code>
+                  </span>
+                </Tooltip>
+              );
+            }
+            return label;
+          }}
         />
       )}
 
@@ -201,10 +234,7 @@ export default function SDKConnectionForm({
                       </p>
                       <p className="mb-0">
                         To force into a variation, use a URL query string such
-                        as{" "}
-                        <div className="text-monospace">
-                          ?my-experiment-id=2
-                        </div>
+                        as <code className="d-block">?my-experiment-id=2</code>
                       </p>
                     </>
                   }
