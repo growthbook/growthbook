@@ -9,6 +9,7 @@ import {
 } from "../models/InformationSchemaTablesModel";
 import { Column } from "../types/Integration";
 import { getPath } from "../util/informationSchemas";
+import { FormatDialect } from "../util/sql";
 
 const UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME =
   "updateStaleInformationSchemaTable";
@@ -75,12 +76,20 @@ export default function (ag: Agenda) {
           return;
         }
 
+        let dialect: FormatDialect = "";
+
+        if (datasource.type === "bigquery") {
+          dialect = "bigquery";
+        } else if (datasource.type === "mysql") {
+          dialect = "mysql";
+        }
+
         const columns: Column[] = tableData.map(
           (row: { column_name: string; data_type: string }) => {
             return {
               columnName: row.column_name,
               dataType: row.data_type,
-              path: getPath(datasource.type, {
+              path: getPath(dialect, {
                 tableCatalog: informationSchemaTable.databaseName,
                 tableSchema: informationSchemaTable.tableSchema,
                 tableName: informationSchemaTable.tableName,
