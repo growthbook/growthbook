@@ -3,7 +3,6 @@ import { ConnectionOptions } from "mysql2";
 import { MysqlConnectionParams } from "../../types/integrations/mysql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
-import { DataSourceType } from "../../types/datasource";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mysql extends SqlIntegration {
@@ -16,9 +15,6 @@ export default class Mysql extends SqlIntegration {
     );
   }
   getFormatDialect(): FormatDialect {
-    return "mysql";
-  }
-  getType(): DataSourceType {
     return "mysql";
   }
   getSensitiveParamKeys(): string[] {

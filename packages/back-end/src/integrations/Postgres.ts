@@ -1,4 +1,3 @@
-import { DataSourceType } from "../../types/datasource";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runPostgresQuery } from "../services/postgres";
@@ -14,9 +13,6 @@ export default class Postgres extends SqlIntegration {
   }
   getFormatDialect(): FormatDialect {
     return "postgresql";
-  }
-  getType(): DataSourceType {
-    return "postgres";
   }
   getSensitiveParamKeys(): string[] {
     return ["password", "caCert", "clientCert", "clientKey"];

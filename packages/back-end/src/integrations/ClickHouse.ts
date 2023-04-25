@@ -1,7 +1,6 @@
 import { ClickHouse as ClickHouseClient } from "clickhouse";
 import { decryptDataSourceParams } from "../services/datasource";
 import { ClickHouseConnectionParams } from "../../types/integrations/clickhouse";
-import { DataSourceType } from "../../types/datasource";
 import SqlIntegration from "./SqlIntegration";
 
 export default class ClickHouse extends SqlIntegration {
@@ -24,9 +23,6 @@ export default class ClickHouse extends SqlIntegration {
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];
-  }
-  getType(): DataSourceType {
-    return "clickhouse";
   }
   async runQuery(sql: string) {
     const client = new ClickHouseClient({

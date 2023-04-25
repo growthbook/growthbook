@@ -1,4 +1,3 @@
-import { DataSourceType } from "../../types/datasource";
 import { DatabricksConnectionParams } from "../../types/integrations/databricks";
 import { runDatabricksQuery } from "../services/databricks";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -15,9 +14,6 @@ export default class Databricks extends SqlIntegration {
   getFormatDialect(): FormatDialect {
     // sql-formatter doesn't support databricks explicitly yet, so using their generic formatter instead
     return "sql";
-  }
-  getType(): DataSourceType {
-    return "databricks";
   }
   getSensitiveParamKeys(): string[] {
     const sensitiveKeys: (keyof DatabricksConnectionParams)[] = ["token"];

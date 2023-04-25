@@ -1,5 +1,4 @@
 import mssql from "mssql";
-import { DataSourceType } from "../../types/datasource";
 import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
@@ -16,9 +15,6 @@ export default class Mssql extends SqlIntegration {
   }
   getFormatDialect(): FormatDialect {
     return "tsql";
-  }
-  getType(): DataSourceType {
-    return "mssql";
   }
   getSensitiveParamKeys(): string[] {
     return ["password"];

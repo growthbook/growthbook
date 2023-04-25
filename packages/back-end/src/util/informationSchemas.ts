@@ -1,11 +1,11 @@
 import uniqid from "uniqid";
-import { DataSourceType } from "../../types/datasource";
 import {
   InformationSchema,
   RawInformationSchema,
   Schema,
   Table,
 } from "../types/Integration";
+import { FormatDialect } from "./sql";
 
 type RowType = {
   tableCatalog: string;
@@ -14,13 +14,10 @@ type RowType = {
   columnName?: string;
 };
 
-export function getPath(
-  dataSource: DataSourceType | "",
-  path: RowType
-): string {
+export function getPath(dialect: FormatDialect, path: RowType): string {
   const pathArray = Object.values(path);
   const returnValue = pathArray.join(".");
-  switch (dataSource) {
+  switch (dialect) {
     // MySQL only supports path's that go two levels deep. E.G. If the full path is database.schema.table.column, it only supports table.column.
     case "mysql":
       if (pathArray.length === 1) {
@@ -38,7 +35,7 @@ export function getPath(
 
 export function formatInformationSchema(
   results: RawInformationSchema[],
-  datasourceType: DataSourceType | ""
+  dialect: FormatDialect
 ): InformationSchema[] {
   const databases = new Map<string, InformationSchema>();
   const schemas = new Map<string, Schema>();
@@ -47,7 +44,7 @@ export function formatInformationSchema(
   const date = new Date();
 
   results.forEach((row) => {
-    const dbPath = getPath(datasourceType, {
+    const dbPath = getPath(dialect, {
       tableCatalog: row.table_catalog,
     });
     let database = databases.get(dbPath);
@@ -62,7 +59,7 @@ export function formatInformationSchema(
       databases.set(dbPath, database);
     }
 
-    const schemaPath = getPath(datasourceType, {
+    const schemaPath = getPath(dialect, {
       tableCatalog: row.table_catalog,
       tableSchema: row.table_schema,
     });
@@ -80,7 +77,7 @@ export function formatInformationSchema(
     }
 
     // Do the same for tables
-    const tablePath = getPath(datasourceType, {
+    const tablePath = getPath(dialect, {
       tableCatalog: row.table_catalog,
       tableSchema: row.table_schema,
       tableName: row.table_name,

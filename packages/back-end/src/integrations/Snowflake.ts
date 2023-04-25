@@ -1,4 +1,3 @@
-import { DataSourceType } from "../../types/datasource";
 import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runSnowflakeQuery } from "../services/snowflake";
@@ -15,9 +14,6 @@ export default class Snowflake extends SqlIntegration {
     );
   }
   getFormatDialect(): FormatDialect {
-    return "snowflake";
-  }
-  getType(): DataSourceType {
     return "snowflake";
   }
   getSensitiveParamKeys(): string[] {

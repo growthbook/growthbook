@@ -4,7 +4,6 @@ import {
   DataSourceSettings,
   DataSourceProperties,
   ExposureQuery,
-  DataSourceType,
 } from "../../types/datasource";
 import {
   MetricValueParams,
@@ -97,9 +96,6 @@ export default abstract class SqlIntegration
     return "";
   }
   getFormatDialect(): FormatDialect {
-    return "";
-  }
-  getType(): DataSourceType | "" {
     return "";
   }
   toTimestamp(date: Date) {
@@ -1243,13 +1239,13 @@ export default abstract class SqlIntegration
   async getInformationSchema(): Promise<InformationSchema[]> {
     let sql = "";
 
-    const type = this.getType();
+    const dialect = this.getFormatDialect();
 
-    switch (type) {
-      case "athena" || "presto":
+    switch (dialect) {
+      case "trino":
         if (!this.params.catalog)
           throw new MissingDatasourceParamsError(
-            `To view the information schema for an ${type} dataset, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings.`
+            `To view the information schema for an ${dialect} dataset, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings.`
           );
         sql = `SELECT 
           table_name, 
@@ -1263,10 +1259,10 @@ export default abstract class SqlIntegration
         NOT IN ('information_schema')
         GROUP BY (table_name, table_schema, table_catalog)`;
         break;
-      case "clickhouse" || "mysql":
+      case "" || "mysql":
         if (!this.params.database)
           throw new Error(
-            `No database name provided in ${type} connection. Please add a database by editing the connection settings.`
+            `No database name provided in ${dialect} connection. Please add a database by editing the connection settings.`
           );
         sql = `SELECT
           table_name as table_name,
@@ -1298,20 +1294,24 @@ export default abstract class SqlIntegration
             \`${this.params.projectId}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\`
             GROUP BY table_name, table_schema`;
         break;
-      case "postgres" || "redshift" || "databricks":
+      case "postgresql" || "redshift" || "databricks":
         sql = `SELECT
           table_name,
           table_catalog,
           table_schema,
           count(column_name) as column_count
         FROM
-          ${type === "postgres" ? "information_schema.columns" : "SVV_COLUMNS"}
+          ${
+            dialect === "postgresql"
+              ? "information_schema.columns"
+              : "SVV_COLUMNS"
+          }
         WHERE
           table_schema
         NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
         GROUP BY (table_name, table_schema, table_catalog)`;
         break;
-      case "snowflake" || "mssql":
+      case "snowflake" || "tsql":
         if (!this.params.database) {
           throw new Error(
             "No database provided. In order to get the information schema, you must provide a database."
@@ -1337,10 +1337,7 @@ export default abstract class SqlIntegration
       throw new Error(`No tables found.`);
     }
 
-    return formatInformationSchema(
-      results as RawInformationSchema[],
-      this.getType()
-    );
+    return formatInformationSchema(results as RawInformationSchema[], dialect);
   }
   async getTableData(
     databaseName: string,
@@ -1349,8 +1346,8 @@ export default abstract class SqlIntegration
   ): Promise<{ tableData: null | unknown[] }> {
     let sql = "";
 
-    switch (this.getType()) {
-      case "postgres" || "clickhouse" || "redshift" || "mysql" || "databricks":
+    switch (this.getFormatDialect()) {
+      case "postgresql" || "clickhouse" || "redshift" || "mysql":
         sql = `SELECT
         data_type as data_type,
         column_name as column_name
@@ -1366,7 +1363,7 @@ export default abstract class SqlIntegration
           table_name
         IN ('${tableName}')`;
         break;
-      case "athena" || "mssql" || "presto" || "snowflake":
+      case "trino" || "tsql" || "snowflake":
         sql = `SELECT
           data_type,
           column_name

@@ -2,7 +2,6 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { runAthenaQuery } from "../services/athena";
 import { AthenaConnectionParams } from "../../types/integrations/athena";
 import { FormatDialect } from "../util/sql";
-import { DataSourceType } from "../../types/datasource";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {
@@ -16,9 +15,6 @@ export default class Athena extends SqlIntegration {
   }
   getFormatDialect(): FormatDialect {
     return "trino";
-  }
-  getType(): DataSourceType {
-    return "athena";
   }
   getSensitiveParamKeys(): string[] {
     return ["accessKeyId", "secretAccessKey"];

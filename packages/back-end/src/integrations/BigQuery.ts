@@ -9,7 +9,6 @@ import {
   MissingDatasourceParamsError,
 } from "../types/Integration";
 import { formatInformationSchema } from "../util/informationSchemas";
-import { DataSourceType } from "../../types/datasource";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -22,9 +21,6 @@ export default class BigQuery extends SqlIntegration {
     );
   }
   getFormatDialect(): FormatDialect {
-    return "bigquery";
-  }
-  getType(): DataSourceType {
     return "bigquery";
   }
   getSensitiveParamKeys(): string[] {
