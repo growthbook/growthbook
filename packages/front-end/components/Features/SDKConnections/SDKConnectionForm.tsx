@@ -3,7 +3,7 @@ import {
   SDKConnectionInterface,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
@@ -56,6 +56,7 @@ export default function SDKConnectionForm({
       encryptPayload: initialValue.encryptPayload || false,
       includeVisualExperiments: initialValue.includeVisualExperiments || false,
       includeDraftExperiments: initialValue.includeDraftExperiments || false,
+      includeExperimentNames: initialValue.includeExperimentNames || false,
       proxyEnabled: initialValue.proxy?.enabled || false,
       proxyHost: initialValue.proxy?.host || "",
     },
@@ -223,36 +224,70 @@ export default function SDKConnectionForm({
               </div>
             </div>
             {form.watch("includeVisualExperiments") && (
-              <div className="mt-3">
-                <Tooltip
-                  body={
-                    <>
-                      <p>
-                        In-development visual experiments will be sent to the
-                        SDK. We recommend only enabling this for non-production
-                        environments.
-                      </p>
-                      <p className="mb-0">
-                        To force into a variation, use a URL query string such
-                        as <code className="d-block">?my-experiment-id=2</code>
-                      </p>
-                    </>
-                  }
-                >
-                  <label htmlFor="sdk-connection-include-draft-experiments-toggle">
-                    Include draft experiments <FaInfoCircle />
-                  </label>
-                </Tooltip>
-                <div>
-                  <Toggle
-                    id="sdk-connection-include-draft-experiments-toggle"
-                    value={form.watch("includeDraftExperiments")}
-                    setValue={(val) =>
-                      form.setValue("includeDraftExperiments", val)
+              <>
+                <div className="mt-3">
+                  <Tooltip
+                    body={
+                      <>
+                        <p>
+                          In-development visual experiments will be sent to the
+                          SDK. We recommend only enabling this for
+                          non-production environments.
+                        </p>
+                        <p className="mb-0">
+                          To force into a variation, use a URL query string such
+                          as{" "}
+                          <code className="d-block">?my-experiment-id=2</code>
+                        </p>
+                      </>
                     }
-                  />
+                  >
+                    <label htmlFor="sdk-connection-include-draft-experiments-toggle">
+                      Include draft experiments <FaInfoCircle />
+                    </label>
+                  </Tooltip>
+                  <div>
+                    <Toggle
+                      id="sdk-connection-include-draft-experiments-toggle"
+                      value={form.watch("includeDraftExperiments")}
+                      setValue={(val) =>
+                        form.setValue("includeDraftExperiments", val)
+                      }
+                    />
+                  </div>
                 </div>
-              </div>
+
+                <div className="mt-3">
+                  <Tooltip
+                    body={
+                      <>
+                        <p>
+                          This can help add context when debugging or tracking
+                          events.
+                        </p>
+                        <div>
+                          However, this could expose potentially sensitive
+                          information to your users if enabled for a client-side
+                          or mobile application.
+                        </div>
+                      </>
+                    }
+                  >
+                    <label htmlFor="sdk-connection-include-experiment-meta">
+                      Include experiment/variation names? <FaInfoCircle />
+                    </label>
+                  </Tooltip>
+                  <div>
+                    <Toggle
+                      id="sdk-connection-include-experiment-meta"
+                      value={form.watch("includeExperimentNames")}
+                      setValue={(val) =>
+                        form.setValue("includeExperimentNames", val)
+                      }
+                    />
+                  </div>
+                </div>
+              </>
             )}
           </div>
         </>

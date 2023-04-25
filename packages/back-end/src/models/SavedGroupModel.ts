@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { ApiSavedGroup } from "../../types/openapi";
 import { SavedGroupInterface } from "../../types/saved-group";
 import { usingFileConfig } from "../init/config";
 
@@ -77,7 +78,7 @@ export async function getSavedGroupById(
   return savedGroup?.toJSON() || null;
 }
 
-export async function updateSavedGroup(
+export async function updateSavedGroupById(
   savedGroupId: string,
   organization: string,
   group: UpdateSavedGroupProps
@@ -107,4 +108,18 @@ export async function deleteSavedGroupById(id: string, organization: string) {
     id,
     organization,
   });
+}
+
+export function toSavedGroupApiInterface(
+  savedGroup: SavedGroupInterface
+): ApiSavedGroup {
+  return {
+    id: savedGroup.id,
+    values: savedGroup.values,
+    name: savedGroup.groupName,
+    attributeKey: savedGroup.attributeKey,
+    dateCreated: savedGroup.dateCreated.toISOString(),
+    dateUpdated: savedGroup.dateUpdated.toISOString(),
+    owner: savedGroup.owner || "",
+  };
 }
