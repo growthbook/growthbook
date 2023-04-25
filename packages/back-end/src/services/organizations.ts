@@ -778,11 +778,11 @@ export async function addMemberFromSSOConnection(
   if (!req.userId) return null;
 
   const ssoConnection = req.loginMethod;
-  if (!ssoConnection || !ssoConnection.emailDomain) return null;
+  if (!ssoConnection || !ssoConnection?.emailDomains?.length) return null;
 
   // Check if the user's email domain is allowed by the SSO connection
   const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
-  if (emailDomain !== ssoConnection.emailDomain) {
+  if (!ssoConnection?.emailDomains?.includes(emailDomain)) {
     return null;
   }
 
