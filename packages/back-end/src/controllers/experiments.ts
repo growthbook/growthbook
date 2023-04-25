@@ -2,6 +2,7 @@ import { Response } from "express";
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
@@ -60,7 +61,6 @@ import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { analyzeExperimentResults } from "../services/stats";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
 import { getValidDate } from "../util/dates";
 import { getReportVariations } from "../services/reports";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";

@@ -1,4 +1,3 @@
-import { sayHi } from "shared";
 import app from "./app";
 import { logger } from "./util/logger";
 
@@ -9,8 +8,6 @@ const server = app.listen(app.get("port"), () => {
     )} mode. Press CTRL-C to stop`
   );
 });
-
-sayHi("Back-end");
 
 export default server;
 

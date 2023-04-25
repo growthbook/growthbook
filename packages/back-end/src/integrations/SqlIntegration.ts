@@ -1,4 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceSettings,
@@ -34,7 +35,6 @@ import {
   FormatDialect,
 } from "../util/sql";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "../constants/stats";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {

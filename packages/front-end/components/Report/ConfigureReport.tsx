@@ -7,6 +7,7 @@ import {
 import { FaQuestionCircle } from "react-icons/fa";
 import { AttributionModel } from "back-end/types/experiment";
 import uniq from "lodash/uniq";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getValidDate } from "@/services/dates";
@@ -17,7 +18,6 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
 import { hasFileConfig } from "@/services/env";
 import { GBCuped, GBSequential } from "@/components/Icons";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "@/constants/stats";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";

@@ -3,6 +3,7 @@ import cronParser from "cron-parser";
 import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotInterface,
@@ -61,7 +62,6 @@ import {
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { postMetricValidator } from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "../constants/stats";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
