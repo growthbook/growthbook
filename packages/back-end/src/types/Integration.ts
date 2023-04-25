@@ -1,6 +1,7 @@
 import {
   DataSourceProperties,
   DataSourceSettings,
+  DataSourceType,
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
@@ -273,6 +274,7 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentQueryResponses>;
   getSourceProperties(): DataSourceProperties;
   testConnection(): Promise<boolean>;
+  getType(): DataSourceType | "";
   getTableData?(
     databaseName: string,
     tableSchema: string,

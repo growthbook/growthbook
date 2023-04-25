@@ -14,7 +14,10 @@ type RowType = {
   columnName?: string;
 };
 
-export function getPath(dataSource: DataSourceType, path: RowType): string {
+export function getPath(
+  dataSource: DataSourceType | "",
+  path: RowType
+): string {
   const pathArray = Object.values(path);
   const returnValue = pathArray.join(".");
   switch (dataSource) {
@@ -35,7 +38,7 @@ export function getPath(dataSource: DataSourceType, path: RowType): string {
 
 export function formatInformationSchema(
   results: RawInformationSchema[],
-  datasourceType: DataSourceType
+  datasourceType: DataSourceType | ""
 ): InformationSchema[] {
   const databases = new Map<string, InformationSchema>();
   const schemas = new Map<string, Schema>();

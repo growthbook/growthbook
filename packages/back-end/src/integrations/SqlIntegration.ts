@@ -99,8 +99,8 @@ export default abstract class SqlIntegration
   getFormatDialect(): FormatDialect {
     return "";
   }
-  getType(): DataSourceType {
-    return "bigquery"; //TODO: This is just a placeholder
+  getType(): DataSourceType | "" {
+    return "";
   }
   toTimestamp(date: Date) {
     return `'${date.toISOString().substr(0, 19).replace("T", " ")}'`;
@@ -1298,7 +1298,7 @@ export default abstract class SqlIntegration
             \`${this.params.projectId}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\`
             GROUP BY table_name, table_schema`;
         break;
-      case "postgres" || "redshift":
+      case "postgres" || "redshift" || "databricks":
         sql = `SELECT
           table_name,
           table_catalog,
@@ -1350,7 +1350,7 @@ export default abstract class SqlIntegration
     let sql = "";
 
     switch (this.getType()) {
-      case "postgres" || "clickhouse" || "redshift" || "mysql":
+      case "postgres" || "clickhouse" || "redshift" || "mysql" || "databricks":
         sql = `SELECT
         data_type as data_type,
         column_name as column_name
