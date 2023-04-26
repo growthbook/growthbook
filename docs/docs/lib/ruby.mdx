@@ -161,13 +161,13 @@ gb.run(Growthbook::InlineExperiment.new(
 
 You can learn more about [SDK Connection Endpoint Encryption](/app/api#encryption).
 
-Create a `GrowthBook::Context` with an encrypted payload and an encryption key:
+Create a `GrowthBook::Context` with an encrypted payload and a decryption key:
 
 ```rb
 # TODO: Replace these values with your own:
 Growthbook::Context.new(
   encrypted_features: 'm5ylFM6ndyOJA2OPadubkw==.Uu7ViqgKEt/dWvCyhI46q088PkAEJbnXKf3KPZjf9IEQQ+A8fojNoxw4wIbPX3aj',
-  encryption_key: 'Zvwv/+uhpFDznZ6SX28Yjg==',
+  decryption_key: 'Zvwv/+uhpFDznZ6SX28Yjg==',
   attributes: {
     id: '456',
     country: 'CA'
@@ -184,7 +184,7 @@ encrypted_features = res.is_a?(Net::HTTPSuccess) ? JSON.parse(res.body)['encrypt
 
 Growthbook::Context.new(
   encrypted_features: encrypted_features,
-  encryption_key: '<key-for-decrypting>',
+  decryption_key: '<key-for-decrypting>',
   attributes: {
     id: '456',
     country: 'CA'
