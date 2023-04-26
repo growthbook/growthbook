@@ -43,24 +43,32 @@ jobs:
 
           # Stats engine
           pip install numpy scipy pandas pytest black flake8 nbformat gbstats
+        env:
+          CI: true
 
-      - name: Build, lint, type-check, and test 
+      - name: Build dependencies
         run: |
-          # Build SDK packages (required for linting/type checks to work)
-          yarn workspace @growthbook/growthbook build
-          yarn workspace @growthbook/growthbook-react build
+          # Build required dependencies (sdks/shared package)
+          # This is required for linting/type checks to work
+          yarn build:deps
+        env:
+          CI: true
 
-          # Build shared package (required for linting/type checks to work)
-          yarn workspace shared build
-
-          # Linting
+      - name: Lint
+        run: |
           yarn lint
           yarn workspace stats lint
+        env:
+          CI: true
 
-          # Typescript type checks
+      - name: Type-check
+        run: |
           yarn type-check
+        env:
+          CI: true
 
-          # Test suites
+      - name: Test 
+        run: |
           yarn test
         env:
           CI: true
