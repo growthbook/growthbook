@@ -287,6 +287,8 @@ export default function SinglePage({
     mutate();
   };
 
+  const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
+
   const hasCreateAnalysesPermission = permissions.check(
     "createAnalyses",
     experiment.project
@@ -296,10 +298,8 @@ export default function SinglePage({
     "",
     []
   );
-
-  const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
-
   const canEditExperiment = hasCreateAnalysesPermission && !experiment.archived;
+  const canRunExperiment = hasRunExperimentsPermission && !experiment.archived;
 
   const ignoreConversionEnd =
     experiment.attributionModel === "experimentDuration";
@@ -420,7 +420,7 @@ export default function SinglePage({
         </div>
         <div className="col-auto">
           <MoreMenu>
-            {canEditExperiment && (
+            {canRunExperiment && (
               <button
                 className="dropdown-item"
                 onClick={() => setEditNameOpen(true)}
@@ -428,7 +428,7 @@ export default function SinglePage({
                 Edit name
               </button>
             )}
-            {canEditExperiment && (
+            {canRunExperiment && (
               <button
                 className="dropdown-item"
                 onClick={() => setStatusModal(true)}
@@ -456,7 +456,7 @@ export default function SinglePage({
                 Duplicate
               </button>
             )}
-            {!experiment.archived && hasCreateAnalysesPermission && (
+            {canRunExperiment && (
               <button
                 className="dropdown-item"
                 onClick={async (e) => {
@@ -474,7 +474,7 @@ export default function SinglePage({
                 Archive
               </button>
             )}
-            {experiment.archived && hasCreateAnalysesPermission && (
+            {canRunExperiment && (
               <button
                 className="dropdown-item"
                 onClick={async (e) => {
@@ -492,7 +492,7 @@ export default function SinglePage({
                 Unarchive
               </button>
             )}
-            {hasCreateAnalysesPermission && (
+            {canRunExperiment && (
               <DeleteButton
                 className="dropdown-item text-danger"
                 useIcon={false}
@@ -658,7 +658,7 @@ export default function SinglePage({
               visualChangesets={visualChangesets}
               mutate={mutate}
               canEditExperiment={canEditExperiment}
-              canEditVisualChangesets={hasRunExperimentsPermission}
+              canEditVisualChangesets={canRunExperiment}
               setVisualEditorModal={setVisualEditorModal}
             />
           </div>
@@ -883,9 +883,10 @@ export default function SinglePage({
 
       {growthbook.isOn("visual-editor-ui") &&
       experiment.status === "draft" &&
-      experiment.phases.length > 0 ? (
+      experiment.phases.length > 0 &&
+      canRunExperiment? (
         <div>
-          {hasRunExperimentsPermission && visualChangesets.length > 0 ? (
+          {visualChangesets.length > 0 ? (
             <div className="mb-4">
               {!hasSomeVisualChanges ? (
                 <div className="alert alert-info">
@@ -945,7 +946,7 @@ export default function SinglePage({
                 deploying code
               </p>
 
-              {hasVisualEditorFeature && hasRunExperimentsPermission ? (
+              {hasVisualEditorFeature ? (
                 <button
                   className="btn btn-primary btn-lg"
                   onClick={() => {

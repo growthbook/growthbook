@@ -3,6 +3,7 @@ import cronParser from "cron-parser";
 import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
+import { isEqual } from "lodash";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotInterface,
@@ -62,6 +63,7 @@ import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { postMetricValidator } from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "../constants/stats";
+import { VisualChangesetInterface } from "../../types/visual-changeset";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -1343,4 +1345,28 @@ export function getRegressionAdjustmentsForMetric({
       reason,
     },
   };
+}
+
+export function visualChangesetsHaveChanges({
+  oldVisualChangeset,
+  newVisualChangeset,
+}: {
+  oldVisualChangeset: VisualChangesetInterface;
+  newVisualChangeset: VisualChangesetInterface;
+}): boolean {
+  // if no visual changes or url patterns changes, return early
+  const oldVisualChanges = oldVisualChangeset.visualChanges.map(
+    ({ css, domMutations }) => ({ css, domMutations })
+  );
+  const newVisualChanges = newVisualChangeset.visualChanges.map(
+    ({ css, domMutations }) => ({ css, domMutations })
+  );
+  const hasNoVisualChanges = isEqual(oldVisualChanges, newVisualChanges);
+
+  const hasNoUrlPatternsChanges = isEqual(
+    oldVisualChangeset.urlPatterns,
+    newVisualChangeset.urlPatterns
+  );
+
+  return hasNoVisualChanges && hasNoUrlPatternsChanges;
 }

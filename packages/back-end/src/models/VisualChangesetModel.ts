@@ -1,4 +1,4 @@
-import { isEqual, keyBy } from "lodash";
+import { keyBy } from "lodash";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
@@ -12,6 +12,7 @@ import {
 } from "../../types/visual-changeset";
 import { EventAuditUser } from "../events/event-types";
 import { refreshSDKPayloadCache } from "../services/features";
+import { visualChangesetsHaveChanges } from "../services/experiments";
 import {
   getExperimentById,
   getPayloadKeys,
@@ -397,21 +398,8 @@ const onVisualChangesetUpdate = async ({
 }) => {
   if (bypassWebhooks) return;
 
-  // if no visual changes or url patterns changes, return early
-  const oldVisualChanges = oldVisualChangeset.visualChanges.map(
-    ({ css, domMutations }) => ({ css, domMutations })
-  );
-  const newVisualChanges = newVisualChangeset.visualChanges.map(
-    ({ css, domMutations }) => ({ css, domMutations })
-  );
-  const hasNoVisualChanges = isEqual(oldVisualChanges, newVisualChanges);
-
-  const hasNoUrlPatternsChanges = isEqual(
-    oldVisualChangeset.urlPatterns,
-    newVisualChangeset.urlPatterns
-  );
-
-  if (hasNoVisualChanges && hasNoUrlPatternsChanges) return;
+  if (!visualChangesetsHaveChanges({ oldVisualChangeset, newVisualChangeset }))
+    return;
 
   const experiment = await getExperimentById(
     organization.id,

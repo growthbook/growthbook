@@ -19,6 +19,7 @@ import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
+import usePermissions from "@/hooks/usePermissions";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -44,9 +45,15 @@ const AnalysisForm: FC<{
 
   const { hasCommercialFeature } = useUser();
 
+  const permissions = usePermissions();
+
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"
   );
+
+  const canRunExperiment =
+    permissions.check("runExperiments", "", []) &&
+    !experiment.archived;
 
   const settings = useOrgSettings();
 
@@ -236,6 +243,7 @@ const AnalysisForm: FC<{
         labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
         helpText="Will match against the experiment_id column in your data source"
+        disabled={!canRunExperiment}
       />
       <SelectField
         label="Assignment Attribute"

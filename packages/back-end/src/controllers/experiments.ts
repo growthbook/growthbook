@@ -782,6 +782,14 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
+  // check if updates have any of the following keys
+  const keysRequiringRunExperiments = [
+    "phases", "variations", "project", "name", "trackingKey", "archived", "status"
+  ];
+  if (Object.keys(changes).some((key) => keysRequiringRunExperiments.includes(key))) {
+    req.checkPermissions("runExperiments", "", []);
+  }
+
   const updated = await updateExperiment({
     organization: org,
     experiment,
@@ -857,6 +865,7 @@ export async function postExperimentArchive(
     return;
   }
 
+  req.checkPermissions("runExperiments", "", []);
   req.checkPermissions("createAnalyses", experiment.project);
 
   changes.archived = true;
@@ -961,6 +970,9 @@ export async function postExperimentStatus(
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { status, reason, dateEnded } = req.body;
+
+  req.checkPermissions("runExperiments", "", []);
+
   const changes: Changeset = {};
 
   const experiment = await getExperimentById(org.id, id);
@@ -1028,6 +1040,8 @@ export async function postExperimentStop(
     dateEnded,
     releasedVariationId,
   } = req.body;
+
+  req.checkPermissions("runExperiments", "", []);
 
   const experiment = await getExperimentById(org.id, id);
   const changes: Changeset = {};
@@ -1109,6 +1123,8 @@ export async function deleteExperimentPhase(
   const { id, phase } = req.params;
   const phaseIndex = parseInt(phase);
 
+  req.checkPermissions("runExperiments", "", []);
+
   const experiment = await getExperimentById(org.id, id);
   const changes: Changeset = {};
 
@@ -1172,6 +1188,9 @@ export async function putExperimentPhase(
   const { id } = req.params;
   const i = parseInt(req.params.phase);
   const phase = req.body;
+
+  req.checkPermissions("runExperiments", "", []);
+
   const changes: Changeset = {};
 
   const experiment = await getExperimentById(org.id, id);
@@ -1231,6 +1250,9 @@ export async function postExperimentPhase(
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
   const { reason, dateStarted, ...data } = req.body;
+
+  req.checkPermissions("runExperiments", "", []);
+
   const changes: Changeset = {};
 
   const experiment = await getExperimentById(org.id, id);
@@ -1351,6 +1373,8 @@ export async function deleteExperiment(
     });
     return;
   }
+
+  req.checkPermissions("runExperiments", "", []);
   req.checkPermissions("createAnalyses", experiment.project);
 
   await Promise.all([
@@ -2016,6 +2040,8 @@ export async function postVisualChangeset(
 ) {
   const { org } = getOrgFromReq(req);
 
+  req.checkPermissions("runExperiments", "", []);
+
   if (!req.body.urlPatterns) {
     throw new Error("urlPatterns needs to be defined");
   }
@@ -2050,6 +2076,8 @@ export async function putVisualChangeset(
 ) {
   const { org } = getOrgFromReq(req);
 
+  req.checkPermissions("runExperiments", "", []);
+
   const ret = await updateVisualChangeset({
     changesetId: req.params.id,
     organization: org,
@@ -2072,6 +2100,8 @@ export async function deleteVisualChangeset(
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
+
+  req.checkPermissions("runExperiments", "", []);
 
   await deleteVisualChangesetById({
     changesetId: req.params.id,
