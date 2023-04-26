@@ -1,6 +1,7 @@
 import path from "path";
 import nodemailer from "nodemailer";
 import nunjucks from "nunjucks";
+import { daysLeft } from "front-end/services/dates";
 import {
   EMAIL_ENABLED,
   EMAIL_FROM,
@@ -215,5 +216,43 @@ export async function sendPendingMemberApprovalEmail(
     subject: `You've been approved as a member with ${organization} on GrowthBook`,
     to: email,
     text: `Join ${organization} on GrowthBook`,
+  });
+}
+
+export async function sendStripeTrialWillEndEmail({
+  email,
+  organization,
+  endDate,
+  hasPaymentMethod,
+  billingUrl,
+}: {
+  email: string;
+  organization: string;
+  endDate: Date;
+  hasPaymentMethod: boolean;
+  billingUrl: string;
+}) {
+  const trialRemaining = Math.max(daysLeft(endDate), 1);
+  const trialDaysText = `${trialRemaining} day${
+    trialRemaining === 1 ? "" : "s"
+  }`;
+  const html = nunjucks.render("trial-will-end.jinja", {
+    trialDaysText,
+    hasPaymentMethod,
+    organization,
+    billingUrl,
+  });
+
+  const text = `Your GrowthBook Pro trial will end soon in ${trialDaysText}. ${
+    hasPaymentMethod
+      ? "Your credit card will be billed automatically."
+      : "Add a credit card to avoid losing access to GrowthBook Pro."
+  }`;
+
+  await sendMail({
+    html,
+    subject: `Your GrowthBook Pro trial will end in ${trialDaysText}`,
+    to: email,
+    text,
   });
 }
