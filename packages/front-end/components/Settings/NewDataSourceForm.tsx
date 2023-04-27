@@ -17,6 +17,7 @@ import {
 } from "@/services/eventSchema";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissions from "@/hooks/usePermissions";
 import SelectField from "../Forms/SelectField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -52,6 +53,8 @@ const NewDataSourceForm: FC<{
   const [possibleTypes, setPossibleTypes] = useState(
     dataSourceConnections.map((d) => d.type)
   );
+
+  const permissions = usePermissions();
 
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams>
@@ -491,6 +494,7 @@ const NewDataSourceForm: FC<{
       submit={submit}
       autoCloseOnSubmit={false}
       cta={isFinalStep ? (step === 2 ? "Finish" : "Save") : "Next"}
+      ctaEnabled={permissions.check("createDatasources", project)}
       closeCta="Cancel"
       size="lg"
       error={lastError}

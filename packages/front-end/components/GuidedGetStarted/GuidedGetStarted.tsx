@@ -13,6 +13,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { hasFileConfig } from "@/services/env";
 import track from "@/services/track";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import usePermissions from "@/hooks/usePermissions";
 import FeatureModal from "../Features/FeatureModal";
 import NewDataSourceForm from "../Settings/NewDataSourceForm";
 import { DocLink, DocSection } from "../DocLink";
@@ -48,6 +49,7 @@ export default function GuidedGetStarted({
     [key: string]: boolean;
   }>("onboarding-steps-skipped", {});
   const [showVideo, setShowVideo] = useState(false);
+  const permissions = usePermissions();
 
   const { data: SDKData } = useSDKConnections();
 
@@ -326,14 +328,25 @@ export default function GuidedGetStarted({
         "Here are a few more things you can do to get the most out of your GrowthBook account.",
       render: (
         <div className="col-12 col-sm-8 col-lg-6">
-          <Link href="/settings/team" className={styles.nextStepWrapper}>
-            <h2
-              role="button"
-              className={clsx("text-center p-4 m-1", styles.nextStepLink)}
-            >
-              Invite Your Teammates
-            </h2>
-          </Link>
+          {permissions.check("manageTeam") ? (
+            <Link href="/settings/team" className={styles.nextStepWrapper}>
+              <h2
+                role="button"
+                className={clsx("text-center p-4 m-1", styles.nextStepLink)}
+              >
+                Invite Your Teammates
+              </h2>
+            </Link>
+          ) : (
+            <Link href="/features" className={styles.nextStepWrapper}>
+              <h2
+                role="button"
+                className={clsx("text-center p-4 m-1", styles.nextStepLink)}
+              >
+                View Features
+              </h2>
+            </Link>
+          )}
           <Link href="/experiments" className={styles.nextStepWrapper}>
             <h2
               role="button"
@@ -399,7 +412,9 @@ export default function GuidedGetStarted({
                 )}
             </p>
           )}
-          {steps[currentStep].additionalCta}
+          {permissions.manageTeam && steps[currentStep].additionalCta && (
+            <>{steps[currentStep].additionalCta}</>
+          )}
         </div>
         <div className="d-flex flex-column align-items-center pl-4 pr-4 pb-4 pt-1">
           {steps[currentStep].render}

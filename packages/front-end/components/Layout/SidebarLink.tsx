@@ -5,6 +5,8 @@ import { useRouter } from "next/router";
 import clsx from "clsx";
 import { FiChevronRight } from "react-icons/fi";
 import { AccountPlan, Permission } from "back-end/types/organization";
+import { useGrowthBook } from "@growthbook/growthbook-react";
+import { AppFeatures } from "@/types/app-features";
 import { isCloud } from "../../services/env";
 import { useUser } from "../../services/UserContext";
 import styles from "./SidebarLink.module.scss";
@@ -25,6 +27,7 @@ export type SidebarLinkProps = {
   permissions?: Permission[];
   subLinks?: SidebarLinkProps[];
   beta?: boolean;
+  feature?: keyof AppFeatures;
   accountPlans?: AccountPlan[];
 };
 
@@ -35,6 +38,8 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
   const path = router.route.substr(1);
   const selected = props.path.test(path);
   const showSubMenuIcons = true;
+
+  const growthbook = useGrowthBook<AppFeatures>();
 
   const [open, setOpen] = useState(selected);
 

@@ -41,6 +41,7 @@ import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import { GBCuped } from "@/components/Icons";
+import usePermissions from "@/hooks/usePermissions";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -168,6 +169,7 @@ const MetricForm: FC<MetricFormProps> = ({
   } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
+  const permissions = usePermissions();
 
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
@@ -463,7 +465,7 @@ const MetricForm: FC<MetricFormProps> = ({
         submit={onSubmit}
         cta={cta}
         closeCta={!inline && "Cancel"}
-        ctaEnabled={!riskError}
+        ctaEnabled={!riskError && permissions.check("createMetrics", project)}
         size="lg"
         docSection="metrics"
         step={step}

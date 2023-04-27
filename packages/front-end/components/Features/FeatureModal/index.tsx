@@ -167,6 +167,7 @@ export default function FeatureModal({
       header={modalHeader}
       cta={cta}
       close={close}
+      ctaEnabled={permissions.check("createFeatureDrafts", project)}
       secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { defaultValue, ...feature } = values;
