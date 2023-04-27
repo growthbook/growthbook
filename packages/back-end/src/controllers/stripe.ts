@@ -21,6 +21,7 @@ import {
 import { SubscriptionQuote } from "../../types/organization";
 import { isActiveSubscriptionStatus } from "../util/organization.util";
 import { sendStripeTrialWillEndEmail } from "../services/email";
+import { logger } from "../util/logger";
 
 export async function postNewSubscription(
   req: AuthRequest<{ qty: number; returnUrl: string }>,
@@ -240,24 +241,33 @@ export async function postWebhook(req: Request, res: Response) {
       case "customer.subscription.trial_will_end": {
         const responseSubscription = event.data
           .object as Stripe.Response<Stripe.Subscription>;
-        if (responseSubscription) {
-          const ret = await updateSubscriptionInDb(responseSubscription);
-          if (ret) {
-            const { organization, subscription, hasPaymentMethod } = ret;
-            const endDate = subscription.trial_end
-              ? new Date(subscription.trial_end * 1000)
-              : new Date(new Date().getTime() + 3 * 24 * 60 * 60 * 1000);
-            const billingUrl = `${APP_ORIGIN}/settings/billing?org=${organization.id}`;
+        if (!responseSubscription) return;
 
-            await sendStripeTrialWillEndEmail({
-              email: organization.ownerEmail,
-              organization: organization.name,
-              endDate,
-              hasPaymentMethod,
-              billingUrl,
-            });
-          }
+        const ret = await updateSubscriptionInDb(responseSubscription);
+        if (!ret) return;
+
+        const { organization, subscription, hasPaymentMethod } = ret;
+        const billingUrl = `${APP_ORIGIN}/settings/billing?org=${organization.id}`;
+        const endDate = subscription.trial_end
+          ? new Date(subscription.trial_end * 1000)
+          : null;
+
+        if (!endDate) {
+          logger.error(
+            "No trial end date found for subscription: " + subscription.id
+          );
+          return;
         }
+
+        await sendStripeTrialWillEndEmail({
+          email: organization.ownerEmail,
+          organization: organization.name,
+          endDate,
+          hasPaymentMethod,
+          billingUrl,
+        });
+
+        break;
       }
     }
   } catch (err) {

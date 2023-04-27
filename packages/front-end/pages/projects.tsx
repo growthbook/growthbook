@@ -1,12 +1,12 @@
 import { useState, FC } from "react";
 import { FaFolderPlus, FaPencilAlt } from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
+import { date } from "shared";
 import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { date } from "@/services/dates";
 
 const ProjectsPage: FC = () => {
   const permissions = usePermissions();

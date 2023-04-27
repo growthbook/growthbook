@@ -1,7 +1,7 @@
 import path from "path";
 import nodemailer from "nodemailer";
 import nunjucks from "nunjucks";
-import differenceInDays from "date-fns/differenceInDays";
+import { daysLeft } from "shared";
 import {
   EMAIL_ENABLED,
   EMAIL_FROM,
@@ -255,23 +255,4 @@ export async function sendStripeTrialWillEndEmail({
     to: email,
     text,
   });
-}
-
-// todo: use shared package date utils:
-function daysLeft(date: string | Date): number {
-  return differenceInDays(getValidDate(date), new Date());
-}
-function getValidDate(
-  dateStr: string | Date | null | number,
-  fallback?: Date
-): Date {
-  fallback = fallback || new Date();
-
-  if (!dateStr) return fallback;
-
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) {
-    return fallback;
-  }
-  return d;
 }
