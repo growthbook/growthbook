@@ -81,7 +81,7 @@ function ConnectionStatus({
 }: {
   connected: boolean;
   error?: boolean;
-  refresh: ReactElement;
+  refresh?: ReactElement;
   canRefresh: boolean;
 }) {
   return (
@@ -109,7 +109,7 @@ function ConnectionStatus({
         </>
       )}
       <div style={{ marginTop: 10, textAlign: "center" }}>
-        {canRefresh ? refresh : <>&nbsp;</>}
+        {canRefresh && refresh ? refresh : <>&nbsp;</>}
       </div>
     </div>
   );
@@ -359,7 +359,10 @@ export default function SDKConnectionPage() {
                       </div>
                     }
                   >
-                    <div className="mt-2 small text-muted">
+                    <div
+                      className="mt-2 small text-muted"
+                      style={{ fontSize: "0.65em" }}
+                    >
                       What is this <FaQuestionCircle />
                     </div>
                   </Tooltip>
