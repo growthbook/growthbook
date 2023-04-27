@@ -38,7 +38,7 @@ export function getApiHost(): string {
   return env.apiHost;
 }
 export function isCloud(): boolean {
-  return !env.cloud;
+  return env.cloud;
 }
 export function isTelemetryEnabled() {
   return env.telemetry === "enable";
