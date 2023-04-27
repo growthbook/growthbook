@@ -59,6 +59,22 @@ const organizationSchema = new mongoose.Schema({
       email: String,
     },
   ],
+  messages: {
+    type: {
+      message: {
+        type: String,
+        required: true,
+      },
+      level: {
+        type: {
+          type: String,
+          enum: ["info", "warning", "danger"],
+          required: true,
+        },
+      },
+    },
+    required: false,
+  },
   stripeCustomerId: String,
   discountCode: String,
   priceId: String,
