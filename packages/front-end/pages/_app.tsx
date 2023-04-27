@@ -96,9 +96,7 @@ function App({
                     <DefinitionsProvider>
                       {!liteLayout && <Layout />}
                       <main className={`main ${parts[0]}`}>
-                        <div className="contents pagecontents">
-                          <OrganizationMessagesContainer />
-                        </div>
+                        <OrganizationMessagesContainer />
                         <Component {...pageProps} />
                       </main>
                     </DefinitionsProvider>
