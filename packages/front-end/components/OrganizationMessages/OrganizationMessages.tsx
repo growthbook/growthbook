@@ -26,7 +26,7 @@ export const OrganizationMessages: FC<OrganizationMessagesProps> = ({
   }
 
   return (
-    <div className="contents pagecontents mb-3">
+    <div className="contents pagecontents container mb-3">
       {renderedMessages.map((orgMessage) => (
         <div
           key={md5(orgMessage.message)}
