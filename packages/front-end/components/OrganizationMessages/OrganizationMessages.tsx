@@ -2,6 +2,7 @@ import React, { FC, useMemo } from "react";
 import md5 from "md5";
 import { OrganizationMessage } from "back-end/types/organization";
 import { useUser } from "@/services/UserContext";
+import Markdown from "@/components/Markdown/Markdown";
 
 type OrganizationMessagesProps = {
   messages: OrganizationMessage[];
@@ -31,7 +32,7 @@ export const OrganizationMessages: FC<OrganizationMessagesProps> = ({
           key={md5(orgMessage.message)}
           className={`alert alert-${orgMessage.level}`}
         >
-          {orgMessage.message}
+          <Markdown>{orgMessage.message}</Markdown>
         </div>
       ))}
     </div>
