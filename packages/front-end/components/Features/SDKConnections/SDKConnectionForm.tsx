@@ -289,16 +289,18 @@ export default function SDKConnectionForm({
                 body={
                   <>
                     <p>
-                      GrowthBook Proxy Cloud allows for real-time updates to
-                      supported SDKs. It is an opt-in beta feature.
+                      Instant rollouts allow you to instantly update any
+                      subscribed SDKs when you make any feature changes in
+                      GrowthBook. For front-end SDKs, active users will see the
+                      changes immediately without having to refresh the page.
                     </p>
-                    <p className="mb-1">
+                    <p>
                       To take advantage of this feature, ensure that you have
                       set{" "}
                       <code className="d-block">
                         {`{`} autoRefresh: true {`}`}
                       </code>
-                      .
+                      in your SDK implementation.
                     </p>
                     <div className="mb-1">
                       The following SDKs currently support real-time updates:
@@ -318,10 +320,26 @@ export default function SDKConnectionForm({
                         {i < languagesWithSSESupport.length - 1 && ", "}
                       </span>
                     ))}
+
+                    <div className="mt-4" style={{ lineHeight: 1.2 }}>
+                      <p className="mb-1">
+                        <span className="badge badge-purple text-uppercase mr-2">
+                          Beta
+                        </span>
+                        <span className="text-purple">
+                          This is an opt-in beta feature.
+                        </span>
+                      </p>
+                      <p className="text-muted small mb-0">
+                        While in beta, we cannot guarantee 100% reliability of
+                        instant rollouts. However, using this feature poses no
+                        risk to any other SDK functionality.
+                      </p>
+                    </div>
                   </>
                 }
               >
-                Enable Cloud Proxy? <FaInfoCircle />
+                Enable Instant Rollouts? <FaInfoCircle />
               </PremiumTooltip>{" "}
             </label>
             <div className="form-inline">

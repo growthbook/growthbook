@@ -26,6 +26,7 @@ import Button from "@/components/Button";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 function ConnectionDot({ left }: { left: boolean }) {
   return (
@@ -262,7 +263,7 @@ export default function SDKConnectionPage() {
         </div>
       </div>
       <div
-        className="d-flex align-items-center mb-4 position-relative"
+        className="d-flex align-items-center position-relative"
         style={{
           justifyContent: "space-between",
         }}
@@ -332,48 +333,6 @@ export default function SDKConnectionPage() {
             />
           </>
         )}
-        {hasCloudProxyForSSE && (
-          <>
-            <ConnectionNode
-              title={
-                <>
-                  <BsLightningFill className="text-warning" />
-                  GB Cloud Proxy
-                </>
-              }
-            >
-              <Tooltip
-                popperClassName="text-left"
-                body={
-                  <div style={{ lineHeight: 1.5 }}>
-                    <p>
-                      This connection uses the GrowthBook Cloud Proxy, which
-                      allows for real-time updates to supported SDKs.
-                    </p>
-                    <div>
-                      <span className="badge badge-purple text-uppercase mr-2">
-                        Beta
-                      </span>
-                      <span className="text-muted">
-                        This is an opt-in beta feature. You may disable
-                        GrowthBook Cloud Proxy by editing this connection.
-                      </span>
-                    </div>
-                  </div>
-                }
-              >
-                <div
-                  className="mt-2 small text-muted"
-                  style={{ fontSize: "0.7rem" }}
-                >
-                  What is this <FaQuestionCircle />
-                </div>
-              </Tooltip>
-            </ConnectionNode>
-
-            <ConnectionStatus connected={true} canRefresh={false} />
-          </>
-        )}
         <ConnectionNode
           title={
             <>
@@ -391,12 +350,72 @@ export default function SDKConnectionPage() {
         </ConnectionNode>
       </div>
 
-      <CodeSnippetModal
-        connections={data.connections}
-        mutateConnections={mutate}
-        sdkConnection={connection}
-        inline={true}
-      />
+      {isCloud() && (
+        <div className="row mb-5 align-items-center">
+          <div className="flex-1"></div>
+          <div className="col-auto">
+            <PremiumTooltip commercialFeature="cloud-proxy">
+              <BsLightningFill className="text-warning" />
+              Instant Rollouts:{" "}
+              <strong>{hasCloudProxyForSSE ? "Enabled" : "Disabled"}</strong>
+            </PremiumTooltip>
+            <Tooltip
+              popperClassName="text-left"
+              body={
+                <div style={{ lineHeight: 1.5 }}>
+                  <p>
+                    Instant rollouts allow you to instantly update any
+                    subscribed SDKs when you make any feature changes in
+                    GrowthBook. For front-end SDKs, active users will see the
+                    changes immediately without having to refresh the page.
+                  </p>
+                  <p>
+                    Instant rollouts are currently{" "}
+                    <strong>
+                      {hasCloudProxyForSSE ? "enabled" : "disabled"}
+                    </strong>{" "}
+                    for this connection. You may{" "}
+                    {hasCloudProxyForSSE ? "disable" : "enable"} GrowthBook
+                    Cloud Proxy by editing this connection.
+                  </p>
+
+                  <div className="mt-4" style={{ lineHeight: 1.2 }}>
+                    <p className="mb-1">
+                      <span className="badge badge-purple text-uppercase mr-2">
+                        Beta
+                      </span>
+                      <span className="text-purple">
+                        This is an opt-in beta feature.
+                      </span>
+                    </p>
+                    <p className="text-muted small mb-0">
+                      While in beta, we cannot guarantee 100% reliability of
+                      instant rollouts. However, using this feature poses no
+                      risk to any other SDK functionality.
+                    </p>
+                  </div>
+                </div>
+              }
+            >
+              <div
+                className="text-right text-muted"
+                style={{ fontSize: "0.75rem" }}
+              >
+                What is this? <FaQuestionCircle />
+              </div>
+            </Tooltip>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4">
+        <CodeSnippetModal
+          connections={data.connections}
+          mutateConnections={mutate}
+          sdkConnection={connection}
+          inline={true}
+        />
+      </div>
     </div>
   );
 }
