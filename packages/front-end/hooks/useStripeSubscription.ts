@@ -1,8 +1,8 @@
 import { useFeature } from "@growthbook/growthbook-react";
 import { SubscriptionQuote } from "back-end/types/organization";
 import { useEffect, useState } from "react";
+import { getValidDate } from "shared";
 import { useAuth } from "../services/auth";
-import { getValidDate } from "../services/dates";
 import { isCloud } from "../services/env";
 import { useUser } from "../services/UserContext";
 import usePermissions from "./usePermissions";
