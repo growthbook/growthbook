@@ -1,8 +1,7 @@
-import React, { FC } from "react";
+import React, { FC, useMemo } from "react";
 import md5 from "md5";
-import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "@/types/app-features";
-import { OrganizationMessage } from "@/components/OrganizationMessages/types";
+import { OrganizationMessage } from "back-end/types/organization";
+import { useUser } from "@/services/UserContext";
 
 type OrganizationMessagesProps = {
   messages: OrganizationMessage[];
@@ -11,33 +10,38 @@ type OrganizationMessagesProps = {
 export const OrganizationMessages: FC<OrganizationMessagesProps> = ({
   messages = [],
 }) => {
+  const renderedMessages = useMemo(
+    () =>
+      messages.filter(
+        (orgMessage) =>
+          typeof orgMessage?.level === "string" &&
+          typeof orgMessage?.message === "string"
+      ),
+    [messages]
+  );
+
+  if (!renderedMessages.length) {
+    return null;
+  }
+
   return (
-    <div className="mb-3">
-      {messages
-        .filter(
-          (orgMessage) =>
-            typeof orgMessage?.level === "string" &&
-            typeof orgMessage?.message === "string"
-        )
-        .map((orgMessage) => (
-          <div
-            key={md5(orgMessage.message)}
-            className={`alert alert-${orgMessage.level}`}
-          >
-            {orgMessage.message}
-          </div>
-        ))}
+    <div className="contents pagecontents mb-3">
+      {renderedMessages.map((orgMessage) => (
+        <div
+          key={md5(orgMessage.message)}
+          className={`alert alert-${orgMessage.level}`}
+        >
+          {orgMessage.message}
+        </div>
+      ))}
     </div>
   );
 };
 
 export const OrganizationMessagesContainer = () => {
-  const growthbook = useGrowthBook<AppFeatures>();
+  const user = useUser();
 
-  const messages = growthbook.getFeatureValue<OrganizationMessage[]>(
-    "organization-message-list",
-    []
-  );
+  const messages = user?.organization?.messages || [];
 
   return <OrganizationMessages messages={messages} />;
 };
