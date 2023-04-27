@@ -2,14 +2,9 @@ import Link from "next/link";
 import React, { FC, useCallback, useState } from "react";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { getValidDate } from "shared";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import {
-  ago,
-  date,
-  datetime,
-  daysBetween,
-  getValidDate,
-} from "@/services/dates";
+import { ago, date, datetime, daysBetween } from "@/services/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";

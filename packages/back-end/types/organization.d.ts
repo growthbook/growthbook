@@ -196,6 +196,14 @@ export interface VercelConnection {
   teamId: string | null;
 }
 
+/**
+ * The type for the global organization message component
+ */
+export type OrganizationMessage = {
+  message: string;
+  level: "info" | "danger" | "warning";
+};
+
 export interface OrganizationInterface {
   id: string;
   url: string;
@@ -232,6 +240,7 @@ export interface OrganizationInterface {
   pendingMembers?: PendingMember[];
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
+  messages?: OrganizationMessage[];
 }
 
 export type NamespaceUsage = Record<
