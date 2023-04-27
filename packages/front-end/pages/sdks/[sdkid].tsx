@@ -337,7 +337,8 @@ export default function SDKConnectionPage() {
             <ConnectionNode
               title={
                 <>
-                  <BsLightningFill className="text-warning" /> Cloud Proxy
+                  <BsLightningFill className="text-warning" />
+                  GB Cloud Proxy
                 </>
               }
             >
