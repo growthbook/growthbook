@@ -53,7 +53,7 @@ export default async function (agenda: Agenda) {
     const experiments = await getExperimentsToUpdate(ids);
 
     for (let i = 0; i < experiments.length; i++) {
-      await queueExerimentUpdate(
+      await queueExperimentUpdate(
         experiments[i].organization,
         experiments[i].id
       );
@@ -77,7 +77,7 @@ export default async function (agenda: Agenda) {
     const experiments = await getExperimentsToUpdateLegacy(latestDate);
 
     for (let i = 0; i < experiments.length; i++) {
-      await queueExerimentUpdate(
+      await queueExperimentUpdate(
         experiments[i].organization,
         experiments[i].id
       );
@@ -93,7 +93,7 @@ export default async function (agenda: Agenda) {
     await updateResultsJob.save();
   }
 
-  async function queueExerimentUpdate(
+  async function queueExperimentUpdate(
     organization: string,
     experimentId: string
   ) {
