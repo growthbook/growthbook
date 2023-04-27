@@ -75,6 +75,19 @@ import { analyzeExperimentMetric } from "./stats";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
+export async function getAffectedEvsForExperiment({
+  experiment,
+}: {
+  // Organization isn't used yet, but it will be for feature flags
+  // Adding it now so we have fewer places in the code to change then
+  organization: OrganizationInterface;
+  experiment: ExperimentInterface;
+}): Promise<string[]> {
+  // Visual changesets are not environment-scoped, so it affects all of them
+  if (experiment.hasVisualChangesets) return ["__ALL__"];
+  return [];
+}
+
 export async function createMetric(data: Partial<MetricInterface>) {
   const metric = insertMetric({
     id: uniqid("met_"),

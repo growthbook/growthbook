@@ -19,6 +19,8 @@ import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
+import { getAffectedEvsForExperiment } from "@/services/experiments";
+import { useUser } from "@/services/UserContext";
 
 const ExperimentPage = (): ReactElement => {
   const permissions = usePermissions();
@@ -44,6 +46,7 @@ const ExperimentPage = (): ReactElement => {
   useSwitchOrg(data?.experiment?.organization);
 
   const { apiCall } = useAuth();
+  const { organization } = useUser();
 
   if (error) {
     return <div>There was a problem loading the experiment</div>;
@@ -58,19 +61,31 @@ const ExperimentPage = (): ReactElement => {
     permissions.check("createAnalyses", experiment.project) &&
     !experiment.archived;
 
-  const canRunExperiment =
-    permissions.check("runExperiments", "", []) &&
-    !experiment.archived;
+  let canRunExperiment = !experiment.archived;
+  const envs = getAffectedEvsForExperiment({ experiment, organization });
+  if (envs.length > 0) {
+    if (!permissions.check("runExperiments", experiment.project, envs)) {
+      canRunExperiment = false;
+    }
+  }
 
-  const editMetrics = canEditExperiment ? () => setMetricsModalOpen(true) : null;
+  const editMetrics = canEditExperiment
+    ? () => setMetricsModalOpen(true)
+    : null;
   const editResult = canRunExperiment ? () => setStopModalOpen(true) : null;
-  const editVariations = canRunExperiment ? () => setVariationsModalOpen(true) : null;
-  const duplicate = canEditExperiment ? () => setDuplicateModalOpen(true) : null;
+  const editVariations = canRunExperiment
+    ? () => setVariationsModalOpen(true)
+    : null;
+  const duplicate = canEditExperiment
+    ? () => setDuplicateModalOpen(true)
+    : null;
   const editTags = canEditExperiment ? () => setTagsModalOpen(true) : null;
   const editProject = canRunExperiment ? () => setProjectModalOpen(true) : null;
   const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
   const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
-  const editPhase = canRunExperiment ? (i: number | null) => setEditPhaseId(i) : null;
+  const editPhase = canRunExperiment
+    ? (i: number | null) => setEditPhaseId(i)
+    : null;
 
   return (
     <div>

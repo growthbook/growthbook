@@ -293,27 +293,20 @@ const _isUpdatingVisualChanges = (
   updates.visualChanges !== undefined && updates.visualChanges.length > 0;
 
 export const updateVisualChangeset = async ({
-  changesetId,
+  visualChangeset,
+  experiment,
   organization,
   updates,
   bypassWebhooks,
   user,
 }: {
-  changesetId: string;
+  visualChangeset: VisualChangesetInterface;
+  experiment: ExperimentInterface | null;
   organization: OrganizationInterface;
   updates: Partial<VisualChangesetInterface>;
   bypassWebhooks?: boolean;
   user: EventAuditUser;
 }) => {
-  const visualChangeset = await findVisualChangesetById(
-    changesetId,
-    organization.id
-  );
-
-  if (!visualChangeset) {
-    throw new Error("Visual Changeset not found");
-  }
-
   const isUpdatingVisualChanges = _isUpdatingVisualChanges(updates);
 
   // ensure new visual changes have ids assigned
@@ -326,7 +319,7 @@ export const updateVisualChangeset = async ({
 
   const res = await VisualChangesetModel.updateOne(
     {
-      id: changesetId,
+      id: visualChangeset.id,
       organization: organization.id,
     },
     {
@@ -338,10 +331,6 @@ export const updateVisualChangeset = async ({
   );
 
   // double-check that the experiment is marked as having visual changesets
-  const experiment = await getExperimentById(
-    organization.id,
-    visualChangeset.experiment
-  );
   if (experiment && !experiment.hasVisualChangesets) {
     await updateExperiment({
       organization,
@@ -459,7 +448,8 @@ export const syncVisualChangesWithVariations = async ({
 
   await updateVisualChangeset({
     organization,
-    changesetId: visualChangeset.id,
+    visualChangeset: visualChangeset,
+    experiment,
     updates: { visualChanges: newVisualChanges },
     // bypass webhooks since we are only creating new (empty) visual changes
     bypassWebhooks: true,
@@ -468,25 +458,18 @@ export const syncVisualChangesWithVariations = async ({
 };
 
 export const deleteVisualChangesetById = async ({
-  changesetId,
+  visualChangeset,
+  experiment,
   organization,
   user,
 }: {
-  changesetId: string;
+  visualChangeset: VisualChangesetInterface;
+  experiment: ExperimentInterface | null;
   organization: OrganizationInterface;
   user: EventAuditUser;
 }) => {
-  const visualChangeset = await findVisualChangesetById(
-    changesetId,
-    organization.id
-  );
-
-  if (!visualChangeset) {
-    throw new Error("Visual Changeset not found");
-  }
-
   await VisualChangesetModel.deleteOne({
-    id: changesetId,
+    id: visualChangeset.id,
     organization: organization.id,
   });
 
@@ -496,10 +479,6 @@ export const deleteVisualChangesetById = async ({
     organization.id
   );
   if (remainingVisualChangesets.length === 0) {
-    const experiment = await getExperimentById(
-      organization.id,
-      visualChangeset.experiment
-    );
     if (experiment && experiment.hasVisualChangesets) {
       await updateExperiment({
         organization,

@@ -4,6 +4,7 @@ import { GoBeaker, GoGraph } from "react-icons/go";
 import clsx from "clsx";
 import track from "@/services/track";
 import usePermissions from "@/hooks/usePermissions";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Modal from "../Modal";
 import styles from "./AddExperimentModal.module.scss";
 import ImportExperimentModal from "./ImportExperimentModal";
@@ -49,10 +50,12 @@ const AddExperimentModal: FC<{
   onClose: () => void;
   source?: string;
 }> = ({ onClose, source }) => {
+  const { project } = useDefinitions();
+
   const permissions = usePermissions();
   const hasRunExperimentsPermission = permissions.check(
     "runExperiments",
-    "",
+    project,
     []
   );
 

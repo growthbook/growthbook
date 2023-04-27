@@ -24,6 +24,7 @@ import { useUser } from "@/services/UserContext";
 import { getDefaultConversionWindowHours } from "@/services/env";
 import {
   applyMetricOverrides,
+  getAffectedEvsForExperiment,
   getRegressionAdjustmentsForMetric,
 } from "@/services/experiments";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -187,7 +188,7 @@ export default function SinglePage({
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
   const settings = useOrgSettings();
-  const { users, hasCommercialFeature } = useUser();
+  const { users, hasCommercialFeature, organization } = useUser();
 
   const { data: sdkConnectionsData } = useSDKConnections();
 
@@ -293,11 +294,14 @@ export default function SinglePage({
     "createAnalyses",
     experiment.project
   );
-  const hasRunExperimentsPermission = permissions.check(
-    "runExperiments",
-    "",
-    []
-  );
+
+  let hasRunExperimentsPermission = true;
+  const envs = getAffectedEvsForExperiment({ experiment, organization });
+  if (envs.length > 0) {
+    if (!permissions.check("runExperiments", experiment.project, envs)) {
+      hasRunExperimentsPermission = false;
+    }
+  }
   const canEditExperiment = hasCreateAnalysesPermission && !experiment.archived;
   const canRunExperiment = hasRunExperimentsPermission && !experiment.archived;
 
@@ -884,7 +888,7 @@ export default function SinglePage({
       {growthbook.isOn("visual-editor-ui") &&
       experiment.status === "draft" &&
       experiment.phases.length > 0 &&
-      canRunExperiment? (
+      canRunExperiment ? (
         <div>
           {visualChangesets.length > 0 ? (
             <div className="mb-4">

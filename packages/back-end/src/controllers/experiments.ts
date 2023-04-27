@@ -7,6 +7,7 @@ import {
   createManualSnapshot,
   createSnapshot,
   ensureWatching,
+  getAffectedEvsForExperiment,
   getExperimentWatchers,
   getManualSnapshotData,
   processPastExperiments,
@@ -24,6 +25,7 @@ import {
 import {
   createVisualChangeset,
   deleteVisualChangesetById,
+  findVisualChangesetById,
   findVisualChangesetsByExperiment,
   syncVisualChangesWithVariations,
   updateVisualChangeset,
@@ -782,12 +784,32 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  // check if updates have any of the following keys
+  // check if the user needs the `runExperiments` permission
   const keysRequiringRunExperiments = [
-    "phases", "variations", "project", "name", "trackingKey", "archived", "status"
+    "phases",
+    "variations",
+    "project",
+    "name",
+    "trackingKey",
+    "archived",
+    "status",
   ];
-  if (Object.keys(changes).some((key) => keysRequiringRunExperiments.includes(key))) {
-    req.checkPermissions("runExperiments", "", []);
+  if (
+    Object.keys(changes).some((key) =>
+      keysRequiringRunExperiments.includes(key)
+    )
+  ) {
+    const envs = await getAffectedEvsForExperiment({
+      experiment,
+      organization: org,
+    });
+    if (envs.length > 0) {
+      const projects = [experiment.project || undefined];
+      if ("project" in changes) {
+        projects.push(changes.project || undefined);
+      }
+      req.checkPermissions("runExperiments", projects, envs);
+    }
   }
 
   const updated = await updateExperiment({
@@ -865,8 +887,14 @@ export async function postExperimentArchive(
     return;
   }
 
-  req.checkPermissions("runExperiments", "", []);
   req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = await getAffectedEvsForExperiment({
+    experiment,
+    organization: org,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   changes.archived = true;
 
@@ -971,8 +999,6 @@ export async function postExperimentStatus(
   const { id } = req.params;
   const { status, reason, dateEnded } = req.body;
 
-  req.checkPermissions("runExperiments", "", []);
-
   const changes: Changeset = {};
 
   const experiment = await getExperimentById(org.id, id);
@@ -983,6 +1009,13 @@ export async function postExperimentStatus(
     throw new Error("You do not have access to this experiment");
   }
   req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = await getAffectedEvsForExperiment({
+    experiment,
+    organization: org,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   // If status changed from running to stopped, update the latest phase
   const phases = [...experiment.phases];
@@ -1041,8 +1074,6 @@ export async function postExperimentStop(
     releasedVariationId,
   } = req.body;
 
-  req.checkPermissions("runExperiments", "", []);
-
   const experiment = await getExperimentById(org.id, id);
   const changes: Changeset = {};
 
@@ -1062,6 +1093,13 @@ export async function postExperimentStop(
     return;
   }
   req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = await getAffectedEvsForExperiment({
+    experiment,
+    organization: org,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   const phases = [...experiment.phases];
   // Already has phases
@@ -1123,8 +1161,6 @@ export async function deleteExperimentPhase(
   const { id, phase } = req.params;
   const phaseIndex = parseInt(phase);
 
-  req.checkPermissions("runExperiments", "", []);
-
   const experiment = await getExperimentById(org.id, id);
   const changes: Changeset = {};
 
@@ -1145,6 +1181,13 @@ export async function deleteExperimentPhase(
   }
 
   req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = await getAffectedEvsForExperiment({
+    experiment,
+    organization: org,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   if (phaseIndex < 0 || phaseIndex >= experiment.phases?.length) {
     throw new Error("Invalid phase id");
@@ -1189,8 +1232,6 @@ export async function putExperimentPhase(
   const i = parseInt(req.params.phase);
   const phase = req.body;
 
-  req.checkPermissions("runExperiments", "", []);
-
   const changes: Changeset = {};
 
   const experiment = await getExperimentById(org.id, id);
@@ -1203,11 +1244,18 @@ export async function putExperimentPhase(
     throw new Error("You do not have access to this experiment");
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
-
   if (!experiment.phases?.[i]) {
     throw new Error("Invalid phase");
   }
+
+  req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = await getAffectedEvsForExperiment({
+    experiment,
+    organization: org,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   phase.dateStarted = phase.dateStarted
     ? getValidDate(phase.dateStarted + ":00Z")
@@ -1251,8 +1299,6 @@ export async function postExperimentPhase(
   const { id } = req.params;
   const { reason, dateStarted, ...data } = req.body;
 
-  req.checkPermissions("runExperiments", "", []);
-
   const changes: Changeset = {};
 
   const experiment = await getExperimentById(org.id, id);
@@ -1273,6 +1319,13 @@ export async function postExperimentPhase(
     return;
   }
   req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = await getAffectedEvsForExperiment({
+    experiment,
+    organization: org,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
@@ -1374,8 +1427,14 @@ export async function deleteExperiment(
     return;
   }
 
-  req.checkPermissions("runExperiments", "", []);
   req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = await getAffectedEvsForExperiment({
+    experiment,
+    organization: org,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   await Promise.all([
     // note: we might want to change this to change the status to
@@ -2040,8 +2099,6 @@ export async function postVisualChangeset(
 ) {
   const { org } = getOrgFromReq(req);
 
-  req.checkPermissions("runExperiments", "", []);
-
   if (!req.body.urlPatterns) {
     throw new Error("urlPatterns needs to be defined");
   }
@@ -2055,6 +2112,13 @@ export async function postVisualChangeset(
   if (!experiment) {
     throw new Error("Could not find experiment");
   }
+
+  const envs = await getAffectedEvsForExperiment({
+    experiment,
+    organization: org,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   const visualChangeset = await createVisualChangeset({
     experiment,
@@ -2076,10 +2140,24 @@ export async function putVisualChangeset(
 ) {
   const { org } = getOrgFromReq(req);
 
-  req.checkPermissions("runExperiments", "", []);
+  const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
+  if (!visualChangeset) {
+    throw new Error("Visual Changeset not found");
+  }
+
+  const experiment = await getExperimentById(
+    org.id,
+    visualChangeset.experiment
+  );
+
+  const envs = experiment
+    ? await getAffectedEvsForExperiment({ experiment, organization: org })
+    : [];
+  req.checkPermissions("runExperiments", experiment?.project || "", envs);
 
   const ret = await updateVisualChangeset({
-    changesetId: req.params.id,
+    visualChangeset,
+    experiment,
     organization: org,
     updates: req.body,
     user: res.locals.eventAudit,
@@ -2101,10 +2179,24 @@ export async function deleteVisualChangeset(
 ) {
   const { org } = getOrgFromReq(req);
 
-  req.checkPermissions("runExperiments", "", []);
+  const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
+  if (!visualChangeset) {
+    throw new Error("Visual Changeset not found");
+  }
+
+  const experiment = await getExperimentById(
+    org.id,
+    visualChangeset.experiment
+  );
+
+  const envs = experiment
+    ? await getAffectedEvsForExperiment({ experiment, organization: org })
+    : [];
+  req.checkPermissions("runExperiments", experiment?.project || "", envs);
 
   await deleteVisualChangesetById({
-    changesetId: req.params.id,
+    visualChangeset,
+    experiment,
     organization: org,
     user: res.locals.eventAudit,
   });

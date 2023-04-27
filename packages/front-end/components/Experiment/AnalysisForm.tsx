@@ -15,11 +15,12 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "@/constants/stats";
+import usePermissions from "@/hooks/usePermissions";
+import { getAffectedEvsForExperiment } from "@/services/experiments";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
-import usePermissions from "@/hooks/usePermissions";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -43,7 +44,7 @@ const AnalysisForm: FC<{
     datasources,
   } = useDefinitions();
 
-  const { hasCommercialFeature } = useUser();
+  const { hasCommercialFeature, organization } = useUser();
 
   const permissions = usePermissions();
 
@@ -51,9 +52,13 @@ const AnalysisForm: FC<{
     "sequential-testing"
   );
 
-  const canRunExperiment =
-    permissions.check("runExperiments", "", []) &&
-    !experiment.archived;
+  let canRunExperiment = !experiment.archived;
+  const envs = getAffectedEvsForExperiment({ experiment, organization });
+  if (envs.length > 0) {
+    if (!permissions.check("runExperiments", experiment.project, envs)) {
+      canRunExperiment = false;
+    }
+  }
 
   const settings = useOrgSettings();
 

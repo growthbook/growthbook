@@ -116,7 +116,7 @@ export async function processJWT(
   // Throw error if permissions don't pass
   req.checkPermissions = (
     permission: Permission,
-    project?: string | string[],
+    project?: string | (string | undefined)[] | undefined,
     envs?: string[] | Set<string>
   ) => {
     let checkProjects: (string | undefined)[];
