@@ -34,4 +34,14 @@ export default class Snowflake extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
+  getInformationSchemaFromClause(): string {
+    if (!this.params.database)
+      throw new Error(
+        "No database provided. In order to get the information schema, you must provide a database."
+      );
+    return `${this.params.database}.information_schema.columns`;
+  }
+  showDatabaseNameInFromClause(): boolean {
+    return true;
+  }
 }

@@ -35,4 +35,10 @@ export default class Postgres extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `to_char(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`;
   }
+  getInformationSchemaWhereClause(): string {
+    return "NOT IN ('pg_catalog', 'information_schema', 'pg_toast')";
+  }
+  shouldShowDatabaseName(): boolean {
+    return true;
+  }
 }

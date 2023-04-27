@@ -2,6 +2,7 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { runAthenaQuery } from "../services/athena";
 import { AthenaConnectionParams } from "../../types/integrations/athena";
 import { FormatDialect } from "../util/sql";
+import { MissingDatasourceParamsError } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {
@@ -47,5 +48,18 @@ export default class Athena extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `1.0*${col}`;
+  }
+  getInformationSchemaFromClause(): string {
+    if (!this.params.catalog)
+      throw new MissingDatasourceParamsError(
+        `To view the information schema for an Athena data source, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings.`
+      );
+    return `${this.params.catalog}.information_schema.columns`;
+  }
+  getTableDataFromClause(databaseName: string): string {
+    return `${databaseName}.INFORMATION_SCHEMA.COLUMNS`;
+  }
+  showDatabaseNameInFromClause(): boolean {
+    return true;
   }
 }

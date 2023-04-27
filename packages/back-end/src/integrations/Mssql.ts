@@ -66,4 +66,17 @@ export default class Mssql extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
+  getInformationSchemaFromClause(): string {
+    if (!this.params.database)
+      throw new Error(
+        "No database provided. In order to get the information schema, you must provide a database."
+      );
+    return `${this.params.database}.information_schema.columns`;
+  }
+  getTableDataFromClause(databaseName: string): string {
+    return `${databaseName}.INFORMATION_SCHEMA.COLUMNS`;
+  }
+  showDatabaseNameInFromClause(): boolean {
+    return true;
+  }
 }

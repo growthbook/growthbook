@@ -4,11 +4,7 @@ import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
-import {
-  InformationSchema,
-  MissingDatasourceParamsError,
-} from "../types/Integration";
-import { formatInformationSchema } from "../util/informationSchemas";
+import { MissingDatasourceParamsError } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -86,11 +82,8 @@ export default class BigQuery extends SqlIntegration {
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
-
-  async getInformationSchema(): Promise<InformationSchema[]> {
-    const projectId = this.params.projectId;
-
-    if (!projectId)
+  getInformationSchemaFromClause(): string {
+    if (!this.params.projectId)
       throw new Error(
         "No projectId provided. In order to get the information schema, you must provide a projectId."
       );
@@ -98,24 +91,12 @@ export default class BigQuery extends SqlIntegration {
       throw new MissingDatasourceParamsError(
         "To view the information schema for a BigQuery dataset, you must define a default dataset. Please add a default dataset by editing the datasource's connection settings."
       );
-
-    const queryString = `SELECT
-    table_name,
-    '${projectId}' as table_catalog,
-    table_schema,
-    COUNT(column_name) as column_count
-  FROM
-    \`${projectId}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\`
-    GROUP BY table_name, table_schema`;
-
-    const results = await this.runQuery(queryString);
-
-    if (!results.length) {
-      throw new Error(
-        `No tables found for projectId "${projectId}" and dataset "${this.params.defaultDataset}".`
-      );
-    }
-
-    return formatInformationSchema(results, "bigquery");
+    return `\`${this.params.projectId}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\``;
+  }
+  showDatabaseNameInFromClause(): boolean {
+    return true;
+  }
+  showTableSchemaInFromClause(): boolean {
+    return true;
   }
 }

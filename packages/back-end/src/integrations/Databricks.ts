@@ -45,4 +45,7 @@ export default class Databricks extends SqlIntegration {
   ensureFloat(col: string): string {
     return `cast(${col} as double)`;
   }
+  shouldShowDatabaseName(): boolean {
+    return true;
+  }
 }

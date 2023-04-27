@@ -71,4 +71,14 @@ export default class Mysql extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
+  getInformationSchemaWhereClause(): string {
+    if (!this.params.database)
+      throw new Error(
+        `No database name provided in MySql connection. Please add a database by editing the connection settings.`
+      );
+    return `IN ('${this.params.database}')`;
+  }
+  shouldShowDatabaseName(): boolean {
+    return true;
+  }
 }
