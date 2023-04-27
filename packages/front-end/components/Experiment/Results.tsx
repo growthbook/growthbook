@@ -3,8 +3,9 @@ import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
+import { getValidDate } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ago, getValidDate } from "@/services/dates";
+import { ago } from "@/services/dates";
 import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
@@ -16,7 +17,7 @@ import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import StatusBanner from "@/components/Experiment/StatusBanner";
-import { GBCuped } from "@/components/Icons";
+import { GBCuped, GBSequential } from "@/components/Icons";
 import PValueGuardrailResults from "./PValueGuardrailResults";
 
 const BreakDownResults = dynamic(
@@ -216,10 +217,12 @@ const Results: FC<{
             variations={variations}
             key={snapshot.dimension}
             statsEngine={snapshot.statsEngine}
+            pValueCorrection={settings.pValueCorrection}
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses
             }
+            sequentialTestingEnabled={snapshot.sequentialTestingEnabled}
           />
         ))}
       {hasData && !snapshot.dimension && (
@@ -246,10 +249,12 @@ const Results: FC<{
             multipleExposures={snapshot.multipleExposures || 0}
             variations={variations}
             statsEngine={snapshot.statsEngine}
+            pValueCorrection={settings.pValueCorrection}
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses
             }
+            sequentialTestingEnabled={snapshot.sequentialTestingEnabled}
           />
           {experiment.guardrails?.length > 0 && (
             <div className="mt-1 px-3">
@@ -304,17 +309,28 @@ const Results: FC<{
               </span>
             </div>
             {snapshot?.statsEngine === "frequentist" && (
-              <div>
-                <span className="text-muted">
-                  <GBCuped size={12} />
-                  CUPED:
-                </span>{" "}
-                <span>
-                  {snapshot?.regressionAdjustmentEnabled
-                    ? "Enabled"
-                    : "Disabled"}
-                </span>
-              </div>
+              <>
+                <div>
+                  <span className="text-muted">
+                    <GBCuped size={13} /> CUPED:
+                  </span>{" "}
+                  <span>
+                    {snapshot?.regressionAdjustmentEnabled
+                      ? "Enabled"
+                      : "Disabled"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted">
+                    <GBSequential size={13} /> Sequential:
+                  </span>{" "}
+                  <span>
+                    {snapshot?.sequentialTestingEnabled
+                      ? "Enabled"
+                      : "Disabled"}
+                  </span>
+                </div>
+              </>
             )}
             <div>
               <span className="text-muted">Run date:</span>{" "}

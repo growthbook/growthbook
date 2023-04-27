@@ -128,7 +128,6 @@ class TestRegressionAdjustedStatistic(TestCase):
         self.assertEqual(ra_stat.variance, 0)
 
 
-
 class TestComputeTheta(TestCase):
     def test_returns_0_no_variance(self):
         pre_stat_a = SampleMeanStatistic(
@@ -148,14 +147,14 @@ class TestComputeTheta(TestCase):
             pre_statistic=pre_stat_a,
             n=N,
             post_pre_sum_of_products=np.sum(METRIC_1 * METRIC_3),
-            theta=999
+            theta=999,
         )
         ra_stat_b = RegressionAdjustedStatistic(
             post_statistic=post_stat_b,
             pre_statistic=pre_stat_b,
             n=N,
             post_pre_sum_of_products=np.sum(METRIC_1 * METRIC_3),
-            theta=999
+            theta=999,
         )
         self.assertEqual(round(compute_theta(ra_stat_a, ra_stat_b), 5), 0.01864)
         ra_stat_a.pre_statistic.sum = 0
@@ -163,6 +162,7 @@ class TestComputeTheta(TestCase):
         ra_stat_b.pre_statistic.sum = 0
         ra_stat_b.pre_statistic.sum_squares = 0
         self.assertEqual(compute_theta(ra_stat_a, ra_stat_b), 0)
+
 
 if __name__ == "__main__":
     unittest_main()

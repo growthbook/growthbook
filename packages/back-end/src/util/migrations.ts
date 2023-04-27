@@ -1,5 +1,6 @@
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
@@ -421,6 +422,13 @@ export function upgradeExperimentDoc(
     } else {
       experiment.releasedVariationId = "";
     }
+  }
+
+  if (!("sequentialTestingEnabled" in experiment)) {
+    experiment.sequentialTestingEnabled = false;
+  }
+  if (!("sequentialTestingTuningParameter" in experiment)) {
+    experiment.sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   }
 
   return experiment as ExperimentInterface;

@@ -3,9 +3,11 @@ import cronParser from "cron-parser";
 import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS, getValidDate } from "shared";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
   SnapshotVariation,
 } from "../../types/experiment-snapshot";
 import {
@@ -37,7 +39,6 @@ import { ExperimentInterface, MetricOverride } from "../../types/experiment";
 import { PastExperiment } from "../../types/past-experiments";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
-import { getValidDate } from "../util/dates";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { findSegmentById } from "../models/SegmentModel";
 import {
@@ -49,7 +50,6 @@ import {
   OrganizationInterface,
   OrganizationSettings,
 } from "../../types/organization";
-import { StatsEngine } from "../../types/stats";
 import { logger } from "../util/logger";
 import { DataSourceInterface } from "../../types/datasource";
 import {
@@ -307,7 +307,7 @@ export async function createManualSnapshot(
   metrics: {
     [key: string]: MetricStats[];
   },
-  statsEngine?: StatsEngine
+  experimentSnapshotSettings: ExperimentSnapshotSettings
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
@@ -333,7 +333,15 @@ export async function createManualSnapshot(
         variations,
       },
     ],
-    statsEngine,
+    statsEngine: experimentSnapshotSettings.statsEngine,
+    regressionAdjustmentEnabled:
+      experimentSnapshotSettings.regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses:
+      experimentSnapshotSettings.metricRegressionAdjustmentStatuses,
+    sequentialTestingEnabled:
+      experimentSnapshotSettings.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      experimentSnapshotSettings.sequentialTestingTuningParameter,
   };
 
   const snapshot = await createExperimentSnapshotModel(data);
@@ -342,7 +350,7 @@ export async function createManualSnapshot(
 }
 
 export async function parseDimensionId(
-  dimension: string | undefined,
+  dimension: string | null | undefined,
   organization: string
 ): Promise<Dimension | null> {
   if (dimension) {
@@ -397,17 +405,23 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   return new Date(Date.now() + hours * 60 * 60 * 1000);
 }
 
-export async function createSnapshot(
-  experiment: ExperimentInterface,
-  user: EventAuditUser,
-  phaseIndex: number,
-  organization: OrganizationInterface,
-  dimensionId: string | null,
-  useCache: boolean = false,
-  statsEngine: StatsEngine | undefined,
-  regressionAdjustmentEnabled: boolean,
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[]
-) {
+export async function createSnapshot({
+  experiment,
+  organization,
+  user = null,
+  phaseIndex,
+  dimension = null,
+  useCache = false,
+  experimentSnapshotSettings,
+}: {
+  experiment: ExperimentInterface;
+  organization: OrganizationInterface;
+  user?: EventAuditUser;
+  phaseIndex: number;
+  dimension?: string | null;
+  useCache?: boolean;
+  experimentSnapshotSettings?: ExperimentSnapshotSettings;
+}) {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
     throw new Error("Invalid snapshot phase");
@@ -425,7 +439,7 @@ export async function createSnapshot(
     queries: [],
     hasRawQueries: true,
     queryLanguage: "sql",
-    dimension: dimensionId,
+    dimension: dimension || null,
     results: undefined,
     unknownVariations: [],
     multipleExposures: 0,
@@ -434,10 +448,17 @@ export async function createSnapshot(
     queryFilter: experiment.queryFilter || "",
     skipPartialData: experiment.skipPartialData || false,
     statsEngine:
-      statsEngine || organization.settings?.statsEngine || "bayesian",
-    regressionAdjustmentEnabled: regressionAdjustmentEnabled,
+      experimentSnapshotSettings?.statsEngine ||
+      organization.settings?.statsEngine ||
+      "bayesian",
+    regressionAdjustmentEnabled:
+      experimentSnapshotSettings?.regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses:
-      metricRegressionAdjustmentStatuses || [],
+      experimentSnapshotSettings?.metricRegressionAdjustmentStatuses,
+    sequentialTestingEnabled:
+      experimentSnapshotSettings?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      experimentSnapshotSettings?.sequentialTestingTuningParameter,
   };
 
   const nextUpdate =
@@ -1249,7 +1270,7 @@ export function getRegressionAdjustmentsForMetric({
 
   // start with default RA settings
   let regressionAdjustmentEnabled = true;
-  let regressionAdjustmentDays = 14;
+  let regressionAdjustmentDays = DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
   let reason = "";
 
   // get RA settings from organization
@@ -1266,7 +1287,8 @@ export function getRegressionAdjustmentsForMetric({
   // get RA settings from metric
   if (metric?.regressionAdjustmentOverride) {
     regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
-    regressionAdjustmentDays = metric?.regressionAdjustmentDays ?? 14;
+    regressionAdjustmentDays =
+      metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
     if (!regressionAdjustmentEnabled) {
       reason = "disabled in metric settings";
     }

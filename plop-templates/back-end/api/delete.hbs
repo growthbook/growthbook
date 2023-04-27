@@ -1,0 +1,24 @@
+import { Delete{{pascalCase object}}Response } from "../../../types/openapi";
+import {
+  delete{{pascalCase object}},
+  to{{pascalCase object}}ApiInterface
+} from "../../models/{{pascalCase object}}Model";
+import { createApiRequestHandler } from "../../util/handler";
+import { delete{{pascalCase object}}Validator } from "../../validators/openapi";
+
+export const delete{{pascalCase object}} = createApiRequestHandler(delete{{pascalCase object}}Validator)(
+  async (req): Promise<Delete{{pascalCase object}}Response> => {
+    const {{camelCase object}} = await find{{pascalCase object}}ById(
+      req.params.id,
+      req.organization.id
+    );
+    if (!{{camelCase object}}) {
+      throw new Error("Unable to delete - Could not find {{camelCase object}} with that id");
+    }
+    const {{camelCase object}} = await delete{{pascalCase object}}(/* */);
+
+    return {
+      deletedId: req.params.id,
+    };
+  }
+);

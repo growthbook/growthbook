@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
+import { PrivateApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from '../../events/event-types';
 
@@ -25,7 +25,7 @@ type Get{{pascalCase resource}}sResponse = {
 export const get{{pascalCase resource}}s = async (
   req: Get{{pascalCase resource}}sRequest,
   res: Response<
-    Get{{pascalCase resource}}sResponse | ApiErrorResponse,
+    Get{{pascalCase resource}}sResponse | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
   >
 ) => {
@@ -59,7 +59,7 @@ type Get{{pascalCase resource}}Response = {
 export const get{{pascalCase resource}} = async (
   req: Get{{pascalCase resource}}Request,
   res: Response<
-    Get{{pascalCase resource}}Response | ApiErrorResponse,
+    Get{{pascalCase resource}}Response | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
   >
 ) => {
@@ -93,7 +93,7 @@ type Create{{pascalCase resource}}Response = {
 export const post{{pascalCase resource}} = async (
   req: Create{{pascalCase resource}}Request,
   res: Response<
-    Create{{pascalCase resource}}Response | ApiErrorResponse,
+    Create{{pascalCase resource}}Response | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
   >
 ) => {
@@ -128,7 +128,7 @@ type Put{{pascalCase resource}}Response = {
 export const put{{pascalCase resource}} = async (
   req: Put{{pascalCase resource}}Request,
   res: Response<
-    Put{{pascalCase resource}}Response | ApiErrorResponse,
+    Put{{pascalCase resource}}Response | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
   >
 ) => {
@@ -161,7 +161,7 @@ type Delete{{pascalCase resource}}Response = Record<string, never>;
 export const delete{{pascalCase resource}} = async (
   req: Delete{{pascalCase resource}}Request,
   res: Response<
-    Delete{{pascalCase resource}}Response | ApiErrorResponse,
+    Delete{{pascalCase resource}}Response | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
   >
 ) => {

@@ -15,12 +15,13 @@ import { GrDrag } from "react-icons/gr";
 import { FaCheck, FaRegTrashAlt } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
 import { HexColorPicker } from "react-colorful";
-import { ago, datetime, getValidDate, date } from "@/services/dates";
+import { getValidDate } from "shared";
+import { ago, datetime, date } from "@/services/dates";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useSearch } from "@/services/search";
-import useApi from "@/hooks/useApi";
 import track from "@/services/track";
+import { useExperiments } from "@/hooks/useExperiments";
 import ResultsIndicator from "../Experiment/ResultsIndicator";
 import Tab from "../Tabs/Tab";
 import Tabs from "../Tabs/Tabs";
@@ -176,9 +177,7 @@ const ShareModal = ({
   refreshList?: () => void;
   onSuccess?: () => void;
 }): React.ReactElement => {
-  const { data, error } = useApi<{
-    experiments: ExperimentInterfaceStringDates[];
-  }>("/experiments");
+  const { experiments: allExperiments } = useExperiments();
   //const [expStatus, setExpStatus] = useState("stopped");
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState<boolean>(false);
@@ -221,7 +220,7 @@ const ShareModal = ({
   }, [existing?.slides]);
 
   const { items: experiments, searchInputProps, isFiltered } = useSearch({
-    items: data?.experiments || [],
+    items: allExperiments || [],
     defaultSortField: "id",
     localStorageKey: "experiments-share",
     searchFields: [
@@ -273,17 +272,6 @@ const ShareModal = ({
     }
   });
 
-  if (!data) {
-    // still loading...
-    return null;
-  }
-  if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
-  }
   if (experiments.length === 0) {
     return (
       <div className="alert alert-danger">

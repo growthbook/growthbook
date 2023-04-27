@@ -29,7 +29,8 @@
     "react",
     "@typescript-eslint",
     "prettier",
-    "@next/eslint-plugin-next"
+    "@next/eslint-plugin-next",
+    "no-async-foreach"
   ],
   "extends": [
     "eslint:recommended",
@@ -54,6 +55,7 @@
     "SharedArrayBuffer": "readonly"
   },
   "rules": {
+    "no-async-foreach/no-async-foreach": 2,
     "@next/next/no-html-link-for-pages": [
       "warn",
       "./packages/front-end/pages"

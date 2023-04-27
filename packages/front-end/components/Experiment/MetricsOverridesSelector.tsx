@@ -2,11 +2,13 @@ import React, { useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { GBCuped } from "@/components/Icons";
 import SelectField from "../Forms/SelectField";
 import Field from "../Forms/Field";
 import { EditMetricsFormInterface } from "./EditMetricsForm";
@@ -143,7 +145,9 @@ export default function MetricsOverridesSelector({
 
               <div>
                 <label className="mb-1">
-                  <strong>{metricDefinition.name}</strong>
+                  <strong className="text-purple">
+                    {metricDefinition.name}
+                  </strong>
                 </label>
 
                 <div className="row mt-1">
@@ -254,7 +258,7 @@ export default function MetricsOverridesSelector({
                   <div className="col">
                     <PremiumTooltip commercialFeature="regression-adjustment">
                       <span className="uppercase-title">
-                        Regression Adjustment (CUPED)
+                        <GBCuped size={14} /> Regression Adjustment (CUPED)
                       </span>
                     </PremiumTooltip>{" "}
                     <span className="small text-muted">(Frequentist only)</span>
@@ -378,7 +382,7 @@ export default function MetricsOverridesSelector({
                                       <>
                                         (organization default:{" "}
                                         {settings.regressionAdjustmentDays ??
-                                          14}
+                                          DEFAULT_REGRESSION_ADJUSTMENT_DAYS}
                                         )
                                       </>
                                     )}

@@ -68,7 +68,7 @@ const DimensionForm: FC<{
         header={current.id ? "Edit Dimension" : "New Dimension"}
         submit={form.handleSubmit(async (value) => {
           if (supportsSQL) {
-            validateSQL(value.sql, [value.userIdType, "date"]);
+            validateSQL(value.sql, [value.userIdType, "value"]);
           }
 
           await apiCall(

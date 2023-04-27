@@ -1,18 +1,18 @@
 import type { Response } from "express";
-import { ApiErrorResponse } from "../../../types/api";
+import { PrivateApiErrorResponse } from "../../../types/api";
 import { EventWebHookInterface } from "../../../types/event-webhook";
 import * as EventWebHook from "../../models/EventWebhookModel";
+import {
+  deleteEventWebHookById,
+  getEventWebHookById,
+  updateEventWebHook,
+} from "../../models/EventWebhookModel";
 import * as EventWebHookLog from "../../models/EventWebHookLogModel";
 
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import { EventWebHookLogInterface } from "../../../types/event-webhook-log";
 import { NotificationEventName } from "../../events/base-types";
-import {
-  deleteEventWebHookById,
-  getEventWebHookById,
-  updateEventWebHook,
-} from "../../models/EventWebhookModel";
 
 // region GET /event-webhooks
 
@@ -47,7 +47,7 @@ type GetEventWebHookByIdResponse = {
 
 export const getEventWebHook = async (
   req: GetEventWebHookByIdRequest,
-  res: Response<GetEventWebHookByIdResponse | ApiErrorResponse>
+  res: Response<GetEventWebHookByIdResponse | PrivateApiErrorResponse>
 ) => {
   req.checkPermissions("manageWebhooks");
 
@@ -56,7 +56,7 @@ export const getEventWebHook = async (
 
   const eventWebHook = await getEventWebHookById(eventWebHookId, org.id);
   if (!eventWebHook) {
-    return res.status(404).json({ message: "Not found" });
+    return res.status(404).json({ status: 404, message: "Not found" });
   }
 
   return res.json({
@@ -83,7 +83,7 @@ type PostEventWebHooksResponse = {
 
 export const createEventWebHook = async (
   req: PostEventWebHooksRequest,
-  res: Response<PostEventWebHooksResponse | ApiErrorResponse>
+  res: Response<PostEventWebHooksResponse | PrivateApiErrorResponse>
 ) => {
   req.checkPermissions("manageWebhooks");
 
@@ -116,7 +116,7 @@ type GetEventWebHookLogsResponse = {
 
 export const getEventWebHookLogs = async (
   req: GetEventWebHookLogsRequest,
-  res: Response<GetEventWebHookLogsResponse | ApiErrorResponse>
+  res: Response<GetEventWebHookLogsResponse | PrivateApiErrorResponse>
 ) => {
   req.checkPermissions("manageWebhooks");
 
@@ -143,7 +143,7 @@ type DeleteEventWebhookResponse = {
 
 export const deleteEventWebHook = async (
   req: DeleteEventWebhookRequest,
-  res: Response<DeleteEventWebhookResponse | ApiErrorResponse>
+  res: Response<DeleteEventWebhookResponse | PrivateApiErrorResponse>
 ) => {
   req.checkPermissions("manageWebhooks");
 

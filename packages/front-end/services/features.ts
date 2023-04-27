@@ -312,7 +312,7 @@ export function getAffectedEnvs(
 
 export function getDefaultValue(valueType: FeatureValueType): string {
   if (valueType === "boolean") {
-    return "true";
+    return "false";
   }
   if (valueType === "number") {
     return "1";
