@@ -583,6 +583,7 @@ export interface components {
       proxyEnabled: boolean;
       proxyHost: string;
       proxySigningKey: string;
+      sseEnabled?: boolean;
     };
     Experiment: {
       id: string;

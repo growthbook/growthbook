@@ -1,9 +1,10 @@
 import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
+  SDKLanguage,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { FaInfoCircle } from "react-icons/fa";
@@ -19,8 +20,10 @@ import Toggle from "@/components/Forms/Toggle";
 import { isCloud } from "@/services/env";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SDKLanguageSelector from "./SDKLanguageSelector";
-import { languageMapping } from "./SDKLanguageLogo";
+import SDKLanguageLogo, { languageMapping } from "./SDKLanguageLogo";
 
 export default function SDKConnectionForm({
   initialValue = {},
@@ -37,6 +40,10 @@ export default function SDKConnectionForm({
   const { project, projects } = useDefinitions();
   const { apiCall } = useAuth();
   const router = useRouter();
+
+  const { hasCommercialFeature } = useUser();
+
+  const hasCloudProxyFeature = hasCommercialFeature("cloud-proxy");
 
   useEffect(() => {
     if (edit) return;
@@ -59,6 +66,7 @@ export default function SDKConnectionForm({
       includeExperimentNames: initialValue.includeExperimentNames || false,
       proxyEnabled: initialValue.proxy?.enabled || false,
       proxyHost: initialValue.proxy?.host || "",
+      sseEnabled: initialValue.sseEnabled || false,
     },
   });
 
@@ -79,6 +87,13 @@ export default function SDKConnectionForm({
   );
   const hasNoSDKsWithVisualExperimentSupport = languages.every(
     (l) => !languageMapping[l].supportsVisualExperiments
+  );
+  const hasNoSDKsWithSSESupport = languages.every(
+    (l) => !languageMapping[l].supportsSSE
+  );
+
+  const languagesWithSSESupport = Object.entries(languageMapping).filter(
+    ([_, v]) => v.supportsSSE
   );
 
   return (
@@ -261,6 +276,58 @@ export default function SDKConnectionForm({
         </>
       )}
 
+      {(!hasNoSDKsWithSSESupport || initialValue.sseEnabled) &&
+        isCloud() &&
+        gb.isOn("proxy-cloud-sse") && (
+          <div className="mt-3 mb-3">
+            <label htmlFor="sdk-connection-sseEnabled-toggle">
+              <span className="badge badge-purple text-uppercase mr-2">
+                Beta
+              </span>
+              <PremiumTooltip
+                commercialFeature="cloud-proxy"
+                body={
+                  <>
+                    <p>
+                      GrowthBook Proxy Cloud allows for real-time updates to
+                      supported SDKs. It is an opt-in beta feature.
+                    </p>
+                    <div className="mb-1">
+                      The following SDKs currently support real-time updates:
+                    </div>
+                    {languagesWithSSESupport.map(([k, v], i) => (
+                      <span className="nowrap" key={k}>
+                        <SDKLanguageLogo
+                          language={k as SDKLanguage}
+                          size={16}
+                        />
+                        <span
+                          className="ml-1 text-muted font-weight-bold"
+                          style={{ verticalAlign: "top" }}
+                        >
+                          {v.label}
+                        </span>
+                        {i < languagesWithSSESupport.length - 1 && ", "}
+                      </span>
+                    ))}
+                  </>
+                }
+              >
+                Enable Proxy Cloud? <FaInfoCircle />
+              </PremiumTooltip>{" "}
+            </label>
+            <div className="form-inline">
+              <Toggle
+                id="sdk-connection-sseEnabled-toggle"
+                value={form.watch("sseEnabled")}
+                setValue={(val) => form.setValue("sseEnabled", val)}
+                disabled={!hasCloudProxyFeature}
+              />
+            </div>
+          </div>
+        )}
+
+      {/*todo: deprecate this in favor of sseEnabled switch?*/}
       {isCloud() && gb.isOn("proxy-cloud") && (
         <>
           <div className="mb-3">

@@ -28,6 +28,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "regression-adjustment",
     "sequential-testing",
     "visual-editor",
+    "cloud-proxy",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -38,6 +39,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "regression-adjustment",
     "sequential-testing",
     "visual-editor",
+    "cloud-proxy",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
@@ -49,6 +51,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "regression-adjustment",
     "sequential-testing",
     "visual-editor",
+    "cloud-proxy",
   ]),
 };
 export function getAccountPlan(org: OrganizationInterface): AccountPlan {

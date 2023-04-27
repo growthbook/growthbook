@@ -1,7 +1,7 @@
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { ReactElement, ReactNode, useState } from "react";
+import React, { ReactElement, ReactNode, useState } from "react";
 import {
   FaCheckCircle,
   FaExclamationTriangle,
@@ -24,6 +24,8 @@ import SDKLanguageLogo from "@/components/Features/SDKConnections/SDKLanguageLog
 import ProxyTestButton from "@/components/Features/SDKConnections/ProxyTestButton";
 import Button from "@/components/Button";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import { isCloud } from "@/services/env";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 function ConnectionDot({ left }: { left: boolean }) {
   return (
@@ -150,7 +152,9 @@ export default function SDKConnectionPage() {
     [connection.environment]
   );
 
-  const hasProxy = connection.proxy.enabled && connection.proxy.host;
+  const hasProxy =
+    !isCloud() && connection.proxy.enabled && connection.proxy.host;
+  const hasCloudProxyForSSE = isCloud() && connection.sseEnabled;
 
   return (
     <div className="contents container pagecontents">
@@ -326,6 +330,44 @@ export default function SDKConnectionPage() {
                 />
               }
             />
+          </>
+        )}
+        {hasCloudProxyForSSE && (
+          <>
+            <ConnectionNode
+              title={
+                <>
+                  <BsLightningFill className="text-warning" />
+                  Cloud Proxy
+                  <Tooltip
+                    popperClassName="text-left"
+                    body={
+                      <div style={{ lineHeight: 1.5 }}>
+                        <p>
+                          This connection uses the GrowthBook Cloud Proxy, which
+                          allows for real-time updates to supported SDKs.
+                        </p>
+                        <div>
+                          <span className="badge badge-purple text-uppercase mr-2">
+                            Beta
+                          </span>
+                          <span className="text-muted">
+                            This is an opt-in beta feature. You may disable
+                            GrowthBook Cloud Proxy by editing this connection.
+                          </span>
+                        </div>
+                      </div>
+                    }
+                  >
+                    <div className="mt-2 small text-muted">
+                      What is this <FaQuestionCircle />
+                    </div>
+                  </Tooltip>
+                </>
+              }
+            ></ConnectionNode>
+
+            <ConnectionStatus connected={true} canRefresh={false} />
           </>
         )}
         <ConnectionNode

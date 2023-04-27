@@ -696,7 +696,8 @@ const MetricForm: FC<MetricFormProps> = ({
                       onChange={(value) => form.setValue("column", value)}
                       required={value.type !== "count"}
                       helpText={
-                        !supportsSQL && "Javascript expression to extract a value from each event."
+                        !supportsSQL &&
+                        "Javascript expression to extract a value from each event."
                       }
                     />
                   )}

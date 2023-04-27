@@ -21,6 +21,7 @@ export type EditSDKConnectionParams = {
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  sseEnabled?: boolean;
 };
 export type CreateSDKConnectionParams = {
   organization: string;
@@ -34,6 +35,7 @@ export type CreateSDKConnectionParams = {
   includeVisualExperiments: boolean;
   includeDraftExperiments: boolean;
   includeExperimentNames: boolean;
+  sseEnabled?: boolean;
 };
 
 export type SDKLanguage =
