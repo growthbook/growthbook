@@ -1,5 +1,5 @@
 import { EventWebHookInterface } from "back-end/types/event-webhook";
-import { getValidDate } from "@/services/dates";
+import { getValidDate } from "shared";
 import { EventWebHookList } from "./EventWebHookList";
 
 export default {

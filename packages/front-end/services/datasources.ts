@@ -58,7 +58,7 @@ FROM
   UNNEST(event_params) AS variation_id_param
 WHERE
   _TABLE_SUFFIX BETWEEN '{{startYear}}{{startMonth}}{{startDay}}' AND '{{endYear}}{{endMonth}}{{endDay}}'
-  AND event_name = 'viewed_experiment'  
+  AND event_name = 'experiment_viewed'  
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
   AND ${userCol} is not null
@@ -586,6 +586,12 @@ export function validateSQL(sql: string, requiredColumns: string[]): void {
 
   if (!sql.match(/SELECT\s[\s\S]*\sFROM\s[\S\s]+/i)) {
     throw new Error("Invalid SQL. Expecting `SELECT ... FROM ...`");
+  }
+
+  if (sql.match(/;(\s|\n)*$/)) {
+    throw new Error(
+      "Don't end your SQL statements with semicolons since it will break our generated queries"
+    );
   }
 
   const missingCols = requiredColumns.filter(

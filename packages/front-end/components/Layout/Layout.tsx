@@ -2,14 +2,14 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import { BsFlag, BsClipboardCheck, BsLightbulb } from "react-icons/bs";
+import { BsFlag, BsClipboardCheck, BsLightbulb, BsPlug } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
-import { getGrowthBookBuild } from "../../services/env";
+import { getGrowthBookBuild } from "@/services/env";
+import { useUser } from "@/services/UserContext";
 import useOrgSettings from "../../hooks/useOrgSettings";
 import { GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
 import { inferDocUrl } from "../DocLink";
 import UpgradeModal from "../Settings/UpgradeModal";
-import { useUser } from "../../services/UserContext";
 import ProjectSelector from "./ProjectSelector";
 import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
 import TopNav from "./TopNav";
@@ -123,6 +123,22 @@ const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
+    name: "Integrations",
+    href: "/integrations",
+    Icon: BsPlug,
+    path: /^(integrations)/,
+    autoClose: true,
+    feature: "slack-integration",
+    subLinks: [
+      {
+        name: "Slack",
+        href: "/integrations/slack",
+        path: /^integrations\/slack/,
+        feature: "slack-integration",
+      },
+    ],
+  },
+  {
     name: "Settings",
     href: "/settings",
     Icon: GBSettings,
@@ -173,6 +189,12 @@ const navlinks: SidebarLinkProps[] = [
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
         permissions: ["manageWebhooks"],
+      },
+      {
+        name: "Logs",
+        href: "/events",
+        path: /^events/,
+        permissions: ["viewEvents"],
       },
       {
         name: "Billing",
@@ -404,7 +426,7 @@ const Layout = (): React.ReactElement => {
                 </>
               ) : (
                 <>
-                  Upgrade to Pro <GBPremiumBadge />
+                  Try Pro <GBPremiumBadge />
                 </>
               )}
             </button>

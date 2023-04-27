@@ -2,11 +2,16 @@ import { useRouter } from "next/router";
 import React, { FC, useState, useEffect, Fragment } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
-import { FaAngleLeft, FaChevronRight } from "react-icons/fa";
+import {
+  FaAngleLeft,
+  FaArchive,
+  FaChevronRight,
+  FaQuestionCircle,
+  FaTimes,
+} from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
-import clsx from "clsx";
 import { IdeaInterface } from "back-end/types/idea";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -50,7 +55,9 @@ import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import ProjectBadges from "@/components/ProjectBadges";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
-import { GBEdit } from "@/components/Icons";
+import { GBCuped, GBEdit } from "@/components/Icons";
+import Toggle from "@/components/Forms/Toggle";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -62,6 +69,7 @@ const MetricPage: FC = () => {
     getDatasourceById,
     getSegmentById,
     getMetricById,
+    metrics,
     segments,
   } = useDefinitions();
   const settings = useOrgSettings();
@@ -71,11 +79,21 @@ const MetricPage: FC = () => {
   const [editProjects, setEditProjects] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
   const [segmentOpen, setSegmentOpen] = useState(false);
-  const storageKey = `metric_groupby`; // to make metric-specific, include `${mid}`
-  const [groupby, setGroupby] = useLocalStorage<"day" | "week">(
-    storageKey,
+  const storageKeyAvg = `metric_smoothBy_avg`; // to make metric-specific, include `${mid}`
+  const storageKeySum = `metric_smoothBy_sum`;
+  const [smoothByAvg, setSmoothByAvg] = useLocalStorage<"day" | "week">(
+    storageKeyAvg,
     "day"
   );
+  const [smoothBySum, setSmoothBySum] = useLocalStorage<"day" | "week">(
+    storageKeySum,
+    "day"
+  );
+
+  const [hoverDate, setHoverDate] = useState<number | null>(null);
+  const onHoverCallback = (ret: { d: number | null }) => {
+    setHoverDate(ret.d);
+  };
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
@@ -130,6 +148,26 @@ const MetricPage: FC = () => {
   const status = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
 
+  let regressionAdjustmentAvailableForMetric = true;
+  let regressionAdjustmentAvailableForMetricReason = <></>;
+  if (metric.denominator) {
+    const denominator = metrics.find((m) => m.id === metric.denominator);
+    if (denominator?.type === "count") {
+      regressionAdjustmentAvailableForMetric = false;
+      regressionAdjustmentAvailableForMetricReason = (
+        <>
+          Not available for ratio metrics with <em>count</em> denominators.
+        </>
+      );
+    }
+  }
+  if (metric.aggregation) {
+    regressionAdjustmentAvailableForMetric = false;
+    regressionAdjustmentAvailableForMetricReason = (
+      <>Not available for metrics with custom aggregations.</>
+    );
+  }
+
   const getMetricUsage = (metric: MetricInterface) => {
     return async () => {
       try {
@@ -156,7 +194,7 @@ const MetricPage: FC = () => {
             res.experiments.forEach((e) => {
               experimentLinks.push(
                 <Link href={`/experiment/${e.id}`}>
-                  <a className="">{e.name}</a>
+                  <a>{e.name}</a>
                 </Link>
               );
             });
@@ -191,7 +229,7 @@ const MetricPage: FC = () => {
                           {experimentLinks.map((l, i) => {
                             return (
                               <Fragment key={i}>
-                                <li className="">{l}</li>
+                                <li>{l}</li>
                               </Fragment>
                             );
                           })}
@@ -205,7 +243,7 @@ const MetricPage: FC = () => {
                           {ideaLinks.map((l, i) => {
                             return (
                               <Fragment key={i}>
-                                <li className="">{l}</li>
+                                <li>{l}</li>
                               </Fragment>
                             );
                           })}
@@ -343,7 +381,7 @@ const MetricPage: FC = () => {
           <div className="col-auto">
             <MoreMenu>
               <DeleteButton
-                className="dropdown-item"
+                className="btn dropdown-item py-2"
                 text="Delete"
                 title="Delete this metric"
                 getConfirmationContent={getMetricUsage(metric)}
@@ -354,11 +392,11 @@ const MetricPage: FC = () => {
                   mutateDefinitions({});
                   router.push("/metrics");
                 }}
-                useIcon={false}
+                useIcon={true}
                 displayName={"Metric '" + metric.name + "'"}
               />
               <Button
-                className="dropdown-item"
+                className="btn dropdown-item py-2"
                 color=""
                 onClick={async () => {
                   const newStatus =
@@ -373,6 +411,7 @@ const MetricPage: FC = () => {
                   mutate();
                 }}
               >
+                <FaArchive />{" "}
                 {metric.status === "archived" ? "Unarchive" : "Archive"}
               </Button>
             </MoreMenu>
@@ -608,7 +647,7 @@ const MetricPage: FC = () => {
                       )}
                       {analysis?.dates && analysis.dates.length > 0 && (
                         <div className="mb-4">
-                          <div className="row mb-3">
+                          <div className="row mt-3">
                             <div className="col-auto">
                               <h5 className="mb-1 mt-1">
                                 {metric.type === "binomial"
@@ -617,40 +656,148 @@ const MetricPage: FC = () => {
                                 Over Time
                               </h5>
                             </div>
-                            <div className="col-auto">
-                              <a
-                                className={clsx("badge badge-pill mr-2", {
-                                  "badge-light": groupby === "week",
-                                  "badge-primary": groupby === "day",
-                                })}
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setGroupby("day");
-                                }}
-                              >
-                                day
-                              </a>
-                              <a
-                                className={clsx("badge badge-pill", {
-                                  "badge-light": groupby === "day",
-                                  "badge-primary": groupby === "week",
-                                })}
-                                href="#"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  setGroupby("week");
-                                }}
-                              >
-                                week
-                              </a>
-                            </div>
                           </div>
 
+                          {metric.type !== "binomial" && (
+                            <>
+                              <div className="row mt-4 mb-1">
+                                <div className="col">
+                                  <Tooltip
+                                    body={
+                                      <>
+                                        <p>
+                                          This figure shows the average metric
+                                          value on a day divided by number of
+                                          unique units (e.g. users) in the
+                                          metric source on that day.
+                                        </p>
+                                        <p>
+                                          The standard deviation shows the
+                                          spread of the daily user metric
+                                          values.
+                                        </p>
+                                        <p>
+                                          When smoothing is turned on, we simply
+                                          average values and standard deviations
+                                          over the 7 trailing days (including
+                                          the selected day).
+                                        </p>
+                                      </>
+                                    }
+                                  >
+                                    <strong className="ml-4 align-bottom">
+                                      Daily Average <FaQuestionCircle />
+                                    </strong>
+                                  </Tooltip>
+                                </div>
+                                <div className="col">
+                                  <div className="float-right mr-2">
+                                    <label
+                                      className="small my-0 mr-2 text-right align-middle"
+                                      htmlFor="toggle-group-by-avg"
+                                    >
+                                      Smoothing
+                                      <br />
+                                      (7 day trailing)
+                                    </label>
+                                    <Toggle
+                                      value={smoothByAvg === "week"}
+                                      setValue={() =>
+                                        setSmoothByAvg(
+                                          smoothByAvg === "week"
+                                            ? "day"
+                                            : "week"
+                                        )
+                                      }
+                                      id="toggle-group-by-avg"
+                                      className="align-middle"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              <DateGraph
+                                type={metric.type}
+                                method="avg"
+                                dates={analysis.dates}
+                                smoothBy={smoothByAvg}
+                                onHover={onHoverCallback}
+                                hoverDate={hoverDate}
+                              />
+                            </>
+                          )}
+
+                          <div className="row mt-4 mb-1">
+                            <div className="col">
+                              <Tooltip
+                                body={
+                                  <>
+                                    {metric.type !== "binomial" ? (
+                                      <>
+                                        <p>
+                                          This figure shows the daily sum of
+                                          values in the metric source on that
+                                          day.
+                                        </p>
+                                        <p>
+                                          When smoothing is turned on, we simply
+                                          average values over the 7 trailing
+                                          days (including the selected day).
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p>
+                                          This figure shows the total count of
+                                          units (e.g. users) in the metric
+                                          source on that day.
+                                        </p>
+                                        <p>
+                                          When smoothing is turned on, we simply
+                                          average counts over the 7 trailing
+                                          days (including the selected day).
+                                        </p>
+                                      </>
+                                    )}
+                                  </>
+                                }
+                              >
+                                <strong className="ml-4 align-bottom">
+                                  Daily{" "}
+                                  {metric.type !== "binomial" ? "Sum" : "Count"}{" "}
+                                  <FaQuestionCircle />
+                                </strong>
+                              </Tooltip>
+                            </div>
+                            <div className="col">
+                              <div className="float-right mr-2">
+                                <label
+                                  className="small my-0 mr-2 text-right align-middle"
+                                  htmlFor="toggle-group-by-sum"
+                                >
+                                  Smoothing
+                                  <br />
+                                  (7 day trailing)
+                                </label>
+                                <Toggle
+                                  value={smoothBySum === "week"}
+                                  setValue={() =>
+                                    setSmoothBySum(
+                                      smoothBySum === "week" ? "day" : "week"
+                                    )
+                                  }
+                                  id="toggle-group-by-sum"
+                                  className="align-middle"
+                                />
+                              </div>
+                            </div>
+                          </div>
                           <DateGraph
                             type={metric.type}
+                            method="sum"
                             dates={analysis.dates}
-                            groupby={groupby}
+                            smoothBy={smoothBySum}
+                            onHover={onHoverCallback}
+                            hoverDate={hoverDate}
                           />
                         </div>
                       )}
@@ -909,58 +1056,57 @@ const MetricPage: FC = () => {
               open={() => setEditModalOpen(2)}
               canOpen={canEditMetric}
             >
-              <RightRailSectionGroup type="commaList" empty="">
-                {[
-                  metric.inverse ? "inverse" : null,
-                  metric.cap > 0 ? `cap: ${metric.cap}` : null,
-                  metric.ignoreNulls ? "converted users only" : null,
-                ]}
+              <RightRailSectionGroup type="custom" empty="" className="mt-3">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  {metric.inverse && (
+                    <li className="mb-2">
+                      <span className="text-gray">Goal:</span>{" "}
+                      <span className="font-weight-bold">Inverse</span>
+                    </li>
+                  )}
+                  {metric.cap > 0 && (
+                    <li className="mb-2">
+                      <span className="text-gray">Capped value:</span>{" "}
+                      <span className="font-weight-bold">{metric.cap}</span>
+                    </li>
+                  )}
+                  {metric.ignoreNulls && (
+                    <li className="mb-2">
+                      <span className="text-gray">Converted users only:</span>{" "}
+                      <span className="font-weight-bold">Yes</span>
+                    </li>
+                  )}
+                </ul>
               </RightRailSectionGroup>
 
               {datasource?.properties?.metricCaps && (
-                <RightRailSectionGroup
-                  type="commaList"
-                  title="Conversion Window"
-                >
-                  <span>
-                    {metric.conversionDelayHours
-                      ? metric.conversionDelayHours + " to "
-                      : ""}
-                    {(metric.conversionDelayHours || 0) +
-                      (metric.conversionWindowHours ||
-                        getDefaultConversionWindowHours())}{" "}
-                    hours
-                  </span>
+                <RightRailSectionGroup type="custom" empty="">
+                  <ul className="right-rail-subsection list-unstyled mb-4">
+                    <li className="mt-3 mb-1">
+                      <span className="uppercase-title lg">
+                        Conversion Window
+                      </span>
+                    </li>
+                    <li>
+                      <span className="font-weight-bold">
+                        {metric.conversionDelayHours
+                          ? metric.conversionDelayHours + " to "
+                          : ""}
+                        {(metric.conversionDelayHours || 0) +
+                          (metric.conversionWindowHours ||
+                            getDefaultConversionWindowHours())}{" "}
+                        hours
+                      </span>
+                    </li>
+                  </ul>
                 </RightRailSectionGroup>
               )}
 
               <RightRailSectionGroup type="custom" empty="">
-                <ul className="right-rail-subsection list-unstyled">
-                  {settings.statsEngine !== "frequentist" && (
-                    <>
-                      <li className="mb-2">
-                        <span className="uppercase-title">Thresholds</span>
-                      </li>
-                      <li className="mb-2">
-                        <span className="text-gray">Acceptable risk &lt;</span>{" "}
-                        <span className="font-weight-bold">
-                          {metric?.winRisk * 100 ||
-                            defaultWinRiskThreshold * 100}
-                          %
-                        </span>
-                      </li>
-                      <li className="mb-2">
-                        <span className="text-gray">
-                          Unacceptable risk &gt;
-                        </span>{" "}
-                        <span className="font-weight-bold">
-                          {metric?.loseRisk * 100 ||
-                            defaultLoseRiskThreshold * 100}
-                          %
-                        </span>
-                      </li>
-                    </>
-                  )}
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-1">
+                    <span className="uppercase-title lg">Thresholds</span>
+                  </li>
                   <li className="mb-2">
                     <span className="text-gray">Minimum sample size:</span>{" "}
                     <span className="font-weight-bold">
@@ -979,6 +1125,106 @@ const MetricPage: FC = () => {
                       {getMinPercentageChangeForMetric(metric) * 100}%
                     </span>
                   </li>
+                </ul>
+              </RightRailSectionGroup>
+
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-4">
+                  <li className="mt-3 mb-2">
+                    <span className="uppercase-title lg">Risk Thresholds</span>
+                    <small className="d-block mb-1 text-muted">
+                      Only applicable to Bayesian analyses
+                    </small>
+                  </li>
+                  <li className="mb-2">
+                    <span className="text-gray">Acceptable risk &lt;</span>{" "}
+                    <span className="font-weight-bold">
+                      {metric?.winRisk * 100 || defaultWinRiskThreshold * 100}%
+                    </span>
+                  </li>
+                  <li className="mb-2">
+                    <span className="text-gray">Unacceptable risk &gt;</span>{" "}
+                    <span className="font-weight-bold">
+                      {metric?.loseRisk * 100 || defaultLoseRiskThreshold * 100}
+                      %
+                    </span>
+                  </li>
+                </ul>
+              </RightRailSectionGroup>
+
+              <RightRailSectionGroup type="custom" empty="">
+                <ul className="right-rail-subsection list-unstyled mb-2">
+                  <li className="mt-3 mb-2">
+                    <span className="uppercase-title lg">
+                      <GBCuped size={14} /> Regression Adjustment (CUPED)
+                    </span>
+                    <small className="d-block mb-1 text-muted">
+                      Only applicable to frequentist analyses
+                    </small>
+                  </li>
+                  {!regressionAdjustmentAvailableForMetric ? (
+                    <li className="mb-2">
+                      <div className="text-muted small">
+                        <FaTimes className="text-danger" />{" "}
+                        {regressionAdjustmentAvailableForMetricReason}
+                      </div>
+                    </li>
+                  ) : metric?.regressionAdjustmentOverride ? (
+                    <>
+                      <li className="mb-2">
+                        <span className="text-gray">
+                          Apply regression adjustment:
+                        </span>{" "}
+                        <span className="font-weight-bold">
+                          {metric?.regressionAdjustmentEnabled ? "On" : "Off"}
+                        </span>
+                      </li>
+                      <li className="mb-2">
+                        <span className="text-gray">
+                          Lookback period (days):
+                        </span>{" "}
+                        <span className="font-weight-bold">
+                          {metric?.regressionAdjustmentDays}
+                        </span>
+                      </li>
+                    </>
+                  ) : settings.regressionAdjustmentEnabled ? (
+                    <>
+                      <li className="mb-1">
+                        <div className="mb-1">
+                          <em className="text-gray">
+                            Using organization defaults
+                          </em>
+                        </div>
+                        <div className="ml-2 px-2 border-left">
+                          <div className="mb-1 small">
+                            <span className="text-gray">
+                              Apply regression adjustment:
+                            </span>{" "}
+                            <span className="font-weight-bold">
+                              {settings?.regressionAdjustmentEnabled
+                                ? "On"
+                                : "Off"}
+                            </span>
+                          </div>
+                          <div className="mb-1 small">
+                            <span className="text-gray">
+                              Lookback period (days):
+                            </span>{" "}
+                            <span className="font-weight-bold">
+                              {settings?.regressionAdjustmentDays}
+                            </span>
+                          </div>
+                        </div>
+                      </li>
+                    </>
+                  ) : (
+                    <li className="mb-2">
+                      <div className="mb-1">
+                        <em className="text-gray">Disabled</em>
+                      </div>
+                    </li>
+                  )}
                 </ul>
               </RightRailSectionGroup>
             </RightRailSection>

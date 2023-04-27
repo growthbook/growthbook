@@ -5,7 +5,7 @@
 
   --background-color: #{colors.$main-background};
   --surface-background-color: #{colors.$white};
-  --surface-background-color-alt: #{colors.$gray-100};
+  --surface-background-color-alt: #{darken(colors.$white, 3%)};
   --background-primary-light: #f3eff7;
   --table-row-hover-background-color: rgba(0, 0, 0, 0.075); // default Bootstrap
   --table-row-highlight-background-color: #{rgba(124, 69, 234, 0.06)};

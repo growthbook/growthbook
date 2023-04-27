@@ -1,5 +1,6 @@
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
@@ -15,7 +16,10 @@ import {
 } from "../../types/feature";
 import { MemberRole, OrganizationInterface } from "../../types/organization";
 import { getConfigOrganizationSettings } from "../init/config";
-import { ExperimentInterface } from "../../types/experiment";
+import {
+  ExperimentInterface,
+  LegacyExperimentInterface,
+} from "../../types/experiment";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -282,8 +286,11 @@ export function upgradeOrganizationDoc(
 ): OrganizationInterface {
   const org = cloneDeep(doc);
 
+  // Add settings from config.json
+  const configSettings = getConfigOrganizationSettings();
+  org.settings = Object.assign({}, org.settings || {}, configSettings);
+
   // Add dev/prod environments if there are none yet
-  org.settings = org.settings || {};
   if (!org.settings?.environments?.length) {
     org.settings.environments = [
       {
@@ -318,10 +325,6 @@ export function upgradeOrganizationDoc(
     };
   }
 
-  // Add settings from config.json
-  const configSettings = getConfigOrganizationSettings();
-  org.settings = Object.assign({}, org.settings || {}, configSettings);
-
   // Default attribute schema
   if (!org.settings.attributeSchema) {
     org.settings.attributeSchema = [
@@ -334,6 +337,11 @@ export function upgradeOrganizationDoc(
       { property: "browser", datatype: "string" },
       { property: "url", datatype: "string" },
     ];
+  }
+
+  // Add statsEngine setting if not defined
+  if (!org.settings.statsEngine) {
+    org.settings.statsEngine = "bayesian";
   }
 
   // Rename legacy roles
@@ -351,10 +359,11 @@ export function upgradeOrganizationDoc(
 }
 
 export function upgradeExperimentDoc(
-  orig: ExperimentInterface
+  orig: LegacyExperimentInterface
 ): ExperimentInterface {
   const experiment = cloneDeep(orig);
 
+  // Add missing variation keys and ids
   experiment.variations.forEach((v, i) => {
     if (v.key === "" || v.key === undefined || v.key === null) {
       v.key = i + "";
@@ -362,17 +371,65 @@ export function upgradeExperimentDoc(
     if (!v.id) {
       v.id = i + "";
     }
+    if (!v.name) {
+      v.name = i ? `Variation ${i}` : `Control`;
+    }
   });
 
-  // Populate phase names
+  // Populate phase names and targeting properties
   if (experiment.phases) {
     experiment.phases.forEach((phase) => {
       if (!phase.name) {
         const p = phase.phase || "main";
         phase.name = p.substring(0, 1).toUpperCase() + p.substring(1);
       }
+
+      phase.coverage = phase.coverage ?? 1;
+      phase.condition = phase.condition || "";
+      phase.seed = phase.seed || experiment.trackingKey;
+      phase.namespace = phase.namespace || {
+        enabled: false,
+        name: "",
+        range: [0, 1],
+      };
     });
   }
 
-  return experiment;
+  // Upgrade the attribution model
+  if (experiment.attributionModel === "allExposures") {
+    experiment.attributionModel = "experimentDuration";
+  }
+
+  // Add hashAttribute field
+  experiment.hashAttribute = experiment.hashAttribute || "";
+
+  // Old `observations` field
+  if (!experiment.description && experiment.observations) {
+    experiment.description = experiment.observations;
+  }
+
+  // releasedVariationId
+  if (!("releasedVariationId" in experiment)) {
+    if (experiment.status === "stopped") {
+      if (experiment.results === "lost") {
+        experiment.releasedVariationId = experiment.variations[0]?.id || "";
+      } else if (experiment.results === "won") {
+        experiment.releasedVariationId =
+          experiment.variations[experiment.winner || 1]?.id || "";
+      } else {
+        experiment.releasedVariationId = "";
+      }
+    } else {
+      experiment.releasedVariationId = "";
+    }
+  }
+
+  if (!("sequentialTestingEnabled" in experiment)) {
+    experiment.sequentialTestingEnabled = false;
+  }
+  if (!("sequentialTestingTuningParameter" in experiment)) {
+    experiment.sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+  }
+
+  return experiment as ExperimentInterface;
 }

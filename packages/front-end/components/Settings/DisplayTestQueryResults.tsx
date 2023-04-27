@@ -3,7 +3,7 @@ import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import Code from "../SyntaxHighlighting/Code";
 
 export type Props = {
-  result: null | Record<string, unknown>;
+  results: Record<string, unknown>[];
   duration: number;
   error?: string;
   suggestions?: ReactElement[];
@@ -12,17 +12,18 @@ export type Props = {
 };
 
 export default function DisplayTestQueryResults({
-  result,
+  results,
   duration,
   error,
   suggestions,
   requiredColumns,
   sql,
 }: Props) {
+  const cols = Object.keys(results?.[0] || {});
   const missingColumns = useMemo(() => {
-    if (!result) return [];
-    return requiredColumns.filter((col) => !(col in result));
-  }, [requiredColumns, result]);
+    if (!results?.length) return [];
+    return requiredColumns.filter((col) => !(col in results[0]));
+  }, [requiredColumns, results]);
 
   if (error) {
     return (
@@ -35,7 +36,7 @@ export default function DisplayTestQueryResults({
     );
   }
 
-  if (!result) {
+  if (!results?.length) {
     return (
       <div className="alert alert-warning mt-3">
         <FaExclamationTriangle /> No rows returned, could not verify result
@@ -46,10 +47,10 @@ export default function DisplayTestQueryResults({
 
   return (
     <>
-      <div className="border mt-3 p-2 bg-light">
+      <div className="border p-2 bg-light">
         <div className="row">
           <div className="col-auto">
-            <strong>Sample Row</strong>
+            <strong>Sample {results?.length} Rows</strong>
           </div>
           <div className="col-auto ml-auto">
             <div className="text-success">
@@ -61,22 +62,24 @@ export default function DisplayTestQueryResults({
       </div>
       <div style={{ width: "100%", overflowX: "auto" }} className="mb-3">
         <table
-          className="table table-bordered appbox w-100 mb-0"
+          className="table table-bordered table-sm appbox w-100 mb-0"
           style={{ overflowX: "auto" }}
         >
           <thead>
             <tr>
-              {Object.keys(result).map((col) => (
+              {cols.map((col) => (
                 <th key={col}>{col}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            <tr>
-              {Object.values(result).map((val, i) => (
-                <td key={i}>{JSON.stringify(val)}</td>
-              ))}
-            </tr>
+            {results.map((result, i) => (
+              <tr key={i}>
+                {Object.values(result).map((val, j) => (
+                  <td key={j}>{JSON.stringify(val)}</td>
+                ))}
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

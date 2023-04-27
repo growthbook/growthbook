@@ -51,6 +51,7 @@ import {
   updateSegment,
 } from "../models/SegmentModel";
 import { getAllExperiments } from "../models/ExperimentModel";
+import { LegacyExperimentPhase } from "../../types/experiment";
 import { markInstalled } from "./auth";
 import {
   encryptParams,
@@ -718,8 +719,9 @@ export async function getExperimentOverrides(
     const groups: string[] = [];
 
     const phase = exp.phases[exp.phases.length - 1];
-    if (phase && phase.groups && phase.groups.length > 0) {
-      groups.push(...phase.groups);
+    const phaseGroups = (phase as LegacyExperimentPhase)?.groups;
+    if (phaseGroups && phaseGroups.length > 0) {
+      groups.push(...phaseGroups);
     }
 
     const override: ExperimentOverride = {
@@ -776,11 +778,11 @@ export async function addMemberFromSSOConnection(
   if (!req.userId) return null;
 
   const ssoConnection = req.loginMethod;
-  if (!ssoConnection || !ssoConnection.emailDomain) return null;
+  if (!ssoConnection || !ssoConnection?.emailDomains?.length) return null;
 
   // Check if the user's email domain is allowed by the SSO connection
   const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
-  if (emailDomain !== ssoConnection.emailDomain) {
+  if (!ssoConnection?.emailDomains?.includes(emailDomain)) {
     return null;
   }
 

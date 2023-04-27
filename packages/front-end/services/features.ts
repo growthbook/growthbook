@@ -152,7 +152,7 @@ export function findGaps(
   const ranges = [
     ...experiments.filter(
       // Exclude the current feature/experiment
-      (e) => e.featureId !== featureId || e.trackingKey !== trackingKey
+      (e) => e.id !== featureId || e.trackingKey !== trackingKey
     ),
     { start: 1, end: 1 },
   ];
@@ -255,7 +255,6 @@ export function validateFeatureRule(
     ruleValues.forEach((val, i) => {
       if (val.weight < 0)
         throw new Error("Variation weights cannot be negative");
-      val.weight = roundVariationWeight(val.weight);
       totalWeight += val.weight;
       const newValue = validateFeatureValue(
         valueType,
@@ -312,7 +311,7 @@ export function getAffectedEnvs(
 
 export function getDefaultValue(valueType: FeatureValueType): string {
   if (valueType === "boolean") {
-    return "true";
+    return "false";
   }
   if (valueType === "number") {
     return "1";
@@ -742,6 +741,9 @@ export function getExperimentDefinitionFromFeature(
         name: "Main",
         reason: "",
         dateStarted: new Date().toISOString(),
+        condition: expRule.condition,
+        namespace: expRule.namespace,
+        seed: trackingKey,
       },
     ],
   };

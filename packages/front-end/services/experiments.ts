@@ -1,10 +1,19 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
+import { PValueCorrection } from "back-end/types/stats";
 import { useState } from "react";
-import { ExperimentReportVariation } from "back-end/types/report";
-import { MetricDefaults } from "back-end/types/organization";
+import {
+  ExperimentReportResultDimension,
+  ExperimentReportVariation,
+  MetricRegressionAdjustmentStatus,
+} from "back-end/types/report";
+import {
+  MetricDefaults,
+  OrganizationSettings,
+} from "back-end/types/organization";
 import { MetricOverride } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
 import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
 
 export type ExperimentTableRow = {
@@ -12,6 +21,7 @@ export type ExperimentTableRow = {
   metric: MetricInterface;
   variations: SnapshotMetric[];
   rowClass?: string;
+  regressionAdjustmentStatus?: MetricRegressionAdjustmentStatus;
 };
 
 export function hasEnoughData(
@@ -241,8 +251,116 @@ export function applyMetricOverrides(
       newMetric.loseRisk = metricOverride.loseRisk;
       overrideFields.push("loseRisk");
     }
+    if ("regressionAdjustmentOverride" in metricOverride) {
+      // only apply RA fields if doing an override
+      newMetric.regressionAdjustmentOverride =
+        metricOverride.regressionAdjustmentOverride;
+      newMetric.regressionAdjustmentEnabled = !!metricOverride.regressionAdjustmentEnabled;
+      newMetric.regressionAdjustmentDays =
+        metricOverride.regressionAdjustmentDays ??
+        newMetric.regressionAdjustmentDays;
+      overrideFields.push(
+        "regressionAdjustmentOverride",
+        "regressionAdjustmentEnabled",
+        "regressionAdjustmentDays"
+      );
+    }
   }
   return { newMetric, overrideFields };
+}
+
+export function getRegressionAdjustmentsForMetric({
+  metric,
+  denominatorMetrics,
+  experimentRegressionAdjustmentEnabled,
+  organizationSettings,
+  metricOverrides,
+}: {
+  metric: MetricInterface;
+  denominatorMetrics: MetricInterface[];
+  experimentRegressionAdjustmentEnabled: boolean;
+  organizationSettings?: Partial<OrganizationSettings>; // can be RA fields from a snapshot of org settings
+  metricOverrides?: MetricOverride[];
+}): {
+  newMetric: MetricInterface;
+  metricRegressionAdjustmentStatus: MetricRegressionAdjustmentStatus;
+} {
+  const newMetric = cloneDeep<MetricInterface>(metric);
+
+  // start with default RA settings
+  let regressionAdjustmentEnabled = false;
+  let regressionAdjustmentDays = DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
+  let reason = "";
+
+  // get RA settings from organization
+  if (organizationSettings?.regressionAdjustmentEnabled) {
+    regressionAdjustmentEnabled = true;
+    regressionAdjustmentDays =
+      organizationSettings?.regressionAdjustmentDays ??
+      regressionAdjustmentDays;
+  }
+  if (experimentRegressionAdjustmentEnabled) {
+    regressionAdjustmentEnabled = true;
+  }
+
+  // get RA settings from metric
+  if (metric?.regressionAdjustmentOverride) {
+    regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
+    regressionAdjustmentDays =
+      metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
+    if (!regressionAdjustmentEnabled) {
+      reason = "disabled in metric settings";
+    }
+  }
+
+  // get RA settings from metric override
+  if (metricOverrides) {
+    const metricOverride = metricOverrides.find((mo) => mo.id === metric.id);
+    if (metricOverride?.regressionAdjustmentOverride) {
+      regressionAdjustmentEnabled = !!metricOverride?.regressionAdjustmentEnabled;
+      regressionAdjustmentDays =
+        metricOverride?.regressionAdjustmentDays ?? regressionAdjustmentDays;
+      if (!regressionAdjustmentEnabled) {
+        reason = "disabled by metric override";
+      } else {
+        reason = "";
+      }
+    }
+  }
+
+  // final gatekeeping
+  if (regressionAdjustmentEnabled) {
+    if (metric?.denominator) {
+      const denominator = denominatorMetrics.find(
+        (m) => m.id === metric?.denominator
+      );
+      if (denominator?.type === "count") {
+        regressionAdjustmentEnabled = false;
+        reason = "denominator is count";
+      }
+    }
+  }
+  if (metric?.aggregation) {
+    regressionAdjustmentEnabled = false;
+    reason = "custom aggregation";
+  }
+
+  if (!regressionAdjustmentEnabled) {
+    regressionAdjustmentDays = 0;
+  }
+
+  newMetric.regressionAdjustmentEnabled = regressionAdjustmentEnabled;
+  newMetric.regressionAdjustmentDays = regressionAdjustmentDays;
+
+  return {
+    newMetric,
+    metricRegressionAdjustmentStatus: {
+      metric: newMetric.id,
+      regressionAdjustmentEnabled,
+      regressionAdjustmentDays,
+      reason,
+    },
+  };
 }
 
 export function isExpectedDirection(
@@ -256,11 +374,7 @@ export function isExpectedDirection(
   return expected > 0;
 }
 
-export function isStatSig(
-  stats: SnapshotMetric,
-  pValueThreshold: number
-): boolean {
-  const pValue: number = stats?.pValue ?? 1;
+export function isStatSig(pValue: number, pValueThreshold: number): boolean {
   return pValue < pValueThreshold;
 }
 
@@ -269,4 +383,94 @@ export function pValueFormatter(pValue: number): string {
     return "";
   }
   return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
+}
+
+export type IndexedPValue = {
+  pValue: number;
+  index: (number | string)[];
+};
+
+export function adjustPValuesBenjaminiHochberg(
+  indexedPValues: IndexedPValue[]
+): IndexedPValue[] {
+  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
+  const m = newIndexedPValues.length;
+
+  newIndexedPValues.sort((a, b) => {
+    return b.pValue - a.pValue;
+  });
+  newIndexedPValues.forEach((p, i) => {
+    newIndexedPValues[i].pValue = Math.min((p.pValue * m) / (m - i), 1);
+  });
+
+  let tempval = newIndexedPValues[0].pValue;
+  for (let i = 1; i < m; i++) {
+    if (newIndexedPValues[i].pValue < tempval) {
+      tempval = newIndexedPValues[i].pValue;
+    } else {
+      newIndexedPValues[i].pValue = tempval;
+    }
+  }
+  return newIndexedPValues;
+}
+
+export function adjustPValuesHolmBonferroni(
+  indexedPValues: IndexedPValue[]
+): IndexedPValue[] {
+  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
+  const m = newIndexedPValues.length;
+  newIndexedPValues.sort((a, b) => {
+    return a.pValue - b.pValue;
+  });
+  newIndexedPValues.forEach((p, i) => {
+    newIndexedPValues[i].pValue = Math.min(p.pValue * (m - i), 1);
+  });
+
+  let tempval = newIndexedPValues[0].pValue;
+  for (let i = 1; i < m; i++) {
+    if (newIndexedPValues[i].pValue > tempval) {
+      tempval = newIndexedPValues[i].pValue;
+    } else {
+      newIndexedPValues[i].pValue = tempval;
+    }
+  }
+  return newIndexedPValues;
+}
+
+export function setAdjustedPValuesOnResults(
+  results: ExperimentReportResultDimension[],
+  nonGuardrailMetrics: string[],
+  adjustment: PValueCorrection
+): void {
+  if (!adjustment) {
+    return;
+  }
+
+  let indexedPValues: IndexedPValue[] = [];
+  results.forEach((r, i) => {
+    r.variations.forEach((v, j) => {
+      nonGuardrailMetrics.forEach((m) => {
+        if (v.metrics[m]?.pValue !== undefined) {
+          indexedPValues.push({
+            pValue: v.metrics[m].pValue,
+            index: [i, j, m],
+          });
+        }
+      });
+    });
+  });
+
+  if (adjustment === "benjamini-hochberg") {
+    indexedPValues = adjustPValuesBenjaminiHochberg(indexedPValues);
+  } else if (adjustment === "holm-bonferroni") {
+    indexedPValues = adjustPValuesHolmBonferroni(indexedPValues);
+  }
+
+  // modify results in place
+  indexedPValues.forEach((ip) => {
+    const ijk = ip.index;
+    results[ijk[0]].variations[ijk[1]].metrics[ijk[2]].pValueAdjusted =
+      ip.pValue;
+  });
+  return;
 }

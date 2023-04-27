@@ -5,7 +5,6 @@
 @import "bootstrap-variable-overrides";
 
 @import "bootstrap/scss/bootstrap.scss";
-@import "react-bootstrap-typeahead/css/Typeahead.scss";
 @import url("https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap");
 
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
@@ -74,6 +73,9 @@ pre {
 .text-indigo {
   color: colors.$indigo;
 }
+.text-warning-orange {
+  color: colors.$warning-orange;
+}
 .text-gray {
   color: var(--text-color-th);
 }
@@ -89,13 +91,25 @@ pre {
   text-transform: uppercase;
   font-size: 11px;
   font-weight: 600;
+  &.lg {
+    font-size: 13px;
+  }
 }
-// default bootstrap overrides:
 
+.w-100px {
+  width: 100px !important;
+}
+.w-150px {
+  width: 150px !important;
+}
+.w-200px {
+  width: 200px !important;
+}
+
+// default bootstrap overrides:
 .btn:focus {
   box-shadow: none;
 }
-
 .btn:focus-visible {
   box-shadow: 0 0 0 0.2rem rgb(0 123 255 / 25%);
 }
@@ -135,6 +149,40 @@ pre {
   background-color: rgba(124, 69, 234, 0.1);
   border: 2px solid #7c45ea;
 }
+.btn-outline-teal {
+  @include button-outline-variant(
+    transparent,
+    #fff,
+    lighten(colors.$teal, 20%),
+    lighten(colors.$teal, 20%)
+  );
+  color: colors.$teal;
+}
+.btn-outline-teal-off {
+  @include button-outline-variant(
+    #8fb3a8,
+    #fff,
+    lighten(colors.$teal, 20%),
+    lighten(colors.$teal, 20%)
+  );
+}
+.btn-outline-teal-disabled {
+  @include button-outline-variant(
+    transparent,
+    #fff,
+    lighten(#8fb3a8, 15%),
+    lighten(#8fb3a8, 15%)
+  );
+  color: #8fb3a8;
+  margin-left: 8px;
+  cursor: not-allowed !important;
+  .toggle-switch.teal + label {
+    background: #cfe6de;
+  }
+  .toggle-switch.teal input:checked + label {
+    background: #cfe6de;
+  }
+}
 .btn-outline-selected:not(:disabled):not(.disabled) {
   background-color: rgba(69, 196, 234, 0.1);
   border: 2px solid #00894f;
@@ -143,6 +191,7 @@ pre {
   background-color: rgba(154, 110, 248, 0.2);
   color: inherit;
 }
+
 .badge {
   line-height: 1em;
   font-size: 85.72%; //12px
@@ -151,6 +200,15 @@ pre {
   .badge {
     margin-bottom: 0;
   }
+}
+
+.badge-red {
+  @include badge-variant(colors.$red);
+  border: 1px solid colors.$red;
+}
+.badge-green {
+  @include badge-variant(colors.$green);
+  border: 1px solid colors.$green;
 }
 .badge-primary {
   @include badge-variant(#00ace5);
@@ -856,6 +914,15 @@ pre {
       width: 21px;
     }
   }
+
+  &.teal {
+    label {
+      background: #cfe6de;
+    }
+    input:checked + label {
+      background: colors.$teal;
+    }
+  }
 }
 
 // To make non-password fields look like password fields.
@@ -873,43 +940,47 @@ pre {
   }
 
   thead {
+    tr:first-child {
+      th {
+        border-bottom: 0 transparent;
+      }
+    }
     th {
       background: var(--surface-background-color-alt);
       color: var(--text-color-muted);
       font-weight: 600;
 
-      &.metric {
-        border-bottom: 7px solid #999;
+      &.head-last-row {
+        border-top: 0 transparent;
+        border-bottom: 0 transparent;
       }
-      &.variation0,
-      &.variation4 {
-        border-bottom: 7px solid #772eff;
-      }
-      &.variation1,
-      &.variation5 {
-        border-bottom: 7px solid #039dd1;
-      }
-      &.variation2,
-      &.variation6 {
-        border-bottom: 7px solid #fd7e14;
-      }
-      &.variation3,
-      &.variation7 {
-        border-bottom: 7px solid #e83e8c;
+
+      &.head-bottom-border {
+        border-top: 0 transparent;
+        border-bottom: 0 transparent;
+        background: #999;
+        padding: 0;
+        height: 7px;
+        &:not(&:first-child) {
+          border-left: 3px solid var(--border-color-300);
+        }
       }
     }
   }
+
   .value {
     border-left: 3px solid var(--border-color-300);
+    min-width: 80px;
   }
 
   thead tr:first-child th:first-child,
-  tbody th:first-child {
+  tbody th:first-child,
+  thead .sticky {
     position: sticky;
     left: 0;
     width: auto;
     z-index: 890;
-    border-right: 2px solid var(--border-color-300);
+    box-shadow: -1px 0 0 var(--border-color-300) inset;
   }
 
   tbody {
@@ -920,10 +991,12 @@ pre {
         border-bottom: 5px solid var(--border-color-300);
       }
     }
+
     td,
     th {
       vertical-align: middle;
     }
+
     th:first-child {
       background: var(--surface-background-color);
     }
@@ -943,10 +1016,12 @@ pre {
       color: var(--text-color-muted);
     }
   }
+
   .aligned-graph-row {
     .experiment-tooltip {
       display: none;
     }
+
     &:hover .experiment-tooltip {
       display: block;
     }
@@ -955,22 +1030,26 @@ pre {
   .compact-graph {
     padding: 0;
     position: relative;
+
     .expectedwrap {
       line-height: 20px;
       padding-right: 10px;
       min-width: 120px;
       max-width: 120px;
       width: 120px;
+
       .expectedArrows {
         font-size: 0.7rem;
         position: relative;
         top: -2px;
       }
+
       .errorrange {
         font-size: 0.9rem;
       }
     }
   }
+
   .result-number {
     line-height: 1rem;
   }
@@ -980,18 +1059,22 @@ pre {
     padding-bottom: 30px;
     color: var(--text-color-muted);
     font-size: 0.9em;
+
     .left-label {
       flex: 1;
       text-align: right;
     }
+
     .right-label {
       flex: 1;
     }
+
     .bar-holder {
       width: 150px;
       display: flex;
       margin: 0 8px;
       position: relative;
+
       .midline {
         position: absolute;
         top: 0;
@@ -999,6 +1082,7 @@ pre {
         height: 100%;
         border-left: 2px dotted var(--text-color-main);
       }
+
       .expected {
         position: absolute;
         top: 100%;
@@ -1007,14 +1091,17 @@ pre {
         text-align: center;
         margin-left: -50px;
       }
+
       .win {
         background-color: var(--win-background);
       }
+
       .lose {
         background-color: var(--lose-background);
       }
     }
   }
+
   .chance {
     text-align: center;
   }
@@ -1024,16 +1111,19 @@ pre {
   td.draw,
   td.warning {
     opacity: 1;
+
     .change-container {
       .bar-holder {
         .win {
           background: linear-gradient(to bottom, #30d395 0%, #a6edd1 100%);
         }
+
         .lose {
           background: linear-gradient(to bottom, #d33e31 0%, #edaca6 100%);
         }
       }
     }
+
     &.chance {
       font-weight: bold;
     }
@@ -1042,25 +1132,183 @@ pre {
   td.won {
     background-color: var(--win-background);
     color: var(--alert-success-color);
+
     .expected {
       font-weight: bold;
     }
   }
+
   td.lost {
     background-color: var(--lose-background);
     color: var(--alert-danger-color);
   }
+
   td.warning {
     background-color: var(--warn-background);
     color: var(--alert-warn-color);
   }
+
   td.draw {
     background-color: var(--background-primary-light);
     color: var(--text-color-on-background-primary-light);
   }
 
-  .metricname:hover {
-    z-index: 1060;
+  .metricname {
+    .metriclabel {
+      display: inline-block;
+      line-height: 1.15;
+      font-weight: bold;
+    }
+    &:hover {
+      z-index: 1060;
+    }
+  }
+
+  &.small-padding {
+    &.table {
+      th,
+      td {
+        padding: 0.25rem 0.5rem;
+      }
+    }
+  }
+}
+
+.fade-mask-1rem {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 1rem,
+    black calc(100% - 1rem),
+    transparent 100%
+  );
+}
+.w100-1rem {
+  width: calc(100% - 2rem);
+}
+
+.variation {
+  &.with-variation-label {
+    .label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      color: colors.$variant-null;
+      font-weight: 600;
+      border: 1.5px solid transparentize(colors.$variant-null, 0.35);
+      border-radius: 20px;
+      margin-right: 4px;
+    }
+    .name {
+      color: colors.$variant-null;
+      margin-right: 4px;
+    }
+
+    &.variation0,
+    &.variation4 {
+      .label {
+        border-color: transparentize(colors.$variant-0, 0.35);
+        color: colors.$variant-0;
+      }
+      .name {
+        color: colors.$variant-0;
+      }
+    }
+
+    &.variation1,
+    &.variation5 {
+      .label {
+        border-color: transparentize(colors.$variant-1, 0.35);
+        color: colors.$variant-1;
+      }
+      .name {
+        color: colors.$variant-1;
+      }
+    }
+
+    &.variation2,
+    &.variation6 {
+      .label {
+        border-color: transparentize(colors.$variant-2, 0.35);
+        color: colors.$variant-2;
+      }
+      .name {
+        color: colors.$variant-2;
+      }
+    }
+
+    &.variation3,
+    &.variation7 {
+      .label {
+        border-color: transparentize(colors.$variant-3, 0.35);
+        color: colors.$variant-3;
+      }
+      .name {
+        color: colors.$variant-3;
+      }
+    }
+  }
+
+  &.with-variation-fill {
+    background: colors.$variant-null;
+    &.variation0,
+    &.variation4 {
+      background: colors.$variant-0;
+    }
+    &.variation1,
+    &.variation5 {
+      background: colors.$variant-1;
+    }
+    &.variation2,
+    &.variation6 {
+      background: colors.$variant-2;
+    }
+    &.variation3,
+    &.variation7 {
+      background: colors.$variant-3;
+    }
+  }
+
+  &.with-variation-border-bottom {
+    border-bottom: 7px solid colors.$variant-null;
+    &.variation0,
+    &.variation4 {
+      border-bottom: 7px solid colors.$variant-0;
+    }
+    &.variation1,
+    &.variation5 {
+      border-bottom: 7px solid colors.$variant-1;
+    }
+    &.variation2,
+    &.variation6 {
+      border-bottom: 7px solid colors.$variant-2;
+    }
+    &.variation3,
+    &.variation7 {
+      border-bottom: 7px solid colors.$variant-3;
+    }
+  }
+
+  &.with-variation-right-shadow {
+    box-shadow: -3px 0 0 colors.$variant-null inset;
+    &.variation0,
+    &.variation4 {
+      box-shadow: -3px 0 0 colors.$variant-0 inset;
+    }
+    &.variation1,
+    &.variation5 {
+      box-shadow: -3px 0 0 colors.$variant-1 inset;
+    }
+    &.variation2,
+    &.variation6 {
+      box-shadow: -3px 0 0 colors.$variant-2 inset;
+    }
+    &.variation3,
+    &.variation7 {
+      box-shadow: -3px 0 0 colors.$variant-3 inset;
+    }
   }
 }
 
@@ -1069,6 +1317,12 @@ pre {
 }
 .bg-purple-light {
   background: colors.$highlight-purple-light;
+}
+.bg-muted-yellow {
+  background: var(--alert-warn-background);
+}
+.bg-main-color {
+  background: var(--background-color);
 }
 
 .change-bar {
@@ -2050,7 +2304,13 @@ td.disabled {
     }
   }
 }
-
+.form-control:disabled {
+  cursor: not-allowed;
+  background-color: var(--disabled-background) !important;
+}
+input:disabled {
+  cursor: not-allowed;
+}
 .form-group.metric-override {
   .form-control::placeholder {
     font-style: italic;

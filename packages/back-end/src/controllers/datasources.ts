@@ -17,7 +17,6 @@ import {
 } from "../services/datasource";
 import { getOauth2Client } from "../integrations/GoogleAnalytics";
 import {
-  logExperimentCreated,
   createExperiment,
   getSampleExperiment,
 } from "../models/ExperimentModel";
@@ -38,14 +37,21 @@ import {
   getMetricsByDatasource,
   getSampleMetrics,
 } from "../models/MetricModel";
+import { EventAuditUserForResponseLocals } from "../events/event-types";
 
-export async function postSampleData(req: AuthRequest, res: Response) {
+export async function postSampleData(
+  req: AuthRequest,
+  res: Response<
+    { status: 200; experiment: string },
+    EventAuditUserForResponseLocals
+  >
+) {
   req.checkPermissions("createMetrics", "");
   req.checkPermissions("createAnalyses", "");
 
   const { org, userId } = getOrgFromReq(req);
   const orgId = org.id;
-  const statsEngine = org.settings?.statsEngine;
+  const statsEngine = org.settings?.statsEngine || "bayesian";
 
   const existingMetrics = await getSampleMetrics(orgId);
 
@@ -139,6 +145,8 @@ export async function postSampleData(req: AuthRequest, res: Response) {
       owner: userId,
       trackingKey: "sample-experiment",
       exposureQueryId: "",
+      hashAttribute: "",
+      releasedVariationId: "",
       tags: [],
       results: "won",
       winner: 1,
@@ -155,13 +163,21 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
           reason: "",
           coverage: 1,
           variationWeights: [0.5, 0.5],
-          groups: [],
+          condition: "",
+          namespace: {
+            enabled: false,
+            name: "",
+            range: [0, 1],
+          },
         },
       ],
     };
 
-    const createdExperiment = await createExperiment(experiment, org);
-    await logExperimentCreated(org, createdExperiment);
+    await createExperiment({
+      data: experiment,
+      organization: org,
+      user: res.locals.eventAudit,
+    });
 
     await createManualSnapshot(
       experiment,
@@ -197,7 +213,13 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
           },
         ],
       },
-      statsEngine
+      {
+        statsEngine,
+        regressionAdjustmentEnabled: false,
+        metricRegressionAdjustmentStatuses: [],
+        sequentialTestingEnabled: false,
+        sequentialTestingTuningParameter: 0,
+      }
     );
   }
 

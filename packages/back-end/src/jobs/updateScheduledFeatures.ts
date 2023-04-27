@@ -66,11 +66,6 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
   const organization = job.attrs.data?.organization;
   if (!featureId) return;
 
-  const log = logger.child({
-    cron: "updateSingleFeature",
-    featureId,
-  });
-
   const org = await getOrganizationById(organization);
   if (!org) return;
 
@@ -84,10 +79,10 @@ async function updateSingleFeature(job: UpdateSingleFeatureJob) {
     );
 
     // Update the feature in Mongo
-    await updateFeature(org, feature, {
+    await updateFeature(org, null, feature, {
       nextScheduledUpdate: nextScheduledUpdate,
     });
   } catch (e) {
-    log.error("Failure - " + e.message);
+    logger.error(e, "Failed updating feature " + featureId);
   }
 }

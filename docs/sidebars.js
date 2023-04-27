@@ -99,6 +99,11 @@ const sidebars = {
           id: "guide/rudderstack-and-nextjs-with-growthbook",
           label: "Rudderstack + Next.js",
         },
+        {
+          type: "link",
+          href: "https://docs.growthbook.io/open-guide-to-ab-testing.v1.0.pdf",
+          label: "Guide to A/B Testing",
+        },
       ],
     },
     {
@@ -160,8 +165,39 @@ const sidebars = {
         },
         {
           type: "doc",
+          id: "statistics/cuped",
+          label: "Regression Adjustment (CUPED)",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "statistics/multiple-corrections",
+          label: "Multiple Testing Corrections",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "statistics/sequential",
+          label: "Sequential Testing",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
           id: "statistics/aggregation",
           label: "Aggregate Data",
+        },
+      ],
+    },
+    {
+      type: "category",
+      label: "Integrations",
+      collapsed: false,
+      items: [
+        {
+          type: "doc",
+          id: "integrations/slack",
+          label: "Slack alerts",
+          className: "pill-new",
         },
       ],
     },

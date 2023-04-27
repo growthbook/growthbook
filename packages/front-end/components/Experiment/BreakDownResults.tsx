@@ -3,12 +3,14 @@ import { MetricInterface } from "back-end/types/metric";
 import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
+  MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
-import { StatsEngine } from "back-end/types/stats";
+import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
+  setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
 } from "@/services/experiments";
@@ -37,6 +39,10 @@ const BreakDownResults: FC<{
   activationMetric?: string;
   status: ExperimentStatus;
   statsEngine?: StatsEngine;
+  pValueCorrection?: PValueCorrection;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  sequentialTestingEnabled?: boolean;
 }> = ({
   dimensionId,
   results,
@@ -50,6 +56,10 @@ const BreakDownResults: FC<{
   status,
   reportDate,
   statsEngine,
+  pValueCorrection,
+  regressionAdjustmentEnabled,
+  metricRegressionAdjustmentStatuses,
+  sequentialTestingEnabled,
 }) => {
   const { getDimensionById, getMetricById, ready } = useDefinitions();
 
@@ -64,10 +74,22 @@ const BreakDownResults: FC<{
 
   const tables = useMemo<TableDef[]>(() => {
     if (!ready) return [];
+    if (pValueCorrection && statsEngine === "frequentist") {
+      setAdjustedPValuesOnResults(results, metrics, pValueCorrection);
+    }
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
         const metric = getMetricById(metricId);
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
+        let regressionAdjustmentStatus:
+          | MetricRegressionAdjustmentStatus
+          | undefined;
+        if (regressionAdjustmentEnabled && metricRegressionAdjustmentStatuses) {
+          regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find(
+            (s) => s.metric === metricId
+          );
+        }
+
         return {
           metric: newMetric,
           isGuardrail: !metrics.includes(metricId),
@@ -78,12 +100,22 @@ const BreakDownResults: FC<{
               variations: d.variations.map((variation) => {
                 return variation.metrics[metricId];
               }),
+              regressionAdjustmentStatus,
             };
           }),
         };
       })
       .filter((table) => table.metric);
-  }, [results, metrics, metricOverrides, guardrails, ready]);
+  }, [
+    results,
+    metrics,
+    metricOverrides,
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses,
+    pValueCorrection,
+    guardrails,
+    ready,
+  ]);
 
   const risk = useRiskVariation(
     variations.length,
@@ -150,11 +182,14 @@ const BreakDownResults: FC<{
               status={status}
               variations={variations}
               id={table.metric.id}
+              tableRowAxis="dimension"
               labelHeader={dimension}
               renderLabelColumn={(label) => label || <em>unknown</em>}
               rows={table.rows}
               fullStats={fullStats}
               statsEngine={statsEngine}
+              sequentialTestingEnabled={sequentialTestingEnabled}
+              pValueCorrection={pValueCorrection}
               {...risk}
             />
           </div>

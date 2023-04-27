@@ -70,7 +70,6 @@ const engines: DataSourceType[] = [
   "mysql",
   "mssql",
   "clickhouse",
-  "databricks",
 ];
 
 const baseExperimentPhase: ExperimentPhase = {
@@ -80,12 +79,20 @@ const baseExperimentPhase: ExperimentPhase = {
   reason: "",
   coverage: 1,
   variationWeights: [0.34, 0.33, 0.33],
+  condition: "",
+  namespace: {
+    enabled: false,
+    name: "",
+    range: [0, 1],
+  },
 };
 
 const baseExperiment: ExperimentInterface = {
   id: "BASE_ID_TO_BE_REPLACED",
   metrics: metricConfigs.map((m) => m.id),
   exposureQueryId: USER_ID_TYPE,
+  hashAttribute: "",
+  releasedVariationId: "",
   trackingKey: "checkout-layout",
   datasource: "",
   organization: "",
@@ -107,7 +114,6 @@ const baseExperiment: ExperimentInterface = {
   archived: false,
   phases: [baseExperimentPhase],
   autoSnapshots: false,
-  removeMultipleExposures: true,
 };
 
 // Pseudo-MetricInterface, missing the fields in TestMetricConfig
@@ -167,7 +173,7 @@ function buildInterface(engine: string): DataSourceInterface {
             id: "user_id",
             name: "",
             userIdType: USER_ID_TYPE,
-            query: `SELECT\nuserid as user_id,timestamp as timestamp,experimentid as experiment_id,variationid as variation_id,browser\nFROM ${
+            query: `SELECT\nuserId as user_id,timestamp as timestamp,experimentId as experiment_id,variationId as variation_id,browser\nFROM ${
               engine === "bigquery" ? "sample." : ""
             }experiment_viewed`,
             dimensions: ["browser"],
@@ -230,7 +236,7 @@ function buildSegment(
       userIdType: USER_ID_TYPE,
       name: exp.segment,
       // TODO: fake date trunc just to avoid exporting dateTrunc from SqlIntegration
-      sql: `SELECT DISTINCT\nuserid as user_id,DATE('2022-01-01') as date\nFROM ${
+      sql: `SELECT DISTINCT\nuserId as user_id,DATE('2022-01-01') as date\nFROM ${
         engine === "bigquery" ? "sample." : ""
       }experiment_viewed\nWHERE browser = 'Chrome'`,
       dateCreated: currentDate,
@@ -298,6 +304,8 @@ engines.forEach((engine) => {
         denominatorMetrics: denominatorMetrics,
         dimension: dimension,
         segment: segment,
+        regressionAdjustmentEnabled:
+          metric.regressionAdjustmentEnabled || false,
       });
 
       testCases.push({

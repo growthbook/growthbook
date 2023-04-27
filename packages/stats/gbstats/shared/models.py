@@ -23,6 +23,15 @@ class Statistic(ABC):
     def mean(self):
         pass
 
+    @property
+    def unadjusted_mean(self):
+        """
+        Return the mean that has no regression adjustments.
+        Must be over-ridden if regular `mean` function is adjusted,
+        as it is for RegressionAdjustedStatistic
+        """
+        return self.mean
+
 
 @dataclass
 class SampleMeanStatistic(Statistic):
@@ -96,6 +105,81 @@ class RatioStatistic(Statistic):
             self.m_d_sum_of_products
             - self.m_statistic.sum * self.d_statistic.sum / self.n
         ) / (self.n - 1)
+
+
+@dataclass
+class RegressionAdjustedStatistic(Statistic):
+    post_statistic: Union[SampleMeanStatistic, ProportionStatistic]
+    pre_statistic: Union[SampleMeanStatistic, ProportionStatistic]
+    post_pre_sum_of_products: float
+    theta: float
+
+    @property
+    def mean(self):
+        return self.post_statistic.mean - self.theta * self.pre_statistic.mean
+
+    @property
+    def unadjusted_mean(self):
+        return self.post_statistic.mean
+
+    @property
+    def variance(self):
+        if self.n <= 1:
+            return 0
+        return (
+            self.post_statistic.variance
+            + pow(self.theta, 2) * self.pre_statistic.variance
+            - 2 * self.theta * self.covariance
+        )
+
+    @property
+    def covariance(self):
+        if self.n <= 1:
+            return 0
+        return (
+            self.post_pre_sum_of_products
+            - self.post_statistic.sum * self.pre_statistic.sum / self.n
+        ) / (self.n - 1)
+
+
+def compute_theta(
+    a: RegressionAdjustedStatistic, b: RegressionAdjustedStatistic
+) -> float:
+    n = a.n + b.n
+    joint_post_statistic = create_joint_statistic(
+        a=a.post_statistic, b=b.post_statistic, n=n
+    )
+    joint_pre_statistic = create_joint_statistic(
+        a=a.pre_statistic, b=b.pre_statistic, n=n
+    )
+    if joint_pre_statistic.variance == 0 or joint_post_statistic.variance == 0:
+        return 0
+
+    joint = RegressionAdjustedStatistic(
+        n=n,
+        post_statistic=joint_post_statistic,
+        pre_statistic=joint_pre_statistic,
+        post_pre_sum_of_products=a.post_pre_sum_of_products
+        + b.post_pre_sum_of_products,
+        theta=0,
+    )
+    return joint.covariance / joint.pre_statistic.variance
+
+
+def create_joint_statistic(
+    a: Union[ProportionStatistic, SampleMeanStatistic],
+    b: Union[ProportionStatistic, SampleMeanStatistic],
+    n: int,
+) -> Union[ProportionStatistic, SampleMeanStatistic]:
+    if isinstance(a, ProportionStatistic) and isinstance(b, ProportionStatistic):
+        return ProportionStatistic(n=n, sum=a.sum + b.sum)
+    elif isinstance(a, SampleMeanStatistic) and isinstance(b, SampleMeanStatistic):
+        return SampleMeanStatistic(
+            n=n, sum=a.sum + b.sum, sum_squares=a.sum_squares + b.sum_squares
+        )
+    raise ValueError(
+        "Statistic types for a metric must not be different types across variations."
+    )
 
 
 # Data classes for the results of tests

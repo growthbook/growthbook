@@ -37,6 +37,8 @@ val gb = GBSDKBuilder(
   // If self-hosting, we recommend using a CDN in production
   apiKey = "key_123abc",
   hostURL = "https://cdn.growthbook.io/",
+  // Provide the encryption key of type <String?> if you intend to use data encryption
+  encryptionKey = "key_123adbc",
   attributes = attrs,
   trackingCallback = { gbExperiment, gbExperimentResult ->
     // TODO: track in your analytics system

@@ -36,6 +36,12 @@ properties:
     type: boolean
   encryptionKey:
     type: string
+  includeVisualExperiments:
+    type: boolean
+  includeDraftExperiments:
+    type: boolean
+  includeExperimentNames:
+    type: boolean
   key:
     type: string
   proxyEnabled:
@@ -44,5 +50,3 @@ properties:
     type: string
   proxySigningKey:
     type: string
-
-

@@ -1,3 +1,5 @@
+import { NamespaceValue } from "./feature";
+
 export type ImplementationType = "visual" | "code" | "configuration" | "custom";
 
 export type ExperimentPhaseType = "ramp" | "main" | "holdout";
@@ -16,29 +18,38 @@ export interface Screenshot {
   description?: string;
 }
 
-export interface Variation {
-  id: string;
-  name: string;
-  description?: string;
-  key: string;
-  screenshots: Screenshot[];
+export interface LegacyVariation extends Variation {
   /** @deprecated */
   css?: string;
   /** @deprecated */
   dom?: DomChange[];
 }
 
+export interface Variation {
+  id: string;
+  name: string;
+  description?: string;
+  key: string;
+  screenshots: Screenshot[];
+}
+
+export interface LegacyExperimentPhase extends ExperimentPhase {
+  /** @deprecated */
+  phase?: ExperimentPhaseType;
+  /** @deprecated */
+  groups?: string[];
+}
+
 export interface ExperimentPhase {
   dateStarted: Date;
   dateEnded?: Date;
   name: string;
-  /** @deprecated */
-  phase?: ExperimentPhaseType;
   reason: string;
   coverage: number;
+  condition: string;
+  namespace: NamespaceValue;
+  seed?: string;
   variationWeights: number[];
-  /** @deprecated */
-  groups?: string[];
 }
 
 export type ExperimentPhaseStringDates = Omit<
@@ -51,7 +62,7 @@ export type ExperimentPhaseStringDates = Omit<
 
 export type ExperimentStatus = "draft" | "running" | "stopped";
 
-export type AttributionModel = "firstExposure" | "allExposures";
+export type AttributionModel = "firstExposure" | "experimentDuration";
 
 export type ExperimentResultsType = "dnf" | "won" | "lost" | "inconclusive";
 
@@ -61,7 +72,24 @@ export type MetricOverride = {
   conversionDelayHours?: number;
   winRisk?: number;
   loseRisk?: number;
+  regressionAdjustmentOverride?: boolean;
+  regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentDays?: number;
 };
+
+export interface LegacyExperimentInterface
+  extends Omit<
+    ExperimentInterface,
+    "phases" | "variations" | "attributionModel"
+  > {
+  /**
+   * @deprecated
+   */
+  observations?: string;
+  attributionModel: ExperimentInterface["attributionModel"] | "allExposures";
+  variations: LegacyVariation[];
+  phases: LegacyExperimentPhase[];
+}
 
 export interface ExperimentInterface {
   id: string;
@@ -76,15 +104,12 @@ export interface ExperimentInterface {
    * @deprecated
    */
   userIdType?: "anonymous" | "user";
+  hashAttribute: string;
   name: string;
   dateCreated: Date;
   dateUpdated: Date;
   tags: string[];
   description?: string;
-  /**
-   * @deprecated
-   */
-  observations?: string;
   hypothesis?: string;
   metrics: string[];
   metricOverrides?: MetricOverride[];
@@ -93,7 +118,6 @@ export interface ExperimentInterface {
   segment?: string;
   queryFilter?: string;
   skipPartialData?: boolean;
-  removeMultipleExposures?: boolean;
   attributionModel?: AttributionModel;
   autoAssign: boolean;
   previewURL: string;
@@ -105,11 +129,15 @@ export interface ExperimentInterface {
   results?: ExperimentResultsType;
   winner?: number;
   analysis?: string;
-  data?: string;
+  releasedVariationId: string;
   lastSnapshotAttempt?: Date;
   nextSnapshotAttempt?: Date;
   autoSnapshots: boolean;
   ideaSource?: string;
+  regressionAdjustmentEnabled?: boolean;
+  hasVisualChangesets?: boolean;
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
 }
 
 export type ExperimentInterfaceStringDates = Omit<

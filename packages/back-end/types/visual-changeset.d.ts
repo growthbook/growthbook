@@ -2,7 +2,9 @@ interface DOMMutation {
   selector: string;
   action: "append" | "set" | "remove";
   attribute: string;
-  value: string;
+  value?: string;
+  parentSelector?: string;
+  insertBeforeSelector?: string;
 }
 
 interface VisualChange {
@@ -13,10 +15,16 @@ interface VisualChange {
   domMutations: DOMMutation[];
 }
 
+export interface VisualChangesetURLPattern {
+  include: boolean;
+  type: "simple" | "regex";
+  pattern: string;
+}
+
 export interface VisualChangesetInterface {
   id: string;
   organization: string;
-  urlPattern: string;
+  urlPatterns: VisualChangesetURLPattern[];
   editorUrl: string;
   experiment: string;
   visualChanges: VisualChange[];

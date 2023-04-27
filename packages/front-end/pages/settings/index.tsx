@@ -1,13 +1,21 @@
 import React, { useEffect, useState } from "react";
-import { FaPencilAlt } from "react-icons/fa";
+import {
+  FaExclamationTriangle,
+  FaPencilAlt,
+  FaQuestionCircle,
+} from "react-icons/fa";
 import { useForm } from "react-hook-form";
 import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import cronstrue from "cronstrue";
+import { AttributionModel } from "back-end/types/experiment";
+import { PValueCorrection } from "back-end/types/stats";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+} from "shared";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
-import VisualEditorInstructions from "@/components/Settings/VisualEditorInstructions";
-import track from "@/services/track";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
 import RestoreConfigYamlButton from "@/components/Settings/RestoreConfigYamlButton";
 import { hasFileConfig, isCloud } from "@/services/env";
@@ -19,9 +27,15 @@ import { DocLink } from "@/components/DocLink";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
-import { GBPremiumBadge } from "@/components/Icons";
+import { GBCuped, GBPremiumBadge, GBSequential } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import EditLicenseModal from "@/components/Settings/EditLicenseModal";
+import Toggle from "@/components/Forms/Toggle";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import SelectField from "@/components/Forms/SelectField";
+import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
+import Tab from "@/components/Tabs/Tab";
+import ControlledTabs from "@/components/Tabs/ControlledTabs";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -37,16 +51,25 @@ const GeneralSettingsPage = (): React.ReactElement => {
     refreshOrganization,
     settings,
     organization,
-    apiKeys,
     accountPlan,
     license,
+    hasCommercialFeature,
   } = useUser();
   const [editOpen, setEditOpen] = useState(false);
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
+  const [statsEngineTab, setStatsEngineTab] = useState<string>(
+    settings.statsEngine ?? "bayesian"
+  );
 
   const permissions = usePermissions();
+  const hasRegressionAdjustmentFeature = hasCommercialFeature(
+    "regression-adjustment"
+  );
+  const hasSequentialTestingFeature = hasCommercialFeature(
+    "sequential-testing"
+  );
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -91,7 +114,15 @@ const GeneralSettingsPage = (): React.ReactElement => {
         cron: "0 */6 * * *",
       },
       multipleExposureMinPercent: 0.01,
+      confidenceLevel: 0.95,
+      pValueThreshold: 0.05,
+      pValueCorrection: null,
       statsEngine: "bayesian",
+      regressionAdjustmentEnabled: false,
+      regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+      sequentialTestingEnabled: false,
+      sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      attributionModel: "firstExposure",
     },
   });
   const { apiCall } = useAuth();
@@ -114,6 +145,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
     updateSchedule: form.watch("updateSchedule"),
     multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
     statsEngine: form.watch("statsEngine"),
+    confidenceLevel: form.watch("confidenceLevel"),
+    pValueThreshold: form.watch("pValueThreshold"),
+    pValueCorrection: form.watch("pValueCorrection"),
+    regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
+    regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
+    sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
+    sequentialTestingTuningParameter: form.watch(
+      "sequentialTestingTuningParameter"
+    ),
+    attributionModel: form.watch("attributionModel"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -150,6 +191,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
               newVal.metricDefaults.minPercentageChange * 100,
           };
         }
+        if (k === "confidenceLevel" && newVal?.confidenceLevel <= 1) {
+          newVal.confidenceLevel = newVal.confidenceLevel * 100;
+        }
       });
       form.reset(newVal);
       setOriginalValue(newVal);
@@ -159,10 +203,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
   const ctaEnabled = hasChanges(value, originalValue);
 
-  const saveSettings = async () => {
-    const enabledVisualEditor =
-      !settings?.visualEditorEnabled && value.visualEditorEnabled;
-
+  const saveSettings = form.handleSubmit(async (value) => {
     const transformedOrgSettings = {
       ...value,
       metricDefaults: {
@@ -170,6 +211,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
         minPercentageChange: value.metricDefaults.minPercentageChange / 100,
       },
+      confidenceLevel: value.confidenceLevel / 100,
     };
 
     await apiCall(`/organization`, {
@@ -180,14 +222,65 @@ const GeneralSettingsPage = (): React.ReactElement => {
     });
     refreshOrganization();
 
-    // Track usage of the Visual Editor
-    if (enabledVisualEditor) {
-      track("Enable Visual Editor");
-    }
-
     // show the user that the settings have saved:
     setSaveMsg(true);
-  };
+  });
+
+  const highlightColor =
+    value.confidenceLevel < 70
+      ? "#c73333"
+      : value.confidenceLevel < 80
+      ? "#e27202"
+      : value.confidenceLevel < 90
+      ? "#B39F01"
+      : "";
+
+  const pHighlightColor =
+    value.pValueThreshold > 0.3
+      ? "#c73333"
+      : value.pValueThreshold > 0.2
+      ? "#e27202"
+      : value.pValueThreshold > 0.1
+      ? "#B39F01"
+      : "";
+
+  const regressionAdjustmentDaysHighlightColor =
+    value.regressionAdjustmentDays > 28 || value.regressionAdjustmentDays < 7
+      ? "#e27202"
+      : "";
+
+  const warningMsg =
+    value.confidenceLevel === 70
+      ? "This is as low as it goes"
+      : value.confidenceLevel < 75
+      ? "Confidence thresholds this low are not recommended"
+      : value.confidenceLevel < 80
+      ? "Confidence thresholds this low are not recommended"
+      : value.confidenceLevel < 90
+      ? "Use caution with values below 90%"
+      : value.confidenceLevel >= 99
+      ? "Confidence levels 99% and higher can take lots of data to achieve"
+      : "";
+
+  const pWarningMsg =
+    value.pValueThreshold === 0.5
+      ? "This is as high as it goes"
+      : value.pValueThreshold > 0.25
+      ? "P-value thresholds this high are not recommended"
+      : value.pValueThreshold > 0.2
+      ? "P-value thresholds this high are not recommended"
+      : value.pValueThreshold > 0.1
+      ? "Use caution with values above 0.1"
+      : value.pValueThreshold <= 0.01
+      ? "Threshold values of 0.01 and lower can take lots of data to achieve"
+      : "";
+
+  const regressionAdjustmentDaysWarningMsg =
+    value.regressionAdjustmentDays > 28
+      ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
+      : value.regressionAdjustmentDays < 7
+      ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
+      : "";
 
   if (!permissions.organizationSettings) {
     return (
@@ -287,7 +380,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           </>
                         ) : (
                           <>
-                            Upgrade to Pro <GBPremiumBadge />
+                            Try Pro <GBPremiumBadge />
                           </>
                         )}
                       </button>
@@ -428,165 +521,446 @@ const GeneralSettingsPage = (): React.ReactElement => {
             </div>
           )}
 
-          <div className="bg-white p-3 border">
-            <div className="row">
-              <div className="col-sm-3">
-                <h4>
-                  Visual Editor{" "}
-                  <span className="badge badge-warning">beta</span>
-                </h4>
-              </div>
-              <div className="col-sm-9 pb-3">
-                <p>
-                  {`The Visual Editor allows non-technical users to create and start
-                  experiments in production without writing any code. `}
-                  <DocLink docSection="visual_editor">
-                    View Documentation
-                  </DocLink>
-                </p>
-                <div>
-                  <div className="form-check">
-                    <input
-                      type="checkbox"
-                      disabled={hasFileConfig()}
-                      className="form-check-input "
-                      {...form.register("visualEditorEnabled")}
-                      id="checkbox-visualeditor"
-                    />
-
-                    <label
-                      htmlFor="checkbox-visualeditor"
-                      className="form-check-label"
-                    >
-                      Enable Visual Editor
-                    </label>
-                  </div>
-                </div>
-                {value.visualEditorEnabled && settings?.visualEditorEnabled && (
-                  <div className="bg-light p-3 my-3 border rounded">
-                    <h5 className="font-weight-bold">Setup Instructions</h5>
-                    <VisualEditorInstructions
-                      apiKeys={apiKeys}
-                      mutate={refreshOrganization}
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="divider border-bottom mb-3 mt-3" />
-
+          <div className="bg-white p-3 border position-relative">
             <div className="row">
               <div className="col-sm-3">
                 <h4>Experiment Settings</h4>
               </div>
 
-              <div className="col-sm-9 form-inline flex-column align-items-start">
-                <Field
-                  label="Minimum experiment length (in days) when importing past
-                  experiments"
-                  type="number"
-                  className="ml-2"
-                  containerClassName="mb-3"
-                  append="days"
-                  step="1"
-                  min="0"
-                  max="31"
-                  disabled={hasFileConfig()}
-                  {...form.register("pastExperimentsMinLength", {
-                    valueAsNumber: true,
-                  })}
-                />
-
-                <Field
-                  label="Warn when this percent of experiment users are in multiple variations"
-                  type="number"
-                  step="any"
-                  min="0"
-                  max="1"
-                  className="ml-2"
-                  containerClassName="mb-3"
-                  disabled={hasFileConfig()}
-                  helpText={<span className="ml-2">from 0 to 1</span>}
-                  {...form.register("multipleExposureMinPercent", {
-                    valueAsNumber: true,
-                  })}
-                />
-
-                <div className="mb-3 form-group flex-column align-items-start">
+              <div className="col-sm-9">
+                <div className="form-inline flex-column align-items-start mb-4">
                   <Field
-                    label="Experiment Auto-Update Frequency"
+                    label="Minimum experiment length (in days) when importing past
+                  experiments"
+                    type="number"
                     className="ml-2"
-                    containerClassName="mb-2 mr-2"
+                    containerClassName="mb-3"
+                    append="days"
+                    step="1"
+                    min="0"
+                    max="31"
                     disabled={hasFileConfig()}
-                    options={[
-                      {
-                        display: "When results are X hours old",
-                        value: "stale",
-                      },
-                      {
-                        display: "Cron Schedule",
-                        value: "cron",
-                      },
-                      {
-                        display: "Never",
-                        value: "never",
-                      },
-                    ]}
-                    {...form.register("updateSchedule.type")}
+                    {...form.register("pastExperimentsMinLength", {
+                      valueAsNumber: true,
+                    })}
                   />
-                  {value.updateSchedule?.type === "stale" && (
-                    <div className="bg-light p-3 border">
+
+                  <Field
+                    label="Warn when this percent of experiment users are in multiple variations"
+                    type="number"
+                    step="any"
+                    min="0"
+                    max="1"
+                    className="ml-2"
+                    containerClassName="mb-3"
+                    append="%"
+                    style={{
+                      width: "80px",
+                    }}
+                    disabled={hasFileConfig()}
+                    helpText={<span className="ml-2">from 0 to 1</span>}
+                    {...form.register("multipleExposureMinPercent", {
+                      valueAsNumber: true,
+                    })}
+                  />
+
+                  <div className="mb-3 form-group flex-column align-items-start">
+                    <SelectField
+                      label={
+                        <AttributionModelTooltip>
+                          Default Attribution Model <FaQuestionCircle />
+                        </AttributionModelTooltip>
+                      }
+                      className="ml-2"
+                      value={form.watch("attributionModel")}
+                      onChange={(value) => {
+                        form.setValue(
+                          "attributionModel",
+                          value as AttributionModel
+                        );
+                      }}
+                      options={[
+                        {
+                          label: "First Exposure",
+                          value: "firstExposure",
+                        },
+                        {
+                          label: "Experiment Duration",
+                          value: "experimentDuration",
+                        },
+                      ]}
+                    />
+                  </div>
+
+                  <div className="mb-3 form-group flex-column align-items-start">
+                    <Field
+                      label="Experiment Auto-Update Frequency"
+                      className="ml-2"
+                      containerClassName="mb-2 mr-2"
+                      disabled={hasFileConfig()}
+                      options={[
+                        {
+                          display: "When results are X hours old",
+                          value: "stale",
+                        },
+                        {
+                          display: "Cron Schedule",
+                          value: "cron",
+                        },
+                        {
+                          display: "Never",
+                          value: "never",
+                        },
+                      ]}
+                      {...form.register("updateSchedule.type")}
+                    />
+                    {value.updateSchedule?.type === "stale" && (
+                      <div className="bg-light p-3 border">
+                        <Field
+                          label="Refresh when"
+                          append="hours old"
+                          type="number"
+                          step={1}
+                          min={1}
+                          max={168}
+                          className="ml-2"
+                          disabled={hasFileConfig()}
+                          {...form.register("updateSchedule.hours", {
+                            valueAsNumber: true,
+                          })}
+                        />
+                      </div>
+                    )}
+                    {value.updateSchedule?.type === "cron" && (
+                      <div className="bg-light p-3 border">
+                        <Field
+                          label="Cron String"
+                          className="ml-2"
+                          disabled={hasFileConfig()}
+                          {...form.register("updateSchedule.cron")}
+                          placeholder="0 */6 * * *"
+                          onFocus={(e) => {
+                            updateCronString(e.target.value);
+                          }}
+                          onBlur={(e) => {
+                            updateCronString(e.target.value);
+                          }}
+                          helpText={<span className="ml-2">{cronString}</span>}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  <div className="form-group">
+                    <div className="form-group mb-2 mr-2">
                       <Field
-                        label="Refresh when"
-                        append="hours old"
-                        type="number"
-                        step={1}
-                        min={1}
-                        max={168}
+                        label="Default Statistics Engine"
                         className="ml-2"
+                        options={[
+                          {
+                            display: "Bayesian",
+                            value: "bayesian",
+                          },
+                          {
+                            display: "Frequentist",
+                            value: "frequentist",
+                          },
+                        ]}
+                        {...form.register("statsEngine", {
+                          onChange: () =>
+                            setStatsEngineTab(form.watch("statsEngine")),
+                        })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <h4>Stats Engine Settings</h4>
+
+                <ControlledTabs
+                  newStyle={true}
+                  className="mt-3"
+                  buttonsClassName="px-5"
+                  tabContentsClassName="border"
+                  setActive={setStatsEngineTab}
+                  active={statsEngineTab}
+                >
+                  <Tab id="bayesian" display="Bayesian">
+                    <h4 className="mb-4 text-purple">Bayesian Settings</h4>
+
+                    <div className="form-group mb-2 mr-2 form-inline">
+                      <Field
+                        label="Chance to win threshold"
+                        type="number"
+                        step="any"
+                        min="70"
+                        max="99"
+                        style={{
+                          width: "80px",
+                          borderColor: highlightColor,
+                          backgroundColor: highlightColor
+                            ? highlightColor + "15"
+                            : "",
+                        }}
+                        className={`ml-2`}
+                        containerClassName="mb-3"
+                        append="%"
                         disabled={hasFileConfig()}
-                        {...form.register("updateSchedule.hours", {
+                        helpText={
+                          <>
+                            <span className="ml-2">(95% is default)</span>
+                            <div
+                              className="ml-2"
+                              style={{
+                                color: highlightColor,
+                                flexBasis: "100%",
+                              }}
+                            >
+                              {warningMsg}
+                            </div>
+                          </>
+                        }
+                        {...form.register("confidenceLevel", {
                           valueAsNumber: true,
                         })}
                       />
                     </div>
-                  )}
-                  {value.updateSchedule?.type === "cron" && (
-                    <div className="bg-light p-3 border">
+                  </Tab>
+
+                  <Tab id="frequentist" display="Frequentist">
+                    <h4 className="mb-4 text-purple">Frequentist Settings</h4>
+
+                    <div className="form-group mb-2 mr-2 form-inline">
                       <Field
-                        label="Cron String"
-                        className="ml-2"
+                        label="P-value threshold"
+                        type="number"
+                        step="0.001"
+                        max="0.5"
+                        min="0.001"
+                        style={{
+                          borderColor: pHighlightColor,
+                          backgroundColor: pHighlightColor
+                            ? pHighlightColor + "15"
+                            : "",
+                        }}
+                        className={`ml-2`}
+                        containerClassName="mb-3"
+                        append=""
                         disabled={hasFileConfig()}
-                        {...form.register("updateSchedule.cron")}
-                        placeholder="0 */6 * * *"
-                        onFocus={(e) => {
-                          updateCronString(e.target.value);
-                        }}
-                        onBlur={(e) => {
-                          updateCronString(e.target.value);
-                        }}
-                        helpText={<span className="ml-2">{cronString}</span>}
+                        helpText={
+                          <>
+                            <span className="ml-2">(0.05 is default)</span>
+                            <div
+                              className="ml-2"
+                              style={{
+                                color: pHighlightColor,
+                                flexBasis: "100%",
+                              }}
+                            >
+                              {pWarningMsg}
+                            </div>
+                          </>
+                        }
+                        {...form.register("pValueThreshold", {
+                          valueAsNumber: true,
+                        })}
                       />
                     </div>
-                  )}
-                </div>
+                    <div className="mb-3  form-inline flex-column align-items-start">
+                      <SelectField
+                        label={"Multiple comparisons correction to use: "}
+                        className="ml-2"
+                        value={form.watch("pValueCorrection") ?? null}
+                        onChange={(value) =>
+                          form.setValue(
+                            "pValueCorrection",
+                            value as PValueCorrection
+                          )
+                        }
+                        sort={false}
+                        options={[
+                          {
+                            label: "None",
+                            value: null,
+                          },
+                          {
+                            label: "Holm-Bonferroni (Control FWER)",
+                            value: "holm-bonferroni",
+                          },
+                          {
+                            label: "Benjamini-Hochberg (Control FDR)",
+                            value: "benjamini-hochberg",
+                          },
+                        ]}
+                      />
+                    </div>
+                    <div className="p-3 my-3 border rounded">
+                      <h5 className="font-weight-bold mb-4">
+                        <PremiumTooltip commercialFeature="regression-adjustment">
+                          <GBCuped /> Regression Adjustment (CUPED)
+                        </PremiumTooltip>
+                      </h5>
+                      <div className="form-group mb-0 mr-2">
+                        <div className="d-flex">
+                          <label
+                            className="mr-1"
+                            htmlFor="toggle-regressionAdjustmentEnabled"
+                          >
+                            Apply regression adjustment by default
+                          </label>
+                          <Toggle
+                            id={"toggle-regressionAdjustmentEnabled"}
+                            value={!!form.watch("regressionAdjustmentEnabled")}
+                            setValue={(value) => {
+                              form.setValue(
+                                "regressionAdjustmentEnabled",
+                                value
+                              );
+                            }}
+                            disabled={
+                              !hasRegressionAdjustmentFeature || hasFileConfig()
+                            }
+                          />
+                        </div>
+                        {form.watch("regressionAdjustmentEnabled") &&
+                          form.watch("statsEngine") === "bayesian" && (
+                            <div className="d-flex">
+                              <small className="mb-1 text-warning-orange">
+                                <FaExclamationTriangle /> Your organization uses
+                                Bayesian statistics by default and regression
+                                adjustment is not implemented for the Bayesian
+                                engine.
+                              </small>
+                            </div>
+                          )}
+                      </div>
+                      <div
+                        className="form-group mt-3 mb-0 mr-2 form-inline"
+                        style={{
+                          opacity: form.watch("regressionAdjustmentEnabled")
+                            ? "1"
+                            : "0.5",
+                        }}
+                      >
+                        <Field
+                          label="Pre-exposure lookback period (days)"
+                          type="number"
+                          style={{
+                            borderColor: regressionAdjustmentDaysHighlightColor,
+                            backgroundColor: regressionAdjustmentDaysHighlightColor
+                              ? regressionAdjustmentDaysHighlightColor + "15"
+                              : "",
+                          }}
+                          className={`ml-2`}
+                          containerClassName="mb-0"
+                          append="days"
+                          min="0"
+                          max="100"
+                          disabled={
+                            !hasRegressionAdjustmentFeature || hasFileConfig()
+                          }
+                          helpText={
+                            <>
+                              <span className="ml-2">
+                                ({DEFAULT_REGRESSION_ADJUSTMENT_DAYS} is
+                                default)
+                              </span>
+                            </>
+                          }
+                          {...form.register("regressionAdjustmentDays", {
+                            valueAsNumber: true,
+                            validate: (v) => {
+                              return !(v <= 0 || v > 100);
+                            },
+                          })}
+                        />
+                        {regressionAdjustmentDaysWarningMsg && (
+                          <small
+                            style={{
+                              color: regressionAdjustmentDaysHighlightColor,
+                            }}
+                          >
+                            {regressionAdjustmentDaysWarningMsg}
+                          </small>
+                        )}
+                      </div>
+                    </div>
 
-                <Field
-                  label="Statistics Engine"
-                  className="ml-2"
-                  options={[
-                    {
-                      display: "Bayesian",
-                      value: "bayesian",
-                    },
-                    {
-                      display: "Frequentist",
-                      value: "frequentist",
-                    },
-                  ]}
-                  {...form.register("statsEngine")}
-                />
+                    <div className="p-3 my-3 border rounded">
+                      <h5 className="font-weight-bold mb-4">
+                        <PremiumTooltip commercialFeature="sequential-testing">
+                          <GBSequential /> Sequential Testing
+                        </PremiumTooltip>
+                      </h5>
+                      <div className="form-group mb-0 mr-2">
+                        <div className="d-flex">
+                          <label
+                            className="mr-1"
+                            htmlFor="toggle-sequentialTestingEnabled"
+                          >
+                            Apply sequential testing by default
+                          </label>
+                          <Toggle
+                            id={"toggle-sequentialTestingEnabled"}
+                            value={!!form.watch("sequentialTestingEnabled")}
+                            setValue={(value) => {
+                              form.setValue("sequentialTestingEnabled", value);
+                            }}
+                            disabled={
+                              !hasSequentialTestingFeature || hasFileConfig()
+                            }
+                          />
+                        </div>
+                        {form.watch("sequentialTestingEnabled") &&
+                          form.watch("statsEngine") === "bayesian" && (
+                            <div className="d-flex">
+                              <small className="mb-1 text-warning-orange">
+                                <FaExclamationTriangle /> Your organization uses
+                                Bayesian statistics by default and sequential
+                                testing is not implemented for the Bayesian
+                                engine.
+                              </small>
+                            </div>
+                          )}
+                      </div>
+                      <div
+                        className="form-group mt-3 mb-0 mr-2 form-inline"
+                        style={{
+                          opacity: form.watch("sequentialTestingEnabled")
+                            ? "1"
+                            : "0.5",
+                        }}
+                      >
+                        <Field
+                          label="Tuning parameter"
+                          type="number"
+                          className={`ml-2`}
+                          containerClassName="mb-0"
+                          min="0"
+                          disabled={
+                            !hasSequentialTestingFeature || hasFileConfig()
+                          }
+                          helpText={
+                            <>
+                              <span className="ml-2">
+                                ({DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                                is default)
+                              </span>
+                            </>
+                          }
+                          {...form.register(
+                            "sequentialTestingTuningParameter",
+                            {
+                              valueAsNumber: true,
+                              validate: (v) => {
+                                return !(v <= 0);
+                              },
+                            }
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </Tab>
+                </ControlledTabs>
               </div>
             </div>
 
@@ -700,25 +1074,26 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 {/* endregion Metrics Behavior Defaults */}
               </div>
             </div>
-            <div className="divider border-bottom mb-3 mt-3" />
-
-            <div className="row">
-              <div className="col-12">
-                <div className=" d-flex flex-row-reverse">
-                  <Button
-                    color={"primary"}
-                    disabled={!ctaEnabled}
-                    onClick={async () => {
-                      if (!ctaEnabled) return;
-                      await saveSettings();
-                    }}
-                  >
-                    Save
-                  </Button>
-                </div>
-              </div>
-            </div>
           </div>
+        </div>
+      </div>
+
+      <div
+        className="bg-main-color position-sticky w-100 py-3 border-top"
+        style={{ bottom: 0 }}
+      >
+        <div className="container-fluid pagecontents d-flex flex-row-reverse">
+          <Button
+            style={{ marginRight: "4rem" }}
+            color={"primary"}
+            disabled={!ctaEnabled}
+            onClick={async () => {
+              if (!ctaEnabled) return;
+              await saveSettings();
+            }}
+          >
+            Save
+          </Button>
         </div>
       </div>
     </>
