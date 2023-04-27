@@ -84,6 +84,7 @@ This repository is a monorepo with the following packages:
 
 - **packages/front-end** is a Next.js app and contains the full UI of the GrowthBook app.
 - **packages/back-end** is an Express app and serves as the REST api for the front-end.
+- **package/shared** is a collection of Typescript functions and constants shared between the front-end and back-end.
 - **packages/sdk-js** is our javascript SDK (`@growthbook/growthbook` on npm)
 - **packages/sdk-react** is our React SDK (`@growthbook/growthbook-react` on npm)
 - **packages/stats** is our Python stats engine (`gbstats` on PyPi)
@@ -94,8 +95,6 @@ Depending on what you're changing, you may need to edit one or more of these pac
 ### Working on the main app
 
 The `yarn dev` command starts both the front-end and back-end in parallel.
-
-The back-end can take up to 30 seconds for the initial build, so be patient.
 
 The packages are available at the following urls with hot-reloading:
 

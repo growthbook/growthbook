@@ -6,9 +6,7 @@ on:
     branches:
       - main
     paths:
-      - "packages/front-end/**"
-      - "packages/back-end/**"
-      - "packages/stats/**"
+      - "packages/**"
       - "!**.md"
       - "yarn.lock"
       - "Dockerfile"

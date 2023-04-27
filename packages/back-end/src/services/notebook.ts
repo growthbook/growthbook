@@ -1,5 +1,6 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared";
 import { APP_ORIGIN } from "../util/secrets";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
 import { getExperimentById } from "../models/ExperimentModel";
@@ -9,7 +10,6 @@ import { MetricInterface } from "../../types/metric";
 import { ExperimentReportArgs } from "../../types/report";
 import { getReportById } from "../models/ReportModel";
 import { Queries } from "../../types/query";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
 import { reportArgsFromSnapshot } from "./reports";
 import { getQueryData } from "./queries";
 

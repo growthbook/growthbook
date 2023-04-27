@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -22,7 +23,6 @@ import { getStatusEndpoint } from "../services/queries";
 import { getMetricById } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { analyzeExperimentResults } from "../services/stats";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
 import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
