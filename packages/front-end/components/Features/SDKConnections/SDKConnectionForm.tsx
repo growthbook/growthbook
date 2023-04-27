@@ -292,6 +292,14 @@ export default function SDKConnectionForm({
                       GrowthBook Proxy Cloud allows for real-time updates to
                       supported SDKs. It is an opt-in beta feature.
                     </p>
+                    <p className="mb-1">
+                      To take advantage of this feature, ensure that you have
+                      set{" "}
+                      <code className="d-block">
+                        {`{`} autoRefresh: true {`}`}
+                      </code>
+                      .
+                    </p>
                     <div className="mb-1">
                       The following SDKs currently support real-time updates:
                     </div>
