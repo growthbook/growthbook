@@ -18,11 +18,22 @@ export default function SSOSettings({ ssoConnection }: Props) {
       <div className="d-flex">
         <div>
           <h3>Enterprise SSO Enabled</h3>
-          {ssoConnection.emailDomain && (
+          {ssoConnection?.emailDomains?.length > 0 && (
             <div>
               Users can auto-join your account when signing in through your
               Identity Provider with an email matching{" "}
-              <strong>*@{ssoConnection.emailDomain}</strong>
+              <strong>*@{ssoConnection.emailDomains[0]}</strong>
+              {ssoConnection.emailDomains.length > 1 && (
+                <div className="small mt-1">
+                  or any of the following email domains:{" "}
+                  {ssoConnection.emailDomains.slice(1).map((d, i) => (
+                    <>
+                      <strong key={i}>{d}</strong>
+                      {i < ssoConnection.emailDomains.length - 2 && ", "}
+                    </>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           {isCloud() && (
