@@ -313,7 +313,7 @@ export default function SDKConnectionForm({
                   </>
                 }
               >
-                Enable Proxy Cloud? <FaInfoCircle />
+                Enable Cloud Proxy? <FaInfoCircle />
               </PremiumTooltip>{" "}
             </label>
             <div className="form-inline">
