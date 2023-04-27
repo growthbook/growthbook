@@ -295,6 +295,10 @@ export default function SinglePage({
     experiment.project
   );
 
+  const hasVisualEditorPermission =
+    !experiment.archived &&
+    permissions.check("runExperiments", experiment.project, []);
+
   let hasRunExperimentsPermission = true;
   const envs = getAffectedEvsForExperiment({ experiment, organization });
   if (envs.length > 0) {
@@ -662,7 +666,7 @@ export default function SinglePage({
               visualChangesets={visualChangesets}
               mutate={mutate}
               canEditExperiment={canEditExperiment}
-              canEditVisualChangesets={canRunExperiment}
+              canEditVisualChangesets={hasVisualEditorPermission}
               setVisualEditorModal={setVisualEditorModal}
             />
           </div>
@@ -888,7 +892,7 @@ export default function SinglePage({
       {growthbook.isOn("visual-editor-ui") &&
       experiment.status === "draft" &&
       experiment.phases.length > 0 &&
-      canRunExperiment ? (
+      hasVisualEditorPermission ? (
         <div>
           {visualChangesets.length > 0 ? (
             <div className="mb-4">
