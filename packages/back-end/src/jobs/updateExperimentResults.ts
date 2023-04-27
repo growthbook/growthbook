@@ -1,4 +1,5 @@
 import Agenda, { Job } from "agenda";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -22,7 +23,6 @@ import { getStatusEndpoint } from "../services/queries";
 import { getMetricById } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { analyzeExperimentResults } from "../services/stats";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
 import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
@@ -53,7 +53,7 @@ export default async function (agenda: Agenda) {
     const experiments = await getExperimentsToUpdate(ids);
 
     for (let i = 0; i < experiments.length; i++) {
-      await queueExerimentUpdate(
+      await queueExperimentUpdate(
         experiments[i].organization,
         experiments[i].id
       );
@@ -77,7 +77,7 @@ export default async function (agenda: Agenda) {
     const experiments = await getExperimentsToUpdateLegacy(latestDate);
 
     for (let i = 0; i < experiments.length; i++) {
-      await queueExerimentUpdate(
+      await queueExperimentUpdate(
         experiments[i].organization,
         experiments[i].id
       );
@@ -93,7 +93,7 @@ export default async function (agenda: Agenda) {
     await updateResultsJob.save();
   }
 
-  async function queueExerimentUpdate(
+  async function queueExperimentUpdate(
     organization: string,
     experimentId: string
   ) {
