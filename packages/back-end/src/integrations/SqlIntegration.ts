@@ -1260,8 +1260,7 @@ export default abstract class SqlIntegration
       this.getFormatDialect()
     );
   }
-  //TODO: Rename this to showDatabaseNameInWhereClause?
-  shouldShowDatabaseName(): boolean {
+  showDatabaseNameInWhereClause(): boolean {
     return false;
   }
   showDatabaseNameInFromClause(): boolean {
@@ -1284,7 +1283,7 @@ export default abstract class SqlIntegration
     }${this.hasSVV_COLUMNS() ? "SVV_COLUMNS" : "INFORMATION_SCHEMA.COLUMNS"}
     WHERE table_name IN ('${tableName}') AND table_schema IN ('${tableSchema}')
     ${
-      this.shouldShowDatabaseName()
+      this.showDatabaseNameInWhereClause()
         ? `AND table_catalog IN ('${databaseName}')`
         : ""
     }`;

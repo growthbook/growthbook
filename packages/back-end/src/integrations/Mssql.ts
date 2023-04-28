@@ -73,9 +73,6 @@ export default class Mssql extends SqlIntegration {
       );
     return `${this.params.database}.information_schema.columns`;
   }
-  getTableDataFromClause(databaseName: string): string {
-    return `${databaseName}.INFORMATION_SCHEMA.COLUMNS`;
-  }
   showDatabaseNameInFromClause(): boolean {
     return true;
   }

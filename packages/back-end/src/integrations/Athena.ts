@@ -52,12 +52,9 @@ export default class Athena extends SqlIntegration {
   getInformationSchemaFromClause(): string {
     if (!this.params.catalog)
       throw new MissingDatasourceParamsError(
-        `To view the information schema for an Athena data source, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings.`
+        "To view the information schema for an Athena data source, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings."
       );
     return `${this.params.catalog}.information_schema.columns`;
-  }
-  getTableDataFromClause(databaseName: string): string {
-    return `${databaseName}.INFORMATION_SCHEMA.COLUMNS`;
   }
   showDatabaseNameInFromClause(): boolean {
     return true;

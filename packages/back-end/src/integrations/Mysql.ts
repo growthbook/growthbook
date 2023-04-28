@@ -78,7 +78,7 @@ export default class Mysql extends SqlIntegration {
       );
     return `IN ('${this.params.database}')`;
   }
-  shouldShowDatabaseName(): boolean {
+  showDatabaseNameInWhereClause(): boolean {
     return true;
   }
 }

@@ -38,7 +38,7 @@ export default class Postgres extends SqlIntegration {
   getInformationSchemaWhereClause(): string {
     return "NOT IN ('pg_catalog', 'information_schema', 'pg_toast')";
   }
-  shouldShowDatabaseName(): boolean {
+  showDatabaseNameInWhereClause(): boolean {
     return true;
   }
 }

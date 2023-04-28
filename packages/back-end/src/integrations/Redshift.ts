@@ -37,7 +37,7 @@ export default class Redshift extends SqlIntegration {
   getInformationSchemaFromClause(): string {
     return "SVV_COLUMNS";
   }
-  shouldShowDatabaseName(): boolean {
+  showDatabaseNameInWhereClause(): boolean {
     return true;
   }
   hasSVV_COLUMNS(): boolean {
