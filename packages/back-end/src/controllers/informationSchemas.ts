@@ -13,7 +13,7 @@ import { getOrgFromReq } from "../services/organizations";
 import { AuthRequest } from "../types/AuthRequest";
 import { Column } from "../types/Integration";
 import { getPath } from "../util/informationSchemas";
-import { FormatDialect } from "../util/sql";
+import { getSourceIntegrationObject } from "../services/datasource";
 
 export async function getInformationSchema(
   req: AuthRequest<null, { datasourceId: string }>,
@@ -118,13 +118,13 @@ export async function getTableData(
     return;
   }
 
-  let dialect: FormatDialect = "";
+  const integration = getSourceIntegrationObject(datasource);
 
-  if (datasource.type === "bigquery") {
-    dialect = "bigquery";
-  } else if (datasource.type === "mysql") {
-    dialect = "mysql";
+  if (!integration.getFormatDialect) {
+    throw new Error("Datasource type does not support information schemas");
   }
+
+  const dialect = integration.getFormatDialect();
 
   const columns: Column[] = tableData.map(
     (row: { column_name: string; data_type: string }) => {

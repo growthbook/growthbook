@@ -1241,7 +1241,6 @@ export default abstract class SqlIntegration
     return "NOT IN ('information_schema')";
   }
   async getInformationSchema(): Promise<InformationSchema[]> {
-    const dialect = this.getFormatDialect();
     const sql = `SELECT table_name as table_name, ${
       this.params.projectId ? `'${this.params.projectId}'` : "table_catalog"
     } as table_catalog, table_schema as table_schema, count(column_name) as column_count FROM
@@ -1256,7 +1255,10 @@ export default abstract class SqlIntegration
       throw new Error(`No tables found.`);
     }
 
-    return formatInformationSchema(results as RawInformationSchema[], dialect);
+    return formatInformationSchema(
+      results as RawInformationSchema[],
+      this.getFormatDialect()
+    );
   }
   //TODO: Rename this to showDatabaseNameInWhereClause?
   shouldShowDatabaseName(): boolean {
