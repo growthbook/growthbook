@@ -1233,7 +1233,7 @@ export default abstract class SqlIntegration
     return "information_schema.columns";
   }
   getInformationSchemaWhereClause(): string {
-    return "table_schema NOT IN ('information_schema')";
+    return "table_schema NOT IN ('INFORMATION_SCHEMA')";
   }
   getInformationSchemaTableFromClause(
     // eslint-disable-next-line

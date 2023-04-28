@@ -113,7 +113,7 @@ export default class Presto extends SqlIntegration {
       );
     return `${this.params.catalog}.information_schema.columns`;
   }
-  showDatabaseNameInFromClause(): boolean {
-    return true;
+  getInformationSchemaTableFromClause(databaseName: string): string {
+    return `${databaseName}.INFORMATION_SCHEMA.COLUMNS`;
   }
 }

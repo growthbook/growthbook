@@ -93,10 +93,10 @@ export default class BigQuery extends SqlIntegration {
       );
     return `\`${this.params.projectId}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\``;
   }
-  showDatabaseNameInFromClause(): boolean {
-    return true;
-  }
-  showTableSchemaInFromClause(): boolean {
-    return true;
+  getInformationSchemaTableFromClause(
+    databaseName: string,
+    tableSchema: string
+  ): string {
+    return `\`${databaseName}.${tableSchema}.INFORMATION_SCHEMA.COLUMNS\``;
   }
 }
