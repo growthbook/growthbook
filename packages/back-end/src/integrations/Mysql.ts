@@ -76,7 +76,7 @@ export default class Mysql extends SqlIntegration {
       throw new Error(
         `No database name provided in MySql connection. Please add a database by editing the connection settings.`
       );
-    return `IN ('${this.params.database}')`;
+    return `table_schema IN ('${this.params.database}')`;
   }
   showDatabaseNameInWhereClause(): boolean {
     return true;

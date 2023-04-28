@@ -41,17 +41,12 @@ import { formatInformationSchema } from "../util/informationSchemas";
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
   settings: DataSourceSettings;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  datasource: string;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  organization: string;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  decryptionError: boolean;
+  datasource!: string;
+  organization!: string;
+  decryptionError!: boolean;
   // eslint-disable-next-line
   params: any;
+  type!: string;
   abstract setParams(encryptedParams: string): void;
   // eslint-disable-next-line
   abstract runQuery(sql: string): Promise<any[]>;
@@ -1238,18 +1233,29 @@ export default abstract class SqlIntegration
     return "information_schema.columns";
   }
   getInformationSchemaWhereClause(): string {
-    return "NOT IN ('information_schema')";
+    return "table_schema NOT IN ('information_schema')";
+  }
+  getInformationSchemaTableFromClause(
+    // eslint-disable-next-line
+    databaseName: string,
+    // eslint-disable-next-line
+    tableSchema: string
+  ): string {
+    return "INFORMATION_SCHEMA.COLUMNS";
   }
   async getInformationSchema(): Promise<InformationSchema[]> {
-    const sql = `SELECT table_name as table_name, ${
-      this.params.projectId ? `'${this.params.projectId}'` : "table_catalog"
-    } as table_catalog, table_schema as table_schema, count(column_name) as column_count FROM
-      ${this.getInformationSchemaFromClause()}
-      WHERE table_schema
-      ${this.getInformationSchemaWhereClause()}
-      GROUP BY table_name, table_schema, table_catalog`;
+    const sql = `
+  SELECT 
+    table_name as table_name,
+    table_catalog as table_catalog,
+    table_schema as table_schema,
+    count(column_name) as column_count 
+  FROM
+    ${this.getInformationSchemaFromClause()}
+    WHERE ${this.getInformationSchemaWhereClause()}
+    GROUP BY table_name, table_schema, table_catalog`;
 
-    const results = await this.runQuery(sql);
+    const results = await this.runQuery(format(sql, this.getFormatDialect()));
 
     if (!results.length) {
       throw new Error(`No tables found.`);
@@ -1260,35 +1266,23 @@ export default abstract class SqlIntegration
       this.getFormatDialect()
     );
   }
-  showDatabaseNameInWhereClause(): boolean {
-    return false;
-  }
-  showDatabaseNameInFromClause(): boolean {
-    return false;
-  }
-  showTableSchemaInFromClause(): boolean {
-    return false;
-  }
-  hasSVV_COLUMNS(): boolean {
-    return false;
-  }
   async getTableData(
     databaseName: string,
     tableSchema: string,
     tableName: string
   ): Promise<{ tableData: null | unknown[] }> {
-    const sql = `SELECT data_type as data_type, column_name as column_name FROM
-    ${this.showDatabaseNameInFromClause() ? `${databaseName}.` : ""}${
-      this.showTableSchemaInFromClause() ? `${tableSchema}.` : ""
-    }${this.hasSVV_COLUMNS() ? "SVV_COLUMNS" : "INFORMATION_SCHEMA.COLUMNS"}
-    WHERE table_name IN ('${tableName}') AND table_schema IN ('${tableSchema}')
-    ${
-      this.showDatabaseNameInWhereClause()
-        ? `AND table_catalog IN ('${databaseName}')`
-        : ""
-    }`;
+    const sql = `
+  SELECT 
+    data_type as data_type,
+    column_name as column_name 
+  FROM
+    ${this.getInformationSchemaTableFromClause(databaseName, tableSchema)}
+  WHERE 
+    table_name = '${tableName}'
+    AND table_schema = '${tableSchema}'
+    AND table_catalog = '${databaseName}'`;
 
-    const tableData = await this.runQuery(sql);
+    const tableData = await this.runQuery(format(sql, this.getFormatDialect()));
 
     return { tableData };
   }

@@ -50,16 +50,11 @@ function convertDate(rawDate: string): string {
 const GoogleAnalytics: SourceIntegrationConstructor = class
   implements SourceIntegrationInterface {
   params: GoogleAnalyticsParams;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  datasource: string;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  organization: string;
+  type!: string;
+  datasource!: string;
+  organization!: string;
   settings: DataSourceSettings;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
-  decryptionError: boolean;
+  decryptionError!: boolean;
 
   constructor(encryptedParams: string) {
     try {

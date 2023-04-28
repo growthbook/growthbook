@@ -88,9 +88,6 @@ export default class ClickHouse extends SqlIntegration {
       throw new Error(
         "No database name provided in Clickhouse connection. Please add a database by editing the connection settings."
       );
-    return `IN ('${this.params.database}')`;
-  }
-  showDatabaseNameInWhereClause(): boolean {
-    return true;
+    return `table_schema IN ('${this.params.database}')`;
   }
 }

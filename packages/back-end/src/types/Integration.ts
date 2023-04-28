@@ -253,6 +253,7 @@ export interface InformationSchemaTablesInterface {
 export interface SourceIntegrationInterface {
   datasource: string;
   organization: string;
+  type: string;
   settings: DataSourceSettings;
   decryptionError: boolean;
   // eslint-disable-next-line
