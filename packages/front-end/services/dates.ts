@@ -2,6 +2,7 @@ import format from "date-fns/format";
 import formatDistance from "date-fns/formatDistance";
 import differenceInDays from "date-fns/differenceInDays";
 import { addMonths } from "date-fns";
+import { getValidDate } from "shared";
 
 export function date(date: string | Date): string {
   if (!date) return "";
@@ -26,19 +27,4 @@ export function monthYear(date: string | Date): string {
 }
 export function daysBetween(start: string | Date, end: string | Date): number {
   return differenceInDays(getValidDate(end), getValidDate(start));
-}
-
-export function getValidDate(
-  dateStr: string | Date | null | number,
-  fallback?: Date
-): Date {
-  fallback = fallback || new Date();
-
-  if (!dateStr) return fallback;
-
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) {
-    return fallback;
-  }
-  return d;
 }

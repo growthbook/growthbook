@@ -10,6 +10,10 @@ import isEqual from "lodash/isEqual";
 import cronstrue from "cronstrue";
 import { AttributionModel } from "back-end/types/experiment";
 import { PValueCorrection } from "back-end/types/stats";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+} from "shared";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -32,10 +36,6 @@ import SelectField from "@/components/Forms/SelectField";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import Tab from "@/components/Tabs/Tab";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import {
-  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-} from "@/constants/stats";
 
 function hasChanges(
   value: OrganizationSettings,
