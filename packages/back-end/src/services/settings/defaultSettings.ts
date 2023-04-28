@@ -1,5 +1,5 @@
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
 import { MemberRoleInfo, MetricDefaults } from "../../../types/organization";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "../../constants/stats";
 import { DEFAULT_METRIC_ANALYSIS_DAYS } from "../experiments";
 import { Settings } from "./types";
 

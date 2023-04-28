@@ -3,6 +3,7 @@ import { ExperimentReportArgs, ReportInterface } from "back-end/types/report";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
+import { getValidDate } from "shared";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";
@@ -10,7 +11,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
-import { ago, datetime, getValidDate, date } from "@/services/dates";
+import { ago, datetime, date } from "@/services/dates";
 import DateResults from "@/components/Experiment/DateResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import CompactResults from "@/components/Experiment/CompactResults";
