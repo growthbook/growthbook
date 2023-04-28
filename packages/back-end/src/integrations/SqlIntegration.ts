@@ -5,6 +5,7 @@ import {
   DataSourceSettings,
   DataSourceProperties,
   ExposureQuery,
+  DataSourceType,
 } from "../../types/datasource";
 import {
   MetricValueParams,
@@ -46,7 +47,7 @@ export default abstract class SqlIntegration
   decryptionError!: boolean;
   // eslint-disable-next-line
   params: any;
-  type!: string;
+  type!: DataSourceType;
   abstract setParams(encryptedParams: string): void;
   // eslint-disable-next-line
   abstract runQuery(sql: string): Promise<any[]>;
@@ -1263,7 +1264,7 @@ export default abstract class SqlIntegration
 
     return formatInformationSchema(
       results as RawInformationSchema[],
-      this.getFormatDialect()
+      this.type
     );
   }
   async getTableData(

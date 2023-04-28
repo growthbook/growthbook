@@ -5,7 +5,7 @@ import {
   Schema,
   Table,
 } from "../types/Integration";
-import { FormatDialect } from "./sql";
+import { DataSourceType } from "../../types/datasource";
 
 type RowType = {
   tableCatalog: string;
@@ -14,10 +14,10 @@ type RowType = {
   columnName?: string;
 };
 
-export function getPath(dialect: FormatDialect, path: RowType): string {
+export function getPath(dataSourceType: DataSourceType, path: RowType): string {
   const pathArray = Object.values(path);
   const returnValue = pathArray.join(".");
-  switch (dialect) {
+  switch (dataSourceType) {
     // MySQL only supports path's that go two levels deep. E.G. If the full path is database.schema.table.column, it only supports table.column.
     case "mysql":
       if (pathArray.length === 1) {
@@ -35,7 +35,7 @@ export function getPath(dialect: FormatDialect, path: RowType): string {
 
 export function formatInformationSchema(
   results: RawInformationSchema[],
-  dialect: FormatDialect
+  datasourceType: DataSourceType
 ): InformationSchema[] {
   const databases = new Map<string, InformationSchema>();
   const schemas = new Map<string, Schema>();
@@ -44,7 +44,7 @@ export function formatInformationSchema(
   const date = new Date();
 
   results.forEach((row) => {
-    const dbPath = getPath(dialect, {
+    const dbPath = getPath(datasourceType, {
       tableCatalog: row.table_catalog,
     });
     let database = databases.get(dbPath);
@@ -59,7 +59,7 @@ export function formatInformationSchema(
       databases.set(dbPath, database);
     }
 
-    const schemaPath = getPath(dialect, {
+    const schemaPath = getPath(datasourceType, {
       tableCatalog: row.table_catalog,
       tableSchema: row.table_schema,
     });
@@ -77,7 +77,7 @@ export function formatInformationSchema(
     }
 
     // Do the same for tables
-    const tablePath = getPath(dialect, {
+    const tablePath = getPath(datasourceType, {
       tableCatalog: row.table_catalog,
       tableSchema: row.table_schema,
       tableName: row.table_name,

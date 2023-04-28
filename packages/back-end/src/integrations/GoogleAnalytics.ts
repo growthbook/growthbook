@@ -1,4 +1,5 @@
 import { analyticsreporting_v4, google } from "googleapis";
+import { DataSourceType } from "aws-sdk/clients/quicksight";
 import {
   SourceIntegrationConstructor,
   SourceIntegrationInterface,
@@ -50,7 +51,7 @@ function convertDate(rawDate: string): string {
 const GoogleAnalytics: SourceIntegrationConstructor = class
   implements SourceIntegrationInterface {
   params: GoogleAnalyticsParams;
-  type!: string;
+  type!: DataSourceType;
   datasource!: string;
   organization!: string;
   settings: DataSourceSettings;

@@ -1,6 +1,7 @@
 import {
   DataSourceProperties,
   DataSourceSettings,
+  DataSourceType,
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
@@ -26,7 +27,7 @@ import {
 import { replaceSQLVars } from "../util/sql";
 
 export default class Mixpanel implements SourceIntegrationInterface {
-  type!: string;
+  type!: DataSourceType;
   datasource!: string;
   params: MixpanelConnectionParams;
   organization!: string;

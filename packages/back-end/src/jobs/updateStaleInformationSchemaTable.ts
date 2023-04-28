@@ -9,7 +9,6 @@ import {
 } from "../models/InformationSchemaTablesModel";
 import { Column } from "../types/Integration";
 import { getPath } from "../util/informationSchemas";
-import { getSourceIntegrationObject } from "../services/datasource";
 
 const UPDATE_STALE_INFORMATION_SCHEMA_TABLE_JOB_NAME =
   "updateStaleInformationSchemaTable";
@@ -76,22 +75,12 @@ export default function (ag: Agenda) {
           return;
         }
 
-        const integration = getSourceIntegrationObject(datasource);
-
-        if (!integration.getFormatDialect) {
-          throw new Error(
-            "Datasource type does not support information schemas"
-          );
-        }
-
-        const dialect = integration.getFormatDialect();
-
         const columns: Column[] = tableData.map(
           (row: { column_name: string; data_type: string }) => {
             return {
               columnName: row.column_name,
               dataType: row.data_type,
-              path: getPath(dialect, {
+              path: getPath(datasource.type, {
                 tableCatalog: informationSchemaTable.databaseName,
                 tableSchema: informationSchemaTable.tableSchema,
                 tableName: informationSchemaTable.tableName,

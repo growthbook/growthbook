@@ -183,7 +183,7 @@ describe("formatInformationSchema", () => {
     ];
     const formattedResults = formatInformationSchema(
       rawInformationSchema,
-      "postgresql"
+      "postgres"
     );
 
     expect(formattedResults[0].databaseName).toEqual("adept-arbor-354914");
