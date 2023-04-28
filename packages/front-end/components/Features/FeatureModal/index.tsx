@@ -33,6 +33,7 @@ export type Props = {
   secondaryCTA?: ReactElement;
   featureToDuplicate?: FeatureInterface;
   features?: FeatureInterface[];
+  disabledMessage?: string;
 };
 
 function parseDefaultValue(
@@ -128,6 +129,7 @@ export default function FeatureModal({
   cta = "Create",
   secondaryCTA,
   featureToDuplicate,
+  disabledMessage,
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const environments = useEnvironments();
@@ -167,6 +169,7 @@ export default function FeatureModal({
       header={modalHeader}
       cta={cta}
       close={close}
+      disabledMessage={disabledMessage}
       ctaEnabled={permissions.check("createFeatureDrafts", project)}
       secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {

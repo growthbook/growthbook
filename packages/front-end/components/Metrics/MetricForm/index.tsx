@@ -49,6 +49,7 @@ weekAgo.setDate(weekAgo.getDate() - 7);
 export type MetricFormProps = {
   initialStep?: number;
   current: Partial<MetricInterface>;
+  disabledMessage?: string;
   edit: boolean;
   duplicate?: boolean;
   source: string;
@@ -151,6 +152,7 @@ const MetricForm: FC<MetricFormProps> = ({
   current,
   edit,
   duplicate = false,
+  disabledMessage,
   onClose,
   source,
   initialStep = 0,
@@ -462,6 +464,7 @@ const MetricForm: FC<MetricFormProps> = ({
         inline={inline}
         header={edit ? "Edit Metric" : "New Metric"}
         close={onClose}
+        disabledMessage={disabledMessage}
         submit={onSubmit}
         cta={cta}
         closeCta={!inline && "Cancel"}

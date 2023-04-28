@@ -95,11 +95,15 @@ export default function GuidedGetStarted({
         datasources.length > 0 ||
         features.length > 0,
       additionalCta: (
-        <Link href="/settings/team">
-          <a className="font-weight-bold">
-            Not an engineer? Invite a developer to get started.
-          </a>
-        </Link>
+        <>
+          {permissions.manageTeam && (
+            <Link href="/settings/team">
+              <a className="font-weight-bold">
+                Not an engineer? Invite a developer to get started.
+              </a>
+            </Link>
+          )}
+        </>
       ),
       render: (
         <>
@@ -172,6 +176,7 @@ export default function GuidedGetStarted({
             <FeatureModal
               inline={true}
               cta={"Next: Install an SDK"}
+              disabledMessage="You do not have permission to create a feature flag."
               onSuccess={async () => {
                 setCurrentStep(currentStep + 1);
               }}
@@ -245,6 +250,7 @@ export default function GuidedGetStarted({
                 name: "My Datasource",
                 settings: {},
               }}
+              disabledMessage="You do not have permission to add a data source."
               existing={false}
               inline={true}
               source="get-started"
@@ -295,6 +301,7 @@ export default function GuidedGetStarted({
               inline={true}
               cta={"Finish"}
               current={{}}
+              disabledMessage="You do not have permission to create a metric."
               edit={false}
               source="get-started"
               onSuccess={() => {
@@ -412,9 +419,7 @@ export default function GuidedGetStarted({
                 )}
             </p>
           )}
-          {permissions.manageTeam && steps[currentStep].additionalCta && (
-            <>{steps[currentStep].additionalCta}</>
-          )}
+          <>{steps[currentStep].additionalCta}</>
         </div>
         <div className="d-flex flex-column align-items-center pl-4 pr-4 pb-4 pt-1">
           {steps[currentStep].render}
