@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
-import { getRules } from "@/services/features";
+import { getRules, isRuleFullyCovered } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
 import { Rule, SortableRule } from "./Rule";
 
@@ -64,6 +64,17 @@ export default function RuleList({
     }
     return -1;
   }
+
+  // detect unreachable rules, and get the first rule that is at 100%.
+  let unreachableIndex = null;
+  items.forEach((item, i) => {
+    if (unreachableIndex) return;
+
+    // if this rule covers 100% of traffic, no additional rules are reachable.
+    if (isRuleFullyCovered(item)) {
+      unreachableIndex = i + 1;
+    }
+  });
 
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
@@ -120,6 +131,7 @@ export default function RuleList({
             mutate={mutate}
             experiments={experiments}
             setRuleModal={setRuleModal}
+            unreachable={unreachableIndex && i >= unreachableIndex}
           />
         ))}
       </SortableContext>
