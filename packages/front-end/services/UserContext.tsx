@@ -260,6 +260,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       name: data?.userName || "",
       admin: data?.admin || false,
       company: currentOrg?.organization?.name || "",
+      organizationId: currentOrg?.organization?.id || "",
       userAgent: window.navigator.userAgent,
       url: router?.pathname || "",
       cloud: isCloud(),

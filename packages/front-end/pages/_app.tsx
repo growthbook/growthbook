@@ -3,6 +3,7 @@ import "../styles/global.scss";
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
+import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
 import { AuthProvider } from "../services/auth";
 import ProtectedPage from "../components/ProtectedPage";
 import { DefinitionsProvider } from "../services/DefinitionsContext";
@@ -95,6 +96,7 @@ function App({
                     <DefinitionsProvider>
                       {!liteLayout && <Layout />}
                       <main className={`main ${parts[0]}`}>
+                        <OrganizationMessagesContainer />
                         <Component {...pageProps} />
                       </main>
                     </DefinitionsProvider>
