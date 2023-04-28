@@ -419,7 +419,7 @@ export default function GuidedGetStarted({
                 )}
             </p>
           )}
-          <>{steps[currentStep].additionalCta}</>
+          {steps[currentStep].additionalCta}
         </div>
         <div className="d-flex flex-column align-items-center pl-4 pr-4 pb-4 pt-1">
           {steps[currentStep].render}
