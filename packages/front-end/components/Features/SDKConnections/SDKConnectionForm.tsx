@@ -24,6 +24,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import SDKLanguageLogo, { languageMapping } from "./SDKLanguageLogo";
+import { BsLightningFill } from "react-icons/bs";
 
 export default function SDKConnectionForm({
   initialValue = {},
@@ -281,15 +282,13 @@ export default function SDKConnectionForm({
         gb.isOn("proxy-cloud-sse") && (
           <div className="mt-3 mb-3">
             <label htmlFor="sdk-connection-sseEnabled-toggle">
-              <span className="badge badge-purple text-uppercase mr-2">
-                Beta
-              </span>
               <PremiumTooltip
                 commercialFeature="cloud-proxy"
                 body={
                   <>
                     <p>
-                      Instant rollouts allow you to instantly update any
+                      <BsLightningFill className="text-warning" />
+                      <strong>Instant Rollouts</strong> allow you to instantly update any
                       subscribed SDKs when you make any feature changes in
                       GrowthBook. For front-end SDKs, active users will see the
                       changes immediately without having to refresh the page.
@@ -339,9 +338,13 @@ export default function SDKConnectionForm({
                   </>
                 }
               >
-                Enable Instant Rollouts? <FaInfoCircle />
-              </PremiumTooltip>{" "}
+                Enable Instant Rollouts? <FaInfoCircle />{" "}
+                <span className="badge badge-purple text-uppercase mr-2">
+                  Beta
+                </span>
+              </PremiumTooltip>
             </label>
+
             <div className="form-inline">
               <Toggle
                 id="sdk-connection-sseEnabled-toggle"

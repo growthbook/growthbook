@@ -5,6 +5,7 @@ import React, { ReactElement, ReactNode, useState } from "react";
 import {
   FaCheckCircle,
   FaExclamationTriangle,
+  FaInfoCircle,
   FaLock,
   FaQuestionCircle,
 } from "react-icons/fa";
@@ -25,7 +26,6 @@ import ProxyTestButton from "@/components/Features/SDKConnections/ProxyTestButto
 import Button from "@/components/Button";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 
 function ConnectionDot({ left }: { left: boolean }) {
@@ -354,19 +354,15 @@ export default function SDKConnectionPage() {
         <div className="row mb-5 align-items-center">
           <div className="flex-1"></div>
           <div className="col-auto">
-            <PremiumTooltip commercialFeature="cloud-proxy">
-              <BsLightningFill className="text-warning" />
-              Instant Rollouts:{" "}
-              <strong>{hasCloudProxyForSSE ? "Enabled" : "Disabled"}</strong>
-            </PremiumTooltip>
-            <Tooltip
-              popperClassName="text-left"
+            <PremiumTooltip
+              commercialFeature="cloud-proxy"
               body={
                 <div style={{ lineHeight: 1.5 }}>
                   <p>
-                    Instant rollouts allow you to instantly update any
-                    subscribed SDKs when you make any feature changes in
-                    GrowthBook. For front-end SDKs, active users will see the
+                    <BsLightningFill className="text-warning" />
+                    <strong>Instant Rollouts</strong> allow you to instantly
+                    update any subscribed SDKs when you make any feature changes
+                    in GrowthBook. For front-end SDKs, active users will see the
                     changes immediately without having to refresh the page.
                   </p>
                   <p>
@@ -375,8 +371,8 @@ export default function SDKConnectionPage() {
                       {hasCloudProxyForSSE ? "enabled" : "disabled"}
                     </strong>{" "}
                     for this connection. You may{" "}
-                    {hasCloudProxyForSSE ? "disable" : "enable"} GrowthBook
-                    Cloud Proxy by editing this connection.
+                    {hasCloudProxyForSSE ? "disable" : "enable"} Instant
+                    Rollouts by editing this connection.
                   </p>
 
                   <div className="mt-4" style={{ lineHeight: 1.2 }}>
@@ -397,13 +393,16 @@ export default function SDKConnectionPage() {
                 </div>
               }
             >
+              <BsLightningFill className="text-warning" />
+              Instant Rollouts:{" "}
+              <strong>{hasCloudProxyForSSE ? "Enabled" : "Disabled"}</strong>
               <div
                 className="text-right text-muted"
                 style={{ fontSize: "0.75rem" }}
               >
-                What is this? <FaQuestionCircle />
+                What is this? <FaInfoCircle />
               </div>
-            </Tooltip>
+            </PremiumTooltip>
           </div>
         </div>
       )}

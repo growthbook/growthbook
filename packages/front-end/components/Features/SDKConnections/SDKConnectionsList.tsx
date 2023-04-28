@@ -52,7 +52,7 @@ export default function SDKConnectionsList() {
               <th>Name</th>
               {projects.length > 0 && <th>Project</th>}
               <th>Environment</th>
-              <th>Features</th>
+              <th className="text-center">Features</th>
               <th>Languages</th>
               <th style={{ width: 25 }}></th>
             </tr>
@@ -107,22 +107,30 @@ export default function SDKConnectionsList() {
                   <td>
                     {connection.environment}
                   </td>
-                  <td>
+                  <td className="text-center">
                     {connection.encryptPayload && (
-                      <Tooltip body="This SDK Connection&apos;s payload is encrypted">
+                      <Tooltip body={<><strong>Encryption</strong> is enabled for this connection&apos;s SDK payload</>}>
                         <FaLock className="mx-1 text-purple" />
                       </Tooltip>
                     )}
                     {connection.sseEnabled && (
-                      <Tooltip body={`Instant rollouts ${!isCloud() ? "via GrowthBook Proxy " : ""}are enabled`}>
+                      <Tooltip body={
+                        isCloud() ? (<>
+                          <BsLightningFill className="text-warning" />
+                          <strong>Instant Rollouts</strong> are enabled
+                        </>) : (<>
+                          <BsLightningFill className="text-warning" />
+                          <strong>GB Proxy</strong> is enabled
+                        </>)
+                      }>
                         <BsLightningFill className="mx-1 text-warning" />
                       </Tooltip>
                     )}
                     {connection.includeVisualExperiments && (
                       <Tooltip
-                        body="Visual experiments are supported"
+                        body={<><strong>Visual Experiments</strong> are supported</>}
                       >
-                        <RxDesktop className="mx text-blue" />
+                        <RxDesktop className="mx-1 text-blue" />
                       </Tooltip>
                     )}
                   </td>
