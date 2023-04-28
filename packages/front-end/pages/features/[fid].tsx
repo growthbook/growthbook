@@ -4,7 +4,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useState } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import { BsLightningFill } from "react-icons/bs";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
@@ -129,14 +129,20 @@ export default function FeaturePage() {
     );
 
   const sdkConnections = sdkConnectionsData?.connections;
-  const hasProxiedConnections = sdkConnections?.some((c) => c.sseEnabled);
+  const hasProxiedConnections = sdkConnections?.some((c) => {
+    return !isCloud() ? c.proxy.enabled && c.proxy.host : c.sseEnabled;
+  });
   const hasUnproxiedConnections =
-    sdkConnections?.some((c) => !c.sseEnabled) || sdkConnections?.length === 0;
+    sdkConnections?.some((c) => {
+      return !(!isCloud() ? c.proxy.enabled && c.proxy.host : c.sseEnabled);
+    }) || sdkConnections?.length === 0;
 
   const rolloutDelayNotice = (
     <div className="text-left">
-      <p className="font-weight-bolder mb-2">Changes published</p>
-      <div className="mb-3">
+      <p className="font-weight-bolder mb-2">
+        <FaCheckCircle /> Changes published
+      </p>
+      <div className="mb-2">
         {hasProxiedConnections ? (
           <>
             <p className="mb-1">
@@ -172,16 +178,16 @@ export default function FeaturePage() {
         </div>
       ) : (
         <div className="mt-0">
-          To use instant deployments, you may configure{" "}
+          To use instant feature deployments, you may configure{" "}
           <strong>
             <BsLightningFill className="text-warning-orange" />
             GrowthBook Proxy
-          </strong>
-          . See the{" "}
+          </strong>{" "}
+          for self-hosted users. See the{" "}
           <Link href="https://docs.growthbook.io/self-host/proxy">
             GrowthBook Proxy documentation
-          </Link>{" "}
-          for information.
+          </Link>
+          .
         </div>
       )}
     </div>

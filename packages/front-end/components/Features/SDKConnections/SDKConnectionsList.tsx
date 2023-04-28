@@ -2,18 +2,18 @@ import React, { useState } from "react";
 import { FaAngleRight, FaExclamationTriangle, FaLock } from "react-icons/fa";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { BsLightningFill } from "react-icons/bs";
+import { RxDesktop } from "react-icons/rx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
+import { isCloud } from "@/services/env";
 import Tooltip from "../../Tooltip/Tooltip";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
-import { BsLightningFill } from "react-icons/bs";
-import { isCloud } from "@/services/env";
-import { RxDesktop } from "react-icons/rx";
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
@@ -60,7 +60,8 @@ export default function SDKConnectionsList() {
           <tbody>
             {connections.map((connection) => {
               const hasProxy =
-                connection.proxy.enabled && connection.proxy.host;
+                !isCloud() && connection.proxy.enabled && connection.proxy.host;
+              const hasCloudProxyForSSE = isCloud() && connection.sseEnabled;
               const connected =
                 connection.connected &&
                 (!hasProxy || connection.proxy.connected);
@@ -104,31 +105,51 @@ export default function SDKConnectionsList() {
                       )}{" "}
                     </td>
                   )}
-                  <td>
-                    {connection.environment}
-                  </td>
+                  <td>{connection.environment}</td>
                   <td className="text-center">
                     {connection.encryptPayload && (
-                      <Tooltip body={<><strong>Encryption</strong> is enabled for this connection&apos;s SDK payload</>}>
+                      <Tooltip
+                        body={
+                          <>
+                            <strong>Encryption</strong> is enabled for this
+                            connection&apos;s SDK payload
+                          </>
+                        }
+                      >
                         <FaLock className="mx-1 text-purple" />
                       </Tooltip>
                     )}
-                    {connection.sseEnabled && (
-                      <Tooltip body={
-                        isCloud() ? (<>
-                          <BsLightningFill className="text-warning" />
-                          <strong>Instant Rollouts</strong> are enabled
-                        </>) : (<>
-                          <BsLightningFill className="text-warning" />
-                          <strong>GB Proxy</strong> is enabled
-                        </>)
-                      }>
+                    {hasProxy && (
+                      <Tooltip
+                        body={
+                          <>
+                            <BsLightningFill className="text-warning" />
+                            <strong>GB Proxy</strong> is enabled
+                          </>
+                        }
+                      >
+                        <BsLightningFill className="mx-1 text-warning" />
+                      </Tooltip>
+                    )}
+                    {hasCloudProxyForSSE && (
+                      <Tooltip
+                        body={
+                          <>
+                            <BsLightningFill className="text-warning" />
+                            <strong>Instant Rollouts</strong> are enabled
+                          </>
+                        }
+                      >
                         <BsLightningFill className="mx-1 text-warning" />
                       </Tooltip>
                     )}
                     {connection.includeVisualExperiments && (
                       <Tooltip
-                        body={<><strong>Visual Experiments</strong> are supported</>}
+                        body={
+                          <>
+                            <strong>Visual Experiments</strong> are supported
+                          </>
+                        }
                       >
                         <RxDesktop className="mx-1 text-blue" />
                       </Tooltip>
