@@ -19,6 +19,7 @@ import { FeatureUsageRecords } from "back-end/types/realtime";
 import dJSON from "dirty-json";
 import cloneDeep from "lodash/cloneDeep";
 import uniqid from "uniqid";
+import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import useOrgSettings from "../hooks/useOrgSettings";
 import useApi from "../hooks/useApi";
@@ -441,6 +442,35 @@ export function getDefaultRuleValue({
       },
     ],
   };
+}
+
+export function isRuleFullyCovered(rule: FeatureRule): boolean {
+  // get the schedules on any of the rules:
+  const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+
+  const scheduleCompletedAndDisabled =
+    !upcomingScheduleRule &&
+    rule?.scheduleRules?.length &&
+    rule.scheduleRules.at(-1)?.timestamp !== null;
+
+  const ruleDisabled =
+    scheduleCompletedAndDisabled ||
+    upcomingScheduleRule?.enabled ||
+    !rule.enabled;
+
+  // rollouts and experiments at 100%:
+  if (
+    (rule.type === "rollout" || rule.type === "experiment") &&
+    rule.coverage === 1 &&
+    rule.enabled === true &&
+    rule.condition === "{}" &&
+    !ruleDisabled
+  ) {
+    return true;
+  }
+
+  // force rule at 100%: (doesn't have coverage)
+  return rule.type === "force" && rule.condition === "{}" && !ruleDisabled;
 }
 
 export function jsonToConds(
