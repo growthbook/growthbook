@@ -4,7 +4,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useState } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { FaExclamationCircle, FaExclamationTriangle } from "react-icons/fa";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -43,6 +43,8 @@ import usePermissions from "@/hooks/usePermissions";
 import DiscussionThread from "@/components/DiscussionThread";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import FeatureModal from "@/components/Features/FeatureModal";
+import { isCloud } from "@/services/env";
+import { BsLightningFill } from "react-icons/bs";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -422,6 +424,20 @@ export default function FeaturePage() {
             }}
           />
         </div>
+      </div>
+
+      <div className="alert alert-dismissible text-center my-4 px-2 py-1">
+        <FaExclamationCircle />{" "}
+        Feature updates may take up to 60 seconds to deploy. Additional delays may occur for cached SDK instances.
+        {isCloud() ? (
+          <div className="mt-1">
+            To enable instant updates, enable <strong><BsLightningFill className="text-warning-orange" />Instant Rollouts</strong> in your <Link href="/sdks">SDK Connections</Link>.
+          </div>
+        ) : (
+          <div className="mt-1">
+            To enable instant updates, you may deploy <strong><BsLightningFill className="text-warning-orange" />GrowthBook Proxy</strong>. See <Link href="/sdks">SDK Connections</Link> for information.
+          </div>
+        )}
       </div>
 
       <h3>Enabled Environments</h3>

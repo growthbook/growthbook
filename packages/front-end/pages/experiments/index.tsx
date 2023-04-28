@@ -306,7 +306,7 @@ const ExperimentsPage = (): React.ReactElement => {
                               className="d-flex align-items-center ml-2"
                               body="Visual experiment"
                             >
-                              <RxDesktop />
+                              <RxDesktop className="text-blue" />
                             </Tooltip>
                           ) : null}
                         </div>

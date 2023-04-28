@@ -111,6 +111,17 @@ pre {
 
 // region Alerts
 
+.alert-dismissible {
+  background-color: var(--alert-dismissible-background);
+  border-color: var(--alert-dismissible-border-color);
+  border-style: dashed;
+  color: var(--alert-dismissible-color);
+
+  .alert-link {
+    color: var(--text-color-main);
+  }
+}
+
 .alert-info {
   background-color: var(--alert-info-background);
   border-color: var(--alert-info-border-color);

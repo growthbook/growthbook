@@ -387,6 +387,7 @@ export default function SDKConnectionForm({
           value={form.watch("encryptPayload")}
           setValue={(value) => form.setValue("encryptPayload", value)}
           showRequiresChangesWarning={edit}
+          showUpgradeMessage={false}
         />
       )}
     </Modal>

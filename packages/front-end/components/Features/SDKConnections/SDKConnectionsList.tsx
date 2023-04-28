@@ -11,6 +11,9 @@ import StatusCircle from "@/components/Helpers/StatusCircle";
 import Tooltip from "../../Tooltip/Tooltip";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
+import { BsLightningFill } from "react-icons/bs";
+import { isCloud } from "@/services/env";
+import { RxDesktop } from "react-icons/rx";
 
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
@@ -49,6 +52,7 @@ export default function SDKConnectionsList() {
               <th>Name</th>
               {projects.length > 0 && <th>Project</th>}
               <th>Environment</th>
+              <th>Features</th>
               <th>Languages</th>
               <th style={{ width: 25 }}></th>
             </tr>
@@ -101,10 +105,24 @@ export default function SDKConnectionsList() {
                     </td>
                   )}
                   <td>
-                    {connection.environment}{" "}
+                    {connection.environment}
+                  </td>
+                  <td>
                     {connection.encryptPayload && (
-                      <Tooltip body="This feature payload is encrypted">
-                        <FaLock className="text-purple" />
+                      <Tooltip body="This SDK Connection&apos;s payload is encrypted">
+                        <FaLock className="mx-1 text-purple" />
+                      </Tooltip>
+                    )}
+                    {connection.sseEnabled && (
+                      <Tooltip body={`Instant rollouts ${!isCloud() ? "via GrowthBook Proxy " : ""}are enabled`}>
+                        <BsLightningFill className="mx-1 text-warning" />
+                      </Tooltip>
+                    )}
+                    {connection.includeVisualExperiments && (
+                      <Tooltip
+                        body="Visual experiments are supported"
+                      >
+                        <RxDesktop className="mx text-blue" />
                       </Tooltip>
                     )}
                   </td>
