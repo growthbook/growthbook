@@ -2,7 +2,6 @@ import { webcrypto as crypto } from "node:crypto";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
-import uniq from "lodash/uniq";
 import { FeatureDefinition } from "../../types/api";
 import {
   FeatureDraftChanges,
@@ -28,7 +27,6 @@ import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { findProjectById, findProjectsByIds } from "../models/ProjectModel";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -159,7 +157,8 @@ export async function getSavedGroupMap(
 export async function refreshSDKPayloadCache(
   organization: OrganizationInterface,
   payloadKeys: SDKPayloadKey[],
-  allFeatures: FeatureInterface[] | null = null
+  allFeatures: FeatureInterface[] | null = null,
+  skipRefreshForProject?: string
 ) {
   // Ignore any old environments which don't exist anymore
   const allowedEnvs = new Set(
@@ -167,19 +166,19 @@ export async function refreshSDKPayloadCache(
   );
   payloadKeys = payloadKeys.filter((k) => allowedEnvs.has(k.environment));
 
+  // Remove any projects to skip
+  if (skipRefreshForProject) {
+    payloadKeys = payloadKeys.filter(
+      (k) => k.project !== skipRefreshForProject
+    );
+  }
+
   // If no environments are affected, we don't need to update anything
   if (!payloadKeys.length) return;
 
   const groupMap = await getSavedGroupMap(organization);
   allFeatures = allFeatures || (await getAllFeatures(organization.id));
   const allVisualExperiments = await getAllVisualExperiments(organization.id);
-  const payloadKeysProjectIds = uniq(
-    payloadKeys.map((key) => key.project).filter(Boolean)
-  );
-  const allProjects = await findProjectsByIds(
-    payloadKeysProjectIds,
-    organization.id
-  );
 
   // For each affected project/environment pair, generate a new SDK payload and update the cache
   const promises: (() => Promise<void>)[] = [];
@@ -205,21 +204,15 @@ export async function refreshSDKPayloadCache(
       groupMap
     );
 
-    if (key.project && !allProjects.find((p) => p.id === key.project)) {
-      logger.error(
-        `Cannot update SDK payload: project ${key.project} not found`
-      );
-    } else {
-      promises.push(async () => {
-        await updateSDKPayload({
-          organization: organization.id,
-          project: key.project,
-          environment: key.environment,
-          featureDefinitions,
-          experimentsDefinitions,
-        });
+    promises.push(async () => {
+      await updateSDKPayload({
+        organization: organization.id,
+        project: key.project,
+        environment: key.environment,
+        featureDefinitions,
+        experimentsDefinitions,
       });
-    }
+    });
   }
 
   // If there are no changes, we don't need to do anything
@@ -373,22 +366,14 @@ export async function getFeatureDefinitions({
     groupMap
   );
 
-  const projectDoc = project
-    ? await findProjectById(project, organization)
-    : null;
-
-  if (project && !projectDoc) {
-    logger.error(`Cannot update SDK payload: project ${project} not found`);
-  } else {
-    // Cache in Mongo
-    await updateSDKPayload({
-      organization,
-      project: project || "",
-      environment,
-      featureDefinitions,
-      experimentsDefinitions,
-    });
-  }
+  // Cache in Mongo
+  await updateSDKPayload({
+    organization,
+    project: project || "",
+    environment,
+    featureDefinitions,
+    experimentsDefinitions,
+  });
 
   return await getFeatureDefinitionsResponse({
     features: featureDefinitions,
