@@ -33,10 +33,6 @@
   --alert-success-border-color: #c3e6cb;
   --alert-success-color: #155724;
 
-  --alert-dismissible-background: #ebf4fa;
-  --alert-dismissible-border-color: #c4dff2;
-  --alert-dismissible-color: #345873;
-
   --alert-info-background: #d1ecf1;
   --alert-info-border-color: #bee5eb;
   --alert-info-color: #0c5460;
@@ -105,10 +101,6 @@
   --alert-success-background: #{darken(#155724, 8%)};
   --alert-success-border-color: #{darken(#155724, 0%)};
   --alert-success-color: #d4edda;
-
-  --alert-dismissible-background: #{darken(#2c4b61, 8%)};
-  --alert-dismissible-border-color: #2c4b61;
-  --alert-dismissible-color: #aed4f2;
 
   --alert-info-background: #{darken(#0c5460, 8%)};
   --alert-info-border-color: #{darken(#0c5460, 0%)};
