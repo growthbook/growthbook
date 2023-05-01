@@ -229,6 +229,13 @@ const VariationsTable: FC<Props> = ({
             <div className="h3 d-inline-block my-0 align-middle">
               Visual Changes
             </div>
+
+            {hasVisualEditorFeature && (
+              <div className="small text-muted">
+                This experiment requires at least version 0.26.0 of our
+                Javascript SDK
+              </div>
+            )}
           </div>
 
           {visualChangesets.map((vc, i) => {
