@@ -1,7 +1,7 @@
 import format from "date-fns/format";
 import formatDistance from "date-fns/formatDistance";
 import differenceInDays from "date-fns/differenceInDays";
-import { addMonths } from "date-fns";
+import addMonths from "date-fns/addMonths";
 
 export function date(date: string | Date): string {
   if (!date) return "";
