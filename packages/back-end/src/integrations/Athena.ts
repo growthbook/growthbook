@@ -57,6 +57,6 @@ export default class Athena extends SqlIntegration {
     return `${this.params.catalog}.information_schema.columns`;
   }
   getInformationSchemaTableFromClause(databaseName: string): string {
-    return `${databaseName}.INFORMATION_SCHEMA.COLUMNS`;
+    return `${databaseName}.information_schema.columns`;
   }
 }

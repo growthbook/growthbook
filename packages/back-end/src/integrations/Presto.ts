@@ -109,11 +109,11 @@ export default class Presto extends SqlIntegration {
   getInformationSchemaFromClause(): string {
     if (!this.params.catalog)
       throw new MissingDatasourceParamsError(
-        `To view the information schema for an Presto data source, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings.`
+        `To view the information schema for a Presto data source, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings.`
       );
     return `${this.params.catalog}.information_schema.columns`;
   }
   getInformationSchemaTableFromClause(databaseName: string): string {
-    return `${databaseName}.INFORMATION_SCHEMA.COLUMNS`;
+    return `${databaseName}.information_schema.columns`;
   }
 }

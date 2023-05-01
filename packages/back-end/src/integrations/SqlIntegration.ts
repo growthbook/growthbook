@@ -1234,7 +1234,7 @@ export default abstract class SqlIntegration
     return "information_schema.columns";
   }
   getInformationSchemaWhereClause(): string {
-    return "table_schema NOT IN ('INFORMATION_SCHEMA')";
+    return "table_schema NOT IN ('information_schema')";
   }
   getInformationSchemaTableFromClause(
     // eslint-disable-next-line
@@ -1242,7 +1242,7 @@ export default abstract class SqlIntegration
     // eslint-disable-next-line
     tableSchema: string
   ): string {
-    return "INFORMATION_SCHEMA.COLUMNS";
+    return "information_schema.columns";
   }
   async getInformationSchema(): Promise<InformationSchema[]> {
     const sql = `

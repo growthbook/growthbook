@@ -2,6 +2,7 @@ import mssql from "mssql";
 import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
+import { MissingDatasourceParamsError } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mssql extends SqlIntegration {
@@ -68,12 +69,12 @@ export default class Mssql extends SqlIntegration {
   }
   getInformationSchemaFromClause(): string {
     if (!this.params.database)
-      throw new Error(
-        "No database provided. In order to get the information schema, you must provide a database."
+      throw new MissingDatasourceParamsError(
+        "To view the information schema for a MS Sql dataset, you must define a default database. Please add a default database by editing the datasource's connection settings."
       );
     return `${this.params.database}.information_schema.columns`;
   }
   getInformationSchemaTableFromClause(databaseName: string): string {
-    return `${databaseName}.INFORMATION_SCHEMA.COLUMNS`;
+    return `${databaseName}.information_schema.columns`;
   }
 }

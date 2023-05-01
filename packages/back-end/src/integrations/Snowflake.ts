@@ -41,7 +41,10 @@ export default class Snowflake extends SqlIntegration {
       );
     return `${this.params.database}.information_schema.columns`;
   }
+  getInformationSchemaWhereClause(): string {
+    return "table_schema NOT IN ('INFORMATION_SCHEMA')";
+  }
   getInformationSchemaTableFromClause(databaseName: string): string {
-    return `${databaseName}.INFORMATION_SCHEMA.COLUMNS`;
+    return `${databaseName}.information_schema.columns`;
   }
 }
