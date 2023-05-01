@@ -3,7 +3,13 @@ import { ExperimentReportArgs, ReportInterface } from "back-end/types/report";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
-import { getValidDate, ago, datetime, date } from "shared";
+import {
+  getValidDate,
+  ago,
+  datetime,
+  date,
+  DEFAULT_STATS_ENGINE,
+} from "shared";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";
@@ -112,7 +118,7 @@ export default function ReportPage() {
   const phaseAgeMinutes =
     (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
 
-  const statsEngine = data?.report?.args?.statsEngine || "bayesian";
+  const statsEngine = data?.report?.args?.statsEngine || DEFAULT_STATS_ENGINE;
   const regressionAdjustmentAvailable =
     hasRegressionAdjustmentFeature && statsEngine === "frequentist";
   const regressionAdjustmentEnabled =
