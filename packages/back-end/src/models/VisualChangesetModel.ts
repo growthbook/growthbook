@@ -65,6 +65,7 @@ const visualChangesetSchema = new mongoose.Schema({
   visualChanges: {
     type: [
       {
+        _id: false,
         id: {
           type: String,
           required: true,
@@ -78,6 +79,7 @@ const visualChangesetSchema = new mongoose.Schema({
         },
         domMutations: [
           {
+            _id: false,
             selector: { type: String, required: true },
             action: {
               type: String,

@@ -47,6 +47,7 @@
     "@rollup/plugin-commonjs": "^20.0.0",
     "@rollup/plugin-node-resolve": "^13.0.4",
     "@rollup/plugin-replace": "^3.0.0",
+    "@testing-library/react": "^14.0.0",
     "@types/jest": "^27.0.1",
     "@types/react": "^18.0.15",
     "@types/react-dom": "^18.0.6",

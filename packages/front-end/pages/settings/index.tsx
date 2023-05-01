@@ -9,6 +9,11 @@ import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import cronstrue from "cronstrue";
 import { AttributionModel } from "back-end/types/experiment";
+import { PValueCorrection } from "back-end/types/stats";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+} from "shared";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -31,10 +36,6 @@ import SelectField from "@/components/Forms/SelectField";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import Tab from "@/components/Tabs/Tab";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
-import {
-  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-} from "@/constants/stats";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -115,6 +116,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
       pValueThreshold: 0.05,
+      pValueCorrection: null,
       statsEngine: "bayesian",
       regressionAdjustmentEnabled: false,
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -145,6 +147,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     statsEngine: form.watch("statsEngine"),
     confidenceLevel: form.watch("confidenceLevel"),
     pValueThreshold: form.watch("pValueThreshold"),
+    pValueCorrection: form.watch("pValueCorrection"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
     sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
@@ -571,8 +574,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       className="ml-2"
                       value={form.watch("attributionModel")}
                       onChange={(value) => {
-                        const model = value as AttributionModel;
-                        form.setValue("attributionModel", model);
+                        form.setValue(
+                          "attributionModel",
+                          value as AttributionModel
+                        );
                       }}
                       options={[
                         {
@@ -760,7 +765,34 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         })}
                       />
                     </div>
-
+                    <div className="mb-3  form-inline flex-column align-items-start">
+                      <SelectField
+                        label={"Multiple comparisons correction to use: "}
+                        className="ml-2"
+                        value={form.watch("pValueCorrection") ?? null}
+                        onChange={(value) =>
+                          form.setValue(
+                            "pValueCorrection",
+                            value as PValueCorrection
+                          )
+                        }
+                        sort={false}
+                        options={[
+                          {
+                            label: "None",
+                            value: null,
+                          },
+                          {
+                            label: "Holm-Bonferroni (Control FWER)",
+                            value: "holm-bonferroni",
+                          },
+                          {
+                            label: "Benjamini-Hochberg (Control FDR)",
+                            value: "benjamini-hochberg",
+                          },
+                        ]}
+                      />
+                    </div>
                     <div className="p-3 my-3 border rounded">
                       <h5 className="font-weight-bold mb-4">
                         <PremiumTooltip commercialFeature="regression-adjustment">

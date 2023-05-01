@@ -5,7 +5,7 @@ import {
   PROJECT_SCOPED_PERMISSIONS,
 } from "../src/util/organization.util";
 import { AttributionModel, ImplementationType } from "./experiment";
-import type { StatsEngine } from "./stats";
+import type { PValueCorrection, StatsEngine } from "./stats";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -158,6 +158,7 @@ export interface OrganizationSettings {
   defaultRole?: MemberRoleInfo;
   statsEngine?: StatsEngine;
   pValueThreshold?: number;
+  pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
   regressionAdjustmentDays?: number;
   /** @deprecated */
@@ -193,6 +194,14 @@ export interface VercelConnection {
   configurationId: string;
   teamId: string | null;
 }
+
+/**
+ * The type for the global organization message component
+ */
+export type OrganizationMessage = {
+  message: string;
+  level: "info" | "danger" | "warning";
+};
 
 export interface OrganizationInterface {
   id: string;
@@ -230,6 +239,7 @@ export interface OrganizationInterface {
   pendingMembers?: PendingMember[];
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
+  messages?: OrganizationMessage[];
 }
 
 export type NamespaceUsage = Record<

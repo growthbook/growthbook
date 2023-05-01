@@ -4,7 +4,7 @@ import { FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
-import { StatsEngine } from "back-end/types/stats";
+import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { ExperimentTableRow, useDomain } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "../Tooltip/Tooltip";
@@ -24,6 +24,7 @@ export type ResultsTableProps = {
   startDate: string;
   rows: ExperimentTableRow[];
   users?: number[];
+  tableRowAxis: "metric" | "dimension";
   labelHeader: string;
   renderLabelColumn: (
     label: string,
@@ -36,6 +37,7 @@ export type ResultsTableProps = {
   riskVariation: number;
   setRiskVariation: (riskVariation: number) => void;
   statsEngine?: StatsEngine;
+  pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
 };
 
@@ -52,6 +54,7 @@ export default function ResultsTable({
   rows,
   labelHeader,
   users,
+  tableRowAxis,
   variations,
   startDate,
   renderLabelColumn,
@@ -61,6 +64,7 @@ export default function ResultsTable({
   riskVariation,
   setRiskVariation,
   statsEngine,
+  pValueCorrection,
   sequentialTestingEnabled,
 }: ResultsTableProps) {
   const domain = useDomain(variations, rows);
@@ -142,10 +146,39 @@ export default function ResultsTable({
                   {statsEngine === "frequentist" ? (
                     <>
                       P-value
-                      {sequentialTestingEnabled && (
+                      {(sequentialTestingEnabled || pValueCorrection) && (
                         <Tooltip
                           innerClassName="text-left"
-                          body="Because sequential testing is enabled, these are always valid p-values (in other words, they are immune to peeking). They can still be interpreted in a similar way: your result is statistically significant if it drops below your threshold (default 0.05)."
+                          body={
+                            <>
+                              {sequentialTestingEnabled && (
+                                <div className={pValueCorrection ? "mb-3" : ""}>
+                                  Sequential testing is enabled. These are
+                                  &apos;always valid p-values&apos; and robust
+                                  to peeking. They have a slightly different
+                                  interpretation to normal p-values and can
+                                  often be 1.000. Nonetheless, the
+                                  interpretation remains that the result is
+                                  still statistically significant if it drops
+                                  below your threshold (
+                                  {orgSettings.pValueThreshold ?? 0.05}).
+                                </div>
+                              )}
+                              {pValueCorrection && (
+                                <div>
+                                  The p-values presented below are adjusted for
+                                  multiple comparisons using the{" "}
+                                  {pValueCorrection} method. P-values were
+                                  adjusted across tests for
+                                  {tableRowAxis === "dimension"
+                                    ? "all dimension values, non-guardrail metrics, and variations"
+                                    : "all non-guardrail metrics and variations"}
+                                  . The unadjusted p-values are returned in
+                                  parentheses.
+                                </div>
+                              )}
+                            </>
+                          }
                         >
                           {" "}
                           <FaQuestionCircle />
@@ -186,6 +219,15 @@ export default function ResultsTable({
                                   confidence intervals are valid no matter how
                                   many times you analyze (or peek at) this
                                   experiment as it runs.
+                                </p>
+                              )}
+                              {pValueCorrection && (
+                                <p className="mt-4 mb-0">
+                                  These confidence intervals are not adjusted
+                                  for multiple comparisons as the multiple
+                                  comparisons adjustments GrowthBook implements
+                                  only have associated adjusted p-values, not
+                                  confidence intervals.
                                 </p>
                               )}
                             </>
@@ -296,6 +338,7 @@ export default function ResultsTable({
                           startDate={startDate}
                           metric={row.metric}
                           snapshotDate={dateCreated}
+                          pValueCorrection={pValueCorrection}
                         />
                       ) : (
                         <ChanceToWinColumn

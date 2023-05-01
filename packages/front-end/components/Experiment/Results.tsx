@@ -3,8 +3,9 @@ import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
+import { getValidDate } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ago, getValidDate } from "@/services/dates";
+import { ago } from "@/services/dates";
 import usePermissions from "@/hooks/usePermissions";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
@@ -216,6 +217,7 @@ const Results: FC<{
             variations={variations}
             key={snapshot.dimension}
             statsEngine={snapshot.statsEngine}
+            pValueCorrection={settings.pValueCorrection}
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses
@@ -247,6 +249,7 @@ const Results: FC<{
             multipleExposures={snapshot.multipleExposures || 0}
             variations={variations}
             statsEngine={snapshot.statsEngine}
+            pValueCorrection={settings.pValueCorrection}
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses
