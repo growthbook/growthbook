@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/growthbook-react",
-  "version": "0.15.0",
+  "version": "0.16.0",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -36,7 +36,7 @@
     "react": "^16.8.0-0 || ^17.0.0-0 || ^18.0.0-0"
   },
   "dependencies": {
-    "@growthbook/growthbook": "^0.25.0"
+    "@growthbook/growthbook": "^0.26.0"
   },
   "devDependencies": {
     "@babel/cli": "^7.19.3",
@@ -47,6 +47,7 @@
     "@rollup/plugin-commonjs": "^20.0.0",
     "@rollup/plugin-node-resolve": "^13.0.4",
     "@rollup/plugin-replace": "^3.0.0",
+    "@testing-library/react": "^14.0.0",
     "@types/jest": "^27.0.1",
     "@types/react": "^18.0.15",
     "@types/react-dom": "^18.0.6",
