@@ -1,5 +1,12 @@
 # Changelog
 
+## **0.26.0** - May 1, 2023
+
+- Update GrowthBook test suite to v0.4.2
+- Fix bug when targeting condition value is null
+- Fix bug when an improper hashVersion is specified
+- Bump dom-mutator to v0.5.0 to support re-arranging page elements
+
 ## **0.25.0** - Apr 4, 2023
 
 - More graceful EventSource connection handling with exponential backoff
@@ -11,6 +18,7 @@
 
 ## **0.23.0** - Feb 27, 2023
 
+- Update GrowthBook test suite to v0.4.0
 - Support for holdout groups
 - Experiment dependencies (e.g. only run this experiment if user is in Variation B of another experiment)
 - Ability to force re-randomization when making changes in the middle of an experiment
