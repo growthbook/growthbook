@@ -9064,10 +9064,10 @@ dom-helpers@^5.0.1:
     "@babel/runtime" "^7.8.7"
     csstype "^3.0.2"
 
-dom-mutator@^0.4.0:
-  version "0.4.0"
-  resolved "https://registry.yarnpkg.com/dom-mutator/-/dom-mutator-0.4.0.tgz#cb0a6981ed58bdba25028cb0e5c75777b9b68c07"
-  integrity sha512-H8pcE9Tmmnxs6FTZCX4aRthcweGsVdytqpBSiVIDnTnmosXXYO+jatDWwRReMbJJsAmsnAWsc0Ht4ZYGdN8gZw==
+dom-mutator@^0.5.0:
+  version "0.5.0"
+  resolved "https://registry.yarnpkg.com/dom-mutator/-/dom-mutator-0.5.0.tgz#cd59f0afcc012e7f018717a9c79ce6a225c46782"
+  integrity sha512-bbeX8HWE8JGzraFgbVBX4ws2g3heZFuTtrleQBuN7huy+7n2n7etSuVnot3/1z3jdY2MiwuvoS4Ep1UT2rrGBw==
 
 dom-serializer@^1.0.1:
   version "1.4.1"
