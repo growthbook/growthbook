@@ -1,9 +1,9 @@
 import React, { FC, Fragment, useState } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
 import { FaCheck, FaBolt, FaPencilAlt } from "react-icons/fa";
+import { ago } from "shared";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
-import { ago } from "@/services/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import LoadingOverlay from "../LoadingOverlay";

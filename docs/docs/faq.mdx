@@ -101,7 +101,7 @@ The GrowthBook application is very lightweight and efficient. For most usecases,
 
 GrowthBook only deals with aggregate data and the bulk of the processing is offloaded to your data source. Because of this, you can easily analyze terrabytes of data from your laptop or a small container in the cloud.
 
-If you are using feature flags, we recommend adding a caching layer between the GrowthBook API and your application in production. We offer a pre-built [GrowthBook Proxy server](/self-host/proxy) you can run that handles caching and invalidation automatically. You can also setup your own custom system using a CDN or distributed cache like Redis.
+If you are using feature flags, **we strongly recommend** adding a caching layer between the GrowthBook API and your application in production. This will also help you stay within the limits of our [Fair Use Policy](https://www.growthbook.io/fair-use). Some of our [code examples](https://github.com/growthbook/examples) implement caching. We offer a pre-built [GrowthBook Proxy server](/self-host/proxy) you can run that handles caching and invalidation automatically. You can also setup your own custom system using a CDN or distributed cache like Redis.
 
 ## I can't upload to S3/getting 400 error when uploading to S3?
 
@@ -133,6 +133,20 @@ Ideally in this case you can redownload the notebook and use the new `gbstats` l
 
 If the queries in your notebook return sums and sums of squares as part of the `__stats` CTE but your notebook is still erroring, then you probably have an old `gbstats` version installed and need to update to 0.4.0 or later.
 You can download this from PyPI [here](https://pypi.org/project/gbstats) using `pip install gbstats` and ensure that your kernel uses that version of `gbstats`.
+
+## My features aren't refreshing as expected. What can I do?
+
+Our SDK's implement a stale-while-revalidate approach to cacheing with a configurable time-to-live (TTL) value.
+
+This means that if the feature payload is considered stale (i.e. more than the TTL amount of time has passed since it's been updated), **the next request will return the stale features** and refetch an update asynchronously so that on the next request, the features will be up to date. You can learn more about how our SDK's implement this in detail [here](/lib/build-your-own#fetching-and-caching-features).
+
+If you would like something more real-time than this stale-while-revalidate approach, you may want to consider implementing the [GrowthBook Proxy](https://docs.growthbook.io/self-host/proxy) on your self-hosted instance.
+
+## How do I configure environments in the SDK?
+
+When you create an SDK connection, it is linked to a specific environment. You can learn more about environments [here](/app/features#environments).
+
+---
 
 ## Can't find your question?
 

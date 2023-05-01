@@ -16,8 +16,7 @@ import {
 } from "@visx/tooltip";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
-import { getValidDate } from "shared";
-import { date } from "@/services/dates";
+import { getValidDate, date } from "shared";
 import { formatConversionRate } from "@/services/metrics";
 import styles from "./DateGraph.module.scss";
 

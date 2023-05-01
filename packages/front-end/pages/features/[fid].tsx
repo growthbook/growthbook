@@ -47,6 +47,7 @@ import FeatureModal from "@/components/Features/FeatureModal";
 import { isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -113,13 +114,16 @@ export default function FeaturePage() {
 
   const enabledEnvs = getEnabledEnvironments(data.feature);
 
-  const project = data.feature.project;
+  const projectId = data.feature.project;
+  const project = getProjectById(projectId || "");
+  const projectName = project?.name || null;
+  const projectIsOprhaned = projectId && !projectName;
 
   const hasDraftPublishPermission =
     isDraft &&
     permissions.check(
       "publishFeatures",
-      project,
+      projectId,
       "defaultValue" in data.feature.draft
         ? getEnabledEnvironments(data.feature)
         : getAffectedEnvs(
@@ -348,8 +352,8 @@ export default function FeaturePage() {
             >
               Show implementation
             </a>
-            {permissions.check("manageFeatures", project) &&
-              permissions.check("publishFeatures", project, enabledEnvs) && (
+            {permissions.check("manageFeatures", projectId) &&
+              permissions.check("publishFeatures", projectId, enabledEnvs) && (
                 <a
                   className="dropdown-item"
                   href="#"
@@ -361,8 +365,8 @@ export default function FeaturePage() {
                   Duplicate feature
                 </a>
               )}
-            {permissions.check("manageFeatures", project) &&
-              permissions.check("publishFeatures", project, enabledEnvs) && (
+            {permissions.check("manageFeatures", projectId) &&
+              permissions.check("publishFeatures", projectId, enabledEnvs) && (
                 <DeleteButton
                   useIcon={false}
                   displayName="Feature"
@@ -376,8 +380,8 @@ export default function FeaturePage() {
                   text="Delete feature"
                 />
               )}
-            {permissions.check("manageFeatures", project) &&
-              permissions.check("publishFeatures", project, enabledEnvs) && (
+            {permissions.check("manageFeatures", projectId) &&
+              permissions.check("publishFeatures", projectId, enabledEnvs) && (
                 <ConfirmButton
                   onClick={async () => {
                     await apiCall(`/feature/${data.feature.id}/archive`, {
@@ -431,19 +435,29 @@ export default function FeaturePage() {
         <h1 className="col-auto mb-0">{fid}</h1>
       </div>
 
-      <div className="mb-2 row" style={{ fontSize: "0.8em" }}>
-        {projects.length > 0 && (
+      <div className="mb-2 row">
+        {(projects.length > 0 || projectIsOprhaned) && (
           <div className="col-auto">
             Project:{" "}
-            {data.feature.project ? (
-              <span className="badge badge-secondary">
-                {getProjectById(data.feature.project)?.name || "unknown"}
-              </span>
+            {projectIsOprhaned ? (
+              <Tooltip
+                body={
+                  <>
+                    Project <code>{projectId}</code> not found
+                  </>
+                }
+              >
+                <span className="text-danger">
+                  <FaExclamationTriangle /> Invalid project
+                </span>
+              </Tooltip>
+            ) : projectId ? (
+              <strong>{projectName}</strong>
             ) : (
-              <em className="text-muted">none</em>
+              <em className="text-muted">None</em>
             )}
-            {permissions.check("manageFeatures", project) &&
-              permissions.check("publishFeatures", project, enabledEnvs) && (
+            {permissions.check("manageFeatures", projectId) &&
+              permissions.check("publishFeatures", projectId, enabledEnvs) && (
                 <a
                   className="ml-2 cursor-pointer"
                   onClick={() => setEditProjectModal(true)}
@@ -456,7 +470,7 @@ export default function FeaturePage() {
 
         <div className="col-auto">
           Tags: <SortedTags tags={data.feature?.tags || []} />
-          {permissions.check("manageFeatures", project) && (
+          {permissions.check("manageFeatures", projectId) && (
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditTagsModal(true)}
@@ -472,7 +486,7 @@ export default function FeaturePage() {
 
         <div className="col-auto">
           Owner: {data.feature.owner ? data.feature.owner : "None"}
-          {permissions.check("manageFeatures", project) && (
+          {permissions.check("manageFeatures", projectId) && (
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditOwnerModal(true)}
@@ -502,8 +516,8 @@ export default function FeaturePage() {
         <div className={data.feature.description ? "appbox mb-4 p-3" : ""}>
           <MarkdownInlineEdit
             value={data.feature.description}
-            canEdit={permissions.check("manageFeatures", project)}
-            canCreate={permissions.check("manageFeatures", project)}
+            canEdit={permissions.check("manageFeatures", projectId)}
+            canCreate={permissions.check("manageFeatures", projectId)}
             save={async (description) => {
               await apiCall(`/feature/${data.feature.id}`, {
                 method: "PUT",
@@ -550,7 +564,7 @@ export default function FeaturePage() {
 
       <h3>
         Default Value
-        {permissions.check("createFeatureDrafts", project) && (
+        {permissions.check("createFeatureDrafts", projectId) && (
           <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
             <GBEdit />
           </a>
@@ -606,7 +620,7 @@ export default function FeaturePage() {
         })}
       </ControlledTabs>
 
-      {permissions.check("createFeatureDrafts", project) && (
+      {permissions.check("createFeatureDrafts", projectId) && (
         <div className="row">
           <div className="col mb-3">
             <div

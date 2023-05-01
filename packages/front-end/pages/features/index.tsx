@@ -4,8 +4,8 @@ import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
+import { ago, datetime } from "shared";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { ago, datetime } from "@/services/dates";
 import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -280,6 +280,10 @@ export default function FeaturesPage() {
                 let version = feature.revision?.version || 1;
                 if (isDraft) version++;
 
+                const projectId = feature.project;
+                const projectName = getProjectById(projectId)?.name || null;
+                const projectIsOprhaned = projectId && !projectName;
+
                 return (
                   <tr
                     key={feature.id}
@@ -300,7 +304,21 @@ export default function FeaturesPage() {
                       </Link>
                     </td>
                     {showProjectColumn && (
-                      <td>{getProjectById(feature.project)?.name || ""}</td>
+                      <td>
+                        {projectIsOprhaned ? (
+                          <Tooltip
+                            body={
+                              <>
+                                Project <code>{feature.project}</code> not found
+                              </>
+                            }
+                          >
+                            <span className="text-danger">Invalid project</span>
+                          </Tooltip>
+                        ) : (
+                          projectName ?? <em>All Projects</em>
+                        )}
+                      </td>
                     )}
                     <td>
                       <SortedTags tags={feature?.tags || []} />

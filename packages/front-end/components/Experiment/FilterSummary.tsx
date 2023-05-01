@@ -5,7 +5,7 @@ import {
 } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { FaQuestionCircle } from "react-icons/fa";
-import { datetime } from "@/services/dates";
+import { datetime } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
 import Modal from "../Modal";

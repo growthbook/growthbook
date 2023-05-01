@@ -1,7 +1,7 @@
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import React, { ReactElement, ReactNode, useState } from "react";
+import { ReactElement, ReactNode, useState } from "react";
 import {
   FaCheckCircle,
   FaExclamationTriangle,
@@ -27,6 +27,7 @@ import Button from "@/components/Button";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 function ConnectionDot({ left }: { left: boolean }) {
   return (
@@ -144,7 +145,7 @@ export default function SDKConnectionPage() {
   );
 
   if (!connection) {
-    return <div className="alert alert-danger">Invalid SDK Connection id.</div>;
+    return <div className="alert alert-danger">Invalid SDK Connection id</div>;
   }
 
   const hasPermission = permissions.check(
@@ -156,6 +157,10 @@ export default function SDKConnectionPage() {
   const hasProxy =
     !isCloud() && connection.proxy.enabled && connection.proxy.host;
   const hasCloudProxyForSSE = isCloud() && connection.sseEnabled;
+
+  const projectId = connection.project;
+  const projectName = getProjectById(projectId)?.name || null;
+  const projectIsOprhaned = projectId && !projectName;
 
   return (
     <div className="contents container pagecontents">
@@ -229,18 +234,28 @@ export default function SDKConnectionPage() {
         )}
       </div>
 
-      <div className="mb-4 row" style={{ fontSize: "0.8em" }}>
+      <div className="mb-4 row">
         <div className="col-auto">
           Environment: <strong>{connection.environment}</strong>
         </div>
 
-        {projects.length > 0 && (
+        {(projects.length > 0 || projectIsOprhaned) && (
           <div className="col-auto">
             Project:{" "}
-            {connection.project ? (
-              <strong>
-                {getProjectById(connection.project)?.name || "unknown"}
-              </strong>
+            {projectIsOprhaned ? (
+              <Tooltip
+                body={
+                  <>
+                    Project <code>{projectId}</code> not found
+                  </>
+                }
+              >
+                <span className="text-danger">
+                  <FaExclamationTriangle /> Invalid project
+                </span>
+              </Tooltip>
+            ) : projectId ? (
+              <strong>{projectName}</strong>
             ) : (
               <em className="text-muted">All Projects</em>
             )}
@@ -251,11 +266,19 @@ export default function SDKConnectionPage() {
           <div className="col-auto">
             Encrypted:{" "}
             <strong>
-              <FaLock /> yes
+              <FaLock className="text-purple" /> yes
             </strong>
           </div>
         )}
       </div>
+
+      {projectIsOprhaned && (
+        <div className="alert alert-danger">
+          This SDK connection is scoped to a project that no longer exists. This
+          connection will no longer work until either a valid project or
+          &quot;All Projects&quot; is selected.
+        </div>
+      )}
 
       <div className="row mb-2 align-items-center">
         <div className="col-auto">
