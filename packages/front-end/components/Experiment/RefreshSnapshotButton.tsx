@@ -2,6 +2,8 @@ import { FC, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { StatsEngine } from "back-end/types/stats";
+import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useAuth } from "@/services/auth";
 import Button from "../Button";
 import ManualSnapshotForm from "./ManualSnapshotForm";
@@ -12,7 +14,19 @@ const RefreshSnapshotButton: FC<{
   lastSnapshot?: ExperimentSnapshotInterface;
   phase: number;
   dimension?: string;
-}> = ({ mutate, experiment, lastSnapshot, phase, dimension }) => {
+  statsEngine?: StatsEngine;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+}> = ({
+  mutate,
+  experiment,
+  lastSnapshot,
+  phase,
+  dimension,
+  statsEngine,
+  regressionAdjustmentEnabled,
+  metricRegressionAdjustmentStatuses,
+}) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [longResult, setLongResult] = useState(false);
@@ -34,6 +48,9 @@ const RefreshSnapshotButton: FC<{
         body: JSON.stringify({
           phase,
           dimension,
+          statsEngine,
+          regressionAdjustmentEnabled,
+          metricRegressionAdjustmentStatuses,
         }),
       }
     );

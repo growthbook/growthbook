@@ -1,5 +1,6 @@
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
@@ -285,8 +286,11 @@ export function upgradeOrganizationDoc(
 ): OrganizationInterface {
   const org = cloneDeep(doc);
 
+  // Add settings from config.json
+  const configSettings = getConfigOrganizationSettings();
+  org.settings = Object.assign({}, org.settings || {}, configSettings);
+
   // Add dev/prod environments if there are none yet
-  org.settings = org.settings || {};
   if (!org.settings?.environments?.length) {
     org.settings.environments = [
       {
@@ -321,10 +325,6 @@ export function upgradeOrganizationDoc(
     };
   }
 
-  // Add settings from config.json
-  const configSettings = getConfigOrganizationSettings();
-  org.settings = Object.assign({}, org.settings || {}, configSettings);
-
   // Default attribute schema
   if (!org.settings.attributeSchema) {
     org.settings.attributeSchema = [
@@ -337,6 +337,11 @@ export function upgradeOrganizationDoc(
       { property: "browser", datatype: "string" },
       { property: "url", datatype: "string" },
     ];
+  }
+
+  // Add statsEngine setting if not defined
+  if (!org.settings.statsEngine) {
+    org.settings.statsEngine = "bayesian";
   }
 
   // Rename legacy roles
@@ -390,6 +395,11 @@ export function upgradeExperimentDoc(
     });
   }
 
+  // Upgrade the attribution model
+  if (experiment.attributionModel === "allExposures") {
+    experiment.attributionModel = "experimentDuration";
+  }
+
   // Add hashAttribute field
   experiment.hashAttribute = experiment.hashAttribute || "";
 
@@ -412,6 +422,13 @@ export function upgradeExperimentDoc(
     } else {
       experiment.releasedVariationId = "";
     }
+  }
+
+  if (!("sequentialTestingEnabled" in experiment)) {
+    experiment.sequentialTestingEnabled = false;
+  }
+  if (!("sequentialTestingTuningParameter" in experiment)) {
+    experiment.sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   }
 
   return experiment as ExperimentInterface;

@@ -1,3 +1,4 @@
+import mutate, { DeclarativeMutation } from "dom-mutator";
 import type {
   Context,
   Experiment,
@@ -16,6 +17,8 @@ import type {
   VariationMeta,
   Filter,
   VariationRange,
+  AutoExperimentVariation,
+  AutoExperiment,
 } from "./types/growthbook";
 import type { ConditionInterface } from "./types/mongrule";
 import {
@@ -27,15 +30,14 @@ import {
   getQueryStringOverride,
   inNamespace,
   inRange,
+  isURLTargeted,
+  decrypt,
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
-
-const base64ToBuf = (b: string) =>
-  Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
 
 export class GrowthBook<
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,6 +69,10 @@ export class GrowthBook<
   // eslint-disable-next-line
   private _forcedFeatureValues: Map<string, any>;
   private _attributeOverrides: Attributes;
+  private _activeAutoExperiments: Map<
+    string,
+    { valueHash: string; undo: () => void }
+  >;
 
   constructor(context?: Context) {
     context = context || {};
@@ -84,6 +90,7 @@ export class GrowthBook<
     this._assigned = new Map();
     this._forcedFeatureValues = new Map();
     this._attributeOverrides = {};
+    this._activeAutoExperiments = new Map();
 
     if (context.features) {
       this.ready = true;
@@ -92,6 +99,11 @@ export class GrowthBook<
     if (isBrowser && context.enableDevMode) {
       window._growthbook = this;
       document.dispatchEvent(new Event("gbloaded"));
+    }
+
+    if (context.experiments) {
+      this.ready = true;
+      this._updateAllAutoExperiments();
     }
 
     if (context.clientKey) {
@@ -154,49 +166,60 @@ export class GrowthBook<
     decryptionKey?: string,
     subtle?: SubtleCrypto
   ): Promise<void> {
-    decryptionKey = decryptionKey || this._ctx.decryptionKey || "";
-    subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
-    if (!subtle) {
-      throw new Error("No SubtleCrypto implementation found");
-    }
-    try {
-      const key = await subtle.importKey(
-        "raw",
-        base64ToBuf(decryptionKey),
-        { name: "AES-CBC", length: 128 },
-        true,
-        ["encrypt", "decrypt"]
-      );
-      const [iv, cipherText] = encryptedString.split(".");
-      const plainTextBuffer = await subtle.decrypt(
-        { name: "AES-CBC", iv: base64ToBuf(iv) },
-        key,
-        base64ToBuf(cipherText)
-      );
+    const featuresJSON = await decrypt(
+      encryptedString,
+      decryptionKey || this._ctx.decryptionKey,
+      subtle
+    );
+    this.setFeatures(
+      JSON.parse(featuresJSON) as Record<string, FeatureDefinition>
+    );
+  }
 
-      this.setFeatures(JSON.parse(new TextDecoder().decode(plainTextBuffer)));
-    } catch (e) {
-      throw new Error("Failed to decrypt features");
-    }
+  public setExperiments(experiments: AutoExperiment[]): void {
+    this._ctx.experiments = experiments;
+    this.ready = true;
+    this._updateAllAutoExperiments();
+  }
+
+  public async setEncryptedExperiments(
+    encryptedString: string,
+    decryptionKey?: string,
+    subtle?: SubtleCrypto
+  ): Promise<void> {
+    const experimentsJSON = await decrypt(
+      encryptedString,
+      decryptionKey || this._ctx.decryptionKey,
+      subtle
+    );
+    this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
   }
 
   public setAttributes(attributes: Attributes) {
     this._ctx.attributes = attributes;
     this._render();
+    this._updateAllAutoExperiments();
   }
 
   public setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
     this._render();
+    this._updateAllAutoExperiments();
   }
   public setForcedVariations(vars: Record<string, number>) {
     this._ctx.forcedVariations = vars || {};
     this._render();
+    this._updateAllAutoExperiments();
   }
   // eslint-disable-next-line
   public setForcedFeatures(map: Map<string, any>) {
     this._forcedFeatureValues = map;
     this._render();
+  }
+
+  public setURL(url: string) {
+    this._ctx.url = url;
+    this._updateAllAutoExperiments();
   }
 
   public getAttributes() {
@@ -205,6 +228,10 @@ export class GrowthBook<
 
   public getFeatures() {
     return this._ctx.features || {};
+  }
+
+  public getExperiments() {
+    return this._ctx.experiments || [];
   }
 
   public subscribe(cb: SubscriptionFunction): () => void {
@@ -234,6 +261,12 @@ export class GrowthBook<
     if (isBrowser && window._growthbook === this) {
       delete window._growthbook;
     }
+
+    // Undo any active auto experiments
+    this._activeAutoExperiments.forEach((exp) => {
+      exp.undo();
+    });
+    this._activeAutoExperiments.clear();
   }
 
   public setRenderer(renderer: () => void) {
@@ -250,6 +283,74 @@ export class GrowthBook<
     const result = this._run(experiment, null);
     this._fireSubscriptions(experiment, result);
     return result;
+  }
+
+  public triggerExperiment(key: string) {
+    if (!this._ctx.experiments) return null;
+    const exp = this._ctx.experiments.find((exp) => exp.key === key);
+    if (!exp || !exp.manual) return null;
+    return this._runAutoExperiment(exp, true);
+  }
+
+  private _runAutoExperiment(experiment: AutoExperiment, forced?: boolean) {
+    const key = experiment.key;
+    const existing = this._activeAutoExperiments.get(key);
+
+    // If this is a manual experiment and it's not already running, skip
+    if (!forced && experiment.manual && !existing) return null;
+
+    // Run the experiment
+    const result = this.run(experiment);
+
+    // A hash to quickly tell if the assigned value changed
+    const valueHash = JSON.stringify(result.value);
+
+    // If the changes are already active, no need to re-apply them
+    if (result.inExperiment && existing && existing.valueHash === valueHash) {
+      return result;
+    }
+
+    // Undo any existing changes
+    if (existing) this._undoActiveAutoExperiment(key);
+
+    // Apply new changes
+    if (result.inExperiment) {
+      const undo = this._applyDOMChanges(result.value);
+      if (undo) {
+        this._activeAutoExperiments.set(experiment.key, {
+          undo,
+          valueHash,
+        });
+      }
+    }
+
+    return result;
+  }
+
+  private _undoActiveAutoExperiment(key: string) {
+    const exp = this._activeAutoExperiments.get(key);
+    if (exp) {
+      exp.undo();
+      this._activeAutoExperiments.delete(key);
+    }
+  }
+
+  private _updateAllAutoExperiments() {
+    const experiments = this._ctx.experiments || [];
+
+    // Stop any experiments that are no longer defined
+    const keys = new Set(experiments.map((e) => e.key));
+    this._activeAutoExperiments.forEach((v, k) => {
+      if (!keys.has(k)) {
+        v.undo();
+        this._activeAutoExperiments.delete(k);
+      }
+    });
+
+    // Re-run all new/updated experiments
+    experiments.forEach((exp) => {
+      this._runAutoExperiment(exp, false);
+    });
   }
 
   private _fireSubscriptions<T>(experiment: Experiment<T>, result: Result<T>) {
@@ -534,6 +635,7 @@ export class GrowthBook<
     }
 
     const n = hash(seed, hashValue, hashVersion || 1);
+    if (n === null) return false;
 
     return range
       ? inRange(n, range)
@@ -551,6 +653,7 @@ export class GrowthBook<
       const { hashValue } = this._getHashAttribute(filter.attribute);
       if (!hashValue) return true;
       const n = hash(filter.seed, hashValue, filter.hashVersion || 2);
+      if (n === null) return true;
       return !filter.ranges.some((r) => inRange(n, r));
     });
   }
@@ -674,10 +777,22 @@ export class GrowthBook<
       return this._getResult(experiment, -1, false, featureId);
     }
 
-    // 8.2. Exclude if not on a targeted url
+    // 8.2. Old style URL targeting
     if (experiment.url && !this._urlIsValid(experiment.url as RegExp)) {
       process.env.NODE_ENV !== "production" &&
         this.log("Skip because of url", {
+          id: key,
+        });
+      return this._getResult(experiment, -1, false, featureId);
+    }
+
+    // 8.3. New, more powerful URL targeting
+    if (
+      experiment.urlPatterns &&
+      !isURLTargeted(this._getContextUrl(), experiment.urlPatterns)
+    ) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Skip because of url targeting", {
           id: key,
         });
       return this._getResult(experiment, -1, false, featureId);
@@ -689,6 +804,14 @@ export class GrowthBook<
       hashValue,
       experiment.hashVersion || 1
     );
+    if (n === null) {
+      process.env.NODE_ENV !== "production" &&
+        this.log("Skip because of invalid hash version", {
+          id: key,
+        });
+      return this._getResult(experiment, -1, false, featureId);
+    }
+
     const ranges =
       experiment.ranges ||
       getBucketRanges(
@@ -872,5 +995,24 @@ export class GrowthBook<
       if (groups[expGroups[i]]) return true;
     }
     return false;
+  }
+
+  private _applyDOMChanges(changes: AutoExperimentVariation) {
+    if (!isBrowser) return;
+    const undo: (() => void)[] = [];
+    if (changes.css) {
+      const s = document.createElement("style");
+      s.innerHTML = changes.css;
+      document.head.appendChild(s);
+      undo.push(() => s.remove());
+    }
+    if (changes.domMutations) {
+      changes.domMutations.forEach((mutation) => {
+        undo.push(mutate.declarative(mutation as DeclarativeMutation).revert);
+      });
+    }
+    return () => {
+      undo.forEach((fn) => fn());
+    };
   }
 }

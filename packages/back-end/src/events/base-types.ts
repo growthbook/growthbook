@@ -1,3 +1,5 @@
+import { EventAuditUser } from "./event-types";
+
 /**
  * Supported events for event notifications
  */
@@ -10,6 +12,8 @@ export const notificationEventNames = [
   "experiment.created",
   "experiment.updated",
   "experiment.deleted",
+  // User
+  "user.login",
 ] as const;
 
 export type NotificationEventName = typeof notificationEventNames[number];
@@ -17,7 +21,11 @@ export type NotificationEventName = typeof notificationEventNames[number];
 /**
  * Supported resources for event notifications
  */
-export const notificationEventResources = ["feature", "experiment"] as const;
+export const notificationEventResources = [
+  "feature",
+  "experiment",
+  "user",
+] as const;
 export type NotificationEventResource = typeof notificationEventResources[number];
 
 /**
@@ -31,4 +39,5 @@ export type NotificationEventPayload<
   event: EventName;
   object: ResourceType;
   data: DataType;
+  user: EventAuditUser;
 };

@@ -15,7 +15,7 @@ mysql-connector-python = "^8.0.32"
 psycopg2 = "^2.9.5"
 python-dotenv = "^0.21.1"
 sqlfluff = "^1.4.5"
-snowflake-connector-python = "^2.9.0"
+snowflake-connector-python = "^3.0.0"
 databricks-sql-connector = "^2.3.0"
 
 [tool.poetry.dev-dependencies]

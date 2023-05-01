@@ -13,6 +13,6 @@ router.get("/:id", getExperiment);
 router.get("/:id/results", getExperimentResults);
 
 // VisualChangeset Endpoints
-router.get("/:id/visual_changesets", listVisualChangesets);
+router.get("/:id/visual-changesets", listVisualChangesets);
 
 export default router;

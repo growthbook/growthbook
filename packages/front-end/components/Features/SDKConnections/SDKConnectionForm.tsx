@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { FaInfoCircle } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -17,6 +18,7 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import Toggle from "@/components/Forms/Toggle";
 import { isCloud } from "@/services/env";
 import track from "@/services/track";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import { languageMapping } from "./SDKLanguageLogo";
 
@@ -52,6 +54,9 @@ export default function SDKConnectionForm({
       environment: initialValue.environment || environments[0]?.id || "",
       project: "project" in initialValue ? initialValue.project : project || "",
       encryptPayload: initialValue.encryptPayload || false,
+      includeVisualExperiments: initialValue.includeVisualExperiments || false,
+      includeDraftExperiments: initialValue.includeDraftExperiments || false,
+      includeExperimentNames: initialValue.includeExperimentNames || false,
       proxyEnabled: initialValue.proxy?.enabled || false,
       proxyHost: initialValue.proxy?.host || "",
     },
@@ -72,10 +77,13 @@ export default function SDKConnectionForm({
   const hasSDKsWithoutEncryptionSupport = languages.some(
     (l) => !languageMapping[l].supportsEncryption
   );
+  const hasNoSDKsWithVisualExperimentSupport = languages.every(
+    (l) => !languageMapping[l].supportsVisualExperiments
+  );
 
   return (
     <Modal
-      header={edit ? "Edit SDK COnnection" : "New SDK Connection"}
+      header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}
       submit={form.handleSubmit(async (value) => {
         // Make sure encryption is disabled if they selected at least 1 language that's not supported
@@ -85,6 +93,14 @@ export default function SDKConnectionForm({
           value.languages.some((l) => !languageMapping[l].supportsEncryption)
         ) {
           value.encryptPayload = false;
+        }
+        if (
+          languages.every((l) => !languageMapping[l].supportsVisualExperiments)
+        ) {
+          value.includeVisualExperiments = false;
+        }
+        if (!value.includeVisualExperiments) {
+          value.includeDraftExperiments = false;
         }
 
         const body: Omit<CreateSDKConnectionParams, "organization"> = {
@@ -155,6 +171,95 @@ export default function SDKConnectionForm({
         onChange={(env) => form.setValue("environment", env)}
         options={environments.map((e) => ({ label: e.id, value: e.id }))}
       />
+
+      {!hasNoSDKsWithVisualExperimentSupport && (
+        <>
+          <label>Visual experiments</label>
+          <div className="border rounded pt-2 pb-3 px-3">
+            <div>
+              <label htmlFor="sdk-connection-visual-experiments-toggle">
+                Include visual experiments in endpoint&apos;s response?
+              </label>
+              <div className="form-inline">
+                <Toggle
+                  id="sdk-connection-visual-experiments-toggle"
+                  value={form.watch("includeVisualExperiments")}
+                  setValue={(val) =>
+                    form.setValue("includeVisualExperiments", val)
+                  }
+                />
+              </div>
+            </div>
+            {form.watch("includeVisualExperiments") && (
+              <>
+                <div className="mt-3">
+                  <Tooltip
+                    body={
+                      <>
+                        <p>
+                          In-development visual experiments will be sent to the
+                          SDK. We recommend only enabling this for
+                          non-production environments.
+                        </p>
+                        <p className="mb-0">
+                          To force into a variation, use a URL query string such
+                          as{" "}
+                          <div className="text-monospace">
+                            ?my-experiment-id=2
+                          </div>
+                        </p>
+                      </>
+                    }
+                  >
+                    <label htmlFor="sdk-connection-include-draft-experiments-toggle">
+                      Include draft experiments <FaInfoCircle />
+                    </label>
+                  </Tooltip>
+                  <div>
+                    <Toggle
+                      id="sdk-connection-include-draft-experiments-toggle"
+                      value={form.watch("includeDraftExperiments")}
+                      setValue={(val) =>
+                        form.setValue("includeDraftExperiments", val)
+                      }
+                    />
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <Tooltip
+                    body={
+                      <>
+                        <p>
+                          This can help add context when debugging or tracking
+                          events.
+                        </p>
+                        <div>
+                          However, this could expose potentially sensitive
+                          information to your users if enabled for a client-side
+                          or mobile application.
+                        </div>
+                      </>
+                    }
+                  >
+                    <label htmlFor="sdk-connection-include-experiment-meta">
+                      Include experiment/variation names? <FaInfoCircle />
+                    </label>
+                  </Tooltip>
+                  <div>
+                    <Toggle
+                      id="sdk-connection-include-experiment-meta"
+                      value={form.watch("includeExperimentNames")}
+                      setValue={(val) =>
+                        form.setValue("includeExperimentNames", val)
+                      }
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </>
+      )}
 
       {isCloud() && gb.isOn("proxy-cloud") && (
         <>

@@ -480,3 +480,99 @@ export function GBPremiumBadge({
     </svg>
   );
 }
+
+export function GBCuped({
+  className = "",
+  size = 20,
+  ...otherProps
+}): React.ReactElement {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 16"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...otherProps}
+    >
+      <defs>
+        <linearGradient
+          gradientUnits="userSpaceOnUse"
+          x1="0"
+          y1="0"
+          x2="0"
+          y2="14"
+          id="gradient"
+          spreadMethod="pad"
+        >
+          <stop
+            offset="0"
+            style={{ stopColor: "rgb(56, 226, 175)", stopOpacity: 0.75 }}
+          ></stop>
+          <stop
+            offset="1"
+            style={{ stopColor: "rgb(56, 226, 175)", stopOpacity: 0 }}
+          ></stop>
+        </linearGradient>
+      </defs>
+      <path
+        style={{
+          strokeLinecap: "round",
+          stroke: "rgb(22,217,161)",
+          strokeWidth: 1.2,
+          fill: "url(#gradient)",
+        }}
+        d="M 2.873 14.6 C 3.873 14.161 6.15 14.476 6.857 6.341 C 7.234 1.992 7.877 0.66 8.811 0.636 C 9.987 0.605 10.274 2.469 10.907 6.371 C 12.289 14.877 15.309 14.534 15.309 14.534"
+      ></path>
+      <path
+        style={{
+          strokeLinecap: "round",
+          stroke: "rgb(204,153,0)",
+          // mixBlendMode: "multiply",
+        }}
+        d="M 0.75 12.056 C 0.75 12.056 2.916 12.09 4.132 9.615 C 5.197 7.448 6.534 6.703 8.244 6.644 C 9.807 6.59 11.373 8.126 12.276 9.782 C 13.489 12.007 15.614 11.977 15.614 11.977"
+      ></path>
+    </svg>
+  );
+}
+
+export function GBSequential({
+  className = "",
+  size = 20,
+  ...otherProps
+}): React.ReactElement {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 13"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...otherProps}
+    >
+      <path
+        style={{
+          strokeWidth: 0.8,
+          stroke: "rgb(61,106,153)",
+        }}
+        d="m.4,10.1s.72-.15,2.36-4.77c.89-2.51,2.38-2.58,3.2.08,1.42,4.57,2.78,4.74,2.78,4.74"
+      />
+      <path
+        style={{
+          strokeWidth: 1,
+          stroke: "rgb(61,130,204)",
+        }}
+        d="m2.66,9.52s.88-.17,2.72-5.37c1-2.83,2.67-2.91,3.6.09,1.6,5.14,3.12,5.33,3.12,5.33"
+      />
+      <path
+        style={{
+          strokeWidth: 1.2,
+          stroke: "rgb(51,150,255)",
+        }}
+        d="m4.88,8.94s1.03-.19,3.08-5.96c1.11-3.14,2.97-3.23,4.01.1,1.78,5.71,3.47,5.92,3.47,5.92"
+      />
+    </svg>
+  );
+}

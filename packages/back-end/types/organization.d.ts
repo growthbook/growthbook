@@ -4,8 +4,8 @@ import {
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
 } from "../src/util/organization.util";
-import { ImplementationType } from "./experiment";
-import type { StatsEngine } from "./stats";
+import { AttributionModel, ImplementationType } from "./experiment";
+import type { PValueCorrection, StatsEngine } from "./stats";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
@@ -37,8 +37,12 @@ export type CommercialFeature =
   | "sso"
   | "advanced-permissions"
   | "encrypt-features-endpoint"
+  | "schedule-feature-flag"
   | "override-metrics"
-  | "schedule-feature-flag";
+  | "regression-adjustment"
+  | "sequential-testing"
+  | "audit-logging"
+  | "visual-editor";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {
@@ -154,8 +158,14 @@ export interface OrganizationSettings {
   defaultRole?: MemberRoleInfo;
   statsEngine?: StatsEngine;
   pValueThreshold?: number;
+  pValueCorrection?: PValueCorrection;
+  regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentDays?: number;
   /** @deprecated */
   implementationTypes?: ImplementationType[];
+  attributionModel?: AttributionModel;
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
 }
 
 export interface SubscriptionQuote {
@@ -185,6 +195,14 @@ export interface VercelConnection {
   teamId: string | null;
 }
 
+/**
+ * The type for the global organization message component
+ */
+export type OrganizationMessage = {
+  message: string;
+  level: "info" | "danger" | "warning";
+};
+
 export interface OrganizationInterface {
   id: string;
   url: string;
@@ -199,6 +217,7 @@ export interface OrganizationInterface {
   discountCode?: string;
   priceId?: string;
   disableSelfServeBilling?: boolean;
+  freeTrialDate?: Date;
   enterprise?: boolean;
   subscription?: {
     id: string;
@@ -211,6 +230,7 @@ export interface OrganizationInterface {
     cancel_at_period_end: boolean;
     planNickname: string | null;
     priceId?: string;
+    hasPaymentMethod?: boolean;
   };
   licenseKey?: string;
   autoApproveMembers?: boolean;
@@ -219,6 +239,7 @@ export interface OrganizationInterface {
   pendingMembers?: PendingMember[];
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
+  messages?: OrganizationMessage[];
 }
 
 export type NamespaceUsage = Record<

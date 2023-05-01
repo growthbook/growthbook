@@ -56,10 +56,10 @@ Then you will need to generate an anonymous visitor id, which is used to assign 
 persist this id in localStorage so if the user refreshes our app they will get assigned the same variation as before.
 
 ```ts
-let visitor_id = localStorage.get("visitor_id");
+let visitor_id = localStorage.getItem("visitor_id");
 if (!visitor_id) {
   visitor_id = nanoid();
-  localStorage.set("visitor_id", visitor_id);
+  localStorage.setItem("visitor_id", visitor_id);
 }
 ```
 
@@ -100,8 +100,9 @@ ReactDOM.render(
 <React.StrictMode>
   <GrowthBookProvider growthbook={growthbook}>
     <App />
-  </GrowthBookProvider> </React.StrictMode
->, document.getElementById('root') );
+  </GrowthBookProvider>
+</React.StrictMode>, document.getElementById('root')
+);
 ```
 
 ## 4. Create and use a feature
@@ -127,7 +128,7 @@ Now you can switch back to our React app and reference this feature in our code.
 In src/App.js, we currently have the following code:
 
 ```html
-<img src="{logo}" className="App-logo" alt="logo" />
+<img src={logo} className="App-logo" alt="logo" />
 ```
 
 Let's add an import at the top of the file:
@@ -140,7 +141,7 @@ And wrap the img element in an IfFeatureEnabled component:
 
 ```html
 <IfFeatureEnabled feature="show-logo">
-  <img src="{logo}" className="App-logo" alt="logo" />
+  <img src={logo} className="App-logo" alt="logo" />
 </IfFeatureEnabled>
 ```
 

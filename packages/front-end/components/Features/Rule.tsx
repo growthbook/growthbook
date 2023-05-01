@@ -2,13 +2,14 @@ import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef } from "react";
-import { FaArrowsAlt } from "react-icons/fa";
+import { FaArrowsAlt, FaExclamationTriangle } from "react-icons/fa";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, useEnvironments } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "../Button";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
@@ -26,6 +27,7 @@ interface SortableProps {
   experiments: Record<string, ExperimentInterfaceStringDates>;
   mutate: () => void;
   setRuleModal: ({ environment: string, i: number }) => void;
+  unreachable?: boolean;
 }
 
 type RuleProps = SortableProps &
@@ -45,6 +47,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       mutate,
       handle,
       experiments,
+      unreachable,
       ...props
     },
     ref
@@ -107,6 +110,19 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             className="mx-2"
           >
             {title}
+            {unreachable && (
+              <Tooltip
+                body={
+                  "A rule above this one will serve to 100% of the traffic, and this rule will never be reached."
+                }
+              >
+                <span className="ml-2 font-italic bg-secondary text-light border px-2 rounded d-inline-block">
+                  {" "}
+                  <FaExclamationTriangle className="text-warning" /> This rule
+                  is not reachable
+                </span>
+              </Tooltip>
+            )}
           </div>
           <RuleStatusPill
             rule={rule}
@@ -218,25 +234,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
         </div>
         <div className="d-flex">
           <div
-            style={{ flex: 1, maxWidth: "100%" }}
+            style={{
+              flex: 1,
+              maxWidth: "100%",
+              opacity: ruleDisabled ? 0.5 : 1,
+            }}
             className="pt-1 position-relative"
           >
-            {ruleDisabled && (
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  zIndex: 99,
-                  background: "rgba(255,255,255,.7)",
-                  display: "flex",
-                  flexDirection: "column",
-                  fontSize: 25,
-                }}
-              ></div>
-            )}
             {rule.condition && rule.condition !== "{}" && (
               <div className="row mb-3 align-items-top">
                 <div className="col-auto">

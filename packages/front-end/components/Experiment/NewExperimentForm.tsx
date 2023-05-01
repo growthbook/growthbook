@@ -3,19 +3,18 @@ import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
-  ImplementationType,
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
+import { getValidDate } from "shared";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { getEqualWeights } from "@/services/utils";
-import { generateVariationId } from "@/services/features";
+import { generateVariationId, useAttributeSchema } from "@/services/features";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
 import Page from "../Modal/Page";
@@ -23,8 +22,9 @@ import PagedModal from "../Modal/PagedModal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
+import ConditionInput from "../Features/ConditionInput";
+import NamespaceSelector from "../Features/NamespaceSelector";
 import MetricsSelector from "./MetricsSelector";
-import ExperimentVariationsInput from "./ExperimentVariationsInput";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -42,6 +42,7 @@ export type NewExperimentFormProps = {
   onClose?: () => void;
   onCreate?: (id: string) => void;
   inline?: boolean;
+  isNewExperiment?: boolean;
 };
 
 function getDefaultVariations(num: number) {
@@ -74,6 +75,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   idea,
   msg,
   inline,
+  isNewExperiment,
 }) => {
   const router = useRouter();
   const [step, setStep] = useState(initialStep || 0);
@@ -87,6 +89,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     refreshTags,
     project,
   } = useDefinitions();
+
+  const settings = useOrgSettings();
+
   const { refreshWatching } = useWatching();
 
   useEffect(() => {
@@ -95,10 +100,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     });
   }, []);
 
+  const attributeSchema = useAttributeSchema();
+  const hasHashAttributes =
+    attributeSchema.filter((x) => x.hashAttribute).length > 0;
+
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
-      implementation: initialValue?.implementation || "code",
       trackingKey: initialValue?.trackingKey || "",
       datasource: initialValue?.datasource || datasources?.[0]?.id || "",
       exposureQueryId:
@@ -110,8 +118,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       name: initialValue?.name || "",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
-      removeMultipleExposures: initialValue?.removeMultipleExposures ?? true,
-      attributionModel: initialValue?.attributionModel ?? "firstExposure",
+      attributionModel:
+        initialValue?.attributionModel ??
+        settings?.attributionModel ??
+        "firstExposure",
       metrics: initialValue?.metrics || [],
       tags: initialValue?.tags || [],
       targetURLRegex: initialValue?.targetURLRegex || "",
@@ -147,7 +157,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               variationWeights: [0.5, 0.5],
             },
       ],
-      status: initialValue?.status || "running",
+      status: !isImport ? "draft" : initialValue?.status || "running",
       ideaSource: idea || "",
     },
   });
@@ -155,11 +165,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const datasource = getDatasourceById(form.watch("datasource"));
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
 
-  const implementation = form.watch("implementation");
-
   const { apiCall } = useAuth();
-
-  const { visualEditorEnabled } = useOrgSettings();
 
   const onSubmit = form.handleSubmit(async (value) => {
     // Make sure there's an experiment name
@@ -172,11 +178,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
     const data = { ...value };
 
-    if (data.status === "draft") {
-      data.phases = [];
-    }
-
-    if (data.status === "running") {
+    if (data.status !== "stopped") {
       data.phases[0].dateEnded = "";
     }
 
@@ -204,7 +206,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
     track("Create Experiment", {
       source,
-      implementation: data.implementation || "code",
       numTags: data.tags.length,
       numMetrics: data.metrics.length,
       numVariations: data.variations.length,
@@ -224,7 +225,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
   return (
     <PagedModal
-      header={"New Experiment Analysis"}
+      header={isNewExperiment ? "New Experiment" : "New Experiment Analysis"}
       close={onClose}
       docSection="experiments"
       submit={onSubmit}
@@ -238,7 +239,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       <Page display="Basic Info">
         {msg && <div className="alert alert-info">{msg}</div>}
         <Field label="Name" required minLength={2} {...form.register("name")} />
-        {!isImport && !fromFeature && datasource && (
+        {!isImport && !fromFeature && datasource && !isNewExperiment && (
           <Field
             label="Experiment Id"
             {...form.register("trackingKey")}
@@ -254,20 +255,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             }
           />
         )}
-        {visualEditorEnabled && !isImport && (
-          <SelectField
-            label="Use Visual Editor"
-            options={[
-              { label: "no", value: "code" },
-              { label: "yes", value: "visual" },
-            ]}
-            value={form.watch("implementation")}
-            onChange={(v) => {
-              const impType = v as ImplementationType;
-              form.setValue("implementation", impType);
-            }}
-          />
-        )}
+
         <div className="form-group">
           <label>Tags</label>
           <TagsInput
@@ -292,47 +280,21 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             />
           </div>
         )}
-        {(!isImport || fromFeature) && (
+        {!isNewExperiment && (
           <SelectField
-            label="Data Source"
-            value={form.watch("datasource")}
-            onChange={(v) => form.setValue("datasource", v)}
-            initialOption="Manual"
-            options={datasources.map((d) => ({
-              value: d.id,
-              label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-            }))}
-            className="portal-overflow-ellipsis"
+            label="Status"
+            options={[
+              { label: "draft", value: "draft" },
+              { label: "running", value: "running" },
+              { label: "stopped", value: "stopped" },
+            ]}
+            onChange={(v) => {
+              const status = v as ExperimentStatus;
+              form.setValue("status", status);
+            }}
+            value={form.watch("status")}
           />
         )}
-        {datasource?.properties?.exposureQueries && (
-          <SelectField
-            label="Experiment Assignment Table"
-            value={form.watch("exposureQueryId")}
-            onChange={(v) => form.setValue("exposureQueryId", v)}
-            initialOption="Choose..."
-            required
-            options={exposureQueries.map((q) => {
-              return {
-                label: q.name,
-                value: q.id,
-              };
-            })}
-          />
-        )}
-        <SelectField
-          label="Status"
-          options={[
-            { label: "draft", value: "draft" },
-            { label: "running", value: "running" },
-            { label: "stopped", value: "stopped" },
-          ]}
-          onChange={(v) => {
-            const status = v as ExperimentStatus;
-            form.setValue("status", status);
-          }}
-          value={form.watch("status")}
-        />
         {status !== "draft" && (
           <Field
             label="Start Date (UTC)"
@@ -348,61 +310,128 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           />
         )}
       </Page>
-      <Page display="Variations">
-        {status !== "draft" ? (
-          <FeatureVariationsInput
-            valueType={"string"}
-            coverage={form.watch("phases.0.coverage")}
-            setCoverage={(coverage) =>
-              form.setValue("phases.0.coverage", coverage)
-            }
-            setWeight={(i, weight) =>
-              form.setValue(`phases.0.variationWeights.${i}`, weight)
-            }
-            valueAsId={true}
-            setVariations={(v) => {
-              form.setValue(
-                "variations",
-                v.map((data, i) => {
-                  return {
-                    // default values
-                    name: "",
-                    value: i,
-                    screenshots: [],
-                    // overwrite defaults
-                    ...data,
-                    // use value as key if provided to maintain backwards compatibility
-                    key: data.value || `${i}` || "",
-                  };
-                })
-              );
-              form.setValue(
-                "phases.0.variationWeights",
-                v.map((v) => v.weight)
-              );
+      <Page display="Variation Assignment">
+        {isNewExperiment && (
+          <div className="alert alert-info">
+            You will have a chance to review and change these settings before
+            starting your experiment.
+          </div>
+        )}
+        {isNewExperiment && (
+          <SelectField
+            label="Assign variation based on attribute"
+            options={attributeSchema
+              .filter((s) => !hasHashAttributes || s.hashAttribute)
+              .map((s) => ({ label: s.property, value: s.property }))}
+            value={form.watch("hashAttribute")}
+            onChange={(v) => {
+              form.setValue("hashAttribute", v);
             }}
-            variations={form.watch("variations").map((v, i) => {
-              return {
-                value: v.key || "",
-                name: v.name,
-                weight: form.watch(`phases.0.variationWeights.${i}`),
-                id: v.id,
-              };
-            })}
-            coverageTooltip="This is just for documentation purposes and has no effect on the analysis."
-            showPreview={false}
-          />
-        ) : (
-          <ExperimentVariationsInput
-            variations={form.watch("variations")}
-            setVariations={(variations) =>
-              form.setValue("variations", variations)
+            helpText={
+              "Will be hashed and used to assign a variation to each user that views the experiment"
             }
           />
         )}
+        <FeatureVariationsInput
+          valueType={"string"}
+          coverage={form.watch("phases.0.coverage")}
+          setCoverage={(coverage) =>
+            form.setValue("phases.0.coverage", coverage)
+          }
+          setWeight={(i, weight) =>
+            form.setValue(`phases.0.variationWeights.${i}`, weight)
+          }
+          valueAsId={true}
+          setVariations={(v) => {
+            form.setValue(
+              "variations",
+              v.map((data, i) => {
+                return {
+                  // default values
+                  name: "",
+                  value: i,
+                  screenshots: [],
+                  // overwrite defaults
+                  ...data,
+                  // use value as key if provided to maintain backwards compatibility
+                  key: data.value || `${i}` || "",
+                };
+              })
+            );
+            form.setValue(
+              "phases.0.variationWeights",
+              v.map((v) => v.weight)
+            );
+          }}
+          variations={form.watch("variations").map((v, i) => {
+            return {
+              value: v.key || "",
+              name: v.name,
+              weight: form.watch(`phases.0.variationWeights.${i}`),
+              id: v.id,
+            };
+          })}
+          coverageTooltip={
+            isNewExperiment
+              ? "This can be changed later"
+              : "This is just for documentation purposes and has no effect on the analysis."
+          }
+          showPreview={!!isNewExperiment}
+        />
+        {isNewExperiment && (
+          <NamespaceSelector
+            formPrefix="phases.0."
+            form={form}
+            featureId={""}
+            trackingKey={""}
+          />
+        )}
       </Page>
-      <Page display="Goals">
+      <Page display={isNewExperiment ? "Targeting and Goals" : "Goals"}>
+        {isNewExperiment && (
+          <div className="alert alert-info">
+            You will have a chance to review and change these settings before
+            starting your experiment.
+          </div>
+        )}
         <div style={{ minHeight: 350 }}>
+          {isNewExperiment && (
+            <ConditionInput
+              defaultValue={""}
+              labelClassName="font-weight-bold"
+              onChange={(value) => form.setValue("phases.0.condition", value)}
+            />
+          )}
+          {(!isImport || fromFeature) && (
+            <SelectField
+              label="Data Source"
+              labelClassName="font-weight-bold"
+              value={form.watch("datasource")}
+              onChange={(v) => form.setValue("datasource", v)}
+              initialOption="Manual"
+              options={datasources.map((d) => ({
+                value: d.id,
+                label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
+              }))}
+              className="portal-overflow-ellipsis"
+            />
+          )}
+          {datasource?.properties?.exposureQueries && (
+            <SelectField
+              label="Experiment Assignment Table"
+              labelClassName="font-weight-bold"
+              value={form.watch("exposureQueryId")}
+              onChange={(v) => form.setValue("exposureQueryId", v)}
+              initialOption="Choose..."
+              required
+              options={exposureQueries.map((q) => {
+                return {
+                  label: q.name,
+                  value: q.id,
+                };
+              })}
+            />
+          )}
           <div className="form-group">
             <label className="font-weight-bold mb-1">Goal Metrics</label>
             <div className="mb-1 font-italic">
@@ -426,18 +455,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               datasource={datasource?.id}
             />
           </div>
-          {!isImport && implementation === "visual" && (
-            <Field
-              label="URL Targeting"
-              {...form.register("targetURLRegex")}
-              helpText={
-                <>
-                  e.g. <code>https://example.com/pricing</code> or{" "}
-                  <code>^/post/[0-9]+</code>
-                </>
-              }
-            />
-          )}
         </div>
       </Page>
     </PagedModal>

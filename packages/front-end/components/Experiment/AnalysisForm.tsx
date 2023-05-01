@@ -1,15 +1,22 @@
-import { FC } from "react";
+import React, { FC, useCallback, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  getValidDate,
+} from "shared";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
 import { useAttributeSchema } from "@/services/features";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
+import { hasFileConfig } from "@/services/env";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -37,6 +44,14 @@ const AnalysisForm: FC<{
     datasources,
   } = useDefinitions();
 
+  const { hasCommercialFeature } = useUser();
+
+  const hasSequentialTestingFeature = hasCommercialFeature(
+    "sequential-testing"
+  );
+
+  const settings = useOrgSettings();
+
   const attributeSchema = useAttributeSchema();
 
   const phaseObj = experiment.phases[phase];
@@ -56,17 +71,55 @@ const AnalysisForm: FC<{
       segment: experiment.segment || "",
       queryFilter: experiment.queryFilter || "",
       skipPartialData: experiment.skipPartialData ? "strict" : "loose",
-      removeMultipleExposures: experiment.removeMultipleExposures
-        ? "remove"
-        : "keep",
-      attributionModel: experiment.attributionModel || "firstExposure",
+      attributionModel:
+        experiment.attributionModel ||
+        settings.attributionModel ||
+        "firstExposure",
       dateStarted: getValidDate(phaseObj?.dateStarted)
         .toISOString()
         .substr(0, 16),
       dateEnded: getValidDate(phaseObj?.dateEnded).toISOString().substr(0, 16),
       variations: experiment.variations || [],
+      sequentialTestingEnabled:
+        hasSequentialTestingFeature &&
+        experiment.sequentialTestingEnabled !== undefined
+          ? experiment.sequentialTestingEnabled
+          : !!settings.sequentialTestingEnabled,
+      sequentialTestingTuningParameter:
+        experiment.sequentialTestingEnabled !== undefined
+          ? experiment.sequentialTestingTuningParameter
+          : settings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     },
   });
+
+  const [
+    usingSequentialTestingDefault,
+    setUsingSequentialTestingDefault,
+  ] = useState(experiment.sequentialTestingEnabled === undefined);
+  const setSequentialTestingToDefault = useCallback(
+    (enable: boolean) => {
+      if (enable) {
+        form.setValue(
+          "sequentialTestingEnabled",
+          !!settings.sequentialTestingEnabled
+        );
+        form.setValue(
+          "sequentialTestingTuningParameter",
+          settings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
+        );
+      }
+      setUsingSequentialTestingDefault(enable);
+    },
+    [
+      form,
+      setUsingSequentialTestingDefault,
+      settings.sequentialTestingEnabled,
+      settings.sequentialTestingTuningParameter,
+    ]
+  );
+
   const { apiCall } = useAuth();
 
   const datasource = getDatasourceById(form.watch("datasource"));
@@ -101,13 +154,7 @@ const AnalysisForm: FC<{
       close={cancel}
       size="lg"
       submit={form.handleSubmit(async (value) => {
-        const {
-          dateStarted,
-          dateEnded,
-          skipPartialData,
-          removeMultipleExposures,
-          ...values
-        } = value;
+        const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
         const body: Partial<ExperimentInterfaceStringDates> & {
           phaseStartDate: string;
@@ -118,7 +165,6 @@ const AnalysisForm: FC<{
           currentPhase: phase,
           phaseStartDate: dateStarted,
           skipPartialData: skipPartialData === "strict",
-          removeMultipleExposures: removeMultipleExposures === "remove",
         };
 
         // Metrics/guardrails are tied to a data source, so if we change it, they need to be removed.
@@ -129,6 +175,13 @@ const AnalysisForm: FC<{
 
         if (experiment.status === "stopped") {
           body.phaseEndDate = dateEnded;
+        }
+        if (usingSequentialTestingDefault) {
+          // User checked the org default checkbox; ignore form values
+          body.sequentialTestingEnabled = !!settings.sequentialTestingEnabled;
+          body.sequentialTestingTuningParameter =
+            settings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
         }
 
         await apiCall(`/experiment/${experiment.id}`, {
@@ -302,25 +355,6 @@ const AnalysisForm: FC<{
       )}
       {datasourceProperties?.separateExperimentResultQueries && (
         <SelectField
-          label="Users in Multiple Variations"
-          labelClassName="font-weight-bold"
-          value={form.watch("removeMultipleExposures")}
-          onChange={(value) => form.setValue("removeMultipleExposures", value)}
-          options={[
-            {
-              label: "Include in both variations",
-              value: "keep",
-            },
-            {
-              label: "Remove from analysis",
-              value: "remove",
-            },
-          ]}
-          helpText="How to treat users who were exposed to more than 1 variation"
-        />
-      )}
-      {datasourceProperties?.separateExperimentResultQueries && (
-        <SelectField
           label={
             <AttributionModelTooltip>
               <strong>Attribution Model</strong> <FaQuestionCircle />
@@ -337,11 +371,91 @@ const AnalysisForm: FC<{
               value: "firstExposure",
             },
             {
-              label: "All Exposures",
-              value: "allExposures",
+              label: "Experiment Duration",
+              value: "experimentDuration",
             },
           ]}
         />
+      )}
+      {settings?.statsEngine === "frequentist" && (
+        <div className="d-flex flex-row no-gutters align-items-top">
+          <div className="col-5">
+            <SelectField
+              label={
+                <PremiumTooltip commercialFeature="regression-adjustment">
+                  Use Sequential Testing
+                </PremiumTooltip>
+              }
+              labelClassName="font-weight-bold"
+              value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
+              onChange={(v) => {
+                form.setValue("sequentialTestingEnabled", v === "on");
+              }}
+              options={[
+                {
+                  label: "On",
+                  value: "on",
+                },
+                {
+                  label: "Off",
+                  value: "off",
+                },
+              ]}
+              helpText="Only applicable to frequentist analyses"
+              disabled={
+                !hasSequentialTestingFeature || usingSequentialTestingDefault
+              }
+            />
+          </div>
+          <div
+            className="col-3 pl-4"
+            style={{
+              opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
+            }}
+          >
+            <Field
+              label="Tuning parameter"
+              type="number"
+              containerClassName="mb-0"
+              min="0"
+              disabled={
+                usingSequentialTestingDefault ||
+                !hasSequentialTestingFeature ||
+                hasFileConfig()
+              }
+              helpText={
+                <>
+                  <span className="ml-2">
+                    (
+                    {settings.sequentialTestingTuningParameter ??
+                      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                    is default)
+                  </span>
+                </>
+              }
+              {...form.register("sequentialTestingTuningParameter", {
+                valueAsNumber: true,
+                validate: (v) => {
+                  return !(v <= 0);
+                },
+              })}
+            />
+          </div>
+          <div className="col align-self-center">
+            <label className="ml-5">
+              <input
+                type="checkbox"
+                className="form-check-input"
+                checked={usingSequentialTestingDefault}
+                disabled={!hasSequentialTestingFeature}
+                onChange={(e) =>
+                  setSequentialTestingToDefault(e.target.checked)
+                }
+              />
+              Reset to Organization Default
+            </label>
+          </div>
+        </div>
       )}
       {datasourceProperties?.queryLanguage === "sql" && (
         <div className="row">

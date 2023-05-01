@@ -97,17 +97,7 @@ Make sure to return the exact column names that GrowthBook is expecting. If your
 
 If a user sees an experiment multiple times, you should return multiple rows in your assignment query, one for each time the user was exposed to the experiment.
 
-This helps in two ways
-
-1. Detecting when users were exposed to more than one variation
-2. Calculating metric conversion windows based on an experiment's Attribution Model
-
-There are 2 **Attribution Models** that experiments can use:
-
-- **First Exposure** uses a single conversion window based on the first time the user sees a particular experiment
-- **All Exposures** uses multiple conversion windows, one for each time the user sees an experiment
-
-Currently, all analyses will use the "First Exposure" model by default. You can change this on a per-experiment basis as needed.
+This helps us detect when users were exposed to more than one variation, and eventually may be useful in helping build interesting time series.
 
 ##### Experiment Dimensions
 
@@ -304,3 +294,26 @@ We require 4 things to query the Universal Analytics API:
 4.  Custom Dimension Delimiter (defaults to `:`)
 
 When tracking experiment views, the custom dimension value must be formatted as `{experiment-key}{delimiter}{variation-index}`. For example: `my-test:0` for the control and `my-test:1` for the 1st variation.
+
+## Schema Browser
+
+When you connect a supported data source to GrowthBook, we automatically generate metadata that is used by our Schema Browser. The Schema Browser is a user-friendly interface that makes writing queries easier as you can easily explore information about the datasource such as databases, schemas, tables, columns, and data types.
+
+![GrowthBook Schema Browser](/images/growthbook-schema-browser.png)
+
+Below are the data sources that currently support the Schema Browser:
+
+- AWS Athena - _Requires a Default Catalog_
+- BigQuery - _Requires a Project Name and Default Dataset_
+- ClickHouse
+- Databricks - _Currently only supported on version 10.2 and above with a Unity Catalog_
+- MsSQL/SQL Server
+- MySQL/MariaDB
+- Postgres
+- PrestoDB (and Trino) - _Requires a Default Catalog_
+- Redshift
+- Snowflake
+
+:::note
+If you added a supported data source prior to GrowthBook v2.0, you can generate the schema manually by clicking "Data Sources" on the left-nav, selecting the data source, and then clicking the "View Schema Browser" button and following the on-screen prompt.
+:::

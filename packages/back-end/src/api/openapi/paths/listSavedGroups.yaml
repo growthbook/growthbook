@@ -1,0 +1,27 @@
+summary: Get all saved group
+tags:
+  - saved-groups
+parameters:
+- $ref: "../parameters.yaml#/limit"
+- $ref: "../parameters.yaml#/offset"
+operationId: listSavedGroups
+x-codeSamples:
+  - lang: 'cURL'
+    source: |
+      curl https://api.growthbook.io/api/v1/saved-groups \
+        -u secret_abc123DEF456:
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          allOf:
+            - type: object
+              required:
+                - savedGroups
+              properties:
+                savedGroups:
+                  type: array
+                  items:
+                    $ref: "../schemas/SavedGroup.yaml"
+            - $ref: "../schemas/PaginationFields.yaml"

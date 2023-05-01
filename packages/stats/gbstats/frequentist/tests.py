@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import abstractmethod
 from dataclasses import dataclass
 from typing import List
 
@@ -9,13 +9,20 @@ from gbstats.shared.models import FrequentistTestResult, Statistic, Uplift
 from gbstats.shared.tests import BaseABTest
 
 
+@dataclass
+class FrequentistConfig:
+    alpha: float = 0.05
+    sequential: bool = False
+    sequential_tuning_parameter: float = 5000
+
+
 class TTest(BaseABTest):
     def __init__(
         self,
         stat_a: Statistic,
         stat_b: Statistic,
+        config: FrequentistConfig = FrequentistConfig(),
         test_value: float = 0,
-        alpha: float = 0.05,
     ):
         """Base class for one- and two-sided T-Tests with unequal variance.
         All values are with respect to relative effects, not absolute effects.
@@ -29,15 +36,15 @@ class TTest(BaseABTest):
             alpha (float, optional): the significance level for the CI construction. Defaults to 0.05.
         """
         super().__init__(stat_a, stat_b)
-        self.alpha = alpha
+        self.alpha = config.alpha
         self.test_value = test_value
 
     @property
     def variance(self) -> float:
         return self.stat_b.variance / (
-            pow(self.stat_a.mean, 2) * self.stat_b.n
-        ) + self.stat_a.variance * pow(self.stat_b.mean, 2) / (
-            pow(self.stat_a.mean, 4) * self.stat_a.n
+            pow(self.stat_a.unadjusted_mean, 2) * self.stat_b.n
+        ) + self.stat_a.variance * pow(self.stat_b.unadjusted_mean, 2) / (
+            pow(self.stat_a.unadjusted_mean, 4) * self.stat_a.n
         )
 
     @property
@@ -141,3 +148,49 @@ class OneSidedTreatmentLesserTTest(TTest):
     def confidence_interval(self) -> List[float]:
         width: float = t.ppf(1 - self.alpha, self.dof) * np.sqrt(self.variance)
         return [-np.inf, self.point_estimate - width]
+
+
+class SequentialTwoSidedTTest(TTest):
+    def __init__(
+        self,
+        stat_a: Statistic,
+        stat_b: Statistic,
+        config: FrequentistConfig = FrequentistConfig(),
+        test_value: float = 0,
+    ):
+        super().__init__(stat_a, stat_b, config, test_value)
+        self.sequential_tuning_parameter = config.sequential_tuning_parameter
+
+    @property
+    def confidence_interval(self) -> List[float]:
+        # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
+        N = self.stat_a.n + self.stat_b.n
+        rho = self.rho
+        s2 = self.variance * N
+
+        width: float = np.sqrt(s2) * np.sqrt(
+            (
+                (2 * (N * np.power(rho, 2) + 1))
+                * np.log(np.sqrt(N * np.power(rho, 2) + 1) / self.alpha)
+                / (np.power(N * rho, 2))
+            )
+        )
+        return [self.point_estimate - width, self.point_estimate + width]
+
+    @property
+    def rho(self) -> float:
+        # eq 161 in https://arxiv.org/pdf/2103.06476v7.pdf
+        return np.sqrt(
+            (-2 * np.log(self.alpha) + np.log(-2 * np.log(self.alpha) + 1))
+            / self.sequential_tuning_parameter
+        )
+
+    @property
+    def p_value(self) -> float:
+        # eq 155 in https://arxiv.org/pdf/2103.06476v7.pdf
+        N = self.stat_a.n + self.stat_b.n
+        # slight reparameterization for this quantity below
+        st2 = np.power(self.point_estimate - self.test_value, 2) * N / (self.variance)
+        tr2p1 = N * np.power(self.rho, 2) + 1
+        evalue = np.exp(np.power(self.rho, 2) * st2 / (2 * tr2p1)) / np.sqrt(tr2p1)
+        return min(1 / evalue, 1)

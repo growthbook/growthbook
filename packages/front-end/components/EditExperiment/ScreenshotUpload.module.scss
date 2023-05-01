@@ -2,8 +2,9 @@
 
 .droparea {
   z-index: 910;
-  text-align: center;
   position: relative;
+  border: 3px solid transparent;
+  text-align: center;
 
   .message {
     display: none;

@@ -5,7 +5,7 @@ import {
 } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { FaQuestionCircle } from "react-icons/fa";
-import { datetime } from "@/services/dates";
+import { datetime } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
 import Modal from "../Modal";
@@ -133,26 +133,14 @@ const FilterSummary: FC<{
           <div className="row mb-3">
             <div className="col-5">
               <strong className="text-gray">
-                Users in Multiple Variations:
-              </strong>
-            </div>
-            <div className="col">
-              {experiment.removeMultipleExposures
-                ? "Removed from analysis"
-                : "Included in analysis"}
-            </div>
-          </div>
-          <div className="row mb-3">
-            <div className="col-5">
-              <strong className="text-gray">
                 <AttributionModelTooltip>
                   Attribution Model <FaQuestionCircle />
                 </AttributionModelTooltip>
               </strong>
             </div>
             <div className="col">
-              {experiment.attributionModel === "allExposures"
-                ? "All Exposures"
+              {experiment.attributionModel === "experimentDuration"
+                ? "Experiment Duration"
                 : "First Exposure"}
             </div>
           </div>

@@ -75,6 +75,18 @@ const experimentSnapshotSchema = new mongoose.Schema({
   activationMetric: String,
   skipPartialData: Boolean,
   statsEngine: String,
+  regressionAdjustmentEnabled: Boolean,
+  metricRegressionAdjustmentStatuses: [
+    {
+      _id: false,
+      metric: String,
+      regressionAdjustmentEnabled: Boolean,
+      regressionAdjustmentDays: Number,
+      reason: String,
+    },
+  ],
+  sequentialTestingEnabled: Boolean,
+  sequentialTestingTuningParameter: Number,
 });
 experimentSnapshotSchema.index({
   experiment: 1,
