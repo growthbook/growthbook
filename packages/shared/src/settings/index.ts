@@ -161,4 +161,4 @@ export const useScopedSettings = (
   }, [baseSettings, scopes]);
 };
 
-export { ScopedSettings } from "./types";
+export type { ScopedSettings } from "./types";
