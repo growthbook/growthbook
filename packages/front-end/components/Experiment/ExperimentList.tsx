@@ -4,7 +4,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
 } from "back-end/types/experiment";
-import { ago, datetime } from "@/services/dates";
+import { ago, datetime } from "shared";
 import { phaseSummary } from "@/services/utils";
 
 export default function ExperimentList({

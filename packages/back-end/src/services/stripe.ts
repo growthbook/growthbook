@@ -19,7 +19,11 @@ export const stripe = new Stripe(STRIPE_SECRET || "", {
  */
 export async function updateSubscriptionInDb(
   subscription: string | Stripe.Subscription
-) {
+): Promise<{
+  organization: OrganizationInterface;
+  subscription: Stripe.Subscription;
+  hasPaymentMethod: boolean;
+} | null> {
   // Always get the latest subscription data from the API
   subscription = await stripe.subscriptions.retrieve(
     typeof subscription === "string" ? subscription : subscription.id,
@@ -27,7 +31,7 @@ export async function updateSubscriptionInDb(
   );
 
   if ("ignore_webhooks" in subscription.metadata) {
-    return;
+    return null;
   }
 
   const stripeCustomerId =
@@ -83,6 +87,8 @@ export async function updateSubscriptionInDb(
   }
 
   await updateOrganizationByStripeId(stripeCustomerId, update);
+
+  return { organization: org, subscription, hasPaymentMethod };
 }
 
 const priceData: {
