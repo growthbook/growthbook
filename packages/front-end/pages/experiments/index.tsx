@@ -2,9 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { RxDesktop } from "react-icons/rx";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { datetime, ago } from "shared";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
-import { datetime, ago } from "@/services/dates";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
@@ -68,14 +68,14 @@ const ExperimentsPage = (): React.ReactElement => {
         tab: exp.archived
           ? "archived"
           : exp.status === "draft"
-            ? "drafts"
-            : exp.status,
+          ? "drafts"
+          : exp.status,
         date:
           (exp.status === "running"
             ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
             : exp.status === "stopped"
-              ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
-              : exp.dateCreated) ?? "",
+            ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
+            : exp.dateCreated) ?? "",
       };
     },
     [getMetricById, getProjectById]
@@ -334,8 +334,7 @@ const ExperimentsPage = (): React.ReactElement => {
                           <Tooltip
                             body={
                               <>
-                                Project <code>{e.project}</code> not
-                                found
+                                Project <code>{e.project}</code> not found
                               </>
                             }
                           >
