@@ -52,6 +52,8 @@ export default function MetricsOverridesSelector({
         const metricDefinition = metricDefinitions.find(
           (md) => md.id === mo.id
         );
+        if (!metricDefinition) return;
+
         const loseRisk = isNaN(mo.loseRisk)
           ? metricDefinition.loseRisk
           : mo.loseRisk / 100;
@@ -436,8 +438,8 @@ export default function MetricsOverridesSelector({
               options={unusedMetrics.map((m) => {
                 const metric = metricDefinitions.find((md) => md.id === m);
                 return {
-                  label: metric.name,
-                  value: metric.id,
+                  label: metric?.name,
+                  value: metric?.id,
                 };
               })}
               disabled={disabled}
