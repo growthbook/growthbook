@@ -20,11 +20,13 @@ to gradually release a new ML model or enable new fields in an API response.
 
 ## Environments
 
-GrowthBook comes with one environment by default (**production**), but you can add as many as you need.
+GrowthBook comes with one environment by default (**production**), but you can add as many as you need on the [Environments page](https://app.growthbook.io/environments).
 
 Feature flags can be enabled and disabled on a per-environment basis.
 
 When a feature is disabled in an environment, it will always evaluate to `null` and ignore any other targeting or override rules.
+
+When configuring your SDK, there is no environment configuration in the SDK since you provide the key, which itself is linked to the environment. To use multiple environments in the same code base, you can use environment variables to set a dynamic key, e.g. `GROWTHBOOK_CLIENT_KEY='sdk-abc123'` and then reference that environment variable in your code base. Depending on the framework you're using, some environment variables are not exposed by default on the front-end unless provided an appropriate prefix, e.g. `NEXT_GROWTHBOOK_CLIENT_KEY='sdk-abc123'` in order to access environment variables in Next.js client code.
 
 :::note
 
