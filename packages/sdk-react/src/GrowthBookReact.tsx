@@ -154,7 +154,7 @@ export function FeaturesReady({
     }
   }, [timeout, ready, gb]);
 
-  return ready || hitTimeout ? children : fallback || null;
+  return <>{ready || hitTimeout ? children : fallback || null}</>;
 }
 
 export function IfFeatureEnabled({
