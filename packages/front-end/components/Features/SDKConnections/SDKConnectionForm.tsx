@@ -4,10 +4,11 @@ import {
   SDKLanguage,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
+import { BsLightningFill } from "react-icons/bs";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -24,7 +25,6 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import SDKLanguageLogo, { languageMapping } from "./SDKLanguageLogo";
-import { BsLightningFill } from "react-icons/bs";
 
 export default function SDKConnectionForm({
   initialValue = {},
@@ -320,10 +320,11 @@ export default function SDKConnectionForm({
                   <>
                     <p>
                       <BsLightningFill className="text-warning" />
-                      <strong>Instant Rollouts</strong> allow you to instantly update any
-                      subscribed SDKs when you make any feature changes in
-                      GrowthBook. For front-end SDKs, active users will see the
-                      changes immediately without having to refresh the page.
+                      <strong>Instant Rollouts</strong> allow you to instantly
+                      update any subscribed SDKs when you make any feature
+                      changes in GrowthBook. For front-end SDKs, active users
+                      will see the changes immediately without having to refresh
+                      the page.
                     </p>
                     <p>
                       To take advantage of this feature, ensure that you have
