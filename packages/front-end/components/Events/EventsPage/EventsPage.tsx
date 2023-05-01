@@ -5,13 +5,21 @@ import {
   NotificationEventPayload,
   NotificationEventResource,
 } from "back-end/types/event";
+import { FaDownload } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
+import { useDownloadDataExport } from "@/hooks/useDownloadDataExport";
+import { useUser } from "@/services/UserContext";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import LoadingSpinner from "../../LoadingSpinner";
 import { EventsTableRow } from "./EventsTableRow";
 
 type EventsPageProps = {
   isLoading: boolean;
-  hasError: boolean;
+  shouldShowExportButton: boolean;
+  hasLoadError: boolean;
+  hasExportError: boolean;
+  performDownload: () => void;
+  isDownloading: boolean;
   events: EventInterface<
     NotificationEventPayload<
       NotificationEventName,
@@ -23,17 +31,51 @@ type EventsPageProps = {
 
 export const EventsPage: FC<EventsPageProps> = ({
   events = [],
-  hasError,
+  shouldShowExportButton,
+  hasLoadError,
+  hasExportError,
   isLoading,
+  performDownload,
+  isDownloading,
 }) => {
   return (
-    <div className="container p-4">
-      <h1>Events</h1>
-      {hasError && (
-        <div className="alert alert-danger">
+    <div className="container py-4">
+      <div className="row">
+        <div className="col-6">
+          <h1>Events</h1>
+        </div>
+
+        <div className="col-6 text-right">
+          <PremiumTooltip commercialFeature="audit-logging">
+            {shouldShowExportButton
+              ? ""
+              : "Exporting events is available to Enterprise customers"}
+          </PremiumTooltip>
+
+          <button
+            onClick={performDownload}
+            disabled={isDownloading || !shouldShowExportButton}
+            className="btn btn-primary ml-3"
+          >
+            <span className="mr-1">
+              <FaDownload />
+            </span>{" "}
+            Export
+          </button>
+        </div>
+      </div>
+
+      {hasLoadError && (
+        <div className="alert alert-danger mt-2">
           There was an error loading the events.
         </div>
       )}
+      {hasExportError && (
+        <div className="alert alert-danger mt-2">
+          There was an error exporting the events.
+        </div>
+      )}
+
       {isLoading && <LoadingSpinner />}
       {events.length === 0 ? (
         // Empty state
@@ -75,11 +117,26 @@ export const EventsPageContainer = () => {
     >[];
   }>("/events");
 
+  const {
+    isDownloading,
+    performDownload,
+    hasError: hasExportError,
+  } = useDownloadDataExport({
+    url: "/data-export/events?type=json",
+  });
+
+  const { hasCommercialFeature } = useUser();
+  const enableExports = hasCommercialFeature("audit-logging");
+
   return (
     <EventsPage
+      shouldShowExportButton={enableExports}
       isLoading={isValidating}
-      hasError={!!error}
+      hasLoadError={!!error}
+      hasExportError={hasExportError}
       events={data?.events || []}
+      isDownloading={isDownloading}
+      performDownload={performDownload}
     />
   );
 };

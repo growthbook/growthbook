@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import {
   MetricRegressionAdjustmentStatus,
@@ -7,14 +7,19 @@ import {
 import { FaQuestionCircle } from "react-icons/fa";
 import { AttributionModel } from "back-end/types/experiment";
 import uniq from "lodash/uniq";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  getValidDate,
+} from "shared";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
+import { hasFileConfig } from "@/services/env";
+import { GBCuped, GBSequential } from "@/components/Icons";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -45,6 +50,9 @@ export default function ConfigureReport({
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
+  );
+  const hasSequentialTestingFeature = hasCommercialFeature(
+    "sequential-testing"
   );
 
   const allExperimentMetricIds = uniq([
@@ -85,6 +93,10 @@ export default function ConfigureReport({
         !!report.args.regressionAdjustmentEnabled,
       metricRegressionAdjustmentStatuses:
         report.args.metricRegressionAdjustmentStatuses || [],
+      sequentialTestingEnabled:
+        hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled,
+      sequentialTestingTuningParameter:
+        report.args.sequentialTestingTuningParameter,
     },
   });
 
@@ -404,7 +416,7 @@ export default function ConfigureReport({
             checked={usingStatsEngineDefault}
             onChange={(e) => setStatsEngineToDefault(e.target.checked)}
           />
-          Use Organization Default
+          Reset to Organization Default
         </label>
       </div>
 
@@ -413,7 +425,7 @@ export default function ConfigureReport({
           <SelectField
             label={
               <PremiumTooltip commercialFeature="regression-adjustment">
-                Use Regression Adjustment (CUPED)
+                <GBCuped /> Use Regression Adjustment (CUPED)
               </PremiumTooltip>
             }
             labelClassName="font-weight-bold"
@@ -433,6 +445,65 @@ export default function ConfigureReport({
             ]}
             helpText="Only applicable to frequentist analyses"
             disabled={!hasRegressionAdjustmentFeature}
+          />
+        </div>
+      </div>
+
+      <div className="d-flex flex-row no-gutters align-items-top">
+        <div className="col-3">
+          <SelectField
+            label={
+              <PremiumTooltip commercialFeature="regression-adjustment">
+                <GBSequential /> Use Sequential Testing
+              </PremiumTooltip>
+            }
+            labelClassName="font-weight-bold"
+            value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
+            onChange={(v) => {
+              form.setValue("sequentialTestingEnabled", v === "on");
+            }}
+            options={[
+              {
+                label: "On",
+                value: "on",
+              },
+              {
+                label: "Off",
+                value: "off",
+              },
+            ]}
+            helpText="Only applicable to frequentist analyses"
+            disabled={!hasSequentialTestingFeature}
+          />
+        </div>
+        <div
+          className="col-2 px-4"
+          style={{
+            opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
+          }}
+        >
+          <Field
+            label="Tuning parameter"
+            type="number"
+            containerClassName="mb-0"
+            min="0"
+            disabled={!hasSequentialTestingFeature || hasFileConfig()}
+            helpText={
+              <>
+                <span className="ml-2">
+                  (
+                  {settings.sequentialTestingTuningParameter ??
+                    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                  is organization default)
+                </span>
+              </>
+            }
+            {...form.register("sequentialTestingTuningParameter", {
+              valueAsNumber: true,
+              validate: (v) => {
+                return !(v <= 0);
+              },
+            })}
           />
         </div>
       </div>

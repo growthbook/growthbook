@@ -1,6 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import cloneDeep from "lodash/cloneDeep";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared";
 import { MetricInterface } from "../types/metric";
 import {
   upgradeDatasourceObject,
@@ -854,6 +855,8 @@ describe("backend", () => {
           },
         },
       ],
+      sequentialTestingEnabled: false,
+      sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     };
 
     expect(upgradeExperimentDoc(exp)).toEqual(upgraded);

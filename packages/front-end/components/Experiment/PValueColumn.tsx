@@ -3,6 +3,7 @@ import { FC } from "react";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentStatus } from "back-end/types/experiment";
+import { PValueCorrection } from "back-end/types/stats";
 import {
   hasEnoughData,
   isBelowMinChange,
@@ -25,6 +26,7 @@ const PValueColumn: FC<{
   snapshotDate: Date;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
+  pValueCorrection: PValueCorrection;
 }> = ({
   metric,
   status,
@@ -33,6 +35,7 @@ const PValueColumn: FC<{
   snapshotDate,
   baseline,
   stats,
+  pValueCorrection,
 }) => {
   const {
     getMinSampleSizeForMetric,
@@ -62,7 +65,10 @@ const PValueColumn: FC<{
     belowMinChange,
   });
 
-  const statSig = isStatSig(stats, pValueThreshold);
+  const statSig = isStatSig(
+    stats.pValueAdjusted ?? stats.pValue ?? 1,
+    pValueThreshold
+  );
   const expectedDirection = isExpectedDirection(stats, metric);
 
   let sigText: string | JSX.Element = "";
@@ -83,6 +89,16 @@ const PValueColumn: FC<{
     sigText =
       "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
     className += " draw";
+  }
+
+  let pValText = <>{pValueFormatter(stats?.pValue)}</>;
+  if (stats?.pValueAdjusted !== undefined && pValueCorrection) {
+    pValText = (
+      <>
+        <div>{pValueFormatter(stats?.pValueAdjusted)}</div>
+        <div className="small text-muted">(unadj.: {pValText})</div>
+      </>
+    );
   }
 
   return (
@@ -126,7 +142,7 @@ const PValueColumn: FC<{
             phaseStart={startDate}
           />
         ) : (
-          <>{pValueFormatter(stats?.pValue) || "P-value missing"}</>
+          <>{pValText || "P-value missing"}</>
         )}
       </Tooltip>
     </td>

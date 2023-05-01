@@ -1,3 +1,0 @@
-BETA_PRIOR = 1, 1
-NORM_PRIOR = 0, 1, 0
-EPSILON = 1e-04

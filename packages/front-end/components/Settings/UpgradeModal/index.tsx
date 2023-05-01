@@ -11,7 +11,7 @@ export interface Props {
   reason: string;
 }
 
-export default function UpgradeModal({ close, source, reason }: Props) {
+export default function UpgradeModal({ close, source }: Props) {
   const [closeCta, setCloseCta] = useState("Cancel");
   const { accountPlan, permissions } = useUser();
 
@@ -36,7 +36,6 @@ export default function UpgradeModal({ close, source, reason }: Props) {
         <CloudUpgradeForm
           accountPlan={accountPlan}
           source={source}
-          reason={reason}
           setCloseCta={(s) => setCloseCta(s)}
           close={close}
         />

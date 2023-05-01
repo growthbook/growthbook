@@ -125,7 +125,7 @@ export async function processJWT(
     } else {
       checkProjects = [project];
     }
-    for (const p in checkProjects) {
+    for (const p of checkProjects) {
       if (!hasPermission(permission, p, envs ? [...envs] : undefined)) {
         throw new Error("You do not have permission to complete that action.");
       }
@@ -193,7 +193,7 @@ export async function processJWT(
       type: "dashboard",
       id: user.id,
       email: user.email,
-      name: user.name,
+      name: user.name || "",
     };
     res.locals.eventAudit = eventAudit;
 
@@ -203,7 +203,7 @@ export async function processJWT(
         user: {
           id: user.id,
           email: user.email,
-          name: user.name,
+          name: user.name || "",
         },
         organization: req.organization?.id,
         dateCreated: new Date(),

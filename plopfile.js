@@ -96,6 +96,27 @@ module.exports = function (plop) {
         type: "add",
         skipIfExists: true,
         path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/post{{pascalCase object}}.ts",
+        templateFile: "./plop-templates/back-end/api/post.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/update{{pascalCase object}}.ts",
+        templateFile: "./plop-templates/back-end/api/update.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/delete{{pascalCase object}}.ts",
+        templateFile: "./plop-templates/back-end/api/delete.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
           "./packages/back-end/src/api/openapi/schemas/{{pascalCase object}}.yaml",
         templateFile: "./plop-templates/back-end/api/openapi_model.hbs",
       },
@@ -110,8 +131,29 @@ module.exports = function (plop) {
         type: "add",
         skipIfExists: true,
         path:
+          "./packages/back-end/src/api/openapi/paths/post{{pascalCase object}}.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_post.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/paths/update{{pascalCase object}}.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_update.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
           "./packages/back-end/src/api/openapi/paths/get{{pascalCase object}}.yaml",
         templateFile: "./plop-templates/back-end/api/openapi_get.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/paths/delete{{pascalCase object}}.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_delete.hbs",
       },
       {
         type: "append",
@@ -126,9 +168,17 @@ module.exports = function (plop) {
         path: "./packages/back-end/src/api/openapi/openapi.yaml",
         pattern: /PLOP_INSERT_PATHS_HERE/,
         template: `  /{{kebabCase object}}s:
-    $ref: "./paths/list{{pascalCase object}}s.yaml"
+    get:
+      $ref: "./paths/list{{pascalCase object}}s.yaml"
+    post:
+      $ref: "./paths/post{{pascalCase object}}.yaml"
   /{{kebabCase object}}s/{id}:
-    $ref: "./paths/get{{pascalCase object}}.yaml"`,
+    get:
+      $ref: "./paths/get{{pascalCase object}}.yaml"
+    post:
+      $ref: "./paths/update{{pascalCase object}}.yaml"
+    delete:
+      $ref: "./paths/delete{{pascalCase object}}.yaml"`,
       },
     ],
   });

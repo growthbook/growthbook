@@ -135,6 +135,9 @@ export interface ExperimentInterface {
   autoSnapshots: boolean;
   ideaSource?: string;
   regressionAdjustmentEnabled?: boolean;
+  hasVisualChangesets?: boolean;
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
 }
 
 export type ExperimentInterfaceStringDates = Omit<

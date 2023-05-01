@@ -1,4 +1,7 @@
-export function getValidDate(dateStr: string | Date | null, fallback?: Date) {
+export function getValidDate(
+  dateStr: string | Date | null | number,
+  fallback?: Date
+): Date {
   fallback = fallback || new Date();
 
   if (!dateStr) return fallback;

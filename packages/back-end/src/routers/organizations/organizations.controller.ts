@@ -566,6 +566,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     settings,
     disableSelfServeBilling,
     licenseKey,
+    messages,
   } = org;
 
   if (!IS_CLOUD && licenseKey) {
@@ -596,7 +597,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     expandedMembers.push({
       email,
       verified,
-      name,
+      name: name || "",
       ...memberInfo,
       dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
     });
@@ -622,11 +623,13 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       licenseKey,
       freeSeats,
       disableSelfServeBilling,
+      freeTrialDate: org.freeTrialDate,
       discountCode: org.discountCode || "",
       slackTeam: connections?.slack?.team,
       settings,
       autoApproveMembers: org.autoApproveMembers,
       members: org.members,
+      messages: messages || [],
       pendingMembers: org.pendingMembers,
     },
   });
@@ -661,7 +664,7 @@ export async function getNamespaces(req: AuthRequest, res: Response) {
           const { name, range } = r.namespace as NamespaceValue;
           namespaces[name] = namespaces[name] || [];
           namespaces[name].push({
-            link: `/feature/${f.id}`,
+            link: `/features/${f.id}`,
             name: f.id,
             id: f.id,
             trackingKey: r.trackingKey || f.id,

@@ -1,18 +1,21 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import {
   FaArrowDown,
+  FaExclamationTriangle,
   FaExternalLinkAlt,
   FaLink,
-  FaPalette,
   FaQuestionCircle,
 } from "react-icons/fa";
+import { MdRocketLaunch } from "react-icons/md";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import uniq from "lodash/uniq";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -23,7 +26,10 @@ import {
   applyMetricOverrides,
   getRegressionAdjustmentsForMetric,
 } from "@/services/experiments";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { AppFeatures } from "@/types/app-features";
+import track from "@/services/track";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -31,13 +37,21 @@ import MarkdownInlineEdit from "../Markdown/MarkdownInlineEdit";
 import DiscussionThread from "../DiscussionThread";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import DeleteButton from "../DeleteButton/DeleteButton";
-import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "../Icons";
+import {
+  GBAddCircle,
+  GBCircleArrowLeft,
+  GBCuped,
+  GBEdit,
+  GBSequential,
+} from "../Icons";
 import RightRailSection from "../Layout/RightRailSection";
 import RightRailSectionGroup from "../Layout/RightRailSectionGroup";
 import Modal from "../Modal";
 import HistoryTable from "../HistoryTable";
 import Code from "../SyntaxHighlighting/Code";
 import Tooltip from "../Tooltip/Tooltip";
+import Button from "../Button";
+import PremiumTooltip from "../Marketing/PremiumTooltip";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import ResultsIndicator from "./ResultsIndicator";
 import EditStatusModal from "./EditStatusModal";
@@ -45,21 +59,11 @@ import EditExperimentNameForm from "./EditExperimentNameForm";
 import { useSnapshot } from "./SnapshotProvider";
 import ExperimentReportsList from "./ExperimentReportsList";
 import AnalysisForm from "./AnalysisForm";
-import VariationBox from "./VariationBox";
 import Results from "./Results";
 import StatusIndicator from "./StatusIndicator";
 import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
-
-function getColWidth(v: number) {
-  // 2 across
-  if (v <= 2) return 6;
-
-  // 3 across
-  if (v === 3 || v === 6 || v === 9) return 4;
-
-  // 4 across
-  return 3;
-}
+import VariationsTable from "./VariationsTable";
+import VisualChangesetModal from "./VisualChangesetModal";
 
 function drawMetricRow(
   m: string,
@@ -126,6 +130,7 @@ function drawMetricRow(
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   idea?: IdeaInterface;
+  visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
   editMetrics?: () => void;
   editResult?: () => void;
@@ -141,6 +146,7 @@ export interface Props {
 export default function SinglePage({
   experiment,
   idea,
+  visualChangesets,
   mutate,
   editMetrics,
   editResult,
@@ -170,6 +176,9 @@ export default function SinglePage({
   const [auditModal, setAuditModal] = useState(false);
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
+  const [visualEditorModal, setVisualEditorModal] = useState(false);
+
+  const growthbook = useGrowthBook<AppFeatures>();
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
@@ -179,6 +188,8 @@ export default function SinglePage({
   }>(`/experiment/${experiment.id}/watchers`);
   const settings = useOrgSettings();
   const { users, hasCommercialFeature } = useUser();
+
+  const { data: sdkConnectionsData } = useSDKConnections();
 
   const project = getProjectById(experiment.project || "");
   const datasource = getDatasourceById(experiment.datasource);
@@ -278,9 +289,9 @@ export default function SinglePage({
 
   const hasPermission = permissions.check("createAnalyses", experiment.project);
 
-  const canEdit = hasPermission && !experiment.archived;
+  const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
 
-  const variationCols = getColWidth(experiment.variations.length);
+  const canEdit = hasPermission && !experiment.archived;
 
   const ignoreConversionEnd =
     experiment.attributionModel === "experimentDuration";
@@ -290,6 +301,17 @@ export default function SinglePage({
     .map((id) => users.get(id))
     .filter(Boolean)
     .map((u) => u.name || u.email);
+
+  const hasSDKWithVisualExperimentsEnabled = sdkConnectionsData?.connections.some(
+    (connection) => connection.includeVisualExperiments
+  );
+
+  // See if at least one visual change has been made with the editor
+  const hasSomeVisualChanges = visualChangesets?.some((vc) =>
+    vc.visualChanges.some(
+      (changes) => changes.css || changes.domMutations?.length > 0
+    )
+  );
 
   return (
     <div className="container-fluid experiment-details pagecontents">
@@ -349,6 +371,14 @@ export default function SinglePage({
             ))}
           </ul>
         </Modal>
+      )}
+      {visualEditorModal && (
+        <VisualChangesetModal
+          mode="add"
+          experiment={experiment}
+          mutate={mutate}
+          close={() => setVisualEditorModal(false)}
+        />
       )}
       {statusModal && (
         <EditStatusModal
@@ -576,60 +606,52 @@ export default function SinglePage({
       )}
       <div className="row mb-4">
         <div className="col-md-8">
-          <div className="appbox p-3 h-100">
-            <MarkdownInlineEdit
-              value={experiment.description}
-              save={async (description) => {
-                await apiCall(`/experiment/${experiment.id}`, {
-                  method: "POST",
-                  body: JSON.stringify({ description }),
-                });
-                mutate();
-              }}
-              canCreate={canEdit}
-              canEdit={canEdit}
-              className="mb-4"
-              header="Description"
-            />
-            <MarkdownInlineEdit
-              value={experiment.hypothesis}
-              save={async (hypothesis) => {
-                await apiCall(`/experiment/${experiment.id}`, {
-                  method: "POST",
-                  body: JSON.stringify({ hypothesis }),
-                });
-                mutate();
-              }}
-              canCreate={canEdit}
-              canEdit={canEdit}
-              className="mb-4"
-              label="hypothesis"
-              header="Hypothesis"
-            />
-            <HeaderWithEdit edit={editVariations}>Variations</HeaderWithEdit>
-            {experiment.implementation === "visual" && (
-              <div className="alert alert-info">
-                <FaPalette /> This is a <strong>Visual Experiment</strong>.{" "}
-                {experiment.status === "draft" && canEdit && (
-                  <Link href={`/experiments/designer/${experiment.id}`}>
-                    <a className="d-none d-md-inline">Open the Editor</a>
-                  </Link>
-                )}
-              </div>
-            )}
-            <div className="row">
-              {experiment.variations.map((v, i) => (
-                <div key={i} className={`col-md-${variationCols} mb-2`}>
-                  <VariationBox
-                    canEdit={canEdit}
-                    experimentId={experiment.id}
-                    i={i}
-                    mutate={mutate}
-                    v={v}
-                  />
-                </div>
-              ))}
+          <div className="appbox h-100">
+            <div className="p-3">
+              <MarkdownInlineEdit
+                value={experiment.description}
+                save={async (description) => {
+                  await apiCall(`/experiment/${experiment.id}`, {
+                    method: "POST",
+                    body: JSON.stringify({ description }),
+                  });
+                  mutate();
+                }}
+                canCreate={canEdit}
+                canEdit={canEdit}
+                className="mb-4"
+                header="Description"
+              />
+              <MarkdownInlineEdit
+                value={experiment.hypothesis}
+                save={async (hypothesis) => {
+                  await apiCall(`/experiment/${experiment.id}`, {
+                    method: "POST",
+                    body: JSON.stringify({ hypothesis }),
+                  });
+                  mutate();
+                }}
+                canCreate={canEdit}
+                canEdit={canEdit}
+                className="mb-4"
+                label="hypothesis"
+                header="Hypothesis"
+              />{" "}
             </div>
+            <div className="px-3">
+              <HeaderWithEdit edit={editVariations}>
+                <>
+                  Variations <small>({experiment.variations.length})</small>
+                </>
+              </HeaderWithEdit>
+            </div>
+            <VariationsTable
+              experiment={experiment}
+              visualChangesets={visualChangesets}
+              mutate={mutate}
+              canEdit={canEdit}
+              setVisualEditorModal={setVisualEditorModal}
+            />
           </div>
         </div>
         <div className="col-md-4">
@@ -709,6 +731,33 @@ export default function SinglePage({
                   <FaQuestionCircle />
                 </AttributionModelTooltip>
               </RightRailSectionGroup>
+              {settings.statsEngine === "frequentist" && (
+                <>
+                  <RightRailSectionGroup
+                    title={
+                      <>
+                        <GBCuped size={16} /> Regression Adjustment (CUPED)
+                      </>
+                    }
+                    type="custom"
+                  >
+                    {regressionAdjustmentEnabled ? "Enabled" : "Disabled"}
+                  </RightRailSectionGroup>
+                  <RightRailSectionGroup
+                    title={
+                      <>
+                        <GBSequential size={16} /> Sequential Testing
+                      </>
+                    }
+                    type="custom"
+                  >
+                    {experiment.sequentialTestingEnabled ??
+                    !!settings.sequentialTestingEnabled
+                      ? "Enabled"
+                      : "Disabled"}
+                  </RightRailSectionGroup>
+                </>
+              )}
             </div>
           </RightRailSection>
           <div className="mb-4"></div>
@@ -822,49 +871,167 @@ export default function SinglePage({
           </RightRailSection>
         </div>
       </div>
-      <div className="mb-4 position-relative">
-        <div style={{ position: "absolute", top: -70 }} id="results"></div>
-        <h3>
-          Results{" "}
-          <a
-            href="#results"
-            className="small"
-            style={{ verticalAlign: "middle" }}
-          >
-            <FaLink />
-          </a>
-        </h3>
-        <div className="appbox" style={{ overflowX: "initial" }}>
-          {experiment.phases?.length > 0 ? (
-            <Results
-              experiment={experiment}
-              mutateExperiment={mutate}
-              editMetrics={editMetrics}
-              editResult={editResult}
-              editPhases={editPhases}
-              alwaysShowPhaseSelector={true}
-              reportDetailsLink={false}
-              statsEngine={statsEngine}
-              regressionAdjustmentAvailable={regressionAdjustmentAvailable}
-              regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-              metricRegressionAdjustmentStatuses={
-                metricRegressionAdjustmentStatuses
-              }
-              onRegressionAdjustmentChange={onRegressionAdjustmentChange}
-            />
+
+      {growthbook.isOn("visual-editor-ui") &&
+      experiment.status === "draft" &&
+      experiment.phases.length > 0 ? (
+        <div>
+          {visualChangesets.length > 0 ? (
+            <div className="mb-4">
+              {!hasSomeVisualChanges ? (
+                <div className="alert alert-info">
+                  Open the Visual Editor above and add at least one change to
+                  your experiment before you start
+                </div>
+              ) : hasSDKWithVisualExperimentsEnabled ? (
+                <div className="appbox text-center px-3 py-5">
+                  <p>Done setting everything up?</p>
+                  <Button
+                    color="primary"
+                    className="btn-lg"
+                    onClick={async () => {
+                      await apiCall(`/experiment/${experiment.id}/status`, {
+                        method: "POST",
+                        body: JSON.stringify({
+                          status: "running",
+                        }),
+                      });
+                      await mutate();
+                      track("Start experiment", {
+                        source: "visual-editor-ui",
+                        action: "main CTA",
+                      });
+                    }}
+                  >
+                    Start Experiment <MdRocketLaunch />
+                  </Button>{" "}
+                  <Button
+                    className="ml-2"
+                    color="link"
+                    onClick={async () => {
+                      editPhase(experiment.phases.length - 1);
+                      track("Edit phase", { source: "visual-editor-ui" });
+                    }}
+                  >
+                    Edit Targeting
+                  </Button>
+                </div>
+              ) : (
+                <div className="w-100 mt-2 mb-0 alert alert-warning">
+                  <div className="mb-2">
+                    <strong>
+                      <FaExclamationTriangle /> You must configure one of your
+                      SDK Connections to include Visual Experiments before
+                      starting
+                    </strong>
+                  </div>
+                  Go to <Link href="/sdks">SDK Connections</Link>
+                </div>
+              )}
+            </div>
           ) : (
-            <div className="text-center my-5">
-              <p>There are no experiment phases yet.</p>
-              <button className="btn btn-primary btn-lg" onClick={newPhase}>
-                Add a Phase
-              </button>
+            <div className="appbox text-center px-3 pt-4 pb-3 mb-4">
+              <p>
+                Use our Visual Editor to make changes to your site without
+                deploying code
+              </p>
+
+              {hasVisualEditorFeature && canEdit ? (
+                <button
+                  className="btn btn-primary btn-lg"
+                  onClick={() => {
+                    setVisualEditorModal(true);
+                    track("Open visual editor modal", {
+                      source: "visual-editor-ui",
+                      action: "add",
+                    });
+                  }}
+                >
+                  Open Visual Editor
+                </button>
+              ) : (
+                <div className="ml-3">
+                  <PremiumTooltip commercialFeature={"visual-editor"}>
+                    <div className="btn btn-primary btn-lg disabled">
+                      Open Visual Editor
+                    </div>
+                  </PremiumTooltip>
+                </div>
+              )}
+
+              <div className="text-right">
+                <p className="mb-1 text-muted small">Want to skip this step?</p>
+                <Button
+                  color=""
+                  className="btn-sm btn-outline-primary"
+                  onClick={async () => {
+                    await apiCall(`/experiment/${experiment.id}/status`, {
+                      method: "POST",
+                      body: JSON.stringify({
+                        status: "running",
+                      }),
+                    });
+                    await mutate();
+                    track("Start experiment", {
+                      source: "visual-editor-ui",
+                      action: "bypass visual editor",
+                    });
+                  }}
+                >
+                  Start Experiment <MdRocketLaunch />
+                </Button>
+              </div>
             </div>
           )}
         </div>
-      </div>
-      <div className="mb-4">
-        <ExperimentReportsList experiment={experiment} />
-      </div>
+      ) : (
+        <>
+          <div className="mb-4 position-relative">
+            <div style={{ position: "absolute", top: -70 }} id="results"></div>
+            <h3>
+              Results{" "}
+              <a
+                href="#results"
+                className="small"
+                style={{ verticalAlign: "middle" }}
+              >
+                <FaLink />
+              </a>
+            </h3>
+            <div className="appbox" style={{ overflowX: "initial" }}>
+              {experiment.phases?.length > 0 ? (
+                <Results
+                  experiment={experiment}
+                  mutateExperiment={mutate}
+                  editMetrics={editMetrics}
+                  editResult={editResult}
+                  editPhases={editPhases}
+                  alwaysShowPhaseSelector={true}
+                  reportDetailsLink={false}
+                  statsEngine={statsEngine}
+                  regressionAdjustmentAvailable={regressionAdjustmentAvailable}
+                  regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                  metricRegressionAdjustmentStatuses={
+                    metricRegressionAdjustmentStatuses
+                  }
+                  onRegressionAdjustmentChange={onRegressionAdjustmentChange}
+                />
+              ) : (
+                <div className="text-center my-5">
+                  <p>There are no experiment phases yet.</p>
+                  <button className="btn btn-primary btn-lg" onClick={newPhase}>
+                    Add a Phase
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="mb-4">
+            <ExperimentReportsList experiment={experiment} />
+          </div>
+        </>
+      )}
+
       <div className="pb-3">
         <h2>Discussion</h2>
         <DiscussionThread

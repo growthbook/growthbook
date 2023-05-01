@@ -91,7 +91,7 @@ const PValueGuardrailResults: FC<{
     return variations.map((v, i) => {
       const stats = data[i]?.metrics?.[metric.id];
       const expectedDirection = isExpectedDirection(stats, metric);
-      const statSig = isStatSig(stats, pValueThreshold);
+      const statSig = isStatSig(stats?.pValue ?? 1, pValueThreshold);
       const users = data[i].users;
       const name = v.name;
       return {
@@ -137,7 +137,11 @@ const PValueGuardrailResults: FC<{
 
               return (
                 <tr key={i}>
-                  <td>{r.name}</td>
+                  <th
+                    className={`variation with-variation-right-shadow variation${i} font-weight-normal`}
+                  >
+                    <span className="name">{r.name}</span>
+                  </th>
 
                   <MetricValueColumn
                     metric={metric}
@@ -161,8 +165,8 @@ const PValueGuardrailResults: FC<{
                       })`}
                     </td>
                   ) : (
-                    <td>
-                      <em>not enough data</em>
+                    <td className="text-center">
+                      <em className="text-muted">not enough data</em>
                     </td>
                   )}
                 </tr>
