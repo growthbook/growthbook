@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import genDefaultResolver from "./resolvers/genDefaultResolver";
 import genMetricOverrideResolver from "./resolvers/genMetricOverrideResolver";
 import genDefaultSettings from "./resolvers/genDefaultSettings";
@@ -92,10 +93,9 @@ const scopeSettings = (
   // iterate over resolvers and apply them to the base settings
   const settings = Object.entries(resolvers).reduce(
     (acc, [fieldName, resolver]) => {
-      const f = fieldName as keyof Settings;
       // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-ignore - todo: we need to figure out how to resolve the type
-      acc[f] = resolver(ctx);
+      acc[fieldName as keyof Settings] = resolver(ctx);
       return acc;
     },
     {} as ScopedSettings
@@ -151,3 +151,14 @@ export const getScopedSettings = (
 
   return scopeSettings(settings, scopes);
 };
+
+export const useScopedSettings = (
+  baseSettings: InputSettings,
+  scopes?: ScopeDefinition
+): ScopedSettingsReturn => {
+  return useMemo(() => {
+    return getScopedSettings(baseSettings, scopes);
+  }, [baseSettings, scopes]);
+};
+
+export { ScopedSettings } from "./types";

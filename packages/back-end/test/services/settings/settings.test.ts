@@ -1,4 +1,4 @@
-import { getScopedSettings } from "../../../src/services/settings";
+import { getScopedSettings } from "shared";
 import {
   OrganizationInterface,
   OrganizationSettings,

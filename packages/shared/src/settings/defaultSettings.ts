@@ -1,7 +1,6 @@
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
-import { MemberRoleInfo, MetricDefaults } from "../../../../types/organization";
-import { DEFAULT_METRIC_ANALYSIS_DAYS } from "../../experiments";
-import { Settings } from "../types";
+import { MemberRoleInfo, MetricDefaults } from "back-end/types/organization";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "../stats";
+import { Settings } from "./types";
 
 export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
 export const DEFAULT_ATTRIBUTION_MODEL = "firstExposure";
@@ -15,6 +14,7 @@ export const DEFAULT_METRIC_DEFAULTS: MetricDefaults = {
   minPercentageChange: 0.005,
   minimumSampleSize: 150,
 };
+export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 export const DEFAULT_MULTIPLE_EXPOSURE_MIN_PERCENT = 0.01;
 export const DEFAULT_NORTH_STAR = null;
 export const DEFAULT_PAST_EXPERIMENT_MIN_LENGTH = 6;
@@ -29,7 +29,7 @@ export const DEFAULT_CONVERSION_WINDOW_HOURS = null;
 export const DEFAULT_LOSE_RISK = null;
 export const DEFAULT_WIN_RISK = null;
 
-export default function genDefaultSettings(): Settings {
+export const genDefaultSettings = (): Settings => {
   return {
     confidenceLevel: DEFAULT_CONFIDENCE_LEVEL,
     attributionModel: DEFAULT_ATTRIBUTION_MODEL,
@@ -51,4 +51,4 @@ export default function genDefaultSettings(): Settings {
     loseRisk: DEFAULT_LOSE_RISK,
     winRisk: DEFAULT_WIN_RISK,
   };
-}
+};

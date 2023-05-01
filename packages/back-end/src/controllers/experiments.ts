@@ -5,6 +5,7 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   getValidDate,
+  getScopedSettings,
 } from "shared";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
@@ -84,7 +85,6 @@ import { PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { orgHasPremiumFeature } from "../util/organization.util";
 import { findProjectById } from "../models/ProjectModel";
-import { getScopedSettings } from "../services/settings";
 
 export async function getExperiments(
   req: AuthRequest<
