@@ -176,7 +176,6 @@ export default function GuidedGetStarted({
             <FeatureModal
               inline={true}
               cta={"Next: Install an SDK"}
-              disabledMessage="You do not have permission to create a feature flag."
               onSuccess={async () => {
                 setCurrentStep(currentStep + 1);
               }}
@@ -250,7 +249,6 @@ export default function GuidedGetStarted({
                 name: "My Datasource",
                 settings: {},
               }}
-              disabledMessage="You do not have permission to add a data source."
               existing={false}
               inline={true}
               source="get-started"
@@ -301,7 +299,6 @@ export default function GuidedGetStarted({
               inline={true}
               cta={"Finish"}
               current={{}}
-              disabledMessage="You do not have permission to create a metric."
               edit={false}
               source="get-started"
               onSuccess={() => {

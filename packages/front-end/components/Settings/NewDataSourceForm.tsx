@@ -34,7 +34,6 @@ const NewDataSourceForm: FC<{
   importSampleData?: (source: string) => Promise<void>;
   inline?: boolean;
   secondaryCTA?: ReactElement;
-  disabledMessage?: string;
 }> = ({
   data,
   onSuccess,
@@ -44,7 +43,6 @@ const NewDataSourceForm: FC<{
   importSampleData,
   inline,
   secondaryCTA,
-  disabledMessage,
 }) => {
   const { projects, project } = useDefinitions();
   const [step, setStep] = useState(0);
@@ -94,6 +92,14 @@ const NewDataSourceForm: FC<{
 
   if (!datasource) {
     return null;
+  }
+
+  let ctaEnabled = true;
+  let disabledMessage = null;
+
+  if (!permissions.check("createDatasources", project)) {
+    ctaEnabled = false;
+    disabledMessage = "You don't have permission to create data sources.";
   }
 
   const saveDataConnection = async () => {
@@ -494,10 +500,10 @@ const NewDataSourceForm: FC<{
       header={existing ? "Edit Data Source" : "Add Data Source"}
       close={onCancel}
       disabledMessage={disabledMessage}
+      ctaEnabled={ctaEnabled}
       submit={submit}
       autoCloseOnSubmit={false}
       cta={isFinalStep ? (step === 2 ? "Finish" : "Save") : "Next"}
-      ctaEnabled={permissions.check("createDatasources", project)}
       closeCta="Cancel"
       size="lg"
       error={lastError}

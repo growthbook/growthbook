@@ -49,7 +49,6 @@ weekAgo.setDate(weekAgo.getDate() - 7);
 export type MetricFormProps = {
   initialStep?: number;
   current: Partial<MetricInterface>;
-  disabledMessage?: string;
   edit: boolean;
   duplicate?: boolean;
   source: string;
@@ -152,7 +151,6 @@ const MetricForm: FC<MetricFormProps> = ({
   current,
   edit,
   duplicate = false,
-  disabledMessage,
   onClose,
   source,
   initialStep = 0,
@@ -446,6 +444,17 @@ const MetricForm: FC<MetricFormProps> = ({
     selectedDataSource
   );
 
+  let ctaEnabled = true;
+  let disabledMessage = null;
+
+  if (riskError) {
+    ctaEnabled = false;
+    disabledMessage = riskError;
+  } else if (!permissions.check("createMetrics", project)) {
+    ctaEnabled = false;
+    disabledMessage = "You don't have permission to create metrics.";
+  }
+
   return (
     <>
       {supportsSQL && sqlOpen && (
@@ -465,10 +474,10 @@ const MetricForm: FC<MetricFormProps> = ({
         header={edit ? "Edit Metric" : "New Metric"}
         close={onClose}
         disabledMessage={disabledMessage}
+        ctaEnabled={ctaEnabled}
         submit={onSubmit}
         cta={cta}
         closeCta={!inline && "Cancel"}
-        ctaEnabled={!riskError && permissions.check("createMetrics", project)}
         size="lg"
         docSection="metrics"
         step={step}

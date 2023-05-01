@@ -50,6 +50,10 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     }
   }, [selected]);
 
+  if (props.feature && !growthbook.isOn(props.feature)) {
+    return null;
+  }
+
   if (props.superAdmin && !admin) return null;
   if (props.permissions) {
     let allowed = false;
