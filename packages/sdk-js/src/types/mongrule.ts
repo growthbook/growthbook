@@ -60,7 +60,8 @@ export type ConditionValue =
   // eslint-disable-next-line
   | Array<any>
   // eslint-disable-next-line
-  | Record<string, any>;
+  | Record<string, any>
+  | null;
 
 export type OperatorCondition = {
   [key: string]: ConditionValue;
