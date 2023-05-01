@@ -1,9 +1,9 @@
 import React, { FC, useState } from "react";
 import { FaCheck, FaTimes } from "react-icons/fa";
 import { ExpandedMember } from "back-end/types/organization";
+import { datetime } from "shared";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
-import { datetime } from "@/services/dates";
 import ProjectBadges from "@/components/ProjectBadges";
 import { GBAddCircle } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";

@@ -3,6 +3,7 @@ import cronParser from "cron-parser";
 import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS, getValidDate } from "shared";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotInterface,
@@ -38,7 +39,6 @@ import { ExperimentInterface, MetricOverride } from "../../types/experiment";
 import { PastExperiment } from "../../types/past-experiments";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
-import { getValidDate } from "../util/dates";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { findSegmentById } from "../models/SegmentModel";
 import {
@@ -61,7 +61,6 @@ import {
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { postMetricValidator } from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "../constants/stats";
 import { findProjectById } from "../models/ProjectModel";
 import {
   getReportVariations,

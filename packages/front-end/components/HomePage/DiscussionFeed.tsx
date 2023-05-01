@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { useRouter } from "next/router";
+import { date } from "shared";
 import useApi from "@/hooks/useApi";
-import { date } from "@/services/dates";
 import { useUser } from "@/services/UserContext";
 import LoadingOverlay from "../LoadingOverlay";
 import Avatar from "../Avatar/Avatar";

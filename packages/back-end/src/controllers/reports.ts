@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { getValidDate } from "shared";
 import { ReportInterface } from "../../types/report";
 import {
   getExperimentById,
@@ -19,7 +20,6 @@ import { cancelRun, getStatusEndpoint } from "../services/queries";
 import { reportArgsFromSnapshot, runReport } from "../services/reports";
 import { analyzeExperimentResults } from "../services/stats";
 import { AuthRequest } from "../types/AuthRequest";
-import { getValidDate } from "../util/dates";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,

@@ -1,8 +1,8 @@
 import { FC, useState } from "react";
 import { FaCheck, FaTimes, FaUserCheck } from "react-icons/fa";
 import { PendingMember } from "back-end/types/organization";
+import { datetime } from "shared";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
-import { datetime } from "@/services/dates";
 import ProjectBadges from "@/components/ProjectBadges";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useEnvironments } from "@/services/features";

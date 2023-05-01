@@ -157,6 +157,41 @@ gb.run(Growthbook::InlineExperiment.new(
 ))
 ```
 
+## Working with Encrypted features
+
+You can learn more about [SDK Connection Endpoint Encryption](/app/api#encryption).
+
+Create a `GrowthBook::Context` with an encrypted payload and a decryption key:
+
+```rb
+# TODO: Replace these values with your own:
+Growthbook::Context.new(
+  encrypted_features: 'm5ylFM6ndyOJA2OPadubkw==.Uu7ViqgKEt/dWvCyhI46q088PkAEJbnXKf3KPZjf9IEQQ+A8fojNoxw4wIbPX3aj',
+  decryption_key: 'Zvwv/+uhpFDznZ6SX28Yjg==',
+  attributes: {
+    id: '456',
+    country: 'CA'
+  }
+)
+```
+
+When fetching features from the GrowthBook SDK endpoint, the encrypted features are available on a property `encryptedFeatures` instead of plain text on the property `features`. Here's an example with networking:
+
+```rb
+uri = URI('https://cdn.growthbook.io/api/features/MY_API_KEY')
+res = Net::HTTP.get_response(uri)
+encrypted_features = res.is_a?(Net::HTTPSuccess) ? JSON.parse(res.body)['encryptedFeatures'] : nil
+
+Growthbook::Context.new(
+  encrypted_features: encrypted_features,
+  decryption_key: '<key-for-decrypting>',
+  attributes: {
+    id: '456',
+    country: 'CA'
+  }
+)
+```
+
 ## Code Examples
 
 - [Ruby on Rails example <ExternalLink />](https://github.com/growthbook/examples/tree/main/acme_donuts_rails)

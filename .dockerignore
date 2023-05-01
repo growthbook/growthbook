@@ -16,9 +16,8 @@ docker-compose.yml
 **/*.log
 **/dummy
 
-# Other packages
-packages/docs
-packages/sdk-**
+# Docs
+./docs
 
 # Secrets / private data
 **/*.env.local

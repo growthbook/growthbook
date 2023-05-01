@@ -7,6 +7,7 @@ import {
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
 import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -36,7 +37,6 @@ import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import { GBCuped } from "@/components/Icons";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/constants/stats";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -692,7 +692,8 @@ const MetricForm: FC<MetricFormProps> = ({
                       onChange={(value) => form.setValue("column", value)}
                       required={value.type !== "count"}
                       helpText={
-                        !supportsSQL && "Javascript expression to extract a value from each event."
+                        !supportsSQL &&
+                        "Javascript expression to extract a value from each event."
                       }
                     />
                   )}

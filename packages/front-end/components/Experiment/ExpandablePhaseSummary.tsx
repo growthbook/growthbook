@@ -1,7 +1,7 @@
 import { ExperimentPhaseStringDates } from "back-end/types/experiment";
 import { useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
-import { date } from "@/services/dates";
+import { date } from "shared";
 import { phaseSummary } from "@/services/utils";
 import ConditionDisplay from "../Features/ConditionDisplay";
 import { GBEdit } from "../Icons";

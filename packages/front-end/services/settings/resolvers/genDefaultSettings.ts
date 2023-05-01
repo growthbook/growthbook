@@ -1,5 +1,5 @@
 import { MemberRoleInfo, MetricDefaults } from "back-end/types/organization";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "@/constants/stats";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
 import { Settings } from "../types";
 
 export const DEFAULT_CONFIDENCE_LEVEL = 0.95;

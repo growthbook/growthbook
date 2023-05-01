@@ -13,6 +13,7 @@ import { MetricInterface } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "back-end/types/idea";
+import { date } from "shared";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";
@@ -33,7 +34,6 @@ import Tab from "@/components/Tabs/Tab";
 import StatusIndicator from "@/components/Experiment/StatusIndicator";
 import HistoryTable from "@/components/HistoryTable";
 import DateGraph from "@/components/Metrics/DateGraph";
-import { date } from "@/services/dates";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";

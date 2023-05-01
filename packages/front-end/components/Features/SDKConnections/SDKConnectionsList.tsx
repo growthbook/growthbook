@@ -61,6 +61,10 @@ export default function SDKConnectionsList() {
                 connection.connected &&
                 (!hasProxy || connection.proxy.connected);
 
+              const projectId = connection.project;
+              const projectName = getProjectById(projectId)?.name || null;
+              const projectIsOprhaned = projectId && !projectName;
+
               return (
                 <tr
                   key={connection.id}
@@ -71,19 +75,25 @@ export default function SDKConnectionsList() {
                   }}
                 >
                   <td style={{ verticalAlign: "middle", width: 20 }}>
-                    <Tooltip
-                      body={
-                        connected
-                          ? "Connected successfully"
-                          : "Could not verify the connection"
-                      }
-                    >
-                      {connected ? (
-                        <StatusCircle className="bg-success" />
-                      ) : (
-                        <FaExclamationTriangle className="text-warning" />
-                      )}
-                    </Tooltip>
+                    {projectIsOprhaned ? (
+                      <Tooltip body='This SDK connection is scoped to a project that no longer exists. This connection will no longer work until either a valid project or "All Projects" is selected.'>
+                        <FaExclamationTriangle className="text-danger" />
+                      </Tooltip>
+                    ) : (
+                      <Tooltip
+                        body={
+                          connected
+                            ? "Connected successfully"
+                            : "Could not verify the connection"
+                        }
+                      >
+                        {connected ? (
+                          <StatusCircle className="bg-success" />
+                        ) : (
+                          <FaExclamationTriangle className="text-warning" />
+                        )}
+                      </Tooltip>
+                    )}
                   </td>
                   <td className="text-break">
                     <Link href={`/sdks/${connection.id}`}>
@@ -92,12 +102,20 @@ export default function SDKConnectionsList() {
                   </td>
                   {projects.length > 0 && (
                     <td>
-                      {connection.project ? (
-                        getProjectById(connection.project)?.name ||
-                        connection.project
+                      {projectIsOprhaned ? (
+                        <Tooltip
+                          body={
+                            <>
+                              Project <code>{connection.project}</code> not
+                              found
+                            </>
+                          }
+                        >
+                          <span className="text-danger">Invalid project</span>
+                        </Tooltip>
                       ) : (
-                        <em>All Projects</em>
-                      )}{" "}
+                        projectName ?? <em>All Projects</em>
+                      )}
                     </td>
                   )}
                   <td>
