@@ -52,24 +52,32 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const experiments = useAddComputedFields(
     allExperiments,
-    (exp) => ({
-      ownerName: getUserDisplay(exp.owner, false) || "",
-      metricNames: exp.metrics
-        .map((m) => getMetricById(m)?.name)
-        .filter(Boolean),
-      projectName: getProjectById(exp.project)?.name || "",
-      tab: exp.archived
-        ? "archived"
-        : exp.status === "draft"
-        ? "drafts"
-        : exp.status,
-      date:
-        (exp.status === "running"
-          ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
-          : exp.status === "stopped"
-          ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
-          : exp.dateCreated) ?? "",
-    }),
+    (exp) => {
+      const projectId = exp.project;
+      const projectName = getProjectById(projectId)?.name || "";
+      const projectIsOprhaned = projectId && !projectName;
+
+      return {
+        ownerName: getUserDisplay(exp.owner, false) || "",
+        metricNames: exp.metrics
+          .map((m) => getMetricById(m)?.name)
+          .filter(Boolean),
+        projectId,
+        projectName,
+        projectIsOprhaned,
+        tab: exp.archived
+          ? "archived"
+          : exp.status === "draft"
+          ? "drafts"
+          : exp.status,
+        date:
+          (exp.status === "running"
+            ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
+            : exp.status === "stopped"
+            ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
+            : exp.dateCreated) ?? "",
+      };
+    },
     [getMetricById, getProjectById]
   );
 
@@ -322,7 +330,19 @@ const ExperimentsPage = (): React.ReactElement => {
                     </td>
                     {showProjectColumn && (
                       <td className="nowrap" data-title="Project:">
-                        {e.projectName}
+                        {e.projectIsOprhaned ? (
+                          <Tooltip
+                            body={
+                              <>
+                                Project <code>{e.project}</code> not found
+                              </>
+                            }
+                          >
+                            <span className="text-danger">Invalid project</span>
+                          </Tooltip>
+                        ) : (
+                          e.projectName ?? <em>All Projects</em>
+                        )}
                       </td>
                     )}
                     <td className="nowrap" data-title="Tags:">

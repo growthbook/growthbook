@@ -280,6 +280,10 @@ export default function FeaturesPage() {
                 let version = feature.revision?.version || 1;
                 if (isDraft) version++;
 
+                const projectId = feature.project;
+                const projectName = getProjectById(projectId)?.name || null;
+                const projectIsOprhaned = projectId && !projectName;
+
                 return (
                   <tr
                     key={feature.id}
@@ -300,7 +304,21 @@ export default function FeaturesPage() {
                       </Link>
                     </td>
                     {showProjectColumn && (
-                      <td>{getProjectById(feature.project)?.name || ""}</td>
+                      <td>
+                        {projectIsOprhaned ? (
+                          <Tooltip
+                            body={
+                              <>
+                                Project <code>{feature.project}</code> not found
+                              </>
+                            }
+                          >
+                            <span className="text-danger">Invalid project</span>
+                          </Tooltip>
+                        ) : (
+                          projectName ?? <em>All Projects</em>
+                        )}
+                      </td>
                     )}
                     <td>
                       <SortedTags tags={feature?.tags || []} />
