@@ -3,7 +3,7 @@ import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
-import { getValidDate, ago } from "shared";
+import { getValidDate, ago, DEFAULT_STATS_ENGINE } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -87,7 +87,7 @@ const Results: FC<{
 
   const hasData =
     snapshot?.results?.[0]?.variations?.length > 0 &&
-    (snapshot.statsEngine || "bayesian") === statsEngine;
+    (snapshot.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
 
   const phaseObj = experiment.phases?.[phase];
 

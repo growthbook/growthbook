@@ -5,6 +5,7 @@ import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import { DEFAULT_STATS_ENGINE } from "shared";
 import { ExperimentTableRow, useDomain } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "../Tooltip/Tooltip";
@@ -63,7 +64,7 @@ export default function ResultsTable({
   hasRisk,
   riskVariation,
   setRiskVariation,
-  statsEngine = "bayesian",
+  statsEngine = DEFAULT_STATS_ENGINE,
   pValueCorrection,
   sequentialTestingEnabled = false,
 }: ResultsTableProps) {

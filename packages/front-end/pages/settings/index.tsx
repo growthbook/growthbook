@@ -12,7 +12,9 @@ import { AttributionModel } from "back-end/types/experiment";
 import { PValueCorrection } from "back-end/types/stats";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
 } from "shared";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
@@ -61,7 +63,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
-    settings.statsEngine ?? "bayesian"
+    settings.statsEngine || DEFAULT_STATS_ENGINE
   );
 
   const permissions = usePermissions();
@@ -118,8 +120,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       confidenceLevel: 0.95,
       pValueThreshold: 0.05,
       pValueCorrection: null,
-      statsEngine: "bayesian",
-      regressionAdjustmentEnabled: false,
+      statsEngine: DEFAULT_STATS_ENGINE,
+      regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       sequentialTestingEnabled: false,
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,

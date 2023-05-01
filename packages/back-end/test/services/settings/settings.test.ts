@@ -1,4 +1,4 @@
-import { getScopedSettings } from "shared";
+import { DEFAULT_STATS_ENGINE, getScopedSettings } from "shared";
 import {
   OrganizationInterface,
   OrganizationSettings,
@@ -171,7 +171,7 @@ describe("settings", () => {
 
     it("overrides stats-related metrics based on stats engine", () => {
       const orgSettings1: Partial<OrganizationSettings> = {
-        statsEngine: "bayesian",
+        statsEngine: DEFAULT_STATS_ENGINE,
         confidenceLevel: 0.95,
         pValueThreshold: 0.05,
       };

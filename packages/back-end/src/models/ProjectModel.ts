@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { DEFAULT_STATS_ENGINE } from "shared";
 import { ApiProject } from "../../types/openapi";
 import { ProjectInterface, ProjectSettings } from "../../types/project";
 
@@ -103,7 +104,7 @@ export function toProjectApiInterface(project: ProjectInterface): ApiProject {
     dateCreated: project.dateCreated.toISOString(),
     dateUpdated: project.dateUpdated.toISOString(),
     settings: {
-      statsEngine: project.settings?.statsEngine || "bayesian",
+      statsEngine: project.settings?.statsEngine || DEFAULT_STATS_ENGINE,
     },
   };
 }

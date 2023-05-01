@@ -1,5 +1,9 @@
 import { MemberRoleInfo, MetricDefaults } from "back-end/types/organization";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_STATS_ENGINE,
+} from "shared";
 import { Settings } from "../types";
 
 export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
@@ -19,9 +23,7 @@ export const DEFAULT_MULTIPLE_EXPOSURE_MIN_PERCENT = 0.01;
 export const DEFAULT_NORTH_STAR = null;
 export const DEFAULT_PAST_EXPERIMENT_MIN_LENGTH = 6;
 export const DEFAULT_P_VALUE_THRESHOLD = 0.05;
-export const DEFAULT_REGRESSION_ADJUSTMENT_ENABLED = false;
 export const DEFAULT_SDK_INSTRUCTIONS_VIEWED = false;
-export const DEFAULT_STATS_ENGINE = "bayesian";
 export const DEFAULT_UPDATE_SCHEDULE = null;
 export const DEFAULT_VIDEO_INSTRUCTIONS_VIEIWED = false;
 export const DEFAULT_CONVERSION_DELAY_HOURS = null;

@@ -3,7 +3,13 @@ import cronParser from "cron-parser";
 import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS, getValidDate } from "shared";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_STATS_ENGINE,
+  getValidDate,
+  getScopedSettings,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+} from "shared";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotInterface,
@@ -70,7 +76,6 @@ import {
 import { getMetricValue, QueryMap, startRun } from "./queries";
 import { getSourceIntegrationObject } from "./datasource";
 import { analyzeExperimentMetric } from "./stats";
-import { getScopedSettings } from "./settings";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -449,7 +454,8 @@ export async function createSnapshot({
     segment: experiment.segment || "",
     queryFilter: experiment.queryFilter || "",
     skipPartialData: experiment.skipPartialData || false,
-    statsEngine: experimentSnapshotSettings?.statsEngine || "bayesian",
+    statsEngine:
+      experimentSnapshotSettings?.statsEngine || DEFAULT_STATS_ENGINE,
     regressionAdjustmentEnabled:
       experimentSnapshotSettings?.regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses:
@@ -715,7 +721,7 @@ export async function toExperimentApiInterface(
       queryFilter: experiment.queryFilter || "",
       inProgressConversions: experiment.skipPartialData ? "exclude" : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
-      statsEngine: scopedSettings.statsEngine.value || "bayesian",
+      statsEngine: scopedSettings.statsEngine.value || DEFAULT_STATS_ENGINE,
       goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
       guardrails: (experiment.guardrails || []).map((m) =>
         getExperimentMetric(experiment, m)
@@ -794,7 +800,7 @@ export function toSnapshotApiInterface(
       queryFilter: snapshot.queryFilter || "",
       inProgressConversions: snapshot.skipPartialData ? "exclude" : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
-      statsEngine: snapshot.statsEngine || "bayesian",
+      statsEngine: snapshot.statsEngine || DEFAULT_STATS_ENGINE,
       goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
       guardrails: (experiment.guardrails || []).map((m) =>
         getExperimentMetric(experiment, m)
@@ -821,7 +827,7 @@ export function toSnapshotApiInterface(
               variationId: variationIds[i],
               analyses: [
                 {
-                  engine: snapshot.statsEngine || "bayesian",
+                  engine: snapshot.statsEngine || DEFAULT_STATS_ENGINE,
                   numerator: data?.value || 0,
                   denominator: data?.denominator || data?.users || 0,
                   mean: data?.stats?.mean || 0,
@@ -1244,9 +1250,11 @@ export async function getRegressionAdjustmentInfo(
     const {
       metricRegressionAdjustmentStatus,
     } = getRegressionAdjustmentsForMetric({
-      metric: metric,
-      denominatorMetrics: denominatorMetrics,
-      experimentRegressionAdjustmentEnabled: !!experiment.regressionAdjustmentEnabled,
+      metric: metric as MetricInterface,
+      denominatorMetrics: denominatorMetrics as MetricInterface[],
+      experimentRegressionAdjustmentEnabled:
+        experiment.regressionAdjustmentEnabled ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       organizationSettings: organization.settings,
       metricOverrides: experiment.metricOverrides,
     });

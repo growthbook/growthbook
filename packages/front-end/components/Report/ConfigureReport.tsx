@@ -11,6 +11,7 @@ import {
 } from "back-end/types/experiment";
 import uniq from "lodash/uniq";
 import {
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   getValidDate,
   useScopedSettings,
@@ -107,8 +108,9 @@ export default function ConfigureReport({
         : undefined,
       statsEngine: report.args.statsEngine || parentSettings.statsEngine.value,
       regressionAdjustmentEnabled:
-        hasRegressionAdjustmentFeature &&
-        !!report.args.regressionAdjustmentEnabled,
+        (hasRegressionAdjustmentFeature &&
+          report.args.regressionAdjustmentEnabled) ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       metricRegressionAdjustmentStatuses:
         report.args.metricRegressionAdjustmentStatuses || [],
       sequentialTestingEnabled:

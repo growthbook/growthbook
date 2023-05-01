@@ -1,11 +1,12 @@
 import { Settings, SettingsContext, SettingsResolver } from "../types";
+import { DEFAULT_STATS_ENGINE } from "../../stats";
 
 const regressionAdjustmentResolver = (
   field: "enabled" | "days"
 ): SettingsResolver<boolean | number> => {
   // todo: set `meta.scopeApplied`
   return (ctx: SettingsContext) => {
-    if (ctx.baseSettings.statsEngine.value === "bayesian") {
+    if (ctx.baseSettings.statsEngine.value === DEFAULT_STATS_ENGINE) {
       return {
         enabled: {
           value: false,

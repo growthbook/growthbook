@@ -1,5 +1,5 @@
 import { Response } from "express";
-import { getValidDate } from "shared";
+import { DEFAULT_STATS_ENGINE, getValidDate } from "shared";
 import { ReportInterface } from "../../types/report";
 import {
   getExperimentById,
@@ -192,7 +192,7 @@ export async function refreshReport(
 
   const useCache = !req.query["force"];
 
-  const statsEngine = report.args?.statsEngine || "bayesian";
+  const statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
 
   report.args.statsEngine = statsEngine;
   report.args.regressionAdjustmentEnabled =
@@ -230,7 +230,7 @@ export async function putReport(
       ...req.body.args,
     };
 
-    const statsEngine = updates.args?.statsEngine || "bayesian";
+    const statsEngine = updates.args?.statsEngine || DEFAULT_STATS_ENGINE;
 
     updates.args.startDate = getValidDate(updates.args.startDate);
     if (!updates.args.endDate) {

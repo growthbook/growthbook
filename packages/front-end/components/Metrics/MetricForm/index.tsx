@@ -7,7 +7,10 @@ import {
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
 import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+} from "shared";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -247,7 +250,9 @@ const MetricForm: FC<MetricFormProps> = ({
       minSampleSize: getMinSampleSizeForMetric(current),
       regressionAdjustmentOverride:
         current.regressionAdjustmentOverride ?? false,
-      regressionAdjustmentEnabled: current.regressionAdjustmentEnabled ?? false,
+      regressionAdjustmentEnabled:
+        current.regressionAdjustmentEnabled ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       regressionAdjustmentDays:
         current.regressionAdjustmentDays ??
         settings.regressionAdjustmentDays ??

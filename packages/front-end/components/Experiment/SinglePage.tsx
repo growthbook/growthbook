@@ -16,7 +16,10 @@ import { MetricInterface } from "back-end/types/metric";
 import uniq from "lodash/uniq";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { useScopedSettings } from "shared";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  useScopedSettings,
+} from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -246,7 +249,9 @@ export default function SinglePage({
       } = getRegressionAdjustmentsForMetric({
         metric: metric,
         denominatorMetrics: denominatorMetrics,
-        experimentRegressionAdjustmentEnabled: !!experiment.regressionAdjustmentEnabled,
+        experimentRegressionAdjustmentEnabled:
+          experiment.regressionAdjustmentEnabled ??
+          DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
         organizationSettings: orgSettings,
         metricOverrides: experiment.metricOverrides,
       });
