@@ -16,7 +16,7 @@ import { getApiBaseUrl } from "./CodeSnippetModal";
 const SDKEndpoints: FC<{
   keys: ApiKeyInterface[];
   mutate: () => void;
-}> = ({ keys, mutate }) => {
+}> = ({ keys = [], mutate }) => {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState<boolean>(false);
 
