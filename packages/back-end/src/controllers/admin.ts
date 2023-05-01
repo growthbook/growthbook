@@ -388,17 +388,12 @@ export async function addSampleData(
       }
 
       // Refresh results
-      await createSnapshot(
-        exp,
-        res.locals.eventAudit,
-        0,
-        org,
-        null,
-        false,
-        org.settings?.statsEngine,
-        false,
-        []
-      );
+      await createSnapshot({
+        experiment: exp,
+        organization: org,
+        user: res.locals.eventAudit,
+        phaseIndex: 0,
+      });
     })
   );
 

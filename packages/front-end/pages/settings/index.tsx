@@ -9,6 +9,11 @@ import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import cronstrue from "cronstrue";
 import { AttributionModel } from "back-end/types/experiment";
+import { PValueCorrection } from "back-end/types/stats";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+} from "shared";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -22,13 +27,15 @@ import { DocLink } from "@/components/DocLink";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
-import { GBPremiumBadge } from "@/components/Icons";
+import { GBCuped, GBPremiumBadge, GBSequential } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import EditLicenseModal from "@/components/Settings/EditLicenseModal";
 import Toggle from "@/components/Forms/Toggle";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
+import Tab from "@/components/Tabs/Tab";
+import ControlledTabs from "@/components/Tabs/ControlledTabs";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -52,10 +59,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
+  const [statsEngineTab, setStatsEngineTab] = useState<string>(
+    settings.statsEngine ?? "bayesian"
+  );
 
   const permissions = usePermissions();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
+  );
+  const hasSequentialTestingFeature = hasCommercialFeature(
+    "sequential-testing"
   );
 
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -103,9 +116,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
       pValueThreshold: 0.05,
+      pValueCorrection: null,
       statsEngine: "bayesian",
       regressionAdjustmentEnabled: false,
-      regressionAdjustmentDays: 14,
+      regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+      sequentialTestingEnabled: false,
+      sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       attributionModel: "firstExposure",
     },
   });
@@ -131,16 +147,17 @@ const GeneralSettingsPage = (): React.ReactElement => {
     statsEngine: form.watch("statsEngine"),
     confidenceLevel: form.watch("confidenceLevel"),
     pValueThreshold: form.watch("pValueThreshold"),
+    pValueCorrection: form.watch("pValueCorrection"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
+    sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
+    sequentialTestingTuningParameter: form.watch(
+      "sequentialTestingTuningParameter"
+    ),
     attributionModel: form.watch("attributionModel"),
   };
 
   const [cronString, setCronString] = useState("");
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(
-    (settings?.confidenceLevel && settings?.confidenceLevel !== 0.95) ||
-      (settings?.pValueThreshold && settings?.pValueThreshold !== 0.05)
-  );
 
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
@@ -511,7 +528,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </div>
 
               <div className="col-sm-9">
-                <div className="form-inline flex-column align-items-start">
+                <div className="form-inline flex-column align-items-start mb-4">
                   <Field
                     label="Minimum experiment length (in days) when importing past
                   experiments"
@@ -536,6 +553,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     max="1"
                     className="ml-2"
                     containerClassName="mb-3"
+                    append="%"
+                    style={{
+                      width: "80px",
+                    }}
                     disabled={hasFileConfig()}
                     helpText={<span className="ml-2">from 0 to 1</span>}
                     {...form.register("multipleExposureMinPercent", {
@@ -553,8 +574,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       className="ml-2"
                       value={form.watch("attributionModel")}
                       onChange={(value) => {
-                        const model = value as AttributionModel;
-                        form.setValue("attributionModel", model);
+                        form.setValue(
+                          "attributionModel",
+                          value as AttributionModel
+                        );
                       }}
                       options={[
                         {
@@ -630,7 +653,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   <div className="form-group">
                     <div className="form-group mb-2 mr-2">
                       <Field
-                        label="Statistics Engine"
+                        label="Default Statistics Engine"
                         className="ml-2"
                         options={[
                           {
@@ -642,206 +665,302 @@ const GeneralSettingsPage = (): React.ReactElement => {
                             value: "frequentist",
                           },
                         ]}
-                        {...form.register("statsEngine")}
+                        {...form.register("statsEngine", {
+                          onChange: () =>
+                            setStatsEngineTab(form.watch("statsEngine")),
+                        })}
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="p-3 my-3 border rounded">
-                  <h5 className="font-weight-bold mb-1">
-                    <PremiumTooltip commercialFeature="regression-adjustment">
-                      Regression Adjustment (CUPED)
-                    </PremiumTooltip>
-                  </h5>
-                  <div className="mb-3">
-                    <small className="d-inline-block mb-2 text-muted">
-                      Only applicable to frequentist analyses
-                    </small>
-                  </div>
-                  <div className="form-group mb-0 mr-2">
-                    <div className="d-flex">
-                      <label
-                        className="mr-1"
-                        htmlFor="toggle-regressionAdjustmentEnabled"
-                      >
-                        Apply regression adjustment by default
-                      </label>
-                      <Toggle
-                        id={"toggle-regressionAdjustmentEnabled"}
-                        value={!!form.watch("regressionAdjustmentEnabled")}
-                        setValue={(value) => {
-                          form.setValue("regressionAdjustmentEnabled", value);
-                        }}
-                        disabled={
-                          !hasRegressionAdjustmentFeature || hasFileConfig()
-                        }
-                      />
-                    </div>
-                    {form.watch("regressionAdjustmentEnabled") &&
-                      form.watch("statsEngine") === "bayesian" && (
-                        <div className="d-flex">
-                          <small className="mb-1 text-warning-orange">
-                            <FaExclamationTriangle /> Your organization uses
-                            Bayesian statistics by default and regression
-                            adjustment is not implemented for the Bayesian
-                            engine.
-                          </small>
-                        </div>
-                      )}
-                  </div>
-                  <div
-                    className="form-group mt-3 mb-0 mr-2 form-inline"
-                    style={{
-                      opacity: form.watch("regressionAdjustmentEnabled")
-                        ? "1"
-                        : "0.5",
-                    }}
-                  >
-                    <Field
-                      label="Pre-exposure lookback period (days)"
-                      type="number"
-                      style={{
-                        borderColor: regressionAdjustmentDaysHighlightColor,
-                        backgroundColor: regressionAdjustmentDaysHighlightColor
-                          ? regressionAdjustmentDaysHighlightColor + "15"
-                          : "",
-                      }}
-                      className={`ml-2`}
-                      containerClassName="mb-0"
-                      append="days"
-                      min="0"
-                      max="100"
-                      disabled={
-                        !hasRegressionAdjustmentFeature || hasFileConfig()
-                      }
-                      helpText={
-                        <>
-                          <span className="ml-2">(14 is default)</span>
-                        </>
-                      }
-                      {...form.register("regressionAdjustmentDays", {
-                        valueAsNumber: true,
-                        validate: (v) => {
-                          return !(v <= 0 || v > 100);
-                        },
-                      })}
-                    />
-                    {regressionAdjustmentDaysWarningMsg && (
-                      <small
+                <h4>Stats Engine Settings</h4>
+
+                <ControlledTabs
+                  newStyle={true}
+                  className="mt-3"
+                  buttonsClassName="px-5"
+                  tabContentsClassName="border"
+                  setActive={setStatsEngineTab}
+                  active={statsEngineTab}
+                >
+                  <Tab id="bayesian" display="Bayesian">
+                    <h4 className="mb-4 text-purple">Bayesian Settings</h4>
+
+                    <div className="form-group mb-2 mr-2 form-inline">
+                      <Field
+                        label="Chance to win threshold"
+                        type="number"
+                        step="any"
+                        min="70"
+                        max="99"
                         style={{
-                          color: regressionAdjustmentDaysHighlightColor,
+                          width: "80px",
+                          borderColor: highlightColor,
+                          backgroundColor: highlightColor
+                            ? highlightColor + "15"
+                            : "",
+                        }}
+                        className={`ml-2`}
+                        containerClassName="mb-3"
+                        append="%"
+                        disabled={hasFileConfig()}
+                        helpText={
+                          <>
+                            <span className="ml-2">(95% is default)</span>
+                            <div
+                              className="ml-2"
+                              style={{
+                                color: highlightColor,
+                                flexBasis: "100%",
+                              }}
+                            >
+                              {warningMsg}
+                            </div>
+                          </>
+                        }
+                        {...form.register("confidenceLevel", {
+                          valueAsNumber: true,
+                        })}
+                      />
+                    </div>
+                  </Tab>
+
+                  <Tab id="frequentist" display="Frequentist">
+                    <h4 className="mb-4 text-purple">Frequentist Settings</h4>
+
+                    <div className="form-group mb-2 mr-2 form-inline">
+                      <Field
+                        label="P-value threshold"
+                        type="number"
+                        step="0.001"
+                        max="0.5"
+                        min="0.001"
+                        style={{
+                          borderColor: pHighlightColor,
+                          backgroundColor: pHighlightColor
+                            ? pHighlightColor + "15"
+                            : "",
+                        }}
+                        className={`ml-2`}
+                        containerClassName="mb-3"
+                        append=""
+                        disabled={hasFileConfig()}
+                        helpText={
+                          <>
+                            <span className="ml-2">(0.05 is default)</span>
+                            <div
+                              className="ml-2"
+                              style={{
+                                color: pHighlightColor,
+                                flexBasis: "100%",
+                              }}
+                            >
+                              {pWarningMsg}
+                            </div>
+                          </>
+                        }
+                        {...form.register("pValueThreshold", {
+                          valueAsNumber: true,
+                        })}
+                      />
+                    </div>
+                    <div className="mb-3  form-inline flex-column align-items-start">
+                      <SelectField
+                        label={"Multiple comparisons correction to use: "}
+                        className="ml-2"
+                        value={form.watch("pValueCorrection") ?? null}
+                        onChange={(value) =>
+                          form.setValue(
+                            "pValueCorrection",
+                            value as PValueCorrection
+                          )
+                        }
+                        sort={false}
+                        options={[
+                          {
+                            label: "None",
+                            value: null,
+                          },
+                          {
+                            label: "Holm-Bonferroni (Control FWER)",
+                            value: "holm-bonferroni",
+                          },
+                          {
+                            label: "Benjamini-Hochberg (Control FDR)",
+                            value: "benjamini-hochberg",
+                          },
+                        ]}
+                      />
+                    </div>
+                    <div className="p-3 my-3 border rounded">
+                      <h5 className="font-weight-bold mb-4">
+                        <PremiumTooltip commercialFeature="regression-adjustment">
+                          <GBCuped /> Regression Adjustment (CUPED)
+                        </PremiumTooltip>
+                      </h5>
+                      <div className="form-group mb-0 mr-2">
+                        <div className="d-flex">
+                          <label
+                            className="mr-1"
+                            htmlFor="toggle-regressionAdjustmentEnabled"
+                          >
+                            Apply regression adjustment by default
+                          </label>
+                          <Toggle
+                            id={"toggle-regressionAdjustmentEnabled"}
+                            value={!!form.watch("regressionAdjustmentEnabled")}
+                            setValue={(value) => {
+                              form.setValue(
+                                "regressionAdjustmentEnabled",
+                                value
+                              );
+                            }}
+                            disabled={
+                              !hasRegressionAdjustmentFeature || hasFileConfig()
+                            }
+                          />
+                        </div>
+                        {form.watch("regressionAdjustmentEnabled") &&
+                          form.watch("statsEngine") === "bayesian" && (
+                            <div className="d-flex">
+                              <small className="mb-1 text-warning-orange">
+                                <FaExclamationTriangle /> Your organization uses
+                                Bayesian statistics by default and regression
+                                adjustment is not implemented for the Bayesian
+                                engine.
+                              </small>
+                            </div>
+                          )}
+                      </div>
+                      <div
+                        className="form-group mt-3 mb-0 mr-2 form-inline"
+                        style={{
+                          opacity: form.watch("regressionAdjustmentEnabled")
+                            ? "1"
+                            : "0.5",
                         }}
                       >
-                        {regressionAdjustmentDaysWarningMsg}
-                      </small>
-                    )}
-                  </div>
-                </div>
+                        <Field
+                          label="Pre-exposure lookback period (days)"
+                          type="number"
+                          style={{
+                            borderColor: regressionAdjustmentDaysHighlightColor,
+                            backgroundColor: regressionAdjustmentDaysHighlightColor
+                              ? regressionAdjustmentDaysHighlightColor + "15"
+                              : "",
+                          }}
+                          className={`ml-2`}
+                          containerClassName="mb-0"
+                          append="days"
+                          min="0"
+                          max="100"
+                          disabled={
+                            !hasRegressionAdjustmentFeature || hasFileConfig()
+                          }
+                          helpText={
+                            <>
+                              <span className="ml-2">
+                                ({DEFAULT_REGRESSION_ADJUSTMENT_DAYS} is
+                                default)
+                              </span>
+                            </>
+                          }
+                          {...form.register("regressionAdjustmentDays", {
+                            valueAsNumber: true,
+                            validate: (v) => {
+                              return !(v <= 0 || v > 100);
+                            },
+                          })}
+                        />
+                        {regressionAdjustmentDaysWarningMsg && (
+                          <small
+                            style={{
+                              color: regressionAdjustmentDaysHighlightColor,
+                            }}
+                          >
+                            {regressionAdjustmentDaysWarningMsg}
+                          </small>
+                        )}
+                      </div>
+                    </div>
 
-                <div className="form-check mb-2 mt-2">
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    name="advanced-options"
-                    checked={showAdvancedOptions}
-                    onChange={(e) => {
-                      setShowAdvancedOptions(!!e.target?.checked);
-                    }}
-                    id="checkbox-advanced"
-                  />
-
-                  <label
-                    htmlFor="checkbox-advanced"
-                    className="form-check-label"
-                  >
-                    Show Advanced Options
-                  </label>
-                </div>
-                {showAdvancedOptions && (
-                  <div className="bg-light p-3 my-3 border rounded">
-                    <div>
+                    <div className="p-3 my-3 border rounded">
                       <h5 className="font-weight-bold mb-4">
-                        Advanced Options - use caution
+                        <PremiumTooltip commercialFeature="sequential-testing">
+                          <GBSequential /> Sequential Testing
+                        </PremiumTooltip>
                       </h5>
-                    </div>
-                    <div>
-                      <div className="form-group mb-2 mr-2 form-inline flex-wrap">
-                        <Field
-                          label="Bayesian chance to win threshold"
-                          type="number"
-                          step="any"
-                          min="70"
-                          max="99"
-                          style={{
-                            width: "80px",
-                            borderColor: highlightColor,
-                            backgroundColor: highlightColor
-                              ? highlightColor + "15"
-                              : "",
-                          }}
-                          className={`ml-2`}
-                          containerClassName="mb-3"
-                          append="%"
-                          disabled={hasFileConfig()}
-                          helpText={
-                            <>
-                              <span className="ml-2">(95% is default)</span>
-                              <div
-                                className="ml-2"
-                                style={{
-                                  color: highlightColor,
-                                  flexBasis: "100%",
-                                }}
-                              >
-                                {warningMsg}
-                              </div>
-                            </>
-                          }
-                          {...form.register("confidenceLevel", {
-                            valueAsNumber: true,
-                          })}
-                        />
+                      <div className="form-group mb-0 mr-2">
+                        <div className="d-flex">
+                          <label
+                            className="mr-1"
+                            htmlFor="toggle-sequentialTestingEnabled"
+                          >
+                            Apply sequential testing by default
+                          </label>
+                          <Toggle
+                            id={"toggle-sequentialTestingEnabled"}
+                            value={!!form.watch("sequentialTestingEnabled")}
+                            setValue={(value) => {
+                              form.setValue("sequentialTestingEnabled", value);
+                            }}
+                            disabled={
+                              !hasSequentialTestingFeature || hasFileConfig()
+                            }
+                          />
+                        </div>
+                        {form.watch("sequentialTestingEnabled") &&
+                          form.watch("statsEngine") === "bayesian" && (
+                            <div className="d-flex">
+                              <small className="mb-1 text-warning-orange">
+                                <FaExclamationTriangle /> Your organization uses
+                                Bayesian statistics by default and sequential
+                                testing is not implemented for the Bayesian
+                                engine.
+                              </small>
+                            </div>
+                          )}
                       </div>
-                      <div className="form-group mb-2 mr-2 form-inline">
+                      <div
+                        className="form-group mt-3 mb-0 mr-2 form-inline"
+                        style={{
+                          opacity: form.watch("sequentialTestingEnabled")
+                            ? "1"
+                            : "0.5",
+                        }}
+                      >
                         <Field
-                          label="Frequentist p-value threshold"
+                          label="Tuning parameter"
                           type="number"
-                          step="0.001"
-                          max="0.5"
-                          min="0.001"
-                          style={{
-                            borderColor: pHighlightColor,
-                            backgroundColor: pHighlightColor
-                              ? pHighlightColor + "15"
-                              : "",
-                          }}
                           className={`ml-2`}
-                          containerClassName="mb-3"
-                          append=""
-                          disabled={hasFileConfig()}
+                          containerClassName="mb-0"
+                          min="0"
+                          disabled={
+                            !hasSequentialTestingFeature || hasFileConfig()
+                          }
                           helpText={
                             <>
-                              <span className="ml-2">(0.05 is default)</span>
-                              <div
-                                className="ml-2"
-                                style={{
-                                  color: pHighlightColor,
-                                  flexBasis: "100%",
-                                }}
-                              >
-                                {pWarningMsg}
-                              </div>
+                              <span className="ml-2">
+                                ({DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                                is default)
+                              </span>
                             </>
                           }
-                          {...form.register("pValueThreshold", {
-                            valueAsNumber: true,
-                          })}
+                          {...form.register(
+                            "sequentialTestingTuningParameter",
+                            {
+                              valueAsNumber: true,
+                              validate: (v) => {
+                                return !(v <= 0);
+                              },
+                            }
+                          )}
                         />
                       </div>
                     </div>
-                  </div>
-                )}
+                  </Tab>
+                </ControlledTabs>
               </div>
             </div>
 
@@ -955,28 +1074,26 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 {/* endregion Metrics Behavior Defaults */}
               </div>
             </div>
-            <div className="divider border-bottom mb-5 mt-3" />
-
-            <div
-              className="row position-sticky p-4 bg-white"
-              style={{ bottom: 0 }}
-            >
-              <div className="col-12">
-                <div className="d-flex flex-row-reverse pr-4">
-                  <Button
-                    color={"primary"}
-                    disabled={!ctaEnabled}
-                    onClick={async () => {
-                      if (!ctaEnabled) return;
-                      await saveSettings();
-                    }}
-                  >
-                    Save
-                  </Button>
-                </div>
-              </div>
-            </div>
           </div>
+        </div>
+      </div>
+
+      <div
+        className="bg-main-color position-sticky w-100 py-3 border-top"
+        style={{ bottom: 0 }}
+      >
+        <div className="container-fluid pagecontents d-flex flex-row-reverse">
+          <Button
+            style={{ marginRight: "4rem" }}
+            color={"primary"}
+            disabled={!ctaEnabled}
+            onClick={async () => {
+              if (!ctaEnabled) return;
+              await saveSettings();
+            }}
+          >
+            Save
+          </Button>
         </div>
       </div>
     </>

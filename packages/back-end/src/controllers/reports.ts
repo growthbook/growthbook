@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { getValidDate } from "shared";
 import { ReportInterface } from "../../types/report";
 import {
   getExperimentById,
@@ -19,7 +20,6 @@ import { cancelRun, getStatusEndpoint } from "../services/queries";
 import { runReport, reportArgsFromSnapshot } from "../services/reports";
 import { analyzeExperimentResults } from "../services/stats";
 import { AuthRequest } from "../types/AuthRequest";
-import { getValidDate } from "../util/dates";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -279,13 +279,19 @@ export async function getReportStatus(
     org.id,
     (queryData) => {
       if (report.type === "experiment") {
-        return analyzeExperimentResults(
-          org.id,
-          report.args.variations,
-          report.args.dimension || undefined,
+        return analyzeExperimentResults({
+          organization: org.id,
+          variations: report.args.variations,
+          dimension: report.args.dimension,
           queryData,
-          report.args.statsEngine || org.settings?.statsEngine
-        );
+          statsEngine: report.args.statsEngine || org.settings?.statsEngine,
+          sequentialTestingEnabled:
+            report.args.sequentialTestingEnabled ??
+            org.settings?.sequentialTestingEnabled,
+          sequentialTestingTuningParameter:
+            report.args.sequentialTestingTuningParameter ??
+            org.settings?.sequentialTestingTuningParameter,
+        });
       }
       throw new Error("Unsupported report type");
     },

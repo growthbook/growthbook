@@ -2,6 +2,8 @@ import type { MetricStats } from "./metric";
 
 export type StatsEngine = "bayesian" | "frequentist";
 
+export type PValueCorrection = null | "benjamini-hochberg" | "holm-bonferroni";
+
 interface BaseVariationResponse {
   cr: number;
   value: number;

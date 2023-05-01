@@ -1,4 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS, getValidDate } from "shared";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceSettings,
@@ -25,7 +26,6 @@ import {
   DEFAULT_CONVERSION_WINDOW_HOURS,
   IMPORT_LIMIT_DAYS,
 } from "../util/secrets";
-import { getValidDate } from "../util/dates";
 import { SegmentInterface } from "../../types/segment";
 import {
   getBaseIdTypeAndJoins,
@@ -161,11 +161,11 @@ export default abstract class SqlIntegration
   useAliasInGroupBy(): boolean {
     return true;
   }
-  castDateToStandardString(col: string): string {
+  formatDateTimeString(col: string): string {
     return this.castToString(col);
   }
-  replaceDateDimensionString(minDateDimString: string): string {
-    return `REGEXP_REPLACE(${minDateDimString}, '.*____', '')`;
+  selectSampleRows(table: string, limit: number): string {
+    return `SELECT * FROM ${table} LIMIT ${limit}`;
   }
 
   applyMetricOverrides(
@@ -201,7 +201,8 @@ export default abstract class SqlIntegration
         experimentRegressionAdjustmentEnabled &&
         metricRegressionAdjustmentStatus.regressionAdjustmentEnabled;
       metric.regressionAdjustmentDays =
-        metricRegressionAdjustmentStatus.regressionAdjustmentDays ?? 14;
+        metricRegressionAdjustmentStatus.regressionAdjustmentDays ??
+        DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
       metric.regressionAdjustmentDays = Math.max(
         metric.regressionAdjustmentDays,
         0
@@ -537,7 +538,7 @@ export default abstract class SqlIntegration
       `WITH __table as (
         ${query}
       )
-      SELECT * FROM __table LIMIT 5`,
+      ${this.selectSampleRows("__table", 5)}`,
       {
         startDate,
       }
@@ -664,13 +665,17 @@ export default abstract class SqlIntegration
     } else if (dimension.type === "date") {
       return `MIN(${this.formatDate(this.dateTrunc("e.timestamp"))})`;
     } else if (dimension.type === "experiment") {
-      return this.replaceDateDimensionString(
-        `MIN(CONCAT(${this.castDateToStandardString(
-          "e.timestamp"
-        )}, '____', coalesce(${this.castToString(
-          "e.dimension"
-        )},'${missingDimString}')))`
-      );
+      return `SUBSTRING(
+        MIN(
+          CONCAT(SUBSTRING(${this.formatDateTimeString("e.timestamp")}, 1, 19), 
+            coalesce(${this.castToString("e.dimension")}, ${this.castToString(
+        `'${missingDimString}'`
+      )})
+          )
+        ),
+        20, 
+        99999
+      )`;
     }
 
     throw new Error("Unknown dimension type: " + (dimension as Dimension).type);

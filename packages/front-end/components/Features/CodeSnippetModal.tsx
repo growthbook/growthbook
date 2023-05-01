@@ -127,7 +127,7 @@ export default function CodeSnippetModal({
     return null;
   }
 
-  const { docs, label, usesEntireEndpoint } = languageMapping[language];
+  const { docs, label } = languageMapping[language];
   const apiHost = getApiBaseUrl(currentConnection);
   const clientKey = currentConnection.key;
   const featuresEndpoint = apiHost + "/api/features/" + clientKey;
@@ -243,51 +243,37 @@ export default function CodeSnippetModal({
               <div className="appbox bg-light p-3">
                 <table className="gbtable table table-bordered table-sm">
                   <tbody>
-                    {usesEntireEndpoint ? (
-                      <tr>
-                        <th
-                          className="pl-3"
-                          style={{ verticalAlign: "middle" }}
-                        >
-                          Features Endpoint
-                        </th>
-                        <td>
-                          <ClickToCopy>{featuresEndpoint}</ClickToCopy>
-                        </td>
-                      </tr>
-                    ) : (
-                      <>
-                        <tr>
-                          <th
-                            className="pl-3"
-                            style={{ verticalAlign: "middle" }}
-                          >
-                            API Host
-                          </th>
-                          <td>
-                            <ClickToCopy>{apiHost}</ClickToCopy>
-                          </td>
-                        </tr>
-                        <tr>
-                          <th
-                            className="pl-3"
-                            style={{ verticalAlign: "middle" }}
-                          >
-                            Client Key
-                          </th>
-                          <td>
-                            <ClickToCopy>{clientKey}</ClickToCopy>
-                          </td>
-                        </tr>
-                      </>
-                    )}
+                    <tr>
+                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
+                        Full API Endpoint
+                      </th>
+                      <td>
+                        <ClickToCopy>{featuresEndpoint}</ClickToCopy>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
+                        API Host
+                      </th>
+                      <td>
+                        <ClickToCopy>{apiHost}</ClickToCopy>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
+                        Client Key
+                      </th>
+                      <td>
+                        <ClickToCopy>{clientKey}</ClickToCopy>
+                      </td>
+                    </tr>
                     {encryptionKey && (
                       <tr>
                         <th
                           className="pl-3"
                           style={{ verticalAlign: "middle" }}
                         >
-                          Encryption Key
+                          Decryption Key
                         </th>
                         <td>
                           <ClickToCopy>{encryptionKey}</ClickToCopy>
