@@ -198,7 +198,9 @@ export type DOMMutation = {
   selector: string;
   action: string;
   attribute: string;
-  value: string;
+  value?: string;
+  parentSelector?: string;
+  insertBeforeSelector?: string;
 };
 
 export type AutoExperimentVariation = {

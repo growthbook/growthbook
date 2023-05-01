@@ -7,13 +7,13 @@ slug: build-your-own
 
 # Build Your Own SDK
 
-**Latest spec version: 0.4.1 [View Changelog](#changelog)**
+**Latest spec version: 0.4.2 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
-GrowthBook SDKs are very simple and do not interact with the filesystem or network. Because of this, they can often be kept to **under 1000 lines of code**.
+GrowthBook SDKs are simple and lightweight. Because of this, they can often be kept to **under 2000 lines of code**.
 
-All libraries should follow this specification as closely as the language permits to maintain consistency.
+All libraries should follow this specification as closely as the language permits to maintain consistency and make updates and maintenance easier.
 
 ## Data structures
 
@@ -1072,3 +1072,5 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - Added `decrypt` function and set of test cases
   - `hash` function now returns `null` instead of `-1` when an invalid hashVersion is specified
   - Fixed broken feature test case (was using `[0.99]` instead of `0.99` for coverage)
+- **v0.4.2** 2023-04-30
+  - Add test cases when targeting condition value is `null`

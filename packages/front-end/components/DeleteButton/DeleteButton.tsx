@@ -1,4 +1,4 @@
-import { FC, useState, useEffect, CSSProperties } from "react";
+import { FC, useState, useEffect, CSSProperties, ReactElement } from "react";
 import { FaTrash } from "react-icons/fa";
 import clsx from "clsx";
 import Modal from "../Modal";
@@ -14,8 +14,8 @@ const DeleteButton: FC<{
   text?: string;
   title?: string;
   useIcon?: boolean;
-  deleteMessage?: string;
-  additionalMessage?: string;
+  deleteMessage?: ReactElement | string;
+  additionalMessage?: ReactElement | string;
   getConfirmationContent?: () => Promise<string | React.ReactElement>;
   canDelete?: boolean;
 }> = ({
@@ -58,8 +58,19 @@ const DeleteButton: FC<{
           submit={onClick}
           ctaEnabled={canDelete}
         >
-          {dynamicContent ? dynamicContent : <p>{deleteMessage}</p>}
-          {additionalMessage && <p>{additionalMessage}</p>}
+          {dynamicContent ? (
+            dynamicContent
+          ) : typeof deleteMessage === "string" ? (
+            <p>{deleteMessage}</p>
+          ) : (
+            deleteMessage
+          )}
+          {additionalMessage &&
+            (typeof additionalMessage === "string" ? (
+              <p>{additionalMessage}</p>
+            ) : (
+              additionalMessage
+            ))}
         </Modal>
       ) : (
         ""

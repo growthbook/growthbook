@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { date, datetime } from "@/services/dates";
+import { date, datetime } from "shared";
 import { phaseSummary } from "@/services/utils";
 import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
