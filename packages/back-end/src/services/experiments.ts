@@ -665,9 +665,9 @@ export async function toExperimentApiInterface(
     project = await findProjectById(experiment.project, organization.id);
   }
   const { settings: scopedSettings } = getScopedSettings(
-    organization.settings || {},
     {
-      project: project?.settings,
+      organization,
+      project: project ?? undefined,
       // todo: experiment settings
     }
   );

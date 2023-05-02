@@ -1,5 +1,5 @@
-import { MetricInterface } from "../../../types/metric";
-import { ExperimentInterface } from "../../../types/experiment";
+import { MetricInterface } from "back-end/types/metric";
+import { ExperimentInterface } from "back-end/types/experiment";
 
 export const metrics: Record<string, MetricInterface> = {};
 export const experiments: Record<string, ExperimentInterface> = {};

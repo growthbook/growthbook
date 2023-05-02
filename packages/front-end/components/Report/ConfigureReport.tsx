@@ -45,7 +45,7 @@ export default function ConfigureReport({
 }) {
   const orgSettings = useOrgSettings();
   const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const {
     metrics,
     segments,
@@ -63,8 +63,9 @@ export default function ConfigureReport({
   const pid = experiment?.project;
   const project = getProjectById(pid);
 
-  const { settings: parentSettings } = useScopedSettings(orgSettings, {
-    project: project?.settings,
+  const { settings: parentSettings } = useScopedSettings({
+    organization,
+    project: project ?? undefined,
   });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(

@@ -1,9 +1,9 @@
-import { DEFAULT_STATS_ENGINE, getScopedSettings } from "shared";
 import {
   OrganizationInterface,
   OrganizationSettings,
-} from "../../../types/organization";
-import { ProjectSettings } from "../../../types/project";
+} from "back-end/types/organization";
+import { ProjectInterface } from "back-end/types/project";
+import { DEFAULT_STATS_ENGINE, getScopedSettings } from "../../src";
 import { experiments, metrics } from "./test-objects";
 
 const baseOrganization: OrganizationInterface = {
@@ -16,8 +16,15 @@ const baseOrganization: OrganizationInterface = {
   url: "test-org",
 };
 
-const mockProject: ProjectSettings = {
-  statsEngine: "frequentist",
+const mockProject: ProjectInterface = {
+  id: "1",
+  organization: "1",
+  name: "Test Project",
+  dateCreated: new Date("2020-01-01"),
+  dateUpdated: new Date("2021-01-01"),
+  settings: {
+    statsEngine: "frequentist",
+  },
 };
 
 const genOrgWithSettings = (settings?: Partial<OrganizationSettings>) => ({
@@ -31,9 +38,9 @@ describe("settings", () => {
       const settings = { pValueThreshold: 0.001 };
       const organization = genOrgWithSettings(settings);
 
-      const { settings: newSettings } = getScopedSettings(
-        organization.settings
-      );
+      const { settings: newSettings } = getScopedSettings({
+        organization,
+      });
 
       expect(newSettings.pValueThreshold.value).toEqual(
         settings.pValueThreshold
@@ -44,20 +51,21 @@ describe("settings", () => {
       const settings = { pValueThreshold: 0.001 };
       const organization = genOrgWithSettings(settings);
 
-      const projectWithPValueOverride = {
+      const projectWithPValueOverride: ProjectInterface = {
         ...mockProject,
-        pValueThreshold: 0.06,
+        settings: {
+          ...mockProject.settings,
+          statsEngine: "frequentist",
+        },
       };
 
-      const { settings: newSettings } = getScopedSettings(
-        organization.settings,
-        {
-          project: projectWithPValueOverride,
-        }
-      );
+      const { settings: newSettings } = getScopedSettings({
+        organization,
+        project: projectWithPValueOverride,
+      });
 
-      expect(newSettings.pValueThreshold.value).toEqual(
-        projectWithPValueOverride.pValueThreshold
+      expect(newSettings.statsEngine.value).toEqual(
+        projectWithPValueOverride.settings.statsEngine
       );
     });
 
@@ -69,13 +77,11 @@ describe("settings", () => {
       describe("when the metric has no setting, and the experiment has no overrides", () => {
         it("defaults to the experiment setting", () => {
           // Signups
-          const { settings: metricSettings_signups } = getScopedSettings(
-            organization.settings,
-            {
-              metric: metrics.signups,
-              experiment: experiments.exp1,
-            }
-          );
+          const { settings: metricSettings_signups } = getScopedSettings({
+            organization,
+            metric: metrics.signups,
+            experiment: experiments.exp1,
+          });
 
           expect(
             metricSettings_signups.regressionAdjustmentEnabled.value
@@ -90,14 +96,12 @@ describe("settings", () => {
           const orgSettings: Partial<OrganizationSettings> = {
             statsEngine: "frequentist",
           };
-          const org = genOrgWithSettings(orgSettings);
-          const { settings: metricSettings_revenue } = getScopedSettings(
-            org.settings,
-            {
-              metric: metrics.revenue2,
-              experiment: experiments.exp1,
-            }
-          );
+          const organization = genOrgWithSettings(orgSettings);
+          const { settings: metricSettings_revenue } = getScopedSettings({
+            organization,
+            metric: metrics.revenue2,
+            experiment: experiments.exp1,
+          });
 
           expect(metricSettings_revenue.conversionDelayHours.value).toEqual(
             2.5
@@ -119,13 +123,11 @@ describe("settings", () => {
           expect(metricSettings_revenue.loseRisk.value).toEqual(0.0125);
 
           // Testvar
-          const { settings: metricSettings_testvar } = getScopedSettings(
-            organization.settings,
-            {
-              metric: metrics.testvar,
-              experiment: experiments.exp1,
-            }
-          );
+          const { settings: metricSettings_testvar } = getScopedSettings({
+            organization,
+            metric: metrics.testvar,
+            experiment: experiments.exp1,
+          });
 
           expect(metricSettings_testvar.conversionDelayHours.value).toEqual(0);
           expect(metricSettings_testvar.conversionWindowHours.value).toEqual(
@@ -148,17 +150,15 @@ describe("settings", () => {
           //   ...metrics.conversions,
           //   type: "count",
           // };
-          const { settings: metricSettings_testvar_2 } = getScopedSettings(
-            org.settings,
-            {
-              metric: metrics.testvar2,
-              denominatorMetric: {
-                ...metrics.conversions,
-                type: "count",
-              },
-              experiment: experiments.exp1,
-            }
-          );
+          const { settings: metricSettings_testvar_2 } = getScopedSettings({
+            organization,
+            metric: metrics.testvar2,
+            denominatorMetric: {
+              ...metrics.conversions,
+              type: "count",
+            },
+            experiment: experiments.exp1,
+          });
           expect(
             metricSettings_testvar_2.regressionAdjustmentEnabled.value
           ).toEqual(false);
@@ -176,13 +176,11 @@ describe("settings", () => {
         pValueThreshold: 0.05,
       };
       const org1 = genOrgWithSettings(orgSettings1);
-      const { settings: settings_revenue_1 } = getScopedSettings(
-        org1.settings,
-        {
-          metric: metrics.revenue,
-          experiment: experiments.exp1,
-        }
-      );
+      const { settings: settings_revenue_1 } = getScopedSettings({
+        organization: org1,
+        metric: metrics.revenue,
+        experiment: experiments.exp1,
+      });
 
       // org level:
       expect(settings_revenue_1.regressionAdjustmentEnabled.value).toEqual(
@@ -204,13 +202,11 @@ describe("settings", () => {
         statsEngine: "frequentist",
       };
       const org2 = genOrgWithSettings(orgSettings2);
-      const { settings: settings_revenue_2 } = getScopedSettings(
-        org2.settings,
-        {
-          metric: metrics.revenue,
-          experiment: experiments.exp1,
-        }
-      );
+      const { settings: settings_revenue_2 } = getScopedSettings({
+        organization: org2,
+        metric: metrics.revenue,
+        experiment: experiments.exp1,
+      });
 
       // org level:
       expect(settings_revenue_2.regressionAdjustmentEnabled.value).toEqual(

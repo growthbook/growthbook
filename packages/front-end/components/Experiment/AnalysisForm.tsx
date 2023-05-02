@@ -47,19 +47,21 @@ const AnalysisForm: FC<{
     datasources,
   } = useDefinitions();
 
+  const { organization, hasCommercialFeature } = useUser();
+
   const orgSettings = useOrgSettings();
 
   const pid = experiment?.project;
   const project = getProjectById(pid);
 
-  const { settings: scopedSettings } = useScopedSettings(orgSettings, {
-    project: project.settings,
+  const { settings: scopedSettings } = useScopedSettings({
+    organization,
+    project: project ?? undefined,
     experiment: experiment,
   });
 
   const statsEngine = scopedSettings.statsEngine.value;
 
-  const { hasCommercialFeature } = useUser();
 
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"

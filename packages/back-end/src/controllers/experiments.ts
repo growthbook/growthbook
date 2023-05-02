@@ -1553,8 +1553,9 @@ export async function postSnapshot(
   if (experiment.project) {
     project = await findProjectById(experiment.project, org.id);
   }
-  const { settings: scopedSettings } = getScopedSettings(orgSettings, {
-    project: project?.settings,
+  const { settings: scopedSettings } = getScopedSettings({
+    organization: org,
+    project: project ?? undefined,
   });
 
   statsEngine = ["bayesian", "frequentist"].includes(statsEngine + "")

@@ -191,7 +191,7 @@ export default function SinglePage({
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
   const orgSettings = useOrgSettings();
-  const { users, hasCommercialFeature } = useUser();
+  const { organization, users, hasCommercialFeature } = useUser();
 
   const { data: sdkConnectionsData } = useSDKConnections();
 
@@ -200,8 +200,9 @@ export default function SinglePage({
   const projectName = project?.name || null;
   const projectIsOprhaned = projectId && !projectName;
 
-  const { settings: scopedSettings } = useScopedSettings(orgSettings, {
-    project: project?.settings,
+  const { settings: scopedSettings } = useScopedSettings({
+    organization,
+    project: project ?? undefined,
     experiment: experiment,
   });
 

@@ -14,7 +14,7 @@ import {
   OrganizationInterface,
 } from "back-end/types/organization";
 import { StatsEngine } from "back-end/types/stats";
-import { ProjectInterface, ProjectSettings } from "back-end/types/project";
+import { ProjectInterface } from "back-end/types/project";
 import { ReportInterface } from "back-end/types/report";
 
 interface SettingMetadata {
@@ -36,7 +36,7 @@ export interface SettingsContext {
 export type SettingsResolver<T> = (ctx: SettingsContext) => Setting<T>;
 
 export interface ScopeDefinition {
-  organization: OrganizationInterface;
+  organization: Partial<OrganizationInterface>;
   project?: ProjectInterface;
   datasource?: DataSourceInterface;
   experiment?: ExperimentInterface | ExperimentInterfaceStringDates;

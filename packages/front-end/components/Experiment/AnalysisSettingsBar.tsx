@@ -47,24 +47,24 @@ function isOutdated(
 ): { outdated: boolean; reason: string } {
   if (!snapshot) return { outdated: false, reason: "" };
   if (isDifferent(snapshot.statsEngine, statsEngine)) {
-    return { outdated: true, reason: "stats engine changed" };
+    return { outdated: true, reason: "Stats engine changed" };
   }
   if (isDifferent(experiment.activationMetric, snapshot.activationMetric)) {
-    return { outdated: true, reason: "activation metric changed" };
+    return { outdated: true, reason: "Activation metric changed" };
   }
   if (isDifferent(experiment.segment, snapshot.segment)) {
-    return { outdated: true, reason: "segment changed" };
+    return { outdated: true, reason: "Segment changed" };
   }
   if (isDifferent(experiment.queryFilter, snapshot.queryFilter)) {
-    return { outdated: true, reason: "query filter changed" };
+    return { outdated: true, reason: "Query filter changed" };
   }
   if (experiment.datasource && !("skipPartialData" in snapshot)) {
-    return { outdated: true, reason: "datasource changed" };
+    return { outdated: true, reason: "Datasource changed" };
   }
   if (isDifferent(experiment.skipPartialData, snapshot.skipPartialData)) {
     return {
       outdated: true,
-      reason: "in-progress conversion behavior changed",
+      reason: "In-progress conversion behavior changed",
     };
   }
   // todo: attribution model? (which doesn't live in the snapshot currently)
@@ -100,7 +100,7 @@ function isOutdated(
       experimentSequentialTuningParameter !==
         snapshot.sequentialTestingTuningParameter)
   ) {
-    return { outdated: true, reason: "sequential testing settings changed" };
+    return { outdated: true, reason: "Sequential testing settings changed" };
   }
   return { outdated: false, reason: "" };
 }

@@ -16,11 +16,13 @@ export default function genDefaultResolver(
     | undefined = {}
 ): SettingsResolver<Settings[keyof Settings]> {
   const filteredScopes = scopeOrder
-    .filter((s) => scopesToApply[s])
+    .filter((s) => scopesToApply?.[s])
     .map((s) => ({
       scope: s,
       fieldName:
-        typeof scopesToApply[s] === "string" ? scopesToApply[s] : baseFieldName,
+        typeof scopesToApply?.[s] === "string"
+          ? scopesToApply[s]
+          : baseFieldName,
     }));
   return (ctx) => {
     const baseSetting = ctx.baseSettings[baseFieldName]?.value;
