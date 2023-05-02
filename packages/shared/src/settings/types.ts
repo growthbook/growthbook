@@ -10,10 +10,10 @@ import {
   NorthStarMetric,
   MetricDefaults,
   ExperimentUpdateSchedule,
-  MemberRoleInfo,
+  MemberRoleInfo, OrganizationInterface
 } from "back-end/types/organization";
 import { StatsEngine } from "back-end/types/stats";
-import { ProjectSettings } from "back-end/types/project";
+import { ProjectInterface, ProjectSettings } from "back-end/types/project";
 import { ReportInterface } from "back-end/types/report";
 
 interface SettingMetadata {
@@ -35,7 +35,8 @@ export interface SettingsContext {
 export type SettingsResolver<T> = (ctx: SettingsContext) => Setting<T>;
 
 export interface ScopeDefinition {
-  project?: ProjectSettings;
+  organization: OrganizationInterface;
+  project?: ProjectInterface;
   datasource?: DataSourceInterface;
   experiment?: ExperimentInterface | ExperimentInterfaceStringDates;
   metric?: MetricInterface;
@@ -75,6 +76,7 @@ interface BaseSettings {
   attributionModel: AttributionModel;
 }
 
+// todo: encapsulate all settings, including experiment
 export type Settings = BaseSettings & MetricSettings;
 
 // export type ScopedSettings = Record<

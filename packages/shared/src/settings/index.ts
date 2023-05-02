@@ -107,6 +107,8 @@ const scopeSettings = (
   };
 };
 
+// todo: currently for org-level interface
+// turns an InputSettings into ScopedSettings
 const normalizeInputSettings = (
   inputSettings: InputSettings
 ): ScopedSettings => {
@@ -135,10 +137,9 @@ const normalizeInputSettings = (
 };
 
 export const getScopedSettings = (
-  baseSettings: InputSettings,
-  scopes?: ScopeDefinition
+  scopes: ScopeDefinition
 ): ScopedSettingsReturn => {
-  const settings = normalizeInputSettings(baseSettings);
+  const settings = normalizeInputSettings(scopes.organization.settings);
 
   if (
     scopes?.metric &&
@@ -153,12 +154,11 @@ export const getScopedSettings = (
 };
 
 export const useScopedSettings = (
-  baseSettings: InputSettings,
-  scopes?: ScopeDefinition
+  scopes: ScopeDefinition
 ): ScopedSettingsReturn => {
   return useMemo(() => {
-    return getScopedSettings(baseSettings, scopes);
-  }, [baseSettings, scopes]);
+    return getScopedSettings(scopes);
+  }, [scopes]);
 };
 
 export type { ScopedSettings } from "./types";
