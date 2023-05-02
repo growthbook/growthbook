@@ -167,7 +167,13 @@ const TopNav: FC<{
                     onClick={(e) => {
                       e.preventDefault();
                       setOrgId(o.id);
-                      localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
+
+                      try {
+                        localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
+                      } catch (e) {
+                        console.warn("Cannot set gb-last-picked-org");
+                      }
+
                       setOrgDropdownOpen(false);
                     }}
                   >
