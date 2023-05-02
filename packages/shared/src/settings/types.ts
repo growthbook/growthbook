@@ -10,7 +10,8 @@ import {
   NorthStarMetric,
   MetricDefaults,
   ExperimentUpdateSchedule,
-  MemberRoleInfo, OrganizationInterface
+  MemberRoleInfo,
+  OrganizationInterface,
 } from "back-end/types/organization";
 import { StatsEngine } from "back-end/types/stats";
 import { ProjectInterface, ProjectSettings } from "back-end/types/project";

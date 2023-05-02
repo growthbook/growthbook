@@ -19,17 +19,17 @@ export const resolvers: Record<
   SettingsResolver<Settings[keyof Settings]>
 > = {
   confidenceLevel: genDefaultResolver("confidenceLevel", {
-    project: true,
+    project: "settings.confidenceLevel",
     experiment: true,
     metric: true,
     report: true,
   }),
   northStar: genDefaultResolver("northStar", {
-    project: true,
+    project: "settings.northStar",
   }),
   metricDefaults: genDefaultResolver("metricDefaults", {
     // Example use of string to override the field name
-    project: "metricDefaults",
+    project: "settings.metricDefaults",
     experiment: true,
     metric: true,
     report: true,
@@ -48,19 +48,19 @@ export const resolvers: Record<
     "multipleExposureMinPercent",
 
     {
-      project: true,
+      project: "settings.multipleExposureMinPercent",
       experiment: true,
       report: true,
     }
   ),
   defaultRole: genDefaultResolver("defaultRole"),
   statsEngine: genDefaultResolver("statsEngine", {
-    project: true,
+    project: "settings.statsEngine",
     // experiment: true,
     report: true,
   }),
   pValueThreshold: genDefaultResolver("pValueThreshold", {
-    project: true,
+    project: "settings.pValueThreshold",
     experiment: true,
     metric: true,
     report: true,
@@ -68,7 +68,7 @@ export const resolvers: Record<
   regressionAdjustmentEnabled: regressionAdjustmentResolver("enabled"),
   regressionAdjustmentDays: regressionAdjustmentResolver("days"),
   attributionModel: genDefaultResolver("attributionModel", {
-    project: true,
+    project: "settings.attributionModel",
     experiment: true,
     report: true,
   }),
@@ -80,7 +80,7 @@ export const resolvers: Record<
 
 const scopeSettings = (
   baseSettings: ScopedSettings,
-  scopes?: ScopeDefinition
+  scopes: ScopeDefinition
 ): {
   settings: ScopedSettings;
   scopeSettings: ScopeSettingsFn;
@@ -139,7 +139,7 @@ const normalizeInputSettings = (
 export const getScopedSettings = (
   scopes: ScopeDefinition
 ): ScopedSettingsReturn => {
-  const settings = normalizeInputSettings(scopes.organization.settings);
+  const settings = normalizeInputSettings(scopes.organization.settings || {});
 
   if (
     scopes?.metric &&
