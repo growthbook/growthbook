@@ -1,11 +1,11 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { ago } from "shared";
 import Button from "../components/Button";
 import SavedGroupForm from "../components/SavedGroupForm";
 import { GBAddCircle } from "../components/Icons";
 import LoadingOverlay from "../components/LoadingOverlay";
-import { ago } from "../services/dates";
 import { useDefinitions } from "../services/DefinitionsContext";
 import usePermissions from "../hooks/usePermissions";
 import Modal from "../components/Modal";

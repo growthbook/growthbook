@@ -5,7 +5,7 @@ import {
   Comment,
 } from "back-end/types/discussion";
 import { FaPencilAlt } from "react-icons/fa";
-import { date } from "../services/dates";
+import { date } from "shared";
 import { useAuth } from "../services/auth";
 import useApi from "../hooks/useApi";
 import { useUser } from "../services/UserContext";

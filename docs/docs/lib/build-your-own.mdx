@@ -893,13 +893,13 @@ The initial download should be intiated by a `growthbook.loadFeatures()` method 
 
 There should be an easy way for the user to wait until features finish loading. Depending on the language, this might be an event emitter, a Promise, a callback, or something similar. Use whatever method is standard for the language.
 
-### Server Sent Events
+### Server-Sent Events
 
 The API response (`/api/features/{clientKey}`) may contain a response header:
 
 > x-sse-support: enabled
 
-If set to "enabled", you are able to subscribe to the API for realtime changes to feature definitions. This will let you update the cache immediately when a feature changes instead of waiting for the 60s TTL to expire.
+If set to "enabled", you are able to subscribe to the API for realtime changes to feature definitions by using the [GrowthBook Proxy](/self-host/proxy). This will let you update the cache immediately when a feature changes instead of waiting for the 60s TTL to expire.
 
 The URL for subscribing to changes is `{apiHost}/sub/{clientKey}`. An example implementation in Javascript is below:
 

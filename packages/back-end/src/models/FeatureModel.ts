@@ -255,11 +255,14 @@ export async function onFeatureUpdate(
   organization: OrganizationInterface,
   user: EventAuditUser,
   feature: FeatureInterface,
-  updatedFeature: FeatureInterface
+  updatedFeature: FeatureInterface,
+  skipRefreshForProject?: string
 ) {
   await refreshSDKPayloadCache(
     organization,
-    getSDKPayloadKeysByDiff(feature, updatedFeature)
+    getSDKPayloadKeysByDiff(feature, updatedFeature),
+    null,
+    skipRefreshForProject
   );
 
   // New event-based webhooks
@@ -477,7 +480,7 @@ export async function removeProjectFromFeatures(
       project: "",
     };
 
-    onFeatureUpdate(organization, user, feature, updatedFeature);
+    onFeatureUpdate(organization, user, feature, updatedFeature, project);
   });
 }
 

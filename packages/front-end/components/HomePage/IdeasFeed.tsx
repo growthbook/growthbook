@@ -1,8 +1,8 @@
 import { FC } from "react";
 import { useRouter } from "next/router";
 import { IdeaInterface } from "back-end/types/idea";
+import { ago } from "shared";
 import useApi from "@/hooks/useApi";
-import { ago } from "@/services/dates";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Markdown from "../Markdown/Markdown";

@@ -3,6 +3,7 @@ import { FaArchive, FaPlus, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { ago, datetime } from "shared";
 import SortedTags from "@/components/Tags/SortedTags";
 import { GBAddCircle } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -10,7 +11,6 @@ import TagsFilter, {
   filterByTags,
   useTagsFilter,
 } from "@/components/Tags/TagsFilter";
-import { ago, datetime } from "@/services/dates";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
