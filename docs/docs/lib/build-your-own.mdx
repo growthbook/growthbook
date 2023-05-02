@@ -7,7 +7,7 @@ slug: build-your-own
 
 # Build Your Own SDK
 
-**Latest spec version: 0.4.2 [View Changelog](#changelog)**
+**Latest spec version: 0.4.3 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
@@ -515,16 +515,25 @@ It should return:
    2. Return true
 2. Else, do a deep comparison between `attributeValue` and `conditionValue`. Return true if equal, false if not.
 
-### private elemMatch(condition, attributeValue): boolean
+### private elemMatch(conditionValue, attributeValue): boolean
 
 This checks if `attributeValue` is an array, and if so at least one of the array items must match the condition
 
 1. If `attributeValue` is not an array, return false
 2. Loop through items in `attributeValue`
-   1. If `isOperatorObject(condition)`
-      1. If `evalConditionValue(condition, item)`, break out of loop and return true
-   2. Else if `evalCondition(item, condition)`, break out of loop and return true
+   1. If `isOperatorObject(conditionValue)`
+      1. If `evalConditionValue(conditionValue, item)`, break out of loop and return true
+   2. Else if `evalCondition(item, conditionValue)`, break out of loop and return true
 3. Return false
+
+### private isIn(conditionValue, actualValue): boolean
+
+Checks to see if `actualValue` is in the `conditionValue` array. This implements the `$in` and `$nin` operators.
+
+1. If `actualValue` is an array
+   1. Return `true` if the intersection between `actualValue` and `conditionValue` has at least 1 element. Otherwise, return `false`.
+2. Else
+   1. Return `true` if `conditionValue` contains `actualValue`. Otherwise, return `false`.
 
 ### private evalOperatorCondition(operator, attributeValue, conditionValue)
 
@@ -540,12 +549,17 @@ There are basic comparison operators in the form `attributeValue {op} conditionV
 - `$gte` &gt;=
 - `$regex` ~ (regex match)
 
-There are 2 operators where conditionValue is an array:
+There are 3 operators where conditionValue is an array. All of these should return `false` if `conditionValue` is not an array for whatever reason.
 
 - `$in`
-  1. Return true if attributeValue in the conditionValue array, false otherwise
+  1. Return `isIn(conditionValue, attributeValue)`
 - `$nin`
-  1. Return false if attributeValue in the conditionValue array, true otherwise
+  1. Return `not isIn(conditionValue, attributeValue)`
+- `$all`
+  1. If attributeValue is not an array, return `false`
+  2. Loop through conditionValue array
+     1. If none of the elements in the attributeValue array pass `evalConditionValue(conditionValue[i], attributeValue[j])`, return false
+  3. Return true
 
 There are 2 operators where attributeValue is an array:
 
@@ -554,14 +568,6 @@ There are 2 operators where attributeValue is an array:
 - `$size`
   1.  If attributeValue is not an array, return false
   2.  Return `evalConditionValue(conditionValue, attributeValue.length)`
-
-There is 1 operator where both attributeValue and conditionValue are arrays:
-
-- `$all`
-  1. If attributeValue is not an array, return false
-  2. Loop through conditionValue array
-     1. If none of the elements in the attributeValue array pass `evalConditionValue(conditionValue[i], attributeValue[j])`, return false
-  3. Return true
 
 There are 3 other operators:
 
@@ -1074,3 +1080,6 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - Fixed broken feature test case (was using `[0.99]` instead of `0.99` for coverage)
 - **v0.4.2** 2023-04-30
   - Add test cases when targeting condition value is `null`
+- **v0.4.3** 2023-05-02
+  - New `isIn` helper function for conditions
+  - Add test cases for `$in` and `$nin` operator when attribute is an array
