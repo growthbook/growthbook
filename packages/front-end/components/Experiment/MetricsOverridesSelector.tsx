@@ -438,8 +438,8 @@ export default function MetricsOverridesSelector({
               options={unusedMetrics.map((m) => {
                 const metric = metricDefinitions.find((md) => md.id === m);
                 return {
-                  label: metric?.name,
-                  value: metric?.id,
+                  label: metric?.name || `Unknown metric (${m})`,
+                  value: m,
                 };
               })}
               disabled={disabled}
