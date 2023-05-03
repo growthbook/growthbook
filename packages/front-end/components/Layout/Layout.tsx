@@ -147,7 +147,6 @@ const navlinks: SidebarLinkProps[] = [
       "organizationSettings",
       "manageTeam",
       "manageTags",
-      "manageProjects",
       "manageApiKeys",
       "manageBilling",
       "manageWebhooks",
@@ -174,7 +173,7 @@ const navlinks: SidebarLinkProps[] = [
       {
         name: "Projects",
         href: "/projects",
-        path: /^projects/,
+        path: /^project/,
         permissions: ["manageProjects"],
       },
       {

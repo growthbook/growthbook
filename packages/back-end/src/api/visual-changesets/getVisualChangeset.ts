@@ -29,11 +29,13 @@ export const getVisualChangeset = createApiRequestHandler(
         ? await getExperimentById(organization.id, visualChangeset.experiment)
         : null;
 
+    const apiExperiment = experiment
+      ? await toExperimentApiInterface(organization, experiment)
+      : null;
+
     return {
       visualChangeset: toVisualChangesetApiInterface(visualChangeset),
-      ...(experiment
-        ? { experiment: toExperimentApiInterface(organization, experiment) }
-        : {}),
+      ...(apiExperiment ? { experiment: apiExperiment } : {}),
     };
   }
 );

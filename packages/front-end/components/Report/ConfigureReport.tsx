@@ -1,15 +1,20 @@
-import React, { useCallback, useMemo, useState } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import React, { useMemo } from "react";
+import { useFieldArray, useForm, UseFormReturn } from "react-hook-form";
 import {
   MetricRegressionAdjustmentStatus,
   ReportInterface,
 } from "back-end/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
-import { AttributionModel } from "back-end/types/experiment";
+import {
+  AttributionModel,
+  ExperimentInterfaceStringDates,
+} from "back-end/types/experiment";
 import uniq from "lodash/uniq";
 import {
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   getValidDate,
+  getScopedSettings,
 } from "shared";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -20,6 +25,8 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
 import { hasFileConfig } from "@/services/env";
 import { GBCuped, GBSequential } from "@/components/Icons";
+import useApi from "@/hooks/useApi";
+import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -36,17 +43,30 @@ export default function ConfigureReport({
   mutate: () => void;
   viewResults: () => void;
 }) {
-  const settings = useOrgSettings();
+  const orgSettings = useOrgSettings();
   const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const {
     metrics,
     segments,
+    getProjectById,
     getDatasourceById,
     getMetricById,
   } = useDefinitions();
   const datasource = getDatasourceById(report.args.datasource);
-  const [usingStatsEngineDefault, setUsingStatsEngineDefault] = useState(false);
+
+  const eid = report.experimentId;
+  const { data: experimentData } = useApi<{
+    experiment: ExperimentInterfaceStringDates;
+  }>(`/experiment/${eid}`);
+  const experiment = experimentData?.experiment;
+  const pid = experiment?.project;
+  const project = getProjectById(pid);
+
+  const { settings: parentSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+  });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
@@ -67,6 +87,7 @@ export default function ConfigureReport({
   );
   const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
 
+  // todo: type this form
   const form = useForm({
     defaultValues: {
       ...report.args,
@@ -78,7 +99,7 @@ export default function ConfigureReport({
         )?.id || "",
       attributionModel:
         report.args.attributionModel ||
-        settings.attributionModel ||
+        orgSettings.attributionModel ||
         "firstExposure",
       startDate: getValidDate(report.args.startDate)
         .toISOString()
@@ -86,11 +107,11 @@ export default function ConfigureReport({
       endDate: report.args.endDate
         ? getValidDate(report.args.endDate).toISOString().substr(0, 16)
         : undefined,
-      statsEngine:
-        report.args.statsEngine || settings.statsEngine || "bayesian",
+      statsEngine: report.args.statsEngine || parentSettings.statsEngine.value,
       regressionAdjustmentEnabled:
-        hasRegressionAdjustmentFeature &&
-        !!report.args.regressionAdjustmentEnabled,
+        (hasRegressionAdjustmentFeature &&
+          report.args.regressionAdjustmentEnabled) ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       metricRegressionAdjustmentStatuses:
         report.args.metricRegressionAdjustmentStatuses || [],
       sequentialTestingEnabled:
@@ -113,7 +134,7 @@ export default function ConfigureReport({
         experimentRegressionAdjustmentEnabled: !!form.watch(
           `regressionAdjustmentEnabled`
         ),
-        organizationSettings: settings,
+        organizationSettings: orgSettings,
         metricOverrides: report.args.metricOverrides,
       });
       metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
@@ -122,7 +143,7 @@ export default function ConfigureReport({
   }, [
     allExperimentMetrics,
     denominatorMetrics,
-    settings,
+    orgSettings,
     form,
     report.args.metricOverrides,
   ]);
@@ -144,16 +165,6 @@ export default function ConfigureReport({
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
-
-  const setStatsEngineToDefault = useCallback(
-    (enable: boolean) => {
-      if (enable) {
-        form.setValue("statsEngine", settings.statsEngine);
-      }
-      setUsingStatsEngineDefault(enable);
-    },
-    [form, setUsingStatsEngineDefault, settings.statsEngine]
-  );
 
   return (
     <Modal
@@ -385,128 +396,106 @@ export default function ConfigureReport({
         />
       )}
 
-      <div className="d-flex flex-row no-gutters align-items-center">
-        <div className="col-3">
-          <SelectField
-            disabled={usingStatsEngineDefault}
-            label={<strong>Stats Engine</strong>}
-            value={form.watch("statsEngine")}
-            onChange={(value) =>
-              form.setValue(
-                "statsEngine",
-                value === "frequentist" ? "frequentist" : "bayesian"
-              )
-            }
-            options={[
-              {
-                label: "Bayesian",
-                value: "bayesian",
-              },
-              {
-                label: "Frequentist",
-                value: "frequentist",
-              },
-            ]}
-          />
-        </div>
-        <label className="ml-5 mt-3">
-          <input
-            type="checkbox"
-            className="form-check-input"
-            checked={usingStatsEngineDefault}
-            onChange={(e) => setStatsEngineToDefault(e.target.checked)}
-          />
-          Reset to Organization Default
-        </label>
-      </div>
+      <StatsEngineSelect
+        form={
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          form as UseFormReturn<any>
+        }
+        parentSettings={parentSettings}
+        allowUndefined={false}
+      />
 
-      <div className="d-flex flex-row no-gutters align-items-center">
-        <div className="col-3">
-          <SelectField
-            label={
-              <PremiumTooltip commercialFeature="regression-adjustment">
-                <GBCuped /> Use Regression Adjustment (CUPED)
-              </PremiumTooltip>
-            }
-            labelClassName="font-weight-bold"
-            value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
-            onChange={(v) => {
-              form.setValue("regressionAdjustmentEnabled", v === "on");
-            }}
-            options={[
-              {
-                label: "On",
-                value: "on",
-              },
-              {
-                label: "Off",
-                value: "off",
-              },
-            ]}
-            helpText="Only applicable to frequentist analyses"
-            disabled={!hasRegressionAdjustmentFeature}
-          />
-        </div>
-      </div>
+      {form.watch("statsEngine") === "frequentist" && (
+        <>
+          <div className="d-flex flex-row no-gutters align-items-center">
+            <div className="col-3">
+              <SelectField
+                label={
+                  <PremiumTooltip commercialFeature="regression-adjustment">
+                    <GBCuped /> Use Regression Adjustment (CUPED)
+                  </PremiumTooltip>
+                }
+                labelClassName="font-weight-bold"
+                value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
+                onChange={(v) => {
+                  form.setValue("regressionAdjustmentEnabled", v === "on");
+                }}
+                options={[
+                  {
+                    label: "On",
+                    value: "on",
+                  },
+                  {
+                    label: "Off",
+                    value: "off",
+                  },
+                ]}
+                helpText="Only applicable to frequentist analyses"
+                disabled={!hasRegressionAdjustmentFeature}
+              />
+            </div>
+          </div>
 
-      <div className="d-flex flex-row no-gutters align-items-top">
-        <div className="col-3">
-          <SelectField
-            label={
-              <PremiumTooltip commercialFeature="regression-adjustment">
-                <GBSequential /> Use Sequential Testing
-              </PremiumTooltip>
-            }
-            labelClassName="font-weight-bold"
-            value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
-            onChange={(v) => {
-              form.setValue("sequentialTestingEnabled", v === "on");
-            }}
-            options={[
-              {
-                label: "On",
-                value: "on",
-              },
-              {
-                label: "Off",
-                value: "off",
-              },
-            ]}
-            helpText="Only applicable to frequentist analyses"
-            disabled={!hasSequentialTestingFeature}
-          />
-        </div>
-        <div
-          className="col-2 px-4"
-          style={{
-            opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
-          }}
-        >
-          <Field
-            label="Tuning parameter"
-            type="number"
-            containerClassName="mb-0"
-            min="0"
-            disabled={!hasSequentialTestingFeature || hasFileConfig()}
-            helpText={
-              <>
-                <span className="ml-2">
-                  (
-                  {settings.sequentialTestingTuningParameter ??
-                    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
-                  is organization default)
-                </span>
-              </>
-            }
-            {...form.register("sequentialTestingTuningParameter", {
-              valueAsNumber: true,
-              validate: (v) => {
-                return !(v <= 0);
-              },
-            })}
-          />
-        </div>
-      </div>
+          <div className="d-flex flex-row no-gutters align-items-top">
+            <div className="col-3">
+              <SelectField
+                label={
+                  <PremiumTooltip commercialFeature="sequential-testing">
+                    <GBSequential /> Use Sequential Testing
+                  </PremiumTooltip>
+                }
+                labelClassName="font-weight-bold"
+                value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
+                onChange={(v) => {
+                  form.setValue("sequentialTestingEnabled", v === "on");
+                }}
+                options={[
+                  {
+                    label: "On",
+                    value: "on",
+                  },
+                  {
+                    label: "Off",
+                    value: "off",
+                  },
+                ]}
+                helpText="Only applicable to frequentist analyses"
+                disabled={!hasSequentialTestingFeature}
+              />
+            </div>
+            <div
+              className="col-2 px-4"
+              style={{
+                opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
+              }}
+            >
+              <Field
+                label="Tuning parameter"
+                type="number"
+                containerClassName="mb-0"
+                min="0"
+                disabled={!hasSequentialTestingFeature || hasFileConfig()}
+                helpText={
+                  <>
+                    <span className="ml-2">
+                      (
+                      {orgSettings.sequentialTestingTuningParameter ??
+                        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                      is organization default)
+                    </span>
+                  </>
+                }
+                {...form.register("sequentialTestingTuningParameter", {
+                  valueAsNumber: true,
+                  validate: (v) => {
+                    return !(v <= 0);
+                  },
+                })}
+              />
+            </div>
+          </div>
+        </>
+      )}
 
       {datasourceProperties?.queryLanguage === "sql" && (
         <div className="row">

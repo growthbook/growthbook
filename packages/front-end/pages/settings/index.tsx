@@ -12,7 +12,9 @@ import { AttributionModel } from "back-end/types/experiment";
 import { PValueCorrection } from "back-end/types/stats";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
 } from "shared";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
@@ -36,6 +38,7 @@ import SelectField from "@/components/Forms/SelectField";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
 import Tab from "@/components/Tabs/Tab";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -60,7 +63,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
-    settings.statsEngine ?? "bayesian"
+    settings.statsEngine || DEFAULT_STATS_ENGINE
   );
 
   const permissions = usePermissions();
@@ -117,8 +120,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
       confidenceLevel: 0.95,
       pValueThreshold: 0.05,
       pValueCorrection: null,
-      statsEngine: "bayesian",
-      regressionAdjustmentEnabled: false,
+      statsEngine: DEFAULT_STATS_ENGINE,
+      regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
       sequentialTestingEnabled: false,
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -303,15 +306,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       )}
 
       <div className="container-fluid pagecontents">
-        {saveMsg && (
-          <TempMessage
-            close={() => {
-              setSaveMsg(false);
-            }}
-          >
-            Settings saved
-          </TempMessage>
-        )}
         {editOpen && (
           <EditOrganizationModal
             name={organization.name}
@@ -650,28 +644,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       </div>
                     )}
                   </div>
-                  <div className="form-group">
-                    <div className="form-group mb-2 mr-2">
-                      <Field
-                        label="Default Statistics Engine"
-                        className="ml-2"
-                        options={[
-                          {
-                            display: "Bayesian",
-                            value: "bayesian",
-                          },
-                          {
-                            display: "Frequentist",
-                            value: "frequentist",
-                          },
-                        ]}
-                        {...form.register("statsEngine", {
-                          onChange: () =>
-                            setStatsEngineTab(form.watch("statsEngine")),
-                        })}
-                      />
-                    </div>
-                  </div>
+                  <StatsEngineSelect
+                    form={form}
+                    label="Default Statistics Engine"
+                    allowUndefined={false}
+                    onChange={(value) => {
+                      setStatsEngineTab(value);
+                    }}
+                  />
                 </div>
 
                 <h4>Stats Engine Settings</h4>
@@ -1080,20 +1060,34 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
       <div
         className="bg-main-color position-sticky w-100 py-3 border-top"
-        style={{ bottom: 0 }}
+        style={{ bottom: 0, height: 70 }}
       >
-        <div className="container-fluid pagecontents d-flex flex-row-reverse">
-          <Button
-            style={{ marginRight: "4rem" }}
-            color={"primary"}
-            disabled={!ctaEnabled}
-            onClick={async () => {
-              if (!ctaEnabled) return;
-              await saveSettings();
-            }}
-          >
-            Save
-          </Button>
+        <div className="container-fluid pagecontents d-flex">
+          <div className="flex-grow-1 mr-4">
+            {saveMsg && (
+              <TempMessage
+                className="mb-0 py-2"
+                close={() => {
+                  setSaveMsg(false);
+                }}
+              >
+                Settings saved
+              </TempMessage>
+            )}
+          </div>
+          <div>
+            <Button
+              style={{ marginRight: "4rem" }}
+              color={"primary"}
+              disabled={!ctaEnabled}
+              onClick={async () => {
+                if (!ctaEnabled) return;
+                await saveSettings();
+              }}
+            >
+              Save
+            </Button>
+          </div>
         </div>
       </div>
     </>
