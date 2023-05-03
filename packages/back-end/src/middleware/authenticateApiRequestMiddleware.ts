@@ -6,7 +6,7 @@ import { getOrganizationById } from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
 import { EventAuditUserApiKey } from "../events/event-types";
 
-export default function authencateApiRequestMiddleware(
+export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
   res: Response & { log: Request["log"] },
   next: NextFunction
