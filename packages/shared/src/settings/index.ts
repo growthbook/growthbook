@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import genDefaultResolver from "./resolvers/genDefaultResolver";
 import genMetricOverrideResolver from "./resolvers/genMetricOverrideResolver";
 import genDefaultSettings from "./resolvers/genDefaultSettings";
@@ -151,14 +150,6 @@ export const getScopedSettings = (
   }
 
   return scopeSettings(settings, scopes);
-};
-
-export const useScopedSettings = (
-  scopes: ScopeDefinition
-): ScopedSettingsReturn => {
-  return useMemo(() => {
-    return getScopedSettings(scopes);
-  }, [scopes]);
 };
 
 export type { ScopedSettings } from "./types";

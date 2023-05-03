@@ -8,7 +8,7 @@ import { FaQuestionCircle } from "react-icons/fa";
 import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   getValidDate,
-  useScopedSettings,
+  getScopedSettings,
 } from "shared";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -54,14 +54,13 @@ const AnalysisForm: FC<{
   const pid = experiment?.project;
   const project = getProjectById(pid);
 
-  const { settings: scopedSettings } = useScopedSettings({
+  const { settings: scopedSettings } = getScopedSettings({
     organization,
     project: project ?? undefined,
     experiment: experiment,
   });
 
   const statsEngine = scopedSettings.statsEngine.value;
-
 
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"

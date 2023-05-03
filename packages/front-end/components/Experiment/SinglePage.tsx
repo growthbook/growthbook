@@ -18,7 +18,7 @@ import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  useScopedSettings,
+  getScopedSettings,
 } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
@@ -200,7 +200,7 @@ export default function SinglePage({
   const projectName = project?.name || null;
   const projectIsOprhaned = projectId && !projectName;
 
-  const { settings: scopedSettings } = useScopedSettings({
+  const { settings: scopedSettings } = getScopedSettings({
     organization,
     project: project ?? undefined,
     experiment: experiment,

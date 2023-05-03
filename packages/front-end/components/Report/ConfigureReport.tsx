@@ -14,7 +14,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   getValidDate,
-  useScopedSettings,
+  getScopedSettings,
 } from "shared";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -63,7 +63,7 @@ export default function ConfigureReport({
   const pid = experiment?.project;
   const project = getProjectById(pid);
 
-  const { settings: parentSettings } = useScopedSettings({
+  const { settings: parentSettings } = getScopedSettings({
     organization,
     project: project ?? undefined,
   });

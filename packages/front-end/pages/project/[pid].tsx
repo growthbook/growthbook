@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "back-end/types/project";
-import { useScopedSettings } from "shared";
+import { getScopedSettings } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -31,7 +31,7 @@ const ProjectPage: FC = () => {
   const p = getProjectById(pid);
   const settings = p?.settings;
 
-  const { settings: parentSettings } = useScopedSettings({
+  const { settings: parentSettings } = getScopedSettings({
     organization,
   });
 
