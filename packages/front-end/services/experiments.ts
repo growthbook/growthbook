@@ -459,7 +459,7 @@ export function setAdjustedPValuesOnResults(
       });
     });
   });
-  console.log(indexedPValues);
+
   if (indexedPValues.length === 0) {
     return;
   }
