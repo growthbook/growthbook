@@ -8,6 +8,7 @@ import { FaQuestionCircle } from "react-icons/fa";
 import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   getValidDate,
+  getScopedSettings,
 } from "shared";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -17,6 +18,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
+import { GBSequential } from "@/components/Icons";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -40,17 +42,29 @@ const AnalysisForm: FC<{
   const {
     metrics,
     segments,
+    getProjectById,
     getDatasourceById,
     datasources,
   } = useDefinitions();
 
-  const { hasCommercialFeature } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
+
+  const orgSettings = useOrgSettings();
+
+  const pid = experiment?.project;
+  const project = getProjectById(pid);
+
+  const { settings: scopedSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+    experiment: experiment,
+  });
+
+  const statsEngine = scopedSettings.statsEngine.value;
 
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"
   );
-
-  const settings = useOrgSettings();
 
   const attributeSchema = useAttributeSchema();
 
@@ -73,7 +87,7 @@ const AnalysisForm: FC<{
       skipPartialData: experiment.skipPartialData ? "strict" : "loose",
       attributionModel:
         experiment.attributionModel ||
-        settings.attributionModel ||
+        orgSettings.attributionModel ||
         "firstExposure",
       dateStarted: getValidDate(phaseObj?.dateStarted)
         .toISOString()
@@ -84,11 +98,11 @@ const AnalysisForm: FC<{
         hasSequentialTestingFeature &&
         experiment.sequentialTestingEnabled !== undefined
           ? experiment.sequentialTestingEnabled
-          : !!settings.sequentialTestingEnabled,
+          : !!orgSettings.sequentialTestingEnabled,
       sequentialTestingTuningParameter:
         experiment.sequentialTestingEnabled !== undefined
           ? experiment.sequentialTestingTuningParameter
-          : settings.sequentialTestingTuningParameter ??
+          : orgSettings.sequentialTestingTuningParameter ??
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     },
   });
@@ -102,11 +116,11 @@ const AnalysisForm: FC<{
       if (enable) {
         form.setValue(
           "sequentialTestingEnabled",
-          !!settings.sequentialTestingEnabled
+          !!orgSettings.sequentialTestingEnabled
         );
         form.setValue(
           "sequentialTestingTuningParameter",
-          settings.sequentialTestingTuningParameter ??
+          orgSettings.sequentialTestingTuningParameter ??
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
         );
       }
@@ -115,8 +129,8 @@ const AnalysisForm: FC<{
     [
       form,
       setUsingSequentialTestingDefault,
-      settings.sequentialTestingEnabled,
-      settings.sequentialTestingTuningParameter,
+      orgSettings.sequentialTestingEnabled,
+      orgSettings.sequentialTestingTuningParameter,
     ]
   );
 
@@ -178,9 +192,9 @@ const AnalysisForm: FC<{
         }
         if (usingSequentialTestingDefault) {
           // User checked the org default checkbox; ignore form values
-          body.sequentialTestingEnabled = !!settings.sequentialTestingEnabled;
+          body.sequentialTestingEnabled = !!orgSettings.sequentialTestingEnabled;
           body.sequentialTestingTuningParameter =
-            settings.sequentialTestingTuningParameter ??
+            orgSettings.sequentialTestingTuningParameter ??
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
         }
 
@@ -377,13 +391,13 @@ const AnalysisForm: FC<{
           ]}
         />
       )}
-      {settings?.statsEngine === "frequentist" && (
+      {statsEngine === "frequentist" && (
         <div className="d-flex flex-row no-gutters align-items-top">
           <div className="col-5">
             <SelectField
               label={
-                <PremiumTooltip commercialFeature="regression-adjustment">
-                  Use Sequential Testing
+                <PremiumTooltip commercialFeature="sequential-testing">
+                  <GBSequential /> Use Sequential Testing
                 </PremiumTooltip>
               }
               labelClassName="font-weight-bold"
@@ -427,7 +441,7 @@ const AnalysisForm: FC<{
                 <>
                   <span className="ml-2">
                     (
-                    {settings.sequentialTestingTuningParameter ??
+                    {orgSettings.sequentialTestingTuningParameter ??
                       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
                     is default)
                   </span>

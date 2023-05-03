@@ -16,11 +16,13 @@ export default function genDefaultResolver(
     | undefined = {}
 ): SettingsResolver<Settings[keyof Settings]> {
   const filteredScopes = scopeOrder
-    .filter((s) => scopesToApply[s])
+    .filter((s) => scopesToApply?.[s])
     .map((s) => ({
       scope: s,
       fieldName:
-        typeof scopesToApply[s] === "string" ? scopesToApply[s] : baseFieldName,
+        typeof scopesToApply?.[s] === "string"
+          ? scopesToApply[s]
+          : baseFieldName,
     }));
   return (ctx) => {
     const baseSetting = ctx.baseSettings[baseFieldName]?.value;
@@ -31,6 +33,7 @@ export default function genDefaultResolver(
         return {
           value: scopedValue,
           meta: {
+            scopeApplied: scope,
             reason: `${scope}-level setting applied`,
           },
         };
@@ -38,6 +41,7 @@ export default function genDefaultResolver(
       {
         value: baseSetting,
         meta: {
+          scopeApplied: "organization",
           reason: "org-level setting applied",
         },
       }

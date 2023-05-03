@@ -16,6 +16,10 @@ import { MetricInterface } from "back-end/types/metric";
 import uniq from "lodash/uniq";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  getScopedSettings,
+} from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -186,8 +190,8 @@ export default function SinglePage({
   const watcherIds = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
-  const settings = useOrgSettings();
-  const { users, hasCommercialFeature } = useUser();
+  const orgSettings = useOrgSettings();
+  const { organization, users, hasCommercialFeature } = useUser();
 
   const { data: sdkConnectionsData } = useSDKConnections();
 
@@ -195,6 +199,12 @@ export default function SinglePage({
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
   const projectIsOprhaned = projectId && !projectName;
+
+  const { settings: scopedSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+    experiment: experiment,
+  });
 
   const datasource = getDatasourceById(experiment.datasource);
   const segment = getSegmentById(experiment.segment || "");
@@ -205,7 +215,7 @@ export default function SinglePage({
     (q) => q.id === experiment.exposureQueryId
   );
 
-  const statsEngine = settings.statsEngine || "bayesian";
+  const statsEngine = scopedSettings.statsEngine.value;
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
@@ -227,10 +237,12 @@ export default function SinglePage({
     regressionAdjustmentAvailable,
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
+    regressionAdjustmentHasValidMetrics,
   ] = useMemo(() => {
     const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
     let regressionAdjustmentAvailable = true;
-    let regressionAdjustmentEnabled = false;
+    let regressionAdjustmentEnabled = true;
+    let regressionAdjustmentHasValidMetrics = false;
     for (const metric of allExperimentMetrics) {
       if (!metric) continue;
       const {
@@ -238,19 +250,22 @@ export default function SinglePage({
       } = getRegressionAdjustmentsForMetric({
         metric: metric,
         denominatorMetrics: denominatorMetrics,
-        experimentRegressionAdjustmentEnabled: !!experiment.regressionAdjustmentEnabled,
-        organizationSettings: settings,
+        experimentRegressionAdjustmentEnabled:
+          experiment.regressionAdjustmentEnabled ??
+          DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+        organizationSettings: orgSettings,
         metricOverrides: experiment.metricOverrides,
       });
       if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
         regressionAdjustmentEnabled = true;
+        regressionAdjustmentHasValidMetrics = true;
       }
       metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
     }
     if (!experiment.regressionAdjustmentEnabled) {
       regressionAdjustmentEnabled = false;
     }
-    if (!settings.statsEngine || settings.statsEngine === "bayesian") {
+    if (statsEngine === "bayesian") {
       regressionAdjustmentAvailable = false;
       regressionAdjustmentEnabled = false;
     }
@@ -270,11 +285,13 @@ export default function SinglePage({
       regressionAdjustmentAvailable,
       regressionAdjustmentEnabled,
       metricRegressionAdjustmentStatuses,
+      regressionAdjustmentHasValidMetrics,
     ];
   }, [
     allExperimentMetrics,
     denominatorMetrics,
-    settings,
+    orgSettings,
+    statsEngine,
     experiment.regressionAdjustmentEnabled,
     experiment.metricOverrides,
     datasource?.type,
@@ -748,7 +765,7 @@ export default function SinglePage({
                   <FaQuestionCircle />
                 </AttributionModelTooltip>
               </RightRailSectionGroup>
-              {settings.statsEngine === "frequentist" && (
+              {statsEngine === "frequentist" && (
                 <>
                   <RightRailSectionGroup
                     title={
@@ -769,7 +786,7 @@ export default function SinglePage({
                     type="custom"
                   >
                     {experiment.sequentialTestingEnabled ??
-                    !!settings.sequentialTestingEnabled
+                    !!orgSettings.sequentialTestingEnabled
                       ? "Enabled"
                       : "Disabled"}
                   </RightRailSectionGroup>
@@ -1028,6 +1045,9 @@ export default function SinglePage({
                   statsEngine={statsEngine}
                   regressionAdjustmentAvailable={regressionAdjustmentAvailable}
                   regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                  regressionAdjustmentHasValidMetrics={
+                    regressionAdjustmentHasValidMetrics
+                  }
                   metricRegressionAdjustmentStatuses={
                     metricRegressionAdjustmentStatuses
                   }

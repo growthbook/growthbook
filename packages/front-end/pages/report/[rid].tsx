@@ -3,7 +3,13 @@ import { ExperimentReportArgs, ReportInterface } from "back-end/types/report";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
-import { getValidDate, ago, datetime, date } from "shared";
+import {
+  getValidDate,
+  ago,
+  datetime,
+  date,
+  DEFAULT_STATS_ENGINE,
+} from "shared";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";
@@ -57,7 +63,10 @@ export default function ReportPage() {
   const [refreshError, setRefreshError] = useState("");
 
   const { apiCall } = useAuth();
-  const settings = useOrgSettings();
+
+  // todo: move to report args
+  const orgSettings = useOrgSettings();
+  const pValueCorrection = orgSettings?.pValueCorrection;
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
@@ -109,8 +118,7 @@ export default function ReportPage() {
   const phaseAgeMinutes =
     (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
 
-  const statsEngine =
-    data?.report?.args?.statsEngine || settings?.statsEngine || "bayesian";
+  const statsEngine = data?.report?.args?.statsEngine || DEFAULT_STATS_ENGINE;
   const regressionAdjustmentAvailable =
     hasRegressionAdjustmentFeature && statsEngine === "frequentist";
   const regressionAdjustmentEnabled =
@@ -242,7 +250,7 @@ export default function ReportPage() {
                   >
                     <div
                       className="font-weight-bold"
-                      style={{ lineHeight: 1.5 }}
+                      style={{ lineHeight: 1.2 }}
                     >
                       updated
                     </div>
@@ -376,7 +384,7 @@ export default function ReportPage() {
                 variations={variations}
                 key={report.args.dimension}
                 statsEngine={report.args.statsEngine}
-                pValueCorrection={settings.pValueCorrection}
+                pValueCorrection={pValueCorrection}
                 regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                 metricRegressionAdjustmentStatuses={
                   report.args.metricRegressionAdjustmentStatuses
@@ -425,7 +433,7 @@ export default function ReportPage() {
                 multipleExposures={report.results?.multipleExposures || 0}
                 variations={variations}
                 statsEngine={report.args.statsEngine}
-                pValueCorrection={settings.pValueCorrection}
+                pValueCorrection={pValueCorrection}
                 regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                 metricRegressionAdjustmentStatuses={
                   report.args.metricRegressionAdjustmentStatuses

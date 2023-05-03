@@ -14,7 +14,7 @@ import {
 import { MetricOverride } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
-import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 
 export type ExperimentTableRow = {
   label: string;
