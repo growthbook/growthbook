@@ -41,6 +41,7 @@ import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import { GBCuped } from "@/components/Icons";
+import usePermissions from "@/hooks/usePermissions";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -168,6 +169,7 @@ const MetricForm: FC<MetricFormProps> = ({
   } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
+  const permissions = usePermissions();
 
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
@@ -442,6 +444,17 @@ const MetricForm: FC<MetricFormProps> = ({
     selectedDataSource
   );
 
+  let ctaEnabled = true;
+  let disabledMessage = null;
+
+  if (riskError) {
+    ctaEnabled = false;
+    disabledMessage = riskError;
+  } else if (!permissions.check("createMetrics", project)) {
+    ctaEnabled = false;
+    disabledMessage = "You don't have permission to create metrics.";
+  }
+
   return (
     <>
       {supportsSQL && sqlOpen && (
@@ -460,10 +473,11 @@ const MetricForm: FC<MetricFormProps> = ({
         inline={inline}
         header={edit ? "Edit Metric" : "New Metric"}
         close={onClose}
+        disabledMessage={disabledMessage}
+        ctaEnabled={ctaEnabled}
         submit={onSubmit}
         cta={cta}
         closeCta={!inline && "Cancel"}
-        ctaEnabled={!riskError}
         size="lg"
         docSection="metrics"
         step={step}
