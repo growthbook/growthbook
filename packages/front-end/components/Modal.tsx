@@ -20,6 +20,7 @@ type ModalProps = {
   cta?: string;
   closeCta?: string;
   ctaEnabled?: boolean;
+  disabledMessage?: string;
   docSection?: DocSection;
   error?: string;
   size?: "md" | "lg" | "max" | "fill";
@@ -46,6 +47,7 @@ const Modal: FC<ModalProps> = ({
   cta = "Submit",
   ctaEnabled = true,
   closeCta = "Cancel",
+  disabledMessage,
   inline = false,
   size = "md",
   sizeY,
@@ -173,13 +175,19 @@ const Modal: FC<ModalProps> = ({
           )}
           {secondaryCTA}
           {submit && !isSuccess ? (
-            <button
-              className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
-              type="submit"
-              disabled={!ctaEnabled}
+            <Tooltip
+              body={disabledMessage}
+              shouldDisplay={!ctaEnabled && !!disabledMessage}
+              tipPosition="top"
             >
-              {cta}
-            </button>
+              <button
+                className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
+                type="submit"
+                disabled={!ctaEnabled}
+              >
+                {cta}
+              </button>
+            </Tooltip>
           ) : (
             ""
           )}
