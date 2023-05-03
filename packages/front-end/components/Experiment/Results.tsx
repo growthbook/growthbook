@@ -3,10 +3,9 @@ import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
-import { getValidDate, ago } from "shared";
+import { getValidDate, ago, DEFAULT_STATS_ENGINE } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -17,6 +16,7 @@ import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import StatusBanner from "@/components/Experiment/StatusBanner";
 import { GBCuped, GBSequential } from "@/components/Icons";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import PValueGuardrailResults from "./PValueGuardrailResults";
 
 const BreakDownResults = dynamic(
@@ -37,6 +37,7 @@ const Results: FC<{
   statsEngine?: StatsEngine;
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentHasValidMetrics?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
 }> = ({
@@ -50,13 +51,17 @@ const Results: FC<{
   statsEngine,
   regressionAdjustmentAvailable = false,
   regressionAdjustmentEnabled = false,
+  regressionAdjustmentHasValidMetrics = false,
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
 }) => {
   const { getMetricById } = useDefinitions();
-  const settings = useOrgSettings();
 
   const { apiCall } = useAuth();
+
+  // todo: move to snapshot property
+  const orgSettings = useOrgSettings();
+  const pValueCorrection = orgSettings?.pValueCorrection;
 
   const {
     error,
@@ -82,8 +87,7 @@ const Results: FC<{
 
   const hasData =
     snapshot?.results?.[0]?.variations?.length > 0 &&
-    (snapshot.statsEngine || "bayesian") ===
-      (settings.statsEngine || "bayesian");
+    (snapshot.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
 
   const phaseObj = experiment.phases?.[phase];
 
@@ -113,6 +117,9 @@ const Results: FC<{
         statsEngine={statsEngine}
         regressionAdjustmentAvailable={regressionAdjustmentAvailable}
         regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+        regressionAdjustmentHasValidMetrics={
+          regressionAdjustmentHasValidMetrics
+        }
         metricRegressionAdjustmentStatuses={metricRegressionAdjustmentStatuses}
         onRegressionAdjustmentChange={onRegressionAdjustmentChange}
       />
@@ -203,20 +210,20 @@ const Results: FC<{
           />
         ) : (
           <BreakDownResults
-            isLatestPhase={phase === experiment.phases.length - 1}
+            key={snapshot.dimension}
+            results={snapshot.results || []}
+            variations={variations}
             metrics={experiment.metrics}
             metricOverrides={experiment.metricOverrides}
-            reportDate={snapshot.dateCreated}
-            results={snapshot.results || []}
-            status={experiment.status}
-            startDate={phaseObj?.dateStarted}
-            dimensionId={snapshot.dimension}
-            activationMetric={experiment.activationMetric}
             guardrails={experiment.guardrails}
-            variations={variations}
-            key={snapshot.dimension}
+            dimensionId={snapshot.dimension}
+            isLatestPhase={phase === experiment.phases.length - 1}
+            startDate={phaseObj?.dateStarted}
+            reportDate={snapshot.dateCreated}
+            activationMetric={experiment.activationMetric}
+            status={experiment.status}
             statsEngine={snapshot.statsEngine}
-            pValueCorrection={settings.pValueCorrection}
+            pValueCorrection={pValueCorrection}
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses
@@ -237,18 +244,18 @@ const Results: FC<{
           )}
           <CompactResults
             editMetrics={editMetrics}
-            id={experiment.id}
+            variations={variations}
+            multipleExposures={snapshot.multipleExposures || 0}
+            results={snapshot.results?.[0]}
+            reportDate={snapshot.dateCreated}
+            startDate={phaseObj?.dateStarted}
             isLatestPhase={phase === experiment.phases.length - 1}
+            status={experiment.status}
             metrics={experiment.metrics}
             metricOverrides={experiment.metricOverrides}
-            reportDate={snapshot.dateCreated}
-            results={snapshot.results?.[0]}
-            status={experiment.status}
-            startDate={phaseObj?.dateStarted}
-            multipleExposures={snapshot.multipleExposures || 0}
-            variations={variations}
+            id={experiment.id}
             statsEngine={snapshot.statsEngine}
-            pValueCorrection={settings.pValueCorrection}
+            pValueCorrection={pValueCorrection}
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses
@@ -272,7 +279,7 @@ const Results: FC<{
                       className={`col-12 col-xl-${xlargeCols} col-lg-6`}
                       key={g}
                     >
-                      {settings.statsEngine === "frequentist" ? (
+                      {snapshot.statsEngine === "frequentist" ? (
                         <PValueGuardrailResults
                           data={data}
                           variations={variations}

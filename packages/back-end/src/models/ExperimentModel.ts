@@ -620,12 +620,16 @@ const logExperimentCreated = async (
   user: EventAuditUser,
   experiment: ExperimentInterface
 ): Promise<string | undefined> => {
+  const apiExperiment = await toExperimentApiInterface(
+    organization,
+    experiment
+  );
   const payload: ExperimentCreatedNotificationEvent = {
     object: "experiment",
     event: "experiment.created",
     user,
     data: {
-      current: toExperimentApiInterface(organization, experiment),
+      current: apiExperiment,
     },
   };
 
@@ -652,13 +656,26 @@ const logExperimentUpdated = async ({
   current: ExperimentInterface;
   previous: ExperimentInterface;
 }): Promise<string | undefined> => {
+  const previousApiExperimentPromise = toExperimentApiInterface(
+    organization,
+    previous
+  );
+  const currentApiExperimentPromise = toExperimentApiInterface(
+    organization,
+    current
+  );
+  const [previousApiExperiment, currentApiExperiment] = await Promise.all([
+    previousApiExperimentPromise,
+    currentApiExperimentPromise,
+  ]);
+
   const payload: ExperimentUpdatedNotificationEvent = {
     object: "experiment",
     event: "experiment.updated",
     user,
     data: {
-      previous: toExperimentApiInterface(organization, previous),
-      current: toExperimentApiInterface(organization, current),
+      previous: previousApiExperiment,
+      current: currentApiExperiment,
     },
   };
 
@@ -853,12 +870,16 @@ export const logExperimentDeleted = async (
   user: EventAuditUser,
   experiment: ExperimentInterface
 ): Promise<string | undefined> => {
+  const apiExperiment = await toExperimentApiInterface(
+    organization,
+    experiment
+  );
   const payload: ExperimentDeletedNotificationEvent = {
     object: "experiment",
     event: "experiment.deleted",
     user,
     data: {
-      previous: toExperimentApiInterface(organization, experiment),
+      previous: apiExperiment,
     },
   };
 

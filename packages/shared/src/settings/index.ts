@@ -1,6 +1,6 @@
 import genDefaultResolver from "./resolvers/genDefaultResolver";
 import genMetricOverrideResolver from "./resolvers/genMetricOverrideResolver";
-import { genDefaultSettings } from "./defaultSettings";
+import genDefaultSettings from "./resolvers/genDefaultSettings";
 import {
   Settings,
   SettingsResolver,
@@ -9,7 +9,7 @@ import {
   SettingsContext,
   ScopeSettingsFn,
   InputSettings,
-  UseScopedSettingsReturn,
+  ScopedSettingsReturn,
 } from "./types";
 import regressionAdjustmentResolver from "./resolvers/regressionAdjustmentEnabledResolver";
 
@@ -18,17 +18,17 @@ export const resolvers: Record<
   SettingsResolver<Settings[keyof Settings]>
 > = {
   confidenceLevel: genDefaultResolver("confidenceLevel", {
-    project: true,
+    project: "settings.confidenceLevel",
     experiment: true,
     metric: true,
     report: true,
   }),
   northStar: genDefaultResolver("northStar", {
-    project: true,
+    project: "settings.northStar",
   }),
   metricDefaults: genDefaultResolver("metricDefaults", {
     // Example use of string to override the field name
-    project: "metricDefaults",
+    project: "settings.metricDefaults",
     experiment: true,
     metric: true,
     report: true,
@@ -47,19 +47,19 @@ export const resolvers: Record<
     "multipleExposureMinPercent",
 
     {
-      project: true,
+      project: "settings.multipleExposureMinPercent",
       experiment: true,
       report: true,
     }
   ),
   defaultRole: genDefaultResolver("defaultRole"),
   statsEngine: genDefaultResolver("statsEngine", {
-    project: true,
-    experiment: true,
+    project: "settings.statsEngine",
+    // experiment: true,
     report: true,
   }),
   pValueThreshold: genDefaultResolver("pValueThreshold", {
-    project: true,
+    project: "settings.pValueThreshold",
     experiment: true,
     metric: true,
     report: true,
@@ -67,7 +67,7 @@ export const resolvers: Record<
   regressionAdjustmentEnabled: regressionAdjustmentResolver("enabled"),
   regressionAdjustmentDays: regressionAdjustmentResolver("days"),
   attributionModel: genDefaultResolver("attributionModel", {
-    project: true,
+    project: "settings.attributionModel",
     experiment: true,
     report: true,
   }),
@@ -79,7 +79,7 @@ export const resolvers: Record<
 
 const scopeSettings = (
   baseSettings: ScopedSettings,
-  scopes?: ScopeDefinition
+  scopes: ScopeDefinition
 ): {
   settings: ScopedSettings;
   scopeSettings: ScopeSettingsFn;
@@ -92,6 +92,8 @@ const scopeSettings = (
   // iterate over resolvers and apply them to the base settings
   const settings = Object.entries(resolvers).reduce(
     (acc, [fieldName, resolver]) => {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore - todo: we need to figure out how to resolve the type
       acc[fieldName as keyof Settings] = resolver(ctx);
       return acc;
     },
@@ -104,6 +106,8 @@ const scopeSettings = (
   };
 };
 
+// todo: currently for org-level interface
+// turns an InputSettings into ScopedSettings
 const normalizeInputSettings = (
   inputSettings: InputSettings
 ): ScopedSettings => {
@@ -112,11 +116,18 @@ const normalizeInputSettings = (
 
   for (const key in baseSettings) {
     scopedSettings[key as keyof Settings] = {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-ignore - todo: we need to figure out how to resolve the type
       value:
         inputSettings[key as keyof Settings] ??
         baseSettings[key as keyof Settings],
       meta: {
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         reason: "org-level setting applied",
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
+        scopeApplied: "organization",
       },
     };
   }
@@ -124,11 +135,10 @@ const normalizeInputSettings = (
   return scopedSettings;
 };
 
-export const useScopedSettings = (
-  baseSettings: InputSettings,
-  scopes?: ScopeDefinition
-): UseScopedSettingsReturn => {
-  const settings = normalizeInputSettings(baseSettings);
+export const getScopedSettings = (
+  scopes: ScopeDefinition
+): ScopedSettingsReturn => {
+  const settings = normalizeInputSettings(scopes.organization.settings || {});
 
   if (
     scopes?.metric &&
@@ -141,3 +151,5 @@ export const useScopedSettings = (
 
   return scopeSettings(settings, scopes);
 };
+
+export type { ScopedSettings } from "./types";

@@ -99,7 +99,13 @@ const TeamPage: FC = () => {
         </div>
       )}
       {isCloud() && <AutoApproveMembersToggle mutate={refreshOrganization} />}
-      <MemberList mutate={refreshOrganization} project={currentProject} />
+      <MemberList
+        mutate={refreshOrganization}
+        project={currentProject}
+        canEditRoles={true}
+        canDeleteMembers={true}
+        canInviteMembers={true}
+      />
       {organization?.pendingMembers?.length > 0 && (
         <PendingMemberList
           pendingMembers={organization.pendingMembers}

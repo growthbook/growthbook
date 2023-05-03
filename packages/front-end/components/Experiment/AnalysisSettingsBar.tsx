@@ -7,7 +7,7 @@ import {
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { StatsEngine } from "back-end/types/stats";
-import { FaInfoCircle } from "react-icons/fa";
+import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import { OrganizationSettings } from "back-end/types/organization";
 import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -49,22 +49,25 @@ function isOutdated(
   if (snapshot.statsEngine && isDifferent(snapshot.statsEngine, statsEngine)) {
     return { outdated: true, reason: "stats engine changed" };
   }
+  if (isDifferent(snapshot.statsEngine, statsEngine)) {
+    return { outdated: true, reason: "Stats engine changed" };
+  }
   if (isDifferent(experiment.activationMetric, snapshot.activationMetric)) {
-    return { outdated: true, reason: "activation metric changed" };
+    return { outdated: true, reason: "Activation metric changed" };
   }
   if (isDifferent(experiment.segment, snapshot.segment)) {
-    return { outdated: true, reason: "segment changed" };
+    return { outdated: true, reason: "Segment changed" };
   }
   if (isDifferent(experiment.queryFilter, snapshot.queryFilter)) {
-    return { outdated: true, reason: "query filter changed" };
+    return { outdated: true, reason: "Query filter changed" };
   }
   if (experiment.datasource && !("skipPartialData" in snapshot)) {
-    return { outdated: true, reason: "datasource changed" };
+    return { outdated: true, reason: "Datasource changed" };
   }
   if (isDifferent(experiment.skipPartialData, snapshot.skipPartialData)) {
     return {
       outdated: true,
-      reason: "in-progress conversion behavior changed",
+      reason: "In-progress conversion behavior changed",
     };
   }
   // todo: attribution model? (which doesn't live in the snapshot currently)
@@ -102,7 +105,7 @@ function isOutdated(
           snapshot.sequentialTestingTuningParameter)) &&
     statsEngine === "frequentist"
   ) {
-    return { outdated: true, reason: "sequential testing settings changed" };
+    return { outdated: true, reason: "Sequential testing settings changed" };
   }
   return { outdated: false, reason: "" };
 }
@@ -116,6 +119,7 @@ export default function AnalysisSettingsBar({
   statsEngine,
   regressionAdjustmentAvailable,
   regressionAdjustmentEnabled,
+  regressionAdjustmentHasValidMetrics,
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
 }: {
@@ -127,6 +131,7 @@ export default function AnalysisSettingsBar({
   statsEngine?: StatsEngine;
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentHasValidMetrics?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
 }) {
@@ -141,7 +146,7 @@ export default function AnalysisSettingsBar({
   } = useSnapshot();
 
   const { getDatasourceById } = useDefinitions();
-  const settings = useOrgSettings();
+  const orgSettings = useOrgSettings();
   const datasource = getDatasourceById(experiment.datasource);
 
   const { hasCommercialFeature } = useUser();
@@ -153,8 +158,8 @@ export default function AnalysisSettingsBar({
   const { outdated, reason } = isOutdated(
     experiment,
     snapshot,
-    settings,
-    settings.statsEngine || "bayesian",
+    orgSettings,
+    statsEngine,
     hasRegressionAdjustmentFeature,
     hasSequentialFeature
   );
@@ -235,6 +240,30 @@ export default function AnalysisSettingsBar({
                   style={{ transform: "scale(0.8)" }}
                   disabled={!hasRegressionAdjustmentFeature}
                 />
+                {!regressionAdjustmentHasValidMetrics && (
+                  <Tooltip
+                    popperClassName="text-left"
+                    body={
+                      <>
+                        <p>
+                          This experiment does not have any metrics suitable for
+                          CUPED regression adjustment.
+                        </p>
+                        <p className="mb-0">
+                          Please check your metric defintions, as well as any
+                          experiment-level metric overrides.
+                        </p>
+                      </>
+                    }
+                  >
+                    <div
+                      className="text-warning-orange position-absolute p-1"
+                      style={{ top: -11, right: 2 }}
+                    >
+                      <FaExclamationCircle />
+                    </div>
+                  </Tooltip>
+                )}
               </label>
             </PremiumTooltip>
           )}
@@ -256,7 +285,7 @@ export default function AnalysisSettingsBar({
                 style={{ width: 100, fontSize: "0.8em" }}
                 title={datetime(snapshot.dateCreated)}
               >
-                <div className="font-weight-bold" style={{ lineHeight: 1.5 }}>
+                <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
                   last updated
                 </div>
                 <div className="d-inline-block" style={{ lineHeight: 1 }}>
