@@ -16,6 +16,7 @@ type Props = {
   submitColor?: string;
   cta?: string;
   closeCta?: string;
+  disabledMessage?: string;
   ctaEnabled?: boolean;
   size?: "md" | "lg" | "max" | "fill";
   docSection?: DocSection;
@@ -36,6 +37,7 @@ const PagedModal: FC<Props> = (props) => {
     step,
     setStep,
     children,
+    disabledMessage,
     submit,
     navStyle,
     navFill,
@@ -96,6 +98,7 @@ const PagedModal: FC<Props> = (props) => {
     <Modal
       inline={inline}
       size={size}
+      disabledMessage={disabledMessage}
       open={true}
       {...passThrough}
       submit={async () => {

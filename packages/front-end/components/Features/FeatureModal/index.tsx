@@ -159,6 +159,15 @@ export default function FeatureModal({
     ? `Duplicate Feature (${featureToDuplicate.id})`
     : "Create Feature";
 
+  let ctaEnabled = true;
+  let disabledMessage = null;
+
+  if (!permissions.check("createFeatureDrafts", project)) {
+    ctaEnabled = false;
+    disabledMessage =
+      "You don't have permission to create feature flag drafts.";
+  }
+
   return (
     <Modal
       open
@@ -167,6 +176,8 @@ export default function FeatureModal({
       header={modalHeader}
       cta={cta}
       close={close}
+      ctaEnabled={ctaEnabled}
+      disabledMessage={disabledMessage}
       secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { defaultValue, ...feature } = values;

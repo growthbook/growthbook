@@ -17,6 +17,7 @@ import {
 } from "@/services/eventSchema";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import usePermissions from "@/hooks/usePermissions";
 import SelectField from "../Forms/SelectField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -52,6 +53,8 @@ const NewDataSourceForm: FC<{
   const [possibleTypes, setPossibleTypes] = useState(
     dataSourceConnections.map((d) => d.type)
   );
+
+  const permissions = usePermissions();
 
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams>
@@ -89,6 +92,14 @@ const NewDataSourceForm: FC<{
 
   if (!datasource) {
     return null;
+  }
+
+  let ctaEnabled = true;
+  let disabledMessage = null;
+
+  if (!permissions.check("createDatasources", project)) {
+    ctaEnabled = false;
+    disabledMessage = "You don't have permission to create data sources.";
   }
 
   const saveDataConnection = async () => {
@@ -488,6 +499,8 @@ const NewDataSourceForm: FC<{
       open={true}
       header={existing ? "Edit Data Source" : "Add Data Source"}
       close={onCancel}
+      disabledMessage={disabledMessage}
+      ctaEnabled={ctaEnabled}
       submit={submit}
       autoCloseOnSubmit={false}
       cta={isFinalStep ? (step === 2 ? "Finish" : "Save") : "Next"}
