@@ -1,10 +1,10 @@
 import React, { FC, useState, ReactElement } from "react";
 import { Invite, MemberRoleInfo } from "back-end/types/organization";
 import { FaCheck, FaTimes } from "react-icons/fa";
+import { datetime } from "shared";
 import ConfirmModal from "@/components/ConfirmModal";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { datetime } from "@/services/dates";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useEnvironments } from "@/services/features";
 import ChangeRoleModal from "./ChangeRoleModal";

@@ -1,12 +1,17 @@
 import { useState, FC } from "react";
-import { FaFolderPlus, FaPencilAlt } from "react-icons/fa";
+import {
+  FaExclamationTriangle,
+  FaFolderPlus,
+  FaPencilAlt,
+} from "react-icons/fa";
 import { ProjectInterface } from "back-end/types/project";
+import { date } from "shared";
 import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { date } from "@/services/dates";
+import useSDKConnections from "@/hooks/useSDKConnections";
 
 const ProjectsPage: FC = () => {
   const permissions = usePermissions();
@@ -16,6 +21,8 @@ const ProjectsPage: FC = () => {
   const [modalOpen, setModalOpen] = useState<Partial<ProjectInterface> | null>(
     null
   );
+
+  const { data: sdkConnectionsData } = useSDKConnections();
 
   if (!permissions.manageProjects) {
     return (
@@ -77,6 +84,17 @@ const ProjectsPage: FC = () => {
                       });
                       mutateDefinitions();
                     }}
+                    additionalMessage={
+                      sdkConnectionsData?.connections?.find(
+                        (c) => c.project === p.id
+                      ) ? (
+                        <div className="alert alert-danger px-2 py-1">
+                          <FaExclamationTriangle /> This project is in use by
+                          one or more SDK Connections. Deleting it will cause
+                          those connections to stop working.
+                        </div>
+                      ) : null
+                    }
                   />
                 </td>
               </tr>

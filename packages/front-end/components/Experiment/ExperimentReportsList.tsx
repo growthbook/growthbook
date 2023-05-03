@@ -3,7 +3,7 @@ import Link from "next/link";
 import React from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
-import { ago, datetime } from "@/services/dates";
+import { ago, datetime } from "shared";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
