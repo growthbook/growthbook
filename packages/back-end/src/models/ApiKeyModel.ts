@@ -24,6 +24,14 @@ const apiKeySchema = new mongoose.Schema({
   encryptSDK: Boolean,
   encryptionKey: String,
   secret: Boolean,
+  type: {
+    type: String,
+    required: false,
+  },
+  userId: {
+    type: String,
+    required: false,
+  },
 });
 
 type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
@@ -69,6 +77,8 @@ export async function createApiKey({
   description,
   secret,
   encryptSDK,
+  userId,
+  type,
 }: {
   environment: string;
   project: string;
@@ -76,12 +86,17 @@ export async function createApiKey({
   description: string;
   secret: boolean;
   encryptSDK: boolean;
+  userId?: string;
+  type?: string;
 }): Promise<ApiKeyInterface> {
-  if (!secret && !environment) {
+  // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
+  if (!secret && !environment && type !== "read-only") {
     throw new Error("SDK Endpoints must have an environment set");
   }
 
-  const prefix = secret ? "secret_" : `${getShortEnvName(environment)}_`;
+  const prefix = secret
+    ? "secret_" + (type ? `${type}_` : "")
+    : `${getShortEnvName(environment)}_`;
   const key = generateSigningKey(prefix);
 
   const id = uniqid("key_");
@@ -95,11 +110,66 @@ export async function createApiKey({
     secret,
     id,
     encryptSDK,
+    userId,
+    type,
     encryptionKey: encryptSDK ? await generateEncryptionKey() : null,
     dateCreated: new Date(),
   });
 
   return doc.toJSON();
+}
+
+/**
+ * Creates an API key for read-only access to an organization
+ * This will have the `type` "read-only"
+ * @param organization
+ * @param description
+ */
+export async function createReadOnlyApiKey({
+  organization,
+  description,
+}: {
+  organization: string;
+  description: string;
+}): Promise<ApiKeyInterface> {
+  return createApiKey({
+    environment: "",
+    project: "",
+    organization,
+    description,
+    secret: true,
+    encryptSDK: false,
+    type: "read-only",
+  });
+}
+
+/**
+ * Creates an API key that is linked to a user of an organization.
+ * This token is sensitive and should be used to grant access to everything that user has access to.
+ * This will have the `type` "user"
+ * @param organization
+ * @param description
+ * @param userId
+ */
+export async function createUserApiKey({
+  organization,
+  description,
+  userId,
+}: {
+  organization: string;
+  description: string;
+  userId: string;
+}): Promise<ApiKeyInterface> {
+  return createApiKey({
+    environment: "",
+    project: "",
+    organization,
+    description,
+    secret: true,
+    encryptSDK: false,
+    userId,
+    type: "user",
+  });
 }
 
 export async function deleteApiKeyById(organization: string, id: string) {
