@@ -86,7 +86,7 @@ export default class ClickHouse extends SqlIntegration {
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)
       throw new Error(
-        "No database name provided in Clickhouse connection. Please add a database by editing the connection settings."
+        "No database name provided in ClickHouse connection. Please add a database by editing the connection settings."
       );
     return `table_schema IN ('${this.params.database}')`;
   }
