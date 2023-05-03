@@ -32,14 +32,14 @@ export type SidebarLinkProps = {
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
-  const growthbook = useGrowthBook<AppFeatures>();
-
   const { permissions, admin, accountPlan } = useUser();
   const router = useRouter();
 
   const path = router.route.substr(1);
   const selected = props.path.test(path);
   const showSubMenuIcons = true;
+
+  const growthbook = useGrowthBook<AppFeatures>();
 
   const [open, setOpen] = useState(selected);
 

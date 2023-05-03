@@ -46,6 +46,9 @@ function isOutdated(
   hasSequentialFeature: boolean
 ): { outdated: boolean; reason: string } {
   if (!snapshot) return { outdated: false, reason: "" };
+  if (snapshot.statsEngine && isDifferent(snapshot.statsEngine, statsEngine)) {
+    return { outdated: true, reason: "stats engine changed" };
+  }
   if (isDifferent(snapshot.statsEngine, statsEngine)) {
     return { outdated: true, reason: "Stats engine changed" };
   }
@@ -77,7 +80,8 @@ function isOutdated(
     isDifferent(
       experimentRegressionAdjustmentEnabled,
       !!snapshot.regressionAdjustmentEnabled
-    )
+    ) &&
+    statsEngine === "frequentist"
   ) {
     return { outdated: true, reason: "CUPED settings changed" };
   }
@@ -92,13 +96,14 @@ function isOutdated(
     orgSettings.sequentialTestingTuningParameter ??
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   if (
-    isDifferent(
+    (isDifferent(
       experimentSequentialEnabled,
       !!snapshot.sequentialTestingEnabled
     ) ||
-    (experimentSequentialEnabled &&
-      experimentSequentialTuningParameter !==
-        snapshot.sequentialTestingTuningParameter)
+      (experimentSequentialEnabled &&
+        experimentSequentialTuningParameter !==
+          snapshot.sequentialTestingTuningParameter)) &&
+    statsEngine === "frequentist"
   ) {
     return { outdated: true, reason: "Sequential testing settings changed" };
   }
