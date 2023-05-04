@@ -1,7 +1,7 @@
 import { EventAuditUser } from "../src/events/event-types";
 import { AuditInterface } from "./audit";
 import { ExperimentStatus } from "./experiment";
-import { OrganizationInterface } from "./organization";
+import { OrganizationInterface, Permission } from "./organization";
 
 export interface ExperimentOverride {
   weights?: number[];
@@ -45,6 +45,7 @@ export interface ErrorResponse {
 
 export interface ApiRequestLocals {
   apiKey: string;
+  checkPermissions(permission: Permission): Promise<void>;
   organization: OrganizationInterface;
   eventAudit: EventAuditUser;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
