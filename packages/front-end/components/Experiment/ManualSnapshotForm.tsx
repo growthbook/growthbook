@@ -344,11 +344,9 @@ const ManualSnapshotForm: FC<{
                           preview &&
                           preview.variations[i].metrics[m.id] &&
                           parseFloat(
+                            // prettier-ignore
                             // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                            (
-                              preview.variations[i].metrics[m.id].chanceToWin *
-                              100
-                            ).toFixed(2)
+                            (preview.variations[i].metrics[m.id].chanceToWin * 100).toFixed(2)
                           ) + "%"}
                       </td>
                     </tr>
