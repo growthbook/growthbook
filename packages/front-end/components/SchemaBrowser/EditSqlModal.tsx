@@ -21,6 +21,9 @@ export interface Props {
   close: () => void;
   requiredColumns: string[];
   placeholder: string;
+  queryType: "segment" | "dimension" | "metric" | "experiment-assignment";
+  setDimensions?: (dimensions: string[]) => void;
+  setHasNameCols?: (hasNameCols: boolean) => void;
 }
 
 type TestQueryResults = {
@@ -37,6 +40,9 @@ export default function EditSqlModal({
   requiredColumns,
   placeholder,
   datasourceId,
+  queryType,
+  setDimensions,
+  setHasNameCols,
 }: Props) {
   const form = useForm({
     defaultValues: {
@@ -69,13 +75,64 @@ export default function EditSqlModal({
           datasourceId,
         }),
       });
+      const { results } = res;
+
+      if (results && queryType === "experiment-assignment") {
+        const returnedColumns = new Set<string>();
+        results.forEach((row) => {
+          Object.keys(row).forEach((key) => {
+            returnedColumns.add(key);
+          });
+        });
+        if (
+          returnedColumns.has("experiment_name") &&
+          !returnedColumns.has("variation_name")
+        ) {
+          setTestQueryResults({
+            error:
+              "If you would like to use name columns, you must include both experiment_name and variation_name",
+          });
+          setTestingQuery(false);
+          return;
+        }
+
+        if (
+          !returnedColumns.has("experiment_name") &&
+          returnedColumns.has("variation_name")
+        ) {
+          setTestQueryResults({
+            error:
+              "If you would like to use name columns, you must include both experiment_name and variation_name",
+          });
+          setTestingQuery(false);
+          return;
+        }
+        if (returnedColumns.has("experiment_name" && "variation_name")) {
+          setHasNameCols(true);
+        }
+        const dimensionColumns = Array.from(returnedColumns).filter(
+          (col) =>
+            !requiredColumns.includes(col) &&
+            col !== "experiment_name" &&
+            col !== "variation_name"
+        );
+        setDimensions(dimensionColumns);
+      }
 
       setTestQueryResults(res);
     } catch (e) {
       setTestQueryResults({ error: e.message });
     }
     setTestingQuery(false);
-  }, [form, apiCall, datasourceId]);
+  }, [
+    form,
+    apiCall,
+    datasourceId,
+    queryType,
+    setDimensions,
+    setHasNameCols,
+    requiredColumns,
+  ]);
 
   const datasource = getDatasourceById(datasourceId);
   const supportsSchemaBrowser = datasource.properties.supportsInformationSchema;
@@ -85,6 +142,7 @@ export default function EditSqlModal({
       open
       header="Edit SQL"
       submit={form.handleSubmit(async (value) => {
+        await handleTestQuery();
         await save(value.sql);
       })}
       close={close}
