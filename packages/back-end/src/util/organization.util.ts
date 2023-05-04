@@ -18,10 +18,32 @@ export function isActiveSubscriptionStatus(
   return ["active", "trialing", "past_due"].includes(status || "");
 }
 export const accountFeatures: CommercialFeaturesMap = {
-  oss: new Set<CommercialFeature>([]),
-  starter: new Set<CommercialFeature>([]),
-  pro: new Set<CommercialFeature>([
+  oss: new Set<CommercialFeature>([
+    "sso",
     "advanced-permissions",
+    "audit-logging",
+    "encrypt-features-endpoint",
+    "schedule-feature-flag",
+    "override-metrics",
+    "regression-adjustment",
+    "sequential-testing",
+    "visual-editor",
+  ]),
+  starter: new Set<CommercialFeature>([
+    "sso",
+    "advanced-permissions",
+    "audit-logging",
+    "encrypt-features-endpoint",
+    "schedule-feature-flag",
+    "override-metrics",
+    "regression-adjustment",
+    "sequential-testing",
+    "visual-editor",
+  ]),
+  pro: new Set<CommercialFeature>([
+    "sso",
+    "advanced-permissions",
+    "audit-logging",
     "encrypt-features-endpoint",
     "schedule-feature-flag",
     "override-metrics",
@@ -33,6 +55,7 @@ export const accountFeatures: CommercialFeaturesMap = {
   pro_sso: new Set<CommercialFeature>([
     "sso",
     "advanced-permissions",
+    "audit-logging",
     "encrypt-features-endpoint",
     "schedule-feature-flag",
     "override-metrics",
