@@ -154,7 +154,7 @@ export default function SDKConnectionsList() {
                         body={
                           <>
                             <BsLightningFill className="text-warning" />
-                            <strong>Instant Rollouts</strong> are enabled
+                            <strong>Streaming Updates</strong> are enabled
                           </>
                         }
                       >

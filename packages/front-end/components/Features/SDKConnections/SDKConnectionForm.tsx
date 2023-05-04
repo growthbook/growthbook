@@ -320,7 +320,7 @@ export default function SDKConnectionForm({
                   <>
                     <p>
                       <BsLightningFill className="text-warning" />
-                      <strong>Instant Rollouts</strong> allow you to instantly
+                      <strong>Streaming Updates</strong> allow you to instantly
                       update any subscribed SDKs when you make any feature
                       changes in GrowthBook. For front-end SDKs, active users
                       will see the changes immediately without having to refresh
@@ -364,14 +364,14 @@ export default function SDKConnectionForm({
                       </p>
                       <p className="text-muted small mb-0">
                         While in beta, we cannot guarantee 100% reliability of
-                        instant rollouts. However, using this feature poses no
+                        streaming updates. However, using this feature poses no
                         risk to any other SDK functionality.
                       </p>
                     </div>
                   </>
                 }
               >
-                Enable Instant Rollouts? <FaInfoCircle />{" "}
+                Enable Streaming Updates? <FaInfoCircle />{" "}
                 <span className="badge badge-purple text-uppercase mr-2">
                   Beta
                 </span>

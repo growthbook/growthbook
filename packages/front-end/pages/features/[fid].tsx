@@ -151,10 +151,10 @@ export default function FeaturePage() {
           <>
             <p className="mb-1">
               You currently have{" "}
-              {isCloud() ? "Instant Rollouts" : "GrowthBook Proxy"} enabled on{" "}
+              {isCloud() ? "Streaming Updates" : "GrowthBook Proxy"} enabled on{" "}
               {hasUnproxiedConnections ? "some" : "all"} of your SDK
               Connections. For these connections, feature updates will be
-              deployed instantly.
+              deployed instantly to subscribed SDKs.
             </p>
             {hasUnproxiedConnections ? (
               <p className="mb-1">
@@ -173,10 +173,10 @@ export default function FeaturePage() {
       </div>
       {isCloud() ? (
         <div className="mt-0">
-          To use instant deployments, enable{" "}
+          To use instant feature deployments, enable{" "}
           <strong>
             <BsLightningFill className="text-warning-orange" />
-            Instant Rollouts
+            Streaming Updates
           </strong>{" "}
           in your <Link href="/sdks">SDK Connections</Link>.
         </div>

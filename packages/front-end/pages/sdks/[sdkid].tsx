@@ -383,19 +383,19 @@ export default function SDKConnectionPage() {
                 <div style={{ lineHeight: 1.5 }}>
                   <p>
                     <BsLightningFill className="text-warning" />
-                    <strong>Instant Rollouts</strong> allow you to instantly
+                    <strong>Streaming Updates</strong> allow you to instantly
                     update any subscribed SDKs when you make any feature changes
                     in GrowthBook. For front-end SDKs, active users will see the
                     changes immediately without having to refresh the page.
                   </p>
                   <p>
-                    Instant rollouts are currently{" "}
+                    Streaming updates are currently{" "}
                     <strong>
                       {hasCloudProxyForSSE ? "enabled" : "disabled"}
                     </strong>{" "}
                     for this connection. You may{" "}
-                    {hasCloudProxyForSSE ? "disable" : "enable"} Instant
-                    Rollouts by editing this connection.
+                    {hasCloudProxyForSSE ? "disable" : "enable"} Streaming
+                    Updates by editing this connection.
                   </p>
 
                   <div className="mt-4" style={{ lineHeight: 1.2 }}>
@@ -409,7 +409,7 @@ export default function SDKConnectionPage() {
                     </p>
                     <p className="text-muted small mb-0">
                       While in beta, we cannot guarantee 100% reliability of
-                      instant rollouts. However, using this feature poses no
+                      streaming updates. However, using this feature poses no
                       risk to any other SDK functionality.
                     </p>
                   </div>
@@ -417,7 +417,7 @@ export default function SDKConnectionPage() {
               }
             >
               <BsLightningFill className="text-warning" />
-              Instant Rollouts:{" "}
+              Streaming Updates:{" "}
               <strong>{hasCloudProxyForSSE ? "Enabled" : "Disabled"}</strong>
               <div
                 className="text-right text-muted"
