@@ -117,11 +117,8 @@ export const LotsOfEvents = () => {
     "feature.created",
     "feature.updated",
     "feature.deleted",
-    // @ts-expect-error
     "experiment.created",
-    // @ts-expect-error
     "experiment.updated",
-    // @ts-expect-error
     "experiment.deleted",
     // @ts-expect-error
     "another_resource.created",
