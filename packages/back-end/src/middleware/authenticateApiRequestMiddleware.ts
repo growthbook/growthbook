@@ -78,33 +78,13 @@ export default function authenticateApiRequestMiddleware(
         project?: string,
         envs?: string[]
       ) => {
-        switch (apiKeyPartial.type) {
-          case "read-only":
-            // The `readonly` role is empty so it's not there
-            throw new Error("read-only keys do not have this level of access");
-
-          case "user":
-            if (
-              !doesUserHavePermission(
-                org,
-                permission,
-                apiKeyPartial,
-                project,
-                envs
-              )
-            ) {
-              throw new Error(
-                "API key user does not have this level of access"
-              );
-            }
-            break;
-
-          default:
-            // secret API keys without a type are the full access API keys
-            if (apiKeyPartial.secret !== true) {
-              throw new Error("API key does not have this level of access");
-            }
-        }
+        verifyApiKeyPermission({
+          apiKey: apiKeyPartial,
+          permission,
+          organization: org,
+          project,
+          environments: envs,
+        });
       };
 
       // Add user info to logger
@@ -173,5 +153,54 @@ function doesUserHavePermission(
     return true;
   } catch (e) {
     return false;
+  }
+}
+
+type VerifyApiKeyPermissionOptions = {
+  apiKey: Partial<ApiKeyInterface>;
+  permission: Permission;
+  organization: OrganizationInterface;
+  project?: string;
+  environments?: string[];
+};
+
+/**
+ * @param apiKey
+ * @param permission
+ * @param envs
+ * @param project
+ * @throws an error if there are no permissions
+ */
+export function verifyApiKeyPermission({
+  apiKey,
+  permission,
+  organization,
+  environments,
+  project,
+}: VerifyApiKeyPermissionOptions) {
+  switch (apiKey.type) {
+    case "read-only":
+      // The `readonly` role is empty so it's not there
+      throw new Error("read-only keys do not have this level of access");
+
+    case "user":
+      if (
+        !doesUserHavePermission(
+          organization,
+          permission,
+          apiKey,
+          project,
+          environments
+        )
+      ) {
+        throw new Error("API key user does not have this level of access");
+      }
+      break;
+
+    default:
+      // secret API keys without a type are the full access API keys
+      if (apiKey.secret !== true) {
+        throw new Error("API key does not have this level of access");
+      }
   }
 }
