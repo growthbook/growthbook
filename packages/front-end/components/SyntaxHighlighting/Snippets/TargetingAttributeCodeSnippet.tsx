@@ -47,9 +47,11 @@ function getExampleAttributes(attributeSchema?: SDKAttributeSchema) {
     } else if (datatype === "string[]") {
       value = ["foo", "bar"];
     } else if (datatype === "enum") {
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       value = enumList.split(",").map((v) => v.trim())[0] ?? null;
     }
 
+    // @ts-expect-error TS(2538) If you come across this, please fix it!: Type 'undefined' cannot be used as an index type.
     current[last] = value;
   });
 

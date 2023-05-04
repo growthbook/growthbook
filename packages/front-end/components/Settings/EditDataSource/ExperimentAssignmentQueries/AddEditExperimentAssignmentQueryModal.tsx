@@ -29,8 +29,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   const modalTitle =
     mode === "add"
       ? "Add an Experiment Assignment query"
-      : `Edit ${exposureQuery.name}`;
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+        `Edit ${exposureQuery.name}`;
 
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   const userIdTypeOptions = dataSource.settings.userIdTypes.map(
     ({ userIdType }) => ({
       display: userIdType,
@@ -42,7 +44,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   const form = useForm<ExposureQuery>({
     defaultValues:
       mode === "edit"
-        ? cloneDeep<ExposureQuery>(exposureQuery)
+        ? // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'ExposureQuery | undefined' is no... Remove this comment to see the full error message
+          cloneDeep<ExposureQuery>(exposureQuery)
         : {
             description: "",
             id: uniqId("tbl_"),
@@ -63,12 +66,14 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     await onSave(value);
 
     form.reset({
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string | un... Remove this comment to see the full error message
       id: null,
       query: "",
       name: "",
       dimensions: [],
       description: "",
       hasNameCol: false,
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string | un... Remove this comment to see the full error message
       userIdType: null,
     });
   });

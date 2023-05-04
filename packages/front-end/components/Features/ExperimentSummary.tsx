@@ -39,6 +39,7 @@ export default function ExperimentSummary({
   const namespaceRange = hasNamespace
     ? namespace.range[1] - namespace.range[0]
     : 1;
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   const effectiveCoverage = namespaceRange * coverage;
 
   return (
@@ -50,6 +51,7 @@ export default function ExperimentSummary({
           isImport={true}
           fromFeature={true}
           msg="We couldn't find an analysis yet for that feature. Create a new one now."
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Partial<ExperimentInterfaceStringDates> | nu... Remove this comment to see the full error message
           initialValue={expDefinition}
         />
       )}
@@ -126,6 +128,7 @@ export default function ExperimentSummary({
               </span>{" "}
               of the namespace and{" "}
               <span className="border px-2 py-1 bg-light rounded">
+                {/* @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call. */}
                 {percentFormatter.format(coverage)}
               </span>
               <span> exposure)</span>

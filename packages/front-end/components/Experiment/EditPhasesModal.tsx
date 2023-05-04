@@ -71,10 +71,13 @@ export default function EditPhasesModal({
               <td>{i + 1}</td>
               <td>{phase.name}</td>
               <td>
+                {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
                 <strong title={datetime(phase.dateStarted)}>
+                  {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
                   {date(phase.dateStarted)}
                 </strong>{" "}
                 to{" "}
+                {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
                 <strong title={datetime(phase.dateEnded)}>
                   {phase.dateEnded ? date(phase.dateEnded) : "now"}
                 </strong>

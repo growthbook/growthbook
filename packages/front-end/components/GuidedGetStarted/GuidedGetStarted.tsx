@@ -204,6 +204,7 @@ export default function GuidedGetStarted({
       learnMoreLink: "Learn more about our SDKs.",
       docSection: "sdks",
       completed:
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         SDKData?.connections.length > 0 || skippedSteps["install-sdk"] || false,
       render: (
         <InitialSDKConnectionForm
@@ -266,6 +267,7 @@ export default function GuidedGetStarted({
                   Skip Step
                 </button>
               }
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean' is not assignable to type '(source:... Remove this comment to see the full error message
               importSampleData={
                 !hasDataSource &&
                 allowImport &&
@@ -409,6 +411,7 @@ export default function GuidedGetStarted({
               {steps[currentStep].learnMoreLink &&
                 steps[currentStep].docSection && (
                   <span>
+                    {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"ruby" | "home" | "features" | "experiments"... Remove this comment to see the full error message */}
                     <DocLink docSection={steps[currentStep].docSection}>
                       {steps[currentStep].learnMoreLink}
                     </DocLink>

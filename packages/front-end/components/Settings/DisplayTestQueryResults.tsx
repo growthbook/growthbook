@@ -97,6 +97,7 @@ export default function DisplayTestQueryResults({
           ))}
         </div>
       )}
+      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
       {suggestions?.length > 0 && (
         <div className="mb-2">
           <strong>Suggestions:</strong>

@@ -24,6 +24,7 @@ const VisualChangesetModal: FC<{
 
   // todo: bug bash this
   let forceAdvancedMode = false;
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   if (visualChangeset?.urlPatterns?.length > 0) {
     forceAdvancedMode = true;
   }
@@ -69,6 +70,7 @@ const VisualChangesetModal: FC<{
         body: JSON.stringify(payload),
       });
     } else {
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       await apiCall(`/visual-changesets/${visualChangeset.id}`, {
         method: "PUT",
         body: JSON.stringify(payload),

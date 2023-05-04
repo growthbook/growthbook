@@ -42,6 +42,7 @@ const Dropdown: FC<{
     setOpen = _setOpen;
   }
 
+  // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
   useGlobalMenu(`.${uuid}`, () => setOpen(false));
 
   const content = Children.map(children, (child) => {
@@ -51,6 +52,7 @@ const Dropdown: FC<{
       return cloneElement(child, {
         onClick: () => {
           child.props.onClick();
+          // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
           setOpen(false);
         },
       });
@@ -69,6 +71,7 @@ const Dropdown: FC<{
         className={clsx({ "dropdown-toggle": caret })}
         onClick={(e) => {
           e.preventDefault();
+          // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
           setOpen(!open);
         }}
         style={{ cursor: "pointer" }}

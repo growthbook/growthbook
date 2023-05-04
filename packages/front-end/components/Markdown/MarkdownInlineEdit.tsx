@@ -24,6 +24,7 @@ const MarkdownInlineEdit: FC<{
 }) => {
   const [edit, setEdit] = useState(false);
   const [val, setVal] = useState("");
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
   const [error, setError] = useState<string>(null);
   const [loading, setLoading] = useState(false);
 
@@ -34,6 +35,7 @@ const MarkdownInlineEdit: FC<{
         onSubmit={async (e) => {
           e.preventDefault();
           if (loading) return;
+          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
           setError(null);
           setLoading(true);
           try {
@@ -63,6 +65,7 @@ const MarkdownInlineEdit: FC<{
     <div className={className}>
       {header && (
         <HeaderWithEdit
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'false | "" | (() => void)' is not assignable... Remove this comment to see the full error message
           edit={
             value &&
             canEdit &&

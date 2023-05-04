@@ -145,6 +145,7 @@ export default function FeatureVariationsInput({
           <tbody>
             <SortableVariationsList
               variations={variations}
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((variations: SortableVariation[]) => void) ... Remove this comment to see the full error message
               setVariations={setVariations}
             >
               {variations.map((variation, i) => (
@@ -153,6 +154,7 @@ export default function FeatureVariationsInput({
                   key={variation.id}
                   variation={variation}
                   variations={variations}
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((variations: SortableVariation[]) => void) ... Remove this comment to see the full error message
                   setVariations={setVariations}
                   setWeight={setWeight}
                   customSplit={customSplit}

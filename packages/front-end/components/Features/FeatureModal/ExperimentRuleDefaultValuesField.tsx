@@ -80,6 +80,7 @@ const ExperimentRuleDefaultValuesField: FC<{
         defaultValue={variationsDefaultValue}
         valueType={valueType}
       />
+      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
       {namespaces?.length > 0 && (
         <NamespaceSelector
           form={form}

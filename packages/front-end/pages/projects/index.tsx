@@ -88,6 +88,7 @@ const ProjectsPage: FC = () => {
               return (
                 <tr
                   key={p.id}
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((e: MouseEvent<HTMLTableRowElement, MouseEv... Remove this comment to see the full error message
                   onClick={
                     canManage
                       ? (e) => {
@@ -96,6 +97,7 @@ const ProjectsPage: FC = () => {
                         }
                       : null
                   }
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ cursor: "pointer"; } | null' is not assign... Remove this comment to see the full error message
                   style={canManage ? { cursor: "pointer" } : null}
                 >
                   <td>
@@ -142,6 +144,7 @@ const ProjectsPage: FC = () => {
                             });
                             mutateDefinitions();
                           }}
+                          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Element | null' is not assignable to type 's... Remove this comment to see the full error message
                           additionalMessage={
                             sdkConnectionsData?.connections?.find(
                               (c) => c.project === p.id

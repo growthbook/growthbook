@@ -38,6 +38,7 @@ export default function StatsEngineSelect({
       label: parentScopeId
         ? capitalizeFirstLetter(parentScopeId) + " default"
         : "Default",
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string'.
       value: null,
     });
   }

@@ -43,6 +43,7 @@ const RightRailSectionGroup: FC<{
         <>
           {type === "tags" && (
             <SortedTags
+              // @ts-expect-error TS(2533) If you come across this, please fix it!: Object is possibly 'null' or 'undefined'.
               tags={Children.map(children, (child) => child + "").filter(
                 Boolean
               )}
