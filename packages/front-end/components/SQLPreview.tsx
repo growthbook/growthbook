@@ -20,7 +20,7 @@ type Props = {
   className?: string;
 };
 
-export default function SQLInputField({
+export default function SQLPreview({
   userEnteredQuery,
   datasourceId,
   requiredColumns,

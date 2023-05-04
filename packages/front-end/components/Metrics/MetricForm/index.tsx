@@ -31,7 +31,7 @@ import TagsInput from "@/components/Tags/TagsInput";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/components/Forms/MultiSelectField";
-import SQLInputField from "@/components/SQLInputField";
+import SQLPreview from "@/components/SQLPreview";
 import GoogleAnalyticsMetrics from "@/components/Metrics/GoogleAnalyticsMetrics";
 import RiskThresholds from "@/components/Metrics/MetricForm/RiskThresholds";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -879,7 +879,7 @@ const MetricForm: FC<MetricFormProps> = ({
             </div>
             {supportsSQL && value.queryFormat !== "sql" && (
               <div className="col-lg pt-2">
-                <SQLInputField
+                <SQLPreview
                   userEnteredQuery={getRawSQLPreview(value)}
                   datasourceId={value.datasource}
                   requiredColumns={requiredColumns}
