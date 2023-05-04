@@ -62,6 +62,7 @@ export default function EditSqlModal({
   const [testingQuery, setTestingQuery] = useState(false);
 
   const handleTestQuery = useCallback(async () => {
+    console.log("handleTestQuery was called");
     const sql = form.getValues("sql");
     try {
       // Just check for basic SQL syntax, not any required columns
@@ -148,7 +149,9 @@ export default function EditSqlModal({
       open
       header="Edit SQL"
       submit={form.handleSubmit(async (value) => {
-        await handleTestQuery();
+        if (queryType === "experiment-assignment") {
+          await handleTestQuery();
+        }
         await save(value.sql);
       })}
       close={close}
