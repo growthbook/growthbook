@@ -162,7 +162,7 @@ gb.WithAttributes(growthbook.Attributes${JSON.stringify(
     return (
       <Code
         language="python"
-        code={`gb.setAttributes(${stringify(exampleAttributes)
+        code={`gb.set_attributes(${stringify(exampleAttributes)
           .replace(/: true/g, ": True")
           .replace(/: false/g, ": False")
           .replace(/: null/g, ": None")})`}

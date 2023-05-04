@@ -154,3 +154,14 @@ export function appendQueryParamsToURL(
   const queryParams = qs.stringify({ ...parsed, ...params });
   return `${root}?${queryParams}`;
 }
+
+export function capitalizeFirstLetter(string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+export function capitalizeWords(string) {
+  return string
+    .split(" ")
+    .map((word) => capitalizeFirstLetter(word))
+    .join(" ");
+}

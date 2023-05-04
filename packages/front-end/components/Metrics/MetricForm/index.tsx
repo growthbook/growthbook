@@ -6,12 +6,11 @@ import {
   Operator,
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
+import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import {
-  FaExclamationTriangle,
-  FaExternalLinkAlt,
-  FaTimes,
-} from "react-icons/fa";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+} from "shared";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -253,7 +252,9 @@ const MetricForm: FC<MetricFormProps> = ({
       minSampleSize: getMinSampleSizeForMetric(current),
       regressionAdjustmentOverride:
         current.regressionAdjustmentOverride ?? false,
-      regressionAdjustmentEnabled: current.regressionAdjustmentEnabled ?? false,
+      regressionAdjustmentEnabled:
+        current.regressionAdjustmentEnabled ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       regressionAdjustmentDays:
         current.regressionAdjustmentDays ??
         settings.regressionAdjustmentDays ??
@@ -1104,16 +1105,6 @@ const MetricForm: FC<MetricFormProps> = ({
                           Override organization-level settings
                         </label>
                       </div>
-                      {!!form.watch("regressionAdjustmentOverride") &&
-                        (!settings.statsEngine ||
-                          settings.statsEngine === "bayesian") && (
-                          <small className="d-block my-1 text-warning-orange">
-                            <FaExclamationTriangle /> Your organization uses
-                            Bayesian statistics by default and regression
-                            adjustment is not implemented for the Bayesian
-                            engine.
-                          </small>
-                        )}
                     </div>
                     <div
                       style={{
