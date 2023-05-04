@@ -117,17 +117,17 @@ export const LotsOfEvents = () => {
     "feature.created",
     "feature.updated",
     "feature.deleted",
-    // @ts-ignore
+    // @ts-expect-error
     "experiment.created",
-    // @ts-ignore
+    // @ts-expect-error
     "experiment.updated",
-    // @ts-ignore
+    // @ts-expect-error
     "experiment.deleted",
-    // @ts-ignore
+    // @ts-expect-error
     "another_resource.created",
-    // @ts-ignore
+    // @ts-expect-error
     "another_resource.updated",
-    // @ts-ignore
+    // @ts-expect-error
     "another_resource.deleted",
   ];
 
