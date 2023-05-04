@@ -115,6 +115,7 @@ export const createSDKConnectionValidator = z
     includeExperimentNames: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
+    sseEnabled: z.boolean().optional(),
   })
   .strict();
 
