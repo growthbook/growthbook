@@ -2,12 +2,15 @@ import React, { useState } from "react";
 import { FaAngleRight, FaExclamationTriangle, FaLock } from "react-icons/fa";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { BsLightningFill } from "react-icons/bs";
+import { RxDesktop } from "react-icons/rx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
+import { isCloud } from "@/services/env";
 import Tooltip from "../../Tooltip/Tooltip";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
@@ -49,6 +52,7 @@ export default function SDKConnectionsList() {
               <th>Name</th>
               {projects.length > 0 && <th>Project</th>}
               <th>Environment</th>
+              <th className="text-center">Features</th>
               <th>Languages</th>
               <th style={{ width: 25 }}></th>
             </tr>
@@ -56,7 +60,8 @@ export default function SDKConnectionsList() {
           <tbody>
             {connections.map((connection) => {
               const hasProxy =
-                connection.proxy.enabled && connection.proxy.host;
+                !isCloud() && connection.proxy.enabled && connection.proxy.host;
+              const hasCloudProxyForSSE = isCloud() && connection.sseEnabled;
               const connected =
                 connection.connected &&
                 (!hasProxy || connection.proxy.connected);
@@ -118,11 +123,53 @@ export default function SDKConnectionsList() {
                       )}
                     </td>
                   )}
-                  <td>
-                    {connection.environment}{" "}
+                  <td>{connection.environment}</td>
+                  <td className="text-center">
                     {connection.encryptPayload && (
-                      <Tooltip body="This feature payload is encrypted">
-                        <FaLock className="text-purple" />
+                      <Tooltip
+                        body={
+                          <>
+                            <strong>Encryption</strong> is enabled for this
+                            connection&apos;s SDK payload
+                          </>
+                        }
+                      >
+                        <FaLock className="mx-1 text-purple" />
+                      </Tooltip>
+                    )}
+                    {hasProxy && (
+                      <Tooltip
+                        body={
+                          <>
+                            <BsLightningFill className="text-warning" />
+                            <strong>GB Proxy</strong> is enabled
+                          </>
+                        }
+                      >
+                        <BsLightningFill className="mx-1 text-warning" />
+                      </Tooltip>
+                    )}
+                    {hasCloudProxyForSSE && (
+                      <Tooltip
+                        body={
+                          <>
+                            <BsLightningFill className="text-warning" />
+                            <strong>Streaming Updates</strong> are enabled
+                          </>
+                        }
+                      >
+                        <BsLightningFill className="mx-1 text-warning" />
+                      </Tooltip>
+                    )}
+                    {connection.includeVisualExperiments && (
+                      <Tooltip
+                        body={
+                          <>
+                            <strong>Visual Experiments</strong> are supported
+                          </>
+                        }
+                      >
+                        <RxDesktop className="mx-1 text-blue" />
                       </Tooltip>
                     )}
                   </td>

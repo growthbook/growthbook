@@ -20,6 +20,7 @@ export const languageMapping: Record<
     docs: DocSection;
     supportsEncryption: boolean;
     supportsVisualExperiments: boolean;
+    supportsSSE: boolean;
   }
 > = {
   react: {
@@ -29,6 +30,7 @@ export const languageMapping: Record<
     docs: "tsx",
     supportsEncryption: true,
     supportsVisualExperiments: true,
+    supportsSSE: true,
   },
   ruby: {
     Icon: DiRuby,
@@ -37,6 +39,7 @@ export const languageMapping: Record<
     docs: "ruby",
     supportsEncryption: false,
     supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   python: {
     Icon: DiPython,
@@ -45,6 +48,7 @@ export const languageMapping: Record<
     docs: "python",
     supportsEncryption: true,
     supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   android: {
     Icon: DiAndroid,
@@ -53,6 +57,7 @@ export const languageMapping: Record<
     docs: "kotlin",
     supportsEncryption: false,
     supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   csharp: {
     Icon: FaHashtag,
@@ -61,6 +66,7 @@ export const languageMapping: Record<
     docs: "csharp",
     supportsEncryption: false,
     supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   flutter: {
     Icon: SiFlutter,
@@ -69,6 +75,7 @@ export const languageMapping: Record<
     docs: "flutter",
     supportsEncryption: false,
     supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   go: {
     Icon: SiGo,
@@ -77,6 +84,7 @@ export const languageMapping: Record<
     docs: "go",
     supportsEncryption: false,
     supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   ios: {
     Icon: FaApple,
@@ -85,6 +93,7 @@ export const languageMapping: Record<
     docs: "swift",
     supportsEncryption: true,
     supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   java: {
     Icon: FaJava,
@@ -93,6 +102,7 @@ export const languageMapping: Record<
     docs: "java",
     supportsEncryption: true,
     supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   javascript: {
     Icon: SiJavascript,
@@ -101,6 +111,7 @@ export const languageMapping: Record<
     docs: "javascript",
     supportsEncryption: true,
     supportsVisualExperiments: true,
+    supportsSSE: true,
   },
   php: {
     Icon: SiPhp,
@@ -109,6 +120,7 @@ export const languageMapping: Record<
     docs: "php",
     supportsEncryption: true,
     supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   nodejs: {
     Icon: SiNodedotjs,
@@ -117,6 +129,7 @@ export const languageMapping: Record<
     docs: "javascript",
     supportsEncryption: true,
     supportsVisualExperiments: false,
+    supportsSSE: true,
   },
   other: {
     Icon: FaCode,
@@ -125,6 +138,7 @@ export const languageMapping: Record<
     docs: "sdks",
     supportsEncryption: false,
     supportsVisualExperiments: false,
+    supportsSSE: false,
   },
 };
 

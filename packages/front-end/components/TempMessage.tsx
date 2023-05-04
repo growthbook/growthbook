@@ -8,23 +8,31 @@ type TempMessageProps = {
   children: ReactNode;
   className?: string;
   style?: CSSProperties;
+  delay?: number | null;
+  top?: number;
+  showClose?: boolean;
 };
 const TempMessage: FC<TempMessageProps> = ({
-  children,
   close,
+  children,
   className = "",
   style = {},
+  delay = SHOW_TIME,
+  top = 55,
+  showClose = false,
 }) => {
   const [closing, setClosing] = useState(false);
 
-  // Start closing after SHOW_TIME ms
+  // Start closing after delay ms, or keep open for null
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setClosing(true);
-    }, SHOW_TIME);
-    return () => {
-      clearTimeout(timer);
-    };
+    if (delay !== null) {
+      const timer = setTimeout(() => {
+        setClosing(true);
+      }, delay);
+      return () => {
+        clearTimeout(timer);
+      };
+    }
   }, []);
 
   // Close after waiting for fade out animation to finish
@@ -46,12 +54,25 @@ const TempMessage: FC<TempMessageProps> = ({
         className
       )}
       style={{
-        top: 55,
+        top,
         transition: "200ms all",
         opacity: closing ? 0 : 1,
         ...style,
       }}
     >
+      {showClose && (
+        <button
+          className="close"
+          style={{ right: -10, top: -5 }}
+          onClick={(e) => {
+            e.preventDefault();
+            if (closing) return;
+            setClosing(true);
+          }}
+        >
+          <span aria-hidden="true">&times;</span>
+        </button>
+      )}
       {children}
     </div>
   );
