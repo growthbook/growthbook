@@ -43,7 +43,7 @@ export const languageMapping: Record<
     color: "#306998",
     label: "Python",
     docs: "python",
-    supportsEncryption: false,
+    supportsEncryption: true,
     supportsVisualExperiments: false,
   },
   android: {
@@ -107,7 +107,7 @@ export const languageMapping: Record<
     color: "#8993be",
     label: "PHP",
     docs: "php",
-    supportsEncryption: false,
+    supportsEncryption: true,
     supportsVisualExperiments: false,
   },
   nodejs: {
