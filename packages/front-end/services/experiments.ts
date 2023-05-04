@@ -460,6 +460,10 @@ export function setAdjustedPValuesOnResults(
     });
   });
 
+  if (indexedPValues.length === 0) {
+    return;
+  }
+
   if (adjustment === "benjamini-hochberg") {
     indexedPValues = adjustPValuesBenjaminiHochberg(indexedPValues);
   } else if (adjustment === "holm-bonferroni") {
