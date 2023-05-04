@@ -882,10 +882,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 <SQLInputField
                   userEnteredQuery={getRawSQLPreview(value)}
                   datasourceId={value.datasource}
-                  form={form}
                   requiredColumns={requiredColumns}
-                  showPreview
-                  queryType="metric"
                 />
                 {value.type !== "binomial" && (
                   <div className="mt-2">

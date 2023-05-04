@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { ReactElement, useCallback, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
@@ -21,7 +21,7 @@ export interface Props {
   close: () => void;
   requiredColumns: string[];
   placeholder: string;
-  queryType: "segment" | "dimension" | "metric" | "experiment-assignment";
+  queryType?: "segment" | "dimension" | "metric" | "experiment-assignment";
   setDimensions?: (dimensions: string[]) => void;
   setHasNameCols?: (hasNameCols: boolean) => void;
 }
@@ -44,6 +44,7 @@ export default function EditSqlModal({
   setDimensions,
   setHasNameCols,
 }: Props) {
+  const [suggestions, setSuggestions] = useState<ReactElement[]>([]);
   const form = useForm({
     defaultValues: {
       sql: value,
@@ -77,7 +78,10 @@ export default function EditSqlModal({
       });
       const { results } = res;
 
+      // We do some one-off logic for Experiment Assignment queries
       if (results && queryType === "experiment-assignment") {
+        const suggestions: ReactElement[] = [];
+
         const returnedColumns = new Set<string>();
         results.forEach((row) => {
           Object.keys(row).forEach((key) => {
@@ -86,30 +90,31 @@ export default function EditSqlModal({
         });
         if (
           returnedColumns.has("experiment_name") &&
-          !returnedColumns.has("variation_name")
-        ) {
-          setTestQueryResults({
-            error:
-              "If you would like to use name columns, you must include both experiment_name and variation_name",
-          });
-          setTestingQuery(false);
-          return;
-        }
-
-        if (
-          !returnedColumns.has("experiment_name") &&
           returnedColumns.has("variation_name")
         ) {
-          setTestQueryResults({
-            error:
-              "If you would like to use name columns, you must include both experiment_name and variation_name",
-          });
-          setTestingQuery(false);
-          return;
-        }
-        if (returnedColumns.has("experiment_name" && "variation_name")) {
           setHasNameCols(true);
         }
+        // If only experiment_name was returned, show suggestion to also include variation_name
+        else if (returnedColumns.has("experiment_name")) {
+          suggestions.push(
+            <>
+              Add <code>variation_name</code> to your SELECT clause to enable
+              GrowthBook to populate names automatically.
+            </>
+          );
+          setHasNameCols(false);
+        }
+        // If only variation_name was returned, show suggestion to also include experiment_name
+        else if (returnedColumns.has("variation_name")) {
+          suggestions.push(
+            <>
+              Add <code>experiment_name</code> to your SELECT clause to enable
+              GrowthBook to populate names automatically.
+            </>
+          );
+          setHasNameCols(false);
+        }
+        // Identify any additional columns that were returned and add as dimension columns
         const dimensionColumns = Array.from(returnedColumns).filter(
           (col) =>
             !requiredColumns.includes(col) &&
@@ -117,6 +122,7 @@ export default function EditSqlModal({
             col !== "variation_name"
         );
         setDimensions(dimensionColumns);
+        setSuggestions(suggestions);
       }
 
       setTestQueryResults(res);
@@ -209,7 +215,7 @@ export default function EditSqlModal({
                   results={testQueryResults.results}
                   error={testQueryResults.error}
                   sql={testQueryResults.sql}
-                  suggestions={[]}
+                  suggestions={suggestions}
                 />
               </div>
             )}
