@@ -28,9 +28,11 @@ export default function RuleStatusPill({
       <div className="mr-3">
         <div className="bg-info text-light border px-2 rounded">
           {`Rule was disabled by schedule rule on ${new Date(
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
           ).toLocaleDateString()} at ${formatTimeZone(
             new Date(
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
             ),
             "h:mm a z"
@@ -47,8 +49,10 @@ export default function RuleStatusPill({
           {`Rule will be ${
             upcomingScheduleRule.enabled ? "enabled" : "disabled"
           } on ${new Date(
+            // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
             upcomingScheduleRule.timestamp
           ).toLocaleDateString()} at ${formatTimeZone(
+            // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
             new Date(upcomingScheduleRule.timestamp),
             "h:mm a z"
           )}`}

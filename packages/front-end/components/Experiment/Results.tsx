@@ -86,12 +86,15 @@ const Results: FC<{
   const status = getQueryStatus(latest?.queries || [], latest?.error);
 
   const hasData =
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     snapshot?.results?.[0]?.variations?.length > 0 &&
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     (snapshot.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
 
   const phaseObj = experiment.phases?.[phase];
 
   const phaseAgeMinutes =
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
     (Date.now() - getValidDate(phaseObj?.dateStarted).getTime()) / (1000 * 60);
 
   const variations = experiment.variations.map((v, i) => {
@@ -104,8 +107,10 @@ const Results: FC<{
 
   return (
     <>
+      {/* @ts-expect-error TS(2786) If you come across this, please fix it!: 'StatusBanner' cannot be used as a JSX component. */}
       <StatusBanner
         mutateExperiment={mutateExperiment}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | undefined' is not assignable ... Remove this comment to see the full error message
         editResult={editResult}
       />
       <AnalysisSettingsBar
@@ -152,6 +157,7 @@ const Results: FC<{
             {snapshot &&
               phaseAgeMinutes < 120 &&
               "It was just started " +
+                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
                 ago(experiment.phases[phase]?.dateStarted) +
                 ". Give it a little longer and click the 'Update' button above to check again."}
             {!snapshot &&
@@ -163,6 +169,7 @@ const Results: FC<{
         <VariationIdWarning
           unknownVariations={snapshot.unknownVariations || []}
           isUpdating={status === "running"}
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentReportResultDimension | undefined'... Remove this comment to see the full error message
           results={snapshot.results?.[0]}
           variations={variations}
           setVariationIds={async (ids) => {
@@ -200,37 +207,51 @@ const Results: FC<{
         />
       )}
       {hasData &&
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         snapshot.dimension &&
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         (snapshot.dimension === "pre:date" ? (
           <DateResults
             metrics={experiment.metrics}
             guardrails={experiment.guardrails}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentReportResultDimension[] | undefine... Remove this comment to see the full error message
             results={snapshot.results}
             variations={variations}
           />
         ) : (
           <BreakDownResults
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             key={snapshot.dimension}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             results={snapshot.results || []}
             variations={variations}
             metrics={experiment.metrics}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MetricOverride[] | undefined' is not assigna... Remove this comment to see the full error message
             metricOverrides={experiment.metricOverrides}
             guardrails={experiment.guardrails}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             dimensionId={snapshot.dimension}
             isLatestPhase={phase === experiment.phases.length - 1}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
             startDate={phaseObj?.dateStarted}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             reportDate={snapshot.dateCreated}
             activationMetric={experiment.activationMetric}
             status={experiment.status}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             statsEngine={snapshot.statsEngine}
             pValueCorrection={pValueCorrection}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
             metricRegressionAdjustmentStatuses={
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               snapshot.metricRegressionAdjustmentStatuses
             }
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             sequentialTestingEnabled={snapshot.sequentialTestingEnabled}
           />
         ))}
+      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
       {hasData && !snapshot.dimension && (
         <>
           {reportDetailsLink && (
@@ -238,6 +259,7 @@ const Results: FC<{
               <FilterSummary
                 experiment={experiment}
                 phase={phaseObj}
+                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentSnapshotInterface | undefined' is ... Remove this comment to see the full error message
                 snapshot={snapshot}
               />
             </div>
@@ -245,40 +267,54 @@ const Results: FC<{
           <CompactResults
             editMetrics={editMetrics}
             variations={variations}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             multipleExposures={snapshot.multipleExposures || 0}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentReportResultDimension | undefined'... Remove this comment to see the full error message
             results={snapshot.results?.[0]}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             reportDate={snapshot.dateCreated}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
             startDate={phaseObj?.dateStarted}
             isLatestPhase={phase === experiment.phases.length - 1}
             status={experiment.status}
             metrics={experiment.metrics}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MetricOverride[] | undefined' is not assigna... Remove this comment to see the full error message
             metricOverrides={experiment.metricOverrides}
             id={experiment.id}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             statsEngine={snapshot.statsEngine}
             pValueCorrection={pValueCorrection}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
             metricRegressionAdjustmentStatuses={
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               snapshot.metricRegressionAdjustmentStatuses
             }
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             sequentialTestingEnabled={snapshot.sequentialTestingEnabled}
           />
+          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
           {experiment.guardrails?.length > 0 && (
             <div className="mt-1 px-3">
               <h3 className="mb-3">Guardrails</h3>
               <div className="row">
+                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                 {experiment.guardrails.map((g) => {
                   const metric = getMetricById(g);
                   if (!metric) return "";
 
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                   const data = snapshot.results[0]?.variations;
                   if (!data) return "";
 
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                   const xlargeCols = experiment.guardrails.length === 2 ? 6 : 4;
                   return (
                     <div
                       className={`col-12 col-xl-${xlargeCols} col-lg-6`}
                       key={g}
                     >
+                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                       {snapshot.statsEngine === "frequentist" ? (
                         <PValueGuardrailResults
                           data={data}
@@ -341,6 +377,7 @@ const Results: FC<{
             <div>
               <span className="text-muted">Run date:</span>{" "}
               <span>
+                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                 {getValidDate(snapshot.dateCreated).toLocaleString([], {
                   year: "numeric",
                   month: "numeric",

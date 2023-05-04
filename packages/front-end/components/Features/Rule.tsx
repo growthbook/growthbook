@@ -127,6 +127,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           <RuleStatusPill
             rule={rule}
             upcomingScheduleRule={upcomingScheduleRule}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | boolean | undefined' is not assigna... Remove this comment to see the full error message
             scheduleCompletedAndDisabled={scheduleCompletedAndDisabled}
           />
           {rules.length > 1 && canEdit && (

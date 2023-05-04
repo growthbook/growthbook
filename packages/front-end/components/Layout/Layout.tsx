@@ -246,6 +246,7 @@ const otherPageTitles = [
 
 const backgroundShade = (color: string) => {
   // convert to RGB
+  // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
   const c = +("0x" + color.slice(1).replace(color.length < 5 && /./g, "$&$&"));
   const r = c >> 16;
   const g = (c >> 8) & 255;
@@ -265,6 +266,7 @@ const Layout = (): React.ReactElement => {
   const { accountPlan } = useUser();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
 
   // hacky:
@@ -272,6 +274,7 @@ const Layout = (): React.ReactElement => {
   const path = router.route.substr(1);
   // don't show the nav for presentations
   if (path.match(/^present\//)) {
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'ReactElemen... Remove this comment to see the full error message
     return null;
   }
 
@@ -297,6 +300,7 @@ const Layout = (): React.ReactElement => {
   let customStyles = ``;
   if (settings?.customized) {
     const textColor =
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
       backgroundShade(settings?.primaryColor) === "dark" ? "#fff" : "#444";
 
     // we could support saving this CSS in the settings so it can be customized
@@ -459,6 +463,7 @@ const Layout = (): React.ReactElement => {
       </div>
 
       <TopNav
+        // @ts-expect-error TS(2454) If you come across this, please fix it!: Variable 'pageTitle' is used before being assigned... Remove this comment to see the full error message
         pageTitle={pageTitle}
         showNotices={true}
         toggleLeftMenu={() => setOpen(!open)}

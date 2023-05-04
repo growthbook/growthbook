@@ -71,6 +71,7 @@ export default function CloudUpgradeForm({
         });
         await redirectWithTimeout(resp.session.url);
       } else {
+        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '"Failed to start checkout"' is n... Remove this comment to see the full error message
         setError("Failed to start checkout");
       }
     } catch (e) {
@@ -196,6 +197,7 @@ export default function CloudUpgradeForm({
                 </div>
               </div>
             )}
+            {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
             {quote?.discountAmount < 0 && quote?.discountMessage && (
               <div className="d-flex border-bottom py-2 mb-2">
                 <div>{quote.discountMessage}</div>

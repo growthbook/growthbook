@@ -61,6 +61,7 @@ export default function ConfigureReport({
   }>(`/experiment/${eid}`);
   const experiment = experimentData?.experiment;
   const pid = experiment?.project;
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   const project = getProjectById(pid);
 
   const { settings: parentSettings } = getScopedSettings({
@@ -85,6 +86,7 @@ export default function ConfigureReport({
   const denominatorMetricIds = uniq(
     allExperimentMetrics.map((m) => m?.denominator).filter((m) => m)
   );
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
 
   // todo: type this form
@@ -130,6 +132,7 @@ export default function ConfigureReport({
         metricRegressionAdjustmentStatus,
       } = getRegressionAdjustmentsForMetric({
         metric: metric,
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(MetricInterface | null)[]' is not assignabl... Remove this comment to see the full error message
         denominatorMetrics: denominatorMetrics,
         experimentRegressionAdjustmentEnabled: !!form.watch(
           `regressionAdjustmentEnabled`
@@ -305,12 +308,14 @@ export default function ConfigureReport({
           improve.
         </div>
         <MetricsSelector
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
           selected={form.watch("guardrails")}
           onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={report.args.datasource}
         />
       </div>
       <DimensionChooser
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null | undefined' is not assignable... Remove this comment to see the full error message
         value={form.watch("dimension")}
         setValue={(value) => form.setValue("dimension", value || "")}
         activationMetric={!!form.watch("activationMetric")}
@@ -330,6 +335,7 @@ export default function ConfigureReport({
           };
         })}
         initialOption="None"
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
         value={form.watch("activationMetric")}
         onChange={(value) => form.setValue("activationMetric", value || "")}
         helpText="Users must convert on this metric before being included"
@@ -338,6 +344,7 @@ export default function ConfigureReport({
         <SelectField
           label="Segment"
           labelClassName="font-weight-bold"
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           value={form.watch("segment")}
           onChange={(value) => form.setValue("segment", value || "")}
           initialOption="None (All Users)"
@@ -488,6 +495,7 @@ export default function ConfigureReport({
                 {...form.register("sequentialTestingTuningParameter", {
                   valueAsNumber: true,
                   validate: (v) => {
+                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                     return !(v <= 0);
                   },
                 })}

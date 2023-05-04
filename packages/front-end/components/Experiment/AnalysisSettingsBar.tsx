@@ -147,6 +147,7 @@ export default function AnalysisSettingsBar({
 
   const { getDatasourceById } = useDefinitions();
   const orgSettings = useOrgSettings();
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   const datasource = getDatasourceById(experiment.datasource);
 
   const { hasCommercialFeature } = useUser();
@@ -156,6 +157,7 @@ export default function AnalysisSettingsBar({
   const hasSequentialFeature = hasCommercialFeature("sequential-testing");
 
   const { outdated, reason } = isOutdated(
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'ExperimentInterfaceStringDates |... Remove this comment to see the full error message
     experiment,
     snapshot,
     orgSettings,
@@ -171,6 +173,7 @@ export default function AnalysisSettingsBar({
 
   const status = getQueryStatus(latest?.queries || [], latest?.error);
 
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   const hasData = snapshot?.results?.[0]?.variations?.length > 0;
 
   const [refreshError, setRefreshError] = useState("");
@@ -180,13 +183,16 @@ export default function AnalysisSettingsBar({
       {modalOpen && (
         <AnalysisForm
           cancel={() => setModalOpen(false)}
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentInterfaceStringDates | undefined' ... Remove this comment to see the full error message
           experiment={experiment}
           mutate={mutateExperiment}
           phase={phase}
         />
       )}
       <div className="row align-items-center p-3">
+        {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
         {experiment.phases &&
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           (alwaysShowPhaseSelector || experiment.phases.length > 1) && (
             <div className="col-auto form-inline">
               <PhaseSelector
@@ -199,9 +205,13 @@ export default function AnalysisSettingsBar({
           <DimensionChooser
             value={dimension}
             setValue={setDimension}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             activationMetric={!!experiment.activationMetric}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             datasourceId={experiment.datasource}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             exposureQueryId={experiment.exposureQueryId}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             userIdType={experiment.userIdType}
             labelClassName="mr-2"
           />
@@ -227,6 +237,7 @@ export default function AnalysisSettingsBar({
                 <span className="mx-1 font-weight-bold">CUPED</span>
                 <Toggle
                   id="toggle-experiment-regression-adjustment"
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean | undefined' is not assignable to ty... Remove this comment to see the full error message
                   value={regressionAdjustmentEnabled}
                   setValue={(value) => {
                     if (
@@ -283,23 +294,28 @@ export default function AnalysisSettingsBar({
               <div
                 className="text-muted text-right"
                 style={{ width: 100, fontSize: "0.8em" }}
+                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                 title={datetime(snapshot.dateCreated)}
               >
                 <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
                   last updated
                 </div>
                 <div className="d-inline-block" style={{ lineHeight: 1 }}>
+                  {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                   {ago(snapshot.dateCreated)}
                 </div>
               </div>
             ))}
         </div>
+        {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
         {permissions.check("runQueries", "") && experiment.metrics.length > 0 && (
           <div className="col-auto">
+            {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
             {experiment.datasource && latest && latest.queries?.length > 0 ? (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                   apiCall(`/experiment/${experiment.id}/snapshot`, {
                     method: "POST",
                     body: JSON.stringify({
@@ -335,6 +351,7 @@ export default function AnalysisSettingsBar({
               <RefreshSnapshotButton
                 mutate={mutate}
                 phase={phase}
+                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentInterfaceStringDates | undefined' ... Remove this comment to see the full error message
                 experiment={experiment}
                 lastSnapshot={snapshot}
                 dimension={dimension}
@@ -352,7 +369,10 @@ export default function AnalysisSettingsBar({
             id={snapshot?.id || ""}
             forceRefresh={async () => {
               await apiCall(
-                `/experiment/${experiment.id}/snapshot?force=true`,
+                `/experiment/${
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  experiment.id
+                }/snapshot?force=true`,
                 {
                   method: "POST",
                   body: JSON.stringify({
@@ -374,6 +394,7 @@ export default function AnalysisSettingsBar({
             configure={() => setModalOpen(true)}
             editMetrics={editMetrics}
             notebookUrl={`/experiments/notebook/${snapshot?.id}`}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             notebookFilename={experiment.trackingKey}
             generateReport={true}
             queries={snapshot?.queries}
@@ -381,11 +402,14 @@ export default function AnalysisSettingsBar({
             hasUserQuery={snapshot && !("skipPartialData" in snapshot)}
             supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
             hasData={hasData}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             metrics={experiment.metrics}
             results={snapshot?.results}
             variations={variations}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             trackingKey={experiment.trackingKey}
             dimension={dimension}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             project={experiment.project}
           />
         </div>

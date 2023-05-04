@@ -65,6 +65,7 @@ const CopyToClipboard: FC<{
             <button
               className="btn btn-secondary"
               onClick={(e) => {
+                // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
                 ref.current.select();
                 document.execCommand("copy");
                 (e.target as HTMLButtonElement).focus();

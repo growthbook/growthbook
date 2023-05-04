@@ -122,6 +122,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
           : "Cancel"
       }
       autoCloseOnSubmit={false}
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((e?: BaseSyntheticEvent<object, any, any> |... Remove this comment to see the full error message
       submit={
         successfulInvites.length > 0 || failedInvites.length > 0
           ? null

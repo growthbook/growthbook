@@ -91,6 +91,7 @@ const PValueColumn: FC<{
     className += " draw";
   }
 
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
   let pValText = <>{pValueFormatter(stats?.pValue)}</>;
   if (stats?.pValueAdjusted !== undefined && pValueCorrection) {
     pValText = (
@@ -113,6 +114,7 @@ const PValueColumn: FC<{
           <div className="mb-1 d-flex flex-row">
             <Tooltip
               body={`A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
+                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                 metric.maxPercentChange * 100
               }%).`}
             >

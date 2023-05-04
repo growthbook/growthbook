@@ -80,6 +80,7 @@ const BreakDownResults: FC<{
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
         const metric = getMetricById(metricId);
+        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MetricInterface | null' is not a... Remove this comment to see the full error message
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
         let regressionAdjustmentStatus:
           | MetricRegressionAdjustmentStatus
@@ -119,6 +120,7 @@ const BreakDownResults: FC<{
 
   const risk = useRiskVariation(
     variations.length,
+    // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
     [].concat(...tables.map((t) => t.rows))
   );
 
