@@ -73,7 +73,11 @@ export default function authenticateApiRequestMiddleware(
       }
 
       // Check permissions for user API keys
-      req.checkPermissions = async (permission: Permission) => {
+      req.checkPermissions = async (
+        permission: Permission,
+        project?: string,
+        envs?: string[]
+      ) => {
         switch (apiKeyPartial.type) {
           case "read-only":
             // The `readonly` role is empty so it's not there
@@ -81,7 +85,13 @@ export default function authenticateApiRequestMiddleware(
 
           case "user":
             if (
-              !(await doesUserHavePermission(permission, org, apiKeyPartial))
+              !(await doesUserHavePermission(
+                org,
+                permission,
+                apiKeyPartial,
+                project,
+                envs
+              ))
             ) {
               throw new Error(
                 "API key user does not have this level of access"
@@ -129,32 +139,38 @@ export default function authenticateApiRequestMiddleware(
 }
 
 /**
- * Returns a list of permissions for the user
- * @param organization
- * @param userId
+ * this is a duplication of the logic in processJwt() -> hasPermission()
  */
-async function getUserPermissions(
-  organization: OrganizationInterface,
-  userId: string | undefined
-): Promise<Permission[]> {
-  if (!userId) return [];
-
-  try {
-    const memberRoleInfo = await getRole(organization, userId);
-    return getPermissionsByRole(memberRoleInfo.role, organization);
-  } catch (e) {
-    return [];
-  }
-}
-
 async function doesUserHavePermission(
-  permission: Permission,
   org: OrganizationInterface,
-  apiKeyPartial: Partial<ApiKeyInterface>
+  permission: Permission,
+  apiKeyPartial: Partial<ApiKeyInterface>,
+  project?: string,
+  envs?: string[]
 ): Promise<boolean> {
   try {
-    const userPermissions = await getUserPermissions(org, apiKeyPartial.userId);
-    return userPermissions.includes(permission);
+    const userId = apiKeyPartial.userId;
+    if (!userId) {
+      return false;
+    }
+
+    const memberRoleInfo = await getRole(org, userId);
+    const userPermissions = getPermissionsByRole(memberRoleInfo.role, org);
+    if (!userPermissions.includes(permission)) {
+      return false;
+    }
+
+    // If it's an environment-scoped permission and the user's role has limited access
+    if (envs && memberRoleInfo.limitAccessByEnvironment) {
+      for (let i = 0; i < envs.length; i++) {
+        if (!memberRoleInfo.environments.includes(envs[i])) {
+          return false;
+        }
+      }
+    }
+
+    // If it got through all the above checks, the user has permission
+    return true;
   } catch (e) {
     return false;
   }

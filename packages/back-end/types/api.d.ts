@@ -45,10 +45,21 @@ export interface ErrorResponse {
 
 export interface ApiRequestLocals {
   apiKey: string;
-  checkPermissions(permission: Permission): Promise<void>;
   organization: OrganizationInterface;
   eventAudit: EventAuditUser;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
+
+  /**
+   * Verifies permission for the API key and optional project and environments.
+   * @param permission
+   * @param project
+   * @param envs
+   */
+  checkPermissions(
+    permission: Permission,
+    project?: string,
+    envs?: string[]
+  ): Promise<void>;
 }
 
 export interface ApiErrorResponse {
