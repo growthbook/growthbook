@@ -73,7 +73,7 @@ export default function authenticateApiRequestMiddleware(
       }
 
       // Check permissions for user API keys
-      req.checkPermissions = async (
+      req.checkPermissions = (
         permission: Permission,
         project?: string,
         envs?: string[]
@@ -85,13 +85,13 @@ export default function authenticateApiRequestMiddleware(
 
           case "user":
             if (
-              !(await doesUserHavePermission(
+              !doesUserHavePermission(
                 org,
                 permission,
                 apiKeyPartial,
                 project,
                 envs
-              ))
+              )
             ) {
               throw new Error(
                 "API key user does not have this level of access"
@@ -141,20 +141,20 @@ export default function authenticateApiRequestMiddleware(
 /**
  * this is a duplication of the logic in processJwt() -> hasPermission()
  */
-async function doesUserHavePermission(
+function doesUserHavePermission(
   org: OrganizationInterface,
   permission: Permission,
   apiKeyPartial: Partial<ApiKeyInterface>,
   project?: string,
   envs?: string[]
-): Promise<boolean> {
+): boolean {
   try {
     const userId = apiKeyPartial.userId;
     if (!userId) {
       return false;
     }
 
-    const memberRoleInfo = await getRole(org, userId);
+    const memberRoleInfo = getRole(org, userId, project);
     const userPermissions = getPermissionsByRole(memberRoleInfo.role, org);
     if (!userPermissions.includes(permission)) {
       return false;

@@ -59,7 +59,7 @@ export interface ApiRequestLocals {
     permission: Permission,
     project?: string,
     envs?: string[]
-  ): Promise<void>;
+  ): void;
 }
 
 export interface ApiErrorResponse {
