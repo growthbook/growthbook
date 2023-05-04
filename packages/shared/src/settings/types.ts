@@ -1,21 +1,24 @@
-import { DataSourceInterface } from "../../../types/datasource";
+import { DataSourceInterface } from "back-end/types/datasource";
 import {
   ExperimentInterface,
   AttributionModel,
-} from "../../../types/experiment";
-import { MetricInterface } from "../../../types/metric";
+  ExperimentInterfaceStringDates,
+} from "back-end/types/experiment";
+import { MetricInterface } from "back-end/types/metric";
 import {
   OrganizationSettings,
   NorthStarMetric,
   MetricDefaults,
   ExperimentUpdateSchedule,
   MemberRoleInfo,
-} from "../../../types/organization";
-import { StatsEngine } from "../../../types/stats";
-import { ProjectInterface } from "../../../types/project";
-import { ReportInterface } from "../../../types/report";
+  OrganizationInterface,
+} from "back-end/types/organization";
+import { StatsEngine } from "back-end/types/stats";
+import { ProjectInterface } from "back-end/types/project";
+import { ReportInterface } from "back-end/types/report";
 
 interface SettingMetadata {
+  scopeApplied?: keyof ScopeDefinition | "organization";
   reason?: string;
   warning?: string;
 }
@@ -33,9 +36,10 @@ export interface SettingsContext {
 export type SettingsResolver<T> = (ctx: SettingsContext) => Setting<T>;
 
 export interface ScopeDefinition {
+  organization: Partial<OrganizationInterface>;
   project?: ProjectInterface;
   datasource?: DataSourceInterface;
-  experiment?: ExperimentInterface;
+  experiment?: ExperimentInterface | ExperimentInterfaceStringDates;
   metric?: MetricInterface;
   denominatorMetric?: MetricInterface;
   report?: ReportInterface;
@@ -73,14 +77,19 @@ interface BaseSettings {
   attributionModel: AttributionModel;
 }
 
+// todo: encapsulate all settings, including experiment
 export type Settings = BaseSettings & MetricSettings;
 
-export type ScopedSettings = Record<
-  keyof Settings,
-  Setting<Settings[keyof Settings]>
->;
+// export type ScopedSettings = Record<
+//   keyof Settings,
+//   Setting<Settings[keyof Settings]>
+// >;
 
-export interface UseScopedSettingsReturn {
+export type ScopedSettings = {
+  [K in keyof Settings]: Setting<Settings[K]>;
+};
+
+export interface ScopedSettingsReturn {
   settings: ScopedSettings;
   scopeSettings: ScopeSettingsFn;
 }

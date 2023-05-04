@@ -16,8 +16,9 @@ import Field from "../Forms/Field";
 export interface Props {
   feature: FeatureInterface;
   close: () => void;
-  // eslint-disable-next-line
-  mutate: () => Promise<any>;
+  mutate: () => void;
+  onPublish?: () => void;
+  onDiscard?: () => void;
 }
 
 function ExpandableDiff({
@@ -61,7 +62,13 @@ function ExpandableDiff({
   );
 }
 
-export default function DraftModal({ feature, close, mutate }: Props) {
+export default function DraftModal({
+  feature,
+  close,
+  mutate,
+  onPublish,
+  onDiscard,
+}: Props) {
   const environments = useEnvironments();
   const permissions = usePermissions();
 
@@ -126,6 +133,7 @@ export default function DraftModal({ feature, close, mutate }: Props) {
                 throw e;
               }
               await mutate();
+              onPublish && onPublish();
             }
           : null
       }
@@ -150,6 +158,7 @@ export default function DraftModal({ feature, close, mutate }: Props) {
                 throw e;
               }
               await mutate();
+              onDiscard && onDiscard();
               close();
             }}
           >
