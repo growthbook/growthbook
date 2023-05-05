@@ -119,6 +119,11 @@ const VariationsTable: FC<Props> = ({
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
 
   const visualChangesets = _visualChangesets || [];
+  const hasAnyPositionMutations = visualChangesets.some((vc) =>
+    vc.visualChanges.some(
+      (v) => v.domMutations.filter((m) => m.attribute === "position").length > 0
+    )
+  );
 
   const [
     editingVisualChangeset,
@@ -233,6 +238,13 @@ const VariationsTable: FC<Props> = ({
             <div className="h3 d-inline-block my-0 align-middle">
               Visual Changes
             </div>
+
+            {hasAnyPositionMutations && (
+              <div className="small text-muted">
+                This experiment requires at least version 0.26.0 of our
+                Javascript SDK
+              </div>
+            )}
           </div>
 
           {visualChangesets.map((vc, i) => {
