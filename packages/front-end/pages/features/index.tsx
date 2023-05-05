@@ -142,6 +142,7 @@ export default function FeaturesPage() {
               features: [...features, feature],
             });
           }}
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'FeatureInterface | null' is not assignable t... Remove this comment to see the full error message
           featureToDuplicate={featureToDuplicate}
         />
       )}
@@ -263,13 +264,17 @@ export default function FeaturesPage() {
               {items.slice(start, end).map((feature) => {
                 let rules = [];
                 environments.forEach(
+                  // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
                   (e) => (rules = rules.concat(getRules(feature, e.id)))
                 );
 
                 // When showing a summary of rules, prefer experiments to rollouts to force rules
                 const orderedRules = [
+                  // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'type' does not exist on type 'never'.
                   ...rules.filter((r) => r.type === "experiment"),
+                  // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'type' does not exist on type 'never'.
                   ...rules.filter((r) => r.type === "rollout"),
+                  // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'type' does not exist on type 'never'.
                   ...rules.filter((r) => r.type === "force"),
                 ];
 
@@ -281,6 +286,7 @@ export default function FeaturesPage() {
                 if (isDraft) version++;
 
                 const projectId = feature.project;
+                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
                 const projectName = getProjectById(projectId)?.name || null;
                 const projectIsOprhaned = projectId && !projectName;
 
@@ -298,6 +304,7 @@ export default function FeaturesPage() {
                     </td>
                     <td>
                       <Link href={`/features/${feature.id}`}>
+                        {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null' is not assignable to type 'st... Remove this comment to see the full error message */}
                         <a className={feature.archived ? "text-muted" : null}>
                           {feature.id}
                         </a>
@@ -334,6 +341,7 @@ export default function FeaturesPage() {
                     ))}
                     <td>
                       <ValueDisplay
+                        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
                         value={getFeatureDefaultValue(feature)}
                         type={feature.valueType}
                         full={false}
@@ -341,6 +349,7 @@ export default function FeaturesPage() {
                     </td>
                     <td>
                       {firstRule && (
+                        // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'type' does not exist on type 'never'.
                         <span className="text-dark">{firstRule.type}</span>
                       )}
                       {totalRules > 1 && (

@@ -99,6 +99,7 @@ const NewDataSourceForm: FC<{
 
   if (!permissions.check("createDatasources", project)) {
     ctaEnabled = false;
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"You don't have permission to create data so... Remove this comment to see the full error message
     disabledMessage = "You don't have permission to create data sources.";
   }
 
@@ -138,6 +139,7 @@ const NewDataSourceForm: FC<{
             settings: {
               ...getInitialSettings(
                 selectedSchema.value,
+                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'PostgresConnectionParams | Athen... Remove this comment to see the full error message
                 datasource.params,
                 form.watch("settings.schemaOptions")
               ),
@@ -169,6 +171,7 @@ const NewDataSourceForm: FC<{
   const updateSettings = async () => {
     const settings = getInitialSettings(
       selectedSchema.value,
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'PostgresConnectionParams | Athen... Remove this comment to see the full error message
       datasource.params,
       form.watch("settings.schemaOptions")
     );
@@ -218,10 +221,13 @@ const NewDataSourceForm: FC<{
       source,
       newDatasourceForm: true,
     });
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     if (s.types.length === 1) {
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       const data = dataSourcesMap.get(s.types[0]);
       setDatasource({
         ...datasource,
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         type: s.types[0],
         name: `${s.label}`,
         params: data.default,
@@ -233,6 +239,7 @@ const NewDataSourceForm: FC<{
         projects: project ? [project] : [],
       });
     }
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'DataSourceType[] | undefined' is... Remove this comment to see the full error message
     setPossibleTypes(s.types);
     if (s.options) {
       s.options.map((o) => {
@@ -253,12 +260,14 @@ const NewDataSourceForm: FC<{
       : async () => {
           let newDataId = dataSourceId;
           if (step === 1) {
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
             newDataId = await saveDataConnection();
           }
           if (updateSettingsRequired) {
             await updateSettings();
           }
           if (isFinalStep) {
+            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | null' is not assignable... Remove this comment to see the full error message
             await onSuccess(newDataId);
             onCancel && onCancel();
           } else {
@@ -363,6 +372,7 @@ const NewDataSourceForm: FC<{
         )}
         <SelectField
           label="Data Source Type"
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           value={datasource.type}
           onChange={(value) => {
             const option = dataSourceConnections.filter(
@@ -431,6 +441,7 @@ const NewDataSourceForm: FC<{
             />
           </div>
         )}
+        {/* @ts-expect-error TS(2786) If you come across this, please fix it!: 'ConnectionSettings' cannot be used as a JSX compo... Remove this comment to see the full error message */}
         <ConnectionSettings
           datasource={datasource}
           existing={existing}
@@ -499,8 +510,10 @@ const NewDataSourceForm: FC<{
       open={true}
       header={existing ? "Edit Data Source" : "Add Data Source"}
       close={onCancel}
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string | un... Remove this comment to see the full error message
       disabledMessage={disabledMessage}
       ctaEnabled={ctaEnabled}
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => Promise<void>) | null' is not assigna... Remove this comment to see the full error message
       submit={submit}
       autoCloseOnSubmit={false}
       cta={isFinalStep ? (step === 2 ? "Finish" : "Save") : "Next"}

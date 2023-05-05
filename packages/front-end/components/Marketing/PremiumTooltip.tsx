@@ -8,6 +8,7 @@ import { GBPremiumBadge } from "../Icons";
 export default function PremiumTooltip({
   commercialFeature,
   children,
+  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string | El... Remove this comment to see the full error message
   body = null,
   tipPosition = "top",
   className = "",

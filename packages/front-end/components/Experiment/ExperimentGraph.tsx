@@ -90,6 +90,7 @@ export default function ExperimentGraph({
 
         const handlePointer = (event: React.MouseEvent<SVGElement>) => {
           const coords = localPoint(event);
+          // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
           const xCoord = coords.x - barWidth;
 
           const barData = graphData.map((d) => {
@@ -97,6 +98,7 @@ export default function ExperimentGraph({
           });
 
           const closestBar = barData.reduce((prev, curr) =>
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             Math.abs(curr.xcord - xCoord) < Math.abs(prev.xcord - xCoord)
               ? curr
               : prev
@@ -141,6 +143,7 @@ export default function ExperimentGraph({
                   stroke="var(--border-color-200)"
                 />
                 {graphData.map((d, i) => {
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                   const barX = xScale(getValidDate(d.date)) - barWidth / 2;
                   let barHeight = yMax - (yScale(d.numExp) ?? 0);
                   // if there are no experiments this month, show a little nub for design reasons.

@@ -18,17 +18,22 @@ export default function SSOSettings({ ssoConnection }: Props) {
       <div className="d-flex">
         <div>
           <h3>Enterprise SSO Enabled</h3>
+          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
           {ssoConnection?.emailDomains?.length > 0 && (
             <div>
               Users can auto-join your account when signing in through your
               Identity Provider with an email matching{" "}
+              {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
               <strong>*@{ssoConnection.emailDomains[0]}</strong>
+              {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
               {ssoConnection.emailDomains.length > 1 && (
                 <div className="small mt-1">
                   or any of the following email domains:{" "}
+                  {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                   {ssoConnection.emailDomains.slice(1).map((d, i) => (
                     <>
                       <strong key={i}>{d}</strong>
+                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                       {i < ssoConnection.emailDomains.length - 2 && ", "}
                     </>
                   ))}

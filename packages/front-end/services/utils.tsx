@@ -11,6 +11,7 @@ export function phaseSummary(
   phase: ExperimentPhaseStringDates
 ): React.ReactElement {
   if (!phase) {
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'ReactElemen... Remove this comment to see the full error message
     return null;
   }
   return (

@@ -59,9 +59,11 @@ export default function InitialOrgSettings(): ReactElement {
     const datas = [...value.datasource];
     const techs = [...value.techstack];
     if (value.dataother) {
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
       datas.push(value.dataother.trim());
     }
     if (value.techother) {
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
       techs.push(value.techother.trim());
     }
 

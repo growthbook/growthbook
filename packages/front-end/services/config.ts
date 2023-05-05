@@ -40,6 +40,7 @@ export function useConfigJson({
 
     datasources.forEach((d) => {
       datasourceIds.push(d.id);
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       config.datasources[d.id] = {
         type: d.type,
         name: d.name,
@@ -50,6 +51,7 @@ export function useConfigJson({
 
     if (segments?.length) config.segments = {};
     segments?.forEach((s) => {
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       config.segments[s.id] = {
         name: s.name,
         datasource: s.datasource,
@@ -103,12 +105,14 @@ export function useConfigJson({
         (met[f] as any) = v;
       });
 
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       config.metrics[m.id] = met;
     });
 
     if (dimensions.length) config.dimensions = {};
     dimensions.forEach((d) => {
       if (d.datasource && !datasourceIds.includes(d.datasource)) return;
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       config.dimensions[d.id] = {
         name: d.name,
         datasource: d.datasource,

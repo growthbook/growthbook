@@ -58,7 +58,9 @@ const PagedModal: FC<Props> = (props) => {
     validate?: () => Promise<void>;
   }[] = [];
   let content: ReactNode;
+  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'number'.
   let nextStep: number = null;
+  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'number'.
   let prevStep: number = null;
   Children.forEach(children, (child) => {
     if (!isValidElement(child)) return;
@@ -73,6 +75,7 @@ const PagedModal: FC<Props> = (props) => {
   });
 
   prevStep = step - 1;
+  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'number'.
   if (prevStep < 0) prevStep = null;
 
   async function validateSteps(before?: number) {
@@ -81,6 +84,7 @@ const PagedModal: FC<Props> = (props) => {
       if (steps[i].enabled === false) continue;
       if (!steps[i].validate) continue;
       try {
+        // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
         await steps[i].validate();
       } catch (e) {
         setStep(i);
@@ -112,6 +116,7 @@ const PagedModal: FC<Props> = (props) => {
           setStep(nextStep);
         }
       }}
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Element | null' is not assignable to type 'R... Remove this comment to see the full error message
       secondaryCTA={
         secondaryCTA ? (
           secondaryCTA

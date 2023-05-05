@@ -48,6 +48,7 @@ const DataSourcePage: FC = () => {
   const { apiCall } = useAuth();
 
   const canEdit =
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'DataSourceInterfaceWithParams | ... Remove this comment to see the full error message
     checkDatasourceProjectPermissions(d, permissions, "createDatasources") &&
     !hasFileConfig();
 
@@ -65,6 +66,7 @@ const DataSourcePage: FC = () => {
         body: JSON.stringify(updates),
       });
       const queriesUpdated =
+        // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
         JSON.stringify(d.settings?.queries) !==
         JSON.stringify(dataSource.settings?.queries);
       if (queriesUpdated) {
@@ -138,6 +140,7 @@ const DataSourcePage: FC = () => {
       <div className="row mb-3 align-items-center">
         <div className="col">
           Projects:{" "}
+          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
           {d?.projects?.length > 0 ? (
             <ProjectBadges
               projectIds={d.projects}
@@ -172,6 +175,7 @@ const DataSourcePage: FC = () => {
                   >
                     <FaExternalLinkAlt /> View Documentation
                   </DocLink>
+                  {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                   {d.properties.supportsInformationSchema && (
                     <button
                       className="btn btn-outline-info mr-2 mt-1 font-weight-bold"

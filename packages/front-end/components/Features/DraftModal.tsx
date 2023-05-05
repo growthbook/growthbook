@@ -79,15 +79,19 @@ export default function DraftModal({
   const diffs = useMemo(() => {
     const diffs: { a: string; b: string; title: string }[] = [];
 
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     if ("defaultValue" in feature.draft) {
       diffs.push({
         title: "Default Value",
         a: feature.defaultValue,
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
         b: feature.draft.defaultValue,
       });
     }
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     if ("rules" in feature.draft) {
       environments.forEach((env) => {
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         if (env.id in feature.draft.rules) {
           diffs.push({
             title: `Rules - ${env.id}`,
@@ -96,6 +100,7 @@ export default function DraftModal({
               null,
               2
             ),
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             b: JSON.stringify(feature.draft.rules[env.id] || [], null, 2),
           });
         }
@@ -108,6 +113,7 @@ export default function DraftModal({
   const hasPermission = permissions.check(
     "publishFeatures",
     feature.project,
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     "defaultValue" in feature.draft
       ? getEnabledEnvironments(feature)
       : getAffectedEnvs(feature, Object.keys(feature.draft?.rules || {}))
@@ -117,6 +123,7 @@ export default function DraftModal({
     <Modal
       open={true}
       header={"Review Draft Changes"}
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => Promise<void>) | null' is not assigna... Remove this comment to see the full error message
       submit={
         hasPermission
           ? async () => {
@@ -141,6 +148,7 @@ export default function DraftModal({
       close={close}
       closeCta="close"
       size="max"
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Element | null' is not assignable to type 'R... Remove this comment to see the full error message
       secondaryCTA={
         permissions.check("createFeatureDrafts", feature.project) ? (
           <Button

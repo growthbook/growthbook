@@ -35,6 +35,7 @@ const MemberList: FC<{
   const { userId, users } = useUser();
   const [roleModal, setRoleModal] = useState<string>("");
   const [passwordResetModal, setPasswordResetModal] = useState<ExpandedMember>(
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
     null
   );
   const { projects } = useDefinitions();
@@ -61,6 +62,7 @@ const MemberList: FC<{
             role: roleModalUser.role,
             projectRoles: roleModalUser.projectRoles,
           }}
+          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
           close={() => setRoleModal(null)}
           onConfirm={async (value) => {
             await apiCall(`/member/${roleModal}/role`, {
@@ -73,10 +75,12 @@ const MemberList: FC<{
       )}
       {canEditRoles && passwordResetModal && (
         <AdminSetPasswordModal
+          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
           close={() => setPasswordResetModal(null)}
           member={passwordResetModal}
         />
       )}
+      {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ maxHeight: number; overflowY: "auto"; } | ... Remove this comment to see the full error message */}
       <div style={maxHeight ? { maxHeight, overflowY: "auto" } : null}>
         <table className="table appbox gbtable">
           <thead>
@@ -106,6 +110,7 @@ const MemberList: FC<{
                   <td>{roleInfo.role}</td>
                   {!project && (
                     <td className="col-3">
+                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                       {member.projectRoles.map((pr) => {
                         const p = projects.find((p) => p.id === pr.project);
                         if (p?.name) {
