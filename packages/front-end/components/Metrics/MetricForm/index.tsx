@@ -6,12 +6,11 @@ import {
   Operator,
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
+import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import {
-  FaExclamationTriangle,
-  FaExternalLinkAlt,
-  FaTimes,
-} from "react-icons/fa";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+} from "shared";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -108,10 +107,14 @@ function getRawSQLPreview({
   conditions,
 }: Partial<MetricInterface>) {
   const cols: string[] = [];
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   userIdTypes.forEach((type) => {
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     if (userIdColumns[type] !== type) {
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       cols.push(userIdColumns[type] + " as " + type);
     } else {
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       cols.push(userIdColumns[type]);
     }
   });
@@ -126,9 +129,11 @@ function getRawSQLPreview({
   }
 
   let where = "";
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   if (conditions.length) {
     where =
       "\nWHERE\n  " +
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       conditions
         .map((c: Condition) => {
           return (c.column || "_") + " " + c.operator + " '" + c.value + "'";
@@ -253,7 +258,9 @@ const MetricForm: FC<MetricFormProps> = ({
       minSampleSize: getMinSampleSizeForMetric(current),
       regressionAdjustmentOverride:
         current.regressionAdjustmentOverride ?? false,
-      regressionAdjustmentEnabled: current.regressionAdjustmentEnabled ?? false,
+      regressionAdjustmentEnabled:
+        current.regressionAdjustmentEnabled ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       regressionAdjustmentDays:
         current.regressionAdjustmentDays ??
         settings.regressionAdjustmentDays ??
@@ -441,6 +448,7 @@ const MetricForm: FC<MetricFormProps> = ({
   }, [type, form]);
 
   const { setTableId, tableOptions, columnOptions } = useSchemaFormOptions(
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'DataSourceInterfaceWithParams | ... Remove this comment to see the full error message
     selectedDataSource
   );
 
@@ -449,9 +457,11 @@ const MetricForm: FC<MetricFormProps> = ({
 
   if (riskError) {
     ctaEnabled = false;
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"The acceptable risk percentage cannot be hi... Remove this comment to see the full error message
     disabledMessage = riskError;
   } else if (!permissions.check("createMetrics", project)) {
     ctaEnabled = false;
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"You don't have permission to create metrics... Remove this comment to see the full error message
     disabledMessage = "You don't have permission to create metrics.";
   }
 
@@ -473,10 +483,12 @@ const MetricForm: FC<MetricFormProps> = ({
         inline={inline}
         header={edit ? "Edit Metric" : "New Metric"}
         close={onClose}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string | un... Remove this comment to see the full error message
         disabledMessage={disabledMessage}
         ctaEnabled={ctaEnabled}
         submit={onSubmit}
         cta={cta}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'false | "Cancel"' is not assignable to type ... Remove this comment to see the full error message
         closeCta={!inline && "Cancel"}
         size="lg"
         docSection="metrics"
@@ -1049,6 +1061,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     ? metricDefaults.minimumSampleSize
                     : formatConversionRate(
                         value.type,
+                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
                         metricDefaults.minimumSampleSize
                       )}
                   )
@@ -1062,6 +1075,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 {...form.register("maxPercentChange", { valueAsNumber: true })}
                 helpText={`An experiment that changes the metric by more than this percent will
             be flagged as suspicious (default ${
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               metricDefaults.maxPercentageChange * 100
             })`}
               />
@@ -1073,6 +1087,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 {...form.register("minPercentChange", { valueAsNumber: true })}
                 helpText={`An experiment that changes the metric by less than this percent will be
             considered a draw (default ${
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               metricDefaults.minPercentageChange * 100
             })`}
               />
@@ -1104,16 +1119,6 @@ const MetricForm: FC<MetricFormProps> = ({
                           Override organization-level settings
                         </label>
                       </div>
-                      {!!form.watch("regressionAdjustmentOverride") &&
-                        (!settings.statsEngine ||
-                          settings.statsEngine === "bayesian") && (
-                          <small className="d-block my-1 text-warning-orange">
-                            <FaExclamationTriangle /> Your organization uses
-                            Bayesian statistics by default and regression
-                            adjustment is not implemented for the Bayesian
-                            engine.
-                          </small>
-                        )}
                     </div>
                     <div
                       style={{

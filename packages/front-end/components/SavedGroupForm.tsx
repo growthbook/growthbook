@@ -58,7 +58,9 @@ const SavedGroupForm: FC<{
         onChange={(v) => form.setValue("owner", v)}
         placeholder="Optional"
         options={memberUsernameOptions.map((m) => ({
+          // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'display' does not exist on type 'never'.
           value: m.display,
+          // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'display' does not exist on type 'never'.
           label: m.display,
         }))}
       />

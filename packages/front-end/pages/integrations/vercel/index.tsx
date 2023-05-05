@@ -115,6 +115,7 @@ export default function VercelIntegrationPage() {
                           value: env.id,
                         }))}
                         initialOption="None"
+                        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null' is not assignable to type 'st... Remove this comment to see the full error message
                         value={elem.gb}
                         onChange={(selected) => {
                           const newMap = [...gbVercelEnvMap];

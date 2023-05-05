@@ -217,6 +217,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                         key={i}
                         className={styles.positionIndicator}
                         style={{
+                          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                           transform: `translate(${tooltipLeft}px, ${tooltipData.y[i]}px)`,
                           background: COLORS[i % COLORS.length],
                         }}
@@ -233,6 +234,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     className={styles.tooltip}
                     unstyled={true}
                   >
+                    {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                     {getTooltipContents(tooltipData.d, variationNames)}
                   </TooltipWithBounds>
                 </>
@@ -263,7 +265,9 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                       yScale={yScale}
                       data={datapoints}
                       x={(d) => xScale(d.d) ?? 0}
+                      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
                       y0={(d) => yScale(d.variations[i]?.error?.[0]) ?? 0}
+                      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
                       y1={(d) => yScale(d.variations[i]?.error?.[1]) ?? 0}
                       fill={COLORS[i % COLORS.length]}
                       opacity={0.12}

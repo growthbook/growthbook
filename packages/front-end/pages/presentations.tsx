@@ -264,6 +264,7 @@ const PresentationPage = (): React.ReactElement => {
         title="Edit Presentation"
         modalState={openEditPresentationModal}
         setModalState={setOpenEditPresentationModal}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'PresentationInterface | null' is not assigna... Remove this comment to see the full error message
         existing={specificPresentation}
         refreshList={mutate}
       />

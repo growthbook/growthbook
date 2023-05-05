@@ -268,10 +268,15 @@ export interface components {
     Project: {
       id: string;
       name: string;
+      description: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
+      settings: {
+        /** @enum {unknown} */
+        statsEngine: "bayesian" | "frequentist";
+      }
     };
     Segment: {
       id: string;
@@ -583,6 +588,7 @@ export interface components {
       proxyEnabled: boolean;
       proxyHost: string;
       proxySigningKey: string;
+      sseEnabled?: boolean;
     };
     Experiment: {
       id: string;

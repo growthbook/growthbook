@@ -39,6 +39,7 @@ export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
         <div className="small">
           <div style={{ fontSize: "1.2em" }}>{phase.name}</div>
           <div>
+            {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
             <strong>{date(phase.dateStarted)}</strong> to{" "}
             <strong>{phase.dateEnded ? date(phase.dateEnded) : "now"}</strong>
           </div>

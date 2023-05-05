@@ -84,6 +84,7 @@ const DataSources: FC = () => {
                 </td>
                 <td>{d.type}</td>
                 <td>
+                  {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                   {d?.projects?.length > 0 ? (
                     <ProjectBadges
                       projectIds={d.projects}
@@ -93,6 +94,7 @@ const DataSources: FC = () => {
                     <ProjectBadges className="badge-ellipsis short align-middle" />
                   )}
                 </td>
+                {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message */}
                 {!hasFileConfig() && <td>{ago(d.dateUpdated)}</td>}
               </tr>
             ))}

@@ -27,15 +27,15 @@ import { replaceSQLVars } from "../util/sql";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   datasource: string;
   params: MixpanelConnectionParams;
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   organization: string;
   settings: DataSourceSettings;
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   decryptionError: boolean;
   constructor(encryptedParams: string, settings: DataSourceSettings) {
     try {

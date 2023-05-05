@@ -43,6 +43,7 @@ export default function SchemaBrowserWrapper({
                 disabled={informationSchema.status === "PENDING"}
                 onClick={async (e) => {
                   e.preventDefault();
+                  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
                   setError(null);
                   try {
                     await apiCall<{

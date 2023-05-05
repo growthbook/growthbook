@@ -78,22 +78,30 @@ const Presentation = ({
     const variationExtra = [];
     let sideExtra = <></>;
     const variationsPlural =
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       e.experiment.variations.length > 2 ? "variations" : "variation";
 
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     e.experiment.variations.forEach((v, i) => {
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Element' is not assignable to type 'never'.
       variationExtra[i] = <Fragment key={`f-${i}`}></Fragment>;
     });
     let resultsText = "";
     if (
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       e.experiment?.status === "running" ||
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       e.experiment?.status === "draft"
     ) {
       resultsText = "This experiment is still in progress";
     } else {
       // stopped:
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       if (e.experiment?.results) {
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         if (e.experiment.results === "won") {
           // if this is a two sided test, mark the winner:
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           variationExtra[e.experiment.winner] = (
             <Appear>
               <Text className="result variation-result result-winner text-center p-2 m-0">
@@ -102,12 +110,16 @@ const Presentation = ({
             </Appear>
           );
           resultsText =
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             e.experiment.variations[e.experiment.winner]?.name +
             " beat the control and won";
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         } else if (e.experiment.results === "lost") {
           resultsText = `The ${variationsPlural} did not improve over the control`;
 
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           if (e.experiment.variations.length === 2) {
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Element' is not assignable to type 'never'.
             variationExtra[1] = (
               <Appear>
                 <Text className="result variation-result result-lost text-center p-2 m-0">
@@ -116,6 +128,7 @@ const Presentation = ({
               </Appear>
             );
           } else {
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Element' is not assignable to type 'never'.
             variationExtra[0] = (
               <Appear>
                 <Text className="result variation-result result-winner text-center p-2 m-0">
@@ -124,6 +137,7 @@ const Presentation = ({
               </Appear>
             );
           }
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         } else if (e.experiment.results === "dnf") {
           sideExtra = (
             <div className="result result-dnf text-center">
@@ -131,6 +145,7 @@ const Presentation = ({
             </div>
           );
           resultsText = `The experiment did not finish`;
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         } else if (e.experiment.results === "inconclusive") {
           sideExtra = (
             <Appear>
@@ -145,17 +160,22 @@ const Presentation = ({
     }
 
     expSlides.push(
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
       <Slide key={expSlides.length}>
         <div className="container-fluid">
+          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
           <Heading className="m-0 pb-0">{e.experiment.name}</Heading>
           <Text className="text-center m-0 mb-4 p-2" fontSize={21}>
+            {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
             {e.experiment.hypothesis}
           </Text>
           <div className="row variations">
+            {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
             {e.experiment.variations.map((v: Variation, j: number) => (
               <Text
                 fontSize={20}
                 className={`col m-0 p-0 col-${
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                   12 / e.experiment.variations.length
                 } presentationcol text-center`}
                 key={`v-${j}`}
@@ -173,16 +193,21 @@ const Presentation = ({
         </div>
       </Slide>
     );
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     if (e.snapshot) {
       // const variationNames = e.experiment.variations.map((v) => v.name);
       // const numMetrics = e.experiment.metrics.length;
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       const result = e.experiment.results;
 
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       const experiment = e.experiment;
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       const snapshot = e.snapshot;
       const phase = experiment.phases[snapshot.phase];
 
       expSlides.push(
+        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
         <Slide key={`s-${expSlides.length}`}>
           <Heading className="m-0 p-0">Results</Heading>
           {result && (
@@ -195,10 +220,12 @@ const Presentation = ({
               })}
             >
               <strong>{resultsText}</strong>
+              {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
               {e.experiment.analysis && (
                 <div className="card text-dark mt-2">
                   <div className="card-body">
                     <Markdown className="card-text">
+                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                       {e.experiment.analysis}
                     </Markdown>
                   </div>
@@ -221,10 +248,13 @@ const Presentation = ({
               id={experiment.id}
               isLatestPhase={snapshot.phase === experiment.phases.length - 1}
               metrics={experiment.metrics}
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MetricOverride[] | undefined' is not assigna... Remove this comment to see the full error message
               metricOverrides={experiment.metricOverrides}
               reportDate={snapshot.dateCreated}
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentReportResultDimension | undefined'... Remove this comment to see the full error message
               results={snapshot.results?.[0]}
               status={experiment.status}
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
               startDate={phase?.dateStarted}
               multipleExposures={snapshot.multipleExposures || 0}
               variations={experiment.variations.map((v, i) => {

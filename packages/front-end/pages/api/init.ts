@@ -62,6 +62,7 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     config: hasConfigFile ? "file" : "db",
     build,
     defaultConversionWindowHours:
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
       parseInt(DEFAULT_CONVERSION_WINDOW_HOURS) || 72,
     telemetry:
       DISABLE_TELEMETRY === "debug"

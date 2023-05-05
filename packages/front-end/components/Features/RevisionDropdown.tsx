@@ -54,6 +54,7 @@ export default function RevisionDropdown({
         version: liveVersion,
         comment: "New feature",
         date: feature.dateCreated,
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'FeatureRevi... Remove this comment to see the full error message
         data: null,
         draft: false,
         live: true,
@@ -67,7 +68,9 @@ export default function RevisionDropdown({
         // Increment the live version for the draft
         version: liveVersion + 1,
         comment: feature.draft?.comment || "",
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'Date'.
         date: null,
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'FeatureRevi... Remove this comment to see the full error message
         data: null,
         draft: true,
         live: false,

@@ -37,6 +37,7 @@ const ImportExperimentList: FC<{
     experiments: PastExperimentsInterface;
     existing: Record<string, string>;
   }>(`/experiments/import/${importId}`);
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   const datasource = getDatasourceById(data?.experiments?.datasource);
 
   const status = getQueryStatus(
@@ -119,6 +120,7 @@ const ImportExperimentList: FC<{
   }
 
   const supportedDatasources = datasources.filter(
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     (d) => d.properties.pastExperiments
   );
 
@@ -159,8 +161,10 @@ const ImportExperimentList: FC<{
           <div
             className="text-muted"
             style={{ fontSize: "0.8em" }}
+            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message
             title={datetime(data.experiments.runStarted)}
           >
+            {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message */}
             last updated {ago(data.experiments.runStarted)}
           </div>
         </div>
@@ -199,10 +203,12 @@ const ImportExperimentList: FC<{
         <>
           <div className="alert alert-danger my-3">
             <p>Error importing experiments.</p>
+            {/* @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'. */}
             {datasource.id && (
               <p>
                 Your datasource&apos;s <em>Experiment Assignment Queries</em>{" "}
                 may be misconfigured.{" "}
+                {/* @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'. */}
                 <Link href={`/datasources/${datasource.id}?openAll=1`}>
                   Edit the datasource
                 </Link>
@@ -402,6 +408,7 @@ const ImportExperimentList: FC<{
                               datasource: data?.experiments?.datasource,
                               exposureQueryId: e.exposureQueryId || "",
                               variations: e.variationKeys.map((vKey, i) => {
+                                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                                 let vName = e.variationNames[i] || vKey;
                                 // If the name is an integer, rename 0 to "Control" and anything else to "Variation {name}"
                                 if (vName.match(/^[0-9]{1,2}$/)) {

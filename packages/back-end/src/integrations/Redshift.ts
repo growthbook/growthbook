@@ -9,7 +9,7 @@ import SqlIntegration from "./SqlIntegration";
 
 export default class Redshift extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   params: PostgresConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PostgresConnectionParams>(

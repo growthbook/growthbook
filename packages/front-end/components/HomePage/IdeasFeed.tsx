@@ -33,6 +33,7 @@ const IdeasFeed: FC<{
       <ul className="list-unstyled simple-divider pl-0 mb-0">
         {data.ideas.map((idea, i) => {
           const linkUrl = "/idea/" + idea.id;
+          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | null' is not assignable... Remove this comment to see the full error message
           const user = users.get(idea.userId);
           const email = user ? user.email : "";
           const name = user ? user.name : idea.userName;
