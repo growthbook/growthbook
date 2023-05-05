@@ -165,10 +165,12 @@ const RunQueriesButton: FC<{
               ? `${loadingText} (${getTimeDisplay(counter)})...`
               : cta}
           </button>
+          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
           {status === "running" && data?.total > 0 && (
             <div
               style={{
                 width:
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                   Math.floor((100 * (data?.finished || 0)) / data?.total) + "%",
                 height: 5,
               }}

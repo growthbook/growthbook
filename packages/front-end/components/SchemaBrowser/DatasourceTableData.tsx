@@ -32,6 +32,7 @@ export default function DatasourceSchema({
       if (
         retryCount > 1 &&
         retryCount < 8 &&
+        // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
         dateLastUpdated < table?.dateUpdated
       ) {
         setFetching(false);

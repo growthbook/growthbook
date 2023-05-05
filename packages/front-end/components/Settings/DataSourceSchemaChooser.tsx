@@ -32,6 +32,7 @@ export default function DataSourceSchemaChooser({
       <div className="d-flex flex-wrap mb-3 align-items-stretch align-middle">
         {eventSchemas
           // Some schemas only work with specific data sources
+          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'DataSourceType | undefined' is n... Remove this comment to see the full error message
           .filter((o) => !o.types || o.types.includes(datasource))
           .map(({ value, label, options, logo }, i) => (
             <div
@@ -46,12 +47,15 @@ export default function DataSourceSchemaChooser({
                 title={label}
                 onClick={(e) => {
                   e.preventDefault();
+                  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'SchemaOption[] | null' is not as... Remove this comment to see the full error message
                   setSelectedOptions(options ?? null);
                   if (options) {
                     options.map((o) => {
+                      // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
                       setOptionalValues(o.name, o.defaultValue);
                     });
                   } else {
+                    // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
                     setOptionalValues(null, null);
                   }
                   setValue(value);
@@ -78,6 +82,7 @@ export default function DataSourceSchemaChooser({
             href="#"
             onClick={(e) => {
               e.preventDefault();
+              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'true' is not assignable to param... Remove this comment to see the full error message
               setShowAdvancedOptions(!showAdvancedOptions);
             }}
           >
@@ -92,6 +97,7 @@ export default function DataSourceSchemaChooser({
           </a>
           {showAdvancedOptions && (
             <>
+              {/* @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'map' does not exist on type 'never'. */}
               {selectedOptions.map(
                 ({ name, label, defaultValue, type, helpText }) => (
                   <div key={name} className="form-group">
@@ -101,6 +107,7 @@ export default function DataSourceSchemaChooser({
                       defaultValue={defaultValue}
                       type={type}
                       onChange={(e) => {
+                        // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
                         setOptionalValues(name, e.target.value);
                       }}
                       helpText={helpText}

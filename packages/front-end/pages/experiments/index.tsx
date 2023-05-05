@@ -54,6 +54,7 @@ const ExperimentsPage = (): React.ReactElement => {
     allExperiments,
     (exp) => {
       const projectId = exp.project;
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
       const projectName = getProjectById(projectId)?.name || "";
       const projectIsOprhaned = projectId && !projectName;
 
@@ -314,7 +315,7 @@ const ExperimentsPage = (): React.ReactElement => {
                               className="d-flex align-items-center ml-2"
                               body="Visual experiment"
                             >
-                              <RxDesktop />
+                              <RxDesktop className="text-blue" />
                             </Tooltip>
                           ) : null}
                         </div>
@@ -363,6 +364,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     </td>
                     {tab === "stopped" && (
                       <td className="nowrap" data-title="Results:">
+                        {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentResultsType | undefined' is not as... Remove this comment to see the full error message */}
                         <ResultsIndicator results={e.results} />
                       </td>
                     )}
@@ -385,6 +387,7 @@ const ExperimentsPage = (): React.ReactElement => {
         </div>
       </div>
       {openNewExperimentModal &&
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         (growthbook.isOn("new-experiment-modal") ? (
           <AddExperimentModal
             onClose={() => setOpenNewExperimentModal(false)}

@@ -39,13 +39,13 @@ export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
   settings: DataSourceSettings;
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   datasource: string;
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   organization: string;
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;

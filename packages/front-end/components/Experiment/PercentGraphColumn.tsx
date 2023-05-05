@@ -32,7 +32,9 @@ export default function PercentGraphColumn({
         ci={showGraph ? stats.ci || [] : [0, 0]}
         id={id}
         domain={domain}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ dist: string; mean?: number | undefined; s... Remove this comment to see the full error message
         uplift={showGraph ? stats.uplift : null}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | null | undefined' is not assignable... Remove this comment to see the full error message
         expected={showGraph ? stats.expected : null}
         barType={barType}
         barFillType="gradient"
@@ -40,7 +42,8 @@ export default function PercentGraphColumn({
         showAxis={false}
         significant={
           showGraph
-            ? stats.chanceToWin > ciUpper || stats.chanceToWin < ciLower
+            ? // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+              stats.chanceToWin > ciUpper || stats.chanceToWin < ciLower
             : false
         }
         height={75}

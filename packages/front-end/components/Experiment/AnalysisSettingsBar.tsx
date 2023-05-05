@@ -7,7 +7,7 @@ import {
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { StatsEngine } from "back-end/types/stats";
-import { FaInfoCircle } from "react-icons/fa";
+import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import { OrganizationSettings } from "back-end/types/organization";
 import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -46,22 +46,28 @@ function isOutdated(
   hasSequentialFeature: boolean
 ): { outdated: boolean; reason: string } {
   if (!snapshot) return { outdated: false, reason: "" };
+  if (snapshot.statsEngine && isDifferent(snapshot.statsEngine, statsEngine)) {
+    return { outdated: true, reason: "stats engine changed" };
+  }
+  if (isDifferent(snapshot.statsEngine, statsEngine)) {
+    return { outdated: true, reason: "Stats engine changed" };
+  }
   if (isDifferent(experiment.activationMetric, snapshot.activationMetric)) {
-    return { outdated: true, reason: "activation metric changed" };
+    return { outdated: true, reason: "Activation metric changed" };
   }
   if (isDifferent(experiment.segment, snapshot.segment)) {
-    return { outdated: true, reason: "segment changed" };
+    return { outdated: true, reason: "Segment changed" };
   }
   if (isDifferent(experiment.queryFilter, snapshot.queryFilter)) {
-    return { outdated: true, reason: "query filter changed" };
+    return { outdated: true, reason: "Query filter changed" };
   }
   if (experiment.datasource && !("skipPartialData" in snapshot)) {
-    return { outdated: true, reason: "datasource changed" };
+    return { outdated: true, reason: "Datasource changed" };
   }
   if (isDifferent(experiment.skipPartialData, snapshot.skipPartialData)) {
     return {
       outdated: true,
-      reason: "in-progress conversion behavior changed",
+      reason: "In-progress conversion behavior changed",
     };
   }
   // todo: attribution model? (which doesn't live in the snapshot currently)
@@ -74,7 +80,8 @@ function isOutdated(
     isDifferent(
       experimentRegressionAdjustmentEnabled,
       !!snapshot.regressionAdjustmentEnabled
-    )
+    ) &&
+    statsEngine === "frequentist"
   ) {
     return { outdated: true, reason: "CUPED settings changed" };
   }
@@ -89,15 +96,16 @@ function isOutdated(
     orgSettings.sequentialTestingTuningParameter ??
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   if (
-    isDifferent(
+    (isDifferent(
       experimentSequentialEnabled,
       !!snapshot.sequentialTestingEnabled
     ) ||
-    (experimentSequentialEnabled &&
-      experimentSequentialTuningParameter !==
-        snapshot.sequentialTestingTuningParameter)
+      (experimentSequentialEnabled &&
+        experimentSequentialTuningParameter !==
+          snapshot.sequentialTestingTuningParameter)) &&
+    statsEngine === "frequentist"
   ) {
-    return { outdated: true, reason: "sequential testing settings changed" };
+    return { outdated: true, reason: "Sequential testing settings changed" };
   }
   return { outdated: false, reason: "" };
 }
@@ -111,6 +119,7 @@ export default function AnalysisSettingsBar({
   statsEngine,
   regressionAdjustmentAvailable,
   regressionAdjustmentEnabled,
+  regressionAdjustmentHasValidMetrics,
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
 }: {
@@ -122,6 +131,7 @@ export default function AnalysisSettingsBar({
   statsEngine?: StatsEngine;
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentHasValidMetrics?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
 }) {
@@ -136,7 +146,8 @@ export default function AnalysisSettingsBar({
   } = useSnapshot();
 
   const { getDatasourceById } = useDefinitions();
-  const settings = useOrgSettings();
+  const orgSettings = useOrgSettings();
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   const datasource = getDatasourceById(experiment.datasource);
 
   const { hasCommercialFeature } = useUser();
@@ -146,10 +157,11 @@ export default function AnalysisSettingsBar({
   const hasSequentialFeature = hasCommercialFeature("sequential-testing");
 
   const { outdated, reason } = isOutdated(
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'ExperimentInterfaceStringDates |... Remove this comment to see the full error message
     experiment,
     snapshot,
-    settings,
-    settings.statsEngine || "bayesian",
+    orgSettings,
+    statsEngine,
     hasRegressionAdjustmentFeature,
     hasSequentialFeature
   );
@@ -161,6 +173,7 @@ export default function AnalysisSettingsBar({
 
   const status = getQueryStatus(latest?.queries || [], latest?.error);
 
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   const hasData = snapshot?.results?.[0]?.variations?.length > 0;
 
   const [refreshError, setRefreshError] = useState("");
@@ -170,13 +183,16 @@ export default function AnalysisSettingsBar({
       {modalOpen && (
         <AnalysisForm
           cancel={() => setModalOpen(false)}
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentInterfaceStringDates | undefined' ... Remove this comment to see the full error message
           experiment={experiment}
           mutate={mutateExperiment}
           phase={phase}
         />
       )}
       <div className="row align-items-center p-3">
+        {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
         {experiment.phases &&
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           (alwaysShowPhaseSelector || experiment.phases.length > 1) && (
             <div className="col-auto form-inline">
               <PhaseSelector
@@ -189,9 +205,13 @@ export default function AnalysisSettingsBar({
           <DimensionChooser
             value={dimension}
             setValue={setDimension}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             activationMetric={!!experiment.activationMetric}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             datasourceId={experiment.datasource}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             exposureQueryId={experiment.exposureQueryId}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             userIdType={experiment.userIdType}
             labelClassName="mr-2"
           />
@@ -217,6 +237,7 @@ export default function AnalysisSettingsBar({
                 <span className="mx-1 font-weight-bold">CUPED</span>
                 <Toggle
                   id="toggle-experiment-regression-adjustment"
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean | undefined' is not assignable to ty... Remove this comment to see the full error message
                   value={regressionAdjustmentEnabled}
                   setValue={(value) => {
                     if (
@@ -230,6 +251,30 @@ export default function AnalysisSettingsBar({
                   style={{ transform: "scale(0.8)" }}
                   disabled={!hasRegressionAdjustmentFeature}
                 />
+                {!regressionAdjustmentHasValidMetrics && (
+                  <Tooltip
+                    popperClassName="text-left"
+                    body={
+                      <>
+                        <p>
+                          This experiment does not have any metrics suitable for
+                          CUPED regression adjustment.
+                        </p>
+                        <p className="mb-0">
+                          Please check your metric defintions, as well as any
+                          experiment-level metric overrides.
+                        </p>
+                      </>
+                    }
+                  >
+                    <div
+                      className="text-warning-orange position-absolute p-1"
+                      style={{ top: -11, right: 2 }}
+                    >
+                      <FaExclamationCircle />
+                    </div>
+                  </Tooltip>
+                )}
               </label>
             </PremiumTooltip>
           )}
@@ -249,23 +294,28 @@ export default function AnalysisSettingsBar({
               <div
                 className="text-muted text-right"
                 style={{ width: 100, fontSize: "0.8em" }}
+                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                 title={datetime(snapshot.dateCreated)}
               >
-                <div className="font-weight-bold" style={{ lineHeight: 1.5 }}>
+                <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
                   last updated
                 </div>
                 <div className="d-inline-block" style={{ lineHeight: 1 }}>
+                  {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                   {ago(snapshot.dateCreated)}
                 </div>
               </div>
             ))}
         </div>
+        {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
         {permissions.check("runQueries", "") && experiment.metrics.length > 0 && (
           <div className="col-auto">
+            {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
             {experiment.datasource && latest && latest.queries?.length > 0 ? (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                   apiCall(`/experiment/${experiment.id}/snapshot`, {
                     method: "POST",
                     body: JSON.stringify({
@@ -301,6 +351,7 @@ export default function AnalysisSettingsBar({
               <RefreshSnapshotButton
                 mutate={mutate}
                 phase={phase}
+                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentInterfaceStringDates | undefined' ... Remove this comment to see the full error message
                 experiment={experiment}
                 lastSnapshot={snapshot}
                 dimension={dimension}
@@ -318,7 +369,10 @@ export default function AnalysisSettingsBar({
             id={snapshot?.id || ""}
             forceRefresh={async () => {
               await apiCall(
-                `/experiment/${experiment.id}/snapshot?force=true`,
+                `/experiment/${
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  experiment.id
+                }/snapshot?force=true`,
                 {
                   method: "POST",
                   body: JSON.stringify({
@@ -340,6 +394,7 @@ export default function AnalysisSettingsBar({
             configure={() => setModalOpen(true)}
             editMetrics={editMetrics}
             notebookUrl={`/experiments/notebook/${snapshot?.id}`}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             notebookFilename={experiment.trackingKey}
             generateReport={true}
             queries={snapshot?.queries}
@@ -347,11 +402,14 @@ export default function AnalysisSettingsBar({
             hasUserQuery={snapshot && !("skipPartialData" in snapshot)}
             supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
             hasData={hasData}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             metrics={experiment.metrics}
             results={snapshot?.results}
             variations={variations}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             trackingKey={experiment.trackingKey}
             dimension={dimension}
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             project={experiment.project}
           />
         </div>

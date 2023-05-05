@@ -36,6 +36,7 @@ export default function RetryInformationSchemaCard({
     <div>
       <div className="alert alert-warning d-flex align-items-center">
         <div>
+          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
           <span>{error ? error : informationSchema.error.message}</span>
         </div>
         <button

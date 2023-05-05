@@ -16,6 +16,10 @@ import { MetricInterface } from "back-end/types/metric";
 import uniq from "lodash/uniq";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  getScopedSettings,
+} from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -186,8 +190,8 @@ export default function SinglePage({
   const watcherIds = useApi<{
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
-  const settings = useOrgSettings();
-  const { users, hasCommercialFeature } = useUser();
+  const orgSettings = useOrgSettings();
+  const { organization, users, hasCommercialFeature } = useUser();
 
   const { data: sdkConnectionsData } = useSDKConnections();
 
@@ -195,6 +199,12 @@ export default function SinglePage({
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
   const projectIsOprhaned = projectId && !projectName;
+
+  const { settings: scopedSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+    experiment: experiment,
+  });
 
   const datasource = getDatasourceById(experiment.datasource);
   const segment = getSegmentById(experiment.segment || "");
@@ -205,7 +215,7 @@ export default function SinglePage({
     (q) => q.id === experiment.exposureQueryId
   );
 
-  const statsEngine = settings.statsEngine || "bayesian";
+  const statsEngine = scopedSettings.statsEngine.value;
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
@@ -221,36 +231,43 @@ export default function SinglePage({
   const denominatorMetricIds = uniq(
     allExperimentMetrics.map((m) => m?.denominator).filter((m) => m)
   );
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
 
   const [
     regressionAdjustmentAvailable,
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
+    regressionAdjustmentHasValidMetrics,
   ] = useMemo(() => {
     const metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[] = [];
     let regressionAdjustmentAvailable = true;
-    let regressionAdjustmentEnabled = false;
+    let regressionAdjustmentEnabled = true;
+    let regressionAdjustmentHasValidMetrics = false;
     for (const metric of allExperimentMetrics) {
       if (!metric) continue;
       const {
         metricRegressionAdjustmentStatus,
       } = getRegressionAdjustmentsForMetric({
         metric: metric,
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(MetricInterface | null)[]' is not assignabl... Remove this comment to see the full error message
         denominatorMetrics: denominatorMetrics,
-        experimentRegressionAdjustmentEnabled: !!experiment.regressionAdjustmentEnabled,
-        organizationSettings: settings,
+        experimentRegressionAdjustmentEnabled:
+          experiment.regressionAdjustmentEnabled ??
+          DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+        organizationSettings: orgSettings,
         metricOverrides: experiment.metricOverrides,
       });
       if (metricRegressionAdjustmentStatus.regressionAdjustmentEnabled) {
         regressionAdjustmentEnabled = true;
+        regressionAdjustmentHasValidMetrics = true;
       }
       metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
     }
     if (!experiment.regressionAdjustmentEnabled) {
       regressionAdjustmentEnabled = false;
     }
-    if (!settings.statsEngine || settings.statsEngine === "bayesian") {
+    if (statsEngine === "bayesian") {
       regressionAdjustmentAvailable = false;
       regressionAdjustmentEnabled = false;
     }
@@ -270,11 +287,13 @@ export default function SinglePage({
       regressionAdjustmentAvailable,
       regressionAdjustmentEnabled,
       metricRegressionAdjustmentStatuses,
+      regressionAdjustmentHasValidMetrics,
     ];
   }, [
     allExperimentMetrics,
     denominatorMetrics,
-    settings,
+    orgSettings,
+    statsEngine,
     experiment.regressionAdjustmentEnabled,
     experiment.metricOverrides,
     datasource?.type,
@@ -304,6 +323,7 @@ export default function SinglePage({
   const usersWatching = (watcherIds?.data?.userIds || [])
     .map((id) => users.get(id))
     .filter(Boolean)
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     .map((u) => u.name || u.email);
 
   const hasSDKWithVisualExperimentsEnabled = sdkConnectionsData?.connections.some(
@@ -626,6 +646,7 @@ export default function SinglePage({
           <div className="appbox h-100">
             <div className="p-3">
               <MarkdownInlineEdit
+                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
                 value={experiment.description}
                 save={async (description) => {
                   await apiCall(`/experiment/${experiment.id}`, {
@@ -640,6 +661,7 @@ export default function SinglePage({
                 header="Description"
               />
               <MarkdownInlineEdit
+                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
                 value={experiment.hypothesis}
                 save={async (hypothesis) => {
                   await apiCall(`/experiment/${experiment.id}`, {
@@ -732,6 +754,7 @@ export default function SinglePage({
               {experiment.queryFilter && (
                 <RightRailSectionGroup title="Custom Filter" type="custom">
                   <Code
+                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'QueryLanguage | undefined' is not assignable... Remove this comment to see the full error message
                     language={datasource?.properties?.queryLanguage}
                     code={experiment.queryFilter}
                     expandable={true}
@@ -748,7 +771,7 @@ export default function SinglePage({
                   <FaQuestionCircle />
                 </AttributionModelTooltip>
               </RightRailSectionGroup>
-              {settings.statsEngine === "frequentist" && (
+              {statsEngine === "frequentist" && (
                 <>
                   <RightRailSectionGroup
                     title={
@@ -769,7 +792,7 @@ export default function SinglePage({
                     type="custom"
                   >
                     {experiment.sequentialTestingEnabled ??
-                    !!settings.sequentialTestingEnabled
+                    !!orgSettings.sequentialTestingEnabled
                       ? "Enabled"
                       : "Disabled"}
                   </RightRailSectionGroup>
@@ -806,11 +829,13 @@ export default function SinglePage({
                   const metric = getMetricById(m);
                   return drawMetricRow(
                     m,
+                    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MetricInterface | null' is not a... Remove this comment to see the full error message
                     metric,
                     experiment,
                     ignoreConversionEnd
                   );
                 })}
+                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                 {experiment.guardrails?.length > 0 && (
                   <>
                     <div className="row mb-1 mt-3 text-muted">
@@ -820,10 +845,12 @@ export default function SinglePage({
                       </div>
                       <div className="col-sm-2">Behavior</div>
                     </div>
+                    {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                     {experiment.guardrails.map((m) => {
                       const metric = getMetricById(m);
                       return drawMetricRow(
                         m,
+                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MetricInterface | null' is not a... Remove this comment to see the full error message
                         metric,
                         experiment,
                         ignoreConversionEnd
@@ -842,6 +869,7 @@ export default function SinglePage({
                     </div>
                     {drawMetricRow(
                       experiment.activationMetric,
+                      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MetricInterface | null' is not a... Remove this comment to see the full error message
                       getMetricById(experiment.activationMetric),
                       experiment,
                       ignoreConversionEnd
@@ -889,6 +917,7 @@ export default function SinglePage({
         </div>
       </div>
 
+      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
       {growthbook.isOn("visual-editor-ui") &&
       experiment.status === "draft" &&
       experiment.phases.length > 0 ? (
@@ -926,6 +955,7 @@ export default function SinglePage({
                     className="ml-2"
                     color="link"
                     onClick={async () => {
+                      // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
                       editPhase(experiment.phases.length - 1);
                       track("Edit phase", { source: "visual-editor-ui" });
                     }}
@@ -1028,6 +1058,9 @@ export default function SinglePage({
                   statsEngine={statsEngine}
                   regressionAdjustmentAvailable={regressionAdjustmentAvailable}
                   regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                  regressionAdjustmentHasValidMetrics={
+                    regressionAdjustmentHasValidMetrics
+                  }
                   metricRegressionAdjustmentStatuses={
                     metricRegressionAdjustmentStatuses
                   }
