@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "../../services/auth";
@@ -15,7 +15,8 @@ const ApiKeysModal: FC<{
   onCreate: () => void;
   defaultDescription?: string;
   secret?: boolean;
-}> = ({ close, onCreate, defaultDescription = "", secret = false }) => {
+  type?: string;
+}> = ({ close, type, onCreate, defaultDescription = "", secret = false }) => {
   const { apiCall } = useAuth();
   const environments = useEnvironments();
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -35,6 +36,7 @@ const ApiKeysModal: FC<{
       method: "POST",
       body: JSON.stringify({
         ...value,
+        type,
         secret,
       }),
     });
@@ -44,6 +46,15 @@ const ApiKeysModal: FC<{
     });
     onCreate();
   });
+
+  const modalTitle = useMemo(() => {
+    if (!secret) return "Create SDK Endpoint";
+
+    if (type === "user") return "Create User API key";
+    if (type === "read-only") return "Create Read-only API key";
+
+    return "Create Secret key";
+  }, [secret, type]);
 
   if (upgradeModal) {
     return (
@@ -58,7 +69,7 @@ const ApiKeysModal: FC<{
   return (
     <Modal
       close={close}
-      header={secret ? "Create Secret Key" : "Create SDK Endpoint"}
+      header={modalTitle}
       open={true}
       submit={onSubmit}
       cta="Create"
