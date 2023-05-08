@@ -125,10 +125,10 @@ export function getFeatureDefaultValue(feature: FeatureInterface) {
 }
 
 export function getValidation(feature: FeatureInterface) {
-  const jsonSchema = feature?.schema?.schema
-    ? JSON.parse(feature?.schema?.schema)
+  const jsonSchema = feature?.jsonSchema?.schema
+    ? JSON.parse(feature?.jsonSchema?.schema)
     : null;
-  const validationEnabled = feature?.schema?.enabled;
+  const validationEnabled = jsonSchema ? feature?.jsonSchema?.enabled : false;
   return { jsonSchema, validationEnabled };
 }
 

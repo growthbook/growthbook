@@ -257,6 +257,11 @@ export async function postFeatures(
         name: userName,
       },
     },
+    jsonSchema: {
+      schema: "",
+      date: new Date(),
+      enabled: false,
+    },
   };
 
   // Require publish permission for any enabled environments

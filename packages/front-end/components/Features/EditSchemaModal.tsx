@@ -2,6 +2,8 @@ import { useForm } from "react-hook-form";
 import { FeatureInterface } from "back-end/types/feature";
 import React from "react";
 import Ajv from "ajv";
+import dJSON from "dirty-json";
+import stringify from "json-stringify-pretty-compact";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import Toggle from "@/components/Forms/Toggle";
@@ -16,8 +18,8 @@ export interface Props {
 export default function EditSchemaModal({ feature, close, mutate }: Props) {
   const form = useForm({
     defaultValues: {
-      schema: feature?.schema?.schema || "{}",
-      enabled: feature?.schema?.enabled ?? true,
+      schema: feature?.jsonSchema?.schema || "{}",
+      enabled: feature?.jsonSchema?.enabled ?? true,
     },
   });
   const { apiCall } = useAuth();
@@ -28,16 +30,36 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
       cta="Save"
       submit={form.handleSubmit(async (value) => {
         // make sure the json schema is valid json schema
+        let schemaString = value.schema;
+        let parsedSchema;
         try {
-          const schema = JSON.parse(value.schema);
-          if (!schema || typeof schema !== "object") {
-            throw new Error("Invalid JSON Schema");
+          if (schemaString !== "") {
+            // first see if it is valid json:
+            try {
+              parsedSchema = JSON.parse(schemaString);
+            } catch (e) {
+              // If the JSON is invalid, try to parse it with 'dirty-json' instead
+              try {
+                parsedSchema = dJSON.parse(schemaString);
+                schemaString = stringify(parsedSchema);
+              } catch (e) {
+                throw new Error(e.message);
+              }
+            }
+            // make sure it is valid json schema:
+            const ajv = new Ajv();
+            ajv.compile(parsedSchema);
           }
-          const ajv = new Ajv();
-          ajv.compile(schema);
         } catch (e) {
           throw new Error(
             `The JSON Schema is invalid. Please check it and try again. Validator error: "${e.message}"`
+          );
+        }
+
+        if (schemaString !== value.schema) {
+          form.setValue("schema", schemaString);
+          throw new Error(
+            "We fixed some errors in the schema. If it looks correct, save again."
           );
         }
 

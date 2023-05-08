@@ -46,7 +46,7 @@ export interface FeatureInterface {
     date: Date;
     publishedBy: UserRef;
   };
-  schema?: {
+  jsonSchema?: {
     schema: string;
     date: Date;
     enabled: boolean;

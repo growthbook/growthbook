@@ -1,17 +1,18 @@
 import { FeatureInterface } from "back-end/types/feature";
-import { useMemo } from "react";
-import { FaCheck } from "react-icons/fa";
-import { BsExclamationTriangleFill } from "react-icons/bs";
+import React, { useMemo } from "react";
+import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import { validateJSONFeatureValue } from "@/services/features";
 
 export default function ValidateValue({
   value,
   feature,
-  className,
+  className = "",
+  showIfValid = false,
 }: {
   value: string;
   feature: FeatureInterface;
   className?: string;
+  showIfValid?: boolean;
 }) {
   const { valid, enabled, errors } = useMemo(() => {
     const type = feature?.valueType;
@@ -21,18 +22,19 @@ export default function ValidateValue({
   }, [value, feature]);
   if (!enabled) return null;
   if (valid) {
+    if (!showIfValid) return null;
     return (
       <div
-        className={`text-success mt-2 ${className}`}
+        className={`text-success ${className}`}
         title="This value has been validated against the JSON schema provided"
       >
-        <FaCheck className=" mr-2" title="Value is valid" /> Validated value
+        <FaCheck className=" mr-2" title="Value is valid" />
       </div>
     );
   }
   return (
-    <div className={`text-danger border border-danger p-2 mt-2 ${className}`}>
-      <BsExclamationTriangleFill /> Value fails validation with JSON schema
+    <div className={`alert-danger rounded p-2 mt-2 ${className}`}>
+      <FaExclamationTriangle className="text-danger" /> Value fails validation with JSON schema
       <ul className="mb-0">
         {errors?.map((msg, i) => (
           <li key={i}>{msg}</li>

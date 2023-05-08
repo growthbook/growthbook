@@ -79,7 +79,7 @@ const featureSchema = new mongoose.Schema({
   environmentSettings: {},
   draft: {},
   revision: {},
-  schema: {},
+  jsonSchema: {},
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -505,7 +505,7 @@ export async function setJsonSchema(
   enabled?: boolean
 ) {
   return await updateFeature(org, user, feature, {
-    schema: { schema, enabled: enabled ?? true, date: new Date() },
+    jsonSchema: { schema, enabled: enabled ?? true, date: new Date() },
   });
 }
 

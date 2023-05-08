@@ -36,6 +36,7 @@ import {
   useEnvironments,
   getEnabledEnvironments,
   getAffectedEnvs,
+  getValidation,
 } from "@/services/features";
 import Tab from "@/components/Tabs/Tab";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
@@ -116,9 +117,7 @@ export default function FeaturePage() {
     return <LoadingOverlay />;
   }
 
-  const jsonSchema = data.feature?.schema?.schema
-    ? JSON.parse(data.feature?.schema?.schema)
-    : null;
+  const { jsonSchema, validationEnabled } = getValidation(data.feature);
 
   const isDraft = !!data.feature.draft?.active;
   const isArchived = data.feature.archived;
@@ -619,13 +618,13 @@ export default function FeaturePage() {
             )}
           </h3>
           <div className="appbox mb-4 p-3 card">
-            {data.feature?.schema ? (
+            {jsonSchema ? (
               <>
                 <div className="d-flex justify-content-between">
                   {/* region Title Bar */}
 
                   <div className="d-flex align-items-center">
-                    {data.feature?.schema?.enabled ? (
+                    {validationEnabled ? (
                       <strong className="text-success">Enabled</strong>
                     ) : (
                       <>
@@ -648,7 +647,7 @@ export default function FeaturePage() {
                         </strong>
                       </>
                     )}
-                    , Date updated: {datetime(data.feature?.schema?.date)}
+                    , Date updated: {datetime(data.feature?.jsonSchema?.date)}
                   </div>
 
                   <div className="d-flex align-items-center">
@@ -668,14 +667,14 @@ export default function FeaturePage() {
                   <>
                     <Code
                       language="json"
-                      code={data.feature.schema.schema}
+                      code={data.feature?.jsonSchema?.schema || "{}"}
                       className="disabled"
                     />
                   </>
                 )}
               </>
             ) : (
-              "No schemas defined"
+              "No schema defined"
             )}
           </div>
         </div>
