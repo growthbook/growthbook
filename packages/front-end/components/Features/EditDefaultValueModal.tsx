@@ -32,6 +32,7 @@ export default function EditDefaultValueModal({
       submit={form.handleSubmit(async (value) => {
         const newDefaultValue = validateFeatureValue(
           feature.valueType,
+          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
           value.defaultValue,
           ""
         );
@@ -58,6 +59,7 @@ export default function EditDefaultValueModal({
       <FeatureValueField
         label="Value When Enabled"
         id="defaultValue"
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
         value={form.watch("defaultValue")}
         setValue={(v) => form.setValue("defaultValue", v)}
         valueType={feature.valueType}

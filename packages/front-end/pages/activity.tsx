@@ -51,6 +51,7 @@ const Activity: FC = () => {
                 }}
                 showName={true}
                 showType={true}
+                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | false | undefined' is not assignabl... Remove this comment to see the full error message
                 itemName={
                   nameMap.has(event.entity.id) && nameMap.get(event.entity.id)
                 }

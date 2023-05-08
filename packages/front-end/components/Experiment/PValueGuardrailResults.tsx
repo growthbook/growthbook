@@ -161,6 +161,7 @@ const PValueGuardrailResults: FC<{
                     >
                       {r.expectedDirection ? "Better" : "Worse"}{" "}
                       {`(${
+                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
                         pValueFormatter(r.stats?.pValue) || "P-value missing"
                       })`}
                     </td>

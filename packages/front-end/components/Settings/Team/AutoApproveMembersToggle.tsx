@@ -24,6 +24,7 @@ export default function AutoApproveMembersToggle({
     let owner = null;
     const ownerEmail = organization?.ownerEmail;
     if (ownerEmail) {
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExpandedMember | undefined' is not assignabl... Remove this comment to see the full error message
       owner = [...users.values()].find((user) => user.email === ownerEmail);
     }
     setOwner(owner);
@@ -33,7 +34,9 @@ export default function AutoApproveMembersToggle({
     <div className="mt-3">
       <Toggle
         id="autoApproveMembers"
+        // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'verified' does not exist on type 'never'... Remove this comment to see the full error message
         value={!owner?.verified ? false : !!organization?.autoApproveMembers}
+        // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'verified' does not exist on type 'never'... Remove this comment to see the full error message
         disabled={!permissions.manageTeam || !owner?.verified}
         setValue={async (on) => {
           if (togglingAutoApprove) return;
@@ -66,6 +69,7 @@ export default function AutoApproveMembersToggle({
           Automatically approve new verified users <FaQuestionCircle />
         </Tooltip>
       </div>
+      {/* @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'verified' does not exist on type 'never'... Remove this comment to see the full error message */}
       {!owner?.verified && (
         <div className="mt-3">
           <Tooltip

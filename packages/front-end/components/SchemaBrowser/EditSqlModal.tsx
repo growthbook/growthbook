@@ -141,6 +141,7 @@ export default function EditSqlModal({
   ]);
 
   const datasource = getDatasourceById(datasourceId);
+  // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
   const supportsSchemaBrowser = datasource.properties.supportsInformationSchema;
 
   return (
@@ -214,8 +215,10 @@ export default function EditSqlModal({
                 <DisplayTestQueryResults
                   duration={parseInt(testQueryResults.duration || "0")}
                   requiredColumns={[...requiredColumns]}
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'TestQueryRow[] | undefined' is not assignabl... Remove this comment to see the full error message
                   results={testQueryResults.results}
                   error={testQueryResults.error}
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
                   sql={testQueryResults.sql}
                   suggestions={suggestions}
                 />
@@ -229,7 +232,9 @@ export default function EditSqlModal({
               updateSqlInput={(sql: string) => {
                 form.setValue("sql", sql);
               }}
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'DataSourceInterfaceWithParams | null' is not... Remove this comment to see the full error message
               datasource={datasource}
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'CursorData | null' is not assignable to type... Remove this comment to see the full error message
               cursorData={cursorData}
             />
           </div>

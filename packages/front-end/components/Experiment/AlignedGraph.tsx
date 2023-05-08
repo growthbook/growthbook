@@ -92,10 +92,14 @@ const AlignedGraph: FC<Props> = ({
   const gradient: { color: string; percent: number }[] = [];
   const gradientId = "gr_" + id;
   if (ci && barFillType === "gradient") {
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     if (ci[0] < 0) {
       gradient.push({ color: sigBarColorNeg, percent: 0 });
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       if (ci[1] > 0) {
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         const w = ci[1] - ci[0];
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         const wNeg = (100 * (-1 * ci[0])) / w;
         gradient.push({ color: sigBarColorNeg, percent: wNeg });
         gradient.push({ color: sigBarColorPos, percent: wNeg + 0.001 });
@@ -113,7 +117,8 @@ const AlignedGraph: FC<Props> = ({
     barFillType === "gradient"
       ? `url(#${gradientId})`
       : significant
-      ? expected > 0
+      ? // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+        expected > 0
         ? sigBarColorPos
         : sigBarColorNeg
       : barColor;
@@ -197,6 +202,7 @@ const AlignedGraph: FC<Props> = ({
                           <ViolinPlot
                             top={barHeight}
                             width={barThickness}
+                            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                             left={xScale(ci[0])}
                             data={[
                               0.025,
@@ -215,15 +221,20 @@ const AlignedGraph: FC<Props> = ({
                             ].map((n) => {
                               let x = jStat.normal.inv(
                                 n,
+                                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                                 uplift.mean,
+                                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                                 uplift.stddev
                               );
                               const y = jStat.normal.pdf(
                                 x,
+                                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                                 uplift.mean,
+                                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                                 uplift.stddev
                               );
 
+                              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                               if (uplift.dist === "lognormal") {
                                 x = Math.exp(x) - 1;
                               }
@@ -243,8 +254,10 @@ const AlignedGraph: FC<Props> = ({
                         )}
                         {barType === "pill" && (
                           <rect
+                            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                             x={xScale(ci[0])}
                             y={barHeight}
+                            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                             width={xScale(ci[1]) - xScale(ci[0])}
                             height={barThickness}
                             fill={barFill}
@@ -255,8 +268,10 @@ const AlignedGraph: FC<Props> = ({
                           fill="#000000"
                           strokeWidth={3}
                           stroke={"#666"}
+                          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
                           from={{ x: xScale(expected), y: barHeight }}
                           to={{
+                            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
                             x: xScale(expected),
                             y: barHeight + barThickness,
                           }}
@@ -273,9 +288,11 @@ const AlignedGraph: FC<Props> = ({
           <>
             <div className="expectedwrap text-right">
               <span className="expectedArrows">
+                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                 {expected > 0 ? <FaArrowUp /> : <FaArrowDown />}
               </span>{" "}
               <span className="expected bold">
+                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                 {parseFloat((expected * 100).toFixed(1)) + "%"}{" "}
               </span>
             </div>

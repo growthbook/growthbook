@@ -45,6 +45,7 @@ const DataSourceForm: FC<{
   const [dirty, setDirty] = useState(false);
   const [datasource, setDatasource] = useState<
     Partial<DataSourceInterfaceWithParams>
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
   >(null);
   const [hasError, setHasError] = useState(false);
 
@@ -99,6 +100,7 @@ const DataSourceForm: FC<{
           body: JSON.stringify({
             ...datasource,
             settings: {
+              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'PostgresConnectionParams | Athen... Remove this comment to see the full error message
               ...getInitialSettings("custom", datasource.params),
               ...(datasource.settings || {}),
             },
@@ -112,6 +114,7 @@ const DataSourceForm: FC<{
       }
 
       setDirty(false);
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
       await onSuccess(id);
     } catch (e) {
       track("Data Source Form Error", {
@@ -177,6 +180,7 @@ const DataSourceForm: FC<{
       )}
       <SelectField
         label="Data Source Type"
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
         value={datasource.type}
         onChange={(value) => {
           const option = typeOptions.filter((o) => o.type === value)[0];
@@ -245,6 +249,7 @@ const DataSourceForm: FC<{
           />
         </div>
       )}
+      {/* @ts-expect-error TS(2786) If you come across this, please fix it!: 'ConnectionSettings' cannot be used as a JSX compo... Remove this comment to see the full error message */}
       <ConnectionSettings
         datasource={datasource}
         existing={existing}

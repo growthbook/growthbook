@@ -47,6 +47,7 @@ export default function EnvironmentModal({
           env.toggleOnList = value.toggleOnList;
           env.defaultState = value.defaultState;
         } else {
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           if (!value.id.match(/^[A-Za-z][A-Za-z0-9_-]*$/)) {
             throw new Error(
               "Environment id is invalid. Must start with a letter and can only contain letters, numbers, hyphens, and underscores."
@@ -56,6 +57,7 @@ export default function EnvironmentModal({
             throw new Error("Environment id is already in use");
           }
           newEnvs.push({
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             id: value.id.toLowerCase(),
             description: value.description,
             toggleOnList: value.toggleOnList,
@@ -90,6 +92,7 @@ export default function EnvironmentModal({
     >
       {!existing.id && (
         <Field
+          // @ts-expect-error TS(2783) If you come across this, please fix it!: 'name' is specified more than once, so this usage ... Remove this comment to see the full error message
           name="Environment"
           maxLength={30}
           required

@@ -77,6 +77,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
   const licensePlanText =
     (accountPlan === "enterprise"
@@ -108,7 +109,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       },
       metricDefaults: {
         minimumSampleSize: metricDefaults.minimumSampleSize,
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         maxPercentageChange: metricDefaults.maxPercentageChange * 100,
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         minPercentageChange: metricDefaults.minPercentageChange * 100,
       },
       updateSchedule: {
@@ -189,12 +192,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
           newVal.metricDefaults = {
             ...newVal.metricDefaults,
             maxPercentageChange:
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               newVal.metricDefaults.maxPercentageChange * 100,
             minPercentageChange:
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               newVal.metricDefaults.minPercentageChange * 100,
           };
         }
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         if (k === "confidenceLevel" && newVal?.confidenceLevel <= 1) {
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           newVal.confidenceLevel = newVal.confidenceLevel * 100;
         }
       });
@@ -211,9 +218,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ...value,
       metricDefaults: {
         ...value.metricDefaults,
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         minPercentageChange: value.metricDefaults.minPercentageChange / 100,
       },
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       confidenceLevel: value.confidenceLevel / 100,
     };
 
@@ -230,24 +240,31 @@ const GeneralSettingsPage = (): React.ReactElement => {
   });
 
   const highlightColor =
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     value.confidenceLevel < 70
       ? "#c73333"
-      : value.confidenceLevel < 80
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.confidenceLevel < 80
       ? "#e27202"
-      : value.confidenceLevel < 90
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.confidenceLevel < 90
       ? "#B39F01"
       : "";
 
   const pHighlightColor =
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     value.pValueThreshold > 0.3
       ? "#c73333"
-      : value.pValueThreshold > 0.2
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.pValueThreshold > 0.2
       ? "#e27202"
-      : value.pValueThreshold > 0.1
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.pValueThreshold > 0.1
       ? "#B39F01"
       : "";
 
   const regressionAdjustmentDaysHighlightColor =
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     value.regressionAdjustmentDays > 28 || value.regressionAdjustmentDays < 7
       ? "#e27202"
       : "";
@@ -255,33 +272,43 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const warningMsg =
     value.confidenceLevel === 70
       ? "This is as low as it goes"
-      : value.confidenceLevel < 75
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.confidenceLevel < 75
       ? "Confidence thresholds this low are not recommended"
-      : value.confidenceLevel < 80
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.confidenceLevel < 80
       ? "Confidence thresholds this low are not recommended"
-      : value.confidenceLevel < 90
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.confidenceLevel < 90
       ? "Use caution with values below 90%"
-      : value.confidenceLevel >= 99
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.confidenceLevel >= 99
       ? "Confidence levels 99% and higher can take lots of data to achieve"
       : "";
 
   const pWarningMsg =
     value.pValueThreshold === 0.5
       ? "This is as high as it goes"
-      : value.pValueThreshold > 0.25
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.pValueThreshold > 0.25
       ? "P-value thresholds this high are not recommended"
-      : value.pValueThreshold > 0.2
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.pValueThreshold > 0.2
       ? "P-value thresholds this high are not recommended"
-      : value.pValueThreshold > 0.1
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.pValueThreshold > 0.1
       ? "Use caution with values above 0.1"
-      : value.pValueThreshold <= 0.01
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.pValueThreshold <= 0.01
       ? "Threshold values of 0.01 and lower can take lots of data to achieve"
       : "";
 
   const regressionAdjustmentDaysWarningMsg =
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     value.regressionAdjustmentDays > 28
       ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
-      : value.regressionAdjustmentDays < 7
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.regressionAdjustmentDays < 7
       ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
       : "";
 
@@ -308,6 +335,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       <div className="container-fluid pagecontents">
         {editOpen && (
           <EditOrganizationModal
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
             name={organization.name}
             close={() => setEditOpen(false)}
             mutate={refreshOrganization}
@@ -566,6 +594,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         </AttributionModelTooltip>
                       }
                       className="ml-2"
+                      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
                       value={form.watch("attributionModel")}
                       onChange={(value) => {
                         form.setValue(
@@ -661,6 +690,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   className="mt-3"
                   buttonsClassName="px-5"
                   tabContentsClassName="border"
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<string>>' is not ass... Remove this comment to see the full error message
                   setActive={setStatsEngineTab}
                   active={statsEngineTab}
                 >
@@ -749,6 +779,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       <SelectField
                         label={"Multiple comparisons correction to use: "}
                         className="ml-2"
+                        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null' is not assignable to type 'st... Remove this comment to see the full error message
                         value={form.watch("pValueCorrection") ?? null}
                         onChange={(value) =>
                           form.setValue(
@@ -760,6 +791,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         options={[
                           {
                             label: "None",
+                            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string'.
                             value: null,
                           },
                           {
@@ -849,6 +881,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           {...form.register("regressionAdjustmentDays", {
                             valueAsNumber: true,
                             validate: (v) => {
+                              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                               return !(v <= 0 || v > 100);
                             },
                           })}
@@ -932,6 +965,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                             {
                               valueAsNumber: true,
                               validate: (v) => {
+                                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                                 return !(v <= 0);
                               },
                             }

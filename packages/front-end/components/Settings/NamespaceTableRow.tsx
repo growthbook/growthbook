@@ -124,6 +124,7 @@ export default function NamespaceTableRow({
             namespace={namespace.name}
             usage={usage}
             title={"Namespace Usage"}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '[number, number] | null' is not assignable t... Remove this comment to see the full error message
             range={range}
           />
           {experiments.length > 0 ? (

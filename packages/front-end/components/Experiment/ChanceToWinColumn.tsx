@@ -102,6 +102,7 @@ export default function ChanceToWinColumn({
           <div className="mb-1 d-flex flex-row">
             <Tooltip
               body={`A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
+                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                 metric.maxPercentChange * 100
               }%).`}
             >
