@@ -51,8 +51,7 @@ const eventWebHookNoState: EventWebHookInterface = {
   enabled: false,
   url: "http://192.168.0.15:1115/events/webhooks?v=4",
   signingKey: "ewhk_6220c5592f03244c43a929850816d644",
-  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'Date'.
-  lastRunAt: null,
+  lastRunAt: getValidDate(new Date().toString()),
   lastState: "none",
   lastResponseBody: null,
 };
@@ -120,12 +119,6 @@ export const LotsOfEvents = () => {
     "experiment.created",
     "experiment.updated",
     "experiment.deleted",
-    // @ts-expect-error
-    "another_resource.created",
-    // @ts-expect-error
-    "another_resource.updated",
-    // @ts-expect-error
-    "another_resource.deleted",
   ];
 
   return (

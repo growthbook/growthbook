@@ -52,8 +52,7 @@ const AnalysisForm: FC<{
   const orgSettings = useOrgSettings();
 
   const pid = experiment?.project;
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const project = getProjectById(pid);
+  const project = pid ? getProjectById(pid) : null;
 
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -90,12 +89,12 @@ const AnalysisForm: FC<{
         experiment.attributionModel ||
         orgSettings.attributionModel ||
         "firstExposure",
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-      dateStarted: getValidDate(phaseObj?.dateStarted)
+      dateStarted: getValidDate(phaseObj?.dateStarted ?? "")
         .toISOString()
         .substr(0, 16),
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-      dateEnded: getValidDate(phaseObj?.dateEnded).toISOString().substr(0, 16),
+      dateEnded: getValidDate(phaseObj?.dateEnded ?? "")
+        .toISOString()
+        .substr(0, 16),
       variations: experiment.variations || [],
       sequentialTestingEnabled:
         hasSequentialTestingFeature &&
@@ -453,8 +452,7 @@ const AnalysisForm: FC<{
               {...form.register("sequentialTestingTuningParameter", {
                 valueAsNumber: true,
                 validate: (v) => {
-                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  return !(v <= 0);
+                  return !((v ?? 0) <= 0);
                 },
               })}
             />

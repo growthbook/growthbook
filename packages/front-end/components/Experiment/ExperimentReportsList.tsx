@@ -17,7 +17,7 @@ export default function ExperimentReportsList({
   experiment,
 }: {
   experiment: ExperimentInterfaceStringDates;
-}): React.ReactElement {
+}): React.ReactElement | null {
   const router = useRouter();
   const { apiCall } = useAuth();
   const permissions = usePermissions();
@@ -28,27 +28,22 @@ export default function ExperimentReportsList({
     reports: ReportInterface[];
   }>(`/experiment/${experiment.id}/reports`);
 
-  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'ReactElemen... Remove this comment to see the full error message
   if (!experiment.datasource) return null;
 
   if (error) {
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'ReactElemen... Remove this comment to see the full error message
     return null;
   }
   if (!data) {
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'ReactElemen... Remove this comment to see the full error message
     return null;
   }
 
   const { reports } = data;
 
   if (!reports.length) {
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'ReactElemen... Remove this comment to see the full error message
     return null;
   }
 
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
+  const hasData = (snapshot?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
   const canCreateReports =
     hasData &&
@@ -102,8 +97,7 @@ export default function ExperimentReportsList({
         </thead>
         <tbody>
           {reports.map((report) => {
-            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-            const user = users.get(report.userId);
+            const user = report.userId ? users.get(report.userId) : null;
             const name = user ? user.name : "";
             return (
               <tr key={report.id} className="">

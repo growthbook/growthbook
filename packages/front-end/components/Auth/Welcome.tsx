@@ -126,14 +126,8 @@ export default function Welcome({
             if (loading) return;
             setError(null);
             setLoading(true);
-            try {
-              // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
-              await submit();
-              setLoading(false);
-            } catch (e) {
-              setError(e.message);
-              setLoading(false);
-            }
+            await submit?.();
+            setLoading(false);
           }}
         >
           {state === "register" && (
