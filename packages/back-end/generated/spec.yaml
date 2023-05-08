@@ -13,7 +13,11 @@ info:
 
     We support both the HTTP Basic and Bearer authentication schemes for convenience.
 
-    You first need to generate a new Secret Key in GrowthBook by going to `Settings -> API Keys`.
+    You first need to generate a new API Key in GrowthBook by going to `Settings -> API Keys`. Different keys have different permissions:
+
+    - **Secret keys**: These are sensitive and provide full access to the organization
+    - **User API keys**: These are sensitive and provide the same level of access as the user has to an organization
+    - **Read-only keys**: These are sensitive and provide read access to resources under an organization
 
     If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank:
 
