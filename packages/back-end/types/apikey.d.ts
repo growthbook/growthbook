@@ -9,7 +9,7 @@ export interface ApiKeyInterface {
   type?: string;
   userId?: string;
   encryptSDK?: boolean;
-  encryptionKey: string;
+  encryptionKey?: string;
   secret?: boolean;
 }
 
