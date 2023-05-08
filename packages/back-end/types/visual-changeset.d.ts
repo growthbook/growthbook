@@ -11,6 +11,7 @@ interface VisualChange {
   id: string;
   description: string;
   css: string;
+  js?: string;
   variation: string;
   domMutations: DOMMutation[];
 }
