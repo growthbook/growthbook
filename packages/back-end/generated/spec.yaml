@@ -1465,6 +1465,13 @@ components:
         dateUpdated:
           type: string
           format: date-time
+        description:
+          type: string
+        settings:
+          type: object
+          properties:
+            statsEngine:
+              type: string
     Segment:
       type: object
       required:
@@ -1812,6 +1819,8 @@ components:
           type: string
         proxySigningKey:
           type: string
+        sseEnabled:
+          type: boolean;
     Experiment:
       type: object
       required:
@@ -2288,6 +2297,8 @@ components:
                 type: string
               css:
                 type: string
+              js:
+                type: string
               variation:
                 type: string
               domMutations:
@@ -2323,6 +2334,8 @@ components:
         description:
           type: string
         css:
+          type: string
+        js:
           type: string
         variation:
           type: string

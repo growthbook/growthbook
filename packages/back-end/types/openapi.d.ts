@@ -268,15 +268,14 @@ export interface components {
     Project: {
       id: string;
       name: string;
-      description: string;
       /** Format: date-time */
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
-      settings: {
-        /** @enum {unknown} */
-        statsEngine: "bayesian" | "frequentist";
-      }
+      description?: string;
+      settings?: {
+        statsEngine?: string;
+      };
     };
     Segment: {
       id: string;
@@ -588,7 +587,7 @@ export interface components {
       proxyEnabled: boolean;
       proxyHost: string;
       proxySigningKey: string;
-      sseEnabled?: boolean;
+      sseEnabled?: any;
     };
     Experiment: {
       id: string;
@@ -854,6 +853,7 @@ export interface components {
       visualChanges: ({
           description?: string;
           css?: string;
+          js?: string;
           variation: string;
           domMutations: ({
               selector: string;
@@ -869,6 +869,7 @@ export interface components {
     VisualChange: {
       description?: string;
       css?: string;
+      js?: string;
       variation: string;
       domMutations?: ({
           selector: string;
@@ -1323,6 +1324,10 @@ export interface operations {
                 dateCreated: string;
                 /** Format: date-time */
                 dateUpdated: string;
+                description?: string;
+                settings?: {
+                  statsEngine?: string;
+                };
               })[];
           } & {
             limit: number;
@@ -1349,6 +1354,10 @@ export interface operations {
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
+              description?: string;
+              settings?: {
+                statsEngine?: string;
+              };
             };
           };
         };
@@ -1509,6 +1518,7 @@ export interface operations {
                 proxyEnabled: boolean;
                 proxyHost: string;
                 proxySigningKey: string;
+                sseEnabled?: any;
               })[];
           } & {
             limit: number;
@@ -1547,6 +1557,7 @@ export interface operations {
               proxyEnabled: boolean;
               proxyHost: string;
               proxySigningKey: string;
+              sseEnabled?: any;
             };
           };
         };
@@ -2305,6 +2316,7 @@ export interface operations {
                 visualChanges: ({
                     description?: string;
                     css?: string;
+                    js?: string;
                     variation: string;
                     domMutations: ({
                         selector: string;
@@ -2351,6 +2363,7 @@ export interface operations {
               visualChanges: ({
                   description?: string;
                   css?: string;
+                  js?: string;
                   variation: string;
                   domMutations: ({
                       selector: string;
