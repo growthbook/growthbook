@@ -29,7 +29,9 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
   const readOnlyKeys = groupedKeys.readonly;
 
   const onReveal = useCallback(
-    (keyId: string) => async () => {
+    (keyId: string | undefined) => async (): Promise<string> => {
+      if (!keyId) return "";
+
       const res = await apiCall<{ key: SecretApiKey }>(`/keys/reveal`, {
         method: "POST",
         body: JSON.stringify({
@@ -46,6 +48,8 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
 
   const onDelete = useCallback(
     (keyId: string) => async () => {
+      if (!keyId) return;
+
       await apiCall(`/keys`, {
         method: "DELETE",
         body: JSON.stringify({
