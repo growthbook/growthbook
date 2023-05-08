@@ -140,8 +140,8 @@ export function validateJSONFeatureValue(value, feature) {
   try {
     const ajv = new Ajv();
     const validate = ajv.compile(jsonSchema);
+    let parsedValue;
     if (typeof value === "string") {
-      let parsedValue;
       try {
         parsedValue = JSON.parse(value);
       } catch (e) {
@@ -156,28 +156,20 @@ export function validateJSONFeatureValue(value, feature) {
           };
         }
       }
-      return {
-        valid: validate(parsedValue),
-        enabled: validationEnabled,
-        errors:
-          validate?.errors?.map(
-            (v) =>
-              (v.instancePath ? v.instancePath.substring(1) + ": " : "") +
-              v.message
-          ) ?? [],
-      };
     } else {
-      return {
-        valid: validate(value),
-        enabled: validationEnabled,
-        errors:
-          validate?.errors?.map(
-            (v) =>
-              (v.instancePath ? v.instancePath.substring(1) + ": " : "") +
-              v.message
-          ) ?? [],
-      };
+      parsedValue = value;
     }
+
+    return {
+      valid: validate(parsedValue),
+      enabled: validationEnabled,
+      errors:
+        validate?.errors?.map(
+          (v) =>
+            (v.instancePath ? v.instancePath.substring(1) + ": " : "") +
+            v.message
+        ) ?? [],
+    };
   } catch (e) {
     return { valid: false, enabled: validationEnabled, errors: [e.message] };
   }
