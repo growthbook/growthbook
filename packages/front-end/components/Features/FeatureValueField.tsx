@@ -60,6 +60,8 @@ export default function FeatureValueField({
             min: "any",
             max: "any",
           }
+        : valueType === "json"
+        ? { minRows: 20, textarea: true }
         : {
             textarea: true,
             minRows: 1,

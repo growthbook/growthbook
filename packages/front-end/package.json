@@ -32,6 +32,7 @@
     "@visx/tooltip": "^2.1.0",
     "@webscopeio/react-textarea-autocomplete": "^4.7.3",
     "ace-builds": "^1.8.1",
+    "ajv": "^8.12.0",
     "back-end": "0.0.1",
     "bootstrap": "^4.5.0",
     "clsx": "^1.1.1",

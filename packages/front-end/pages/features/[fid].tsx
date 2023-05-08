@@ -4,8 +4,13 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useState } from "react";
-import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
+import {
+  FaCheckCircle,
+  FaChevronRight,
+  FaExclamationTriangle,
+} from "react-icons/fa";
 import { BsLightningFill } from "react-icons/bs";
+import { datetime } from "shared";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -48,12 +53,16 @@ import { isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import EditSchemaModal from "@/components/Features/EditSchemaModal";
+import Code from "@/components/SyntaxHighlighting/Code";
 
 export default function FeaturePage() {
   const router = useRouter();
   const { fid } = router.query;
 
   const [edit, setEdit] = useState(false);
+  const [editValidator, setEditValidator] = useState(false);
+  const [showSchema, setShowSchema] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
@@ -107,7 +116,9 @@ export default function FeaturePage() {
     return <LoadingOverlay />;
   }
 
-  const type = data.feature.valueType;
+  const jsonSchema = data.feature?.schema?.schema
+    ? JSON.parse(data.feature?.schema?.schema)
+    : null;
 
   const isDraft = !!data.feature.draft?.active;
   const isArchived = data.feature.archived;
@@ -218,6 +229,13 @@ export default function FeaturePage() {
             });
             mutate();
           }}
+        />
+      )}
+      {editValidator && (
+        <EditSchemaModal
+          close={() => setEditValidator(false)}
+          feature={data.feature}
+          mutate={mutate}
         />
       )}
       {ruleModal !== null && (
@@ -575,11 +593,93 @@ export default function FeaturePage() {
       </h3>
       <div className="appbox mb-4 p-3">
         <ForceSummary
-          type={type}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           value={getFeatureDefaultValue(data.feature)}
+          feature={data.feature}
         />
       </div>
+
+      {data.feature.valueType === "json" && (
+        <div>
+          <h3>
+            Json Schema{" "}
+            <Tooltip
+              body={
+                "Adding a json schema will allow you to validate json objects inputted here."
+              }
+            />
+            {permissions.check("createFeatureDrafts", projectId) && (
+              <>
+                <a
+                  className="ml-2 cursor-pointer"
+                  onClick={() => setEditValidator(true)}
+                >
+                  <GBEdit />
+                </a>
+              </>
+            )}
+          </h3>
+          <div className="appbox mb-4 p-3 card">
+            {data.feature?.schema ? (
+              <>
+                <div className="d-flex justify-content-between">
+                  {/* region Title Bar */}
+
+                  <div className="d-flex align-items-center">
+                    {data.feature?.schema?.enabled ? (
+                      <strong className="text-success">Enabled</strong>
+                    ) : (
+                      <>
+                        <strong className="text-warning">Disabled</strong>
+                      </>
+                    )}
+                    {jsonSchema && "properties" in jsonSchema && (
+                      <>
+                        , Describes:
+                        <strong className="ml-1">
+                          {Object.keys(jsonSchema.properties).join(", ")}
+                        </strong>
+                      </>
+                    )}
+                    {jsonSchema && "required" in jsonSchema && (
+                      <>
+                        , Requires:{" "}
+                        <strong className="ml-1">
+                          {jsonSchema.required.join(", ")}
+                        </strong>
+                      </>
+                    )}
+                    , Date updated: {datetime(data.feature?.schema?.date)}
+                  </div>
+
+                  <div className="d-flex align-items-center">
+                    <button
+                      className="btn ml-3 text-dark"
+                      onClick={() => setShowSchema(!showSchema)}
+                    >
+                      <FaChevronRight
+                        style={{
+                          transform: `rotate(${showSchema ? "90deg" : "0deg"})`,
+                        }}
+                      />
+                    </button>
+                  </div>
+                </div>
+                {showSchema && (
+                  <>
+                    <Code
+                      language="json"
+                      code={data.feature.schema.schema}
+                      className="disabled"
+                    />
+                  </>
+                )}
+              </>
+            ) : (
+              "No schemas defined"
+            )}
+          </div>
+        </div>
+      )}
 
       <h3>Override Rules</h3>
       <p>

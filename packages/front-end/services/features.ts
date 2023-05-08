@@ -19,6 +19,7 @@ import { FeatureUsageRecords } from "back-end/types/realtime";
 import dJSON from "dirty-json";
 import cloneDeep from "lodash/cloneDeep";
 import uniqid from "uniqid";
+import Ajv from "ajv";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import useOrgSettings from "../hooks/useOrgSettings";
@@ -41,10 +42,11 @@ export interface AttributeData {
 }
 
 export function validateFeatureValue(
-  type: FeatureValueType,
+  feature: FeatureInterface,
   value: string,
   label: string
 ): string {
+  const type = feature.valueType;
   const prefix = label ? label + ": " : "";
   if (type === "boolean") {
     if (!["true", "false"].includes(value)) {
@@ -55,16 +57,23 @@ export function validateFeatureValue(
       throw new Error(prefix + "Must be a valid number");
     }
   } else if (type === "json") {
+    let parsedValue;
     try {
-      JSON.parse(value);
+      parsedValue = JSON.parse(value);
     } catch (e) {
       // If the JSON is invalid, try to parse it with 'dirty-json' instead
       try {
-        return stringify(dJSON.parse(value));
+        parsedValue = dJSON.parse(value);
       } catch (e) {
         throw new Error(prefix + e.message);
       }
     }
+    // validate with JSON schema if set and enabled
+    const { valid, errors } = validateJSONFeatureValue(parsedValue, feature);
+    if (!valid) {
+      throw new Error(prefix + errors.join(", "));
+    }
+    return stringify(parsedValue);
   }
 
   return value;
@@ -110,10 +119,70 @@ export function getRules(feature: FeatureInterface, environment: string) {
 }
 export function getFeatureDefaultValue(feature: FeatureInterface) {
   if (feature.draft?.active && "defaultValue" in feature.draft) {
-    return feature.draft.defaultValue;
+    return feature.draft.defaultValue ?? "";
   }
-  return feature.defaultValue;
+  return feature.defaultValue ?? "";
 }
+
+export function getValidation(feature: FeatureInterface) {
+  const jsonSchema = feature?.schema?.schema
+    ? JSON.parse(feature?.schema?.schema)
+    : null;
+  const validationEnabled = feature?.schema?.enabled;
+  return { jsonSchema, validationEnabled };
+}
+
+export function validateJSONFeatureValue(value, feature) {
+  const { jsonSchema, validationEnabled } = getValidation(feature);
+  if (!validationEnabled) {
+    return { valid: true, enabled: validationEnabled, errors: [] };
+  }
+  try {
+    const ajv = new Ajv();
+    const validate = ajv.compile(jsonSchema);
+    if (typeof value === "string") {
+      let parsedValue;
+      try {
+        parsedValue = JSON.parse(value);
+      } catch (e) {
+        // If the JSON is invalid, try to parse it with 'dirty-json' instead
+        try {
+          parsedValue = dJSON.parse(value);
+        } catch (e) {
+          return {
+            valid: false,
+            enabled: validationEnabled,
+            errors: [e.message],
+          };
+        }
+      }
+      return {
+        valid: validate(parsedValue),
+        enabled: validationEnabled,
+        errors:
+          validate?.errors?.map(
+            (v) =>
+              (v.instancePath ? v.instancePath.substring(1) + ": " : "") +
+              v.message
+          ) ?? [],
+      };
+    } else {
+      return {
+        valid: validate(value),
+        enabled: validationEnabled,
+        errors:
+          validate?.errors?.map(
+            (v) =>
+              (v.instancePath ? v.instancePath.substring(1) + ": " : "") +
+              v.message
+          ) ?? [],
+      };
+    }
+  } catch (e) {
+    return { valid: false, enabled: validationEnabled, errors: [e.message] };
+  }
+}
+
 export function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
 }
@@ -223,7 +292,7 @@ export function useAttributeSchema(showArchived = false) {
 
 export function validateFeatureRule(
   rule: FeatureRule,
-  valueType: FeatureValueType
+  feature: FeatureInterface
 ): null | FeatureRule {
   let hasChanges = false;
   const ruleCopy = cloneDeep(rule);
@@ -239,7 +308,7 @@ export function validateFeatureRule(
   }
   if (rule.type === "force") {
     const newValue = validateFeatureValue(
-      valueType,
+      feature,
       rule.value,
       "Value to Force"
     );
@@ -258,7 +327,7 @@ export function validateFeatureRule(
         throw new Error("Variation weights cannot be negative");
       totalWeight += val.weight;
       const newValue = validateFeatureValue(
-        valueType,
+        feature,
         val.value,
         "Variation #" + i
       );
@@ -277,7 +346,7 @@ export function validateFeatureRule(
     }
   } else {
     const newValue = validateFeatureValue(
-      valueType,
+      feature,
       rule.value,
       "Value to Rollout"
     );
