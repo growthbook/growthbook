@@ -104,6 +104,7 @@ const SnowplowSchema: SchemaInterface = {
     "os",
   ],
   getExperimentSQL: (tablePrefix, userId, options) => {
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     const actionName = options.actionName || "Experiment Viewed";
     const userCol = userId === "user_id" ? "user_id" : "domain_userid";
 
@@ -182,6 +183,7 @@ const AmplitudeSchema: SchemaInterface = {
   experimentDimensions: ["country", "device", "os", "paying"],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const userCol = userId === "user_id" ? "user_id" : "$amplitude_id";
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     const eventType = options.eventType || "Experiment Viewed";
 
     return `SELECT

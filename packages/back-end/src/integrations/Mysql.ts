@@ -7,7 +7,7 @@ import SqlIntegration from "./SqlIntegration";
 
 export default class Mysql extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   params: MysqlConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<MysqlConnectionParams>(

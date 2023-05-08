@@ -113,6 +113,7 @@ export default function SchemaBrowser({
       <SchemaBrowserWrapper
         datasourceName={datasource.name}
         datasourceId={datasource.id}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'InformationSchemaInterface | undefined' is n... Remove this comment to see the full error message
         informationSchema={informationSchema}
         setFetching={setFetching}
         fetching={fetching}

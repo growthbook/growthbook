@@ -7,7 +7,7 @@ import SqlIntegration from "./SqlIntegration";
 
 export default class Mssql extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   params: MssqlConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<MssqlConnectionParams>(

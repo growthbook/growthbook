@@ -106,6 +106,7 @@ const DimensionForm: FC<{
             required
             value={userIdType}
             onChange={(v) => form.setValue("userIdType", v)}
+            // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
             options={(dsObj.settings.userIdTypes || []).map((t) => {
               return {
                 label: t.userIdType,

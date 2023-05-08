@@ -335,15 +335,6 @@ gb = Growthbook::Context.new(
   if (language === "php") {
     return (
       <>
-        Get features from the GrowthBook API
-        <Code
-          language="php"
-          code={`
-const FEATURES_ENDPOINT = '${featuresEndpoint}';
-$apiResponse = json_decode(file_get_contents(FEATURES_ENDPOINT), true);
-$features = $apiResponse["features"];
-            `.trim()}
-        />
         Create a GrowthBook instance
         <Code
           language="php"
@@ -351,7 +342,6 @@ $features = $apiResponse["features"];
 use Growthbook\\Growthbook;
 
 $growthbook = Growthbook::create()
-  ->withFeatures($features)
   ->withTrackingCallback(function ($experiment, $result) {
     // ${trackingComment}
     print_r([
@@ -364,23 +354,32 @@ $growthbook = Growthbook::create()
   });
             `.trim()}
         />
+        Load features from the GrowthBook API
+        <Code
+          language="php"
+          code={`
+// Cache features across requests (any psr-16 library will work)
+$cache = new \\Cache\\Adapter\\Apcu\\ApcuCachePool();
+$growthbook->withCache($cache);
+
+$growthbook->loadFeatures(
+  "${apiKey || "MY_SDK_KEY"}", // Client Key
+  "${apiHost}"${
+            encryptionKey
+              ? `, // API Host
+  "${encryptionKey}" // Decryption Key`
+              : " // API Host"
+          }
+);
+            `.trim()}
+        />
       </>
     );
   }
   if (language === "python") {
     return (
       <>
-        Get features from the GrowthBook API
-        <Code
-          language="python"
-          code={`
-import requests
-
-apiResp = requests.get("${featuresEndpoint}")
-features = apiResp.json()["features"]
-            `.trim()}
-        />
-        Callback when a user is put into an experiment
+        Callback function when a user is put into an experiment
         <Code
           language="python"
           code={`
@@ -388,19 +387,27 @@ def on_experiment_viewed(experiment, result):
   # ${trackingComment}
   print("Viewed Experiment")
   print("Experiment Id: " + experiment.key)
-  print("Variation Id: " + result.variationId)
+  print("Variation Id: " + result.key)
             `.trim()}
         />
-        Create a GrowthBook instance
+        Create a GrowthBook instance and load features
         <Code
           language="python"
           code={`
 from growthbook import GrowthBook
 
 gb = GrowthBook(
-  features = features,
-  trackingCallback = on_experiment_viewed
+  api_host = "${apiHost}",
+  client_key = "${apiKey || "MY_SDK_KEY"}",${
+            encryptionKey
+              ? `
+  decryption_key = "${encryptionKey}",`
+              : ""
+          }
+  on_experiment_viewed = on_experiment_viewed
 )
+
+gb.load_features()
             `.trim()}
         />
       </>

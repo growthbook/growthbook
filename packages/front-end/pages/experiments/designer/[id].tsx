@@ -56,6 +56,7 @@ const EditorPage: FC = () => {
     experiment: ExperimentInterfaceStringDates;
   }>(`/experiment/${id}`);
 
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   useSwitchOrg(data?.experiment?.organization);
 
   const [variation, setVariation] = useState(1);
@@ -115,6 +116,7 @@ const EditorPage: FC = () => {
     displaySurface: "browser" | "monitor" | "window" | "application";
     width: number;
     height: number;
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
   }>(null);
 
   const varData = variationData.variations[variation];
@@ -142,6 +144,7 @@ const EditorPage: FC = () => {
   useEffect(() => {
     if (mode !== "screenshot" && stream) {
       stream.stream.getTracks().forEach((track) => track.stop());
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
       setStream(null);
     }
   }, [mode]);
@@ -160,6 +163,7 @@ const EditorPage: FC = () => {
     if (!loaded || !iframe.current) return;
     if (!iframeReady && command.command !== "isReady") return;
     try {
+      // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
       iframe.current.contentWindow.postMessage(command, "*");
     } catch (e) {
       console.error(e);
@@ -437,8 +441,11 @@ const EditorPage: FC = () => {
               e.preventDefault();
               setStream({
                 ...stream,
+                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string'.
                 screenshot: null,
+                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type '[number, nu... Remove this comment to see the full error message
                 point1: null,
+                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type '[number, nu... Remove this comment to see the full error message
                 point2: null,
               });
             }}
@@ -486,7 +493,9 @@ const EditorPage: FC = () => {
               if (w < 20 || h < 20) {
                 setStream({
                   ...stream,
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'undefined' is not assignable to type '[numbe... Remove this comment to see the full error message
                   point1: undefined,
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'undefined' is not assignable to type '[numbe... Remove this comment to see the full error message
                   point2: undefined,
                 });
               } else {
@@ -508,6 +517,7 @@ const EditorPage: FC = () => {
                   canvas.width = adjustedW;
                   canvas.height = adjustedH;
                   const ctx = canvas.getContext("2d");
+                  // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
                   ctx.drawImage(
                     video,
                     adjustedX,
@@ -552,12 +562,14 @@ const EditorPage: FC = () => {
               : "What URL do you want to load in the editor?"
           }
           open={true}
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
           close={url ? () => setUrlModalOpen(false) : null}
           submit={async () => {
             if (variationData.url === url) {
               setIframeReady(false);
               setIframeLoaded(false);
               setIframeError(false);
+              // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
               iframe.current.src = iframe.current.src + "";
             } else {
               setDirty(true);
@@ -641,6 +653,7 @@ const EditorPage: FC = () => {
                         setIframeReady(false);
                         setIframeLoaded(false);
                         setIframeError(false);
+                        // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
                         iframe.current.src = iframe.current.src + "";
                       }}
                     />
@@ -1241,6 +1254,7 @@ const EditorPage: FC = () => {
                       className="btn btn-primary mt-1"
                       onClick={(e) => {
                         e.preventDefault();
+                        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                         if (!currentEl.classes.includes(value.value)) {
                           addDomMod({
                             selector: currentEl.selector,
@@ -1250,6 +1264,7 @@ const EditorPage: FC = () => {
                           });
                           setCurrentEl({
                             ...currentEl,
+                            // @ts-expect-error TS(2488) If you come across this, please fix it!: Type 'string[] | undefined' must have a '[Symbol.i... Remove this comment to see the full error message
                             classes: [...currentEl.classes, value.value],
                           });
                         }
@@ -1270,8 +1285,10 @@ const EditorPage: FC = () => {
                   </div>
                 )}
                 {(!value.editing || value.field !== "class") &&
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                   (currentEl.classes.length > 0 ? (
                     <ul className="list-group mt-1">
+                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                       {currentEl.classes.map((c, j) => (
                         <li
                           className="list-group-item py-1 text-dark bg-light d-flex justify-content-between align-items-center"
@@ -1357,6 +1374,7 @@ const EditorPage: FC = () => {
                         setCurrentEl({
                           ...currentEl,
                           attributes: [
+                            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                             ...currentEl.attributes.filter(
                               (attr) => attr.name !== value.name
                             ),
@@ -1383,8 +1401,10 @@ const EditorPage: FC = () => {
                   </div>
                 )}
                 {(!value.editing || value.field !== "attribute") &&
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                   (currentEl.attributes.length > 0 ? (
                     <ul className="list-group mt-1">
+                      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                       {currentEl.attributes.map((attr, j) => (
                         <li
                           className="list-group-item py-1 text-dark bg-light d-flex justify-content-between align-items-center"
@@ -1418,6 +1438,7 @@ const EditorPage: FC = () => {
                                   attribute: value.name,
                                   value: "",
                                 });
+                                // @ts-expect-error TS(2488) If you come across this, please fix it!: Type 'ElementAttribute[] | undefined' must have a ... Remove this comment to see the full error message
                                 const clone = [...currentEl.attributes];
                                 clone.splice(j, 1);
                                 setCurrentEl({

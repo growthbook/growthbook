@@ -34,6 +34,7 @@ export default function NamespaceModal({
       header={existing ? "Edit Namespace" : "Create Namespace"}
       submit={form.handleSubmit(async (value) => {
         if (existing) {
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           await apiCall(`/organization/namespaces/${existingNamespace.name}`, {
             method: "PUT",
             body: JSON.stringify(value),
@@ -48,6 +49,7 @@ export default function NamespaceModal({
       })}
     >
       <Field
+        // @ts-expect-error TS(2783) If you come across this, please fix it!: 'name' is specified more than once, so this usage ... Remove this comment to see the full error message
         name="Name"
         label="Name"
         maxLength={60}
@@ -56,6 +58,7 @@ export default function NamespaceModal({
         {...form.register("name")}
       />
       <Field
+        // @ts-expect-error TS(2783) If you come across this, please fix it!: 'name' is specified more than once, so this usage ... Remove this comment to see the full error message
         name="Description"
         label="Description"
         textarea

@@ -44,6 +44,7 @@ const ExperimentsGetStarted = ({
       const initialExperiment: Partial<ExperimentInterfaceStringDates> = JSON.parse(
         router?.query?.featureExperiment as string
       );
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
       window.history.replaceState(null, null, window.location.pathname);
       return initialExperiment;
     } catch (e) {
@@ -100,6 +101,7 @@ const ExperimentsGetStarted = ({
               await mutateDefinitions();
               setDataSourceOpen(false);
             }}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean' is not assignable to type '(source:... Remove this comment to see the full error message
             importSampleData={
               !hasDataSource &&
               allowImport &&

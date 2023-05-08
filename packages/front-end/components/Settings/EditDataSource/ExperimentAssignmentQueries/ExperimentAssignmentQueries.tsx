@@ -63,7 +63,9 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   }, [onCancel]);
 
   const experimentExposureQueries = useMemo(
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     () => dataSource.settings?.queries.exposure || [],
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     [dataSource.settings?.queries.exposure]
   );
 
@@ -84,6 +86,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     (idx: number) => async () => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
 
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       copy.settings.queries.exposure.splice(idx, 1);
 
       await onSave(copy);
@@ -94,6 +97,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   const handleSave = useCallback(
     (idx: number) => async (exposureQuery: ExposureQuery) => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       copy.settings.queries.exposure[idx] = exposureQuery;
       await onSave(copy);
     },

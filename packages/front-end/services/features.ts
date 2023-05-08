@@ -346,6 +346,7 @@ export function getDefaultRuleValue({
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
 }): FeatureRule {
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   const hashAttributes = attributeSchema
     .filter((a) => a.hashAttribute)
     .map((a) => a.property);
@@ -724,7 +725,8 @@ export function useAttributeMap(): Map<string, AttributeData> {
         array: !!schema.datatype.match(/\[\]$/),
         enum:
           schema.datatype === "enum"
-            ? schema.enum.split(",").map((x) => x.trim())
+            ? // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+              schema.enum.split(",").map((x) => x.trim())
             : [],
         identifier: !!schema.hashAttribute,
         archived: !!schema.archived,
@@ -771,7 +773,9 @@ export function getExperimentDefinitionFromFeature(
         name: "Main",
         reason: "",
         dateStarted: new Date().toISOString(),
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
         condition: expRule.condition,
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'NamespaceValue | undefined' is not assignabl... Remove this comment to see the full error message
         namespace: expRule.namespace,
         seed: trackingKey,
       },
@@ -853,6 +857,7 @@ export function genDuplicatedKey({ id }: FeatureInterface) {
     // Store 'feature_a' from 'feature_a_4'
     const keyRoot = numSuffix ? id.substr(0, id.length - numSuffix.length) : id;
     // Parse the 4 (number) out of '_4' (string)
+    // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
     const num = (numSuffix ? parseInt(numSuffix.match(/[\d]+/)[0]) : 0) + 1;
 
     return `${keyRoot}_${num}`;
