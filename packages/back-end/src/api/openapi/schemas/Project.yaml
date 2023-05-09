@@ -15,3 +15,10 @@ properties:
   dateUpdated:
     type: string
     format: date-time
+  description:
+    type: string
+  settings:
+    type: object
+    properties:
+      statsEngine:
+        type: string
