@@ -91,6 +91,8 @@ function drawMetricRow(
     overrideFields.includes("conversionDelayHours") ||
     (!ignoreConversionEnd && overrideFields.includes("conversionWindowHours"));
 
+  const isArchived = metric.status === "archived";
+
   return (
     <div className="row align-items-top" key={m}>
       <div className="col-sm-5">
@@ -98,7 +100,12 @@ function drawMetricRow(
           <div className="col-auto pr-0">-</div>
           <div className="col">
             <Link href={`/metric/${m}`}>
-              <a className="font-weight-bold">{newMetric?.name}</a>
+              <a className="font-weight-bold">
+                {newMetric?.name}
+                {isArchived ? (
+                  <span className="text-muted small"> (archived)</span>
+                ) : null}
+              </a>
             </Link>
           </div>
         </div>

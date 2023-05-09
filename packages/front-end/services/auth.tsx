@@ -321,10 +321,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       }
 
       if (orgs.length > 0) {
-        setOrgId(orgs[0].id);
+        try {
+          const pickedOrg = localStorage.getItem("gb-last-picked-org");
+          if (pickedOrg && !router.query.org) {
+            try {
+              setOrgId(JSON.parse(pickedOrg));
+            } catch (e) {
+              setOrgId(orgs[0].id);
+            }
+          } else {
+            setOrgId(orgs[0].id);
+          }
+        } catch (e) {
+          setOrgId(orgs[0].id);
+        }
       }
     },
-    [initialOrgId, orgId, specialOrg]
+    [initialOrgId, orgId, router.query.org, specialOrg?.id]
   );
 
   if (initError) {
