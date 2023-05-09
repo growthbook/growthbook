@@ -6,6 +6,8 @@ properties:
     type: string
   css:
     type: string
+  js:
+    type: string
   variation:
     type: string
   domMutations:
