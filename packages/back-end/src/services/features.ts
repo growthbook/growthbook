@@ -1,7 +1,9 @@
 import { webcrypto as crypto } from "node:crypto";
+import { createHmac } from "crypto";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
+import cloneDeep from "lodash/cloneDeep";
 import { FeatureDefinition } from "../../types/api";
 import {
   FeatureDraftChanges,
@@ -16,7 +18,10 @@ import {
   replaceSavedGroupsInCondition,
 } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
-import { OrganizationInterface } from "../../types/organization";
+import {
+  OrganizationInterface,
+  SDKAttributeSchema,
+} from "../../types/organization";
 import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
@@ -31,21 +36,30 @@ import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
 
-function generatePayload(
-  features: FeatureInterface[],
-  environment: string,
-  groupMap: GroupMap
-): Record<string, FeatureDefinition> {
+function generatePayload({
+  features,
+  environment,
+  groupMap,
+  attributes = [],
+  hashedAttributeSalt = "",
+}: {
+  features: FeatureInterface[];
+  environment: string;
+  groupMap: GroupMap;
+  attributes?: SDKAttributeSchema;
+  hashedAttributeSalt?: string;
+}): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
   features.forEach((feature) => {
-    const def = getFeatureDefinition({
+    let def = getFeatureDefinition({
       feature,
       environment,
       groupMap,
     });
-    if (def) {
-      defs[feature.id] = def;
-    }
+    if (!def) return;
+
+    def = applyFeatureRuleHashing(def, attributes, hashedAttributeSalt);
+    defs[feature.id] = def;
   });
 
   return defs;
@@ -192,11 +206,16 @@ export async function refreshSDKPayloadCache(
 
     if (!projectFeatures.length && !projectExperiments.length) continue;
 
-    const featureDefinitions = generatePayload(
-      projectFeatures,
-      key.environment,
-      groupMap
-    );
+    const attributes = organization.settings?.attributeSchema;
+    const hashedAttributeSalt = organization.settings?.hashedAttributeSalt;
+
+    const featureDefinitions = generatePayload({
+      features: projectFeatures,
+      environment: key.environment,
+      groupMap,
+      attributes,
+      hashedAttributeSalt,
+    });
 
     const experimentsDefinitions = generateVisualExperimentsPayload(
       projectExperiments,
@@ -352,7 +371,16 @@ export async function getFeatureDefinitions({
   // Generate the feature definitions
   const features = await getAllFeatures(organization, project);
   const groupMap = await getSavedGroupMap(org);
-  const featureDefinitions = generatePayload(features, environment, groupMap);
+  const attributes = org.settings?.attributeSchema;
+  const hashedAttributeSalt = org.settings?.hashedAttributeSalt;
+
+  const featureDefinitions = generatePayload({
+    features,
+    environment,
+    groupMap,
+    attributes,
+    hashedAttributeSalt,
+  });
 
   const allVisualExperiments = await getAllVisualExperiments(
     organization,
@@ -589,4 +617,60 @@ export function getNextScheduledUpdate(
   }
 
   return new Date(sortedFutureDates[0]);
+}
+
+export function applyFeatureRuleHashing(
+  definition: FeatureDefinition,
+  attributes: SDKAttributeSchema,
+  salt: string
+): FeatureDefinition {
+  const def = cloneDeep(definition);
+  if (!def.rules) return def;
+
+  def.rules = def.rules.map((rule) => {
+    if (!rule.condition) return rule;
+    const condition = rule.condition;
+    for (const field in condition) {
+      let ruleset = condition[field];
+      const attribute = attributes.find((a) => a.property === field);
+      if (["hash", "hash[]"].includes(attribute?.datatype ?? "")) {
+        ruleset = hashStrings(ruleset, salt);
+      }
+      rule.condition[field] = ruleset;
+    }
+
+    return rule;
+  });
+
+  return def;
+}
+
+interface RulesetObj {
+  [key: string]: RulesetObj | string | string[];
+}
+
+function hashStrings(obj: RulesetObj, salt: string): RulesetObj {
+  const newObj: RulesetObj = {};
+  for (const key in obj) {
+    const val = obj[key];
+    if (Array.isArray(val)) {
+      newObj[key] = val.map((item) => {
+        if (typeof item === "string") {
+          return sha256(item, salt);
+        }
+        return item;
+      });
+    } else if (typeof val === "string") {
+      newObj[key] = sha256(val, salt);
+    } else if (typeof val === "object" && val !== null) {
+      newObj[key] = hashStrings(val, salt);
+    } else {
+      newObj[key] = val;
+    }
+  }
+  return newObj;
+}
+
+function sha256(str: string, salt: string): string {
+  return createHmac("sha256", salt).update(str).digest("hex");
 }

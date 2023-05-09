@@ -129,7 +129,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       sequentialTestingEnabled: false,
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       attributionModel: "firstExposure",
-      hashAttributeSalt: "",
+      hashedAttributeSalt: "",
     },
   });
   const { apiCall } = useAuth();
@@ -162,7 +162,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       "sequentialTestingTuningParameter"
     ),
     attributionModel: form.watch("attributionModel"),
-    hashAttributeSalt: form.watch("hashAttributeSalt"),
+    hashedAttributeSalt: form.watch("hashedAttributeSalt"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -1104,7 +1104,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     className="ml-2"
                     containerClassName="mb-3"
                     type="string"
-                    {...form.register("hashAttributeSalt")}
+                    {...form.register("hashedAttributeSalt")}
                   />
                 </div>
               </div>
