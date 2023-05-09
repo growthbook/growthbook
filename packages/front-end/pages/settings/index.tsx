@@ -129,6 +129,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       sequentialTestingEnabled: false,
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       attributionModel: "firstExposure",
+      hashAttributeSalt: "",
     },
   });
   const { apiCall } = useAuth();
@@ -161,6 +162,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       "sequentialTestingTuningParameter"
     ),
     attributionModel: form.watch("attributionModel"),
+    hashAttributeSalt: form.watch("hashAttributeSalt"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -1086,6 +1088,25 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   {/* endregion Minimum Percentage Change */}
                 </>
                 {/* endregion Metrics Behavior Defaults */}
+              </div>
+            </div>
+
+            <div className="divider border-bottom mb-3 mt-3" />
+
+            <div className="row">
+              <div className="col-sm-3">
+                <h4>Features Settings</h4>
+              </div>
+              <div className="col-sm-9">
+                <div className="form-inline">
+                  <Field
+                    label="Salt string for hashed attributes"
+                    className="ml-2"
+                    containerClassName="mb-3"
+                    type="string"
+                    {...form.register("hashAttributeSalt")}
+                  />
+                </div>
               </div>
             </div>
           </div>

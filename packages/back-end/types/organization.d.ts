@@ -112,7 +112,9 @@ export type SDKAttributeType =
   | "boolean"
   | "string[]"
   | "number[]"
-  | "enum";
+  | "enum"
+  | "hash"
+  | "hash[]";
 
 export type SDKAttribute = {
   property: string;
@@ -167,6 +169,7 @@ export interface OrganizationSettings {
   attributionModel?: AttributionModel;
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
+  hashAttributeSalt?: string;
 }
 
 export interface SubscriptionQuote {

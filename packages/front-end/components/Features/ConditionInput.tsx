@@ -207,6 +207,19 @@ export default function ConditionInput(props: Props) {
                       : []),
                   ]
                 : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                attribute.datatype === "hash"
+                ? [
+                    { label: "is equal to", value: "$eq" },
+                    { label: "is not equal to", value: "$ne" },
+                    { label: "is in the list", value: "$in" },
+                    { label: "is not in the list", value: "$nin" },
+                    { label: "exists", value: "$exists" },
+                    { label: "does not exist", value: "$notExists" },
+                    ...(savedGroupOptions.length > 0
+                      ? savedGroupOperators
+                      : []),
+                  ]
+                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                 attribute.datatype === "number"
                 ? [
                     { label: "is equal to", value: "$eq" },
@@ -269,6 +282,7 @@ export default function ConditionInput(props: Props) {
                       value={operator}
                       name="operator"
                       options={operatorOptions}
+                      sort={false}
                       onChange={(v) => {
                         onSelectFieldChange(v, "operator");
                       }}
@@ -338,7 +352,7 @@ export default function ConditionInput(props: Props) {
                       required
                     />
                   ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  attribute.datatype === "string" ? (
+                  ["string", "hash"].includes(attribute.datatype) ? (
                     <Field
                       value={value}
                       onChange={onChange}
