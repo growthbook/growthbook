@@ -42,6 +42,8 @@ import {
   getSampleMetrics,
 } from "../models/MetricModel";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { deleteInformationSchemaById } from "../models/InformationSchemaModel";
+import { deleteInformationSchemaTablesByInformationSchemaId } from "../models/InformationSchemaTablesModel";
 
 export async function postSampleData(
   req: AuthRequest,
@@ -283,6 +285,17 @@ export async function deleteDataSource(
   }
 
   await deleteDatasourceById(datasource.id, org.id);
+
+  if (datasource.settings?.informationSchemaId) {
+    const informationSchemaId = datasource.settings.informationSchemaId;
+
+    await deleteInformationSchemaById(org.id, informationSchemaId);
+
+    await deleteInformationSchemaTablesByInformationSchemaId(
+      org.id,
+      informationSchemaId
+    );
+  }
 
   res.status(200).json({
     status: 200,
