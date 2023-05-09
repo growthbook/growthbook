@@ -53,6 +53,7 @@ export default function MetricsOverridesSelector({
         const metricDefinition = metricDefinitions.find(
           (md) => md.id === mo.id
         );
+
         const loseRisk =
           isUndefined(mo.loseRisk) || isNaN(mo.loseRisk)
             ? metricDefinition?.loseRisk
@@ -229,7 +230,7 @@ export default function MetricsOverridesSelector({
                           placeholder="default"
                           helpText={
                             <div className="text-right">
-                              default: {(metricDefinition?.winRisk || 0) * 100}%
+                              default: {(metricDefinition?.winRisk ?? 0) * 100}%
                             </div>
                           }
                           append="%"
@@ -249,7 +250,7 @@ export default function MetricsOverridesSelector({
                           placeholder="default"
                           helpText={
                             <div className="text-right">
-                              default: {(metricDefinition?.loseRisk || 0) * 100}
+                              default: {(metricDefinition?.loseRisk ?? 0) * 100}
                               %
                             </div>
                           }
@@ -455,8 +456,8 @@ export default function MetricsOverridesSelector({
               options={unusedMetrics.map((m) => {
                 const metric = metricDefinitions.find((md) => md.id === m);
                 return {
-                  label: metric?.name || "",
-                  value: metric?.id || "",
+                  label: metric?.name || `Unknown metric (${m})`,
+                  value: m,
                 };
               })}
               disabled={disabled}
