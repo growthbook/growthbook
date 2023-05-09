@@ -75,9 +75,9 @@ export default function SQLPreview({
             <DisplayTestQueryResults
               duration={parseInt(testQueryResults.duration || "0")}
               requiredColumns={[...requiredColumns]}
-              results={testQueryResults.results}
+              results={testQueryResults?.results || []}
               error={testQueryResults.error}
-              sql={testQueryResults.sql}
+              sql={testQueryResults?.sql || ""}
             />
           )}
         </div>

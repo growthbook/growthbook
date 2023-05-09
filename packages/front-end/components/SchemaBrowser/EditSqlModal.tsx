@@ -79,7 +79,12 @@ export default function EditSqlModal({
       const { results } = res;
 
       // We do some one-off logic for Experiment Assignment queries
-      if (results && queryType === "experiment-assignment") {
+      if (
+        results &&
+        queryType === "experiment-assignment" &&
+        setHasNameCols &&
+        setDimensions
+      ) {
         const suggestions: ReactElement[] = [];
 
         const returnedColumns = new Set<string>();
