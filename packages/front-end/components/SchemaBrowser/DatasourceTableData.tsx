@@ -135,7 +135,11 @@ export default function DatasourceSchema({
             {table?.columns.map((column) => {
               return (
                 <tr key={table.tableName + column.columnName}>
-                  <td className="pl-3">{column.columnName}</td>
+                  <td className="pl-3">
+                    <Tooltip body={column.comment || ""} tipPosition="right">
+                      {column.columnName}
+                    </Tooltip>
+                  </td>
                   <td className="pr-3 text-right text-muted">
                     {column.dataType}
                   </td>

@@ -192,6 +192,7 @@ export interface Column {
   columnName: string;
   path?: string;
   dataType: string;
+  comment?: string;
 }
 
 export interface Table {

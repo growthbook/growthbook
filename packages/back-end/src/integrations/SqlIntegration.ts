@@ -1275,7 +1275,8 @@ export default abstract class SqlIntegration
     const sql = `
   SELECT 
     data_type as data_type,
-    column_name as column_name 
+    column_name as column_name,
+    column_comment as column_comment
   FROM
     ${this.getInformationSchemaTableFromClause(databaseName, tableSchema)}
   WHERE 
