@@ -1,7 +1,7 @@
 import * as bq from "@google-cloud/bigquery";
+import { getValidDate } from "shared";
 import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
-import { getValidDate } from "../util/dates";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
 import { DataSourceProperties } from "../../types/datasource";
@@ -14,7 +14,7 @@ import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   params: BigQueryConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<BigQueryConnectionParams>(
@@ -83,6 +83,9 @@ export default class BigQuery extends SqlIntegration {
   }
   formatDate(col: string): string {
     return `format_date("%F", ${col})`;
+  }
+  formatDateTimeString(col: string): string {
+    return `format_datetime("%F %T", ${col})`;
   }
   castToString(col: string): string {
     return `cast(${col} as string)`;

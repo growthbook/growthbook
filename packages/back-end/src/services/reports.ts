@@ -1,3 +1,4 @@
+import { DEFAULT_STATS_ENGINE } from "shared";
 import { MetricInterface } from "../../types/metric";
 import {
   ExperimentReportArgs,
@@ -58,10 +59,12 @@ export function reportArgsFromSnapshot(
     queryFilter: snapshot.queryFilter,
     skipPartialData: snapshot.skipPartialData,
     attributionModel: experiment.attributionModel || "firstExposure",
-    statsEngine: snapshot.statsEngine || "bayesian",
-    regressionAdjustmentEnabled: !!snapshot.regressionAdjustmentEnabled,
+    statsEngine: snapshot.statsEngine || DEFAULT_STATS_ENGINE,
+    regressionAdjustmentEnabled: snapshot.regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses:
       snapshot.metricRegressionAdjustmentStatuses || [],
+    sequentialTestingEnabled: snapshot.sequentialTestingEnabled,
+    sequentialTestingTuningParameter: snapshot.sequentialTestingTuningParameter,
   };
 }
 
@@ -72,6 +75,9 @@ export async function startExperimentAnalysis(
 ) {
   const hasRegressionAdjustmentFeature = organization
     ? orgHasPremiumFeature(organization, "regression-adjustment")
+    : false;
+  const hasSequentialTestingFeature = organization
+    ? orgHasPremiumFeature(organization, "sequential-testing")
     : false;
   const metricObjs = await getMetricsByOrganization(organization.id);
   const metricMap = new Map<string, MetricInterface>();
@@ -222,14 +228,19 @@ export async function startExperimentAnalysis(
 
   const { queries, result: results } = await startRun(
     queryDocs,
-    async (queryData) =>
-      analyzeExperimentResults(
-        organization.id,
-        args.variations,
-        args.dimension,
+    async (queryData) => {
+      return analyzeExperimentResults({
+        organization: organization.id,
+        variations: args.variations,
+        dimension: args.dimension,
         queryData,
-        args.statsEngine
-      )
+        statsEngine: args.statsEngine,
+        sequentialTestingEnabled: hasSequentialTestingFeature
+          ? args.sequentialTestingEnabled
+          : false,
+        sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
+      });
+    }
   );
   return { queries, results };
 }

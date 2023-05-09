@@ -7,7 +7,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { hasFileConfig } from "@/services/env";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissions from "@/hooks/usePermissions";
 import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import MetricForm from "@/components/Metrics/MetricForm";
@@ -17,6 +16,7 @@ import DocumentationLinksSidebar from "@/components/HomePage/DocumentationLinksS
 import GetStartedStep from "@/components/HomePage/GetStartedStep";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import AddExperimentModal from "../Experiment/AddExperimentModal";
 
 const ExperimentsGetStarted = ({
   experiments,
@@ -28,7 +28,6 @@ const ExperimentsGetStarted = ({
   const { metrics, datasources, mutateDefinitions, project } = useDefinitions();
   const { apiCall } = useAuth();
 
-  const { visualEditorEnabled } = useOrgSettings();
   const permissions = usePermissions();
 
   const [dataSourceOpen, setDataSourceOpen] = useState(false);
@@ -45,6 +44,7 @@ const ExperimentsGetStarted = ({
       const initialExperiment: Partial<ExperimentInterfaceStringDates> = JSON.parse(
         router?.query?.featureExperiment as string
       );
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
       window.history.replaceState(null, null, window.location.pathname);
       return initialExperiment;
     } catch (e) {
@@ -101,6 +101,7 @@ const ExperimentsGetStarted = ({
               await mutateDefinitions();
               setDataSourceOpen(false);
             }}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean' is not assignable to type '(source:... Remove this comment to see the full error message
             importSampleData={
               !hasDataSource &&
               allowImport &&
@@ -122,14 +123,20 @@ const ExperimentsGetStarted = ({
             }}
           />
         )}
-        {experimentsOpen && (
-          <ImportExperimentModal
-            onClose={() => setExperimentsOpen(false)}
-            source={featureExperiment ? "feature-rule" : "get-started"}
-            initialValue={featureExperiment}
-            fromFeature={!!featureExperiment}
-          />
-        )}
+        {experimentsOpen &&
+          (featureExperiment ? (
+            <ImportExperimentModal
+              onClose={() => setExperimentsOpen(false)}
+              source={featureExperiment ? "feature-rule" : "get-started"}
+              initialValue={featureExperiment}
+              fromFeature={!!featureExperiment}
+            />
+          ) : (
+            <AddExperimentModal
+              onClose={() => setExperimentsOpen(false)}
+              source="get-started"
+            />
+          ))}
         <div className="row">
           <div className="col-12 col-lg-8">
             {hasFileConfig() ? (
@@ -294,9 +301,7 @@ const ExperimentsGetStarted = ({
             </div>
           </div>
           <div className="col-12 col-lg-4">
-            <DocumentationLinksSidebar
-              showVisualEditor={!visualEditorEnabled}
-            />
+            <DocumentationLinksSidebar />
           </div>
         </div>
       </div>

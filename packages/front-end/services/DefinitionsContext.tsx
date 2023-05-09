@@ -166,6 +166,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
         }
       },
       mutateDefinitions: async (changes) => {
+        // @ts-expect-error TS(2783) If you come across this, please fix it!: 'status' is specified more than once, so this usag... Remove this comment to see the full error message
         await mutate(Object.assign({ status: 200, ...data }, changes), true);
       },
     };

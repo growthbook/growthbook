@@ -18,7 +18,6 @@ from gbstats.shared.constants import StatsEngine
 from gbstats.shared.models import (
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
-    ProportionStatistic,
 )
 
 DECIMALS = 9
@@ -193,6 +192,19 @@ RA_STATISTICS_DF = pd.DataFrame(
 ).assign(
     statistic_type="mean_ra", main_metric_type="count", covariate_metric_type="count"
 )
+
+
+class TestGetMetricDf(TestCase):
+    def test_get_metric_df_missing_count(self):
+        rows = MULTI_DIMENSION_STATISTICS_DF.drop("count", axis=1)
+        df = get_metric_df(
+            rows,
+            {"zero": 0, "one": 1},
+            ["zero", "one"],
+        )
+        for i, row in df.iterrows():
+            self.assertEqual(row["baseline_count"], row["baseline_users"])
+            self.assertEqual(row["v1_count"], row["v1_users"])
 
 
 class TestBaseStatisticBuilder(TestCase):
@@ -581,6 +593,45 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
             analyze_metric_df(
                 df=df, weights=[0.5, 0.5], inverse=False, engine=StatsEngine.BAYESIAN
             )
+
+
+class TestAnalyzeMetricDfSequential(TestCase):
+    def test_analyze_metric_df_sequential(self):
+        rows = MULTI_DIMENSION_STATISTICS_DF
+        df = get_metric_df(
+            rows,
+            {"zero": 0, "one": 1},
+            ["zero", "one"],
+        )
+        result = analyze_metric_df(
+            df=df,
+            weights=[0.5, 0.5],
+            inverse=False,
+            engine=StatsEngine.FREQUENTIST,
+            engine_config={"sequential": True, "sequential_tuning_parameter": 600},
+        )
+
+        self.assertEqual(len(result.index), 2)
+        self.assertEqual(result.at[0, "dimension"], "one")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
+        self.assertEqual(result.at[0, "baseline_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 2.5)
+        self.assertEqual(result.at[0, "v1_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
+        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.892332229)
+        self.assertEqual(round_(result.at[0, "v1_ci"][0]), -0.233322085)
+
+        result_bad_tuning = analyze_metric_df(
+            df=df,
+            weights=[0.5, 0.5],
+            inverse=False,
+            engine=StatsEngine.FREQUENTIST,
+            engine_config={"sequential": True, "sequential_tuning_parameter": 1},
+        )
+
+        # Wider CI with lower tuning parameter to test it passes through
+        self.assertTrue(result.at[0, "v1_ci"][0] > result_bad_tuning.at[0, "v1_ci"][0])
 
 
 class TestFormatResults(TestCase):

@@ -1,5 +1,9 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared";
 import { APP_ORIGIN } from "../util/secrets";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
 import { getExperimentById } from "../models/ExperimentModel";
@@ -27,8 +31,7 @@ export async function generateReportNotebook(
     report.args,
     `/report/${report.id}`,
     report.title,
-    "",
-    !report.results?.hasCorrectedStats
+    ""
   );
 }
 
@@ -64,8 +67,7 @@ export async function generateExperimentNotebook(
     reportArgsFromSnapshot(experiment, snapshot),
     `/experiment/${experiment.id}`,
     experiment.name,
-    experiment.hypothesis || "",
-    !snapshot.hasCorrectedStats
+    experiment.hypothesis || ""
   );
 }
 
@@ -75,8 +77,7 @@ export async function generateNotebook(
   args: ExperimentReportArgs,
   url: string,
   name: string,
-  description: string,
-  needsCorrection: boolean
+  description: string
 ) {
   // Get datasource
   const datasource = await getDataSourceById(args.datasource, organization);
@@ -127,12 +128,20 @@ export async function generateNotebook(
     var_names: args.variations.map((v) => v.name),
     weights: args.variations.map((v) => v.weight),
     run_query: datasource.settings.notebookRunQuery,
-    needs_correction: needsCorrection,
   }).replace(/\\/g, "\\\\");
 
+  const statsEngine = args.statsEngine ?? DEFAULT_STATS_ENGINE;
+  const configString =
+    statsEngine === "frequentist" && (args.sequentialTestingEnabled ?? false)
+      ? `{'sequential': True, 'sequential_tuning_parameter': ${
+          args.sequentialTestingTuningParameter ??
+          DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
+        }}`
+      : "{}";
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gen_notebook import create_notebook
+from gbstats.shared.constants import StatsEngine
 import pandas as pd
 import json
 
@@ -158,7 +167,12 @@ print(create_notebook(
     var_names=data['var_names'],
     weights=data['weights'],
     run_query=data['run_query'],
-    needs_correction=data['needs_correction']
+    stats_engine=${
+      statsEngine === "frequentist"
+        ? "StatsEngine.FREQUENTIST"
+        : "StatsEngine.BAYESIAN"
+    },
+    engine_config=${configString}
 ))`,
     {}
   );

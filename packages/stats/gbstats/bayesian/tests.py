@@ -1,19 +1,47 @@
 from abc import abstractmethod
-from typing import Tuple, Dict, Union, List
+from dataclasses import dataclass, field
+from typing import List, Tuple, Union
 
 import numpy as np
 from scipy.stats import norm  # type: ignore
 
 from gbstats.bayesian.dists import Beta, Norm
-from gbstats.bayesian.constants import BETA_PRIOR, NORM_PRIOR, EPSILON
 from gbstats.shared.models import (
     BayesianTestResult,
     ProportionStatistic,
     RatioStatistic,
     SampleMeanStatistic,
+    Statistic,
     Uplift,
 )
 from gbstats.shared.tests import BaseABTest
+
+
+@dataclass
+class GaussianPrior:
+    mean: float = 0
+    variance: float = 1
+    pseudo_n: float = 0
+
+
+@dataclass
+class BetaPrior:
+    alpha: float = 1
+    beta: float = 1
+
+
+@dataclass
+class BinomialBayesianConfig:
+    prior_a: BetaPrior = field(default_factory=BetaPrior)
+    prior_b: BetaPrior = field(default_factory=BetaPrior)
+
+
+@dataclass
+class GaussianBayesianConfig:
+    prior_a: GaussianPrior = field(default_factory=GaussianPrior)
+    prior_b: GaussianPrior = field(default_factory=GaussianPrior)
+    epsilon: float = 1e-4
+
 
 """
 Medium article inspiration:
@@ -82,13 +110,29 @@ class BayesianABTest(BaseABTest):
 
 
 class BinomialBayesianABTest(BayesianABTest):
+    def __init__(
+        self,
+        stat_a: Statistic,
+        stat_b: Statistic,
+        config: BinomialBayesianConfig = BinomialBayesianConfig(),
+        inverse: bool = False,
+        ccr: float = 0.05,
+    ):
+        super().__init__(stat_a, stat_b, inverse, ccr)
+        self.prior_a = config.prior_a
+        self.prior_b = config.prior_b
+
     def compute_result(self) -> BayesianTestResult:
         # TODO refactor validation to base test
         if self.has_empty_input():
             return self._default_output()
 
-        alpha_a, beta_a = Beta.posterior(BETA_PRIOR, [self.stat_a.sum, self.stat_a.n])
-        alpha_b, beta_b = Beta.posterior(BETA_PRIOR, [self.stat_b.sum, self.stat_b.n])
+        alpha_a, beta_a = Beta.posterior(
+            [self.prior_a.alpha, self.prior_a.beta], [self.stat_a.sum, self.stat_a.n]
+        )
+        alpha_b, beta_b = Beta.posterior(
+            [self.prior_b.alpha, self.prior_b.beta], [self.stat_b.sum, self.stat_b.n]
+        )
 
         mean_a, var_a = Beta.moments(alpha_a, beta_a, log=True)
         mean_b, var_b = Beta.moments(alpha_b, beta_b, log=True)
@@ -115,6 +159,19 @@ class BinomialBayesianABTest(BayesianABTest):
 
 
 class GaussianBayesianABTest(BayesianABTest):
+    def __init__(
+        self,
+        stat_a: Statistic,
+        stat_b: Statistic,
+        config: GaussianBayesianConfig = GaussianBayesianConfig(),
+        inverse: bool = False,
+        ccr: float = 0.05,
+    ):
+        super().__init__(stat_a, stat_b, inverse, ccr)
+        self.prior_a = config.prior_a
+        self.prior_b = config.prior_b
+        self.epsilon = config.epsilon
+
     def _is_log_approximation_inexact(
         self, mean_std_dev_pairs: Tuple[Tuple[float, float], Tuple[float, float]]
     ) -> bool:
@@ -125,7 +182,10 @@ class GaussianBayesianABTest(BayesianABTest):
             A tuple of (mean, standard deviation) tuples.
         """
         return any(
-            [norm.cdf(0, pair[0], pair[1]) > EPSILON for pair in mean_std_dev_pairs]
+            [
+                norm.cdf(0, pair[0], pair[1]) > self.epsilon
+                for pair in mean_std_dev_pairs
+            ]
         )
 
     def compute_result(self) -> BayesianTestResult:
@@ -136,7 +196,11 @@ class GaussianBayesianABTest(BayesianABTest):
             return self._default_output()
 
         mu_a, sd_a = Norm.posterior(
-            NORM_PRIOR,
+            [
+                self.prior_a.mean,
+                self.prior_a.variance,
+                self.prior_a.pseudo_n,
+            ],
             [
                 self.stat_a.mean,
                 self.stat_a.stddev,
@@ -144,7 +208,11 @@ class GaussianBayesianABTest(BayesianABTest):
             ],
         )
         mu_b, sd_b = Norm.posterior(
-            NORM_PRIOR,
+            [
+                self.prior_b.mean,
+                self.prior_b.variance,
+                self.prior_b.pseudo_n,
+            ],
             [
                 self.stat_b.mean,
                 self.stat_b.stddev,
@@ -155,8 +223,8 @@ class GaussianBayesianABTest(BayesianABTest):
         if self._is_log_approximation_inexact(((mu_a, sd_a), (mu_b, sd_b))):
             return self._default_output()
 
-        mean_a, var_a = Norm.moments(mu_a, sd_a, log=True)
-        mean_b, var_b = Norm.moments(mu_b, sd_b, log=True)
+        mean_a, var_a = Norm.moments(mu_a, sd_a, log=True, epsilon=self.epsilon)
+        mean_b, var_b = Norm.moments(mu_b, sd_b, log=True, epsilon=self.epsilon)
 
         mean_diff = mean_b - mean_a
         std_diff = np.sqrt(var_a + var_b)

@@ -19,7 +19,8 @@ export const languageMapping: Record<
     label: string;
     docs: DocSection;
     supportsEncryption: boolean;
-    usesEntireEndpoint: boolean;
+    supportsVisualExperiments: boolean;
+    supportsSSE: boolean;
   }
 > = {
   react: {
@@ -28,7 +29,8 @@ export const languageMapping: Record<
     label: "React",
     docs: "tsx",
     supportsEncryption: true,
-    usesEntireEndpoint: false,
+    supportsVisualExperiments: true,
+    supportsSSE: true,
   },
   ruby: {
     Icon: DiRuby,
@@ -36,15 +38,17 @@ export const languageMapping: Record<
     label: "Ruby",
     docs: "ruby",
     supportsEncryption: false,
-    usesEntireEndpoint: true,
+    supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   python: {
     Icon: DiPython,
     color: "#306998",
     label: "Python",
     docs: "python",
-    supportsEncryption: false,
-    usesEntireEndpoint: true,
+    supportsEncryption: true,
+    supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   android: {
     Icon: DiAndroid,
@@ -52,7 +56,8 @@ export const languageMapping: Record<
     label: "Kotlin",
     docs: "kotlin",
     supportsEncryption: false,
-    usesEntireEndpoint: false,
+    supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   csharp: {
     Icon: FaHashtag,
@@ -60,7 +65,8 @@ export const languageMapping: Record<
     label: "C Sharp",
     docs: "csharp",
     supportsEncryption: false,
-    usesEntireEndpoint: true,
+    supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   flutter: {
     Icon: SiFlutter,
@@ -68,7 +74,8 @@ export const languageMapping: Record<
     label: "Flutter",
     docs: "flutter",
     supportsEncryption: false,
-    usesEntireEndpoint: false,
+    supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   go: {
     Icon: SiGo,
@@ -76,7 +83,8 @@ export const languageMapping: Record<
     label: "Golang",
     docs: "go",
     supportsEncryption: false,
-    usesEntireEndpoint: true,
+    supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   ios: {
     Icon: FaApple,
@@ -84,7 +92,8 @@ export const languageMapping: Record<
     label: "Swift",
     docs: "swift",
     supportsEncryption: true,
-    usesEntireEndpoint: true,
+    supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   java: {
     Icon: FaJava,
@@ -92,7 +101,8 @@ export const languageMapping: Record<
     label: "Java",
     docs: "java",
     supportsEncryption: true,
-    usesEntireEndpoint: true,
+    supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   javascript: {
     Icon: SiJavascript,
@@ -100,15 +110,17 @@ export const languageMapping: Record<
     label: "Javascript",
     docs: "javascript",
     supportsEncryption: true,
-    usesEntireEndpoint: false,
+    supportsVisualExperiments: true,
+    supportsSSE: true,
   },
   php: {
     Icon: SiPhp,
     color: "#8993be",
     label: "PHP",
     docs: "php",
-    supportsEncryption: false,
-    usesEntireEndpoint: true,
+    supportsEncryption: true,
+    supportsVisualExperiments: false,
+    supportsSSE: false,
   },
   nodejs: {
     Icon: SiNodedotjs,
@@ -116,7 +128,8 @@ export const languageMapping: Record<
     label: "Node.js",
     docs: "javascript",
     supportsEncryption: true,
-    usesEntireEndpoint: false,
+    supportsVisualExperiments: false,
+    supportsSSE: true,
   },
   other: {
     Icon: FaCode,
@@ -124,7 +137,8 @@ export const languageMapping: Record<
     label: "Other",
     docs: "sdks",
     supportsEncryption: false,
-    usesEntireEndpoint: true,
+    supportsVisualExperiments: false,
+    supportsSSE: false,
   },
 };
 

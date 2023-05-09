@@ -101,6 +101,7 @@ export default function TagsFilter({
         prompt={"Filter by tags..."}
         autoFocus={open && autofocus}
         closeMenuOnSelect={true}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(TagInterface | null)[]' is not assignable t... Remove this comment to see the full error message
         tagOptions={availableTags.map((t) => getTagById(t)).filter(Boolean)}
         creatable={false}
       />

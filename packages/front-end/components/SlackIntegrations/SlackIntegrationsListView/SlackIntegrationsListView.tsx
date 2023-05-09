@@ -280,6 +280,7 @@ export const SlackIntegrationsListViewContainer = () => {
   return (
     <SlackIntegrationsListView
       slackIntegrations={slackIntegrations}
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'SlackIntegrationModalMode | null | undefined... Remove this comment to see the full error message
       modalMode={modalMode}
       onDelete={handleDelete}
       modalError={addEditError}

@@ -7,13 +7,13 @@ slug: build-your-own
 
 # Build Your Own SDK
 
-**Latest spec version: 0.4.0 [View Changelog](#changelog)**
+**Latest spec version: 0.4.2 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
-GrowthBook SDKs are very simple and do not interact with the filesystem or network. Because of this, they can often be kept to **under 1000 lines of code**.
+GrowthBook SDKs are simple and lightweight. Because of this, they can often be kept to **under 2000 lines of code**.
 
-All libraries should follow this specification as closely as the language permits to maintain consistency.
+All libraries should follow this specification as closely as the language permits to maintain consistency and make updates and maintenance easier.
 
 ## Data structures
 
@@ -260,7 +260,7 @@ Meta info about an experiment variation. Has the following properties:
 
 There are some helper functions which are used a few times throughout the SDK.
 
-### hash(seed: string, value: string, version: integer): float
+### hash(seed: string, value: string, version: integer): float|null
 
 Hashes a string to a float between 0 and 1.
 
@@ -280,7 +280,7 @@ else if (version === 1) {
   return (n % 1000) / 1000;
 }
 
-return -1;
+return null;
 ```
 
 **Note**: It's important to use the exact hashing algorithms outlined here so all SDKs behave identically.
@@ -390,6 +390,28 @@ Return `null` if any of these are true:
 - The id is not a key in the querystring
 - The variation is not an integer
 - The variation is less than 0 or greater than or equal to numVariations
+
+### decrypt(encryptedString: string, decryptionKey: string): string
+
+This decrypts a string using the AES-CBC 128KB algorithm. This is used if the GrowthBook App is configured to encrypt feature flag definitions.
+
+Here's an example in PHP:
+
+```php
+function decrypt(string $encryptedString, string $decryptionKey) {
+  // Split the string into two parts, delimited by "."
+  list($iv, $cipherText) = explode(".", $encryptedString, 2);
+
+  // The Initialization Vector (iv) is base64 encoded
+  $iv = base64_decode($iv);
+
+  // Decrypt using the AES-CBC 128kb algorithm
+  // Will throw an Exception if unable to decrypt
+  return openssl_decrypt($cipherText, "aes-128-cbc", $decryptionKey, 0, $iv);
+}
+```
+
+The return value will be a JSON-encoded string. If an error occurs, you can throw an exception (or whatever is typically used for error handling).
 
 ## Evaluating Conditions
 
@@ -871,13 +893,13 @@ The initial download should be intiated by a `growthbook.loadFeatures()` method 
 
 There should be an easy way for the user to wait until features finish loading. Depending on the language, this might be an event emitter, a Promise, a callback, or something similar. Use whatever method is standard for the language.
 
-### Server Sent Events
+### Server-Sent Events
 
 The API response (`/api/features/{clientKey}`) may contain a response header:
 
 > x-sse-support: enabled
 
-If set to "enabled", you are able to subscribe to the API for realtime changes to feature definitions. This will let you update the cache immediately when a feature changes instead of waiting for the 60s TTL to expire.
+If set to "enabled", you are able to subscribe to the API for realtime changes to feature definitions by using the [GrowthBook Proxy](/self-host/proxy). This will let you update the cache immediately when a feature changes instead of waiting for the 60s TTL to expire.
 
 The URL for subscribing to changes is `{apiHost}/sub/{clientKey}`. An example implementation in Javascript is below:
 
@@ -901,8 +923,6 @@ The `/api/features/{clientKey}` endpoint can have encryption enabled (128-bit AE
 ```
 
 Before you can use this response, you will need to decrypt it. This requires the user to set `Context.decryptionKey` when creating the GrowthBook instance.
-
-Look at the Javascript SDK for an example decryption implementation.
 
 ## Type Hinting
 
@@ -1009,6 +1029,11 @@ The cases.json file is an object. The keys are the function being tested, and th
   - expected value
   - inExperiment (boolean)
   - hashUsed (boolean)
+- **decrypt**
+  - name of the test case (string)
+  - encrypted text (string)
+  - decryption key (string)
+  - expected result (string or `null` if the decryption should fail)
 
 In addition to the above, you should write custom test cases for things like event subscriptions, tracking callbacks, getters/setters, etc. that are more language-specific.
 
@@ -1043,3 +1068,9 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - New `hashVersion`, `ranges`, `meta`, `filters`, `seed`, `name`, and `phase` properties of Experiments
   - New `key`, `name`, `bucket`, and `passthrough` fields in Experiment Results
   - New `Filter`, `VariationMeta`, and `TrackData` data structures
+- **v0.4.1** 2023-04-13
+  - Added `decrypt` function and set of test cases
+  - `hash` function now returns `null` instead of `-1` when an invalid hashVersion is specified
+  - Fixed broken feature test case (was using `[0.99]` instead of `0.99` for coverage)
+- **v0.4.2** 2023-04-30
+  - Add test cases when targeting condition value is `null`

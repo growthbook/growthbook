@@ -2,11 +2,13 @@ import React, { useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { GBCuped } from "@/components/Icons";
 import SelectField from "../Forms/SelectField";
 import Field from "../Forms/Field";
 import { EditMetricsFormInterface } from "./EditMetricsForm";
@@ -50,12 +52,19 @@ export default function MetricsOverridesSelector({
         const metricDefinition = metricDefinitions.find(
           (md) => md.id === mo.id
         );
+        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
         const loseRisk = isNaN(mo.loseRisk)
-          ? metricDefinition.loseRisk
-          : mo.loseRisk / 100;
+          ? // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+            metricDefinition.loseRisk
+          : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+            mo.loseRisk / 100;
+        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
         const winRisk = isNaN(mo.winRisk)
-          ? metricDefinition.winRisk
-          : mo.winRisk / 100;
+          ? // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+            metricDefinition.winRisk
+          : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+            mo.winRisk / 100;
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         if (loseRisk < winRisk) {
           hasRiskError = true;
         }
@@ -83,8 +92,10 @@ export default function MetricsOverridesSelector({
           );
           let regressionAdjustmentAvailableForMetric = true;
           let regressionAdjustmentAvailableForMetricReason = <></>;
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           if (metricDefinition.denominator) {
             const denominator = metricDefinitions.find(
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               (m) => m.id === metricDefinition.denominator
             );
             if (denominator?.type === "count") {
@@ -97,6 +108,7 @@ export default function MetricsOverridesSelector({
               );
             }
           }
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           if (metricDefinition.aggregation) {
             regressionAdjustmentAvailableForMetric = false;
             regressionAdjustmentAvailableForMetricReason = (
@@ -104,25 +116,35 @@ export default function MetricsOverridesSelector({
             );
           }
 
+          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
           const loseRisk = isNaN(mo.loseRisk)
-            ? metricDefinition.loseRisk
-            : mo.loseRisk / 100;
+            ? // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+              metricDefinition.loseRisk
+            : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+              mo.loseRisk / 100;
+          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
           const winRisk = isNaN(mo.winRisk)
-            ? metricDefinition.winRisk
-            : mo.winRisk / 100;
+            ? // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+              metricDefinition.winRisk
+            : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+              mo.winRisk / 100;
           const riskError =
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             loseRisk < winRisk
               ? "The acceptable risk percentage cannot be higher than the too risky percentage"
               : "";
 
           const regressionAdjustmentDaysHighlightColor =
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             mo.regressionAdjustmentDays > 28 || mo.regressionAdjustmentDays < 7
               ? "#e27202"
               : "";
           const regressionAdjustmentDaysWarningMsg =
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             mo.regressionAdjustmentDays > 28
               ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
-              : mo.regressionAdjustmentDays < 7
+              : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+              mo.regressionAdjustmentDays < 7
               ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
               : "";
 
@@ -143,7 +165,10 @@ export default function MetricsOverridesSelector({
 
               <div>
                 <label className="mb-1">
-                  <strong>{metricDefinition.name}</strong>
+                  <strong className="text-purple">
+                    {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
+                    {metricDefinition.name}
+                  </strong>
                 </label>
 
                 <div className="row mt-1">
@@ -164,6 +189,7 @@ export default function MetricsOverridesSelector({
                           placeholder="default"
                           helpText={
                             <div className="text-right">
+                              {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                               default: {metricDefinition.conversionDelayHours}
                             </div>
                           }
@@ -183,6 +209,7 @@ export default function MetricsOverridesSelector({
                           placeholder="default"
                           helpText={
                             <div className="text-right">
+                              {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                               default: {metricDefinition.conversionWindowHours}{" "}
                             </div>
                           }
@@ -207,6 +234,7 @@ export default function MetricsOverridesSelector({
                           placeholder="default"
                           helpText={
                             <div className="text-right">
+                              {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                               default: {(metricDefinition.winRisk || 0) * 100}%
                             </div>
                           }
@@ -227,6 +255,7 @@ export default function MetricsOverridesSelector({
                           placeholder="default"
                           helpText={
                             <div className="text-right">
+                              {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                               default: {(metricDefinition.loseRisk || 0) * 100}%
                             </div>
                           }
@@ -254,7 +283,7 @@ export default function MetricsOverridesSelector({
                   <div className="col">
                     <PremiumTooltip commercialFeature="regression-adjustment">
                       <span className="uppercase-title">
-                        Regression Adjustment (CUPED)
+                        <GBCuped size={14} /> Regression Adjustment (CUPED)
                       </span>
                     </PremiumTooltip>{" "}
                     <span className="small text-muted">(Frequentist only)</span>
@@ -316,9 +345,11 @@ export default function MetricsOverridesSelector({
                             />
                             <div className="small">
                               <small className="form-text text-muted">
+                                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                                 {metricDefinition.regressionAdjustmentOverride ? (
                                   <>
                                     (metric default:{" "}
+                                    {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                                     {metricDefinition.regressionAdjustmentEnabled
                                       ? "On"
                                       : "Off"}
@@ -366,10 +397,12 @@ export default function MetricsOverridesSelector({
                               helpText={
                                 <>
                                   <span className="ml-2">
+                                    {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                                     {metricDefinition.regressionAdjustmentOverride ? (
                                       <>
                                         (metric default:{" "}
                                         {
+                                          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                                           metricDefinition.regressionAdjustmentDays
                                         }
                                         )
@@ -378,7 +411,7 @@ export default function MetricsOverridesSelector({
                                       <>
                                         (organization default:{" "}
                                         {settings.regressionAdjustmentDays ??
-                                          14}
+                                          DEFAULT_REGRESSION_ADJUSTMENT_DAYS}
                                         )
                                       </>
                                     )}
@@ -390,6 +423,7 @@ export default function MetricsOverridesSelector({
                                 {
                                   valueAsNumber: true,
                                   validate: (v) => {
+                                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                                     return !(v <= 0 || v > 100);
                                   },
                                 }
@@ -432,7 +466,9 @@ export default function MetricsOverridesSelector({
               options={unusedMetrics.map((m) => {
                 const metric = metricDefinitions.find((md) => md.id === m);
                 return {
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                   label: metric.name,
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                   value: metric.id,
                 };
               })}

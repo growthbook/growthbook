@@ -6,11 +6,11 @@ import {
   Operator,
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
+import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import {
-  FaExclamationTriangle,
-  FaExternalLinkAlt,
-  FaTimes,
-} from "react-icons/fa";
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+} from "shared";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -38,6 +38,9 @@ import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
+import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
+import { GBCuped } from "@/components/Icons";
+import usePermissions from "@/hooks/usePermissions";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -104,19 +107,33 @@ function getRawSQLPreview({
   conditions,
 }: Partial<MetricInterface>) {
   const cols: string[] = [];
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   userIdTypes.forEach((type) => {
-    cols.push(userIdColumns[type] || type + " as " + type);
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+    if (userIdColumns[type] !== type) {
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      cols.push(userIdColumns[type] + " as " + type);
+    } else {
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      cols.push(userIdColumns[type]);
+    }
   });
 
-  cols.push((timestampColumn || "received_at") + " as timestamp");
+  if (timestampColumn !== "timestamp") {
+    cols.push((timestampColumn || "received_at") + " as timestamp");
+  } else {
+    cols.push(timestampColumn);
+  }
   if (type !== "binomial") {
     cols.push((column || "1") + " as value");
   }
 
   let where = "";
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   if (conditions.length) {
     where =
       "\nWHERE\n  " +
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       conditions
         .map((c: Condition) => {
           return (c.column || "_") + " " + c.operator + " '" + c.value + "'";
@@ -157,6 +174,7 @@ const MetricForm: FC<MetricFormProps> = ({
   } = useDefinitions();
   const settings = useOrgSettings();
   const { hasCommercialFeature } = useUser();
+  const permissions = usePermissions();
 
   const [step, setStep] = useState(initialStep);
   const [showAdvanced, setShowAdvanced] = useState(advanced);
@@ -240,11 +258,13 @@ const MetricForm: FC<MetricFormProps> = ({
       minSampleSize: getMinSampleSizeForMetric(current),
       regressionAdjustmentOverride:
         current.regressionAdjustmentOverride ?? false,
-      regressionAdjustmentEnabled: current.regressionAdjustmentEnabled ?? false,
+      regressionAdjustmentEnabled:
+        current.regressionAdjustmentEnabled ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       regressionAdjustmentDays:
         current.regressionAdjustmentDays ??
         settings.regressionAdjustmentDays ??
-        14,
+        DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
     },
   });
 
@@ -427,6 +447,24 @@ const MetricForm: FC<MetricFormProps> = ({
     }
   }, [type, form]);
 
+  const { setTableId, tableOptions, columnOptions } = useSchemaFormOptions(
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'DataSourceInterfaceWithParams | ... Remove this comment to see the full error message
+    selectedDataSource
+  );
+
+  let ctaEnabled = true;
+  let disabledMessage = null;
+
+  if (riskError) {
+    ctaEnabled = false;
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"The acceptable risk percentage cannot be hi... Remove this comment to see the full error message
+    disabledMessage = riskError;
+  } else if (!permissions.check("createMetrics", project)) {
+    ctaEnabled = false;
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"You don't have permission to create metrics... Remove this comment to see the full error message
+    disabledMessage = "You don't have permission to create metrics.";
+  }
+
   return (
     <>
       {supportsSQL && sqlOpen && (
@@ -445,10 +483,13 @@ const MetricForm: FC<MetricFormProps> = ({
         inline={inline}
         header={edit ? "Edit Metric" : "New Metric"}
         close={onClose}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string | un... Remove this comment to see the full error message
+        disabledMessage={disabledMessage}
+        ctaEnabled={ctaEnabled}
         submit={onSubmit}
         cta={cta}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'false | "Cancel"' is not assignable to type ... Remove this comment to see the full error message
         closeCta={!inline && "Cancel"}
-        ctaEnabled={!riskError}
         size="lg"
         docSection="metrics"
         step={step}
@@ -659,32 +700,32 @@ const MetricForm: FC<MetricFormProps> = ({
                 />
               ) : (
                 <>
-                  <div className="form-group">
-                    {table} Name
-                    <input
-                      type="text"
-                      required
-                      className="form-control"
-                      {...form.register("table")}
-                    />
-                  </div>
+                  <SelectField
+                    label={`${table} Name`}
+                    createable
+                    placeholder={`${table} name...`}
+                    value={form.watch("table")}
+                    onChange={(value) => {
+                      form.setValue("table", value);
+                      setTableId(value);
+                    }}
+                    options={tableOptions}
+                    required
+                  />
                   {value.type !== "binomial" && (
-                    <div className="form-group ">
-                      {supportsSQL ? "Column" : "Event Value"}
-                      <input
-                        type="text"
-                        required={value.type !== "count"}
-                        placeholder={supportsSQL ? "" : "1"}
-                        className="form-control"
-                        {...form.register("column")}
-                      />
-                      {!supportsSQL && (
-                        <small className="form-text text-muted">
-                          Javascript expression to extract a value from each
-                          event.
-                        </small>
-                      )}
-                    </div>
+                    <SelectField
+                      placeholder={column}
+                      label={supportsSQL ? "Column" : "Event Value"}
+                      options={columnOptions}
+                      createable
+                      value={form.watch("column")}
+                      onChange={(value) => form.setValue("column", value)}
+                      required={value.type !== "count"}
+                      helpText={
+                        !supportsSQL &&
+                        "Javascript expression to extract a value from each event."
+                      }
+                    />
                   )}
                   {value.type !== "binomial" && !supportsSQL && (
                     <Field
@@ -705,15 +746,19 @@ const MetricForm: FC<MetricFormProps> = ({
                           key={i}
                         >
                           {i > 0 && <div className="col-auto">AND</div>}
-                          <div className="col-auto">
-                            <input
-                              required
-                              className="form-control mb-1"
+                          <div className="col-auto mb-1">
+                            <SelectField
+                              createable
                               placeholder={column}
-                              {...form.register(`conditions.${i}.column`)}
+                              options={columnOptions}
+                              value={form.watch(`conditions.${i}.column`)}
+                              onChange={(value) =>
+                                form.setValue(`conditions.${i}.column`, value)
+                              }
+                              required
                             />
                           </div>
-                          <div className="col-auto">
+                          <div className="col-auto mb-1">
                             <SelectField
                               value={form.watch(`conditions.${i}.operator`)}
                               onChange={(v) =>
@@ -752,7 +797,7 @@ const MetricForm: FC<MetricFormProps> = ({
                               sort={false}
                             />
                           </div>
-                          <div className="col-auto">
+                          <div className="col-auto mb-1">
                             <Field
                               required
                               placeholder="Value"
@@ -763,7 +808,7 @@ const MetricForm: FC<MetricFormProps> = ({
                               {...form.register(`conditions.${i}.value`)}
                             />
                           </div>
-                          <div className="col-auto">
+                          <div className="col-auto mb-1">
                             <button
                               className="btn btn-danger"
                               type="button"
@@ -795,15 +840,16 @@ const MetricForm: FC<MetricFormProps> = ({
                     </div>
                   )}
                   {customzeTimestamp && (
-                    <div className="form-group ">
-                      Timestamp Column
-                      <input
-                        type="text"
-                        placeholder={"received_at"}
-                        className="form-control"
-                        {...form.register("timestampColumn")}
-                      />
-                    </div>
+                    <SelectField
+                      label="Timestamp Column"
+                      createable
+                      options={columnOptions}
+                      value={form.watch("timestampColumn")}
+                      onChange={(value) =>
+                        form.setValue("timestampColumn", value)
+                      }
+                      placeholder={"received_at"}
+                    />
                   )}
                   {customizeUserIds && (
                     <MultiSelectField
@@ -823,18 +869,21 @@ const MetricForm: FC<MetricFormProps> = ({
                   {customizeUserIds &&
                     value.userIdTypes.map((type) => {
                       return (
-                        <Field
-                          key={type}
-                          label={type + " Column"}
-                          placeholder={type}
-                          value={value.userIdColumns[type] || ""}
-                          onChange={(e) => {
-                            form.setValue("userIdColumns", {
-                              ...value.userIdColumns,
-                              [type]: e.target.value,
-                            });
-                          }}
-                        />
+                        <div key={type}>
+                          <SelectField
+                            label={type + " Column"}
+                            createable
+                            options={columnOptions}
+                            value={value.userIdColumns[type] || ""}
+                            placeholder={type}
+                            onChange={(columnName) => {
+                              form.setValue("userIdColumns", {
+                                ...value.userIdColumns,
+                                [type]: columnName,
+                              });
+                            }}
+                          />
+                        </div>
                       );
                     })}
                 </>
@@ -1012,6 +1061,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     ? metricDefaults.minimumSampleSize
                     : formatConversionRate(
                         value.type,
+                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
                         metricDefaults.minimumSampleSize
                       )}
                   )
@@ -1025,6 +1075,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 {...form.register("maxPercentChange", { valueAsNumber: true })}
                 helpText={`An experiment that changes the metric by more than this percent will
             be flagged as suspicious (default ${
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               metricDefaults.maxPercentageChange * 100
             })`}
               />
@@ -1036,12 +1087,15 @@ const MetricForm: FC<MetricFormProps> = ({
                 {...form.register("minPercentChange", { valueAsNumber: true })}
                 helpText={`An experiment that changes the metric by less than this percent will be
             considered a draw (default ${
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               metricDefaults.minPercentageChange * 100
             })`}
               />
 
               <PremiumTooltip commercialFeature="regression-adjustment">
-                <label className="mb-1">Regression Adjustment (CUPED)</label>
+                <label className="mb-1">
+                  <GBCuped /> Regression Adjustment (CUPED)
+                </label>
               </PremiumTooltip>
               <small className="d-block mb-1 text-muted">
                 Only applicable to frequentist analyses
@@ -1065,16 +1119,6 @@ const MetricForm: FC<MetricFormProps> = ({
                           Override organization-level settings
                         </label>
                       </div>
-                      {!!form.watch("regressionAdjustmentOverride") &&
-                        (!settings.statsEngine ||
-                          settings.statsEngine === "bayesian") && (
-                          <small className="d-block my-1 text-warning-orange">
-                            <FaExclamationTriangle /> Your organization uses
-                            Bayesian statistics by default and regression
-                            adjustment is not implemented for the Bayesian
-                            engine.
-                          </small>
-                        )}
                     </div>
                     <div
                       style={{
@@ -1132,7 +1176,9 @@ const MetricForm: FC<MetricFormProps> = ({
                             <>
                               <span className="ml-2">
                                 (organization default:{" "}
-                                {settings.regressionAdjustmentDays ?? 14})
+                                {settings.regressionAdjustmentDays ??
+                                  DEFAULT_REGRESSION_ADJUSTMENT_DAYS}
+                                )
                               </span>
                             </>
                           }

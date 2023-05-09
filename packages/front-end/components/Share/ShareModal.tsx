@@ -15,12 +15,12 @@ import { GrDrag } from "react-icons/gr";
 import { FaCheck, FaRegTrashAlt } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
 import { HexColorPicker } from "react-colorful";
-import { ago, datetime, getValidDate, date } from "@/services/dates";
+import { getValidDate, ago, datetime, date } from "shared";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useSearch } from "@/services/search";
-import useApi from "@/hooks/useApi";
 import track from "@/services/track";
+import { useExperiments } from "@/hooks/useExperiments";
 import ResultsIndicator from "../Experiment/ResultsIndicator";
 import Tab from "../Tabs/Tab";
 import Tabs from "../Tabs/Tabs";
@@ -176,9 +176,7 @@ const ShareModal = ({
   refreshList?: () => void;
   onSuccess?: () => void;
 }): React.ReactElement => {
-  const { data, error } = useApi<{
-    experiments: ExperimentInterfaceStringDates[];
-  }>("/experiments");
+  const { experiments: allExperiments } = useExperiments();
   //const [expStatus, setExpStatus] = useState("stopped");
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState<boolean>(false);
@@ -221,12 +219,11 @@ const ShareModal = ({
   }, [existing?.slides]);
 
   const { items: experiments, searchInputProps, isFiltered } = useSearch({
-    items: data?.experiments || [],
+    items: allExperiments || [],
     defaultSortField: "id",
     localStorageKey: "experiments-share",
     searchFields: [
       "name",
-      "implementation",
       "hypothesis",
       "description",
       "tags",
@@ -266,6 +263,7 @@ const ShareModal = ({
       }
       if (onSuccess && typeof onSuccess === "function") onSuccess();
       setLoading(false);
+      // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
       refreshList();
     } catch (e) {
       console.error(e);
@@ -274,17 +272,6 @@ const ShareModal = ({
     }
   });
 
-  if (!data) {
-    // still loading...
-    return null;
-  }
-  if (error) {
-    return (
-      <div className="alert alert-danger">
-        An error occurred: {error.message}
-      </div>
-    );
-  }
   if (experiments.length === 0) {
     return (
       <div className="alert alert-danger">
@@ -327,6 +314,7 @@ const ShareModal = ({
     title: form.watch("title"),
     description: form.watch("description"),
   };
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   value.slides.forEach((obj: PresentationSlide) => {
     selectedExperiments.set(obj.id, byId.get(obj.id));
   });
@@ -340,6 +328,7 @@ const ShareModal = ({
     const exps = [];
     // once we add options, we'll have to make this merge in previous options per exp
     Array.from(selectedExperiments.keys()).forEach((e) => {
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'any' is not assignable to type 'never'.
       exps.push({ id: e, type: "experiment" });
     });
     form.setValue("slides", exps);
@@ -380,6 +369,7 @@ const ShareModal = ({
 
   Object.entries(byStatus).forEach(([status]) => {
     tabContents.push(
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
       <Tab
         key={status}
         display={
@@ -459,10 +449,13 @@ const ShareModal = ({
                       <td className="nowrap">
                         {getUserDisplay(e.owner, false)}
                       </td>
+                      {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
                       <td className="nowrap" title={datetime(phase.dateEnded)}>
+                        {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
                         {ago(phase.dateEnded)}
                       </td>
                       <td className="nowrap">
+                        {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentResultsType | undefined' is not as... Remove this comment to see the full error message */}
                         <ResultsIndicator results={e.results} />
                       </td>
                     </tr>
@@ -488,6 +481,7 @@ const ShareModal = ({
 
   selectedExperiments.forEach((exp: ExperimentInterfaceStringDates, id) => {
     selectedList.push(
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
       <Draggable key={id} draggableId={id} index={counter++}>
         {(provided, snapshot) => (
           <div
@@ -568,13 +562,16 @@ const ShareModal = ({
   for (const [key, value] of Object.entries(presentationThemes)) {
     if (value.show) {
       presThemes.push({
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string' is not assignable to type 'never'.
         value: key,
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string' is not assignable to type 'never'.
         label: value.title,
       });
     }
   }
 
   if (!modalState) {
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'ReactElemen... Remove this comment to see the full error message
     return null;
   }
 
@@ -646,6 +643,7 @@ const ShareModal = ({
                 </div>
               </div>
               <Tabs
+                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null' is not assignable to type 'st... Remove this comment to see the full error message
                 defaultTab={
                   byStatus.stopped.length > 0
                     ? "Stopped"
@@ -750,6 +748,7 @@ const ShareModal = ({
               </label>
               <div className="col-sm-8">
                 <SelectField
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
                   value={form.watch("theme")}
                   onChange={(v) => form.setValue("theme", v)}
                   options={presThemes}
@@ -822,6 +821,7 @@ const ShareModal = ({
                 (use the arrow keys to change pages)
               </small>
             </h4>
+            {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
             {value.slides.length > 0 ? (
               <>
                 <div style={{ position: "absolute", left: "49%", top: "52%" }}>
@@ -836,20 +836,28 @@ const ShareModal = ({
                   }}
                 >
                   <Preview
+                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                     expIds={value.slides
                       .map((o) => {
                         return o.id;
                       })
                       .join(",")}
+                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
                     title={value.title}
+                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
                     desc={value.description}
+                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
                     theme={value.theme}
+                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                     backgroundColor={value.customTheme.backgroundColor.replace(
                       "#",
                       ""
                     )}
+                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                     textColor={value.customTheme.textColor.replace("#", "")}
+                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                     headingFont={value.customTheme.headingFont}
+                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                     bodyFont={value.customTheme.bodyFont}
                   />
                 </div>

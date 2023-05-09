@@ -44,6 +44,7 @@ const TagsInput: FC<{
   tagOptions = [...tagOptions];
   value.forEach((value) => {
     if (!tagSet.has(value)) {
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       tagOptions.push({
         id: value,
         description: "",
@@ -123,6 +124,7 @@ const TagsInput: FC<{
       }}
       closeMenuOnSelect={closeMenuOnSelect}
       autoFocus={autoFocus}
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'StylesConfig<ColorOption, true, GroupBase<Co... Remove this comment to see the full error message
       customStyles={tagStyles}
       placeholder={prompt}
       creatable={creatable}

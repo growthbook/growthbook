@@ -50,7 +50,7 @@ export default function DisplayTestQueryResults({
       <div className="border p-2 bg-light">
         <div className="row">
           <div className="col-auto">
-            <strong>First 5 Rows</strong>
+            <strong>Sample {results?.length} Rows</strong>
           </div>
           <div className="col-auto ml-auto">
             <div className="text-success">
@@ -97,6 +97,7 @@ export default function DisplayTestQueryResults({
           ))}
         </div>
       )}
+      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
       {suggestions?.length > 0 && (
         <div className="mb-2">
           <strong>Suggestions:</strong>

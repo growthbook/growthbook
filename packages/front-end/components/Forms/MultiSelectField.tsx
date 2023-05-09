@@ -32,6 +32,7 @@ const SortableMultiValue = SortableElement(
       e.stopPropagation();
     };
     const innerProps = { ...props.innerProps, onMouseDown };
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ innerProps: { onMouseDown: MouseEventHandl... Remove this comment to see the full error message
     return <components.MultiValue {...props} innerProps={innerProps} />;
   }
 );
@@ -48,6 +49,7 @@ const SortableMultiValueLabel = SortableHandle<any>(
 );
 
 const OptionWithTitle = (props: OptionProps<SingleValue>) => {
+  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ children: ReactNode; innerRef: (instance: ... Remove this comment to see the full error message
   const option = <components.Option {...props} />;
   if (props.data?.tooltip) {
     return <div title={props.data.tooltip}>{option}</div>;
@@ -105,6 +107,7 @@ const MultiSelectField: FC<
   const onSortEnd: SortEndHandler = ({ oldIndex, newIndex }) => {
     onChange(
       arrayMove(
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         selected.map((v) => v.value),
         oldIndex,
         newIndex
@@ -143,6 +146,7 @@ const MultiSelectField: FC<
             }}
             closeMenuOnSelect={closeMenuOnSelect}
             autoFocus={autoFocus}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(SingleValue | undefined)[]' is not assignab... Remove this comment to see the full error message
             value={selected}
             placeholder={initialOption ?? placeholder}
             {...{ ...ReactSelectProps, ...mergeStyles }}

@@ -6,10 +6,11 @@ import {
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
-import { StatsEngine } from "back-end/types/stats";
+import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
+  setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
 } from "@/services/experiments";
@@ -38,8 +39,10 @@ const BreakDownResults: FC<{
   activationMetric?: string;
   status: ExperimentStatus;
   statsEngine?: StatsEngine;
+  pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  sequentialTestingEnabled?: boolean;
 }> = ({
   dimensionId,
   results,
@@ -53,8 +56,10 @@ const BreakDownResults: FC<{
   status,
   reportDate,
   statsEngine,
+  pValueCorrection,
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
+  sequentialTestingEnabled,
 }) => {
   const { getDimensionById, getMetricById, ready } = useDefinitions();
 
@@ -69,9 +74,13 @@ const BreakDownResults: FC<{
 
   const tables = useMemo<TableDef[]>(() => {
     if (!ready) return [];
+    if (pValueCorrection && statsEngine === "frequentist") {
+      setAdjustedPValuesOnResults(results, metrics, pValueCorrection);
+    }
     return Array.from(new Set(metrics.concat(guardrails || [])))
       .map((metricId) => {
         const metric = getMetricById(metricId);
+        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MetricInterface | null' is not a... Remove this comment to see the full error message
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
         let regressionAdjustmentStatus:
           | MetricRegressionAdjustmentStatus
@@ -104,12 +113,14 @@ const BreakDownResults: FC<{
     metricOverrides,
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
+    pValueCorrection,
     guardrails,
     ready,
   ]);
 
   const risk = useRiskVariation(
     variations.length,
+    // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
     [].concat(...tables.map((t) => t.rows))
   );
 
@@ -173,11 +184,14 @@ const BreakDownResults: FC<{
               status={status}
               variations={variations}
               id={table.metric.id}
+              tableRowAxis="dimension"
               labelHeader={dimension}
               renderLabelColumn={(label) => label || <em>unknown</em>}
               rows={table.rows}
               fullStats={fullStats}
               statsEngine={statsEngine}
+              sequentialTestingEnabled={sequentialTestingEnabled}
+              pValueCorrection={pValueCorrection}
               {...risk}
             />
           </div>

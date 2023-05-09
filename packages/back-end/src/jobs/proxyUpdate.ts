@@ -30,12 +30,18 @@ export default function addProxyUpdateJob(ag: Agenda) {
     if (!connection) return;
     if (!connectionSupportsProxyUpdate(connection)) return;
 
-    const defs = await getFeatureDefinitions(
-      connection.organization,
-      connection.environment,
-      connection.project,
-      connection.encryptPayload ? connection.encryptionKey : undefined
-    );
+    // TODO This probably needs to renamed
+    const defs = await getFeatureDefinitions({
+      organization: connection.organization,
+      environment: connection.environment,
+      project: connection.project,
+      encryptionKey: connection.encryptPayload
+        ? connection.encryptionKey
+        : undefined,
+      includeVisualExperiments: connection.includeVisualExperiments,
+      includeDraftExperiments: connection.includeDraftExperiments,
+      includeExperimentNames: connection.includeExperimentNames,
+    });
 
     const payload = JSON.stringify(defs);
 

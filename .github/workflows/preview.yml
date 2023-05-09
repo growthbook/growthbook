@@ -1,8 +1,15 @@
-# file: .github/workflows/preview.yaml
+name: PR Preview Environment
+
 on:
   pull_request:
     branches:
       - main
+    paths:
+      - "packages/**"
+      - "!**.md"
+      - "yarn.lock"
+      - "Dockerfile"
+      - ".dockerignore"
 
 jobs:
   preview:

@@ -44,6 +44,7 @@ const GuardrailResults: FC<{
         return -1;
       }
 
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       return 1 - v.metrics[metric.id]?.chanceToWin;
     })
   );
@@ -104,7 +105,11 @@ const GuardrailResults: FC<{
               const chance = 1 - (stats.chanceToWin ?? 1);
               return (
                 <tr key={i}>
-                  <td>{v.name}</td>
+                  <th
+                    className={`variation with-variation-right-shadow variation${i} font-weight-normal`}
+                  >
+                    <span className="name">{v.name}</span>
+                  </th>
                   <MetricValueColumn
                     metric={metric}
                     stats={stats}
@@ -129,8 +134,8 @@ const GuardrailResults: FC<{
                       {percentFormatter.format(chance)}
                     </td>
                   ) : (
-                    <td>
-                      <em>not enough data</em>
+                    <td className="text-center">
+                      <em className="text-muted">not enough data</em>
                     </td>
                   )}
                 </tr>

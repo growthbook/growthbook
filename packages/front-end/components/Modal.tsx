@@ -20,16 +20,18 @@ type ModalProps = {
   cta?: string;
   closeCta?: string;
   ctaEnabled?: boolean;
+  disabledMessage?: string;
   docSection?: DocSection;
   error?: string;
   size?: "md" | "lg" | "max" | "fill";
+  sizeY?: "max" | "fill";
   inline?: boolean;
   overflowAuto?: boolean;
   autoFocusSelector?: string;
   autoCloseOnSubmit?: boolean;
   solidOverlay?: boolean;
   close?: () => void;
-  submit?: () => Promise<void>;
+  submit?: () => void | Promise<void>;
   secondaryCTA?: ReactElement;
   successMessage?: string;
   children: ReactNode;
@@ -45,8 +47,10 @@ const Modal: FC<ModalProps> = ({
   cta = "Submit",
   ctaEnabled = true,
   closeCta = "Cancel",
+  disabledMessage,
   inline = false,
   size = "md",
+  sizeY,
   docSection,
   className = "",
   autoCloseOnSubmit = true,
@@ -56,7 +60,7 @@ const Modal: FC<ModalProps> = ({
   error: externalError,
   secondaryCTA,
   successMessage,
-  bodyClassName,
+  bodyClassName = "",
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +71,7 @@ const Modal: FC<ModalProps> = ({
   }
 
   useEffect(() => {
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
     setError(externalError);
   }, [externalError]);
 
@@ -91,7 +96,12 @@ const Modal: FC<ModalProps> = ({
   const contents = (
     <div
       className={`modal-content ${className}`}
-      style={{ maxHeight: size === "fill" ? "" : "93vh" }}
+      style={{
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null' is not assignable to type 'He... Remove this comment to see the full error message
+        height: sizeY === "max" ? "93vh" : null,
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null' is not assignable to type 'Ma... Remove this comment to see the full error message
+        maxHeight: sizeY ? null : size === "fill" ? "" : "93vh",
+      }}
     >
       {loading && <LoadingOverlay />}
       {header ? (
@@ -145,6 +155,7 @@ const Modal: FC<ModalProps> = ({
       )}
       <div
         className={`modal-body ${bodyClassName}`}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MutableRefObject<HTMLDivElement | undefined>... Remove this comment to see the full error message
         ref={bodyRef}
         style={overflowAuto ? { overflowY: "auto" } : {}}
       >
@@ -168,13 +179,20 @@ const Modal: FC<ModalProps> = ({
           )}
           {secondaryCTA}
           {submit && !isSuccess ? (
-            <button
-              className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
-              type="submit"
-              disabled={!ctaEnabled}
+            <Tooltip
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
+              body={disabledMessage}
+              shouldDisplay={!ctaEnabled && !!disabledMessage}
+              tipPosition="top"
             >
-              {cta}
-            </button>
+              <button
+                className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
+                type="submit"
+                disabled={!ctaEnabled}
+              >
+                {cta}
+              </button>
+            </Tooltip>
           ) : (
             ""
           )}
@@ -213,6 +231,7 @@ const Modal: FC<ModalProps> = ({
     >
       <div
         className={`modal-dialog modal-${size}`}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ width: string; maxWidth: number; margin: s... Remove this comment to see the full error message
         style={
           size === "max"
             ? { width: "95vw", maxWidth: 1400, margin: "2vh auto" }
@@ -264,6 +283,7 @@ const Modal: FC<ModalProps> = ({
           "d-none": !open,
           "bg-dark": solidOverlay,
         })}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ opacity: number; } | null' is not assignab... Remove this comment to see the full error message
         style={overlayStyle}
       />
       {modalHtml}

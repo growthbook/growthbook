@@ -4,6 +4,7 @@ from .gbstats import (
     get_metric_df,
     reduce_dimensionality,
 )
+from gbstats.shared.constants import StatsEngine
 import nbformat
 from nbformat import v4 as nbf
 from nbformat.v4.nbjson import from_dict
@@ -39,7 +40,8 @@ def create_notebook(
     weights=[],
     run_query="",
     metrics=[],
-    needs_correction=False,
+    stats_engine=StatsEngine.BAYESIAN,
+    engine_config={},
 ):
     summary_cols = [
         "dimension",
@@ -52,10 +54,14 @@ def create_notebook(
         summary_cols.append(f"v{i}_name")
         summary_cols.append(f"v{i}_users")
         summary_cols.append(f"v{i}_cr")
-        summary_cols.append(f"v{i}_risk")
         summary_cols.append(f"v{i}_expected")
         summary_cols.append(f"v{i}_ci")
-        summary_cols.append(f"v{i}_prob_beat_baseline")
+        if stats_engine == StatsEngine.BAYESIAN:
+            summary_cols.append(f"v{i}_risk")
+            summary_cols.append(f"v{i}_prob_beat_baseline")
+        elif stats_engine == StatsEngine.FREQUENTIST:
+
+            summary_cols.append(f"v{i}_p_value")
 
     cells = [
         nbf.new_markdown_cell(
@@ -65,19 +71,29 @@ def create_notebook(
         ),
         nbf.new_markdown_cell("## Notebook Setup"),
         nbf.new_code_cell(
-            "# Requires gbstats version 0.4.0 or higher\n"
+            "# This notebook requires gbstats version 0.5.0 or later\n"
+            "try:\n"
+            "    import gbstats.utils\n"
+            "    gbstats.utils.check_gbstats_compatibility('0.5.0')\n"
+            "except ModuleNotFoundError:\n"
+            "    raise ValueError('Upgrade gbstats to 0.5.0 or later from PyPI using `pip install gbstats`')\n"
             "from gbstats.gbstats import (\n"
-            "  detect_unknown_variations,\n"
-            "  analyze_metric_df,\n"
-            "  get_metric_df,\n"
-            "  reduce_dimensionality\n"
-            ")\n\n"
+            "    detect_unknown_variations,\n"
+            "    analyze_metric_df,\n"
+            "    get_metric_df,\n"
+            "    reduce_dimensionality\n"
+            ")\n"
+            "from gbstats.shared.constants import StatsEngine\n\n"
             "# Mapping of variation id to index\n"
             f"var_id_map = {str(var_id_map)}\n\n"
             "# Display names of variations\n"
             f"var_names = {str(var_names)}\n\n"
             "# Expected traffic split between variations\n"
             f"weights = {str(weights)}\n"
+            "# Statistics engine to use\n"
+            f"stats_engine = {str(stats_engine)}\n"
+            "# Engine config\n"
+            f"engine_config = {str(engine_config)}\n"
             f"# Columns to show in the result summary\n"
             f"summary_cols = {str(summary_cols)}"
         ),
@@ -144,7 +160,7 @@ def create_notebook(
             code_cell_df(
                 df=df,
                 source=(
-                    "# If there are too many dimensions, marge the smaller ones together\n"
+                    "# If there are too many dimensions, merge the smaller ones together\n"
                     f"m{i}_reduced = reduce_dimensionality(m{i}, max=20)\n"
                     f"display(m{i}_reduced)"
                 ),
@@ -157,6 +173,8 @@ def create_notebook(
             df=df,
             weights=weights,
             inverse=inverse,
+            engine=stats_engine,
+            engine_config=engine_config,
         )
         cells.append(
             code_cell_df(
@@ -166,7 +184,9 @@ def create_notebook(
                     f"m{i}_result = analyze_metric_df(\n"
                     f"    df=m{i}_reduced,\n"
                     f"    weights=weights,\n"
-                    f"    inverse={inverse}\n"
+                    f"    inverse={inverse},\n"
+                    f"    engine=stats_engine,\n"
+                    f"    engine_config=engine_config,\n"
                     f")\n"
                     f"display(m{i}_result[summary_cols].T)"
                 ),

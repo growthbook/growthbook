@@ -25,6 +25,7 @@ const Carousel: FC<{
   if (modalOpen) {
     const orig = Children.toArray(children)[current];
     if (orig && isValidElement(orig)) {
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ReactElement<any, string | JSXElementConstru... Remove this comment to see the full error message
       currentChild = cloneElement(orig, {
         style: { ...orig.props.style, height: "100%" },
       });
@@ -32,13 +33,14 @@ const Carousel: FC<{
   }
 
   return (
-    <div className="carousel slide">
+    <div className="carousel slide my-2">
       {modalOpen && currentChild && (
         <Modal
           open={true}
           header={"Screenshot"}
           close={() => setModalOpen(false)}
           size="max"
+          sizeY="max"
         >
           {currentChild}
           {deleteImage && (
@@ -48,7 +50,7 @@ const Carousel: FC<{
                 await deleteImage(current);
                 setModalOpen(false);
               }}
-              outline={false}
+              outline={true}
               style={{
                 position: "absolute",
                 top: 20,

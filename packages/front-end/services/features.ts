@@ -19,6 +19,7 @@ import { FeatureUsageRecords } from "back-end/types/realtime";
 import dJSON from "dirty-json";
 import cloneDeep from "lodash/cloneDeep";
 import uniqid from "uniqid";
+import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import useOrgSettings from "../hooks/useOrgSettings";
 import useApi from "../hooks/useApi";
@@ -311,7 +312,7 @@ export function getAffectedEnvs(
 
 export function getDefaultValue(valueType: FeatureValueType): string {
   if (valueType === "boolean") {
-    return "true";
+    return "false";
   }
   if (valueType === "number") {
     return "1";
@@ -345,6 +346,7 @@ export function getDefaultRuleValue({
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
 }): FeatureRule {
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   const hashAttributes = attributeSchema
     .filter((a) => a.hashAttribute)
     .map((a) => a.property);
@@ -441,6 +443,35 @@ export function getDefaultRuleValue({
       },
     ],
   };
+}
+
+export function isRuleFullyCovered(rule: FeatureRule): boolean {
+  // get the schedules on any of the rules:
+  const upcomingScheduleRule = getUpcomingScheduleRule(rule);
+
+  const scheduleCompletedAndDisabled =
+    !upcomingScheduleRule &&
+    rule?.scheduleRules?.length &&
+    rule.scheduleRules.at(-1)?.timestamp !== null;
+
+  const ruleDisabled =
+    scheduleCompletedAndDisabled ||
+    upcomingScheduleRule?.enabled ||
+    !rule.enabled;
+
+  // rollouts and experiments at 100%:
+  if (
+    (rule.type === "rollout" || rule.type === "experiment") &&
+    rule.coverage === 1 &&
+    rule.enabled === true &&
+    rule.condition === "{}" &&
+    !ruleDisabled
+  ) {
+    return true;
+  }
+
+  // force rule at 100%: (doesn't have coverage)
+  return rule.type === "force" && rule.condition === "{}" && !ruleDisabled;
 }
 
 export function jsonToConds(
@@ -694,7 +725,8 @@ export function useAttributeMap(): Map<string, AttributeData> {
         array: !!schema.datatype.match(/\[\]$/),
         enum:
           schema.datatype === "enum"
-            ? schema.enum.split(",").map((x) => x.trim())
+            ? // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+              schema.enum.split(",").map((x) => x.trim())
             : [],
         identifier: !!schema.hashAttribute,
         archived: !!schema.archived,
@@ -741,7 +773,9 @@ export function getExperimentDefinitionFromFeature(
         name: "Main",
         reason: "",
         dateStarted: new Date().toISOString(),
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
         condition: expRule.condition,
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'NamespaceValue | undefined' is not assignabl... Remove this comment to see the full error message
         namespace: expRule.namespace,
         seed: trackingKey,
       },
@@ -823,6 +857,7 @@ export function genDuplicatedKey({ id }: FeatureInterface) {
     // Store 'feature_a' from 'feature_a_4'
     const keyRoot = numSuffix ? id.substr(0, id.length - numSuffix.length) : id;
     // Parse the 4 (number) out of '_4' (string)
+    // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
     const num = (numSuffix ? parseInt(numSuffix.match(/[\d]+/)[0]) : 0) + 1;
 
     return `${keyRoot}_${num}`;

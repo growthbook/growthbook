@@ -102,6 +102,7 @@ export default function ScheduleInputs(props: Props) {
                           0
                         );
                       } else {
+                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
                         onChange(null, "timestamp", 0);
                       }
                     }}
@@ -154,6 +155,7 @@ export default function ScheduleInputs(props: Props) {
                           1
                         );
                       } else {
+                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
                         onChange(null, "timestamp", 1);
                       }
                     }}
@@ -176,6 +178,7 @@ export default function ScheduleInputs(props: Props) {
                           setDateErrors("");
                           if (
                             new Date(e.target.value) <
+                            // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
                             new Date(rules[0].timestamp)
                           ) {
                             setDateErrors(

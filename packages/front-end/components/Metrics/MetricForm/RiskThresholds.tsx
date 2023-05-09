@@ -1,7 +1,5 @@
 import React, { FC } from "react";
 import { UseFormRegisterReturn } from "react-hook-form";
-import { FaExclamationTriangle } from "react-icons/fa";
-import useOrgSettings from "@/hooks/useOrgSettings";
 
 const RiskThresholds: FC<{
   winRisk: number;
@@ -16,8 +14,6 @@ const RiskThresholds: FC<{
   loseRiskRegisterField,
   riskError,
 }) => {
-  const settings = useOrgSettings();
-
   return (
     <div className="form-group">
       <label className="mb-1">Risk thresholds</label>
@@ -25,12 +21,6 @@ const RiskThresholds: FC<{
         Only applicable to Bayesian analyses
       </small>
       <div className="p-2 border rounded">
-        {settings.statsEngine === "frequentist" && (
-          <small className="d-block mb-1 text-warning-orange">
-            <FaExclamationTriangle /> Your organization uses frequentist
-            statistics by default
-          </small>
-        )}
         <div className="riskbar row align-items-center pt-2">
           <div className="col green-bar pr-0">
             <span

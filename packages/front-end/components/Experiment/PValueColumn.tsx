@@ -3,6 +3,7 @@ import { FC } from "react";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentStatus } from "back-end/types/experiment";
+import { PValueCorrection } from "back-end/types/stats";
 import {
   hasEnoughData,
   isBelowMinChange,
@@ -25,6 +26,7 @@ const PValueColumn: FC<{
   snapshotDate: Date;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
+  pValueCorrection: PValueCorrection;
 }> = ({
   metric,
   status,
@@ -33,6 +35,7 @@ const PValueColumn: FC<{
   snapshotDate,
   baseline,
   stats,
+  pValueCorrection,
 }) => {
   const {
     getMinSampleSizeForMetric,
@@ -62,7 +65,10 @@ const PValueColumn: FC<{
     belowMinChange,
   });
 
-  const statSig = isStatSig(stats, pValueThreshold);
+  const statSig = isStatSig(
+    stats.pValueAdjusted ?? stats.pValue ?? 1,
+    pValueThreshold
+  );
   const expectedDirection = isExpectedDirection(stats, metric);
 
   let sigText: string | JSX.Element = "";
@@ -85,6 +91,17 @@ const PValueColumn: FC<{
     className += " draw";
   }
 
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
+  let pValText = <>{pValueFormatter(stats?.pValue)}</>;
+  if (stats?.pValueAdjusted !== undefined && pValueCorrection) {
+    pValText = (
+      <>
+        <div>{pValueFormatter(stats?.pValueAdjusted)}</div>
+        <div className="small text-muted">(unadj.: {pValText})</div>
+      </>
+    );
+  }
+
   return (
     <td
       className={clsx(
@@ -97,6 +114,7 @@ const PValueColumn: FC<{
           <div className="mb-1 d-flex flex-row">
             <Tooltip
               body={`A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
+                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                 metric.maxPercentChange * 100
               }%).`}
             >
@@ -126,7 +144,7 @@ const PValueColumn: FC<{
             phaseStart={startDate}
           />
         ) : (
-          <>{pValueFormatter(stats?.pValue) || "P-value missing"}</>
+          <>{pValText || "P-value missing"}</>
         )}
       </Tooltip>
     </td>
