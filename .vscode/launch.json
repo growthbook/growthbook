@@ -1,0 +1,45 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Back-end",
+      "type": "node",
+      "request": "launch",
+      "runtimeArgs": [
+        "nodemon",
+        "-e",
+        "ts",
+        "--exec",
+        "node",
+        "-r",
+        "ts-node/register"
+      ],
+      "args": ["${workspaceFolder}/packages/back-end/src/server.ts"],
+      "cwd": "${workspaceFolder}/packages/back-end",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true,
+      "runtimeExecutable": "yarn",
+      "restart": true
+    },
+    {
+      "name": "Debug Front-end",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "yarn dev",
+      "cwd": "${workspaceFolder}/packages/front-end",
+      "serverReadyAction": {
+        "pattern": "started server on .+, url: (https?://.+)",
+        "uriFormat": "%s",
+        "action": "debugWithChrome"
+      }
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug Fullstack",
+      "configurations": ["Debug Back-end", "Debug Front-end"]
+    }
+  ]
+}
