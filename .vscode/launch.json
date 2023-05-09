@@ -21,25 +21,44 @@
       "skipFiles": ["<node_internals>/**"],
       "sourceMaps": true,
       "runtimeExecutable": "yarn",
-      "restart": true
+      "restart": true,
+      "presentation": {
+        "hidden": true
+      }
     },
     {
-      "name": "Debug Front-end",
+      "name": "Debug Next.js: server-side",
       "type": "node-terminal",
       "request": "launch",
-      "command": "yarn dev",
       "cwd": "${workspaceFolder}/packages/front-end",
-      "serverReadyAction": {
-        "pattern": "started server on .+, url: (https?://.+)",
-        "uriFormat": "%s",
-        "action": "debugWithChrome"
+      "command": "yarn dev",
+      "presentation": {
+        "hidden": true
+      }
+    },
+    {
+      "name": "Debug Next.js: client-side",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "runtimeArgs": ["--inspect-brk"],
+      "webRoot": "${workspaceFolder}/packages/front-end/",
+      "sourceMapPathOverrides": {
+        "webpack://_N_E/*": "${webRoot}/*"
+      },
+      "presentation": {
+        "hidden": true
       }
     }
   ],
   "compounds": [
     {
       "name": "Debug Fullstack",
-      "configurations": ["Debug Back-end", "Debug Front-end"]
+      "configurations": [
+        "Debug Back-end",
+        "Debug Next.js: client-side",
+        "Debug Next.js: server-side"
+      ]
     }
   ]
 }
