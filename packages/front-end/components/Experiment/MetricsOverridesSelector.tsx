@@ -208,7 +208,7 @@ export default function MetricsOverridesSelector({
                           helpText={
                             <div className="text-right">
                               default:{" "}
-                              {metricDefinition?.conversionWindowHours || ""}{" "}
+                              {metricDefinition?.conversionWindowHours ?? ""}{" "}
                             </div>
                           }
                           labelClassName="small mb-1"
