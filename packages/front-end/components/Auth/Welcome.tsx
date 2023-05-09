@@ -126,7 +126,11 @@ export default function Welcome({
             if (loading) return;
             setError(null);
             setLoading(true);
-            await submit?.();
+            try {
+              await submit?.();
+            } catch (e) {
+              setError(e.message);
+            }
             setLoading(false);
           }}
         >

@@ -75,7 +75,7 @@ const DateResults: FC<{
       Array.from(new Set(metrics.concat(guardrails || [])))
         .map((metricId) => {
           const metric = getMetricById(metricId);
-          if (!metric) return undefined;
+          if (!metric) return;
           // Keep track of cumulative users and value for each variation
           const totalUsers: number[] = [];
           const totalValue: number[] = [];

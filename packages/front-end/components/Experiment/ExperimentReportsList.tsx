@@ -17,7 +17,7 @@ export default function ExperimentReportsList({
   experiment,
 }: {
   experiment: ExperimentInterfaceStringDates;
-}): React.ReactElement | null {
+}) {
   const router = useRouter();
   const { apiCall } = useAuth();
   const permissions = usePermissions();

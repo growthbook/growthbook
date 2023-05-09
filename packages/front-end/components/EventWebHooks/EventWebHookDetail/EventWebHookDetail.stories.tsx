@@ -51,7 +51,7 @@ const eventWebHookNoState: EventWebHookInterface = {
   enabled: false,
   url: "http://192.168.0.15:1115/events/webhooks?v=4",
   signingKey: "ewhk_6220c5592f03244c43a929850816d644",
-  lastRunAt: getValidDate(new Date().toString()),
+  lastRunAt: null,
   lastState: "none",
   lastResponseBody: null,
 };
