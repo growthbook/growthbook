@@ -163,11 +163,10 @@ export default function FeatureModal({
     : "Create Feature";
 
   let ctaEnabled = true;
-  let disabledMessage = null;
+  let disabledMessage;
 
   if (!permissions.check("createFeatureDrafts", project)) {
     ctaEnabled = false;
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"You don't have permission to create feature... Remove this comment to see the full error message
     disabledMessage =
       "You don't have permission to create feature flag drafts.";
   }
@@ -181,15 +180,14 @@ export default function FeatureModal({
       cta={cta}
       close={close}
       ctaEnabled={ctaEnabled}
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string | un... Remove this comment to see the full error message
       disabledMessage={disabledMessage}
       secondaryCTA={secondaryCTA}
       submit={form.handleSubmit(async (values) => {
         const { defaultValue, ...feature } = values;
         const valueType = feature.valueType as FeatureValueType;
-
+        const passedFeature = feature as FeatureInterface;
         const newDefaultValue = validateFeatureValue(
-          valueType,
+          passedFeature,
           defaultValue,
           "Value"
         );

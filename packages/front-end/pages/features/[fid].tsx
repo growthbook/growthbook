@@ -647,7 +647,7 @@ export default function FeaturePage() {
                         </strong>
                       </>
                     )}
-                    , Date updated: {datetime(data.feature?.jsonSchema?.date)}
+                    , Date updated: {datetime(jsonSchema.date)}
                   </div>
 
                   <div className="d-flex align-items-center">
