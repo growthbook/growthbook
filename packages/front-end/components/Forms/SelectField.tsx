@@ -161,6 +161,7 @@ const SelectField: FC<
                   setInputValue("");
                 }}
                 onFocus={() => {
+                  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
                   if (!map.has(selected?.value)) {
                     // If this was a custom option, reset the input value so it's editable
                     setInputValue(selected?.value || "");

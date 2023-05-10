@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { date, datetime } from "@/services/dates";
+import { date, datetime } from "shared";
 import { phaseSummary } from "@/services/utils";
 import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
@@ -71,10 +71,13 @@ export default function EditPhasesModal({
               <td>{i + 1}</td>
               <td>{phase.name}</td>
               <td>
+                {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
                 <strong title={datetime(phase.dateStarted)}>
+                  {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
                   {date(phase.dateStarted)}
                 </strong>{" "}
                 to{" "}
+                {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
                 <strong title={datetime(phase.dateEnded)}>
                   {phase.dateEnded ? date(phase.dateEnded) : "now"}
                 </strong>

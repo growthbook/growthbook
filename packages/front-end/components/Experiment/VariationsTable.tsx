@@ -44,6 +44,7 @@ const ScreenshotCarousel: FC<{
 
   return (
     <Carousel
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((j: number) => Promise<void>) | null' is no... Remove this comment to see the full error message
       deleteImage={
         !canEditExperiment
           ? null
@@ -86,6 +87,7 @@ const ScreenshotCarousel: FC<{
 };
 
 const isLegacyVariation = (v: Partial<LegacyVariation>): v is LegacyVariation =>
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   !!v.css || v.dom?.length > 0;
 
 const drawUrlPattern = (
@@ -119,6 +121,11 @@ const VariationsTable: FC<Props> = ({
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
 
   const visualChangesets = _visualChangesets || [];
+  const hasAnyPositionMutations = visualChangesets.some((vc) =>
+    vc.visualChanges.some(
+      (v) => v.domMutations.filter((m) => m.attribute === "position").length > 0
+    )
+  );
 
   const [
     editingVisualChangeset,
@@ -149,6 +156,7 @@ const VariationsTable: FC<Props> = ({
                       : "pb-2"
                   }`}
                   style={{
+                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | null' is not assignable to type 'Bo... Remove this comment to see the full error message
                     borderBottom: hasDescriptions || hasUniqueIDs ? 0 : null,
                   }}
                 >
@@ -184,7 +192,7 @@ const VariationsTable: FC<Props> = ({
                   style={{
                     minWidth: "17.5rem",
                     height: "inherit",
-                    borderBottom: canEditExperiment ? 0 : null,
+                    borderBottom: canEditExperiment ? 0 : undefined,
                   }}
                 >
                   <div className="d-flex flex-column h-100">
@@ -231,6 +239,13 @@ const VariationsTable: FC<Props> = ({
             <div className="h3 d-inline-block my-0 align-middle">
               Visual Changes
             </div>
+
+            {hasAnyPositionMutations && (
+              <div className="small text-muted">
+                This experiment requires at least version 0.26.0 of our
+                Javascript SDK
+              </div>
+            )}
           </div>
 
           {visualChangesets.map((vc, i) => {

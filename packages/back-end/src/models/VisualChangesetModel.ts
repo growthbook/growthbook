@@ -73,6 +73,7 @@ const visualChangesetSchema = new mongoose.Schema({
         },
         description: String,
         css: String,
+        js: String,
         variation: {
           type: String,
           index: true,

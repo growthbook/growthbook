@@ -43,6 +43,7 @@ const ExperimentPage = (): ReactElement => {
     visualChangesets: VisualChangesetInterface[];
   }>(`/experiment/${eid}`);
 
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   useSwitchOrg(data?.experiment?.organization);
 
   const { apiCall } = useAuth();
@@ -171,14 +172,23 @@ const ExperimentPage = (): ReactElement => {
             idea={idea}
             visualChangesets={visualChangesets}
             mutate={mutate}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             editMetrics={editMetrics}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             editResult={editResult}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             editVariations={editVariations}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             duplicate={duplicate}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             editProject={editProject}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             editTags={editTags}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             newPhase={newPhase}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             editPhases={editPhases}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((i: number | null) => void) | null' is not ... Remove this comment to see the full error message
             editPhase={editPhase}
           />
         </SnapshotProvider>

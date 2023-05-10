@@ -44,6 +44,7 @@ export default function TabButton({
       }}
     >
       {display}
+      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
       {(showActiveCount || !active) && (count === 0 || count > 0) ? (
         <span className={`badge badge-gray ml-2`}>{count}</span>
       ) : (

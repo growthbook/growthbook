@@ -18,4 +18,6 @@ export type AppFeatures = {
   "slack-integration": boolean;
   "new-experiment-modal": boolean;
   "visual-editor-ui": boolean;
+  "proxy-cloud-sse": boolean;
+  "organization-message-list": Record<string, unknown>;
 };

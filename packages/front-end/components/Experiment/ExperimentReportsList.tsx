@@ -3,7 +3,7 @@ import Link from "next/link";
 import React from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
-import { ago, datetime } from "@/services/dates";
+import { ago, datetime } from "shared";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
@@ -28,21 +28,26 @@ export default function ExperimentReportsList({
     reports: ReportInterface[];
   }>(`/experiment/${experiment.id}/reports`);
 
+  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'ReactElemen... Remove this comment to see the full error message
   if (!experiment.datasource) return null;
 
   if (error) {
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'ReactElemen... Remove this comment to see the full error message
     return null;
   }
   if (!data) {
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'ReactElemen... Remove this comment to see the full error message
     return null;
   }
 
   const { reports } = data;
 
   if (!reports.length) {
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'ReactElemen... Remove this comment to see the full error message
     return null;
   }
 
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   const hasData = snapshot?.results?.[0]?.variations?.length > 0;
   const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
   const canCreateReports =
@@ -97,6 +102,7 @@ export default function ExperimentReportsList({
         </thead>
         <tbody>
           {reports.map((report) => {
+            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
             const user = users.get(report.userId);
             const name = user ? user.name : "";
             return (

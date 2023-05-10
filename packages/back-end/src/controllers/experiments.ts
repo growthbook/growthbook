@@ -2,6 +2,11 @@ import { Response } from "express";
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  getValidDate,
+  getScopedSettings,
+} from "shared";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
@@ -62,8 +67,6 @@ import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { analyzeExperimentResults } from "../services/stats";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
-import { getValidDate } from "../util/dates";
 import { getReportVariations } from "../services/reports";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 import { getAllFeatures } from "../models/FeatureModel";
@@ -83,6 +86,7 @@ import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { orgHasPremiumFeature } from "../util/organization.util";
+import { findProjectById } from "../models/ProjectModel";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -1540,7 +1544,7 @@ export async function getSnapshotStatus(
         variations: getReportVariations(experiment, phase),
         dimension: snapshot.dimension,
         queryData,
-        statsEngine: snapshot.statsEngine ?? org.settings?.statsEngine,
+        statsEngine: snapshot.statsEngine,
         sequentialTestingEnabled:
           snapshot.sequentialTestingEnabled ??
           org.settings?.sequentialTestingEnabled,
@@ -1604,45 +1608,13 @@ export async function postSnapshot(
   req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
+  const orgSettings = org.settings || {};
 
   let { statsEngine, regressionAdjustmentEnabled } = req.body;
   const { metricRegressionAdjustmentStatuses } = req.body;
   const { id } = req.params;
   const { phase, dimension } = req.body;
   const experiment = await getExperimentById(org.id, id);
-
-  statsEngine = (typeof statsEngine === "string" &&
-  ["bayesian", "frequentist"].includes(statsEngine)
-    ? statsEngine
-    : org.settings?.statsEngine ?? "bayesian") as StatsEngine;
-
-  const hasRegressionAdjustmentFeature = org
-    ? orgHasPremiumFeature(org, "regression-adjustment")
-    : false;
-  const hasSequentialTestingFeature = org
-    ? orgHasPremiumFeature(org, "sequential-testing")
-    : false;
-
-  regressionAdjustmentEnabled =
-    hasRegressionAdjustmentFeature &&
-    (regressionAdjustmentEnabled !== undefined
-      ? regressionAdjustmentEnabled
-      : org.settings?.regressionAdjustmentEnabled ?? false);
-
-  const sequentialTestingEnabled =
-    hasSequentialTestingFeature &&
-    (experiment?.sequentialTestingEnabled ??
-      !!org.settings?.sequentialTestingEnabled);
-  const sequentialTestingTuningParameter =
-    experiment?.sequentialTestingTuningParameter ??
-    org.settings?.sequentialTestingTuningParameter ??
-    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
-
-  const useCache = !req.query["force"];
-
-  // This is doing an expensive analytics SQL query, so may take a long time
-  // Set timeout to 30 minutes
-  req.setTimeout(30 * 60 * 1000);
 
   if (!experiment) {
     res.status(404).json({
@@ -1660,8 +1632,50 @@ export async function postSnapshot(
     return;
   }
 
+  let project = null;
+  if (experiment.project) {
+    project = await findProjectById(experiment.project, org.id);
+  }
+  const { settings: scopedSettings } = getScopedSettings({
+    organization: org,
+    project: project ?? undefined,
+  });
+
+  statsEngine = ["bayesian", "frequentist"].includes(statsEngine + "")
+    ? statsEngine
+    : scopedSettings.statsEngine.value;
+
+  const hasRegressionAdjustmentFeature = org
+    ? orgHasPremiumFeature(org, "regression-adjustment")
+    : false;
+  const hasSequentialTestingFeature = org
+    ? orgHasPremiumFeature(org, "sequential-testing")
+    : false;
+
+  regressionAdjustmentEnabled =
+    hasRegressionAdjustmentFeature &&
+    (regressionAdjustmentEnabled !== undefined
+      ? regressionAdjustmentEnabled
+      : orgSettings?.regressionAdjustmentEnabled ?? false);
+
+  const sequentialTestingEnabled =
+    hasSequentialTestingFeature &&
+    statsEngine === "frequentist" &&
+    (experiment?.sequentialTestingEnabled ??
+      !!orgSettings?.sequentialTestingEnabled);
+  const sequentialTestingTuningParameter =
+    experiment?.sequentialTestingTuningParameter ??
+    orgSettings?.sequentialTestingTuningParameter ??
+    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+
+  const useCache = !req.query["force"];
+
+  // This is doing an expensive analytics SQL query, so may take a long time
+  // Set timeout to 30 minutes
+  req.setTimeout(30 * 60 * 1000);
+
   const experimentSnapshotSettings: ExperimentSnapshotSettings = {
-    statsEngine,
+    statsEngine: statsEngine as StatsEngine,
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses:
       metricRegressionAdjustmentStatuses || [],

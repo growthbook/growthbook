@@ -1,4 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS, getValidDate } from "shared";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceSettings,
@@ -25,7 +26,6 @@ import {
   DEFAULT_CONVERSION_WINDOW_HOURS,
   IMPORT_LIMIT_DAYS,
 } from "../util/secrets";
-import { getValidDate } from "../util/dates";
 import { SegmentInterface } from "../../types/segment";
 import {
   getBaseIdTypeAndJoins,
@@ -34,19 +34,18 @@ import {
   FormatDialect,
 } from "../util/sql";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "../constants/stats";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
   settings: DataSourceSettings;
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   datasource: string;
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   organization: string;
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;

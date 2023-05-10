@@ -5,18 +5,22 @@ import {
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  getValidDate,
+  getScopedSettings,
+} from "shared";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
 import { useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "@/constants/stats";
 import usePermissions from "@/hooks/usePermissions";
 import { getAffectedEvsForExperiment } from "@/services/experiments";
+import { GBSequential } from "@/components/Icons";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -40,13 +44,28 @@ const AnalysisForm: FC<{
   const {
     metrics,
     segments,
+    getProjectById,
     getDatasourceById,
     datasources,
   } = useDefinitions();
 
-  const { hasCommercialFeature, organization } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
 
   const permissions = usePermissions();
+
+  const orgSettings = useOrgSettings();
+
+  const pid = experiment?.project;
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
+  const project = getProjectById(pid);
+
+  const { settings: scopedSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+    experiment: experiment,
+  });
+
+  const statsEngine = scopedSettings.statsEngine.value;
 
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"
@@ -59,8 +78,6 @@ const AnalysisForm: FC<{
       canRunExperiment = false;
     }
   }
-
-  const settings = useOrgSettings();
 
   const attributeSchema = useAttributeSchema();
 
@@ -83,22 +100,24 @@ const AnalysisForm: FC<{
       skipPartialData: experiment.skipPartialData ? "strict" : "loose",
       attributionModel:
         experiment.attributionModel ||
-        settings.attributionModel ||
+        orgSettings.attributionModel ||
         "firstExposure",
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
       dateStarted: getValidDate(phaseObj?.dateStarted)
         .toISOString()
         .substr(0, 16),
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
       dateEnded: getValidDate(phaseObj?.dateEnded).toISOString().substr(0, 16),
       variations: experiment.variations || [],
       sequentialTestingEnabled:
         hasSequentialTestingFeature &&
         experiment.sequentialTestingEnabled !== undefined
           ? experiment.sequentialTestingEnabled
-          : !!settings.sequentialTestingEnabled,
+          : !!orgSettings.sequentialTestingEnabled,
       sequentialTestingTuningParameter:
         experiment.sequentialTestingEnabled !== undefined
           ? experiment.sequentialTestingTuningParameter
-          : settings.sequentialTestingTuningParameter ??
+          : orgSettings.sequentialTestingTuningParameter ??
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     },
   });
@@ -112,11 +131,11 @@ const AnalysisForm: FC<{
       if (enable) {
         form.setValue(
           "sequentialTestingEnabled",
-          !!settings.sequentialTestingEnabled
+          !!orgSettings.sequentialTestingEnabled
         );
         form.setValue(
           "sequentialTestingTuningParameter",
-          settings.sequentialTestingTuningParameter ??
+          orgSettings.sequentialTestingTuningParameter ??
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
         );
       }
@@ -125,8 +144,8 @@ const AnalysisForm: FC<{
     [
       form,
       setUsingSequentialTestingDefault,
-      settings.sequentialTestingEnabled,
-      settings.sequentialTestingTuningParameter,
+      orgSettings.sequentialTestingEnabled,
+      orgSettings.sequentialTestingTuningParameter,
     ]
   );
 
@@ -188,9 +207,9 @@ const AnalysisForm: FC<{
         }
         if (usingSequentialTestingDefault) {
           // User checked the org default checkbox; ignore form values
-          body.sequentialTestingEnabled = !!settings.sequentialTestingEnabled;
+          body.sequentialTestingEnabled = !!orgSettings.sequentialTestingEnabled;
           body.sequentialTestingTuningParameter =
-            settings.sequentialTestingTuningParameter ??
+            orgSettings.sequentialTestingTuningParameter ??
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
         }
 
@@ -388,13 +407,13 @@ const AnalysisForm: FC<{
           ]}
         />
       )}
-      {settings?.statsEngine === "frequentist" && (
+      {statsEngine === "frequentist" && (
         <div className="d-flex flex-row no-gutters align-items-top">
           <div className="col-5">
             <SelectField
               label={
-                <PremiumTooltip commercialFeature="regression-adjustment">
-                  Use Sequential Testing
+                <PremiumTooltip commercialFeature="sequential-testing">
+                  <GBSequential /> Use Sequential Testing
                 </PremiumTooltip>
               }
               labelClassName="font-weight-bold"
@@ -438,7 +457,7 @@ const AnalysisForm: FC<{
                 <>
                   <span className="ml-2">
                     (
-                    {settings.sequentialTestingTuningParameter ??
+                    {orgSettings.sequentialTestingTuningParameter ??
                       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
                     is default)
                   </span>
@@ -447,6 +466,7 @@ const AnalysisForm: FC<{
               {...form.register("sequentialTestingTuningParameter", {
                 valueAsNumber: true,
                 validate: (v) => {
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                   return !(v <= 0);
                 },
               })}

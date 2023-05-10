@@ -5,7 +5,7 @@ import {
 } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { FaQuestionCircle } from "react-icons/fa";
-import { datetime } from "@/services/dates";
+import { datetime } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
 import Modal from "../Modal";
@@ -77,6 +77,7 @@ const FilterSummary: FC<{
                 <strong className="text-gray">Date range:</strong>
               </div>
               <div className="col">
+                {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
                 <strong>{datetime(phase.dateStarted)}</strong> to
                 <br />
                 <strong>

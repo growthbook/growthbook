@@ -566,6 +566,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     settings,
     disableSelfServeBilling,
     licenseKey,
+    messages,
   } = org;
 
   if (!IS_CLOUD && licenseKey) {
@@ -628,6 +629,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       settings,
       autoApproveMembers: org.autoApproveMembers,
       members: org.members,
+      messages: messages || [],
       pendingMembers: org.pendingMembers,
     },
   });

@@ -1,5 +1,9 @@
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
@@ -19,7 +23,6 @@ import {
   ExperimentInterface,
   LegacyExperimentInterface,
 } from "../../types/experiment";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -341,7 +344,7 @@ export function upgradeOrganizationDoc(
 
   // Add statsEngine setting if not defined
   if (!org.settings.statsEngine) {
-    org.settings.statsEngine = "bayesian";
+    org.settings.statsEngine = DEFAULT_STATS_ENGINE;
   }
 
   // Rename legacy roles

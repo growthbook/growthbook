@@ -11,6 +11,7 @@ export function phaseSummary(
   phase: ExperimentPhaseStringDates
 ): React.ReactElement {
   if (!phase) {
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'ReactElemen... Remove this comment to see the full error message
     return null;
   }
   return (
@@ -153,4 +154,15 @@ export function appendQueryParamsToURL(
   const parsed = qs.parse(query ?? "");
   const queryParams = qs.stringify({ ...parsed, ...params });
   return `${root}?${queryParams}`;
+}
+
+export function capitalizeFirstLetter(string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+export function capitalizeWords(string) {
+  return string
+    .split(" ")
+    .map((word) => capitalizeFirstLetter(word))
+    .join(" ");
 }

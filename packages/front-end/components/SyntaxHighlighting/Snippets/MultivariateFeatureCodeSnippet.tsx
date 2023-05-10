@@ -154,7 +154,7 @@ echo $value;
       <Code
         language="python"
         code={`
-value = gb.getFeatureValue(${JSON.stringify(featureId)}, ${getDefaultValue(
+value = gb.get_feature_value(${JSON.stringify(featureId)}, ${getDefaultValue(
           valueType
         )})
 print(value)

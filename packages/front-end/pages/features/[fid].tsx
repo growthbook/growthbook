@@ -4,7 +4,8 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useState } from "react";
-import { FaExclamationTriangle } from "react-icons/fa";
+import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
+import { BsLightningFill } from "react-icons/bs";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -43,6 +44,10 @@ import usePermissions from "@/hooks/usePermissions";
 import DiscussionThread from "@/components/DiscussionThread";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import FeatureModal from "@/components/Features/FeatureModal";
+import { isCloud } from "@/services/env";
+import TempMessage from "@/components/TempMessage";
+import useSDKConnections from "@/hooks/useSDKConnections";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -64,6 +69,17 @@ export default function FeaturePage() {
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
+  const [publishedMessage, setPublishedMessage] = useState(false);
+  const onPublish = () => {
+    if (!publishedMessage) {
+      setPublishedMessage(true);
+    } else {
+      setPublishedMessage(false);
+      setTimeout(() => {
+        setPublishedMessage(true);
+      }, 150);
+    }
+  };
 
   const { getProjectById, projects } = useDefinitions();
 
@@ -77,6 +93,8 @@ export default function FeaturePage() {
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
   const environments = useEnvironments();
+
+  const { data: sdkConnectionsData } = useSDKConnections();
 
   if (error) {
     return (
@@ -96,13 +114,17 @@ export default function FeaturePage() {
 
   const enabledEnvs = getEnabledEnvironments(data.feature);
 
-  const project = data.feature.project;
+  const projectId = data.feature.project;
+  const project = getProjectById(projectId || "");
+  const projectName = project?.name || null;
+  const projectIsOprhaned = projectId && !projectName;
 
   const hasDraftPublishPermission =
     isDraft &&
     permissions.check(
       "publishFeatures",
-      project,
+      projectId,
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       "defaultValue" in data.feature.draft
         ? getEnabledEnvironments(data.feature)
         : getAffectedEnvs(
@@ -110,6 +132,71 @@ export default function FeaturePage() {
             Object.keys(data.feature.draft?.rules || {})
           )
     );
+
+  const sdkConnections = sdkConnectionsData?.connections;
+  const hasProxiedConnections = sdkConnections?.some((c) => {
+    return !isCloud() ? c.proxy.enabled && c.proxy.host : c.sseEnabled;
+  });
+  const hasUnproxiedConnections =
+    sdkConnections?.some((c) => {
+      return !(!isCloud() ? c.proxy.enabled && c.proxy.host : c.sseEnabled);
+    }) || sdkConnections?.length === 0;
+
+  const rolloutDelayNotice = (
+    <div className="text-left">
+      <p className="font-weight-bolder mb-2">
+        <FaCheckCircle /> Changes published
+      </p>
+      <div className="mb-2">
+        {hasProxiedConnections ? (
+          <>
+            <p className="mb-1">
+              You currently have{" "}
+              {isCloud() ? "Streaming Updates" : "GrowthBook Proxy"} enabled on{" "}
+              {hasUnproxiedConnections ? "some" : "all"} of your SDK
+              Connections. For these connections, feature updates will be
+              deployed instantly to subscribed SDKs.
+            </p>
+            {hasUnproxiedConnections ? (
+              <p className="mb-1">
+                For your other connections, feature updates may take up to 60
+                seconds to deploy, and additional delays may occur for cached
+                SDK instances.
+              </p>
+            ) : null}
+          </>
+        ) : (
+          <p className="mb-1">
+            Feature updates may take up to 60 seconds to deploy. Additional
+            delays may occur for cached SDK instances.
+          </p>
+        )}
+      </div>
+      {isCloud() ? (
+        <div className="mt-0">
+          To use instant feature deployments, enable{" "}
+          <strong>
+            <BsLightningFill className="text-warning-orange" />
+            Streaming Updates
+          </strong>{" "}
+          in your <Link href="/sdks">SDK Connections</Link>.
+        </div>
+      ) : (
+        <div className="mt-0">
+          To use instant feature deployments, you may configure{" "}
+          <strong>
+            <BsLightningFill className="text-warning-orange" />
+            GrowthBook Proxy
+          </strong>{" "}
+          for self-hosted users. See the{" "}
+          <Link href="https://docs.growthbook.io/self-host/proxy">
+            GrowthBook Proxy documentation
+          </Link>
+          .
+        </div>
+      )}
+    </div>
+  );
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -165,6 +252,7 @@ export default function FeaturePage() {
       )}
       {editTagsModal && (
         <EditTagsForm
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
           tags={data.feature?.tags}
           save={async (tags) => {
             await apiCall(`/feature/${data.feature.id}`, {
@@ -190,6 +278,7 @@ export default function FeaturePage() {
           feature={data.feature}
           close={() => setDraftModal(false)}
           mutate={mutate}
+          onPublish={onPublish}
         />
       )}
       {duplicateModal && (
@@ -223,6 +312,17 @@ export default function FeaturePage() {
         </div>
       )}
 
+      {publishedMessage && (
+        <TempMessage
+          close={() => setPublishedMessage(false)}
+          delay={null}
+          top={65}
+          showClose={true}
+        >
+          {rolloutDelayNotice}
+        </TempMessage>
+      )}
+
       <div className="row align-items-center mb-2">
         <div className="col-auto">
           <Link href="/features">
@@ -254,8 +354,8 @@ export default function FeaturePage() {
             >
               Show implementation
             </a>
-            {permissions.check("manageFeatures", project) &&
-              permissions.check("publishFeatures", project, enabledEnvs) && (
+            {permissions.check("manageFeatures", projectId) &&
+              permissions.check("publishFeatures", projectId, enabledEnvs) && (
                 <a
                   className="dropdown-item"
                   href="#"
@@ -267,8 +367,8 @@ export default function FeaturePage() {
                   Duplicate feature
                 </a>
               )}
-            {permissions.check("manageFeatures", project) &&
-              permissions.check("publishFeatures", project, enabledEnvs) && (
+            {permissions.check("manageFeatures", projectId) &&
+              permissions.check("publishFeatures", projectId, enabledEnvs) && (
                 <DeleteButton
                   useIcon={false}
                   displayName="Feature"
@@ -282,8 +382,8 @@ export default function FeaturePage() {
                   text="Delete feature"
                 />
               )}
-            {permissions.check("manageFeatures", project) &&
-              permissions.check("publishFeatures", project, enabledEnvs) && (
+            {permissions.check("manageFeatures", projectId) &&
+              permissions.check("publishFeatures", projectId, enabledEnvs) && (
                 <ConfirmButton
                   onClick={async () => {
                     await apiCall(`/feature/${data.feature.id}/archive`, {
@@ -337,19 +437,29 @@ export default function FeaturePage() {
         <h1 className="col-auto mb-0">{fid}</h1>
       </div>
 
-      <div className="mb-2 row" style={{ fontSize: "0.8em" }}>
-        {projects.length > 0 && (
+      <div className="mb-2 row">
+        {(projects.length > 0 || projectIsOprhaned) && (
           <div className="col-auto">
             Project:{" "}
-            {data.feature.project ? (
-              <span className="badge badge-secondary">
-                {getProjectById(data.feature.project)?.name || "unknown"}
-              </span>
+            {projectIsOprhaned ? (
+              <Tooltip
+                body={
+                  <>
+                    Project <code>{projectId}</code> not found
+                  </>
+                }
+              >
+                <span className="text-danger">
+                  <FaExclamationTriangle /> Invalid project
+                </span>
+              </Tooltip>
+            ) : projectId ? (
+              <strong>{projectName}</strong>
             ) : (
-              <em className="text-muted">none</em>
+              <em className="text-muted">None</em>
             )}
-            {permissions.check("manageFeatures", project) &&
-              permissions.check("publishFeatures", project, enabledEnvs) && (
+            {permissions.check("manageFeatures", projectId) &&
+              permissions.check("publishFeatures", projectId, enabledEnvs) && (
                 <a
                   className="ml-2 cursor-pointer"
                   onClick={() => setEditProjectModal(true)}
@@ -362,7 +472,7 @@ export default function FeaturePage() {
 
         <div className="col-auto">
           Tags: <SortedTags tags={data.feature?.tags || []} />
-          {permissions.check("manageFeatures", project) && (
+          {permissions.check("manageFeatures", projectId) && (
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditTagsModal(true)}
@@ -378,7 +488,7 @@ export default function FeaturePage() {
 
         <div className="col-auto">
           Owner: {data.feature.owner ? data.feature.owner : "None"}
-          {permissions.check("manageFeatures", project) && (
+          {permissions.check("manageFeatures", projectId) && (
             <a
               className="ml-1 cursor-pointer"
               onClick={() => setEditOwnerModal(true)}
@@ -407,9 +517,10 @@ export default function FeaturePage() {
       <div className="mb-3">
         <div className={data.feature.description ? "appbox mb-4 p-3" : ""}>
           <MarkdownInlineEdit
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
             value={data.feature.description}
-            canEdit={permissions.check("manageFeatures", project)}
-            canCreate={permissions.check("manageFeatures", project)}
+            canEdit={permissions.check("manageFeatures", projectId)}
+            canCreate={permissions.check("manageFeatures", projectId)}
             save={async (description) => {
               await apiCall(`/feature/${data.feature.id}`, {
                 method: "PUT",
@@ -438,7 +549,10 @@ export default function FeaturePage() {
               <EnvironmentToggle
                 feature={data.feature}
                 environment={en.id}
-                mutate={mutate}
+                mutate={() => {
+                  mutate();
+                  onPublish();
+                }}
                 id={`${en.id}_toggle`}
               />
             </div>
@@ -453,7 +567,7 @@ export default function FeaturePage() {
 
       <h3>
         Default Value
-        {permissions.check("createFeatureDrafts", project) && (
+        {permissions.check("createFeatureDrafts", projectId) && (
           <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
             <GBEdit />
           </a>
@@ -462,6 +576,7 @@ export default function FeaturePage() {
       <div className="appbox mb-4 p-3">
         <ForceSummary
           type={type}
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           value={getFeatureDefaultValue(data.feature)}
         />
       </div>
@@ -473,6 +588,7 @@ export default function FeaturePage() {
       </p>
 
       <ControlledTabs
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<string>>' is not ass... Remove this comment to see the full error message
         setActive={setEnv}
         active={env}
         showActiveCount={true}
@@ -499,7 +615,7 @@ export default function FeaturePage() {
                     setRuleModal={setRuleModal}
                   />
                 ) : (
-                  <div className="p-3">
+                  <div className="p-3 bg-white">
                     <em>No override rules for this environment yet</em>
                   </div>
                 )}
@@ -509,7 +625,7 @@ export default function FeaturePage() {
         })}
       </ControlledTabs>
 
-      {permissions.check("createFeatureDrafts", project) && (
+      {permissions.check("createFeatureDrafts", projectId) && (
         <div className="row">
           <div className="col mb-3">
             <div

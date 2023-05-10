@@ -20,11 +20,13 @@ to gradually release a new ML model or enable new fields in an API response.
 
 ## Environments
 
-GrowthBook comes with one environment by default (**production**), but you can add as many as you need.
+GrowthBook comes with one environment by default (**production**), but you can add as many as you need on the [Environments page](https://app.growthbook.io/environments).
 
 Feature flags can be enabled and disabled on a per-environment basis.
 
 When a feature is disabled in an environment, it will always evaluate to `null` and ignore any other targeting or override rules.
+
+When configuring your SDK, there is no environment configuration in the SDK since you provide the key, which itself is linked to the environment. To use multiple environments in the same code base, you can use environment variables to set a dynamic key, e.g. `GROWTHBOOK_CLIENT_KEY='sdk-abc123'` and then reference that environment variable in your code base. Depending on the framework you're using, some environment variables are not exposed by default on the front-end unless provided an appropriate prefix, e.g. `NEXT_GROWTHBOOK_CLIENT_KEY='sdk-abc123'` in order to access environment variables in Next.js client code.
 
 :::note
 
@@ -166,6 +168,14 @@ In the vast majority of cases, you want to split traffic based on either a logge
 If the total variation percents add up to less than 100%, the remaining users will skip the rule and fall through to the next matching one (or the default value) instead.
 
 You can analyze the result of an Experiment the same way you would any experiment in GrowthBook.
+
+### Scheduling Features
+
+![Feature Scheduling](/images/feature-scheduling.png)
+
+If you have a Pro or Enterprise plan, you can schedule features to turn on or off at a specific date and time. This is useful for things like turning features on or off for holidays or special promotions.
+
+Scheduling features is currently supported with all override rule types, including force rules, rollout rules, and experiment rules - and just like non-scheduled override rules, they will override the default value when all conditions are met.
 
 #### Namespaces
 

@@ -154,13 +154,16 @@ export default function SubscriptionInfo() {
           </div>
         )}
       </div>
+      {/* @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'. */}
       {quote.currentSeatsPaidFor !== activeAndInvitedUsers && (
         <div className="col-md-12 mb-3 alert alert-warning">
           {`You have recently ${
+            // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
             activeAndInvitedUsers - quote.currentSeatsPaidFor > 0
               ? "added"
               : "removed"
           } ${Math.abs(
+            // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
             activeAndInvitedUsers - quote.currentSeatsPaidFor
           )} seats. `}
           These changes will be applied to your subscription soon.

@@ -58,6 +58,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   const handleActionDeleteClicked = useCallback(
     (idx: number) => async () => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       copy.settings.userIdTypes.splice(idx, 1);
 
       await onSave(copy);
@@ -68,6 +69,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   const handleSave = useCallback(
     (idx: number) => async (userIdType: string, description: string) => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       copy.settings.userIdTypes[idx] = {
         userIdType,
         description,
@@ -168,7 +170,9 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
         <EditIdentifierType
           mode={uiMode}
           onCancel={handleCancel}
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           userIdType={recordEditing?.userIdType}
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           description={recordEditing?.description}
           onSave={handleSave(editingIndex)}
           dataSource={dataSource}

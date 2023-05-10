@@ -125,7 +125,7 @@ export async function processJWT(
     } else {
       checkProjects = [project];
     }
-    for (const p in checkProjects) {
+    for (const p of checkProjects) {
       if (!hasPermission(permission, p, envs ? [...envs] : undefined)) {
         throw new Error("You do not have permission to complete that action.");
       }

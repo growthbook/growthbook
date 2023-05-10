@@ -4,9 +4,9 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
+import { getValidDate } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatConversionRate } from "@/services/metrics";
-import { getValidDate } from "@/services/dates";
 import Toggle from "../Forms/Toggle";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
@@ -62,6 +62,7 @@ const DateResults: FC<{
   }, [results, cumulative]);
 
   // Data for the metric graphs
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '() => { metric: MetricInterface ... Remove this comment to see the full error message
   const metricSections = useMemo<Metric[]>(() => {
     if (!ready) return [];
 
@@ -129,6 +130,7 @@ const DateResults: FC<{
                 const label = i
                   ? (value > 0 ? "+" : "") + percentFormatter.format(value)
                   : formatConversionRate(
+                      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MetricType | undefined' is not a... Remove this comment to see the full error message
                       metric?.type,
                       cumulative
                         ? totalUsers[i]

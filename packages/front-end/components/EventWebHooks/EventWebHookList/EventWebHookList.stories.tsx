@@ -1,5 +1,5 @@
 import { EventWebHookInterface } from "back-end/types/event-webhook";
-import { getValidDate } from "@/services/dates";
+import { getValidDate } from "shared";
 import { EventWebHookList } from "./EventWebHookList";
 
 export default {
@@ -47,6 +47,7 @@ export const Default = () => {
       enabled: false,
       url: "http://192.168.0.15:1115/events/webhooks?v=4",
       signingKey: "ewhk_6220c5592f03244c43a929850816d644",
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'Date'.
       lastRunAt: null,
       lastState: "none",
       lastResponseBody: null,
@@ -109,6 +110,7 @@ export const WithLongUrl = () => {
       url:
         "http://www.foo.bar.baz.growthbook.com/api/v100/vendors/webhooks/features/feature-deleted/webhooks?token=8ca47365b8b2499ca7a863d5b5c36b5d",
       signingKey: "ewhk_6220c5592f03244c43a929850816d644",
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'Date'.
       lastRunAt: null,
       lastState: "none",
       lastResponseBody: null,

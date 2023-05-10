@@ -157,13 +157,21 @@ export async function getSavedGroupMap(
 export async function refreshSDKPayloadCache(
   organization: OrganizationInterface,
   payloadKeys: SDKPayloadKey[],
-  allFeatures: FeatureInterface[] | null = null
+  allFeatures: FeatureInterface[] | null = null,
+  skipRefreshForProject?: string
 ) {
   // Ignore any old environments which don't exist anymore
   const allowedEnvs = new Set(
     organization.settings?.environments?.map((e) => e.id) || []
   );
   payloadKeys = payloadKeys.filter((k) => allowedEnvs.has(k.environment));
+
+  // Remove any projects to skip
+  if (skipRefreshForProject) {
+    payloadKeys = payloadKeys.filter(
+      (k) => k.project !== skipRefreshForProject
+    );
+  }
 
   // If no environments are affected, we don't need to update anything
   if (!payloadKeys.length) return;

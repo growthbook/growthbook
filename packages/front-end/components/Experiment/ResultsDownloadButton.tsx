@@ -65,7 +65,9 @@ export default function ResultsDownloadButton({
         result.variations.forEach((variation, index) => {
           const metric = getMetricById(m);
           const row: ExperimentTableRow = {
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
             label: metric?.name,
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MetricInterface | null' is not assignable to... Remove this comment to see the full error message
             metric: metric,
             rowClass: metric?.inverse ? "inverse" : "",
             variations: result.variations.map((v) => {
@@ -83,6 +85,7 @@ export default function ResultsDownloadButton({
             users: stats.users,
             totalValue: stats.value,
             perUserValue: stats.cr,
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             perUserValueStdDev: stats.stats.stddev || null,
             chanceToBeatControl: stats.chanceToWin ?? null,
             percentChange: stats.expected || null,

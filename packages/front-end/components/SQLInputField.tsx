@@ -66,6 +66,7 @@ export default function SQLInputField({
       const suggestions: ReactElement[] = [];
 
       const namedCols = ["experiment_name", "variation_name"];
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       const userIdTypes = identityTypes.map((type) => type.userIdType || []);
 
       const returnedColumns = new Set<string>(Object.keys(result));
@@ -224,8 +225,10 @@ export default function SQLInputField({
             <DisplayTestQueryResults
               duration={parseInt(testQueryResults.duration || "0")}
               requiredColumns={[...requiredColumns]}
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'TestQueryRow[] | undefined' is not assignabl... Remove this comment to see the full error message
               results={testQueryResults.results}
               error={testQueryResults.error}
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
               sql={testQueryResults.sql}
               suggestions={suggestions}
             />

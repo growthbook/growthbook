@@ -28,6 +28,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "regression-adjustment",
     "sequential-testing",
     "visual-editor",
+    "cloud-proxy",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -38,6 +39,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "regression-adjustment",
     "sequential-testing",
     "visual-editor",
+    "cloud-proxy",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
@@ -49,6 +51,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "regression-adjustment",
     "sequential-testing",
     "visual-editor",
+    "cloud-proxy",
   ]),
 };
 export function getAccountPlan(org: OrganizationInterface): AccountPlan {
@@ -85,6 +88,7 @@ export const PROJECT_SCOPED_PERMISSIONS = [
   "addComments",
   "createFeatureDrafts",
   "manageFeatures",
+  "manageProjects",
   "createAnalyses",
   "createIdeas",
   "createMetrics",
@@ -99,9 +103,9 @@ export const GLOBAL_PERMISSIONS = [
   "createSegments",
   "organizationSettings",
   "superDelete",
+  "manageProjects",
   "manageTeam",
   "manageTags",
-  "manageProjects",
   "manageApiKeys",
   "manageIntegrations",
   "manageWebhooks",

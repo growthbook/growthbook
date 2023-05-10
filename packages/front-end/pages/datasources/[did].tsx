@@ -1,12 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
-import {
-  FaAngleLeft,
-  FaDatabase,
-  FaExternalLinkAlt,
-  FaKey,
-} from "react-icons/fa";
+import { FaDatabase, FaExternalLinkAlt, FaKey } from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -26,6 +21,7 @@ import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
+import { GBCircleArrowLeft } from "@/components/Icons";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -52,6 +48,7 @@ const DataSourcePage: FC = () => {
   const { apiCall } = useAuth();
 
   const canEdit =
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'DataSourceInterfaceWithParams | ... Remove this comment to see the full error message
     checkDatasourceProjectPermissions(d, permissions, "createDatasources") &&
     !hasFileConfig();
 
@@ -69,6 +66,7 @@ const DataSourcePage: FC = () => {
         body: JSON.stringify(updates),
       });
       const queriesUpdated =
+        // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
         JSON.stringify(d.settings?.queries) !==
         JSON.stringify(dataSource.settings?.queries);
       if (queriesUpdated) {
@@ -86,15 +84,21 @@ const DataSourcePage: FC = () => {
   );
 
   if (error) {
-    return <div className="alert alert-danger">{error}</div>;
+    return (
+      <div className="container pagecontents">
+        <div className="alert alert-danger">{error}</div>
+      </div>
+    );
   }
   if (!ready) {
     return <LoadingOverlay />;
   }
   if (!d) {
     return (
-      <div className="alert alert-danger">
-        Datasource <code>{did}</code> does not exist.
+      <div className="container pagecontents">
+        <div className="alert alert-danger">
+          Datasource <code>{did}</code> does not exist.
+        </div>
       </div>
     );
   }
@@ -103,11 +107,11 @@ const DataSourcePage: FC = () => {
   const supportsEvents = d.properties?.events || false;
 
   return (
-    <div className="container mt-3 pagecontents">
+    <div className="container pagecontents">
       <div className="mb-2">
         <Link href="/datasources">
           <a>
-            <FaAngleLeft /> All Data Sources
+            <GBCircleArrowLeft /> Back to all data sources
           </a>
         </Link>
       </div>
@@ -136,6 +140,7 @@ const DataSourcePage: FC = () => {
       <div className="row mb-3 align-items-center">
         <div className="col">
           Projects:{" "}
+          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
           {d?.projects?.length > 0 ? (
             <ProjectBadges
               projectIds={d.projects}
@@ -170,6 +175,7 @@ const DataSourcePage: FC = () => {
                   >
                     <FaExternalLinkAlt /> View Documentation
                   </DocLink>
+                  {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                   {d.properties.supportsInformationSchema && (
                     <button
                       className="btn btn-outline-info mr-2 mt-1 font-weight-bold"

@@ -1,5 +1,9 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared";
 import { APP_ORIGIN } from "../util/secrets";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
 import { getExperimentById } from "../models/ExperimentModel";
@@ -9,7 +13,6 @@ import { MetricInterface } from "../../types/metric";
 import { ExperimentReportArgs } from "../../types/report";
 import { getReportById } from "../models/ReportModel";
 import { Queries } from "../../types/query";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
 import { reportArgsFromSnapshot } from "./reports";
 import { getQueryData } from "./queries";
 
@@ -127,7 +130,7 @@ export async function generateNotebook(
     run_query: datasource.settings.notebookRunQuery,
   }).replace(/\\/g, "\\\\");
 
-  const statsEngine = args.statsEngine ?? "bayesian";
+  const statsEngine = args.statsEngine ?? DEFAULT_STATS_ENGINE;
   const configString =
     statsEngine === "frequentist" && (args.sequentialTestingEnabled ?? false)
       ? `{'sequential': True, 'sequential_tuning_parameter': ${

@@ -27,10 +27,13 @@ export const listExperiments = createApiRequestHandler(
       req.query
     );
 
+    const promises = filtered.map((experiment) =>
+      toExperimentApiInterface(req.organization, experiment)
+    );
+    const apiExperiments = await Promise.all(promises);
+
     return {
-      experiments: filtered.map((experiment) =>
-        toExperimentApiInterface(req.organization, experiment)
-      ),
+      experiments: apiExperiments,
       ...returnFields,
     };
   }

@@ -1,5 +1,9 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared";
 import { MetricInterface } from "../../types/metric";
 import { ExperimentMetricAnalysis, StatsEngine } from "../../types/stats";
 import {
@@ -15,7 +19,6 @@ import { getMetricsByOrganization } from "../models/MetricModel";
 import { promiseAllChunks } from "../util/promise";
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "../constants/stats";
 import { QueryMap } from "./queries";
 
 export const MAX_DIMENSIONS = 20;
@@ -25,7 +28,7 @@ export async function analyzeExperimentMetric(
   metric: MetricInterface,
   rows: ExperimentMetricQueryResponse,
   maxDimensions: number,
-  statsEngine: StatsEngine = "bayesian",
+  statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
   sequentialTestingEnabled: boolean = false,
   sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
 ): Promise<ExperimentMetricAnalysis> {
@@ -133,7 +136,7 @@ export async function analyzeExperimentResults({
   variations,
   dimension = null,
   queryData,
-  statsEngine = "bayesian",
+  statsEngine = DEFAULT_STATS_ENGINE,
   sequentialTestingEnabled = false,
   sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 }: {
