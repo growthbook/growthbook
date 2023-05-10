@@ -1,6 +1,7 @@
 import {
   DataSourceProperties,
   DataSourceSettings,
+  DataSourceType,
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
@@ -26,17 +27,12 @@ import {
 import { replaceSQLVars } from "../util/sql";
 
 export default class Mixpanel implements SourceIntegrationInterface {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  datasource: string;
+  type!: DataSourceType;
+  datasource!: string;
   params: MixpanelConnectionParams;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  organization: string;
+  organization!: string;
   settings: DataSourceSettings;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  decryptionError: boolean;
+  decryptionError!: boolean;
   constructor(encryptedParams: string, settings: DataSourceSettings) {
     try {
       this.params = decryptDataSourceParams<MixpanelConnectionParams>(
