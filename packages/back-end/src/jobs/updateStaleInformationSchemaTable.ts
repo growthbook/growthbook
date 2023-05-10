@@ -76,10 +76,15 @@ export default function (ag: Agenda) {
         }
 
         const columns: Column[] = tableData.map(
-          (row: { column_name: string; data_type: string }) => {
+          (row: {
+            column_name: string;
+            data_type: string;
+            column_comment: string;
+          }) => {
             return {
               columnName: row.column_name,
               dataType: row.data_type,
+              comment: row.column_comment,
               path: getPath(datasource.type, {
                 tableCatalog: informationSchemaTable.databaseName,
                 tableSchema: informationSchemaTable.tableSchema,

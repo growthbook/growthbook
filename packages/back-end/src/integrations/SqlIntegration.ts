@@ -1244,6 +1244,9 @@ export default abstract class SqlIntegration
   ): string {
     return "information_schema.columns";
   }
+  supportsCommentColumn(): boolean {
+    return true;
+  }
   async getInformationSchema(): Promise<InformationSchema[]> {
     const sql = `
   SELECT 
@@ -1274,9 +1277,9 @@ export default abstract class SqlIntegration
   ): Promise<{ tableData: null | unknown[] }> {
     const sql = `
   SELECT 
+    ${this.supportsCommentColumn() ? "column_comment as column_comment," : ""}
     data_type as data_type,
-    column_name as column_name,
-    column_comment as column_comment
+    column_name as column_name
   FROM
     ${this.getInformationSchemaTableFromClause(databaseName, tableSchema)}
   WHERE 

@@ -24,7 +24,7 @@ const informationSchemaTablesSchema = new mongoose.Schema({
             columnName: z.string(),
             path: z.string(),
             dataType: z.string(),
-            comment: z.string(),
+            comment: z.string().optional(),
           })
         );
 
