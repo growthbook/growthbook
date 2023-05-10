@@ -218,7 +218,7 @@ const MetricForm: FC<MetricFormProps> = ({
     {
       key: "revenue",
       display: "Revenue",
-      description: `How much money a user pays (in ${displayCurrency}).`,
+      description: `How much money a user pays (in ${displayCurrency})`,
       sub: "revenue per visitor, average order value, etc.",
     },
   ];
