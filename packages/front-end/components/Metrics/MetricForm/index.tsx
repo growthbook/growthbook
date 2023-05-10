@@ -194,31 +194,6 @@ const MetricForm: FC<MetricFormProps> = ({
     });
   }, [source]);
 
-  const currencyOptions = [
-    {
-      label: "US Dollar (USD)",
-      value: "USD",
-    },
-    { label: "Austrailian Dollar (AUD)", value: "AUD" },
-    {
-      label: "Canadian Dollar (CAD)",
-      value: "CAD",
-    },
-    { label: "Swiss Franc (CHF)", value: "CHF" },
-    {
-      label: "Euro (EUR)",
-      value: "EUR",
-    },
-    {
-      label: "Pound Sterling (GBP)",
-      value: "GBP",
-    },
-    { label: "Indian Rupee (INR)", value: "INR" },
-    { label: "Japanese Yen (JYP)", value: "JPY" },
-    { label: "Mexican Peso (MXN)", value: "MXN" },
-    { label: "New Zealand Dollar (NZD)", value: "NZD" },
-  ];
-
   const metricTypeOptions = [
     {
       key: "binomial",
@@ -260,7 +235,6 @@ const MetricForm: FC<MetricFormProps> = ({
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       queryFormat: current.queryFormat || (current.sql ? "sql" : "builder"),
-      currency: current.currency || "",
       cap: current.cap || 0,
       conversionWindowHours:
         current.conversionWindowHours || getDefaultConversionWindowHours(),
@@ -318,7 +292,6 @@ const MetricForm: FC<MetricFormProps> = ({
     regressionAdjustmentOverride: form.watch("regressionAdjustmentOverride"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
-    currency: form.watch("currency"),
   };
 
   const denominatorOptions = useMemo(() => {
@@ -472,9 +445,6 @@ const MetricForm: FC<MetricFormProps> = ({
     if (type === "binomial") {
       form.setValue("ignoreNulls", false);
     }
-    if (type !== "revenue") {
-      form.setValue("currency", "");
-    }
   }, [type, form]);
 
   const { setTableId, tableOptions, columnOptions } = useSchemaFormOptions(
@@ -610,18 +580,6 @@ const MetricForm: FC<MetricFormProps> = ({
               setValue={(val: MetricType) => form.setValue("type", val)}
               options={metricTypeOptions}
             />
-            {form.watch("type") === "revenue" && (
-              <SelectField
-                label="Currency"
-                value={value.currency || ""}
-                options={currencyOptions}
-                onChange={(v) => form.setValue("currency", v)}
-                required
-                placeholder="Select currency..."
-                sort={false}
-                helpText="This currency should match what is stored in the data source."
-              />
-            )}
           </div>
         </Page>
         <Page

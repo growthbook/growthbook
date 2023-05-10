@@ -75,5 +75,4 @@ export interface MetricInterface {
   timestampColumn?: string;
   conditions?: Condition[];
   queryFormat?: "sql" | "builder";
-  currency?: string;
 }

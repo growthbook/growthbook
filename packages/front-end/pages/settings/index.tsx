@@ -5,7 +5,10 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { useForm } from "react-hook-form";
-import { OrganizationSettings } from "back-end/types/organization";
+import {
+  OrganizationSettings,
+  SupportedCurrencies,
+} from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import cronstrue from "cronstrue";
 import { AttributionModel } from "back-end/types/experiment";
@@ -39,6 +42,7 @@ import { AttributionModelTooltip } from "@/components/Experiment/AttributionMode
 import Tab from "@/components/Tabs/Tab";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 function hasChanges(
   value: OrganizationSettings,
@@ -65,6 +69,32 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
     settings.statsEngine || DEFAULT_STATS_ENGINE
   );
+  const orgSettings = useOrgSettings();
+
+  const currencyOptions = [
+    {
+      label: "US Dollar (USD)",
+      value: "USD",
+    },
+    { label: "Austrailian Dollar (AUD)", value: "AUD" },
+    {
+      label: "Canadian Dollar (CAD)",
+      value: "CAD",
+    },
+    { label: "Swiss Franc (CHF)", value: "CHF" },
+    {
+      label: "Euro (EUR)",
+      value: "EUR",
+    },
+    {
+      label: "Pound Sterling (GBP)",
+      value: "GBP",
+    },
+    { label: "Indian Rupee (INR)", value: "INR" },
+    { label: "Japanese Yen (JYP)", value: "JPY" },
+    { label: "Mexican Peso (MXN)", value: "MXN" },
+    { label: "New Zealand Dollar (NZD)", value: "NZD" },
+  ];
 
   const permissions = usePermissions();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
@@ -129,6 +159,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       sequentialTestingEnabled: false,
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       attributionModel: "firstExposure",
+      defaultCurrency: orgSettings.defaultCurrency || "USD",
     },
   });
   const { apiCall } = useAuth();
@@ -161,6 +192,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       "sequentialTestingTuningParameter"
     ),
     attributionModel: form.watch("attributionModel"),
+    defaultCurrency: form.watch("defaultCurrency"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -1086,6 +1118,21 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   {/* endregion Minimum Percentage Change */}
                 </>
                 {/* endregion Metrics Behavior Defaults */}
+                <>
+                  <SelectField
+                    label="Default Currency"
+                    value={form.watch("defaultCurrency") || "USD"}
+                    options={currencyOptions}
+                    onChange={(v: SupportedCurrencies) => {
+                      form.setValue("defaultCurrency", v);
+                      console.log("v", v);
+                    }}
+                    required
+                    placeholder="Select currency..."
+                    sort={false}
+                    helpText="This should match what is stored in the data source and controls what currency symbol is displayed."
+                  />
+                </>
               </div>
             </div>
           </div>

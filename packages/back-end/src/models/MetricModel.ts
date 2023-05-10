@@ -50,7 +50,6 @@ const metricSchema = new mongoose.Schema({
   status: String,
   sql: String,
   aggregation: String,
-  currency: String,
   timestampColumn: String,
   queryFormat: String,
   tags: [String],

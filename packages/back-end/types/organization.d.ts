@@ -106,6 +106,18 @@ export interface Namespaces {
   status: "active" | "inactive";
 }
 
+export type SupportedCurrencies =
+  | "USD"
+  | "CAD"
+  | "EUR"
+  | "GBP"
+  | "AUD"
+  | "NZD"
+  | "CHF"
+  | "JYP"
+  | "MXN"
+  | "NXD";
+
 export type SDKAttributeType =
   | "string"
   | "number"
@@ -167,6 +179,7 @@ export interface OrganizationSettings {
   attributionModel?: AttributionModel;
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
+  defaultCurrency?: SupportedCurrencies;
 }
 
 export interface SubscriptionQuote {

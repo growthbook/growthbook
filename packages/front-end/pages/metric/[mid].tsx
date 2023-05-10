@@ -63,6 +63,7 @@ const MetricPage: FC = () => {
   const router = useRouter();
   const { mid } = router.query;
   const permissions = usePermissions();
+  const orgSettings = useOrgSettings();
   const { apiCall } = useAuth();
   const {
     mutateDefinitions,
@@ -655,7 +656,7 @@ const MetricPage: FC = () => {
                                 {formatConversionRate(
                                   metric.type,
                                   analysis.average,
-                                  metric.currency
+                                  orgSettings.defaultCurrency
                                 )}
                               </div>
                               <div className="pb-2 ml-1">average</div>
