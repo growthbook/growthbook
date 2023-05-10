@@ -114,9 +114,11 @@ export type SupportedCurrencies =
   | "AUD"
   | "NZD"
   | "CHF"
-  | "JYP"
+  | "JPY"
   | "MXN"
-  | "NXD";
+  | "NXD"
+  | "INR"
+  | "NGN";
 
 export type SDKAttributeType =
   | "string"

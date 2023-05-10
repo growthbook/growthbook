@@ -71,7 +71,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   );
   const orgSettings = useOrgSettings();
 
-  const currencyOptions = [
+  const currencyOptions: { label: string; value: SupportedCurrencies }[] = [
     {
       label: "US Dollar (USD)",
       value: "USD",
@@ -94,6 +94,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     { label: "Japanese Yen (JYP)", value: "JPY" },
     { label: "Mexican Peso (MXN)", value: "MXN" },
     { label: "New Zealand Dollar (NZD)", value: "NZD" },
+    { label: "Naira (NGN)", value: "NGN" },
   ];
 
   const permissions = usePermissions();
@@ -1123,10 +1124,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     label="Default Currency"
                     value={form.watch("defaultCurrency") || "USD"}
                     options={currencyOptions}
-                    onChange={(v: SupportedCurrencies) => {
-                      form.setValue("defaultCurrency", v);
-                      console.log("v", v);
-                    }}
+                    onChange={(v: SupportedCurrencies) =>
+                      form.setValue("defaultCurrency", v)
+                    }
                     required
                     placeholder="Select currency..."
                     sort={false}
