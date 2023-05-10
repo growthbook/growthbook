@@ -170,13 +170,21 @@ export async function fetchTableData(
     });
   });
 
-  const { tableData, refreshMS } = await integration.getTableData(
+  const queryStartTime = Date.now();
+  const { tableData } = await integration.getTableData(
     databaseName,
     tableSchema,
     tableName
   );
+  const queryEndTime = Date.now();
 
-  return { tableData, refreshMS, databaseName, tableSchema, tableName };
+  return {
+    tableData,
+    refreshMS: queryEndTime - queryStartTime,
+    databaseName,
+    tableSchema,
+    tableName,
+  };
 }
 
 export async function generateInformationSchema(

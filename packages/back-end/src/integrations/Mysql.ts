@@ -3,9 +3,6 @@ import { ConnectionOptions } from "mysql2";
 import { MysqlConnectionParams } from "../../types/integrations/mysql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
-import { DataSourceProperties } from "../../types/datasource";
-import { formatInformationSchema } from "../util/informationSchemas";
-import { InformationSchema, RawInformationSchema } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mysql extends SqlIntegration {
@@ -16,12 +13,6 @@ export default class Mysql extends SqlIntegration {
     this.params = decryptDataSourceParams<MysqlConnectionParams>(
       encryptedParams
     );
-  }
-  getSourceProperties(): DataSourceProperties {
-    return {
-      ...super.getSourceProperties(),
-      supportsInformationSchema: true,
-    };
   }
   getFormatDialect(): FormatDialect {
     return "mysql";
@@ -80,51 +71,11 @@ export default class Mysql extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
-  async getInformationSchema(): Promise<InformationSchema[]> {
-    const databaseName = this.params.database;
-    const sql = `SELECT
-        table_name as table_name,
-        table_catalog as table_catalog,
-        table_schema as table_schema,
-        count(column_name) as column_count
-      FROM
-        information_schema.columns
-      WHERE table_schema in ('${databaseName}')
-      GROUP BY table_name, table_schema, table_catalog`;
-
-    const results = await this.runQuery(sql);
-
-    if (!results.length) {
-      throw new Error(`No tables found.`);
-    }
-
-    return formatInformationSchema(results as RawInformationSchema[], "mysql");
-  }
-
-  async getTableData(
-    databaseName: string,
-    tableSchema: string,
-    tableName: string
-  ): Promise<{ tableData: null | unknown[]; refreshMS: number }> {
-    const sql = `SELECT
-        data_type as data_type,
-        column_name as column_name
-      FROM
-        information_schema.columns
-      WHERE
-        table_catalog
-      IN ('${databaseName}')
-      AND
-        table_schema
-      IN ('${tableSchema}')
-      AND
-        table_name
-      IN ('${tableName}')`;
-
-    const queryStartTime = Date.now();
-    const tableData = await this.runQuery(sql);
-    const queryEndTime = Date.now();
-
-    return { tableData, refreshMS: queryEndTime - queryStartTime };
+  getInformationSchemaWhereClause(): string {
+    if (!this.params.database)
+      throw new Error(
+        `No database name provided in MySql connection. Please add a database by editing the connection settings.`
+      );
+    return `table_schema IN ('${this.params.database}')`;
   }
 }

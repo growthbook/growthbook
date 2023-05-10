@@ -1,4 +1,5 @@
 import { analyticsreporting_v4, google } from "googleapis";
+import { DataSourceType } from "aws-sdk/clients/quicksight";
 import {
   SourceIntegrationConstructor,
   SourceIntegrationInterface,
@@ -50,16 +51,11 @@ function convertDate(rawDate: string): string {
 const GoogleAnalytics: SourceIntegrationConstructor = class
   implements SourceIntegrationInterface {
   params: GoogleAnalyticsParams;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  datasource: string;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  organization: string;
+  type!: DataSourceType;
+  datasource!: string;
+  organization!: string;
   settings: DataSourceSettings;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  decryptionError: boolean;
+  decryptionError!: boolean;
 
   constructor(encryptedParams: string) {
     try {
