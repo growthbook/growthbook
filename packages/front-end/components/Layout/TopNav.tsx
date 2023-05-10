@@ -168,6 +168,13 @@ const TopNav: FC<{
                       e.preventDefault();
                       // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
                       setOrgId(o.id);
+
+                      try {
+                        localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
+                      } catch (e) {
+                        console.warn("Cannot set gb-last-picked-org");
+                      }
+
                       setOrgDropdownOpen(false);
                     }}
                   >
