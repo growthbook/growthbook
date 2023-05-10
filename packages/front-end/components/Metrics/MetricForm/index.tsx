@@ -181,6 +181,8 @@ const MetricForm: FC<MetricFormProps> = ({
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
 
+  const displayCurrency = settings.defaultCurrency || "USD";
+
   const {
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
@@ -216,7 +218,7 @@ const MetricForm: FC<MetricFormProps> = ({
     {
       key: "revenue",
       display: "Revenue",
-      description: "How much money a user pays",
+      description: `How much money a user pays (in ${displayCurrency}).`,
       sub: "revenue per visitor, average order value, etc.",
     },
   ];
