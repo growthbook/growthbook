@@ -788,8 +788,8 @@ export async function postExperiment(
     changes.phases = phases;
   }
 
-  // check if the user needs the `runExperiments` permission
-  const keysRequiringRunExperiments = [
+  // Only some fields affect production SDK payloads
+  const needsRunExperimentsPermission = ([
     "phases",
     "variations",
     "project",
@@ -797,12 +797,8 @@ export async function postExperiment(
     "trackingKey",
     "archived",
     "status",
-  ];
-  if (
-    Object.keys(changes).some((key) =>
-      keysRequiringRunExperiments.includes(key)
-    )
-  ) {
+  ] as (keyof ExperimentInterfaceStringDates)[]).some((key) => key in changes);
+  if (needsRunExperimentsPermission) {
     const envs = getAffectedEnvsForExperiment({
       experiment,
     });
