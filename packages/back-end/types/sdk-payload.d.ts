@@ -1,10 +1,12 @@
 import { FeatureDefinition } from "./api";
 import { VisualChangesetURLPattern } from "./visual-changeset";
+import { SDKAttributeType } from "./organization";
 
 // If this changes, also increment the LATEST_SDK_PAYLOAD_SCHEMA_VERSION constant
 export type SDKPayloadContents = {
   features: Record<string, FeatureDefinition>;
   experiments: SDKExperiment[];
+  attributes: SDKAttributes;
 };
 
 interface SDKExperiment {
@@ -71,6 +73,14 @@ interface Filter {
 }
 
 type VariationRange = [number, number];
+
+interface SDKAttributes {
+  [key: string]: SDKAttribute;
+}
+
+interface SDKAttribute {
+  datatype: SDKAttributeType;
+}
 
 export interface SDKPayloadInterface {
   organization: string;

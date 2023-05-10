@@ -162,7 +162,7 @@ app.use(function(req, res, next) {
               : ""
           }${
             hashedAttributeSalt !== undefined
-              ? `\n  hashedAttributeSalt: ${JSON.stringify(
+              ? `\n    hashedAttributeSalt: ${JSON.stringify(
                   hashedAttributeSalt
                 )},`
               : ""
