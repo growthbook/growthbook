@@ -304,6 +304,7 @@ export async function postMetrics(
     userIdColumn,
     userIdTypes,
     anonymousIdColumn,
+    currency,
   } = req.body;
 
   req.checkPermissions("createMetrics", projects?.length ? projects : "");
@@ -356,6 +357,7 @@ export async function postMetrics(
     regressionAdjustmentOverride,
     regressionAdjustmentEnabled,
     regressionAdjustmentDays,
+    currency,
   });
 
   res.status(200).json({
@@ -426,6 +428,7 @@ export async function putMetric(
     "userIdColumns",
     "userIdTypes",
     "timestampColumn",
+    "currency",
   ];
   fields.forEach((k) => {
     if (k in req.body) {

@@ -194,6 +194,26 @@ const MetricForm: FC<MetricFormProps> = ({
     });
   }, [source]);
 
+  const currencyOptions = [
+    {
+      label: "USD",
+      value: "USD",
+    },
+    {
+      label: "CAD",
+      value: "CAD",
+    },
+    {
+      label: "GBP",
+      value: "GBP",
+    },
+    {
+      label: "EUR",
+      value: "EUR",
+    },
+    { label: "AUD", value: "AUD" },
+  ];
+
   const metricTypeOptions = [
     {
       key: "binomial",
@@ -216,7 +236,7 @@ const MetricForm: FC<MetricFormProps> = ({
     {
       key: "revenue",
       display: "Revenue",
-      description: "How much money a user pays (in USD)",
+      description: "How much money a user pays",
       sub: "revenue per visitor, average order value, etc.",
     },
   ];
@@ -235,6 +255,7 @@ const MetricForm: FC<MetricFormProps> = ({
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       queryFormat: current.queryFormat || (current.sql ? "sql" : "builder"),
+      currency: current.currency || "",
       cap: current.cap || 0,
       conversionWindowHours:
         current.conversionWindowHours || getDefaultConversionWindowHours(),
@@ -292,6 +313,7 @@ const MetricForm: FC<MetricFormProps> = ({
     regressionAdjustmentOverride: form.watch("regressionAdjustmentOverride"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
+    currency: form.watch("currency"),
   };
 
   const denominatorOptions = useMemo(() => {
@@ -445,6 +467,9 @@ const MetricForm: FC<MetricFormProps> = ({
     if (type === "binomial") {
       form.setValue("ignoreNulls", false);
     }
+    if (type !== "revenue") {
+      form.setValue("currency", "");
+    }
   }, [type, form]);
 
   const { setTableId, tableOptions, columnOptions } = useSchemaFormOptions(
@@ -580,6 +605,16 @@ const MetricForm: FC<MetricFormProps> = ({
               setValue={(val: MetricType) => form.setValue("type", val)}
               options={metricTypeOptions}
             />
+            {form.watch("type") === "revenue" && (
+              <SelectField
+                label="Currency"
+                value={value.currency || ""}
+                options={currencyOptions}
+                onChange={(v) => form.setValue("currency", v)}
+                required
+                placeholder="Select currency..."
+              />
+            )}
           </div>
         </Page>
         <Page
