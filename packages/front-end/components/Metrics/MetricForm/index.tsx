@@ -196,22 +196,27 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const currencyOptions = [
     {
-      label: "USD",
+      label: "US Dollar (USD)",
       value: "USD",
     },
+    { label: "Austrailian Dollar (AUD)", value: "AUD" },
     {
-      label: "CAD",
+      label: "Canadian Dollar (CAD)",
       value: "CAD",
     },
+    { label: "Swiss Franc (CHF)", value: "CHF" },
     {
-      label: "GBP",
-      value: "GBP",
-    },
-    {
-      label: "EUR",
+      label: "Euro (EUR)",
       value: "EUR",
     },
-    { label: "AUD", value: "AUD" },
+    {
+      label: "Pound Sterling (GBP)",
+      value: "GBP",
+    },
+    { label: "Indian Rupee (INR)", value: "INR" },
+    { label: "Japanese Yen (JYP)", value: "JPY" },
+    { label: "Mexican Peso (MXN)", value: "MXN" },
+    { label: "New Zealand Dollar (NZD)", value: "NZD" },
   ];
 
   const metricTypeOptions = [
@@ -613,6 +618,8 @@ const MetricForm: FC<MetricFormProps> = ({
                 onChange={(v) => form.setValue("currency", v)}
                 required
                 placeholder="Select currency..."
+                sort={false}
+                helpText="This currency should match what is stored in the data source."
               />
             )}
           </div>
