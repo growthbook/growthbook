@@ -31,7 +31,7 @@ const CreateExperimentCTA: FC<CTA> = ({
         styles.ctaContainer,
         enabled ? styles.enabled : styles.disabled
       )}
-      onClick={enabled ? onClick : null}
+      onClick={enabled ? onClick : undefined}
     >
       <div className={styles.ctaButton}>
         <div className={styles.ctaIconContainer}>
