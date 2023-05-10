@@ -7,6 +7,7 @@ import {
 import { getValidDate } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatConversionRate } from "@/services/metrics";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Toggle from "../Forms/Toggle";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
@@ -32,6 +33,7 @@ const DateResults: FC<{
   guardrails?: string[];
 }> = ({ results, variations, metrics, guardrails }) => {
   const { getMetricById, ready } = useDefinitions();
+  const orgSettings = useOrgSettings();
 
   const [cumulative, setCumulative] = useState(false);
 
@@ -136,7 +138,8 @@ const DateResults: FC<{
                         ? totalUsers[i]
                           ? totalValue[i] / totalUsers[i]
                           : 0
-                        : stats?.cr || 0
+                        : stats?.cr || 0,
+                      orgSettings.defaultCurrency
                     );
 
                 return {

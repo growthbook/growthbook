@@ -6,6 +6,7 @@ import {
   formatConversionRate,
 } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -25,6 +26,7 @@ export default function RiskColumn({
     row,
     metricDefaults
   );
+  const orgSettings = useOrgSettings();
 
   const winRiskThreshold = row.metric.winRisk ?? defaultWinRiskThreshold;
   const loseRiskThreshold = row.metric.loseRisk ?? defaultLoseRiskThreshold;
@@ -51,7 +53,11 @@ export default function RiskColumn({
         <div>
           <small className="text-muted">
             <em>
-              {formatConversionRate(row.metric.type, risk)}
+              {formatConversionRate(
+                row.metric.type,
+                risk,
+                orgSettings.defaultCurrency
+              )}
               &nbsp;/&nbsp;user
             </em>
           </small>

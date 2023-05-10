@@ -18,6 +18,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
 import { getValidDate, date } from "shared";
 import { formatConversionRate } from "@/services/metrics";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import styles from "./DateGraph.module.scss";
 
 type TooltipData = { x: number; y: number; d: Datapoint };
@@ -75,12 +76,13 @@ function getDateFromX(
   return getValidDate(datapoint.d).getTime();
 }
 
-function getTooltipContents(
+function GetTooltipContents(
   d: Datapoint,
   type: MetricType,
   method: "sum" | "avg",
   smoothBy: "day" | "week"
 ) {
+  const orgSettings = useOrgSettings();
   if (!d || d.oor) return null;
   return (
     <>
@@ -95,15 +97,23 @@ function getTooltipContents(
         <>
           <div className={styles.val}>
             {method === "sum" ? `Σ` : `μ`}:{" "}
-            {formatConversionRate(type, d.v as number)}
+            {formatConversionRate(
+              type,
+              d.v as number,
+              orgSettings.defaultCurrency
+            )}
             {smoothBy === "week" && (
               <sub style={{ fontWeight: "normal", fontSize: 8 }}> smooth</sub>
             )}
           </div>
           {"s" in d && method === "avg" && (
             <div className={styles.secondary}>
-              {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message */}
-              {`σ`}: {formatConversionRate(type, d.s)}
+              {`σ`}:{" "}
+              {formatConversionRate(
+                type,
+                d.s || 0,
+                orgSettings.defaultCurrency
+              )}
               {smoothBy === "week" && (
                 <sub style={{ fontWeight: "normal", fontSize: 8 }}> smooth</sub>
               )}
@@ -478,7 +488,7 @@ const DateGraph: FC<DateGraphProps> = ({
                     unstyled={true}
                   >
                     {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                    {getTooltipContents(tooltipData.d, type, method, smoothBy)}
+                    {GetTooltipContents(tooltipData.d, type, method, smoothBy)}
                   </TooltipWithBounds>
                 </>
               )}
