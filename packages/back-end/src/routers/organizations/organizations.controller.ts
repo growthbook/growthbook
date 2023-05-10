@@ -1175,8 +1175,10 @@ export async function putOrganization(
 
     // force clear all payload cache if attribute schema or salt changes
     if (
-      updates.settings?.hashedAttributeSalt ||
-      updates.settings?.attributeSchema
+      updates.settings?.hashedAttributeSalt !==
+        orig.settings?.hashedAttributeSalt ||
+      JSON.stringify(updates.settings?.attributeSchema) !==
+        JSON.stringify(orig.settings?.attributeSchema)
     ) {
       const updatedOrg = await getOrganizationById(org.id);
       if (updatedOrg) {
