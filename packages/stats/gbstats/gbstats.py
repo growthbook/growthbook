@@ -18,6 +18,8 @@ from gbstats.frequentist.tests import (
 from gbstats.shared.constants import StatsEngine
 from gbstats.shared.models import (
     compute_theta,
+    BayesianTestResult,
+    FrequentistTestResult,
     ProportionStatistic,
     SampleMeanStatistic,
     RatioStatistic,
@@ -25,6 +27,7 @@ from gbstats.shared.models import (
     Statistic,
 )
 from gbstats.messages import raise_error_if_bayesian_ra
+from gbstats.shared.tests import BaseABTest
 
 
 SUM_COLS = [
@@ -139,6 +142,12 @@ def analyze_metric_df(
 ) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
 
+    # parse config
+    test_config = engine_config.copy()
+    if engine == StatsEngine.BAYESIAN:
+        test_config["inverse"] = inverse
+    sequential: bool = test_config.pop("sequential", False)
+
     # Add new columns to the dataframe with placeholder values
     df["srm_p"] = 0
     df["engine"] = engine.value
@@ -174,7 +183,7 @@ def analyze_metric_df(
         users[0] = stat_a.n
 
         # Loop through each non-baseline variation and run an analysis
-        baseline_risk = 0
+        baseline_risk: float = 0
         for i in range(1, num_variations):
             stat_b: Statistic = variation_statistic_from_metric_row(s, f"v{i}")
             raise_error_if_bayesian_ra(stat_b, engine)
@@ -197,51 +206,34 @@ def analyze_metric_df(
 
             users[i] = stat_b.n
 
+            # Get right A/B test
+            binomial_test: bool = isinstance(
+                stat_a, ProportionStatistic
+            ) and isinstance(stat_b, ProportionStatistic)
+            ABTestClass, ABTestConfig = get_test_class_config(
+                engine, sequential, binomial_test
+            )
             # Run the A/B test analysis of baseline vs variation
+            test = ABTestClass(stat_a, stat_b, ABTestConfig(**test_config))
+            res = test.compute_result()
 
-            if engine == StatsEngine.BAYESIAN:
-                binomial_test = isinstance(stat_a, ProportionStatistic) and isinstance(
-                    stat_b, ProportionStatistic
-                )
-                if binomial_test:
-                    test = BinomialBayesianABTest(
-                        stat_a,
-                        stat_b,
-                        config=BinomialBayesianConfig(**engine_config),
-                        inverse=inverse,
-                    )
-                else:
-                    test = GaussianBayesianABTest(
-                        stat_a,
-                        stat_b,
-                        config=GaussianBayesianConfig(**engine_config),
-                        inverse=inverse,
-                    )
-
-                res = test.compute_result()
-
-                # The baseline risk is the max risk of any of the variation A/B tests
-                if res.relative_risk[0] > baseline_risk:
-                    baseline_risk = res.relative_risk[0]
-
+            # Unpack result in Pandas row
+            if isinstance(res, BayesianTestResult):
                 s.at[f"v{i}_rawrisk"] = res.risk
                 s[f"v{i}_risk"] = res.relative_risk[1]
                 s[f"v{i}_prob_beat_baseline"] = res.chance_to_win
-            else:
-                config = FrequentistConfig(**engine_config)
-                if config.sequential:
-                    test = SequentialTwoSidedTTest(stat_a, stat_b, config=config)
-                else:
-                    test = TwoSidedTTest(stat_a, stat_b, config=config)
-                res = test.compute_result()
+                # The baseline risk is the max risk of any of the variation A/B tests
+                if res.relative_risk[0] > baseline_risk:
+                    baseline_risk = res.relative_risk[0]
+            elif isinstance(res, FrequentistTestResult):
                 s[f"v{i}_p_value"] = res.p_value
-                baseline_risk = None
+                baseline_risk = None  # type: ignore
 
             if stat_a.unadjusted_mean <= 0:
                 # negative or missing control mean
                 s[f"v{i}_expected"] = 0
             elif res.expected == 0:
-                # if result is not vlaid, try to return at least the diff
+                # if result is not valid, try to return at least the diff
                 s[f"v{i}_expected"] = (
                     stat_b.mean - stat_a.mean
                 ) / stat_a.unadjusted_mean
@@ -348,6 +340,19 @@ def base_statistic_from_metric_row(
         raise ValueError(
             f"Unexpected metric_type '{metric_type}' type for '{component}_type in experiment data."
         )
+
+
+def get_test_class_config(engine: StatsEngine, sequential: bool, binomial_test: bool):
+    if engine == StatsEngine.BAYESIAN:
+        if binomial_test:
+            return BinomialBayesianABTest, BinomialBayesianConfig
+        else:
+            return GaussianBayesianABTest, GaussianBayesianConfig
+    else:
+        if sequential:
+            return SequentialTwoSidedTTest, FrequentistConfig
+        else:
+            return TwoSidedTTest, FrequentistConfig
 
 
 # Run a chi-squared test to make sure the observed traffic split matches the expected one

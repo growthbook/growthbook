@@ -24,11 +24,6 @@ class Statistic(ABC):
         pass
 
     @property
-    @abstractmethod
-    def sum(self):
-        pass
-
-    @property
     def unadjusted_mean(self):
         """
         Return the mean that has no regression adjustments.
