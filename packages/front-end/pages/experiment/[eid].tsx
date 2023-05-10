@@ -3,6 +3,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { ReactElement, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
+import { getAffectedEnvsForExperiment } from "shared";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -19,8 +20,6 @@ import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
-import { getAffectedEvsForExperiment } from "@/services/experiments";
-import { useUser } from "@/services/UserContext";
 
 const ExperimentPage = (): ReactElement => {
   const permissions = usePermissions();
@@ -47,7 +46,6 @@ const ExperimentPage = (): ReactElement => {
   useSwitchOrg(data?.experiment?.organization);
 
   const { apiCall } = useAuth();
-  const { organization } = useUser();
 
   if (error) {
     return <div>There was a problem loading the experiment</div>;
@@ -63,7 +61,7 @@ const ExperimentPage = (): ReactElement => {
     !experiment.archived;
 
   let canRunExperiment = !experiment.archived;
-  const envs = getAffectedEvsForExperiment({ experiment, organization });
+  const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
     if (!permissions.check("runExperiments", experiment.project, envs)) {
       canRunExperiment = false;

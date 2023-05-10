@@ -19,6 +19,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   getScopedSettings,
+  getAffectedEnvsForExperiment,
 } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
@@ -28,7 +29,6 @@ import { useUser } from "@/services/UserContext";
 import { getDefaultConversionWindowHours } from "@/services/env";
 import {
   applyMetricOverrides,
-  getAffectedEvsForExperiment,
   getRegressionAdjustmentsForMetric,
 } from "@/services/experiments";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -318,26 +318,23 @@ export default function SinglePage({
     mutate();
   };
 
-  const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
-
-  const hasCreateAnalysesPermission = permissions.check(
-    "createAnalyses",
-    experiment.project
-  );
-
-  const hasVisualEditorPermission =
+  const canEditExperiment =
     !experiment.archived &&
+    permissions.check("createAnalyses", experiment.project);
+
+  const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
+  const hasVisualEditorPermission =
+    canEditExperiment &&
     permissions.check("runExperiments", experiment.project, []);
 
   let hasRunExperimentsPermission = true;
-  const envs = getAffectedEvsForExperiment({ experiment, organization });
+  const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
     if (!permissions.check("runExperiments", experiment.project, envs)) {
       hasRunExperimentsPermission = false;
     }
   }
-  const canEditExperiment = hasCreateAnalysesPermission && !experiment.archived;
-  const canRunExperiment = hasRunExperimentsPermission && !experiment.archived;
+  const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
 
   const ignoreConversionEnd =
     experiment.attributionModel === "experimentDuration";

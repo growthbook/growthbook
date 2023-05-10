@@ -9,13 +9,9 @@ import {
 } from "back-end/types/report";
 import {
   MetricDefaults,
-  OrganizationInterface,
   OrganizationSettings,
 } from "back-end/types/organization";
-import {
-  ExperimentInterfaceStringDates,
-  MetricOverride,
-} from "back-end/types/experiment";
+import { MetricOverride } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -27,19 +23,6 @@ export type ExperimentTableRow = {
   rowClass?: string;
   regressionAdjustmentStatus?: MetricRegressionAdjustmentStatus;
 };
-
-export function getAffectedEvsForExperiment({
-  experiment,
-}: {
-  // Organization isn't used yet, but it will be for feature flags
-  // Adding it now so we have fewer places in the code to change then
-  organization: Partial<OrganizationInterface>;
-  experiment: ExperimentInterfaceStringDates;
-}): string[] {
-  // Visual changesets are not environment-scoped, so it affects all of them
-  if (experiment.hasVisualChangesets) return ["__ALL__"];
-  return [];
-}
 
 export function hasEnoughData(
   baseline: SnapshotMetric,

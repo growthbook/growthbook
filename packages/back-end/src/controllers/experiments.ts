@@ -6,13 +6,13 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   getValidDate,
   getScopedSettings,
+  getAffectedEnvsForExperiment,
 } from "shared";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
   createSnapshot,
   ensureWatching,
-  getAffectedEvsForExperiment,
   getExperimentWatchers,
   getManualSnapshotData,
   processPastExperiments,
@@ -803,9 +803,8 @@ export async function postExperiment(
       keysRequiringRunExperiments.includes(key)
     )
   ) {
-    const envs = await getAffectedEvsForExperiment({
+    const envs = await getAffectedEnvsForExperiment({
       experiment,
-      organization: org,
     });
     if (envs.length > 0) {
       const projects = [experiment.project || undefined];
@@ -893,9 +892,8 @@ export async function postExperimentArchive(
 
   req.checkPermissions("createAnalyses", experiment.project);
 
-  const envs = await getAffectedEvsForExperiment({
+  const envs = await getAffectedEnvsForExperiment({
     experiment,
-    organization: org,
   });
   envs.length > 0 &&
     req.checkPermissions("runExperiments", experiment.project, envs);
@@ -1014,9 +1012,8 @@ export async function postExperimentStatus(
   }
   req.checkPermissions("createAnalyses", experiment.project);
 
-  const envs = await getAffectedEvsForExperiment({
+  const envs = await getAffectedEnvsForExperiment({
     experiment,
-    organization: org,
   });
   envs.length > 0 &&
     req.checkPermissions("runExperiments", experiment.project, envs);
@@ -1098,9 +1095,8 @@ export async function postExperimentStop(
   }
   req.checkPermissions("createAnalyses", experiment.project);
 
-  const envs = await getAffectedEvsForExperiment({
+  const envs = await getAffectedEnvsForExperiment({
     experiment,
-    organization: org,
   });
   envs.length > 0 &&
     req.checkPermissions("runExperiments", experiment.project, envs);
@@ -1186,9 +1182,8 @@ export async function deleteExperimentPhase(
 
   req.checkPermissions("createAnalyses", experiment.project);
 
-  const envs = await getAffectedEvsForExperiment({
+  const envs = await getAffectedEnvsForExperiment({
     experiment,
-    organization: org,
   });
   envs.length > 0 &&
     req.checkPermissions("runExperiments", experiment.project, envs);
@@ -1254,9 +1249,8 @@ export async function putExperimentPhase(
 
   req.checkPermissions("createAnalyses", experiment.project);
 
-  const envs = await getAffectedEvsForExperiment({
+  const envs = await getAffectedEnvsForExperiment({
     experiment,
-    organization: org,
   });
   envs.length > 0 &&
     req.checkPermissions("runExperiments", experiment.project, envs);
@@ -1324,9 +1318,8 @@ export async function postExperimentPhase(
   }
   req.checkPermissions("createAnalyses", experiment.project);
 
-  const envs = await getAffectedEvsForExperiment({
+  const envs = await getAffectedEnvsForExperiment({
     experiment,
-    organization: org,
   });
   envs.length > 0 &&
     req.checkPermissions("runExperiments", experiment.project, envs);
@@ -1433,9 +1426,8 @@ export async function deleteExperiment(
 
   req.checkPermissions("createAnalyses", experiment.project);
 
-  const envs = await getAffectedEvsForExperiment({
+  const envs = await getAffectedEnvsForExperiment({
     experiment,
-    organization: org,
   });
   envs.length > 0 &&
     req.checkPermissions("runExperiments", experiment.project, envs);
@@ -2127,9 +2119,8 @@ export async function postVisualChangeset(
     throw new Error("Could not find experiment");
   }
 
-  const envs = await getAffectedEvsForExperiment({
+  const envs = await getAffectedEnvsForExperiment({
     experiment,
-    organization: org,
   });
   envs.length > 0 &&
     req.checkPermissions("runExperiments", experiment.project, envs);
@@ -2165,7 +2156,7 @@ export async function putVisualChangeset(
   );
 
   const envs = experiment
-    ? await getAffectedEvsForExperiment({ experiment, organization: org })
+    ? await getAffectedEnvsForExperiment({ experiment })
     : [];
   req.checkPermissions("runExperiments", experiment?.project || "", envs);
 
@@ -2204,7 +2195,7 @@ export async function deleteVisualChangeset(
   );
 
   const envs = experiment
-    ? await getAffectedEvsForExperiment({ experiment, organization: org })
+    ? await getAffectedEnvsForExperiment({ experiment })
     : [];
   req.checkPermissions("runExperiments", experiment?.project || "", envs);
 

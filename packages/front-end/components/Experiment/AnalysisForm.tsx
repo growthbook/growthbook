@@ -9,6 +9,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   getValidDate,
   getScopedSettings,
+  getAffectedEnvsForExperiment,
 } from "shared";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -19,7 +20,6 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
 import usePermissions from "@/hooks/usePermissions";
-import { getAffectedEvsForExperiment } from "@/services/experiments";
 import { GBSequential } from "@/components/Icons";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
@@ -72,7 +72,7 @@ const AnalysisForm: FC<{
   );
 
   let canRunExperiment = !experiment.archived;
-  const envs = getAffectedEvsForExperiment({ experiment, organization });
+  const envs = getAffectedEnvsForExperiment({ experiment });
   if (envs.length > 0) {
     if (!permissions.check("runExperiments", experiment.project, envs)) {
       canRunExperiment = false;
