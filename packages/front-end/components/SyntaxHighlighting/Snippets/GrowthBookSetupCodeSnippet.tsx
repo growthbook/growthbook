@@ -7,11 +7,13 @@ export default function GrowthBookSetupCodeSnippet({
   apiKey,
   apiHost,
   encryptionKey,
+  hashedAttributeSalt,
 }: {
   language: SDKLanguage;
   apiKey: string;
   apiHost: string;
   encryptionKey?: string;
+  hashedAttributeSalt?: string;
 }) {
   const featuresEndpoint = apiHost + "/api/features/" + apiKey;
   const trackingComment = "TODO: Use your real analytics tracking system";
@@ -30,6 +32,12 @@ const growthbook = new GrowthBook({
   clientKey: ${JSON.stringify(apiKey)},${
             encryptionKey
               ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
+              : ""
+          }${
+            hashedAttributeSalt !== undefined
+              ? `\n  hashedAttributeSalt: ${JSON.stringify(
+                  hashedAttributeSalt
+                )},`
               : ""
           }
   enableDevMode: true,
@@ -63,6 +71,12 @@ const growthbook = new GrowthBook({
   clientKey: ${JSON.stringify(apiKey)},${
             encryptionKey
               ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
+              : ""
+          }${
+            hashedAttributeSalt !== undefined
+              ? `\n  hashedAttributeSalt: ${JSON.stringify(
+                  hashedAttributeSalt
+                )},`
               : ""
           }
   enableDevMode: true,
@@ -121,7 +135,7 @@ const { setPolyfills } = require("@growthbook/growthbook");
 setPolyfills({
   // Required for Node 17 or earlier
   fetch: require("cross-fetch"),${
-    encryptionKey
+    encryptionKey || hashedAttributeSalt !== undefined
       ? `
   // Required for Node 18 or earlier
   SubtleCrypto: require("node:crypto").webcrypto.subtle,`
@@ -145,6 +159,12 @@ app.use(function(req, res, next) {
     clientKey: ${JSON.stringify(apiKey)},${
             encryptionKey
               ? `\n    decryptionKey: ${JSON.stringify(encryptionKey)}`
+              : ""
+          }${
+            hashedAttributeSalt !== undefined
+              ? `\n  hashedAttributeSalt: ${JSON.stringify(
+                  hashedAttributeSalt
+                )},`
               : ""
           }
     enableDevMode: true,

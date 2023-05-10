@@ -127,7 +127,7 @@ export default function CodeSnippetModal({
     return null;
   }
 
-  const { docs, label } = languageMapping[language];
+  const { docs, label, supportsHashedAttributes } = languageMapping[language];
   const apiHost = getApiBaseUrl(currentConnection);
   const clientKey = currentConnection.key;
   const featuresEndpoint = apiHost + "/api/features/" + clientKey;
@@ -135,6 +135,7 @@ export default function CodeSnippetModal({
     currentConnection &&
     currentConnection.encryptPayload &&
     currentConnection.encryptionKey;
+  const hashedAttributeSalt = settings?.hashedAttributeSalt ?? "";
 
   return (
     <>
@@ -282,6 +283,19 @@ export default function CodeSnippetModal({
                         </td>
                       </tr>
                     )}
+                    {supportsHashedAttributes && (
+                      <tr>
+                        <th
+                          className="pl-3"
+                          style={{ verticalAlign: "middle" }}
+                        >
+                          Hashed Attribute Salt
+                        </th>
+                        <td>
+                          <ClickToCopy>{hashedAttributeSalt}</ClickToCopy>
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -323,6 +337,7 @@ export default function CodeSnippetModal({
                     language={language}
                     apiHost={apiHost}
                     apiKey={clientKey}
+                    hashedAttributeSalt={hashedAttributeSalt}
                     // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | false' is not assignable to type 's... Remove this comment to see the full error message
                     encryptionKey={encryptionKey}
                   />
