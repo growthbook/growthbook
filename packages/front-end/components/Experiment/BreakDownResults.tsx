@@ -94,16 +94,14 @@ const BreakDownResults: FC<{
         return {
           metric: newMetric,
           isGuardrail: !metrics.includes(metricId),
-          rows: results
-            .map((d) => ({
-              label: d.name,
-              metric: newMetric,
-              variations: d.variations.map((variation) => {
-                return variation.metrics[metricId];
-              }),
-              regressionAdjustmentStatus,
-            }))
-            .filter((row) => row?.metric) as ExperimentTableRow[],
+          rows: results.map((d) => ({
+            label: d.name,
+            metric: newMetric,
+            variations: d.variations.map((variation) => {
+              return variation.metrics[metricId];
+            }),
+            regressionAdjustmentStatus,
+          })) as ExperimentTableRow[],
         };
       })
       .filter((table) => table?.metric) as TableDef[];
