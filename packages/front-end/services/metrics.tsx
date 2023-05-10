@@ -2,6 +2,7 @@ import { MetricInterface, MetricType } from "back-end/types/metric";
 import {
   GlobalPermission,
   ProjectScopedPermission,
+  SupportedCurrencies,
 } from "back-end/types/organization";
 import { PermissionFunctions } from "@/services/UserContext";
 
@@ -29,7 +30,7 @@ export function getMetricConversionTitle(type: MetricType): string {
 export function formatConversionRate(
   type: MetricType,
   value: number,
-  currency?: string
+  currency?: SupportedCurrencies
 ): string {
   value = value || 0;
   if (type === "count") {

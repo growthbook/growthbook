@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SupportedCurrencies } from "@/../back-end/types/organization";
 import { MetricType } from "back-end/types/metric";
 import { FC, useState, useMemo, Fragment, useEffect } from "react";
 import { ParentSizeModern } from "@visx/responsive";
@@ -76,13 +77,13 @@ function getDateFromX(
   return getValidDate(datapoint.d).getTime();
 }
 
-function GetTooltipContents(
+function getTooltipContents(
   d: Datapoint,
   type: MetricType,
   method: "sum" | "avg",
-  smoothBy: "day" | "week"
+  smoothBy: "day" | "week",
+  currency?: SupportedCurrencies
 ) {
-  const orgSettings = useOrgSettings();
   if (!d || d.oor) return null;
   return (
     <>
@@ -97,23 +98,14 @@ function GetTooltipContents(
         <>
           <div className={styles.val}>
             {method === "sum" ? `Σ` : `μ`}:{" "}
-            {formatConversionRate(
-              type,
-              d.v as number,
-              orgSettings.defaultCurrency
-            )}
+            {formatConversionRate(type, d.v as number, currency)}
             {smoothBy === "week" && (
               <sub style={{ fontWeight: "normal", fontSize: 8 }}> smooth</sub>
             )}
           </div>
           {"s" in d && method === "avg" && (
             <div className={styles.secondary}>
-              {`σ`}:{" "}
-              {formatConversionRate(
-                type,
-                d.s || 0,
-                orgSettings.defaultCurrency
-              )}
+              {`σ`}: {formatConversionRate(type, d.s || 0, currency)}
               {smoothBy === "week" && (
                 <sub style={{ fontWeight: "normal", fontSize: 8 }}> smooth</sub>
               )}
@@ -356,6 +348,8 @@ const DateGraph: FC<DateGraphProps> = ({
     [min, max, xMax]
   );
 
+  const orgSettings = useOrgSettings();
+
   const yScale = useMemo(
     () =>
       scaleLinear<number>({
@@ -487,8 +481,14 @@ const DateGraph: FC<DateGraphProps> = ({
                     className={styles.tooltip}
                     unstyled={true}
                   >
-                    {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                    {GetTooltipContents(tooltipData.d, type, method, smoothBy)}
+                    {tooltipData?.d &&
+                      getTooltipContents(
+                        tooltipData.d,
+                        type,
+                        method,
+                        smoothBy,
+                        orgSettings.defaultCurrency
+                      )}
                   </TooltipWithBounds>
                 </>
               )}

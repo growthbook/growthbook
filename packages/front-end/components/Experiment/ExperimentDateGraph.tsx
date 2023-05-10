@@ -37,7 +37,7 @@ const height = 220;
 const margin = [15, 15, 30, 80];
 
 // Render the contents of a tooltip
-const GetTooltipContents = (
+const getTooltipContents = (
   d: ExperimentDateGraphDataPoint,
   variationNames: string[]
 ) => {
@@ -235,7 +235,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     unstyled={true}
                   >
                     {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                    {GetTooltipContents(tooltipData.d, variationNames)}
+                    {getTooltipContents(tooltipData.d, variationNames)}
                   </TooltipWithBounds>
                 </>
               )}
