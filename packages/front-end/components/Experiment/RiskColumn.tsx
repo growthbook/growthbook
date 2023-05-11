@@ -56,7 +56,7 @@ export default function RiskColumn({
               {formatConversionRate(
                 row.metric.type,
                 risk,
-                orgSettings.defaultCurrency
+                orgSettings.displayCurrency
               )}
               &nbsp;/&nbsp;user
             </em>

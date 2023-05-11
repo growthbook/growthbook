@@ -181,7 +181,7 @@ const MetricForm: FC<MetricFormProps> = ({
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
 
-  const displayCurrency = settings.defaultCurrency || "USD";
+  const displayCurrency = settings.displayCurrency || "USD";
 
   const {
     getMinSampleSizeForMetric,

@@ -656,7 +656,7 @@ const MetricPage: FC = () => {
                                 {formatConversionRate(
                                   metric.type,
                                   analysis.average,
-                                  orgSettings.defaultCurrency
+                                  orgSettings.displayCurrency
                                 )}
                               </div>
                               <div className="pb-2 ml-1">average</div>

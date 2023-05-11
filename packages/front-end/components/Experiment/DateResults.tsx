@@ -139,7 +139,7 @@ const DateResults: FC<{
                           ? totalValue[i] / totalUsers[i]
                           : 0
                         : stats?.cr || 0,
-                      orgSettings.defaultCurrency
+                      orgSettings.displayCurrency
                     );
 
                 return {

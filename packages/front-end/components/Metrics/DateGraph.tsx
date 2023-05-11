@@ -487,7 +487,7 @@ const DateGraph: FC<DateGraphProps> = ({
                         type,
                         method,
                         smoothBy,
-                        orgSettings.defaultCurrency
+                        orgSettings.displayCurrency
                       )}
                   </TooltipWithBounds>
                 </>

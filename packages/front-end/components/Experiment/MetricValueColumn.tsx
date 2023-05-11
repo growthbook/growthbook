@@ -25,7 +25,7 @@ export default function MetricValueColumn({
             {formatConversionRate(
               metric?.type,
               stats.cr,
-              orgSettings.defaultCurrency
+              orgSettings.displayCurrency
             )}
           </div>
           <div>
@@ -45,7 +45,7 @@ export default function MetricValueColumn({
                   {formatConversionRate(
                     metric.type === "binomial" ? "count" : metric.type,
                     stats.value,
-                    orgSettings.defaultCurrency
+                    orgSettings.displayCurrency
                   )}
                 </span>{" "}
                 /&nbsp;
