@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ago } from "shared";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ago } from "@/services/dates";
 import usePermissions from "@/hooks/usePermissions";
 import NewExperimentForm from "./NewExperimentForm";
 
@@ -61,6 +61,7 @@ export default function NewFeatureExperiments() {
           source="feature-rule"
           isImport={true}
           msg="We've prefilled the form with values from the the feature."
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Partial<ExperimentInterfaceStringDates> | nu... Remove this comment to see the full error message
           initialValue={expDef}
           fromFeature={true}
         />

@@ -26,7 +26,9 @@ export const accountFeatures: CommercialFeaturesMap = {
     "schedule-feature-flag",
     "override-metrics",
     "regression-adjustment",
+    "sequential-testing",
     "visual-editor",
+    "cloud-proxy",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -35,16 +37,21 @@ export const accountFeatures: CommercialFeaturesMap = {
     "schedule-feature-flag",
     "override-metrics",
     "regression-adjustment",
+    "sequential-testing",
     "visual-editor",
+    "cloud-proxy",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
     "advanced-permissions",
+    "audit-logging",
     "encrypt-features-endpoint",
     "schedule-feature-flag",
     "override-metrics",
     "regression-adjustment",
+    "sequential-testing",
     "visual-editor",
+    "cloud-proxy",
   ]),
 };
 export function getAccountPlan(org: OrganizationInterface): AccountPlan {
@@ -74,12 +81,14 @@ export function orgHasPremiumFeature(
 export const ENV_SCOPED_PERMISSIONS = [
   "publishFeatures",
   "manageEnvironments",
+  "runExperiments",
 ] as const;
 
 export const PROJECT_SCOPED_PERMISSIONS = [
   "addComments",
   "createFeatureDrafts",
   "manageFeatures",
+  "manageProjects",
   "createAnalyses",
   "createIdeas",
   "createMetrics",
@@ -96,7 +105,6 @@ export const GLOBAL_PERMISSIONS = [
   "superDelete",
   "manageTeam",
   "manageTags",
-  "manageProjects",
   "manageApiKeys",
   "manageIntegrations",
   "manageWebhooks",
@@ -151,6 +159,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageEnvironments",
         "manageNamespaces",
         "manageSavedGroups",
+        "runExperiments",
       ],
     },
     {
@@ -181,6 +190,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageEnvironments",
         "manageNamespaces",
         "manageSavedGroups",
+        "runExperiments",
         "createAnalyses",
         "createDimensions",
         "createSegments",

@@ -3,9 +3,9 @@ import Link from "next/link";
 import { IdeaInterface } from "back-end/types/idea";
 import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
 import clsx from "clsx";
+import { date } from "shared";
 import useApi from "../hooks/useApi";
 import LoadingOverlay from "../components/LoadingOverlay";
-import { date } from "../services/dates";
 import IdeaForm from "../components/Ideas/IdeaForm";
 import { useSearch } from "../services/search";
 import { useDefinitions } from "../services/DefinitionsContext";
@@ -22,6 +22,7 @@ const IdeasPage = (): React.ReactElement => {
     ideas: IdeaInterface[];
   }>(`/ideas?project=${project || ""}`);
 
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
   const [current, setCurrent] = useState<Partial<IdeaInterface>>(null);
 
   const { getUserDisplay, permissions } = useUser();
@@ -69,6 +70,7 @@ const IdeasPage = (): React.ReactElement => {
         {current && (
           <IdeaForm
             mutate={mutate}
+            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
             close={() => setCurrent(null)}
             idea={current}
           />
@@ -85,6 +87,7 @@ const IdeasPage = (): React.ReactElement => {
       {current && (
         <IdeaForm
           mutate={mutate}
+          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
           close={() => setCurrent(null)}
           idea={current}
         />
@@ -171,6 +174,7 @@ const IdeasPage = (): React.ReactElement => {
                           <div className="date mb-1">
                             By{" "}
                             <strong className="mr-1">
+                              {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | null' is not assignable... Remove this comment to see the full error message */}
                               {getUserDisplay(idea.userId) || idea.userName}
                             </strong>
                             on <strong>{date(idea.dateCreated)}</strong>

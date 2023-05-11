@@ -1,6 +1,7 @@
 import { webcrypto as crypto } from "node:crypto";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import { FeatureDefinition } from "../../types/api";
 import {
   FeatureDraftChanges,
@@ -156,13 +157,21 @@ export async function getSavedGroupMap(
 export async function refreshSDKPayloadCache(
   organization: OrganizationInterface,
   payloadKeys: SDKPayloadKey[],
-  allFeatures: FeatureInterface[] | null = null
+  allFeatures: FeatureInterface[] | null = null,
+  skipRefreshForProject?: string
 ) {
   // Ignore any old environments which don't exist anymore
   const allowedEnvs = new Set(
     organization.settings?.environments?.map((e) => e.id) || []
   );
   payloadKeys = payloadKeys.filter((k) => allowedEnvs.has(k.environment));
+
+  // Remove any projects to skip
+  if (skipRefreshForProject) {
+    payloadKeys = payloadKeys.filter(
+      (k) => k.project !== skipRefreshForProject
+    );
+  }
 
   // If no environments are affected, we don't need to update anything
   if (!payloadKeys.length) return;
@@ -221,16 +230,37 @@ export async function refreshSDKPayloadCache(
   await queueProxyUpdate(organization.id, payloadKeys);
 }
 
-async function getFeatureDefinitionsResponse(
-  features: Record<string, FeatureDefinition>,
-  experiments: SDKExperiment[],
-  dateUpdated: Date | null,
-  encryptionKey?: string,
-  includeVisualExperiments?: boolean,
-  includeDraftExperiments?: boolean
-) {
+export type FeatureDefinitionsResponseArgs = {
+  features: Record<string, FeatureDefinition>;
+  experiments: SDKExperiment[];
+  dateUpdated: Date | null;
+  encryptionKey?: string;
+  includeVisualExperiments?: boolean;
+  includeDraftExperiments?: boolean;
+  includeExperimentNames?: boolean;
+};
+
+async function getFeatureDefinitionsResponse({
+  features,
+  experiments,
+  dateUpdated,
+  encryptionKey,
+  includeVisualExperiments,
+  includeDraftExperiments,
+  includeExperimentNames,
+}: FeatureDefinitionsResponseArgs) {
   if (!includeDraftExperiments) {
-    experiments = experiments.filter((e) => e.status !== "draft");
+    experiments = experiments?.filter((e) => e.status !== "draft") || [];
+  }
+
+  if (!includeExperimentNames) {
+    // Remove experiment/variation name from every visual experiment
+    experiments = experiments?.map((exp) => {
+      return {
+        ...omit(exp, ["name", "meta"]),
+        meta: exp.meta ? exp.meta.map((m) => omit(m, ["name"])) : undefined,
+      };
+    });
   }
 
   if (!encryptionKey) {
@@ -246,7 +276,7 @@ async function getFeatureDefinitionsResponse(
     encryptionKey
   );
   const encryptedExperiments = includeVisualExperiments
-    ? await encrypt(JSON.stringify(experiments), encryptionKey)
+    ? await encrypt(JSON.stringify(experiments || []), encryptionKey)
     : undefined;
 
   return {
@@ -258,14 +288,25 @@ async function getFeatureDefinitionsResponse(
   };
 }
 
-export async function getFeatureDefinitions(
-  organization: string,
-  environment: string = "production",
-  project?: string,
-  encryptionKey?: string,
-  includeVisualExperiments?: boolean,
-  includeDraftExperiments?: boolean
-): Promise<{
+export type FeatureDefinitionArgs = {
+  organization: string;
+  environment?: string;
+  project?: string;
+  encryptionKey?: string;
+  includeVisualExperiments?: boolean;
+  includeDraftExperiments?: boolean;
+  includeExperimentNames?: boolean;
+};
+
+export async function getFeatureDefinitions({
+  organization,
+  environment = "production",
+  project,
+  encryptionKey,
+  includeVisualExperiments,
+  includeDraftExperiments,
+  includeExperimentNames,
+}: FeatureDefinitionArgs): Promise<{
   features: Record<string, FeatureDefinition>;
   experiments?: SDKExperiment[];
   dateUpdated: Date | null;
@@ -281,14 +322,15 @@ export async function getFeatureDefinitions(
     });
     if (cached) {
       const { features, experiments } = cached.contents;
-      return await getFeatureDefinitionsResponse(
+      return await getFeatureDefinitionsResponse({
         features,
-        experiments,
-        cached.dateUpdated,
+        experiments: experiments || [],
+        dateUpdated: cached.dateUpdated,
         encryptionKey,
         includeVisualExperiments,
-        includeDraftExperiments
-      );
+        includeDraftExperiments,
+        includeExperimentNames,
+      });
     }
   } catch (e) {
     logger.error(e, "Failed to fetch SDK payload from cache");
@@ -296,14 +338,15 @@ export async function getFeatureDefinitions(
 
   const org = await getOrganizationById(organization);
   if (!org) {
-    return await getFeatureDefinitionsResponse(
-      {},
-      [],
-      null,
+    return await getFeatureDefinitionsResponse({
+      features: {},
+      experiments: [],
+      dateUpdated: null,
       encryptionKey,
       includeVisualExperiments,
-      includeDraftExperiments
-    );
+      includeDraftExperiments,
+      includeExperimentNames,
+    });
   }
 
   // Generate the feature definitions
@@ -332,14 +375,15 @@ export async function getFeatureDefinitions(
     experimentsDefinitions,
   });
 
-  return await getFeatureDefinitionsResponse(
-    featureDefinitions,
-    experimentsDefinitions,
-    new Date(),
+  return await getFeatureDefinitionsResponse({
+    features: featureDefinitions,
+    experiments: experimentsDefinitions,
+    dateUpdated: new Date(),
     encryptionKey,
     includeVisualExperiments,
-    includeDraftExperiments
-  );
+    includeDraftExperiments,
+    includeExperimentNames,
+  });
 }
 
 export function generateRuleId() {

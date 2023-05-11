@@ -2,12 +2,13 @@ import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
 import { ApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
-import { ProjectInterface } from "../../../types/project";
+import { ProjectInterface, ProjectSettings } from "../../../types/project";
 import {
   createProject,
   deleteProjectById,
   findProjectById,
   updateProject,
+  updateProjectSettings,
 } from "../../models/ProjectModel";
 import { removeProjectFromDatasources } from "../../models/DataSourceModel";
 import { removeProjectFromMetrics } from "../../models/MetricModel";
@@ -19,7 +20,7 @@ import { EventAuditUserForResponseLocals } from "../../events/event-types";
 
 // region POST /projects
 
-type CreateProjectRequest = AuthRequest<{ name: string }>;
+type CreateProjectRequest = AuthRequest<{ name: string; description: string }>;
 
 type CreateProjectResponse = {
   status: 200;
@@ -39,13 +40,14 @@ export const postProject = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("manageProjects");
+  req.checkPermissions("manageProjects", "");
 
-  const { name } = req.body;
+  const { name, description } = req.body;
   const { org } = getOrgFromReq(req);
 
   const doc = await createProject(org.id, {
     name,
+    description,
   });
 
   res.status(200).json({
@@ -81,10 +83,11 @@ export const putProject = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("manageProjects");
+  const { id } = req.params;
+  req.checkPermissions("manageProjects", id);
 
   const { org } = getOrgFromReq(req);
-  const { id } = req.params;
+
   const project = await findProjectById(id, org.id);
 
   if (!project) {
@@ -94,10 +97,11 @@ export const putProject = async (
     return;
   }
 
-  const { name } = req.body;
+  const { name, description } = req.body;
 
   await updateProject(id, project.organization, {
     name,
+    description,
     dateUpdated: new Date(),
   });
 
@@ -129,9 +133,9 @@ export const deleteProject = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("manageProjects");
-
   const { id } = req.params;
+  req.checkPermissions("manageProjects", id);
+
   const { org } = getOrgFromReq(req);
 
   await deleteProjectById(id, org.id);
@@ -156,3 +160,39 @@ export const deleteProject = async (
 };
 
 // endregion DELETE /projects/:id
+
+type PutProjectSettingsRequest = AuthRequest<
+  { settings: ProjectSettings },
+  { id: string }
+>;
+type PutProjectSettingsResponse = {
+  status: 200;
+  settings: ProjectSettings;
+};
+export const putProjectSettings = async (
+  req: PutProjectSettingsRequest,
+  res: Response<PutProjectSettingsResponse | ApiErrorResponse>
+) => {
+  const { id } = req.params;
+  req.checkPermissions("manageProjects", id);
+
+  const { org } = getOrgFromReq(req);
+
+  const project = await findProjectById(id, org.id);
+
+  if (!project) {
+    res.status(404).json({
+      message: "Could not find project",
+    });
+    return;
+  }
+
+  const { settings } = req.body;
+
+  await updateProjectSettings(id, project.organization, settings);
+
+  res.status(200).json({
+    status: 200,
+    settings,
+  });
+};

@@ -1,5 +1,6 @@
 import { ExperimentPhaseStringDates } from "back-end/types/experiment";
 import React from "react";
+import qs from "query-string";
 
 export function formatTrafficSplit(weights: number[], decimals = 0): string {
   const sum = weights.reduce((sum, n) => sum + n, 0);
@@ -10,6 +11,7 @@ export function phaseSummary(
   phase: ExperimentPhaseStringDates
 ): React.ReactElement {
   if (!phase) {
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'ReactElemen... Remove this comment to see the full error message
     return null;
   }
   return (
@@ -142,4 +144,25 @@ export function isNullUndefinedOrEmpty(x) {
   if (x === "") return true;
   if (typeof x === "object" && !Object.keys(x).length) return true;
   return false;
+}
+
+export function appendQueryParamsToURL(
+  url: string,
+  params: Record<string, string | number | undefined>
+): string {
+  const [root, query] = url.split("?");
+  const parsed = qs.parse(query ?? "");
+  const queryParams = qs.stringify({ ...parsed, ...params });
+  return `${root}?${queryParams}`;
+}
+
+export function capitalizeFirstLetter(string) {
+  return string.charAt(0).toUpperCase() + string.slice(1);
+}
+
+export function capitalizeWords(string) {
+  return string
+    .split(" ")
+    .map((word) => capitalizeFirstLetter(word))
+    .join(" ");
 }

@@ -1,16 +1,26 @@
-import { FC } from "react";
+import React, { FC, useCallback, useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import {
   AttributionModel,
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  getValidDate,
+  getScopedSettings,
+  getAffectedEnvsForExperiment,
+} from "shared";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
 import { useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
+import { hasFileConfig } from "@/services/env";
+import usePermissions from "@/hooks/usePermissions";
+import { GBSequential } from "@/components/Icons";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
@@ -34,11 +44,40 @@ const AnalysisForm: FC<{
   const {
     metrics,
     segments,
+    getProjectById,
     getDatasourceById,
     datasources,
   } = useDefinitions();
 
-  const settings = useOrgSettings();
+  const { organization, hasCommercialFeature } = useUser();
+
+  const permissions = usePermissions();
+
+  const orgSettings = useOrgSettings();
+
+  const pid = experiment?.project;
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
+  const project = getProjectById(pid);
+
+  const { settings: scopedSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+    experiment: experiment,
+  });
+
+  const statsEngine = scopedSettings.statsEngine.value;
+
+  const hasSequentialTestingFeature = hasCommercialFeature(
+    "sequential-testing"
+  );
+
+  let canRunExperiment = !experiment.archived;
+  const envs = getAffectedEnvsForExperiment({ experiment });
+  if (envs.length > 0) {
+    if (!permissions.check("runExperiments", experiment.project, envs)) {
+      canRunExperiment = false;
+    }
+  }
 
   const attributeSchema = useAttributeSchema();
 
@@ -61,15 +100,55 @@ const AnalysisForm: FC<{
       skipPartialData: experiment.skipPartialData ? "strict" : "loose",
       attributionModel:
         experiment.attributionModel ||
-        settings.attributionModel ||
+        orgSettings.attributionModel ||
         "firstExposure",
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
       dateStarted: getValidDate(phaseObj?.dateStarted)
         .toISOString()
         .substr(0, 16),
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
       dateEnded: getValidDate(phaseObj?.dateEnded).toISOString().substr(0, 16),
       variations: experiment.variations || [],
+      sequentialTestingEnabled:
+        hasSequentialTestingFeature &&
+        experiment.sequentialTestingEnabled !== undefined
+          ? experiment.sequentialTestingEnabled
+          : !!orgSettings.sequentialTestingEnabled,
+      sequentialTestingTuningParameter:
+        experiment.sequentialTestingEnabled !== undefined
+          ? experiment.sequentialTestingTuningParameter
+          : orgSettings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     },
   });
+
+  const [
+    usingSequentialTestingDefault,
+    setUsingSequentialTestingDefault,
+  ] = useState(experiment.sequentialTestingEnabled === undefined);
+  const setSequentialTestingToDefault = useCallback(
+    (enable: boolean) => {
+      if (enable) {
+        form.setValue(
+          "sequentialTestingEnabled",
+          !!orgSettings.sequentialTestingEnabled
+        );
+        form.setValue(
+          "sequentialTestingTuningParameter",
+          orgSettings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
+        );
+      }
+      setUsingSequentialTestingDefault(enable);
+    },
+    [
+      form,
+      setUsingSequentialTestingDefault,
+      orgSettings.sequentialTestingEnabled,
+      orgSettings.sequentialTestingTuningParameter,
+    ]
+  );
+
   const { apiCall } = useAuth();
 
   const datasource = getDatasourceById(form.watch("datasource"));
@@ -126,6 +205,13 @@ const AnalysisForm: FC<{
         if (experiment.status === "stopped") {
           body.phaseEndDate = dateEnded;
         }
+        if (usingSequentialTestingDefault) {
+          // User checked the org default checkbox; ignore form values
+          body.sequentialTestingEnabled = !!orgSettings.sequentialTestingEnabled;
+          body.sequentialTestingTuningParameter =
+            orgSettings.sequentialTestingTuningParameter ??
+            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+        }
 
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
@@ -181,6 +267,7 @@ const AnalysisForm: FC<{
         labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
         helpText="Will match against the experiment_id column in your data source"
+        disabled={!canRunExperiment}
       />
       <SelectField
         label="Assignment Attribute"
@@ -319,6 +406,87 @@ const AnalysisForm: FC<{
             },
           ]}
         />
+      )}
+      {statsEngine === "frequentist" && (
+        <div className="d-flex flex-row no-gutters align-items-top">
+          <div className="col-5">
+            <SelectField
+              label={
+                <PremiumTooltip commercialFeature="sequential-testing">
+                  <GBSequential /> Use Sequential Testing
+                </PremiumTooltip>
+              }
+              labelClassName="font-weight-bold"
+              value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
+              onChange={(v) => {
+                form.setValue("sequentialTestingEnabled", v === "on");
+              }}
+              options={[
+                {
+                  label: "On",
+                  value: "on",
+                },
+                {
+                  label: "Off",
+                  value: "off",
+                },
+              ]}
+              helpText="Only applicable to frequentist analyses"
+              disabled={
+                !hasSequentialTestingFeature || usingSequentialTestingDefault
+              }
+            />
+          </div>
+          <div
+            className="col-3 pl-4"
+            style={{
+              opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
+            }}
+          >
+            <Field
+              label="Tuning parameter"
+              type="number"
+              containerClassName="mb-0"
+              min="0"
+              disabled={
+                usingSequentialTestingDefault ||
+                !hasSequentialTestingFeature ||
+                hasFileConfig()
+              }
+              helpText={
+                <>
+                  <span className="ml-2">
+                    (
+                    {orgSettings.sequentialTestingTuningParameter ??
+                      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                    is default)
+                  </span>
+                </>
+              }
+              {...form.register("sequentialTestingTuningParameter", {
+                valueAsNumber: true,
+                validate: (v) => {
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  return !(v <= 0);
+                },
+              })}
+            />
+          </div>
+          <div className="col align-self-center">
+            <label className="ml-5">
+              <input
+                type="checkbox"
+                className="form-check-input"
+                checked={usingSequentialTestingDefault}
+                disabled={!hasSequentialTestingFeature}
+                onChange={(e) =>
+                  setSequentialTestingToDefault(e.target.checked)
+                }
+              />
+              Reset to Organization Default
+            </label>
+          </div>
+        </div>
       )}
       {datasourceProperties?.queryLanguage === "sql" && (
         <div className="row">

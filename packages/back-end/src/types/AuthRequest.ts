@@ -16,7 +16,7 @@ interface PermissionFunctions {
   ): void;
   checkPermissions(
     permission: EnvScopedPermission,
-    project: string | string[] | undefined,
+    project: string | (string | undefined)[] | undefined,
     envs: string[] | Set<string>
   ): void;
 }

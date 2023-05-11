@@ -62,6 +62,7 @@ const ImpactProjections: FC<{
           <em>Conversions:</em>
         </small>
         <div className="pt-1">
+          {/* @ts-expect-error TS(2454) If you come across this, please fix it!: Variable 'conversions' is used before being assign... Remove this comment to see the full error message */}
           <strong className="border p-1 mr-1">{conversions}</strong>
           <small className="text-muted">/ variation / day</small>
         </div>

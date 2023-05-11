@@ -80,8 +80,10 @@ export default function RestoreConfigYamlButton({
       if (origConfig.datasources) {
         Object.keys(origConfig.datasources).forEach((k) => {
           if (!newConfig?.datasources?.[k]) {
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             delete origConfig.datasources[k];
           } else {
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             const o = origConfig.datasources[k];
             const n = newConfig.datasources[k];
 
@@ -103,8 +105,10 @@ export default function RestoreConfigYamlButton({
       if (origConfig.metrics) {
         Object.keys(origConfig.metrics).forEach((k) => {
           if (!newConfig?.metrics?.[k]) {
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             delete origConfig.metrics[k];
           } else {
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             const o = origConfig.metrics[k];
             const n = newConfig.metrics[k];
 
@@ -118,8 +122,10 @@ export default function RestoreConfigYamlButton({
       if (origConfig.dimensions) {
         Object.keys(origConfig.dimensions).forEach((k) => {
           if (!newConfig?.dimensions?.[k]) {
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             delete origConfig.dimensions[k];
           } else {
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             const o = origConfig.dimensions[k];
             const n = newConfig.dimensions[k];
 
@@ -134,8 +140,10 @@ export default function RestoreConfigYamlButton({
       if (origConfig.segments) {
         Object.keys(origConfig.segments).forEach((k) => {
           if (!newConfig?.segments?.[k]) {
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             delete origConfig.segments[k];
           } else {
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             const o = origConfig.segments[k];
             const n = newConfig.segments[k];
 
@@ -151,6 +159,7 @@ export default function RestoreConfigYamlButton({
       if (origConfig.datasources) {
         Object.keys(origConfig.datasources).forEach((k) => {
           sanitizeSecrets(
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             origConfig.datasources[k] as DataSourceInterfaceWithParams
           );
         });
@@ -212,6 +221,7 @@ export default function RestoreConfigYamlButton({
                 throw new Error("Could not parsed yaml file into JSON object");
               }
 
+              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'object' is not assignable to par... Remove this comment to see the full error message
               setParsed(json);
               parseConfig(json);
             }}

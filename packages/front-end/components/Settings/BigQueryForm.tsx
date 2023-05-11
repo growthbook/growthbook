@@ -44,6 +44,7 @@ const BigQueryForm: FC<{
                 id="bigQueryFileInput"
                 accept="application/json"
                 onChange={(e) => {
+                  // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
                   const file = e.target.files[0];
                   if (!file) {
                     return;
@@ -52,6 +53,7 @@ const BigQueryForm: FC<{
                   const reader = new FileReader();
                   reader.onload = function (e) {
                     try {
+                      // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
                       const str = e.target.result;
                       if (typeof str !== "string") {
                         return;

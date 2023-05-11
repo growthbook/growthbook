@@ -3,6 +3,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { ReactElement, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
+import { getAffectedEnvsForExperiment } from "shared";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -41,6 +42,7 @@ const ExperimentPage = (): ReactElement => {
     visualChangesets: VisualChangesetInterface[];
   }>(`/experiment/${eid}`);
 
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   useSwitchOrg(data?.experiment?.organization);
 
   const { apiCall } = useAuth();
@@ -54,22 +56,35 @@ const ExperimentPage = (): ReactElement => {
 
   const { experiment, idea, visualChangesets = [] } = data;
 
-  const canEdit =
+  const canEditExperiment =
     permissions.check("createAnalyses", experiment.project) &&
     !experiment.archived;
 
-  const canEditProject =
-    permissions.check("createAnalyses", "") && !experiment.archived;
+  let canRunExperiment = !experiment.archived;
+  const envs = getAffectedEnvsForExperiment({ experiment });
+  if (envs.length > 0) {
+    if (!permissions.check("runExperiments", experiment.project, envs)) {
+      canRunExperiment = false;
+    }
+  }
 
-  const editMetrics = canEdit ? () => setMetricsModalOpen(true) : null;
-  const editResult = canEdit ? () => setStopModalOpen(true) : null;
-  const editVariations = canEdit ? () => setVariationsModalOpen(true) : null;
-  const duplicate = canEdit ? () => setDuplicateModalOpen(true) : null;
-  const editTags = canEdit ? () => setTagsModalOpen(true) : null;
-  const editProject = canEditProject ? () => setProjectModalOpen(true) : null;
-  const newPhase = canEdit ? () => setPhaseModalOpen(true) : null;
-  const editPhases = canEdit ? () => setEditPhasesOpen(true) : null;
-  const editPhase = canEdit ? (i: number | null) => setEditPhaseId(i) : null;
+  const editMetrics = canEditExperiment
+    ? () => setMetricsModalOpen(true)
+    : null;
+  const editResult = canRunExperiment ? () => setStopModalOpen(true) : null;
+  const editVariations = canRunExperiment
+    ? () => setVariationsModalOpen(true)
+    : null;
+  const duplicate = canEditExperiment
+    ? () => setDuplicateModalOpen(true)
+    : null;
+  const editTags = canEditExperiment ? () => setTagsModalOpen(true) : null;
+  const editProject = canRunExperiment ? () => setProjectModalOpen(true) : null;
+  const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
+  const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
+  const editPhase = canRunExperiment
+    ? (i: number | null) => setEditPhaseId(i)
+    : null;
 
   return (
     <div>
@@ -155,14 +170,23 @@ const ExperimentPage = (): ReactElement => {
             idea={idea}
             visualChangesets={visualChangesets}
             mutate={mutate}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             editMetrics={editMetrics}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             editResult={editResult}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             editVariations={editVariations}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             duplicate={duplicate}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             editProject={editProject}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             editTags={editTags}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             newPhase={newPhase}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
             editPhases={editPhases}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((i: number | null) => void) | null' is not ... Remove this comment to see the full error message
             editPhase={editPhase}
           />
         </SnapshotProvider>

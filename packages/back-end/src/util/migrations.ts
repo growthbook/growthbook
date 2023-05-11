@@ -1,5 +1,9 @@
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
@@ -340,7 +344,7 @@ export function upgradeOrganizationDoc(
 
   // Add statsEngine setting if not defined
   if (!org.settings.statsEngine) {
-    org.settings.statsEngine = "bayesian";
+    org.settings.statsEngine = DEFAULT_STATS_ENGINE;
   }
 
   // Rename legacy roles
@@ -421,6 +425,13 @@ export function upgradeExperimentDoc(
     } else {
       experiment.releasedVariationId = "";
     }
+  }
+
+  if (!("sequentialTestingEnabled" in experiment)) {
+    experiment.sequentialTestingEnabled = false;
+  }
+  if (!("sequentialTestingTuningParameter" in experiment)) {
+    experiment.sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
   }
 
   return experiment as ExperimentInterface;

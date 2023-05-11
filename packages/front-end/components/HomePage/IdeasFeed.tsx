@@ -1,8 +1,8 @@
 import { FC } from "react";
 import { useRouter } from "next/router";
 import { IdeaInterface } from "back-end/types/idea";
+import { ago } from "shared";
 import useApi from "@/hooks/useApi";
-import { ago } from "@/services/dates";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Markdown from "../Markdown/Markdown";
@@ -33,6 +33,7 @@ const IdeasFeed: FC<{
       <ul className="list-unstyled simple-divider pl-0 mb-0">
         {data.ideas.map((idea, i) => {
           const linkUrl = "/idea/" + idea.id;
+          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | null' is not assignable... Remove this comment to see the full error message
           const user = users.get(idea.userId);
           const email = user ? user.email : "";
           const name = user ? user.name : idea.userName;

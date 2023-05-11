@@ -6,9 +6,7 @@ on:
     branches:
       - main
     paths:
-      - "packages/front-end/**"
-      - "packages/back-end/**"
-      - "packages/stats/**"
+      - "packages/**"
       - "!**.md"
       - "yarn.lock"
       - "Dockerfile"
@@ -18,6 +16,9 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     if: ${{ github.repository == 'growthbook/growthbook' }}
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
@@ -28,16 +29,27 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      - name: Build, tag, and push image to Docker Hub
+      - name: Install Depot CLI
+        uses: depot/setup-action@v1
+
+      - name: Prepare build metadata
+        id: metadata
         run: |
           # Store current git hash and date in files
           mkdir -p buildinfo
           echo "${GITHUB_SHA}" > buildinfo/SHA
           printf '%(%Y-%m-%dT%H:%M:%SZ)T' > buildinfo/DATE
+          echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
-          # Build and push the docker image
-          docker build -t growthbook/growthbook:latest -t growthbook/growthbook:git-${GITHUB_SHA::7} .
-          docker push -a growthbook/growthbook
+      - name: Build, tag, and push image to Docker Hub
+        uses: depot/build-push-action@v1
+        with:
+          push: true
+          context: .
+          project: vmp2ssvj9r
+          tags: |
+            growthbook/growthbook:latest
+            growthbook/growthbook:git-${{ steps.metadata.outputs.sha }}
 
   # Deploy the back-end for GrowthBook Cloud
   prod:
@@ -51,7 +63,7 @@ jobs:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      
+
       - name: Deploy docker image to ECS for GrowthBook Cloud API
         run:
           aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1

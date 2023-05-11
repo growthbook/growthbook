@@ -3,6 +3,7 @@ import { Client, IPrestoClientOptions } from "presto-client";
 import { decryptDataSourceParams } from "../services/datasource";
 import { PrestoConnectionParams } from "../../types/integrations/presto";
 import { FormatDialect } from "../util/sql";
+import { MissingDatasourceParamsError } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
@@ -10,7 +11,7 @@ type Row = any;
 
 export default class Presto extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   params: PrestoConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PrestoConnectionParams>(
@@ -93,6 +94,9 @@ export default class Presto extends SqlIntegration {
   formatDate(col: string): string {
     return `substr(to_iso8601(${col}),1,10)`;
   }
+  formatDateTimeString(col: string): string {
+    return `to_iso8601(${col})`;
+  }
   dateDiff(startCol: string, endCol: string) {
     return `date_diff('day', ${startCol}, ${endCol})`;
   }
@@ -101,5 +105,15 @@ export default class Presto extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
+  }
+  getInformationSchemaFromClause(): string {
+    if (!this.params.catalog)
+      throw new MissingDatasourceParamsError(
+        "To view the information schema for a Presto data source, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings."
+      );
+    return `${this.params.catalog}.information_schema.columns`;
+  }
+  getInformationSchemaTableFromClause(databaseName: string): string {
+    return `${databaseName}.information_schema.columns`;
   }
 }

@@ -29,7 +29,8 @@
     "react",
     "@typescript-eslint",
     "prettier",
-    "@next/eslint-plugin-next"
+    "@next/eslint-plugin-next",
+    "no-async-foreach"
   ],
   "extends": [
     "eslint:recommended",
@@ -54,6 +55,7 @@
     "SharedArrayBuffer": "readonly"
   },
   "rules": {
+    "no-async-foreach/no-async-foreach": 2,
     "@next/next/no-html-link-for-pages": [
       "warn",
       "./packages/front-end/pages"
@@ -81,12 +83,13 @@
     "react/prop-types": "off",
     "react-hooks/rules-of-hooks": "error",
     "react-hooks/exhaustive-deps": "warn",
-   "import/order": [
-     "error",
-     {
-       "groups": ["builtin", "external", "internal", "parent", "sibling", "index", "unknown"]
-     }
-   ]
+    "import/order": [
+      "error",
+      {
+        "groups": ["builtin", "external", "internal", "parent", "sibling", "index", "unknown"]
+      }
+    ],
+    "@typescript-eslint/prefer-ts-expect-error": "error"
   },
   "overrides": [
     {

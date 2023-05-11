@@ -51,9 +51,15 @@ export const postSDKConnection = async (
     encryptPayload = params.encryptPayload;
   }
 
+  let sseEnabled = false;
+  if (orgHasPremiumFeature(org, "cloud-proxy")) {
+    sseEnabled = params.sseEnabled || false;
+  }
+
   const doc = await createSDKConnection({
     ...params,
     encryptPayload,
+    sseEnabled,
     organization: org.id,
   });
 
@@ -92,9 +98,15 @@ export const putSDKConnection = async (
     encryptPayload = false;
   }
 
+  let sseEnabled = false;
+  if (orgHasPremiumFeature(org, "cloud-proxy")) {
+    sseEnabled = req.body.sseEnabled || false;
+  }
+
   await editSDKConnection(connection, {
     ...req.body,
     encryptPayload,
+    sseEnabled,
   });
 
   res.status(200).json({

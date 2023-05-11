@@ -2,13 +2,14 @@ import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef } from "react";
-import { FaArrowsAlt } from "react-icons/fa";
+import { FaArrowsAlt, FaExclamationTriangle } from "react-icons/fa";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, useEnvironments } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "../Button";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import MoreMenu from "../Dropdown/MoreMenu";
@@ -26,6 +27,7 @@ interface SortableProps {
   experiments: Record<string, ExperimentInterfaceStringDates>;
   mutate: () => void;
   setRuleModal: ({ environment: string, i: number }) => void;
+  unreachable?: boolean;
 }
 
 type RuleProps = SortableProps &
@@ -45,6 +47,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       mutate,
       handle,
       experiments,
+      unreachable,
       ...props
     },
     ref
@@ -107,10 +110,24 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             className="mx-2"
           >
             {title}
+            {unreachable && (
+              <Tooltip
+                body={
+                  "A rule above this one will serve to 100% of the traffic, and this rule will never be reached."
+                }
+              >
+                <span className="ml-2 font-italic bg-secondary text-light border px-2 rounded d-inline-block">
+                  {" "}
+                  <FaExclamationTriangle className="text-warning" /> This rule
+                  is not reachable
+                </span>
+              </Tooltip>
+            )}
           </div>
           <RuleStatusPill
             rule={rule}
             upcomingScheduleRule={upcomingScheduleRule}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | boolean | undefined' is not assigna... Remove this comment to see the full error message
             scheduleCompletedAndDisabled={scheduleCompletedAndDisabled}
           />
           {rules.length > 1 && canEdit && (

@@ -46,6 +46,7 @@ const Tooltip: FC<Props> = ({
   return (
     <>
       <span
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
         ref={setTrigger}
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
@@ -57,6 +58,7 @@ const Tooltip: FC<Props> = ({
       </span>
       {open && body && shouldDisplay && (
         <div
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message
           ref={setTooltip}
           style={{
             ...styles.popper,
@@ -69,6 +71,7 @@ const Tooltip: FC<Props> = ({
           role="tooltip"
         >
           <div className={`body ${innerClassName}`}>{body}</div>
+          {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<null>>' is not assig... Remove this comment to see the full error message */}
           <div ref={setArrow} style={styles.arrow} className="arrow" />
         </div>
       )}

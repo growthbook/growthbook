@@ -10,6 +10,7 @@ import {
   FeatureCreatedNotificationEvent,
   FeatureDeletedNotificationEvent,
   FeatureUpdatedNotificationEvent,
+  UserLoginNotificationEvent,
 } from "../src/events/notification-events";
 
 export interface EventInterface<T> {
@@ -30,4 +31,5 @@ export {
   ExperimentCreatedNotificationEvent,
   ExperimentUpdatedNotificationEvent,
   ExperimentDeletedNotificationEvent,
+  UserLoginNotificationEvent,
 };

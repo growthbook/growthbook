@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { DEFAULT_STATS_ENGINE, getValidDate } from "shared";
 import { ReportInterface } from "../../types/report";
 import {
   getExperimentById,
@@ -7,19 +8,18 @@ import {
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
 import {
   createReport,
-  getReportById,
-  updateReport,
-  getReportsByOrg,
-  getReportsByExperimentId,
   deleteReportById,
+  getReportById,
+  getReportsByExperimentId,
+  getReportsByOrg,
+  updateReport,
 } from "../models/ReportModel";
 import { generateReportNotebook } from "../services/notebook";
 import { getOrgFromReq } from "../services/organizations";
 import { cancelRun, getStatusEndpoint } from "../services/queries";
-import { runReport, reportArgsFromSnapshot } from "../services/reports";
+import { reportArgsFromSnapshot, runReport } from "../services/reports";
 import { analyzeExperimentResults } from "../services/stats";
 import { AuthRequest } from "../types/AuthRequest";
-import { getValidDate } from "../util/dates";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -192,10 +192,13 @@ export async function refreshReport(
 
   const useCache = !req.query["force"];
 
-  report.args.statsEngine =
-    report.args?.statsEngine || org.settings?.statsEngine || "bayesian";
-  report.args.regressionAdjustmentEnabled = !!report.args
-    ?.regressionAdjustmentEnabled;
+  const statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
+
+  report.args.statsEngine = statsEngine;
+  report.args.regressionAdjustmentEnabled =
+    statsEngine === "frequentist"
+      ? !!report.args?.regressionAdjustmentEnabled
+      : false;
 
   await runReport(org, report, useCache);
 
@@ -227,16 +230,19 @@ export async function putReport(
       ...req.body.args,
     };
 
+    const statsEngine = updates.args?.statsEngine || DEFAULT_STATS_ENGINE;
+
     updates.args.startDate = getValidDate(updates.args.startDate);
     if (!updates.args.endDate) {
       delete updates.args.endDate;
     } else {
       updates.args.endDate = getValidDate(updates.args.endDate || new Date());
     }
-    updates.args.statsEngine =
-      updates.args?.statsEngine || org.settings?.statsEngine || "bayesian";
-    updates.args.regressionAdjustmentEnabled = !!updates.args
-      ?.regressionAdjustmentEnabled;
+    updates.args.statsEngine = statsEngine;
+    updates.args.regressionAdjustmentEnabled =
+      statsEngine === "frequentist"
+        ? !!updates.args?.regressionAdjustmentEnabled
+        : false;
     updates.args.metricRegressionAdjustmentStatuses =
       updates.args?.metricRegressionAdjustmentStatuses || [];
 
@@ -279,13 +285,19 @@ export async function getReportStatus(
     org.id,
     (queryData) => {
       if (report.type === "experiment") {
-        return analyzeExperimentResults(
-          org.id,
-          report.args.variations,
-          report.args.dimension || undefined,
+        return analyzeExperimentResults({
+          organization: org.id,
+          variations: report.args.variations,
+          dimension: report.args.dimension,
           queryData,
-          report.args.statsEngine || org.settings?.statsEngine
-        );
+          statsEngine: report.args.statsEngine,
+          sequentialTestingEnabled:
+            report.args.sequentialTestingEnabled ??
+            org.settings?.sequentialTestingEnabled,
+          sequentialTestingTuningParameter:
+            report.args.sequentialTestingTuningParameter ??
+            org.settings?.sequentialTestingTuningParameter,
+        });
       }
       throw new Error("Unsupported report type");
     },

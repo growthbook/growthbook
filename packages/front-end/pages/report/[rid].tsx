@@ -3,6 +3,13 @@ import { ExperimentReportArgs, ReportInterface } from "back-end/types/report";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
+import {
+  getValidDate,
+  ago,
+  datetime,
+  date,
+  DEFAULT_STATS_ENGINE,
+} from "shared";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";
@@ -10,7 +17,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
-import { ago, datetime, getValidDate, date } from "@/services/dates";
 import DateResults from "@/components/Experiment/DateResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import CompactResults from "@/components/Experiment/CompactResults";
@@ -18,7 +24,12 @@ import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import { useAuth } from "@/services/auth";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
-import { GBCircleArrowLeft, GBCuped, GBEdit } from "@/components/Icons";
+import {
+  GBCircleArrowLeft,
+  GBCuped,
+  GBEdit,
+  GBSequential,
+} from "@/components/Icons";
 import ConfigureReport from "@/components/Report/ConfigureReport";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import Toggle from "@/components/Forms/Toggle";
@@ -52,10 +63,16 @@ export default function ReportPage() {
   const [refreshError, setRefreshError] = useState("");
 
   const { apiCall } = useAuth();
-  const settings = useOrgSettings();
+
+  // todo: move to report args
+  const orgSettings = useOrgSettings();
+  const pValueCorrection = orgSettings?.pValueCorrection;
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
+  );
+  const hasSequentialTestingFeature = hasCommercialFeature(
+    "sequential-testing"
   );
 
   const form = useForm({
@@ -96,19 +113,22 @@ export default function ReportPage() {
 
   const status = getQueryStatus(report.queries || [], report.error);
 
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   const hasData = report.results?.dimensions?.[0]?.variations?.length > 0;
 
   const phaseAgeMinutes =
     (Date.now() - getValidDate(report.args.startDate).getTime()) / (1000 * 60);
 
-  const statsEngine =
-    data?.report?.args?.statsEngine || settings?.statsEngine || "bayesian";
+  const statsEngine = data?.report?.args?.statsEngine || DEFAULT_STATS_ENGINE;
   const regressionAdjustmentAvailable =
     hasRegressionAdjustmentFeature && statsEngine === "frequentist";
   const regressionAdjustmentEnabled =
     hasRegressionAdjustmentFeature &&
     regressionAdjustmentAvailable &&
     !!report.args.regressionAdjustmentEnabled;
+
+  const sequentialTestingEnabled =
+    hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
 
   return (
     <div className="container-fluid pagecontents experiment-details">
@@ -231,7 +251,7 @@ export default function ReportPage() {
                   >
                     <div
                       className="font-weight-bold"
-                      style={{ lineHeight: 1.5 }}
+                      style={{ lineHeight: 1.2 }}
                     >
                       updated
                     </div>
@@ -288,11 +308,13 @@ export default function ReportPage() {
                     }
                   }}
                   supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
                   configure={
                     permissions.check("createAnalyses", "")
                       ? () => setActive("Configuration")
                       : null
                   }
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | null' is not assignable to ty... Remove this comment to see the full error message
                   editMetrics={
                     permissions.check("createAnalyses", "")
                       ? () => setActive("Configuration")
@@ -304,6 +326,7 @@ export default function ReportPage() {
                   notebookFilename={report.title}
                   queries={report.queries}
                   queryError={report.error}
+                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                   results={report.results.dimensions}
                   variations={variations}
                   metrics={report.args.metrics}
@@ -322,6 +345,7 @@ export default function ReportPage() {
               </div>
             )}
             {!hasData &&
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               !report.results.unknownVariations?.length &&
               status !== "running" &&
               report.args.metrics.length > 0 && (
@@ -347,6 +371,7 @@ export default function ReportPage() {
               <DateResults
                 metrics={report.args.metrics}
                 guardrails={report.args.guardrails}
+                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                 results={report.results.dimensions}
                 variations={variations}
               />
@@ -354,6 +379,7 @@ export default function ReportPage() {
               <BreakDownResults
                 isLatestPhase={true}
                 metrics={report.args.metrics}
+                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MetricOverride[] | undefined' is not assigna... Remove this comment to see the full error message
                 metricOverrides={report.args.metricOverrides}
                 reportDate={report.dateCreated}
                 results={report.results?.dimensions || []}
@@ -365,10 +391,12 @@ export default function ReportPage() {
                 variations={variations}
                 key={report.args.dimension}
                 statsEngine={report.args.statsEngine}
+                pValueCorrection={pValueCorrection}
                 regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                 metricRegressionAdjustmentStatuses={
                   report.args.metricRegressionAdjustmentStatuses
                 }
+                sequentialTestingEnabled={sequentialTestingEnabled}
               />
             ))}
           {report.results && !report.args.dimension && (
@@ -404,23 +432,29 @@ export default function ReportPage() {
                 id={report.id}
                 isLatestPhase={true}
                 metrics={report.args.metrics}
+                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MetricOverride[] | undefined' is not assigna... Remove this comment to see the full error message
                 metricOverrides={report.args.metricOverrides}
                 reportDate={report.dateCreated}
+                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentReportResultDimension | undefined'... Remove this comment to see the full error message
                 results={report.results?.dimensions?.[0]}
                 status={"stopped"}
                 startDate={getValidDate(report.args.startDate).toISOString()}
                 multipleExposures={report.results?.multipleExposures || 0}
                 variations={variations}
                 statsEngine={report.args.statsEngine}
+                pValueCorrection={pValueCorrection}
                 regressionAdjustmentEnabled={regressionAdjustmentEnabled}
                 metricRegressionAdjustmentStatuses={
                   report.args.metricRegressionAdjustmentStatuses
                 }
+                sequentialTestingEnabled={sequentialTestingEnabled}
               />
+              {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
               {report.args.guardrails?.length > 0 && (
                 <div className="mt-1 px-3">
                   <h3 className="mb-3">Guardrails</h3>
                   <div className="row">
+                    {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                     {report.args.guardrails.map((g) => {
                       const metric = getMetricById(g);
                       if (!metric) return "";
@@ -466,17 +500,28 @@ export default function ReportPage() {
                   </span>
                 </div>
                 {report.args?.statsEngine === "frequentist" && (
-                  <div>
-                    <span className="text-muted">
-                      <GBCuped size={12} />
-                      CUPED:
-                    </span>{" "}
-                    <span>
-                      {report.args?.regressionAdjustmentEnabled
-                        ? "Enabled"
-                        : "Disabled"}
-                    </span>
-                  </div>
+                  <>
+                    <div>
+                      <span className="text-muted">
+                        <GBCuped size={13} /> CUPED:
+                      </span>{" "}
+                      <span>
+                        {report.args?.regressionAdjustmentEnabled
+                          ? "Enabled"
+                          : "Disabled"}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted">
+                        <GBSequential size={13} /> Sequential:
+                      </span>{" "}
+                      <span>
+                        {report.args?.sequentialTestingEnabled
+                          ? "Enabled"
+                          : "Disabled"}
+                      </span>
+                    </div>
+                  </>
                 )}
                 <div>
                   <span className="text-muted">Run date:</span>{" "}

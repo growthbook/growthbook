@@ -9,12 +9,14 @@ import {
   VisualChangesetURLPattern,
 } from "back-end/types/visual-changeset";
 import React, { FC, Fragment, useState } from "react";
-import { FaTimesCircle } from "react-icons/fa";
+import { FaPlusCircle, FaTimesCircle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import track from "@/services/track";
+import { appendQueryParamsToURL } from "@/services/utils";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
 import { GBEdit } from "../Icons";
@@ -25,23 +27,26 @@ interface Props {
   experiment: ExperimentInterfaceStringDates;
   visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
-  canEdit: boolean;
+  canEditExperiment: boolean;
+  canEditVisualChangesets: boolean;
   className?: string;
+  setVisualEditorModal: (v: boolean) => void;
 }
 
 const ScreenshotCarousel: FC<{
   index: number;
   variation: Variation;
-  canEdit: boolean;
+  canEditExperiment: boolean;
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
-}> = ({ canEdit, experiment, index, variation, mutate }) => {
+}> = ({ canEditExperiment, experiment, index, variation, mutate }) => {
   const { apiCall } = useAuth();
 
   return (
     <Carousel
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((j: number) => Promise<void>) | null' is no... Remove this comment to see the full error message
       deleteImage={
-        !canEdit
+        !canEditExperiment
           ? null
           : async (j) => {
               const { status, message } = await apiCall<{
@@ -82,6 +87,7 @@ const ScreenshotCarousel: FC<{
 };
 
 const isLegacyVariation = (v: Partial<LegacyVariation>): v is LegacyVariation =>
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   !!v.css || v.dom?.length > 0;
 
 const drawUrlPattern = (
@@ -102,9 +108,11 @@ const drawUrlPattern = (
 
 const VariationsTable: FC<Props> = ({
   experiment,
-  canEdit,
+  canEditExperiment,
+  canEditVisualChangesets,
   mutate,
   visualChangesets: _visualChangesets,
+  setVisualEditorModal,
 }) => {
   const { variations } = experiment;
   const { apiCall } = useAuth();
@@ -113,6 +121,11 @@ const VariationsTable: FC<Props> = ({
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
 
   const visualChangesets = _visualChangesets || [];
+  const hasAnyPositionMutations = visualChangesets.some((vc) =>
+    vc.visualChanges.some(
+      (v) => v.domMutations.filter((m) => m.attribute === "position").length > 0
+    )
+  );
 
   const [
     editingVisualChangeset,
@@ -143,6 +156,7 @@ const VariationsTable: FC<Props> = ({
                       : "pb-2"
                   }`}
                   style={{
+                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | null' is not assignable to type 'Bo... Remove this comment to see the full error message
                     borderBottom: hasDescriptions || hasUniqueIDs ? 0 : null,
                   }}
                 >
@@ -174,11 +188,11 @@ const VariationsTable: FC<Props> = ({
                 <td
                   key={i}
                   scope="col"
-                  className={`align-top ${canEdit ? "pb-1" : ""}`}
+                  className={`align-top ${canEditExperiment ? "pb-1" : ""}`}
                   style={{
                     minWidth: "17.5rem",
                     height: "inherit",
-                    borderBottom: canEdit ? 0 : null,
+                    borderBottom: canEditExperiment ? 0 : undefined,
                   }}
                 >
                   <div className="d-flex flex-column h-100">
@@ -187,7 +201,7 @@ const VariationsTable: FC<Props> = ({
                         key={i}
                         index={i}
                         variation={v}
-                        canEdit={canEdit}
+                        canEditExperiment={canEditExperiment}
                         experiment={experiment}
                         mutate={mutate}
                       />
@@ -196,7 +210,7 @@ const VariationsTable: FC<Props> = ({
                 </td>
               ))}
             </tr>
-            {canEdit && (
+            {canEditExperiment && (
               <tr>
                 {variations.map((v, i) => (
                   <td
@@ -225,6 +239,13 @@ const VariationsTable: FC<Props> = ({
             <div className="h3 d-inline-block my-0 align-middle">
               Visual Changes
             </div>
+
+            {hasAnyPositionMutations && (
+              <div className="small text-muted">
+                This experiment requires at least version 0.26.0 of our
+                Javascript SDK
+              </div>
+            )}
           </div>
 
           {visualChangesets.map((vc, i) => {
@@ -240,14 +261,18 @@ const VariationsTable: FC<Props> = ({
 
             return (
               <Fragment key={i}>
-                <div className={`${i !== 0 && "mt-2"}`}>
-                  {hasVisualEditorFeature && (
-                    <div className="px-3">
-                      <div className="row mt-1 mb-2 d-flex align-items-end">
-                        <div className="col">
-                          <label className="mb-1">
+                <div
+                  className={`${
+                    i !== 0 && "mt-2"
+                  } appbox bg-light py-2 mx-3 mb-4 `}
+                >
+                  <div className="px-3">
+                    <div className="row mt-1 mb-3 d-flex align-items-end">
+                      <div className="col">
+                        <div className="col-auto px-3 py-2 rounded bg-muted-yellow">
+                          <label className="d-block mb-1 font-weight-bold">
                             URL Targeting
-                            {canEdit && (
+                            {canEditVisualChangesets && (
                               <a
                                 className="ml-2"
                                 href="#"
@@ -264,63 +289,56 @@ const VariationsTable: FC<Props> = ({
                               </a>
                             )}
                           </label>
-                          <div className="col-auto px-3 py-2 rounded bg-muted-yellow">
-                            {simpleUrlPatterns.length > 0 && (
-                              <>
-                                {!onlySimpleRules && (
-                                  <div className="uppercase-title mt-1">
-                                    Simple:
-                                  </div>
-                                )}
-                                {simpleUrlPatterns.map((p, j) =>
-                                  drawUrlPattern(p, j, vc.urlPatterns.length)
-                                )}
-                              </>
-                            )}
-                            {regexUrlPatterns.length > 0 && (
-                              <>
+                          {simpleUrlPatterns.length > 0 && (
+                            <>
+                              {!onlySimpleRules && (
                                 <div className="uppercase-title mt-1">
-                                  Regex:
+                                  Simple:
                                 </div>
-                                {regexUrlPatterns.map((p, j) =>
-                                  drawUrlPattern(p, j, vc.urlPatterns.length)
-                                )}
-                              </>
-                            )}
-                          </div>
+                              )}
+                              {simpleUrlPatterns.map((p, j) =>
+                                drawUrlPattern(p, j, vc.urlPatterns.length)
+                              )}
+                            </>
+                          )}
+                          {regexUrlPatterns.length > 0 && (
+                            <>
+                              <div className="uppercase-title mt-1">Regex:</div>
+                              {regexUrlPatterns.map((p, j) =>
+                                drawUrlPattern(p, j, vc.urlPatterns.length)
+                              )}
+                            </>
+                          )}
                         </div>
-                        <div style={{ flex: 1 }} />
-                        {hasVisualEditorFeature &&
-                          experiment.status === "draft" && (
-                            <div className="col-auto">
+                      </div>
+                      <div style={{ flex: 1 }} />
+                      {canEditVisualChangesets &&
+                        experiment.status === "draft" && (
+                          <div className="col-auto">
+                            {hasVisualEditorFeature && (
                               <OpenVisualEditorLink
                                 id={vc.id}
                                 changeIndex={1}
                                 visualEditorUrl={vc.editorUrl}
                               />
-                              {canEdit && (
-                                <DeleteButton
-                                  className="btn-sm ml-4"
-                                  onClick={async () => {
-                                    await apiCall(
-                                      `/visual-changesets/${vc.id}`,
-                                      {
-                                        method: "DELETE",
-                                      }
-                                    );
-                                    mutate();
-                                    track("Delete visual changeset", {
-                                      source: "visual-editor-ui",
-                                    });
-                                  }}
-                                  displayName="Visual Changes"
-                                />
-                              )}
-                            </div>
-                          )}
-                      </div>
+                            )}
+                            <DeleteButton
+                              className="btn-sm ml-4"
+                              onClick={async () => {
+                                await apiCall(`/visual-changesets/${vc.id}`, {
+                                  method: "DELETE",
+                                });
+                                mutate();
+                                track("Delete visual changeset", {
+                                  source: "visual-editor-ui",
+                                });
+                              }}
+                              displayName="Visual Changes"
+                            />
+                          </div>
+                        )}
                     </div>
-                  )}
+                  </div>
 
                   <div
                     className="w-100 fade-mask-1rem"
@@ -329,7 +347,7 @@ const VariationsTable: FC<Props> = ({
                     }}
                   >
                     <table
-                      className="table table-borderless mx-3 w100-1rem"
+                      className="table table-borderless mx-3 my-0 w100-1rem"
                       style={{ tableLayout: "fixed" }}
                     >
                       <thead>
@@ -355,8 +373,26 @@ const VariationsTable: FC<Props> = ({
                               (changes?.domMutations?.length || 0);
                             return (
                               <td key={j} className="px-4 py-1">
-                                {numChanges} visual change
-                                {numChanges === 1 ? "" : "s"}
+                                <div className="d-flex justify-content-between">
+                                  <div>
+                                    {numChanges} visual change
+                                    {numChanges === 1 ? "" : "s"}
+                                  </div>
+                                  <div>
+                                    <a
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      href={appendQueryParamsToURL(
+                                        vc.editorUrl,
+                                        {
+                                          [experiment.trackingKey]: j,
+                                        }
+                                      )}
+                                    >
+                                      Preview
+                                    </a>
+                                  </div>
+                                </div>
                               </td>
                             );
                           })}
@@ -368,6 +404,29 @@ const VariationsTable: FC<Props> = ({
               </Fragment>
             );
           })}
+
+          <div className="px-3 my-2">
+            {hasVisualEditorFeature && canEditVisualChangesets ? (
+              <button
+                className="btn btn-link"
+                onClick={() => {
+                  setVisualEditorModal(true);
+                  track("Open visual editor modal", {
+                    source: "visual-editor-ui",
+                    action: "add",
+                  });
+                }}
+              >
+                <FaPlusCircle /> Add Visual Editor page
+              </button>
+            ) : (
+              <PremiumTooltip commercialFeature={"visual-editor"}>
+                <div className="btn btn-link disabled">
+                  <FaPlusCircle /> Add Visual Editor page
+                </div>
+              </PremiumTooltip>
+            )}
+          </div>
         </div>
       )}
 

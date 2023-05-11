@@ -137,6 +137,8 @@ export interface ExperimentInterface {
   regressionAdjustmentEnabled?: boolean;
   hasVisualChangesets?: boolean;
   linkedFeatures?: string[];
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
 }
 
 export type ExperimentInterfaceStringDates = Omit<

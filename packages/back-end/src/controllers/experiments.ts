@@ -2,6 +2,12 @@ import { Response } from "express";
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  getValidDate,
+  getScopedSettings,
+  getAffectedEnvsForExperiment,
+} from "shared";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
@@ -24,6 +30,7 @@ import {
 import {
   createVisualChangeset,
   deleteVisualChangesetById,
+  findVisualChangesetById,
   findVisualChangesetsByExperiment,
   syncVisualChangesWithVariations,
   updateVisualChangeset,
@@ -31,9 +38,9 @@ import {
 import {
   deleteSnapshotById,
   findSnapshotById,
+  getLatestSnapshot,
   updateSnapshot,
   updateSnapshotsOnPhaseDelete,
-  getLatestSnapshot,
 } from "../models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
@@ -60,7 +67,6 @@ import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { analyzeExperimentResults } from "../services/stats";
-import { getValidDate } from "../util/dates";
 import { getReportVariations } from "../services/reports";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 import { getAllFeatures } from "../models/FeatureModel";
@@ -70,12 +76,17 @@ import {
   auditDetailsDelete,
   auditDetailsUpdate,
 } from "../services/audit";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+} from "../../types/experiment-snapshot";
 import { StatsEngine } from "../../types/stats";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { ApiErrorResponse } from "../../types/api";
+import { PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { orgHasPremiumFeature } from "../util/organization.util";
+import { findProjectById } from "../models/ProjectModel";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -467,7 +478,7 @@ export async function postExperiments(
   res: Response<
     | { status: 200; experiment: ExperimentInterface }
     | { status: 200; duplicateTrackingKey: boolean; existingId: string }
-    | ({ status: number } & ApiErrorResponse),
+    | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
   >
 ) {
@@ -552,6 +563,14 @@ export async function postExperiments(
     previewURL: data.previewURL || "",
     targetURLRegex: data.targetURLRegex || "",
     ideaSource: data.ideaSource || "",
+    // todo: revisit this logic for project level settings, as well as "override stats settings" toggle:
+    sequentialTestingEnabled:
+      data.sequentialTestingEnabled ??
+      !!org?.settings?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter:
+      data.sequentialTestingTuningParameter ??
+      org?.settings?.sequentialTestingTuningParameter ??
+      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   };
 
   try {
@@ -617,7 +636,7 @@ export async function postExperiment(
   >,
   res: Response<
     | { status: number; experiment?: ExperimentInterface | null }
-    | ApiErrorResponse,
+    | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
   >
 ) {
@@ -722,6 +741,8 @@ export async function postExperiment(
     "project",
     "regressionAdjustmentEnabled",
     "hasVisualChangesets",
+    "sequentialTestingEnabled",
+    "sequentialTestingTuningParameter",
   ];
   const existing: ExperimentInterface = experiment;
   const changes: Changeset = {};
@@ -765,6 +786,29 @@ export async function postExperiment(
       phaseClone.dateEnded = getValidDate(phaseEndDate + ":00Z");
     }
     changes.phases = phases;
+  }
+
+  // Only some fields affect production SDK payloads
+  const needsRunExperimentsPermission = ([
+    "phases",
+    "variations",
+    "project",
+    "name",
+    "trackingKey",
+    "archived",
+    "status",
+  ] as (keyof ExperimentInterfaceStringDates)[]).some((key) => key in changes);
+  if (needsRunExperimentsPermission) {
+    const envs = getAffectedEnvsForExperiment({
+      experiment,
+    });
+    if (envs.length > 0) {
+      const projects = [experiment.project || undefined];
+      if ("project" in changes) {
+        projects.push(changes.project || undefined);
+      }
+      req.checkPermissions("runExperiments", projects, envs);
+    }
   }
 
   const updated = await updateExperiment({
@@ -843,6 +887,12 @@ export async function postExperimentArchive(
   }
 
   req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   changes.archived = true;
 
@@ -946,6 +996,7 @@ export async function postExperimentStatus(
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const { status, reason, dateEnded } = req.body;
+
   const changes: Changeset = {};
 
   const experiment = await getExperimentById(org.id, id);
@@ -956,6 +1007,12 @@ export async function postExperimentStatus(
     throw new Error("You do not have access to this experiment");
   }
   req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   // If status changed from running to stopped, update the latest phase
   const phases = [...experiment.phases];
@@ -1033,6 +1090,12 @@ export async function postExperimentStop(
     return;
   }
   req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   const phases = [...experiment.phases];
   // Already has phases
@@ -1115,6 +1178,12 @@ export async function deleteExperimentPhase(
 
   req.checkPermissions("createAnalyses", experiment.project);
 
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
+
   if (phaseIndex < 0 || phaseIndex >= experiment.phases?.length) {
     throw new Error("Invalid phase id");
   }
@@ -1157,6 +1226,7 @@ export async function putExperimentPhase(
   const { id } = req.params;
   const i = parseInt(req.params.phase);
   const phase = req.body;
+
   const changes: Changeset = {};
 
   const experiment = await getExperimentById(org.id, id);
@@ -1169,11 +1239,17 @@ export async function putExperimentPhase(
     throw new Error("You do not have access to this experiment");
   }
 
-  req.checkPermissions("createAnalyses", experiment.project);
-
   if (!experiment.phases?.[i]) {
     throw new Error("Invalid phase");
   }
+
+  req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   phase.dateStarted = phase.dateStarted
     ? getValidDate(phase.dateStarted + ":00Z")
@@ -1216,6 +1292,7 @@ export async function postExperimentPhase(
   const { org, userId } = getOrgFromReq(req);
   const { id } = req.params;
   const { reason, dateStarted, ...data } = req.body;
+
   const changes: Changeset = {};
 
   const experiment = await getExperimentById(org.id, id);
@@ -1236,6 +1313,12 @@ export async function postExperimentPhase(
     return;
   }
   req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   const date = dateStarted ? getValidDate(dateStarted + ":00Z") : new Date();
 
@@ -1312,7 +1395,7 @@ export async function getWatchingUsers(
 export async function deleteExperiment(
   req: AuthRequest<ExperimentInterface, { id: string }>,
   res: Response<
-    { status: 200 } | ({ status: number } & ApiErrorResponse),
+    { status: 200 } | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
   >
 ) {
@@ -1336,7 +1419,14 @@ export async function deleteExperiment(
     });
     return;
   }
+
   req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
 
   await Promise.all([
     // note: we might want to change this to change the status to
@@ -1437,13 +1527,19 @@ export async function getSnapshotStatus(
     snapshot,
     org.id,
     (queryData) =>
-      analyzeExperimentResults(
-        org.id,
-        getReportVariations(experiment, phase),
-        snapshot.dimension || undefined,
+      analyzeExperimentResults({
+        organization: org.id,
+        variations: getReportVariations(experiment, phase),
+        dimension: snapshot.dimension,
         queryData,
-        snapshot.statsEngine ?? org.settings?.statsEngine
-      ),
+        statsEngine: snapshot.statsEngine,
+        sequentialTestingEnabled:
+          snapshot.sequentialTestingEnabled ??
+          org.settings?.sequentialTestingEnabled,
+        sequentialTestingTuningParameter:
+          snapshot.sequentialTestingTuningParameter ??
+          org.settings?.sequentialTestingTuningParameter,
+      }),
     async (updates, results, error) => {
       await updateSnapshot(org.id, id, {
         ...updates,
@@ -1500,26 +1596,10 @@ export async function postSnapshot(
   req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
+  const orgSettings = org.settings || {};
 
   let { statsEngine, regressionAdjustmentEnabled } = req.body;
   const { metricRegressionAdjustmentStatuses } = req.body;
-
-  statsEngine = (typeof statsEngine === "string" &&
-  ["bayesian", "frequentist"].includes(statsEngine)
-    ? statsEngine
-    : org.settings?.statsEngine ?? "bayesian") as StatsEngine;
-
-  regressionAdjustmentEnabled =
-    regressionAdjustmentEnabled !== undefined
-      ? regressionAdjustmentEnabled
-      : org.settings?.regressionAdjustmentEnabled ?? false;
-
-  const useCache = !req.query["force"];
-
-  // This is doing an expensive analytics SQL query, so may take a long time
-  // Set timeout to 30 minutes
-  req.setTimeout(30 * 60 * 1000);
-
   const { id } = req.params;
   const { phase, dimension } = req.body;
   const experiment = await getExperimentById(org.id, id);
@@ -1540,6 +1620,57 @@ export async function postSnapshot(
     return;
   }
 
+  let project = null;
+  if (experiment.project) {
+    project = await findProjectById(experiment.project, org.id);
+  }
+  const { settings: scopedSettings } = getScopedSettings({
+    organization: org,
+    project: project ?? undefined,
+  });
+
+  statsEngine = ["bayesian", "frequentist"].includes(statsEngine + "")
+    ? statsEngine
+    : scopedSettings.statsEngine.value;
+
+  const hasRegressionAdjustmentFeature = org
+    ? orgHasPremiumFeature(org, "regression-adjustment")
+    : false;
+  const hasSequentialTestingFeature = org
+    ? orgHasPremiumFeature(org, "sequential-testing")
+    : false;
+
+  regressionAdjustmentEnabled =
+    hasRegressionAdjustmentFeature &&
+    (regressionAdjustmentEnabled !== undefined
+      ? regressionAdjustmentEnabled
+      : orgSettings?.regressionAdjustmentEnabled ?? false);
+
+  const sequentialTestingEnabled =
+    hasSequentialTestingFeature &&
+    statsEngine === "frequentist" &&
+    (experiment?.sequentialTestingEnabled ??
+      !!orgSettings?.sequentialTestingEnabled);
+  const sequentialTestingTuningParameter =
+    experiment?.sequentialTestingTuningParameter ??
+    orgSettings?.sequentialTestingTuningParameter ??
+    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+
+  const useCache = !req.query["force"];
+
+  // This is doing an expensive analytics SQL query, so may take a long time
+  // Set timeout to 30 minutes
+  req.setTimeout(30 * 60 * 1000);
+
+  const experimentSnapshotSettings: ExperimentSnapshotSettings = {
+    statsEngine: statsEngine as StatsEngine,
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses:
+      metricRegressionAdjustmentStatuses || [],
+    sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
+  };
+
   // Manual snapshot
   if (!experiment.datasource) {
     const { users, metrics } = req.body;
@@ -1553,7 +1684,7 @@ export async function postSnapshot(
         phase,
         users,
         metrics,
-        statsEngine
+        experimentSnapshotSettings
       );
       res.status(200).json({
         status: 200,
@@ -1593,17 +1724,16 @@ export async function postSnapshot(
   }
 
   try {
-    const snapshot = await createSnapshot(
+    const snapshot = await createSnapshot({
       experiment,
-      res.locals.eventAudit,
-      phase,
-      org,
-      dimension || null,
+      organization: org,
+      user: res.locals.eventAudit,
+      phaseIndex: phase,
       useCache,
-      statsEngine,
-      regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses ?? []
-    );
+      dimension,
+      experimentSnapshotSettings,
+    });
+
     await req.audit({
       event: "experiment.refresh",
       entity: {
@@ -1985,6 +2115,12 @@ export async function postVisualChangeset(
     throw new Error("Could not find experiment");
   }
 
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
+
   const visualChangeset = await createVisualChangeset({
     experiment,
     urlPatterns: req.body.urlPatterns,
@@ -2005,8 +2141,22 @@ export async function putVisualChangeset(
 ) {
   const { org } = getOrgFromReq(req);
 
+  const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
+  if (!visualChangeset) {
+    throw new Error("Visual Changeset not found");
+  }
+
+  const experiment = await getExperimentById(
+    org.id,
+    visualChangeset.experiment
+  );
+
+  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
+  req.checkPermissions("runExperiments", experiment?.project || "", envs);
+
   const ret = await updateVisualChangeset({
-    changesetId: req.params.id,
+    visualChangeset,
+    experiment,
     organization: org,
     updates: req.body,
     user: res.locals.eventAudit,
@@ -2028,8 +2178,22 @@ export async function deleteVisualChangeset(
 ) {
   const { org } = getOrgFromReq(req);
 
+  const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
+  if (!visualChangeset) {
+    throw new Error("Visual Changeset not found");
+  }
+
+  const experiment = await getExperimentById(
+    org.id,
+    visualChangeset.experiment
+  );
+
+  const envs = experiment ? getAffectedEnvsForExperiment({ experiment }) : [];
+  req.checkPermissions("runExperiments", experiment?.project || "", envs);
+
   await deleteVisualChangesetById({
-    changesetId: req.params.id,
+    visualChangeset,
+    experiment,
     organization: org,
     user: res.locals.eventAudit,
   });

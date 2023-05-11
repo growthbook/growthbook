@@ -11,6 +11,7 @@ import {
   APP_ORIGIN,
   CORS_ORIGIN_REGEX,
   ENVIRONMENT,
+  EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
   SENTRY_DSN,
   UPLOAD_METHOD,
@@ -92,6 +93,7 @@ import { sdkConnectionRouter } from "./routers/sdk-connection/sdk-connection.rou
 import { projectRouter } from "./routers/project/project.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
+import { dataExportRouter } from "./routers/data-export/data-export.router";
 
 const app = express();
 
@@ -108,6 +110,7 @@ if (!process.env.NO_INIT) {
 }
 
 app.set("port", process.env.PORT || 3100);
+app.set("trust proxy", EXPRESS_TRUST_PROXY_OPTS);
 
 // Pretty print on dev
 if (ENVIRONMENT !== "production") {
@@ -135,7 +138,9 @@ app.get("/", (req, res) => {
   res.json({
     name: "GrowthBook API",
     production: ENVIRONMENT === "production",
-    api_host: req.protocol + "://" + req.hostname + ":" + app.get("port"),
+    api_host:
+      process.env.API_HOST ||
+      req.protocol + "://" + req.hostname + ":" + app.get("port"),
     app_origin: APP_ORIGIN,
     config_source: usingFileConfig() ? "file" : "db",
     email_enabled: isEmailEnabled(),
@@ -506,6 +511,9 @@ app.use(eventWebHooksRouter);
 
 // Slack integration
 app.use("/integrations/slack", slackIntegrationRouter);
+
+// Data Export
+app.use("/data-export", dataExportRouter);
 
 // Presentations
 app.get("/presentations", presentationController.getPresentations);

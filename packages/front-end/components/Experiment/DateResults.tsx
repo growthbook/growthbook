@@ -4,9 +4,9 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
+import { getValidDate } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatConversionRate } from "@/services/metrics";
-import { getValidDate } from "@/services/dates";
 import Toggle from "../Forms/Toggle";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
@@ -62,6 +62,7 @@ const DateResults: FC<{
   }, [results, cumulative]);
 
   // Data for the metric graphs
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '() => { metric: MetricInterface ... Remove this comment to see the full error message
   const metricSections = useMemo<Metric[]>(() => {
     if (!ready) return [];
 
@@ -100,16 +101,21 @@ const DateResults: FC<{
                   const x = uplift?.mean || 0;
                   const sx = uplift?.stddev || 0;
                   const dist = uplift?.dist || "";
+                  error = stats?.ci;
                   if (dist === "lognormal") {
                     // Uplift distribution is lognormal, so need to correct this
                     // Add 2 standard deviations (~95% CI) for an error bar
-                    error = [
-                      Math.exp(x - 2 * sx) - 1,
-                      Math.exp(x + 2 * sx) - 1,
-                    ];
+                    if (!error) {
+                      error = [
+                        Math.exp(x - 2 * sx) - 1,
+                        Math.exp(x + 2 * sx) - 1,
+                      ];
+                    }
                     value = Math.exp(x) - 1;
                   } else {
-                    error = [x - 2 * sx, x + 2 * sx];
+                    if (!error) {
+                      error = [x - 2 * sx, x + 2 * sx];
+                    }
                     value = x;
                   }
                 }
@@ -119,12 +125,12 @@ const DateResults: FC<{
                   const crB = totalUsers[i] ? totalValue[i] / totalUsers[i] : 0;
                   value = crA ? (crB - crA) / crA : 0;
                 }
-
                 // Baseline should show the actual conversion rate
                 // Variations should show the relative uplift on top of this conversion rate
                 const label = i
                   ? (value > 0 ? "+" : "") + percentFormatter.format(value)
                   : formatConversionRate(
+                      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MetricType | undefined' is not a... Remove this comment to see the full error message
                       metric?.type,
                       cumulative
                         ? totalUsers[i]

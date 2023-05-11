@@ -103,6 +103,7 @@ const VariationIdWarning: FC<{
             expected={definedVariations}
             actual={returnedVariations}
             names={variations.map((v) => v.name)}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((ids: string[]) => Promise<void>) | undefin... Remove this comment to see the full error message
             setVariationIds={setVariationIds}
           />
         )}

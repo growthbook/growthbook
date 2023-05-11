@@ -37,6 +37,7 @@ export default function ConditionInput(props: Props) {
 
   useEffect(() => {
     if (advanced) return;
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Condition[] | null' is not assig... Remove this comment to see the full error message
     setValue(condToJson(conds, attributes));
   }, [advanced, conds]);
 
@@ -92,6 +93,7 @@ export default function ConditionInput(props: Props) {
     );
   }
 
+  // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
   if (!conds.length) {
     return (
       <div className="form-group">
@@ -126,6 +128,7 @@ export default function ConditionInput(props: Props) {
       <label className={props.labelClassName || ""}>Targeting Conditions</label>
       <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
         <ul className={styles.conditionslist}>
+          {/* @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'. */}
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
 
@@ -141,6 +144,7 @@ export default function ConditionInput(props: Props) {
               const name = e.target.name;
               const value: string | number = e.target.value;
 
+              // @ts-expect-error TS(2488) If you come across this, please fix it!: Type 'Condition[] | null' must have a '[Symbol.ite... Remove this comment to see the full error message
               const newConds = [...conds];
               newConds[i] = { ...newConds[i] };
               newConds[i][name] = value;
@@ -155,6 +159,7 @@ export default function ConditionInput(props: Props) {
             };
 
             const operatorOptions =
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               attribute.datatype === "boolean"
                 ? [
                     { label: "is true", value: "$true" },
@@ -162,7 +167,8 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : attribute.array
+                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                attribute.array
                 ? [
                     { label: "includes", value: "$includes" },
                     { label: "does not include", value: "$notIncludes" },
@@ -171,7 +177,8 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : attribute.enum?.length > 0
+                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                attribute.enum?.length > 0
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -180,7 +187,8 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : attribute.datatype === "string"
+                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                attribute.datatype === "string"
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -198,7 +206,8 @@ export default function ConditionInput(props: Props) {
                       ? savedGroupOperators
                       : []),
                   ]
-                : attribute.datatype === "number"
+                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                attribute.datatype === "number"
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -240,10 +249,13 @@ export default function ConditionInput(props: Props) {
 
                         const newAttribute = attributes.get(value);
                         const hasAttrChanged =
+                          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                           newAttribute.datatype !== attribute.datatype ||
+                          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                           newAttribute.array !== attribute.array;
                         if (hasAttrChanged) {
                           newConds[i]["operator"] = getDefaultOperator(
+                            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'AttributeData | undefined' is no... Remove this comment to see the full error message
                             newAttribute
                           );
                           newConds[i]["value"] = newConds[i]["value"] || "";
@@ -296,8 +308,10 @@ export default function ConditionInput(props: Props) {
                       helpText="separate values by comma"
                       required
                     />
-                  ) : attribute.enum.length ? (
+                  ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  attribute.enum.length ? (
                     <SelectField
+                      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                       options={attribute.enum.map((v) => ({
                         label: v,
                         value: v,
@@ -311,7 +325,8 @@ export default function ConditionInput(props: Props) {
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
-                  ) : attribute.datatype === "number" ? (
+                  ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  attribute.datatype === "number" ? (
                     <Field
                       type="number"
                       step="any"
@@ -322,7 +337,8 @@ export default function ConditionInput(props: Props) {
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
-                  ) : attribute.datatype === "string" ? (
+                  ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  attribute.datatype === "string" ? (
                     <Field
                       value={value}
                       onChange={onChange}
