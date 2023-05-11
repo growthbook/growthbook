@@ -10,8 +10,8 @@ import {
 } from "back-end/types/experiment";
 import React, { ReactElement, useState } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import { date, datetime } from "shared";
 import { getVariationColor } from "../../services/features";
-import { date, datetime } from "../../services/dates";
 import { phaseSummary } from "../../services/utils";
 import ResultsIndicator from "../Experiment/ResultsIndicator";
 import ExperimentSplitVisual from "./ExperimentSplitVisual";
@@ -309,7 +309,11 @@ export default function ExperimentRefSummary({
               isOpen={open === phases.length}
               label="Final"
               setOpen={setOpen}
-              badge={<ResultsIndicator results={experiment.results} />}
+              badge={
+                experiment.results ? (
+                  <ResultsIndicator results={experiment.results} />
+                ) : undefined
+              }
               active={true}
             />
             <ExperimentRefEndBehavior
