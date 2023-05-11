@@ -27,10 +27,7 @@ import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
 import { queueWebhook } from "../jobs/webhooks";
 import { GroupMap } from "../../types/saved-group";
-import {
-  SDKExperiment,
-  SDKPayloadKey,
-} from "../../types/sdk-payload";
+import { SDKExperiment, SDKPayloadKey } from "../../types/sdk-payload";
 import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
@@ -44,13 +41,13 @@ function generatePayload({
   environment,
   groupMap,
   attributes = [],
-  hashedAttributeSalt = "",
+  secureAttributeSalt = "",
 }: {
   features: FeatureInterface[];
   environment: string;
   groupMap: GroupMap;
   attributes?: SDKAttributeSchema;
-  hashedAttributeSalt?: string;
+  secureAttributeSalt?: string;
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
   features.forEach((feature) => {
@@ -61,7 +58,7 @@ function generatePayload({
     });
     if (!def) return;
 
-    def = applyFeatureRuleHashing(def, attributes, hashedAttributeSalt);
+    def = applyFeatureRuleHashing(def, attributes, secureAttributeSalt);
     defs[feature.id] = def;
   });
 
@@ -210,14 +207,14 @@ export async function refreshSDKPayloadCache(
     if (!projectFeatures.length && !projectExperiments.length) continue;
 
     const attributes = organization.settings?.attributeSchema;
-    const hashedAttributeSalt = organization.settings?.hashedAttributeSalt;
+    const secureAttributeSalt = organization.settings?.secureAttributeSalt;
 
     const featureDefinitions = generatePayload({
       features: projectFeatures,
       environment: key.environment,
       groupMap,
       attributes,
-      hashedAttributeSalt,
+      secureAttributeSalt,
     });
 
     const experimentsDefinitions = generateVisualExperimentsPayload(
@@ -375,14 +372,14 @@ export async function getFeatureDefinitions({
   const features = await getAllFeatures(organization, project);
   const groupMap = await getSavedGroupMap(org);
   const attributes = org.settings?.attributeSchema;
-  const hashedAttributeSalt = org.settings?.hashedAttributeSalt;
+  const secureAttributeSalt = org.settings?.secureAttributeSalt;
 
   const featureDefinitions = generatePayload({
     features,
     environment,
     groupMap,
     attributes,
-    hashedAttributeSalt,
+    secureAttributeSalt,
   });
 
   const allVisualExperiments = await getAllVisualExperiments(
@@ -636,7 +633,9 @@ export function applyFeatureRuleHashing(
     for (const field in condition) {
       let ruleset = condition[field];
       const attribute = attributes.find((a) => a.property === field);
-      if (["secureString", "secureString[]"].includes(attribute?.datatype ?? "")) {
+      if (
+        ["secureString", "secureString[]"].includes(attribute?.datatype ?? "")
+      ) {
         ruleset = hashStrings(ruleset, salt);
       }
       rule.condition[field] = ruleset;

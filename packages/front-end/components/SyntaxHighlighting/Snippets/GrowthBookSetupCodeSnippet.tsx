@@ -7,13 +7,13 @@ export default function GrowthBookSetupCodeSnippet({
   apiKey,
   apiHost,
   encryptionKey,
-  hashedAttributeSalt,
+  secureAttributeSalt,
 }: {
   language: SDKLanguage;
   apiKey: string;
   apiHost: string;
   encryptionKey?: string;
-  hashedAttributeSalt?: string;
+  secureAttributeSalt?: string;
 }) {
   const featuresEndpoint = apiHost + "/api/features/" + apiKey;
   const trackingComment = "TODO: Use your real analytics tracking system";
@@ -34,9 +34,9 @@ const growthbook = new GrowthBook({
               ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
               : ""
           }${
-            hashedAttributeSalt !== undefined
-              ? `\n  hashedAttributeSalt: ${JSON.stringify(
-                  hashedAttributeSalt
+            secureAttributeSalt !== undefined
+              ? `\n  secureAttributeSalt: ${JSON.stringify(
+                  secureAttributeSalt
                 )},`
               : ""
           }
@@ -73,9 +73,9 @@ const growthbook = new GrowthBook({
               ? `\n  decryptionKey: ${JSON.stringify(encryptionKey)},`
               : ""
           }${
-            hashedAttributeSalt !== undefined
-              ? `\n  hashedAttributeSalt: ${JSON.stringify(
-                  hashedAttributeSalt
+            secureAttributeSalt !== undefined
+              ? `\n  secureAttributeSalt: ${JSON.stringify(
+                  secureAttributeSalt
                 )},`
               : ""
           }
@@ -135,7 +135,7 @@ const { setPolyfills } = require("@growthbook/growthbook");
 setPolyfills({
   // Required for Node 17 or earlier
   fetch: require("cross-fetch"),${
-    encryptionKey || hashedAttributeSalt !== undefined
+    encryptionKey || secureAttributeSalt !== undefined
       ? `
   // Required for Node 18 or earlier
   SubtleCrypto: require("node:crypto").webcrypto.subtle,`
@@ -161,9 +161,9 @@ app.use(function(req, res, next) {
               ? `\n    decryptionKey: ${JSON.stringify(encryptionKey)}`
               : ""
           }${
-            hashedAttributeSalt !== undefined
-              ? `\n    hashedAttributeSalt: ${JSON.stringify(
-                  hashedAttributeSalt
+            secureAttributeSalt !== undefined
+              ? `\n    secureAttributeSalt: ${JSON.stringify(
+                  secureAttributeSalt
                 )},`
               : ""
           }

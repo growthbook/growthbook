@@ -75,7 +75,7 @@ interface BaseSettings {
   regressionAdjustmentEnabled: boolean;
   regressionAdjustmentDays: number;
   attributionModel: AttributionModel;
-  hashedAttributeSalt: string;
+  secureAttributeSalt: string;
 }
 
 // todo: encapsulate all settings, including experiment

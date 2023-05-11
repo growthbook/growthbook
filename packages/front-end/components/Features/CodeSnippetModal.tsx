@@ -127,7 +127,7 @@ export default function CodeSnippetModal({
     return null;
   }
 
-  const { docs, label, supportsHashedAttributes } = languageMapping[language];
+  const { docs, label, supportsSecureAttributes } = languageMapping[language];
   const apiHost = getApiBaseUrl(currentConnection);
   const clientKey = currentConnection.key;
   const featuresEndpoint = apiHost + "/api/features/" + clientKey;
@@ -135,7 +135,7 @@ export default function CodeSnippetModal({
     currentConnection &&
     currentConnection.encryptPayload &&
     currentConnection.encryptionKey;
-  const hashedAttributeSalt = settings?.hashedAttributeSalt ?? "";
+  const secureAttributeSalt = settings?.secureAttributeSalt ?? "";
 
   return (
     <>
@@ -283,16 +283,16 @@ export default function CodeSnippetModal({
                         </td>
                       </tr>
                     )}
-                    {supportsHashedAttributes && (
+                    {supportsSecureAttributes && (
                       <tr>
                         <th
                           className="pl-3"
                           style={{ verticalAlign: "middle" }}
                         >
-                          Hashed Attribute Salt
+                          Secure Attribute Salt
                         </th>
                         <td>
-                          <ClickToCopy>{hashedAttributeSalt}</ClickToCopy>
+                          <ClickToCopy>{secureAttributeSalt}</ClickToCopy>
                         </td>
                       </tr>
                     )}
@@ -337,7 +337,7 @@ export default function CodeSnippetModal({
                     language={language}
                     apiHost={apiHost}
                     apiKey={clientKey}
-                    hashedAttributeSalt={hashedAttributeSalt}
+                    secureAttributeSalt={secureAttributeSalt}
                     // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | false' is not assignable to type 's... Remove this comment to see the full error message
                     encryptionKey={encryptionKey}
                   />

@@ -75,7 +75,7 @@ export const resolvers: Record<
   conversionWindowHours: genMetricOverrideResolver("conversionWindowHours"),
   winRisk: genMetricOverrideResolver("winRisk"),
   loseRisk: genMetricOverrideResolver("loseRisk"),
-  hashedAttributeSalt: genDefaultResolver("hashedAttributeSalt"),
+  secureAttributeSalt: genDefaultResolver("secureAttributeSalt"),
 };
 
 const scopeSettings = (

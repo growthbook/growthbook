@@ -129,7 +129,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       sequentialTestingEnabled: false,
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       attributionModel: "firstExposure",
-      hashedAttributeSalt: "",
+      secureAttributeSalt: "",
     },
   });
   const { apiCall } = useAuth();
@@ -162,7 +162,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       "sequentialTestingTuningParameter"
     ),
     attributionModel: form.watch("attributionModel"),
-    hashedAttributeSalt: form.watch("hashedAttributeSalt"),
+    secureAttributeSalt: form.watch("secureAttributeSalt"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -1100,11 +1100,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
               <div className="col-sm-9">
                 <div className="form-inline">
                   <Field
-                    label="Salt string for hashed attributes"
+                    label="Salt string for secure attributes"
                     className="ml-2"
                     containerClassName="mb-3"
                     type="string"
-                    {...form.register("hashedAttributeSalt")}
+                    {...form.register("secureAttributeSalt")}
                   />
                 </div>
               </div>

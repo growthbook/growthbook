@@ -169,7 +169,7 @@ export interface OrganizationSettings {
   attributionModel?: AttributionModel;
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
-  hashedAttributeSalt?: string;
+  secureAttributeSalt?: string;
 }
 
 export interface SubscriptionQuote {
