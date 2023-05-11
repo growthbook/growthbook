@@ -1,0 +1,47 @@
+{
+  "name": "sdk-svelte",
+  "version": "0.1.0",
+  "author": "Luis Luvia <lluvia@lusade.net>",
+  "license": "MIT",
+  "scripts": {
+    "build": "svelte-kit sync && svelte-package && publint",
+    "prepublishOnly": "yarn run build",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "test": "vitest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/growthbook/growthbook",
+    "directory": "packages/sdk-svelte"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "svelte": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "!dist/**/*.spec.*"
+  ],
+  "peerDependencies": {
+    "svelte": "^3.54.0"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-auto": "^2.0.0",
+    "@sveltejs/kit": "^1.5.0",
+    "@sveltejs/package": "^2.0.0",
+    "publint": "^0.1.9",
+    "svelte": "^3.54.0",
+    "svelte-check": "^3.0.1",
+    "tslib": "^2.4.1",
+    "typescript": "^5.0.0",
+    "vite": "^4.3.0",
+    "vitest": "^0.25.3"
+  },
+  "svelte": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "type": "module"
+}
