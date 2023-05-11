@@ -9,6 +9,8 @@ declare global {
   }
 }
 
+export const DEFAULT_HASHED_ATTRIBUTE_SALT = "growthbook";
+
 export type VariationMeta = {
   passthrough?: boolean;
   key?: string;
@@ -135,6 +137,21 @@ export interface Result<T> {
 
 export type Attributes = Record<string, any>;
 
+export type AttributeSchema = Record<string, SchemaAttribute>;
+export type SchemaAttribute = {
+  datatype: SchemaAttributeType;
+}
+
+export type SchemaAttributeType =
+  | "string"
+  | "number"
+  | "boolean"
+  | "string[]"
+  | "number[]"
+  | "enum"
+  | "hash"
+  | "hash[]";
+
 export type RealtimeUsageData = {
   key: string;
   on: boolean;
@@ -143,9 +160,11 @@ export type RealtimeUsageData = {
 export interface Context {
   enabled?: boolean;
   attributes?: Attributes;
+  hashedAttributes?: Attributes;
   url?: string;
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
+  attributeSchema?: AttributeSchema;
   forcedVariations?: Record<string, number>;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
@@ -169,6 +188,7 @@ export interface Context {
   apiHost?: string;
   clientKey?: string;
   decryptionKey?: string;
+  hashedAttributeSalt?: string;
 }
 
 export type SubscriptionFunction = (
@@ -216,6 +236,7 @@ export type FeatureApiResponse = {
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
+  attributes?: AttributeSchema;
 };
 
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)

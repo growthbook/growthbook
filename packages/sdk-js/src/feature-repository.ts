@@ -26,7 +26,7 @@ const cacheSettings: CacheSettings = {
   cacheKey: "gbFeaturesCache",
   backgroundSync: true,
 };
-const polyfills: Polyfills = {
+export const polyfills: Polyfills = {
   fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
   SubtleCrypto: globalThis.crypto ? globalThis.crypto.subtle : undefined,
   EventSource: globalThis.EventSource,
@@ -235,6 +235,9 @@ async function refreshInstance(
         polyfills.SubtleCrypto
       )
     : instance.setFeatures(data.features || instance.getFeatures()));
+
+  instance.setAttributeSchema(data.attributes || instance.getAttributeSchema());
+  await instance.applyAttributeHashing();
 }
 
 async function fetchFeatures(

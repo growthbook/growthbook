@@ -32,9 +32,11 @@ import {
   inRange,
   isURLTargeted,
   decrypt,
+  hashString, getAttributeHashKey
 } from "./util";
 import { evalCondition } from "./mongrule";
-import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
+import { polyfills, refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
+import { AttributeSchema } from "./types/growthbook";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -195,17 +197,66 @@ export class GrowthBook<
     this.setExperiments(JSON.parse(experimentsJSON) as AutoExperiment[]);
   }
 
-  public setAttributes(attributes: Attributes) {
+  public setAttributeSchema(attributeSchema: AttributeSchema) {
+    this._ctx.attributeSchema = attributeSchema;
+  }
+
+  public async setAttributes(attributes: Attributes) {
     this._ctx.attributes = attributes;
+    await this.applyAttributeHashing();
     this._render();
     this._updateAllAutoExperiments();
   }
 
-  public setAttributeOverrides(overrides: Attributes) {
+  public async setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
+    await this.applyAttributeHashing();
     this._render();
     this._updateAllAutoExperiments();
   }
+
+  public async applyAttributeHashing() {
+    const attributes = this.getAttributes();
+    const attributeSchema = this.getAttributeSchema();
+    if (!attributes) return;
+    const hashedAttributes: Attributes = {};
+    const hashKey = this._ctx.attributeSchema
+      ? await getAttributeHashKey(
+        this._ctx.hashedAttributeSalt,
+        polyfills.SubtleCrypto
+      ) : null;
+
+    for (const key in attributes) {
+      let attribute = Array.isArray(attributes[key])
+        ? [...attributes[key]]
+        : attributes[key];
+      if (
+        hashKey &&
+        attributeSchema &&
+        attributeSchema[key] &&
+        ["hash", "hash[]"].includes(attributeSchema[key].datatype)
+      ) {
+        if (typeof attribute === "string") {
+          attribute = hashString(
+            attribute,
+            hashKey,
+            polyfills.SubtleCrypto
+          );
+        } else if (Array.isArray(attribute)) {
+          attribute = attribute.map((a) =>
+            hashString(
+              a,
+              hashKey,
+              polyfills.SubtleCrypto
+            )
+          );
+        }
+      }
+      hashedAttributes[key] = attribute;
+    }
+    this._ctx.hashedAttributes = hashedAttributes;
+  }
+
   public setForcedVariations(vars: Record<string, number>) {
     this._ctx.forcedVariations = vars || {};
     this._render();
@@ -226,12 +277,20 @@ export class GrowthBook<
     return { ...this._ctx.attributes, ...this._attributeOverrides };
   }
 
+  public getHashedAttributes() {
+    return this._ctx.hashedAttributes;
+  }
+
   public getFeatures() {
     return this._ctx.features || {};
   }
 
   public getExperiments() {
     return this._ctx.experiments || [];
+  }
+
+  public getAttributeSchema() {
+    return this._ctx.attributeSchema || {};
   }
 
   public subscribe(cb: SubscriptionFunction): () => void {
@@ -645,7 +704,7 @@ export class GrowthBook<
   }
 
   private _conditionPasses(condition: ConditionInterface): boolean {
-    return evalCondition(this.getAttributes(), condition);
+    return evalCondition(this.getHashedAttributes() || this.getAttributes(), condition);
   }
 
   private _isFilteredOut(filters: Filter[]): boolean {

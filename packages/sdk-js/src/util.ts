@@ -1,4 +1,9 @@
-import { UrlTarget, UrlTargetType, VariationRange } from "./types/growthbook";
+import {
+  DEFAULT_HASHED_ATTRIBUTE_SALT,
+  UrlTarget,
+  UrlTargetType,
+  VariationRange,
+} from "./types/growthbook";
 
 function hashFnv32a(str: string): number {
   let hval = 0x811c9dc5;
@@ -282,5 +287,48 @@ export async function decrypt(
     return new TextDecoder().decode(plainTextBuffer);
   } catch (e) {
     throw new Error("Failed to decrypt");
+  }
+}
+
+export async function hashString(
+  str: string,
+  key: CryptoKey,
+  subtle?: SubtleCrypto
+): Promise<string> {
+  subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
+  if (!subtle) {
+    throw new Error("No SubtleCrypto implementation found");
+  }
+  try {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(str);
+    const hash = await subtle.sign("HMAC", key, data);
+    const hashArr = Array.from(new Uint8Array(hash));
+    return hashArr.map((b) => b.toString(16).padStart(2, "0")).join("");
+  } catch (e) {
+    throw new Error("Failed to hash attribute");
+  }
+}
+
+export async function getAttributeHashKey(
+  salt?: string,
+  subtle?: SubtleCrypto
+): Promise<CryptoKey> {
+  salt = salt || DEFAULT_HASHED_ATTRIBUTE_SALT;
+  subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
+  if (!subtle) {
+    throw new Error("No SubtleCrypto implementation found");
+  }
+  try {
+    const encoder = new TextEncoder();
+    return await subtle.importKey(
+      "raw",
+      encoder.encode(salt),
+      { name: "HMAC", hash: { name: "SHA-256" } },
+      false,
+      ["sign"]
+    );
+  } catch (e) {
+    throw new Error("Failed to generate attribute hash key");
   }
 }
