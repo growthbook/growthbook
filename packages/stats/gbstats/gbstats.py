@@ -27,7 +27,6 @@ from gbstats.shared.models import (
     Statistic,
 )
 from gbstats.messages import raise_error_if_bayesian_ra
-from gbstats.shared.tests import BaseABTest
 
 
 SUM_COLS = [
