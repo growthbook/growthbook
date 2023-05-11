@@ -152,11 +152,11 @@ To work on the SDKs, `cd` into the desired directory and the following commands 
 
 ### Working on the stats engine
 
-To work on the Python stats engine, `cd` into the `packages/stats` directory and the following commands are available:
+- `yarn workspace stats test` - Run pytest
+- `yarn workspace stats lint` - Run flake8, black, and mypy
+- `yarn workspace stats build` - Run the build process
 
-- `. $(cd packages/stats && poetry env info --path)/bin/activate && yarn test` - Run pytest
-- `yarn lint` - Run flake8 and black
-- `poetry build` - Run the build process
+You can also just run `yarn *` where \* is test, lint, build if `cd` to the `packages/stats` directory first.
 
 ## Code Quality
 
@@ -181,7 +181,7 @@ There is a pre-commit hook that runs `yarn lint` automatically, so you shouldn't
 
 ### `black` not found
 
-If you experience issues with `black` when committing during the pre-commit hook stage, it's possible your virtual environment is not enabled. Run the following from the project root: `. $(cd packages/stats && poetry env info --path)/bin/activate`.
+If you experience issues with `black` when committing during the pre-commit hook stage, it's possible your virtual environment is not enabled. Run the following from the project root: `. $(cd packages/stats && poetry env info --path)/bin/activate` (you could also just install all the python linting dependencies, but these exist in the poetry venv that will be activated by this command).
 
 If you get the error that `poetry env info --path` is not defined, try re-running `yarn setup` from the project root.
 

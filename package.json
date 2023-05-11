@@ -56,7 +56,7 @@
     "./packages/stats/gbstats/**/*.py": [
       "black",
       "flake8 --config=packages/stats/.flake8",
-      "mypy"
+      "mypy --check-untyped-defs"
     ]
   },
   "prettier": {
