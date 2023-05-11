@@ -32,6 +32,8 @@ export const semver = {
     return !semver.eq(version, otherVersion);
   },
   gt(version: string, otherVersion: string): boolean {
+    if (semver.eq(version, otherVersion)) return false;
+
     const sv = parseSemanticVersion(version);
     const svOther = parseSemanticVersion(otherVersion);
 
@@ -71,8 +73,8 @@ export const semver = {
     return false;
   },
   lt(version: string, otherVersion: string): boolean {
-    // TODO:
-    return false;
+    if (semver.eq(version, otherVersion)) return false;
+    return !semver.gt(version, otherVersion);
   },
   lte(version: string, otherVersion: string): boolean {
     if (semver.eq(version, otherVersion)) return true;
