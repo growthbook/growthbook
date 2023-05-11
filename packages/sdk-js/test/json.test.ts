@@ -2,6 +2,7 @@
 
 import { Context, Experiment, FeatureResult, GrowthBook } from "../src";
 import { evalCondition } from "../src/mongrule";
+import { semver } from "../src/semver";
 import { VariationRange } from "../src/types/growthbook";
 import {
   chooseVariation,
@@ -40,6 +41,15 @@ type Cases = {
   getEqualWeights: [number, number[]][];
   // name, encryptedString, key, result
   decrypt: [string, string, string, string | null][];
+  semver: {
+    // version, is valid
+    valid: [string, boolean][];
+    invalid: [string, boolean][];
+    // version, version, meets condition
+    lt: [string, string, boolean][];
+    gt: [string, string, boolean][];
+    eq: [string, string, boolean][];
+  };
 };
 
 const round = (n: number) => Math.floor(n * 1e8) / 1e8;
@@ -157,4 +167,52 @@ describe("json test suite", () => {
       expect(result).toEqual(expected);
     }
   );
+
+  describe("semantic versioning", () => {
+    describe("validity", () => {
+      it.each((cases as Cases).semver.valid)(
+        "semver.valid[%#] %s",
+        (version, expected) => {
+          expect(semver.valid(version)).toBe(expected);
+        }
+      );
+
+      it.each((cases as Cases).semver.invalid)(
+        "semver.invalid[%#] %s",
+        (version, expected) => {
+          expect(semver.valid(version)).toBe(expected);
+        }
+      );
+    });
+
+    describe("equality", () => {
+      it.each((cases as Cases).semver.eq)(
+        "semver.eq[%#] %s",
+        (version, otherVersion, expected) => {
+          expect(semver.eq(version, otherVersion)).toBe(expected);
+          expect(semver.neq(version, otherVersion)).toBe(!expected);
+          expect(semver.gte(version, otherVersion)).toBe(expected);
+          expect(semver.lte(version, otherVersion)).toBe(expected);
+        }
+      );
+    });
+
+    describe("comparisons", () => {
+      it.each((cases as Cases).semver.gt)(
+        "semver.gt[%#] %s",
+        (version, otherVersion, expected) => {
+          expect(semver.gt(version, otherVersion)).toBe(expected);
+          expect(semver.gte(version, otherVersion)).toBe(expected);
+        }
+      );
+
+      it.each((cases as Cases).semver.lt)(
+        "semver.lt[%#] %s",
+        (version, otherVersion, expected) => {
+          expect(semver.lt(version, otherVersion)).toBe(expected);
+          expect(semver.lte(version, otherVersion)).toBe(expected);
+        }
+      );
+    });
+  });
 });
