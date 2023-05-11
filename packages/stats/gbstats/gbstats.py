@@ -15,7 +15,7 @@ from gbstats.frequentist.tests import (
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 )
-from gbstats.shared.constants import StatsEngine
+from gbstats.shared.constants import StatsEngine, TimeSeries
 from gbstats.shared.models import (
     compute_theta,
     ProportionStatistic,
@@ -127,6 +127,19 @@ def reduce_dimensionality(df, max=20):
                     current[f"{prefix}_{col}"] += row[f"{prefix}_{col}"]
 
     return pd.DataFrame(newrows)
+
+
+def accumulate_time_series_df(
+    df: pd.DataFrame, time_series: TimeSeries
+) -> pd.DataFrame:
+    if time_series == TimeSeries.NONE:
+        return df
+    df = df.sort_values("dimension")
+    cols_to_accum = (
+        SUM_COLS if time_series == TimeSeries.CUMULATIVE else ["users", "count"]
+    )
+    df[cols_to_accum] = df.groupby(["variation", "dimension"])[cols_to_accum].cumsum()
+    return df
 
 
 # Run A/B test analysis for each variation and dimension

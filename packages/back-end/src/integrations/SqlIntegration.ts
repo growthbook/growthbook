@@ -662,7 +662,7 @@ export default abstract class SqlIntegration
         "d.value"
       )}),'${missingDimString}')`;
     } else if (dimension.type === "date") {
-      return `MIN(${this.formatDate(this.dateTrunc("e.timestamp"))})`;
+      return `MIN(${this.dateColumn("e")})`;
     } else if (dimension.type === "experiment") {
       return `SUBSTRING(
         MIN(
@@ -678,6 +678,10 @@ export default abstract class SqlIntegration
     }
 
     throw new Error("Unknown dimension type: " + (dimension as Dimension).type);
+  }
+
+  private dateColumn(prefix: string = "e") {
+    return this.formatDate(this.dateTrunc(`${prefix}.timestamp`));
   }
 
   private getMetricConversionBase(
@@ -1067,7 +1071,9 @@ export default abstract class SqlIntegration
         -- Add in the aggregate metric value for each user
         SELECT
           d.variation,
-          d.dimension,
+          ${
+            dimension?.type === "date" ? "m.metric_date" : "d.dimension"
+          } AS dimension,
           d.${baseIdType},
           ${this.getAggregateMetricColumn(
             metric,
@@ -1094,7 +1100,7 @@ export default abstract class SqlIntegration
           )}
         GROUP BY
           d.variation,
-          d.dimension,
+          ${dimension?.type === "date" ? "m.metric_date" : "d.dimension"},
           d.${baseIdType}
       )
       ${
@@ -1103,7 +1109,9 @@ export default abstract class SqlIntegration
               -- Add in the aggregate denominator value for each user
               SELECT
                 d.variation,
-                d.dimension,
+                ${
+                  dimension?.type === "date" ? "m.metric_date" : "d.dimension"
+                } AS dimension,
                 d.${baseIdType},
                 ${this.getAggregateMetricColumn(
                   denominator,
@@ -1123,7 +1131,7 @@ export default abstract class SqlIntegration
                 }
               GROUP BY
                 d.variation,
-                d.dimension,
+                ${dimension?.type === "date" ? "m.metric_date" : "d.dimension"},
                 d.${baseIdType}
             )`
           : ""
@@ -1171,7 +1179,7 @@ export default abstract class SqlIntegration
           ${isRatio ? `d` : `m`}.dimension
       )
       , __overallUsers as (
-        -- Number of users in each variation/dimension
+        -- Number of users in each variation/dimension  
         SELECT
           variation,
           dimension,
@@ -1183,9 +1191,12 @@ export default abstract class SqlIntegration
           dimension
       )
       SELECT
-        u.variation,
-        u.dimension,
-        ${metric.ignoreNulls ? "COALESCE(s.count, 0)" : "u.users"} AS users,
+        COALESCE(u.variation, s.variation) AS variation,
+        COALESCE(u.dimension, s.dimension) AS dimension,
+        -- TODO ignore nulls and time series
+        ${
+          metric.ignoreNulls ? "COALESCE(s.count, 0)" : "COALESCE(u.users, 0)"
+        } AS users,
         '${this.getStatisticType(
           isRatio,
           isRegressionAdjusted
@@ -1215,7 +1226,7 @@ export default abstract class SqlIntegration
         }
       FROM
       __overallUsers u
-      LEFT JOIN
+      ${dimension?.type === "date" ? "FULL OUTER" : "LEFT"} JOIN
         __stats s ON (
           u.variation = s.variation
           AND u.dimension = s.dimension
@@ -1359,6 +1370,7 @@ export default abstract class SqlIntegration
         ${userIdCol} as ${baseIdType},
         ${cols.value} as value,
         ${timestampCol} as timestamp,
+        ${this.dateColumn("m")} as metric_date,
         ${this.addHours(timestampCol, conversionDelayHours)} as conversion_start
         ${
           ignoreConversionEnd

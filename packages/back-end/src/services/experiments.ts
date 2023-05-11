@@ -286,8 +286,7 @@ export async function getManualSnapshotData(
         const res = await analyzeExperimentMetric(
           getReportVariations(experiment, phase),
           metric,
-          rows,
-          20
+          rows
         );
         const data = res.dimensions[0];
         if (!data) return;
