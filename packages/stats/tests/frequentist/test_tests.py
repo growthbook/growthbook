@@ -6,6 +6,7 @@ import numpy as np
 
 from gbstats.frequentist.tests import (
     FrequentistConfig,
+    SequentialConfig,
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 )
@@ -77,7 +78,7 @@ class TestSequentialTTest(TestCase):
     def test_sequential_test_runs(self):
         stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3000)
         stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
-        config = FrequentistConfig(sequential_tuning_parameter=1000)
+        config = SequentialConfig(sequential_tuning_parameter=1000)
         result_dict = asdict(
             SequentialTwoSidedTTest(stat_a, stat_b, config).compute_result()
         )
@@ -142,17 +143,17 @@ class TestSequentialTTest(TestCase):
     def test_sequential_test_tuning_as_expected(self):
         stat_a = SampleMeanStatistic(sum=1396.87, sum_squares=52377.9767, n=3000)
         stat_b = SampleMeanStatistic(sum=2422.7, sum_squares=134698.29, n=3461)
-        config_below_n = FrequentistConfig(sequential_tuning_parameter=10)
+        config_below_n = SequentialConfig(sequential_tuning_parameter=10)
         result_below = SequentialTwoSidedTTest(
             stat_a, stat_b, config_below_n
         ).compute_result()
 
-        config_near_n = FrequentistConfig(sequential_tuning_parameter=6461)
+        config_near_n = SequentialConfig(sequential_tuning_parameter=6461)
         result_near = SequentialTwoSidedTTest(
             stat_a, stat_b, config_near_n
         ).compute_result()
 
-        config_above_n = FrequentistConfig(sequential_tuning_parameter=10000)
+        config_above_n = SequentialConfig(sequential_tuning_parameter=10000)
         result_above = SequentialTwoSidedTTest(
             stat_a, stat_b, config_above_n
         ).compute_result()

@@ -12,6 +12,7 @@ from gbstats.bayesian.tests import (
 )
 from gbstats.frequentist.tests import (
     FrequentistConfig,
+    SequentialConfig,
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 )
@@ -349,7 +350,7 @@ def get_test_class_config(engine: StatsEngine, sequential: bool, binomial_test: 
             return GaussianBayesianABTest, GaussianBayesianConfig
     else:
         if sequential:
-            return SequentialTwoSidedTTest, FrequentistConfig
+            return SequentialTwoSidedTTest, SequentialConfig
         else:
             return TwoSidedTTest, FrequentistConfig
 

@@ -17,6 +17,10 @@ from gbstats.shared.tests import BaseABTest
 class FrequentistConfig:
     alpha: float = 0.05
     test_value: float = 0
+
+
+@dataclass
+class SequentialConfig(FrequentistConfig):
     sequential_tuning_parameter: float = 5000
 
 
@@ -39,7 +43,6 @@ class TTest(BaseABTest):
         super().__init__(stat_a, stat_b)
         self.alpha = config.alpha
         self.test_value = config.test_value
-        self.sequential_tuning_parameter = config.sequential_tuning_parameter
 
     @property
     def variance(self) -> float:
@@ -153,6 +156,19 @@ class OneSidedTreatmentLesserTTest(TTest):
 
 
 class SequentialTwoSidedTTest(TTest):
+    def __init__(
+        self,
+        stat_a: Statistic,
+        stat_b: Statistic,
+        config: SequentialConfig = SequentialConfig(),
+    ):
+        super().__init__(
+            stat_a,
+            stat_b,
+            FrequentistConfig(alpha=config.alpha, test_value=config.test_value),
+        )
+        self.sequential_tuning_parameter = config.sequential_tuning_parameter
+
     @property
     def confidence_interval(self) -> List[float]:
         # eq 9 in Waudby-Smith et al. 2023 https://arxiv.org/pdf/2103.06476v7.pdf
