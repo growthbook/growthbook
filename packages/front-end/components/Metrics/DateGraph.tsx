@@ -668,7 +668,11 @@ const DateGraph: FC<DateGraphProps> = ({
                   tickFormat={(v) =>
                     type === "binomial"
                       ? (v as number).toLocaleString()
-                      : formatConversionRate(type, v as number)
+                      : formatConversionRate(
+                          type,
+                          v as number,
+                          orgSettings.displayCurrency
+                        )
                   }
                 />
               </Group>
