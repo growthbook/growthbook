@@ -77,7 +77,7 @@ const ManualSnapshotForm: FC<{
           // Make sure binomial metrics have count = conversions
           // In the past, we stored it as count = conversions and mean = 1
           // Now, we store it as count = users, mean = conversions/count
-          // So if we multiple mean * count, it works for both cases
+          // So if we multiply mean * count, it works for both cases
           if (type === "binomial") {
             count = Math.round(mean * count);
           }
@@ -91,12 +91,11 @@ const ManualSnapshotForm: FC<{
       }
     }
   });
-  const [hash, setHash] = useState(null);
+  const [hash, setHash] = useState<string | null>(null);
   const form = useForm({
     defaultValues: initialValue,
   });
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
-  const [preview, setPreview] = useState<SnapshotPreview>(null);
+  const [preview, setPreview] = useState<SnapshotPreview | null>(null);
 
   const values = {
     metrics: form.watch("metrics"),
@@ -108,8 +107,7 @@ const ManualSnapshotForm: FC<{
     Object.keys(values.metrics).forEach((key) => {
       const m = getMetricById(key);
       ret[key] = values.metrics[key].map((v, i) => {
-        // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-        if (m.type === "binomial") {
+        if (m?.type === "binomial") {
           // Use the normal approximation for a bernouli variable to calculate stddev
           const p = v.count / values.users[i];
           return {
@@ -118,17 +116,14 @@ const ManualSnapshotForm: FC<{
             mean: p,
             stddev: Math.sqrt(p * (1 - p)),
           };
-          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MetricInterface | null' is not a... Remove this comment to see the full error message
-        } else if (isRatio(m)) {
-          // For ratio metrics, the count (denominator) may be different from the number of users
+        } else if (m && isRatio(m)) {
           return {
             users: values.users[i],
             count: v.count,
             mean: v.mean,
             stddev: v.stddev,
           };
-          // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-        } else if (m.ignoreNulls || m.denominator) {
+        } else if (m?.ignoreNulls || m?.denominator) {
           // When ignoring nulls (or using a funnel metric)
           // Limit the users to only ones who converted
           return {
@@ -156,7 +151,6 @@ const ManualSnapshotForm: FC<{
 
     // Only preview when all variations have number of users set
     if (values.users.filter((n) => n <= 0).length > 0) {
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
       setPreview(null);
       return;
     }
@@ -168,7 +162,6 @@ const ManualSnapshotForm: FC<{
         stats[key].filter((n) => Math.min(n.count, n.mean, n.stddev) <= 0)
           .length > 0
       ) {
-        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
         setPreview(null);
         return;
       }
@@ -234,7 +227,6 @@ const ManualSnapshotForm: FC<{
         style={{ overflowY: "auto", overflowX: "hidden" }}
         onBlur={(e) => {
           if (e.target.tagName !== "INPUT") return;
-          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
           setHash(JSON.stringify(form.getValues()));
         }}
       >
@@ -345,8 +337,7 @@ const ManualSnapshotForm: FC<{
                           preview.variations[i].metrics[m.id] &&
                           parseFloat(
                             // prettier-ignore
-                            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                            (preview.variations[i].metrics[m.id].chanceToWin * 100).toFixed(2)
+                            ((preview.variations[i].metrics[m.id].chanceToWin ?? 0) * 100).toFixed(2)
                           ) + "%"}
                       </td>
                     </tr>
