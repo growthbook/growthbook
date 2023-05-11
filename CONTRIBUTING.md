@@ -165,7 +165,7 @@ There are a few repo-wide code quality tools:
 - `yarn test` - Run the full test suite on all packages
 - `yarn type-check` - Typescript type checking
 - `yarn lint` - Typescript code linting
-- `yarn workspace stats lint` - Python code linting (need to `pip install flake8 black` first)
+- `yarn workspace stats lint` - Python code linting (need to `pip install flake8 black mypy` first)
 
 There is a pre-commit hook that runs `yarn lint` automatically, so you shouldn't need to run that yourself.
 

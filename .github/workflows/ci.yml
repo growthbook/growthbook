@@ -51,7 +51,7 @@ jobs:
         run: |
           # Build required dependencies (sdks/shared package)
           # This is required for linting/type checks to work
-          yarn install
+          yarn setup
         env:
           CI: true
 
