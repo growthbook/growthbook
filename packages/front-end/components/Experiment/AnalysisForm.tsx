@@ -9,6 +9,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   getValidDate,
   getScopedSettings,
+  getAffectedEnvsForExperiment,
 } from "shared";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -18,6 +19,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
+import usePermissions from "@/hooks/usePermissions";
 import { GBSequential } from "@/components/Icons";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
@@ -49,6 +51,8 @@ const AnalysisForm: FC<{
 
   const { organization, hasCommercialFeature } = useUser();
 
+  const permissions = usePermissions();
+
   const orgSettings = useOrgSettings();
 
   const pid = experiment?.project;
@@ -66,6 +70,14 @@ const AnalysisForm: FC<{
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"
   );
+
+  let canRunExperiment = !experiment.archived;
+  const envs = getAffectedEnvsForExperiment({ experiment });
+  if (envs.length > 0) {
+    if (!permissions.check("runExperiments", experiment.project, envs)) {
+      canRunExperiment = false;
+    }
+  }
 
   const attributeSchema = useAttributeSchema();
 
@@ -255,6 +267,7 @@ const AnalysisForm: FC<{
         labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
         helpText="Will match against the experiment_id column in your data source"
+        disabled={!canRunExperiment}
       />
       <SelectField
         label="Assignment Attribute"

@@ -1,13 +1,8 @@
 import mssql from "mssql";
-import { DataSourceProperties } from "../../types/datasource";
 import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
-import {
-  InformationSchema,
-  MissingDatasourceParamsError,
-} from "../types/Integration";
-import { formatInformationSchema } from "../util/informationSchemas";
 import { FormatDialect } from "../util/sql";
+import { MissingDatasourceParamsError } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mssql extends SqlIntegration {
@@ -18,12 +13,6 @@ export default class Mssql extends SqlIntegration {
     this.params = decryptDataSourceParams<MssqlConnectionParams>(
       encryptedParams
     );
-  }
-  getSourceProperties(): DataSourceProperties {
-    return {
-      ...super.getSourceProperties(),
-      supportsInformationSchema: true,
-    };
   }
   getFormatDialect(): FormatDialect {
     return "tsql";
@@ -78,53 +67,14 @@ export default class Mssql extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
-  async getInformationSchema(): Promise<InformationSchema[]> {
-    const databaseName = this.params.database;
-
-    if (!databaseName)
+  getInformationSchemaFromClause(): string {
+    if (!this.params.database)
       throw new MissingDatasourceParamsError(
         "To view the information schema for a MS Sql dataset, you must define a default database. Please add a default database by editing the datasource's connection settings."
       );
-
-    const queryString = `SELECT
-    table_name,
-    table_catalog,
-    table_schema,
-    COUNT(column_name) as column_count
-  FROM
-    ${databaseName}.INFORMATION_SCHEMA.COLUMNS
-    GROUP BY table_name, table_schema, table_catalog`;
-
-    const results = await this.runQuery(queryString);
-
-    if (!results.length) {
-      throw new Error(`No tables found for database "${databaseName}".`);
-    }
-
-    return formatInformationSchema(results, "mssql");
+    return `${this.params.database}.information_schema.columns`;
   }
-
-  async getTableData(
-    databaseName: string,
-    tableSchema: string,
-    tableName: string
-  ): Promise<{ tableData: null | unknown[]; refreshMS: number }> {
-    const sql = `SELECT
-          data_type,
-          column_name
-        FROM
-          ${databaseName}.INFORMATION_SCHEMA.COLUMNS
-        WHERE
-          table_name
-        IN ('${tableName}')
-        AND
-          table_schema
-        IN ('${tableSchema}')`;
-
-    const queryStartTime = Date.now();
-    const tableData = await this.runQuery(sql);
-    const queryEndTime = Date.now();
-
-    return { tableData, refreshMS: queryEndTime - queryStartTime };
+  getInformationSchemaTableFromClause(databaseName: string): string {
+    return `${databaseName}.information_schema.columns`;
   }
 }
