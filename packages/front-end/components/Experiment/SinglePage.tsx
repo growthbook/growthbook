@@ -19,6 +19,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   getScopedSettings,
+  getAffectedEnvsForExperiment,
 } from "shared";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
@@ -317,11 +318,23 @@ export default function SinglePage({
     mutate();
   };
 
-  const hasPermission = permissions.check("createAnalyses", experiment.project);
+  const canEditExperiment =
+    !experiment.archived &&
+    permissions.check("createAnalyses", experiment.project);
 
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
+  const hasVisualEditorPermission =
+    canEditExperiment &&
+    permissions.check("runExperiments", experiment.project, []);
 
-  const canEdit = hasPermission && !experiment.archived;
+  let hasRunExperimentsPermission = true;
+  const envs = getAffectedEnvsForExperiment({ experiment });
+  if (envs.length > 0) {
+    if (!permissions.check("runExperiments", experiment.project, envs)) {
+      hasRunExperimentsPermission = false;
+    }
+  }
+  const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
 
   const ignoreConversionEnd =
     experiment.attributionModel === "experimentDuration";
@@ -443,7 +456,7 @@ export default function SinglePage({
         </div>
         <div className="col-auto">
           <MoreMenu>
-            {canEdit && (
+            {canRunExperiment && (
               <button
                 className="dropdown-item"
                 onClick={() => setEditNameOpen(true)}
@@ -451,7 +464,7 @@ export default function SinglePage({
                 Edit name
               </button>
             )}
-            {canEdit && (
+            {canRunExperiment && (
               <button
                 className="dropdown-item"
                 onClick={() => setStatusModal(true)}
@@ -479,7 +492,7 @@ export default function SinglePage({
                 Duplicate
               </button>
             )}
-            {!experiment.archived && hasPermission && (
+            {canRunExperiment && (
               <button
                 className="dropdown-item"
                 onClick={async (e) => {
@@ -497,7 +510,7 @@ export default function SinglePage({
                 Archive
               </button>
             )}
-            {experiment.archived && hasPermission && (
+            {canRunExperiment && (
               <button
                 className="dropdown-item"
                 onClick={async (e) => {
@@ -515,7 +528,7 @@ export default function SinglePage({
                 Unarchive
               </button>
             )}
-            {hasPermission && (
+            {canRunExperiment && (
               <DeleteButton
                 className="dropdown-item text-danger"
                 useIcon={false}
@@ -662,8 +675,8 @@ export default function SinglePage({
                   });
                   mutate();
                 }}
-                canCreate={canEdit}
-                canEdit={canEdit}
+                canCreate={canEditExperiment}
+                canEdit={canEditExperiment}
                 className="mb-4"
                 header="Description"
               />
@@ -677,8 +690,8 @@ export default function SinglePage({
                   });
                   mutate();
                 }}
-                canCreate={canEdit}
-                canEdit={canEdit}
+                canCreate={canEditExperiment}
+                canEdit={canEditExperiment}
                 className="mb-4"
                 label="hypothesis"
                 header="Hypothesis"
@@ -695,7 +708,8 @@ export default function SinglePage({
               experiment={experiment}
               visualChangesets={visualChangesets}
               mutate={mutate}
-              canEdit={canEdit}
+              canEditExperiment={canEditExperiment}
+              canEditVisualChangesets={hasVisualEditorPermission}
               setVisualEditorModal={setVisualEditorModal}
             />
           </div>
@@ -704,7 +718,7 @@ export default function SinglePage({
           <RightRailSection
             title="Experiment Settings"
             open={() => setReportSettingsOpen(true)}
-            canOpen={canEdit}
+            canOpen={canEditExperiment}
           >
             <div className="appbox px-3 pt-3 pb-2">
               <RightRailSectionGroup
@@ -927,7 +941,8 @@ export default function SinglePage({
       {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
       {growthbook.isOn("visual-editor-ui") &&
       experiment.status === "draft" &&
-      experiment.phases.length > 0 ? (
+      experiment.phases.length > 0 &&
+      hasVisualEditorPermission ? (
         <div>
           {visualChangesets.length > 0 ? (
             <div className="mb-4">
@@ -990,7 +1005,7 @@ export default function SinglePage({
                 deploying code
               </p>
 
-              {hasVisualEditorFeature && canEdit ? (
+              {hasVisualEditorFeature ? (
                 <button
                   className="btn btn-primary btn-lg"
                   onClick={() => {
