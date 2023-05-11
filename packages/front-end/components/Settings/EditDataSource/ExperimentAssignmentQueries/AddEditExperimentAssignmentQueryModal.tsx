@@ -8,6 +8,9 @@ import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import Code from "@/components/SyntaxHighlighting/Code";
+import StringArrayField from "@/components/Forms/StringArrayField";
+import Toggle from "@/components/Forms/Toggle";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
@@ -61,6 +64,12 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   // User-entered values
   const userEnteredUserIdType = form.watch("userIdType");
   const userEnteredQuery = form.watch("query");
+  const userEnteredDimensions = form.watch("dimensions");
+  const userEnteredHasNameCol = form.watch("hasNameCol");
+
+  const [showAdvancedMode, setShowAdvancedMode] = useState(
+    !!userEnteredDimensions || !!userEnteredHasNameCol
+  );
 
   const handleSubmit = form.handleSubmit(async (value) => {
     await onSave(value);
@@ -78,12 +87,16 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     });
   });
 
-  const requiredColumns = new Set([
-    "experiment_id",
-    "variation_id",
-    "timestamp",
-    userEnteredUserIdType,
-  ]);
+  const requiredColumns = useMemo(() => {
+    return new Set([
+      "experiment_id",
+      "variation_id",
+      "timestamp",
+      userEnteredUserIdType,
+      ...(userEnteredDimensions || []),
+      ...(userEnteredHasNameCol ? ["experiment_name", "variation_name"] : []),
+    ]);
+  }, [userEnteredUserIdType, userEnteredDimensions, userEnteredHasNameCol]);
 
   const identityTypes = useMemo(() => dataSource.settings.userIdTypes || [], [
     dataSource.settings.userIdTypes,
@@ -105,7 +118,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
           close={() => setSqlOpen(false)}
           datasourceId={dataSource.id || ""}
           placeholder={`SELECT\n      ${userEnteredUserIdType}, date\nFROM\n      mytable`}
-          requiredColumns={Array.from(requiredColumns)}
+          requiredColumns={requiredColumns}
           value={userEnteredQuery}
           save={async (userEnteredQuery) =>
             form.setValue("query", userEnteredQuery)
@@ -117,6 +130,9 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
           setHasNameCols={(hasNameCol) => {
             form.setValue("hasNameCol", hasNameCol);
           }}
+          identityTypes={identityTypes}
+          userEnteredHasNameCol={userEnteredHasNameCol}
+          userEnteredDimensions={userEnteredDimensions}
         />
       )}
       <Modal
@@ -167,6 +183,46 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                     <FaExternalLinkAlt />
                   </button>
                 </div>
+              </div>
+              <div className="form-group">
+                <a
+                  href="#"
+                  className="ml-auto"
+                  style={{ fontSize: "0.9em" }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowAdvancedMode(!showAdvancedMode);
+                  }}
+                >
+                  {showAdvancedMode ? "Hide" : "Show"} Advanced Options
+                </a>
+                {showAdvancedMode && (
+                  <div>
+                    <div className="py-2">
+                      <Toggle
+                        id="userEnteredNameCol"
+                        value={form.watch("hasNameCol") || false}
+                        setValue={(value) => {
+                          form.setValue("hasNameCol", value);
+                        }}
+                      />
+                      <label
+                        className="mr-2 mb-0"
+                        htmlFor="exposure-query-toggle"
+                      >
+                        Use Name Columns
+                      </label>
+                      <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
+                    </div>
+                    <StringArrayField
+                      label="Dimension Columns"
+                      value={userEnteredDimensions}
+                      onChange={(dimensions) => {
+                        form.setValue("dimensions", dimensions);
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>

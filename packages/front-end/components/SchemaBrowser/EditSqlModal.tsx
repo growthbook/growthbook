@@ -1,8 +1,9 @@
-import { ReactElement, useCallback, useState } from "react";
+import { ReactElement, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import clsx from "clsx";
+import { UserIdType } from "@/../back-end/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
@@ -19,11 +20,14 @@ export interface Props {
   datasourceId: string;
   save: (sql: string) => Promise<void>;
   close: () => void;
-  requiredColumns: string[];
+  requiredColumns: Set<string>;
   placeholder: string;
   queryType?: "segment" | "dimension" | "metric" | "experiment-assignment";
   setDimensions?: (dimensions: string[]) => void;
   setHasNameCols?: (hasNameCols: boolean) => void;
+  identityTypes?: UserIdType[];
+  userEnteredHasNameCol?: boolean;
+  userEnteredDimensions?: string[];
 }
 
 type TestQueryResults = {
@@ -41,8 +45,11 @@ export default function EditSqlModal({
   placeholder,
   datasourceId,
   queryType,
-  setDimensions,
+  identityTypes,
   setHasNameCols,
+  setDimensions,
+  userEnteredDimensions = [],
+  userEnteredHasNameCol,
 }: Props) {
   const [suggestions, setSuggestions] = useState<ReactElement[]>([]);
   const form = useForm({
@@ -61,45 +68,40 @@ export default function EditSqlModal({
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [testingQuery, setTestingQuery] = useState(false);
 
-  const handleTestQuery = useCallback(async () => {
-    const sql = form.getValues("sql");
-    try {
-      // Just check for basic SQL syntax, not any required columns
-      // We can check for required columns after the results are returned
-      validateSQL(sql, []);
+  // We do some one-off logic for Experiment Assignment queries
+  useEffect(() => {
+    if (
+      queryType === "experiment-assignment" &&
+      setHasNameCols &&
+      setDimensions
+    ) {
+      const result = testQueryResults?.results?.[0];
+      if (!result) return;
 
-      setTestingQuery(true);
-      const res = await apiCall<TestQueryResults>("/query/test", {
-        method: "POST",
-        body: JSON.stringify({
-          query: sql,
-          datasourceId,
-        }),
-      });
-      const { results } = res;
+      const suggestions: ReactElement[] = [];
 
-      // We do some one-off logic for Experiment Assignment queries
-      if (
-        results &&
-        queryType === "experiment-assignment" &&
-        setHasNameCols &&
-        setDimensions
-      ) {
-        const suggestions: ReactElement[] = [];
+      const namedCols = ["experiment_name", "variation_name"];
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      const userIdTypes = identityTypes.map((type) => type.userIdType || []);
 
-        const returnedColumns = new Set<string>();
-        results.forEach((row) => {
-          Object.keys(row).forEach((key) => {
-            returnedColumns.add(key);
-          });
-        });
+      const returnedColumns = new Set<string>(Object.keys(result));
+      const optionalColumns = [...returnedColumns].filter(
+        (col) =>
+          !requiredColumns.has(col) &&
+          !namedCols.includes(col) &&
+          !userIdTypes.includes(col)
+      );
+
+      // Check if `hasNameCol` should be enabled
+      if (!userEnteredHasNameCol) {
+        // Selected both required columns, turn on `hasNameCol` automatically
         if (
           returnedColumns.has("experiment_name") &&
           returnedColumns.has("variation_name")
         ) {
           setHasNameCols(true);
         }
-        // If only experiment_name was returned, show suggestion to also include variation_name
+        // Only selected `experiment_name`, add warning
         else if (returnedColumns.has("experiment_name")) {
           suggestions.push(
             <>
@@ -107,9 +109,8 @@ export default function EditSqlModal({
               GrowthBook to populate names automatically.
             </>
           );
-          setHasNameCols(false);
         }
-        // If only variation_name was returned, show suggestion to also include experiment_name
+        // Only selected `variation_name`, add warning
         else if (returnedColumns.has("variation_name")) {
           suggestions.push(
             <>
@@ -117,34 +118,69 @@ export default function EditSqlModal({
               GrowthBook to populate names automatically.
             </>
           );
-          setHasNameCols(false);
         }
-        // Identify any additional columns that were returned and add as dimension columns
-        const dimensionColumns = Array.from(returnedColumns).filter(
-          (col) =>
-            !requiredColumns.includes(col) &&
-            col !== "experiment_name" &&
-            col !== "variation_name"
-        );
-        setDimensions(dimensionColumns);
-        setSuggestions(suggestions);
       }
+
+      // Prompt to add optional columns as dimensions
+      if (optionalColumns.length > 0) {
+        suggestions.push(
+          <>
+            The following columns were returned, but will be ignored. Add them
+            as dimensions or disregard this message.
+            <ul className="mb-0 pb-0">
+              {optionalColumns.map((col) => (
+                <li key={col}>
+                  <code>{col}</code> -{" "}
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setDimensions([...userEnteredDimensions, col]);
+                    }}
+                  >
+                    add as dimension
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </>
+        );
+      }
+
+      setSuggestions(suggestions);
+    }
+  }, [
+    requiredColumns,
+    testQueryResults,
+    form,
+    queryType,
+    userEnteredHasNameCol,
+    userEnteredDimensions,
+    identityTypes,
+    setHasNameCols,
+    setDimensions,
+  ]);
+
+  const handleTestQuery = async () => {
+    const sql = form.getValues("sql");
+    setTestQueryResults(null);
+    try {
+      validateSQL(sql, [...requiredColumns]);
+      setTestingQuery(true);
+      const res: TestQueryResults = await apiCall("/query/test", {
+        method: "POST",
+        body: JSON.stringify({
+          query: sql,
+          datasourceId: datasourceId,
+        }),
+      });
 
       setTestQueryResults(res);
     } catch (e) {
       setTestQueryResults({ error: e.message });
     }
     setTestingQuery(false);
-  }, [
-    form,
-    apiCall,
-    datasourceId,
-    queryType,
-    setDimensions,
-    setHasNameCols,
-    requiredColumns,
-  ]);
-
+  };
   const datasource = getDatasourceById(datasourceId);
   // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
   const supportsSchemaBrowser = datasource.properties.supportsInformationSchema;
@@ -190,10 +226,10 @@ export default function EditSqlModal({
                     Test Query
                   </Button>
                 </div>
-                {requiredColumns.length > 0 && (
+                {Array.from(requiredColumns).length > 0 && (
                   <div className="col-auto ml-auto pr-3">
                     <strong>Required Columns:</strong>
-                    {requiredColumns.map((col) => (
+                    {Array.from(requiredColumns).map((col) => (
                       <code className="mx-1 border p-1" key={col}>
                         {col}
                       </code>
