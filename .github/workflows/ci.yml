@@ -42,7 +42,8 @@ jobs:
           yarn install
 
           # Stats engine
-          pip install numpy scipy pandas pytest black flake8 mypy pandas-stubs nbformat gbstats
+          pip install pipx
+          pipx install poetry
         env:
           CI: true
 
@@ -50,7 +51,7 @@ jobs:
         run: |
           # Build required dependencies (sdks/shared package)
           # This is required for linting/type checks to work
-          yarn build:deps
+          yarn install
         env:
           CI: true
 
