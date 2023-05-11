@@ -111,8 +111,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       datasource: initialValue?.datasource || datasources?.[0]?.id || "",
       exposureQueryId:
         getExposureQuery(
-          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-          getDatasourceById(initialValue?.datasource)?.settings,
+          initialValue?.datasource
+            ? getDatasourceById(initialValue.datasource)?.settings
+            : undefined,
           initialValue?.exposureQueryId,
           initialValue?.userIdType
         )?.id || "",
@@ -135,12 +136,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         initialValue
           ? {
               coverage: initialValue.phases?.[0].coverage || 1,
-              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-              dateStarted: getValidDate(initialValue.phases?.[0]?.dateStarted)
+              dateStarted: getValidDate(
+                initialValue.phases?.[0]?.dateStarted ?? ""
+              )
                 .toISOString()
                 .substr(0, 16),
-              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-              dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded)
+              dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded ?? "")
                 .toISOString()
                 .substr(0, 16),
               name: initialValue.phases?.[0].name || "Main",
@@ -165,16 +166,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     },
   });
 
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const datasource = getDatasourceById(form.watch("datasource"));
+  const datasource = form.watch("datasource")
+    ? getDatasourceById(form.watch("datasource") ?? "")
+    : null;
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
 
   const { apiCall } = useAuth();
 
   const onSubmit = form.handleSubmit(async (value) => {
     // Make sure there's an experiment name
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    if (value.name.length < 1) {
+    if ((value.name?.length ?? 0) < 1) {
       setStep(0);
       throw new Error("Experiment Name must not be empty");
     }
@@ -183,8 +184,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
     const data = { ...value };
 
-    if (data.status !== "stopped") {
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+    if (data.status !== "stopped" && data.phases?.[0]) {
       data.phases[0].dateEnded = "";
     }
 
@@ -212,17 +212,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
     track("Create Experiment", {
       source,
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      numTags: data.tags.length,
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      numMetrics: data.metrics.length,
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      numVariations: data.variations.length,
+      numTags: data.tags?.length || 0,
+      numMetrics: data.metrics?.length || 0,
+      numVariations: data.variations?.length || 0,
     });
     refreshWatching();
 
-    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string[] | undefined' is not ass... Remove this comment to see the full error message
-    refreshTags(data.tags);
+    data.tags && refreshTags(data.tags);
     if (onCreate) {
       onCreate(res.experiment.id);
     } else {
@@ -269,8 +265,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         <div className="form-group">
           <label>Tags</label>
           <TagsInput
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
-            value={form.watch("tags")}
+            value={form.watch("tags") ?? []}
             onChange={(tags) => form.setValue("tags", tags)}
           />
         </div>
@@ -286,8 +281,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           <div className="form-group">
             <label>Description</label>
             <MarkdownInput
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-              value={form.watch("description")}
+              value={form.watch("description") ?? ""}
               setValue={(val) => form.setValue("description", val)}
             />
           </div>
@@ -304,8 +298,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               const status = v as ExperimentStatus;
               form.setValue("status", status);
             }}
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-            value={form.watch("status")}
+            value={form.watch("status") ?? ""}
           />
         )}
         {status !== "draft" && (
@@ -336,8 +329,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
               .map((s) => ({ label: s.property, value: s.property }))}
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-            value={form.watch("hashAttribute")}
+            value={form.watch("hashAttribute") ?? ""}
             onChange={(v) => {
               form.setValue("hashAttribute", v);
             }}
@@ -363,8 +355,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 return {
                   // default values
                   name: "",
-                  // @ts-expect-error TS(2783) If you come across this, please fix it!: 'value' is specified more than once, so this usage... Remove this comment to see the full error message
-                  value: i,
                   screenshots: [],
                   // overwrite defaults
                   ...data,
@@ -378,15 +368,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               v.map((v) => v.weight)
             );
           }}
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          variations={form.watch("variations").map((v, i) => {
-            return {
-              value: v.key || "",
-              name: v.name,
-              weight: form.watch(`phases.0.variationWeights.${i}`),
-              id: v.id,
-            };
-          })}
+          variations={
+            form.watch("variations")?.map((v, i) => {
+              return {
+                value: v.key || "",
+                name: v.name,
+                weight: form.watch(`phases.0.variationWeights.${i}`),
+                id: v.id,
+              };
+            }) ?? []
+          }
           coverageTooltip={
             isNewExperiment
               ? "This can be changed later"
@@ -422,8 +413,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <SelectField
               label="Data Source"
               labelClassName="font-weight-bold"
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-              value={form.watch("datasource")}
+              value={form.watch("datasource") ?? ""}
               onChange={(v) => form.setValue("datasource", v)}
               initialOption="Manual"
               options={datasources.map((d) => ({
@@ -437,8 +427,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <SelectField
               label="Experiment Assignment Table"
               labelClassName="font-weight-bold"
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-              value={form.watch("exposureQueryId")}
+              value={form.watch("exposureQueryId") ?? ""}
               onChange={(v) => form.setValue("exposureQueryId", v)}
               initialOption="Choose..."
               required
@@ -456,8 +445,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               Metrics you are trying to improve with this experiment.
             </div>
             <MetricsSelector
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
-              selected={form.watch("metrics")}
+              selected={form.watch("metrics") ?? []}
               onChange={(metrics) => form.setValue("metrics", metrics)}
               datasource={datasource?.id}
             />
@@ -469,8 +457,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               improve.
             </div>
             <MetricsSelector
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
-              selected={form.watch("guardrails")}
+              selected={form.watch("guardrails") ?? []}
               onChange={(metrics) => form.setValue("guardrails", metrics)}
               datasource={datasource?.id}
             />

@@ -169,3 +169,13 @@ export async function getInformationSchemaById(
 
   return result ? toInterface(result) : null;
 }
+
+export async function deleteInformationSchemaById(
+  organization: string,
+  informationSchemaId: string
+): Promise<void> {
+  await InformationSchemaModel.deleteOne({
+    organization,
+    id: informationSchemaId,
+  });
+}
