@@ -11,7 +11,6 @@ import {
   addPendingMemberToOrg,
   findVerifiedOrgForNewUser,
   getInviteUrl,
-  getOrganizationById,
   getOrgFromReq,
   importConfig,
   inviteUser,
@@ -94,9 +93,6 @@ import {
   getExperimentsForActivityFeed,
 } from "../../models/ExperimentModel";
 import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
-import { getAffectedSDKPayloadKeys } from "../../util/features";
-import { refreshSDKPayloadCache } from "../../services/features";
-import { logger } from "../../util/logger";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -1172,25 +1168,6 @@ export async function putOrganization(
     deletedEnvIds.forEach((envId) => {
       removeEnvironmentFromSlackIntegration({ organizationId: org.id, envId });
     });
-
-    // force clear all payload cache if attribute schema or salt changes
-    if (
-      updates.settings?.hashedAttributeSalt !==
-        orig.settings?.hashedAttributeSalt ||
-      JSON.stringify(updates.settings?.attributeSchema) !==
-        JSON.stringify(orig.settings?.attributeSchema)
-    ) {
-      const updatedOrg = await getOrganizationById(org.id);
-      if (updatedOrg) {
-        const allFeatures = await getAllFeatures(org.id);
-        const payloadKeys = getAffectedSDKPayloadKeys(allFeatures);
-        refreshSDKPayloadCache(updatedOrg, payloadKeys, allFeatures).catch(
-          (e) => {
-            logger.error(e, "Failed to refresh SDK payload cache");
-          }
-        );
-      }
-    }
 
     res.status(200).json({
       status: 200,

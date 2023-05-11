@@ -40,11 +40,11 @@ function getExampleAttributes(attributeSchema?: SDKAttributeSchema) {
       value = true;
     } else if (datatype === "number") {
       value = 123;
-    } else if (["string", "hash"].includes(datatype)) {
+    } else if (["string", "secureString"].includes(datatype)) {
       value = "foo";
     } else if (datatype === "number[]") {
       value = [1, 2, 3];
-    } else if (["string[]", "hash[]"].includes(datatype)) {
+    } else if (["string[]", "secureString[]"].includes(datatype)) {
       value = ["foo", "bar"];
     } else if (datatype === "enum") {
       // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.

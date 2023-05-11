@@ -28,7 +28,6 @@ import { promiseAllChunks } from "../util/promise";
 import { queueWebhook } from "../jobs/webhooks";
 import { GroupMap } from "../../types/saved-group";
 import {
-  SDKAttributes,
   SDKExperiment,
   SDKPayloadKey,
 } from "../../types/sdk-payload";
@@ -138,18 +137,6 @@ function generateVisualExperimentsPayload(
   return sdkExperiments.filter(isValidSDKExperiment);
 }
 
-export function generateAttributeDefinitionsPayload(
-  attributes?: SDKAttributeSchema
-): SDKAttributes {
-  if (!attributes) return {};
-  const ret: SDKAttributes = {};
-  for (const attribute of attributes) {
-    if (attribute.archived) continue;
-    ret[attribute.property] = { datatype: attribute.datatype };
-  }
-  return ret;
-}
-
 export async function getSavedGroupMap(
   organization: OrganizationInterface
 ): Promise<GroupMap> {
@@ -239,10 +226,6 @@ export async function refreshSDKPayloadCache(
       groupMap
     );
 
-    const attributeDefinitions = generateAttributeDefinitionsPayload(
-      attributes
-    );
-
     promises.push(async () => {
       await updateSDKPayload({
         organization: organization.id,
@@ -250,7 +233,6 @@ export async function refreshSDKPayloadCache(
         environment: key.environment,
         featureDefinitions,
         experimentsDefinitions,
-        attributeDefinitions,
       });
     });
   }
@@ -273,7 +255,6 @@ export async function refreshSDKPayloadCache(
 export type FeatureDefinitionsResponseArgs = {
   features: Record<string, FeatureDefinition>;
   experiments: SDKExperiment[];
-  attributes: SDKAttributes;
   dateUpdated: Date | null;
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
@@ -284,7 +265,6 @@ export type FeatureDefinitionsResponseArgs = {
 async function getFeatureDefinitionsResponse({
   features,
   experiments,
-  attributes,
   dateUpdated,
   encryptionKey,
   includeVisualExperiments,
@@ -309,7 +289,6 @@ async function getFeatureDefinitionsResponse({
     return {
       features,
       ...(includeVisualExperiments && { experiments }),
-      attributes,
       dateUpdated,
     };
   }
@@ -325,7 +304,6 @@ async function getFeatureDefinitionsResponse({
   return {
     features: {},
     ...(includeVisualExperiments && { experiments: [] }),
-    attributes,
     dateUpdated,
     encryptedFeatures,
     ...(includeVisualExperiments && { encryptedExperiments }),
@@ -365,11 +343,10 @@ export async function getFeatureDefinitions({
       project: project || "",
     });
     if (cached) {
-      const { features, experiments, attributes } = cached.contents;
+      const { features, experiments } = cached.contents;
       return await getFeatureDefinitionsResponse({
         features,
         experiments: experiments || [],
-        attributes: attributes || {},
         dateUpdated: cached.dateUpdated,
         encryptionKey,
         includeVisualExperiments,
@@ -386,7 +363,6 @@ export async function getFeatureDefinitions({
     return await getFeatureDefinitionsResponse({
       features: {},
       experiments: [],
-      attributes: {},
       dateUpdated: null,
       encryptionKey,
       includeVisualExperiments,
@@ -421,8 +397,6 @@ export async function getFeatureDefinitions({
     groupMap
   );
 
-  const attributeDefinitions = generateAttributeDefinitionsPayload(attributes);
-
   // Cache in Mongo
   await updateSDKPayload({
     organization,
@@ -430,13 +404,11 @@ export async function getFeatureDefinitions({
     environment,
     featureDefinitions,
     experimentsDefinitions,
-    attributeDefinitions,
   });
 
   return await getFeatureDefinitionsResponse({
     features: featureDefinitions,
     experiments: experimentsDefinitions,
-    attributes: attributeDefinitions,
     dateUpdated: new Date(),
     encryptionKey,
     includeVisualExperiments,
@@ -664,7 +636,7 @@ export function applyFeatureRuleHashing(
     for (const field in condition) {
       let ruleset = condition[field];
       const attribute = attributes.find((a) => a.property === field);
-      if (["hash", "hash[]"].includes(attribute?.datatype ?? "")) {
+      if (["secureString", "secureString[]"].includes(attribute?.datatype ?? "")) {
         ruleset = hashStrings(ruleset, salt);
       }
       rule.condition[field] = ruleset;

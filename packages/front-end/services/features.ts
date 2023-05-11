@@ -33,7 +33,7 @@ export interface Condition {
 
 export interface AttributeData {
   attribute: string;
-  datatype: "boolean" | "number" | "string" | "hash";
+  datatype: "boolean" | "number" | "string";
   array: boolean;
   identifier: boolean;
   enum: string[];
@@ -644,9 +644,9 @@ export function jsonToConds(
   }
 }
 
-function parseValue(value: string, type?: "string" | "number" | "boolean" | "hash") {
+function parseValue(value: string, type?: "string" | "number" | "boolean") {
   if (type === "number") return parseFloat(value) || 0;
-  if (type === "boolean") return value === "false" ? false : true;
+  if (type === "boolean") return value === "true";
   return value;
 }
 
@@ -706,8 +706,6 @@ function getAttributeDataType(type: SDKAttributeType) {
 
   if (type === "enum" || type === "string[]") return "string";
 
-  if (type === "hash" || type === "hash[]") return "hash";
-
   return "number";
 }
 
@@ -726,9 +724,8 @@ export function useAttributeMap(): Map<string, AttributeData> {
         datatype: getAttributeDataType(schema.datatype),
         array: !!schema.datatype.match(/\[\]$/),
         enum:
-          schema.datatype === "enum"
-            ? // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-              schema.enum.split(",").map((x) => x.trim())
+          schema.datatype === "enum" && schema.enum
+            ? schema.enum.split(",").map((x) => x.trim())
             : [],
         identifier: !!schema.hashAttribute,
         archived: !!schema.archived,

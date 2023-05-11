@@ -113,8 +113,8 @@ export type SDKAttributeType =
   | "string[]"
   | "number[]"
   | "enum"
-  | "hash"
-  | "hash[]";
+  | "secureString"
+  | "secureString[]";
 
 export type SDKAttribute = {
   property: string;

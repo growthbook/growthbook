@@ -113,10 +113,10 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                       { value: "number", label: "Number" },
                       { value: "string", label: "String" },
                       { value: "enum", label: "Enum" },
-                      { value: "hash", label: "Hashed String" },
+                      { value: "secureString", label: "Secure String" },
                       { value: "number[]", label: "Array of Numbers" },
                       { value: "string[]", label: "Array of Strings" },
-                      { value: "hash[]", label: "Array of Hashed Strings" },
+                      { value: "secureString[]", label: "Array of Secure Strings" },
                     ]}
                     sort={false}
                   />
