@@ -42,7 +42,7 @@ flake8-docstrings = "^1.6.0"
 pytest = "6.2.5"
 pytest-cov = "2.10.1"
 mypy = "^1.1.1"
-pandas-stubs = "^1.5.3.230304"
+pandas-stubs = "^2.0.1.230501"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
