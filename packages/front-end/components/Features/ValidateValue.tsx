@@ -34,7 +34,8 @@ export default function ValidateValue({
   }
   return (
     <div className={`alert-danger rounded p-2 mt-2 ${className}`}>
-      <FaExclamationTriangle className="text-danger" /> Value fails validation with JSON schema
+      <FaExclamationTriangle className="text-danger" /> Value fails validation
+      with JSON schema
       <ul className="mb-0">
         {errors?.map((msg, i) => (
           <li key={i}>{msg}</li>
