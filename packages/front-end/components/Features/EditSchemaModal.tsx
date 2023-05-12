@@ -39,12 +39,8 @@ export default function EditSchemaModal({ feature, close, mutate }: Props) {
               parsedSchema = JSON.parse(schemaString);
             } catch (e) {
               // If the JSON is invalid, try to parse it with 'dirty-json' instead
-              try {
-                parsedSchema = dJSON.parse(schemaString);
-                schemaString = stringify(parsedSchema);
-              } catch (e) {
-                throw new Error(e.message);
-              }
+              parsedSchema = dJSON.parse(schemaString);
+              schemaString = stringify(parsedSchema);
             }
             // make sure it is valid json schema:
             const ajv = new Ajv();
