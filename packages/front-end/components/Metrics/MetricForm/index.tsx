@@ -474,7 +474,7 @@ const MetricForm: FC<MetricFormProps> = ({
           placeholder={
             "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
           }
-          requiredColumns={Array.from(requiredColumns)}
+          requiredColumns={requiredColumns}
           value={value.sql}
           save={async (sql) => form.setValue("sql", sql)}
         />
