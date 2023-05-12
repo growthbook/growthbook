@@ -20,6 +20,7 @@ import {
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import {
   OrganizationInterface,
+  SDKAttribute,
   SDKAttributeSchema,
 } from "../../types/organization";
 import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
@@ -649,45 +650,89 @@ export function applyRuleHashing(
   attributes: SDKAttributeSchema,
   salt: string
 ): FeatureDefinition {
-  const con = cloneDeep(condition);
-  for (const field in con) {
-    let ruleset = con[field];
-    const attribute = attributes.find((a) => a.property === field);
-    if (
-      ["secureString", "secureString[]"].includes(attribute?.datatype ?? "")
-    ) {
-      ruleset = hashStrings(ruleset, salt);
-    }
-    con[field] = ruleset;
-  }
-
-  return con;
+  return hashStrings({ obj: cloneDeep(condition), salt, attributes });
 }
 
-interface RulesetObj {
-  [key: string]: RulesetObj | string | string[];
+interface hashStringsArgs {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  obj: any;
+  salt: string;
+  attributes: SDKAttributeSchema;
+  attribute?: SDKAttribute;
+  doHash?: boolean;
 }
-
-function hashStrings(obj: RulesetObj, salt: string): RulesetObj {
-  const newObj: RulesetObj = {};
-  for (const key in obj) {
-    const val = obj[key];
-    if (Array.isArray(val)) {
-      newObj[key] = val.map((item) => {
-        if (typeof item === "string") {
-          return sha256(item, salt);
-        }
-        return item;
+function hashStrings({
+  obj,
+  salt,
+  attributes,
+  attribute,
+  doHash = false,
+}: hashStringsArgs): // eslint-disable-next-line @typescript-eslint/no-explicit-any
+any {
+  if (Array.isArray(obj)) {
+    // parse array
+    const newObj = [];
+    for (let i = 0; i < obj.length; i++) {
+      newObj[i] = processVal({
+        obj: obj[i],
+        salt,
+        attributes,
+        attribute,
+        doHash,
       });
-    } else if (typeof val === "string") {
-      newObj[key] = sha256(val, salt);
-    } else if (typeof val === "object" && val !== null) {
-      newObj[key] = hashStrings(val, salt);
+    }
+    return newObj;
+  } else if (typeof obj === "object" && obj !== null) {
+    // parse object
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const newObj: any = {};
+    for (const key in obj) {
+      // check if a new attribute is referenced, and whether we need to hash it
+      // otherwise, inherit the previous attribute and hashing status
+      attribute = attributes.find((a) => a.property === key) ?? attribute;
+      doHash = attribute
+        ? !!(
+            attribute?.datatype &&
+            ["secureString", "secureString[]"].includes(
+              attribute?.datatype ?? ""
+            )
+          )
+        : doHash;
+
+      newObj[key] = processVal({
+        obj: obj[key],
+        salt,
+        attributes,
+        attribute,
+        doHash,
+      });
+    }
+    return newObj;
+  } else {
+    return obj;
+  }
+
+  function processVal({
+    obj,
+    salt,
+    attributes,
+    attribute,
+    doHash = false,
+  }: hashStringsArgs): // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any {
+    if (Array.isArray(obj)) {
+      // recurse array
+      return hashStrings({ obj, salt, attributes, attribute, doHash });
+    } else if (typeof obj === "object" && obj !== null) {
+      // recurse object
+      return hashStrings({ obj, salt, attributes, attribute, doHash });
+    } else if (typeof obj === "string") {
+      // hash string value
+      return doHash ? sha256(obj, salt) : obj;
     } else {
-      newObj[key] = val;
+      return obj;
     }
   }
-  return newObj;
 }
 
 function sha256(str: string, salt: string): string {
