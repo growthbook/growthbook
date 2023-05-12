@@ -3,11 +3,9 @@ import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import {
-  getValidDate,
-  getScopedSettings,
-  getAffectedEnvsForExperiment,
-} from "shared/dates";
+import { getValidDate } from "shared/dates";
+import { getAffectedEnvsForExperiment } from "shared/util";
+import { getScopedSettings } from "shared/settings";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
