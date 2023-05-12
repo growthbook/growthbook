@@ -2,12 +2,12 @@ import { Response } from "express";
 import uniqid from "uniqid";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   getValidDate,
   getScopedSettings,
   getAffectedEnvsForExperiment,
-} from "shared";
+} from "shared/dates";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
