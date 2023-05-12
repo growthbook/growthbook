@@ -33,7 +33,7 @@ export interface Condition {
 
 export interface AttributeData {
   attribute: string;
-  datatype: "boolean" | "number" | "string";
+  datatype: "boolean" | "number" | "string" | "secureString";
   array: boolean;
   identifier: boolean;
   enum: string[];
@@ -644,7 +644,10 @@ export function jsonToConds(
   }
 }
 
-function parseValue(value: string, type?: "string" | "number" | "boolean") {
+function parseValue(
+  value: string,
+  type?: "string" | "number" | "boolean" | "secureString"
+) {
   if (type === "number") return parseFloat(value) || 0;
   if (type === "boolean") return value === "true";
   return value;
@@ -705,6 +708,9 @@ function getAttributeDataType(type: SDKAttributeType) {
   if (type === "boolean" || type === "number" || type === "string") return type;
 
   if (type === "enum" || type === "string[]") return "string";
+
+  if (type === "secureString" || type === "secureString[]")
+    return "secureString";
 
   return "number";
 }

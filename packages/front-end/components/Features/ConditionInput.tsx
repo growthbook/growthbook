@@ -207,7 +207,7 @@ export default function ConditionInput(props: Props) {
                       : []),
                   ]
                 : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                attribute.datatype === "hash"
+                attribute.datatype === "secureString"
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -352,7 +352,7 @@ export default function ConditionInput(props: Props) {
                       required
                     />
                   ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  ["string", "hash"].includes(attribute.datatype) ? (
+                  ["string", "secureString"].includes(attribute.datatype) ? (
                     <Field
                       value={value}
                       onChange={onChange}

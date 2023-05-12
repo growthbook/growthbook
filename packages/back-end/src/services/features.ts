@@ -51,15 +51,17 @@ function generatePayload({
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
   features.forEach((feature) => {
-    let def = getFeatureDefinition({
+    const def = getFeatureDefinition({
       feature,
       environment,
       groupMap,
+      hashSecureAttributeRules: true,
+      attributes,
+      secureAttributeSalt,
     });
-    if (!def) return;
-
-    def = applyFeatureRuleHashing(def, attributes, secureAttributeSalt);
-    defs[feature.id] = def;
+    if (def) {
+      defs[feature.id] = def;
+    }
   });
 
   return defs;
@@ -70,11 +72,21 @@ export type VisualExperiment = {
   visualChangeset: VisualChangesetInterface;
 };
 
-function generateVisualExperimentsPayload(
-  visualExperiments: Array<VisualExperiment>,
-  _environment: string,
-  groupMap: GroupMap
-): SDKExperiment[] {
+function generateVisualExperimentsPayload({
+  visualExperiments,
+  // environment,
+  groupMap,
+  hashSecureAttributeRules = false,
+  attributes = [],
+  secureAttributeSalt = "",
+}: {
+  visualExperiments: Array<VisualExperiment>;
+  // environment: string,
+  groupMap: GroupMap;
+  hashSecureAttributeRules?: boolean;
+  attributes?: SDKAttributeSchema;
+  secureAttributeSalt?: string;
+}): SDKExperiment[] {
   const isValidSDKExperiment = (e: SDKExperiment | null): e is SDKExperiment =>
     !!e;
   const sdkExperiments: Array<SDKExperiment | null> = visualExperiments.map(
@@ -88,9 +100,15 @@ function generateVisualExperimentsPayload(
       let condition;
       if (phase?.condition && phase.condition !== "{}") {
         try {
-          condition = JSON.parse(
-            replaceSavedGroupsInCondition(phase.condition, groupMap)
-          );
+          condition = replaceSavedGroupsInCondition(phase.condition, groupMap);
+          condition = JSON.parse(condition);
+          if (hashSecureAttributeRules) {
+            condition = applyRuleHashing(
+              condition,
+              attributes,
+              secureAttributeSalt
+            );
+          }
         } catch (e) {
           // ignore condition parse errors here
         }
@@ -217,11 +235,14 @@ export async function refreshSDKPayloadCache(
       secureAttributeSalt,
     });
 
-    const experimentsDefinitions = generateVisualExperimentsPayload(
-      projectExperiments,
-      key.environment,
-      groupMap
-    );
+    const experimentsDefinitions = generateVisualExperimentsPayload({
+      visualExperiments: projectExperiments,
+      // environment: key.environment,
+      groupMap,
+      hashSecureAttributeRules: true,
+      attributes,
+      secureAttributeSalt,
+    });
 
     promises.push(async () => {
       await updateSDKPayload({
@@ -388,11 +409,14 @@ export async function getFeatureDefinitions({
   );
 
   // Generate visual experiments
-  const experimentsDefinitions = generateVisualExperimentsPayload(
-    allVisualExperiments,
-    environment,
-    groupMap
-  );
+  const experimentsDefinitions = generateVisualExperimentsPayload({
+    visualExperiments: allVisualExperiments,
+    // environment: key.environment,
+    groupMap,
+    hashSecureAttributeRules: true,
+    attributes,
+    secureAttributeSalt,
+  });
 
   // Cache in Mongo
   await updateSDKPayload({
@@ -619,32 +643,25 @@ export function getNextScheduledUpdate(
   return new Date(sortedFutureDates[0]);
 }
 
-export function applyFeatureRuleHashing(
-  definition: FeatureDefinition,
+export function applyRuleHashing(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  condition: any,
   attributes: SDKAttributeSchema,
   salt: string
 ): FeatureDefinition {
-  const def = cloneDeep(definition);
-  if (!def.rules) return def;
-
-  def.rules = def.rules.map((rule) => {
-    if (!rule.condition) return rule;
-    const condition = rule.condition;
-    for (const field in condition) {
-      let ruleset = condition[field];
-      const attribute = attributes.find((a) => a.property === field);
-      if (
-        ["secureString", "secureString[]"].includes(attribute?.datatype ?? "")
-      ) {
-        ruleset = hashStrings(ruleset, salt);
-      }
-      rule.condition[field] = ruleset;
+  const con = cloneDeep(condition);
+  for (const field in con) {
+    let ruleset = con[field];
+    const attribute = attributes.find((a) => a.property === field);
+    if (
+      ["secureString", "secureString[]"].includes(attribute?.datatype ?? "")
+    ) {
+      ruleset = hashStrings(ruleset, salt);
     }
+    con[field] = ruleset;
+  }
 
-    return rule;
-  });
-
-  return def;
+  return con;
 }
 
 interface RulesetObj {
