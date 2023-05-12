@@ -1006,6 +1006,12 @@ export class GrowthBook<
       document.head.appendChild(s);
       undo.push(() => s.remove());
     }
+    if (changes.js) {
+      const script = document.createElement("script");
+      script.innerHTML = changes.js;
+      document.body.appendChild(script);
+      undo.push(() => script.remove());
+    }
     if (changes.domMutations) {
       changes.domMutations.forEach((mutation) => {
         undo.push(mutate.declarative(mutation as DeclarativeMutation).revert);
