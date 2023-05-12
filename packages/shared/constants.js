@@ -1,1 +1,1 @@
-module.exports = require("./dist/stats.js");
+module.exports = require("./dist/constants.js");
