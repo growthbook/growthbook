@@ -1,5 +1,5 @@
 import { QueryLanguage } from "./datasource";
-import { MetricStats } from "./metric";
+import { MetricInterface, MetricStats } from "./metric";
 import { StatsEngine } from "./stats";
 import { Queries } from "./query";
 import {
@@ -56,6 +56,10 @@ export type LegacyExperimentSnapshotInterface = ExperimentSnapshotInterface & {
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
+  queryFilter?: string;
+  segment?: string;
+  skipPartialData?: boolean;
+  manual: boolean;
 };
 
 export interface SnapshotAnalysis {
@@ -63,7 +67,7 @@ export interface SnapshotAnalysis {
   settings: {
     dimensions: string[];
     statsEngine: StatsEngine;
-    frequentistSettings?: {
+    frequentistSettings: null | {
       regressionAdjusted: boolean;
       sequentialTesting: boolean;
       sequentialTestingTuningParameter: number;
@@ -78,7 +82,16 @@ export interface SnapshotAnalysis {
 
 export interface MetricForSnapshot {
   id: string;
-  // TODO: add more metric fields to see if it's "out-of-date"
+  settings?: Pick<
+    MetricInterface,
+    | "datasource"
+    | "aggregation"
+    | "sql"
+    | "cap"
+    | "denominator"
+    | "userIdTypes"
+    | "type"
+  >;
 }
 
 export type DimensionForSnapshot = {
@@ -87,10 +100,7 @@ export type DimensionForSnapshot = {
   id: string;
   // Dimension settings at the time the snapshot was created
   // Used to show an "out-of-date" warning on the front-end
-  settings?: Pick<
-    DimensionInterface,
-    "id" | "datasource" | "userIdType" | "sql"
-  >;
+  settings?: Pick<DimensionInterface, "datasource" | "userIdType" | "sql">;
 };
 
 export interface ExperimentSnapshotInterface {
@@ -107,7 +117,7 @@ export interface ExperimentSnapshotInterface {
   runStarted: Date | null;
   status: "running" | "success" | "error";
 
-  // Settings that control which queries were run
+  // Settings that control which queries are run
   // Used to determine which types of analyses are possible
   querySettings: {
     manual: boolean;
@@ -120,19 +130,18 @@ export interface ExperimentSnapshotInterface {
     endDate: Date;
   };
 
-  // Experiment/metric settings at the time the snapshot was run
+  // Experiment settings at the time the snapshot was run
   // These are only used to show an "out-of-date" warning on the front-end
   settings: {
     experimentId: string;
     queryFilter: string;
     segment: string;
     skipPartialData: boolean;
-    activationMetric: string;
     datasourceId: string;
     exposureQuery: string;
   };
 
-  // What queries were run as part of this snapshot
+  // List of queries that were run as part of this snapshot
   query?: string;
   queryLanguage?: QueryLanguage;
   queries: Queries;

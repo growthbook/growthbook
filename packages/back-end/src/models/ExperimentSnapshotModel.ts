@@ -1,6 +1,10 @@
 import mongoose, { FilterQuery } from "mongoose";
 import omit from "lodash/omit";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared";
+import {
+  ExperimentSnapshotInterface,
+  LegacyExperimentSnapshotInterface,
+} from "../../types/experiment-snapshot";
 import { queriesSchema } from "./QueryModel";
 
 const experimentSnapshotSchema = new mongoose.Schema({
@@ -94,7 +98,7 @@ experimentSnapshotSchema.index({
 });
 
 type ExperimentSnapshotDocument = mongoose.Document &
-  ExperimentSnapshotInterface;
+  LegacyExperimentSnapshotInterface;
 
 const ExperimentSnapshotModel = mongoose.model<ExperimentSnapshotDocument>(
   "ExperimentSnapshot",
@@ -103,7 +107,130 @@ const ExperimentSnapshotModel = mongoose.model<ExperimentSnapshotDocument>(
 
 const toInterface = (
   doc: ExperimentSnapshotDocument
-): ExperimentSnapshotInterface => omit(doc.toJSON(), ["__v", "_id"]);
+): ExperimentSnapshotInterface =>
+  migrateSnapshot(omit(doc.toJSON(), ["__v", "_id"]));
+/**
+ * 
+ * @param orig   activationMetric?: string;
+  statsEngine?: StatsEngine;
+  hasRawQueries?: boolean;
+  hasCorrectedStats?: boolean;
+  results?: ExperimentReportResultDimension[];
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
+  queryFilter?: string;
+  segment?: string;
+  skipPartialData?: boolean;
+ */
+export function migrateSnapshot(
+  orig: LegacyExperimentSnapshotInterface
+): ExperimentSnapshotInterface {
+  const {
+    activationMetric,
+    statsEngine,
+    // eslint-disable-next-line
+    hasRawQueries,
+    // eslint-disable-next-line
+    hasCorrectedStats,
+    results,
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses,
+    sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
+    queryFilter,
+    segment,
+    skipPartialData,
+    manual,
+    ...snapshot
+  } = orig;
+
+  // Convert old results to new array of analyses
+  if (!snapshot.analyses) {
+    if (results) {
+      const regressionAdjusted =
+        regressionAdjustmentEnabled &&
+        metricRegressionAdjustmentStatuses?.some(
+          (s) => s.regressionAdjustmentEnabled
+        )
+          ? true
+          : false;
+
+      snapshot.analyses = [
+        {
+          dateCreated: snapshot.dateCreated,
+          status: snapshot.error ? "error" : "success",
+          error: snapshot.error,
+          settings: {
+            statsEngine: statsEngine || "bayesian",
+            dimensions: snapshot.dimension ? [snapshot.dimension] : [],
+            frequentistSettings:
+              statsEngine === "frequentist"
+                ? {
+                    pValueCorrection: null,
+                    regressionAdjusted,
+                    sequentialTesting: !!sequentialTestingEnabled,
+                    sequentialTestingTuningParameter:
+                      sequentialTestingTuningParameter ||
+                      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+                  }
+                : null,
+          },
+          results,
+        },
+      ];
+    } else {
+      snapshot.analyses = [];
+    }
+  }
+
+  // Figure out status from old fields
+  if (!snapshot.status) {
+    snapshot.status = snapshot.error
+      ? "error"
+      : snapshot.analyses.length > 0
+      ? "success"
+      : "running";
+  }
+
+  // Migrate querySettings
+  if (!snapshot.querySettings) {
+    snapshot.querySettings = {
+      manual: !!manual,
+      dimensions: snapshot.dimension
+        ? [
+            {
+              id: snapshot.dimension,
+            },
+          ]
+        : [],
+      // TODO: figure out metrics from results
+      goalMetrics: [],
+      guardrailMetrics: [],
+      activationMetric: activationMetric ? { id: activationMetric } : null,
+      regressionAdjustmentEnabled: true,
+      // TODO: figure out start date from results?
+      startDate: snapshot.dateCreated,
+      endDate: snapshot.dateCreated,
+    };
+  }
+
+  // Migrate other settings
+  if (!snapshot.settings) {
+    snapshot.settings = {
+      // We weren't tracking these before, so just set them to an empty string
+      experimentId: "",
+      datasourceId: "",
+      exposureQuery: "",
+      queryFilter: queryFilter || "",
+      segment: segment || "",
+      skipPartialData: !!skipPartialData,
+    };
+  }
+
+  return snapshot;
+}
 
 export async function updateSnapshotsOnPhaseDelete(
   organization: string,
