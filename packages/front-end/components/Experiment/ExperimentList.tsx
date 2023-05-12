@@ -4,7 +4,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
 } from "back-end/types/experiment";
-import { ago, datetime } from "shared";
+import { ago, datetime, getValidDate } from "shared";
 import { phaseSummary } from "@/services/utils";
 
 export default function ExperimentList({
@@ -32,13 +32,17 @@ export default function ExperimentList({
           endDate;
 
         test.phases.forEach((p) => {
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          if (!startDate || p.dateStarted < startDate) {
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-            startDate = p.dateStarted;
+          if (
+            !startDate ||
+            getValidDate(p?.dateStarted ?? "") < getValidDate(startDate)
+          ) {
+            startDate = p.dateStarted ?? "";
           }
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          if (!endDate || p.dateEnded > endDate) endDate = p.dateEnded;
+          if (
+            !endDate ||
+            getValidDate(p?.dateEnded ?? "") > getValidDate(endDate)
+          )
+            endDate = p.dateEnded;
         });
         const currentPhase = test.phases[test.phases.length - 1];
         return (

@@ -25,8 +25,7 @@ export default function DimensionChooser({
   showHelp,
 }: Props) {
   const { dimensions, getDatasourceById } = useDefinitions();
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const datasource = getDatasourceById(datasourceId);
+  const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
   // If activation metric is not selected, don't allow using that dimension
   useEffect(() => {
@@ -67,10 +66,8 @@ export default function DimensionChooser({
     }
   }
   // Legacy data sources - add experiment dimensions
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  else if (datasource.settings?.experimentDimensions?.length > 0) {
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    datasource.settings.experimentDimensions.forEach((d) => {
+  else if ((datasource?.settings?.experimentDimensions?.length ?? 0) > 0) {
+    datasource?.settings?.experimentDimensions?.forEach((d) => {
       filteredDimensions.push({
         label: d,
         value: "exp:" + d,
