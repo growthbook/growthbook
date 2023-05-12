@@ -7,29 +7,24 @@ import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {
   mutateExperiment: () => void;
-  editResult: () => void;
+  editResult?: () => void;
 }
 
 export default function StatusBanner({ mutateExperiment, editResult }: Props) {
   const { experiment } = useSnapshot();
   const { apiCall } = useAuth();
 
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  if (experiment.status === "stopped") {
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+  if (experiment?.status === "stopped") {
     const result = experiment.results;
 
     const winningVariation =
       (result === "lost"
-        ? // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          experiment.variations[0]?.name
+        ? experiment.variations[0]?.name
         : result === "won"
-        ? // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          experiment.variations[experiment.winner || 1]?.name
+        ? experiment.variations[experiment.winner || 1]?.name
         : "") || "";
 
     const releasedVariation =
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       experiment.variations.find((v) => v.id === experiment.releasedVariationId)
         ?.name || "";
 
@@ -89,11 +84,9 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
             </div>
           )}
         </div>
-        {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-        {experiment.analysis && (
+        {experiment?.analysis && (
           <div className="card text-dark mt-2">
             <div className="card-body">
-              {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
               <Markdown className="card-text">{experiment.analysis}</Markdown>
             </div>
           </div>
@@ -102,8 +95,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
     );
   }
 
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  if (experiment.status === "running") {
+  if (experiment?.status === "running") {
     return (
       <div className={clsx("alert mb-0 alert-info")}>
         {editResult && (
@@ -123,19 +115,16 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
     );
   }
 
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  if (experiment.status === "draft") {
+  if (experiment?.status === "draft") {
     return (
       <div className={clsx("alert mb-0 alert-warning")}>
-        {/* @ts-expect-error TS(2774) If you come across this, please fix it!: This condition will always return true since this ... Remove this comment to see the full error message */}
         {editResult && (
           <Button
             color="link"
             className="alert-link float-right ml-2 p-0"
             onClick={async () => {
               // Already has a phase, just update the status
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-              await apiCall(`/experiment/${experiment.id}/status`, {
+              await apiCall(`/experiment/${experiment?.id}/status`, {
                 method: "POST",
                 body: JSON.stringify({
                   status: "running",
@@ -151,4 +140,6 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
       </div>
     );
   }
+
+  return null;
 }

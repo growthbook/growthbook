@@ -129,3 +129,13 @@ export async function removeDeletedInformationSchemaTables(
     id: { $in: tableIds },
   });
 }
+
+export async function deleteInformationSchemaTablesByInformationSchemaId(
+  organization: string,
+  informationSchemaId: string
+): Promise<void> {
+  await InformationSchemaTablesModel.deleteMany({
+    organization,
+    informationSchemaId,
+  });
+}

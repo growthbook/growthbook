@@ -338,7 +338,6 @@ export default function ResultsTable({
                           startDate={startDate}
                           metric={row.metric}
                           snapshotDate={dateCreated}
-                          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'PValueCorrection | undefined' is not assigna... Remove this comment to see the full error message
                           pValueCorrection={pValueCorrection}
                         />
                       ) : (
@@ -355,9 +354,8 @@ export default function ResultsTable({
                     {i > 0 &&
                       (fullStats ? (
                         <PercentGraphColumn
-                          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '"pill" | null' is not assignable to type '"p... Remove this comment to see the full error message
                           barType={
-                            statsEngine === "frequentist" ? "pill" : null
+                            statsEngine === "frequentist" ? "pill" : undefined
                           }
                           baseline={baseline}
                           domain={domain}

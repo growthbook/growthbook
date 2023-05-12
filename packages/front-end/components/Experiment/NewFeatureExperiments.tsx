@@ -61,8 +61,7 @@ export default function NewFeatureExperiments() {
           source="feature-rule"
           isImport={true}
           msg="We've prefilled the form with values from the the feature."
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Partial<ExperimentInterfaceStringDates> | nu... Remove this comment to see the full error message
-          initialValue={expDef}
+          initialValue={expDef || undefined}
           fromFeature={true}
         />
       )}
