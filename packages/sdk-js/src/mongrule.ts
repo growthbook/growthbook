@@ -8,6 +8,7 @@ import {
   OperatorConditionValue,
   VarType,
 } from "./types/mongrule";
+import { semver } from "./semver";
 
 const _regexCache: { [key: string]: RegExp } = {};
 
@@ -135,6 +136,13 @@ function evalOperatorCondition(
   expected: any
 ): boolean {
   switch (operator) {
+    case "$semVerGt":
+    case "$semVerLt":
+    case "$semVerGte":
+    case "$semVerLte":
+    case "$semVerEq":
+    case "$semVerNeq":
+      return evalSemanticVersionCondition(actual, expected, operator);
     case "$eq":
       return actual === expected;
     case "$ne":
@@ -206,4 +214,46 @@ function evalAnd(obj: TestedObj, conditions: ConditionInterface[]): boolean {
     }
   }
   return true;
+}
+
+/**
+ * Will attempt to evaluate if the condition is true.
+ * If either of the version strings provided are invalid, returns false.
+ * @param actual
+ * @param expected
+ * @param comparison
+ */
+function evalSemanticVersionCondition(
+  actual: string,
+  expected: string,
+  comparison:
+    | "$semVerGt"
+    | "$semVerLt"
+    | "$semVerGte"
+    | "$semVerLte"
+    | "$semVerEq"
+    | "$semVerNeq"
+) {
+  if (!semver.valid(actual)) return false;
+  if (!semver.valid(expected)) return false;
+
+  switch (comparison) {
+    case "$semVerGt":
+      return semver.gt(actual, expected);
+
+    case "$semVerLt":
+      return semver.lt(actual, expected);
+
+    case "$semVerGte":
+      return semver.gte(actual, expected);
+
+    case "$semVerLte":
+      return semver.lte(actual, expected);
+
+    case "$semVerEq":
+      return semver.eq(actual, expected);
+
+    case "$semVerNeq":
+      return semver.neq(actual, expected);
+  }
 }

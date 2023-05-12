@@ -25,7 +25,13 @@ export type Operator =
   | "$all"
   | "$not"
   | "$type"
-  | "$exists";
+  | "$exists"
+  | "$semVerGt"
+  | "$semVerLt"
+  | "$semVerGte"
+  | "$semVerLte"
+  | "$semVerEq"
+  | "$semVerNeq";
 export type VarType =
   | "string"
   | "number"
@@ -50,6 +56,12 @@ export type OperatorConditionValue = {
   $type?: VarType;
   $elemMatch?: ConditionInterface | OperatorConditionValue;
   $not?: ConditionValue;
+  $semVerGt?: string;
+  $semVerLt?: string;
+  $semVerGte?: string;
+  $semVerLte?: string;
+  $semVerEq?: string;
+  $semVerNeq?: string;
 };
 
 export type ConditionValue =

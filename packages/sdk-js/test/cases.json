@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.4.2",
+  "specVersion": "0.5.0",
   "evalCondition": [
     [
       "$not - pass",
@@ -1362,6 +1362,354 @@
         "userId": ""
       },
       false
+    ],
+
+    [
+      "$semVerGt/$semVerLt - pass - major",
+      {
+        "version": {
+          "$semVerGt": "9.99.8",
+          "$semVerLt": "11.0.1"
+        }
+      },
+      {
+        "version": "10.12.13"
+      },
+      true
+    ],
+    [
+      "$semVerGt/$semVerLt - pass - minor",
+      {
+        "version": {
+          "$semVerGt": "10.2.11",
+          "$semVerLt": "10.20.11"
+        }
+      },
+      {
+        "version": "10.12.11"
+      },
+      true
+    ],
+    [
+      "$semVerGt/$semVerLt - pass - patch",
+      {
+        "version": {
+          "$semVerGt": "10.0.2",
+          "$semVerLt": "10.0.20"
+        }
+      },
+      {
+        "version": "10.0.12"
+      },
+      true
+    ],
+    [
+      "$semVerGt/$semVerLt - fail $semVerLt - major",
+      {
+        "version": {
+          "$semVerGt": "30.0.0",
+          "$semVerLt": "50.0.0"
+        }
+      },
+      {
+        "version": "60.0.0"
+      },
+      false
+    ],
+    [
+      "$semVerGt/$semVerLt - fail $semVerLt - minor",
+      {
+        "version": {
+          "$semVerGt": "10.30.0",
+          "$semVerLt": "10.50.0"
+        }
+      },
+      {
+        "version": "10.60.0"
+      },
+      false
+    ],
+    [
+      "$semVerGt/$semVerLt - fail $semVerLt - patch",
+      {
+        "version": {
+          "$semVerGt": "10.2.30",
+          "$semVerLt": "10.2.50"
+        }
+      },
+      {
+        "version": "10.2.60"
+      },
+      false
+    ],
+    [
+      "$semVerGt/$semVerLt - fail $semVerGt - major",
+      {
+        "version": {
+          "$semVerGt": "30.0.16",
+          "$semVerLt": "50.0.16"
+        }
+      },
+      {
+        "version": "20.0.16"
+      },
+      false
+    ],
+    [
+      "$semVerGt/$semVerLt - fail $semVerGt - minor",
+      {
+        "version": {
+          "$semVerGt": "10.30.0",
+          "$semVerLt": "10.50.0"
+        }
+      },
+      {
+        "version": "10.20.0"
+      },
+      false
+    ],
+    [
+      "$semVerGt/$semVerLt - fail $semVerGt - patch",
+      {
+        "version": {
+          "$semVerGt": "10.30.10",
+          "$semVerLt": "10.30.20"
+        }
+      },
+      {
+        "version": "10.30.2"
+      },
+      false
+    ],
+    [
+      "$semVerGte/$semVerLte - pass $semVerGte - major",
+      {
+        "version": {
+          "$semVerGte": "30.1.2",
+          "$semVerLte": "60.1.2"
+        }
+      },
+      {
+        "version": "30.1.2"
+      },
+      true
+    ],
+    [
+      "$semVerGte/$semVerLte - pass $semVerGte - minor",
+      {
+        "version": {
+          "$semVerGte": "5.30.2",
+          "$semVerLte": "5.60.2"
+        }
+      },
+      {
+        "version": "5.30.2"
+      },
+      true
+    ],
+    [
+      "$semVerGte/$semVerLte - pass $semVerGte - patch",
+      {
+        "version": {
+          "$semVerGte": "5.10.30",
+          "$semVerLte": "5.10.60"
+        }
+      },
+      {
+        "version": "5.10.30"
+      },
+      true
+    ],
+    [
+      "$semVerGte/$semVerLte - pass $semVerLte - major",
+      {
+        "version": {
+          "$semVerGte": "30.1.2",
+          "$semVerLte": "60.1.2"
+        }
+      },
+      {
+        "version": "60.1.2"
+      },
+      true
+    ],
+    [
+      "$semVerGte/$semVerLte - pass $semVerLte - minor",
+      {
+        "version": {
+          "$semVerGte": "1.30.2",
+          "$semVerLte": "1.60.2"
+        }
+      },
+      {
+        "version": "1.60.2"
+      },
+      true
+    ],
+    [
+      "$semVerGte/$semVerLte - pass $semVerLte - patch",
+      {
+        "version": {
+          "$semVerGte": "1.2.30",
+          "$semVerLte": "1.2.60"
+        }
+      },
+      {
+        "version": "1.2.60"
+      },
+      true
+    ],
+    [
+      "$semVerGte/$semVerLte - fail $semVerLte - major",
+      {
+        "version": {
+          "$semVerGte": "30.1.2",
+          "$semVerLte": "60.1.2"
+        }
+      },
+      {
+        "version": "61.1.2"
+      },
+      false
+    ],
+    [
+      "$semVerGte/$semVerLte - fail $semVerGt - minor",
+      {
+        "version": {
+          "$semVerGte": "30.1.2",
+          "$semVerLte": "60.1.2"
+        }
+      },
+      {
+        "version": "29.1.2"
+      },
+      false
+    ],
+    [
+      "$semVerGte/$semVerLte - fail $semVerGt - patch",
+      {
+        "version": {
+          "$semVerGte": "1.2.30",
+          "$semVerLte": "1.2.60"
+        }
+      },
+      {
+        "version": "1.2.29"
+      },
+      false
+    ],
+    [
+      "$semVerGt/$semVerLt prerelease - fail $semVerGt",
+      {
+        "v": {
+          "$semVerGt": "1.0.0-alpha",
+          "$semVerLt": "1.0.0-beta"
+        }
+      },
+      {
+        "v": "1.0.0-alpha"
+      },
+      false
+    ],
+    [
+      "$semVerGt/$semVerLt prerelease  w/ multiple fields - fail $semVerGt",
+      {
+        "v": {
+          "$semVerGt": "1.0.0-alpha.2",
+          "$semVerLt": "1.0.0-beta.1"
+        }
+      },
+      {
+        "v": "1.0.0-alpha.1"
+      },
+      false
+    ],
+    [
+      "$semVerGt/$semVerLt prerelease - fail $semVerLt",
+      {
+        "v": {
+          "$semVerGt": "1.0.0-alpha",
+          "$semVerLt": "1.0.0-beta"
+        }
+      },
+      {
+        "v": "1.0.0-beta"
+      },
+      false
+    ],
+    [
+      "$semVerGt/$semVerLt prerelease - pass",
+      {
+        "v": {
+          "$semVerGt": "1.0.0-alpha",
+          "$semVerLt": "1.0.0-beta"
+        }
+      },
+      {
+        "v": "1.0.0-alpha.10"
+      },
+      true
+    ],
+    [
+      "$semVerGt/$semVerLt prerelease - fail uppercase",
+      {
+        "v": {
+          "$semVerGt": "1.0.0-alpha",
+          "$semVerLt": "1.0.0-beta"
+        }
+      },
+      {
+        "v": "1.0.0-ALPHA"
+      },
+      false
+    ],
+    [
+      "$semVeEq - pass",
+      {
+        "v": {
+          "$semVerEq": "1.2.3"
+        }
+      },
+      {
+        "v": "1.2.3"
+      },
+      true
+    ],
+    [
+      "$semVeEq - pass (with build)",
+      {
+        "v": {
+          "$semVerEq": "1.2.3"
+        }
+      },
+      {
+        "v": "1.2.3+build.abc.123"
+      },
+      true
+    ],
+    [
+      "$semVeNeq - pass",
+      {
+        "v": {
+          "$semVerNeq": "1.2.3"
+        }
+      },
+      {
+        "v": "2.2.3"
+      },
+      true
+    ],
+    [
+      "$semVeNeq - pass (prerelease)",
+      {
+        "v": {
+          "$semVerNeq": "1.2.3"
+        }
+      },
+      {
+        "v": "1.2.3-alpha"
+      },
+      true
     ]
   ],
   "semver": {
