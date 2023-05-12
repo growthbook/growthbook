@@ -33,25 +33,25 @@ export default function ResultsDownloadButton({
   trackingKey,
   dimension,
 }: {
-  results?: ExperimentReportResultDimension[];
-  metrics: string[];
-  variations: ExperimentReportVariation[];
-  trackingKey: string;
-  dimension: string;
+  results: ExperimentReportResultDimension[];
+  metrics?: string[];
+  variations?: ExperimentReportVariation[];
+  trackingKey?: string;
+  dimension?: string;
 }) {
   const { getMetricById, getDimensionById, ready } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
 
-  const dimensionName =
-    getDimensionById(dimension)?.name ||
-    dimension?.split(":")?.[1] ||
-    dimension ||
-    null;
+  const dimensionName = dimension
+    ? getDimensionById(dimension)?.name ||
+      dimension?.split(":")?.[1] ||
+      dimension
+    : null;
 
   const getRows = () => {
     const csvRows: CsvRow[] = [];
 
-    if (!results || !variations || !ready) return [];
+    if (!variations || !ready) return [];
 
     const resultsCopy = [...results];
 
@@ -61,13 +61,12 @@ export default function ResultsDownloadButton({
     }
 
     resultsCopy.forEach((result) => {
-      metrics.forEach((m) => {
+      metrics?.forEach((m) => {
         result.variations.forEach((variation, index) => {
           const metric = getMetricById(m);
+          if (!metric) return;
           const row: ExperimentTableRow = {
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-            label: metric?.name,
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MetricInterface | null' is not assignable to... Remove this comment to see the full error message
+            label: metric.name,
             metric: metric,
             rowClass: metric?.inverse ? "inverse" : "",
             variations: result.variations.map((v) => {
@@ -75,7 +74,7 @@ export default function ResultsDownloadButton({
             }),
           };
           const stats = variation.metrics[m];
-          if (!stats) return [];
+          if (!stats) return;
           const { relativeRisk } = getRisk(index, row, metricDefaults);
           csvRows.push({
             ...(dimensionName && { [dimensionName]: result.name }),
@@ -85,8 +84,7 @@ export default function ResultsDownloadButton({
             users: stats.users,
             totalValue: stats.value,
             perUserValue: stats.cr,
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-            perUserValueStdDev: stats.stats.stddev || null,
+            perUserValueStdDev: stats.stats?.stddev || null,
             chanceToBeatControl: stats.chanceToWin ?? null,
             percentChange: stats.expected || null,
             percentChangePValue: stats.pValue ?? null,
