@@ -92,7 +92,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     defaultValues: {
       visualEditorEnabled: false,
       pastExperimentsMinLength: 6,
-      metricAnalysisDays: 90,
+      metricAnalysisDays: 90, // should we use DEFAULT_METRIC_ANALYSIS_DAYS here?
       // customization:
       customized: false,
       logoPath: "",
@@ -310,6 +310,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
       : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       value.regressionAdjustmentDays < 7
       ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
+      : "";
+
+  const metricAnalysisDaysWarningMsg =
+    value.metricAnalysisDays && value.metricAnalysisDays > 365
+      ? "Using more historical data will slow down metric analysis queries"
       : "";
 
   if (!permissions.organizationSettings) {
@@ -987,21 +992,30 @@ const GeneralSettingsPage = (): React.ReactElement => {
               <div className="col-sm-9">
                 <div className="form-inline">
                   <Field
-                    label="Amount of historical data to include when analyzing metrics"
+                    label="Amount of historical data to use on metric analysis page"
+                    type="number"
                     append="days"
                     className="ml-2"
-                    containerClassName="mb-3"
+                    containerClassName="mb-0"
                     disabled={hasFileConfig()}
-                    options={[7, 14, 30, 90, 180, 365]}
                     {...form.register("metricAnalysisDays", {
                       valueAsNumber: true,
                     })}
                   />
+                  {metricAnalysisDaysWarningMsg && (
+                    <small
+                      style={{
+                        color: "#e27202",
+                      }}
+                    >
+                      {metricAnalysisDaysWarningMsg}
+                    </small>
+                  )}
                 </div>
 
                 {/* region Metrics Behavior Defaults */}
                 <>
-                  <h5 className="mt-3">Metrics Behavior Defaults</h5>
+                  <h5 className="mt-4">Metrics Behavior Defaults</h5>
                   <p>
                     These are the pre-configured default values that will be
                     used when configuring metrics. You can always change these
