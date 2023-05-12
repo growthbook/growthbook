@@ -346,6 +346,7 @@ app.get(
   metricsController.getMetricAnalysisStatus
 );
 app.post("/metric/:id/analysis/cancel", metricsController.cancelMetricAnalysis);
+app.get("/metrics/generate/:dataSourceId", metricsController.getAutoMetrics);
 
 // Experiments
 app.get("/experiments", experimentsController.getExperiments);

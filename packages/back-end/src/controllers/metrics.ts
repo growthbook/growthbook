@@ -31,6 +31,7 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { getSourceIntegrationObject } from "../services/datasource";
 
 export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,
@@ -457,4 +458,61 @@ export async function putMetric(
       ...updates,
     }),
   });
+}
+
+export async function getAutoMetrics(
+  req: AuthRequest<null, { dataSourceId: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { dataSourceId } = req.params;
+
+  const dataSourceObj = await getDataSourceById(dataSourceId, org.id);
+  if (!dataSourceObj) {
+    res.status(403).json({
+      status: 403,
+      message: "Invalid data source: " + dataSourceId,
+    });
+    return;
+  }
+
+  req.checkPermissions(
+    "createMetrics",
+    dataSourceObj.projects?.length ? dataSourceObj.projects : ""
+  );
+
+  const integration = getSourceIntegrationObject(dataSourceObj);
+
+  if (!integration.getTrackedEvents) {
+    //TODO: Is this the correct error code?
+    res.status(403).json({
+      status: 403,
+      message: "This datasource does not support automatic metric generation.",
+    });
+    return;
+  }
+
+  try {
+    const results = await integration.getTrackedEvents();
+
+    if (results.length) {
+      return res.status(200).json({
+        status: 200,
+        results,
+      });
+    } else {
+      return res.status(200).json({
+        status: 200,
+        results,
+        message: "No events found.",
+      });
+    }
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      results: [],
+      message: e.message,
+    });
+    return;
+  }
 }

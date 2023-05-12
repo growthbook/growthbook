@@ -292,4 +292,7 @@ export interface SourceIntegrationInterface {
     query: string
   ): Promise<ExperimentMetricQueryResponse>;
   runPastExperimentQuery(query: string): Promise<PastExperimentResponse>;
+  getTrackedEvents?: () => Promise<
+    { event: string; hasUserId: boolean; createForUser: boolean }[]
+  >;
 }

@@ -6,6 +6,7 @@ import addMetricUpdateJob from "../jobs/updateMetrics";
 import addProxyUpdateJob from "../jobs/proxyUpdate";
 import createInformationSchemaJob from "../jobs/createInformationSchema";
 import updateInformationSchemaJob from "../jobs/updateInformationSchema";
+import createAutomaticMetrics from "../jobs/createAutomaticMetrics";
 import { CRON_ENABLED } from "../util/secrets";
 import { getAgendaInstance } from "../services/queueing";
 import updateStaleInformationSchemaTable from "../jobs/updateStaleInformationSchemaTable";
@@ -23,6 +24,7 @@ export async function queueInit() {
   addProxyUpdateJob(agenda);
   createInformationSchemaJob(agenda);
   updateInformationSchemaJob(agenda);
+  createAutomaticMetrics(agenda);
   updateStaleInformationSchemaTable(agenda);
 
   await agenda.start();

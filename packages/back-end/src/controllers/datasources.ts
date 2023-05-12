@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { Response } from "express";
 import uniqid from "uniqid";
 import {
@@ -44,6 +45,7 @@ import {
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { deleteInformationSchemaById } from "../models/InformationSchemaModel";
 import { deleteInformationSchemaTablesByInformationSchemaId } from "../models/InformationSchemaTablesModel";
+import { queueCreateAutomaticMetrics } from "../jobs/createAutomaticMetrics";
 
 export async function postSampleData(
   req: AuthRequest,
@@ -418,6 +420,11 @@ export async function putDataSource(
       params: DataSourceParams;
       settings: DataSourceSettings;
       projects?: string[];
+      metricsToCreate?: {
+        event: string;
+        hasUserId: boolean;
+        createForUser: boolean;
+      }[];
     },
     { id: string }
   >,
@@ -425,7 +432,18 @@ export async function putDataSource(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const { name, description, type, params, settings, projects } = req.body;
+  const {
+    name,
+    description,
+    type,
+    params,
+    settings,
+    projects,
+    metricsToCreate,
+  } = req.body;
+
+  console.log("made it to the putDataSource method");
+  console.log("metricsToCreate", metricsToCreate);
 
   const datasource = await getDataSourceById(id, org.id);
   if (!datasource) {
@@ -451,6 +469,10 @@ export async function putDataSource(
         "Cannot change the type of an existing data source. Create a new one instead.",
     });
     return;
+  }
+
+  if (metricsToCreate?.length) {
+    await queueCreateAutomaticMetrics(datasource.id, org.id, metricsToCreate);
   }
 
   try {

@@ -5,8 +5,12 @@ import {
   ChangeEventHandler,
   ReactElement,
 } from "react";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  DataSourceSettings,
+} from "back-end/types/datasource";
 import { useForm } from "react-hook-form";
+import { cloneDeep } from "lodash";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getInitialSettings } from "@/services/datasources";
@@ -22,6 +26,8 @@ import SelectField from "../Forms/SelectField";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { GBCircleArrowLeft } from "../Icons";
+import Button from "../Button";
+import Toggle from "../Forms/Toggle";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 
@@ -50,9 +56,17 @@ const NewDataSourceForm: FC<{
   const [dataSourceId, setDataSourceId] = useState<string | null>(
     data?.id || null
   );
+  const [autoMetricError, setAutoMetricError] = useState("");
   const [possibleTypes, setPossibleTypes] = useState(
     dataSourceConnections.map((d) => d.type)
   );
+  const [metricsToCreate, setMetricsToCreate] = useState<
+    {
+      event: string;
+      hasUserId: boolean;
+      createForUser: boolean;
+    }[]
+  >([]);
 
   const permissions = usePermissions();
 
@@ -64,9 +78,18 @@ const NewDataSourceForm: FC<{
     name: "My Datasource",
     settings: {},
   };
-  const form = useForm({
+
+  const form = useForm<{
+    settings: DataSourceSettings | undefined;
+    metricsToCreate: {
+      event: string;
+      hasUserId: boolean;
+      createForUser: boolean;
+    }[];
+  }>({
     defaultValues: {
       settings: data?.settings || DEFAULT_DATA_SOURCE.settings,
+      metricsToCreate: [],
     },
   });
   const schemasMap = new Map();
@@ -87,6 +110,10 @@ const NewDataSourceForm: FC<{
       newDatasourceForm: true,
     });
   }, [source]);
+
+  useEffect(() => {
+    form.setValue("metricsToCreate", metricsToCreate);
+  }, [form, metricsToCreate]);
 
   const { apiCall } = useAuth();
 
@@ -178,9 +205,11 @@ const NewDataSourceForm: FC<{
     if (!dataSourceId) {
       throw new Error("Could not find existing data source id");
     }
+
     const newVal = {
       ...datasource,
       settings,
+      metricsToCreate,
     };
     setDatasource(newVal as Partial<DataSourceInterfaceWithParams>);
     await apiCall<{ status: number; message: string }>(
@@ -212,6 +241,11 @@ const NewDataSourceForm: FC<{
       [name]: value,
     });
   };
+
+  const metricsToCreateForUser = form.watch("metricsToCreate");
+
+  console.log("form.watch('metricsToCreate')", form.watch("metricsToCreate"));
+  console.log("metricsToCreateForUser", metricsToCreateForUser);
 
   const setSchemaSettings = (s: eventSchema) => {
     setSchema(s.value);
@@ -500,6 +534,80 @@ const NewDataSourceForm: FC<{
               />
             </div>
           ))}
+          {schemasMap.get(schema)?.label === "Segment" && (
+            <div className="form-group">
+              <h3>Metric Options</h3>
+              {metricsToCreate.length === 0 ? (
+                <div className="alert alert-info d-flex justify-content-between align-items-center">
+                  <div className="pr-4">
+                    With Segment, we may be able to generate metrics for you
+                    automatically,{" "}
+                    <strong>
+                      saving you and your team valuable time. (It&apos;s Free)
+                    </strong>
+                  </div>
+                  <div>
+                    <Button
+                      onClick={async () => {
+                        setAutoMetricError("");
+                        try {
+                          const res = await apiCall<{
+                            results: {
+                              event: string;
+                              hasUserId: boolean;
+                              createForUser: boolean;
+                            }[];
+                            message?: string;
+                          }>(`/metrics/generate/${dataSourceId}`, {
+                            method: "GET",
+                          });
+                          if (res.message) {
+                            setAutoMetricError(res.message);
+                            return;
+                          }
+                          setMetricsToCreate(res.results);
+                        } catch (e) {
+                          setAutoMetricError(e.message);
+                        }
+                      }}
+                      color="outline-primary"
+                    >
+                      Generate Metrics
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p>
+                    These are the metrics we&apos;ve found that we can generate
+                    for you automatically. Once created, you can always edit
+                    these if you need to.
+                  </p>
+                  {metricsToCreate.map((metric, i) => {
+                    return (
+                      <>
+                        <Toggle
+                          value={metric.createForUser}
+                          id={`${metric}-${i}`}
+                          setValue={(value) => {
+                            const newMetricsToCreate = cloneDeep(
+                              metricsToCreate
+                            );
+                            newMetricsToCreate[i].createForUser = value;
+                            setMetricsToCreate(newMetricsToCreate);
+                          }}
+                        />
+                        <label className="ml-2">{metric.event}</label>
+                      </>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+          {autoMetricError && (
+            <div className="alert alert-danger">{autoMetricError}</div>
+          )}
         </div>
       </div>
     );

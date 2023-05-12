@@ -1288,6 +1288,32 @@ export default abstract class SqlIntegration
     return { tableData };
   }
 
+  getTrackedEventsFromClause(): string {
+    return "TODO";
+  }
+
+  async getTrackedEvents(): Promise<
+    { event: string; hasUserId: boolean; createForUser: boolean }[]
+  > {
+    const sql = `
+      SELECT
+        event,
+        (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId
+      FROM
+        ${this.getTrackedEventsFromClause()}
+      GROUP BY event`;
+
+    const results = await this.runQuery(format(sql, this.getFormatDialect()));
+
+    results.forEach((result) => (result.createForUser = true));
+
+    if (!results) {
+      throw new Error(`No events found.`);
+    }
+
+    return results;
+  }
+
   private getMetricQueryFormat(metric: MetricInterface) {
     return metric.queryFormat || (metric.sql ? "sql" : "builder");
   }

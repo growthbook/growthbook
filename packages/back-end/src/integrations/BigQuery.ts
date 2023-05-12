@@ -99,4 +99,15 @@ export default class BigQuery extends SqlIntegration {
   ): string {
     return `\`${databaseName}.${tableSchema}.INFORMATION_SCHEMA.COLUMNS\``;
   }
+  getTrackedEventsFromClause(): string {
+    if (!this.params.projectId)
+      throw new Error(
+        "No projectId provided. In order to get the information schema, you must provide a projectId."
+      );
+    if (!this.params.defaultDataset)
+      throw new MissingDatasourceParamsError(
+        "To view the information schema for a BigQuery dataset, you must define a default dataset. Please add a default dataset by editing the datasource's connection settings."
+      );
+    return `\`${this.params.projectId}.${this.params.defaultDataset}.tracks\``;
+  }
 }
