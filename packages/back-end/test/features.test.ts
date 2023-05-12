@@ -10,6 +10,8 @@ import {
 } from "../src/util/features";
 import { getCurrentEnabledState } from "../src/util/scheduleRules";
 import { FeatureInterface, ScheduleRule } from "../types/feature";
+import { applyRuleHashing } from "../src/services/features";
+import { SDKAttributeSchema } from "../types/organization";
 
 const groupMap = new Map();
 
@@ -189,6 +191,122 @@ describe("replaceSavedGroupsInCondition", () => {
     expect(replaceSavedGroupsInCondition(rawCondition, groupMap)).toEqual(
       '{"number":{"$inGroup":false}}'
     );
+  });
+});
+
+describe("Hashing secureString types", () => {
+  const attributes: SDKAttributeSchema = [
+    { property: "id", datatype: "secureString" },
+    { property: "company", datatype: "string" },
+    { property: "ids", datatype: "secureString[]" },
+    { property: "email", datatype: "string" },
+    { property: "whatever", datatype: "number" },
+  ];
+
+  const secureAttributeSalt = "fa37ffz";
+
+  it("should selectively hash secureString types for simple conditions", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let condition: any = {
+      ids: {
+        $elemMatch: {
+          $eq: "5",
+        },
+      },
+      id: {
+        $in: ["3", "5", "10"],
+        $ne: "5",
+      },
+      company: "AcmeCo",
+    };
+
+    condition = applyRuleHashing(condition, attributes, secureAttributeSalt);
+
+    expect(condition).toEqual({
+      ids: {
+        $elemMatch: {
+          $eq:
+            "48ff6c0bf923440d1625c91e68c12765e234ef155db9b6fca8c4d251ec3f2b3e",
+        },
+      },
+      id: {
+        $in: [
+          "de43f1284b87a9af744f9b4f5a817c543c2e1c2da44590fa88a7e52824ec86de",
+          "48ff6c0bf923440d1625c91e68c12765e234ef155db9b6fca8c4d251ec3f2b3e",
+          "fedc9257d3c0abd53d1a674dd28d1f63c052611de5f1a7a34f872a5f12b4fab6",
+        ],
+        $ne: "48ff6c0bf923440d1625c91e68c12765e234ef155db9b6fca8c4d251ec3f2b3e",
+      },
+      company: "AcmeCo",
+    });
+  });
+
+  it("should selectively match secureString types for advanced nested conditions", () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let condition: any = {
+      $or: [
+        {
+          $and: [
+            {
+              $not: {
+                email: "test@example.com",
+              },
+            },
+            {
+              $not: {
+                id: "4",
+              },
+            },
+          ],
+        },
+        {
+          id: {
+            $in: ["3"],
+          },
+        },
+        {
+          company: "AcmeCo",
+        },
+        {
+          whatever: "1",
+        },
+      ],
+    };
+
+    condition = applyRuleHashing(condition, attributes, secureAttributeSalt);
+
+    expect(condition).toEqual({
+      $or: [
+        {
+          $and: [
+            {
+              $not: {
+                email: "test@example.com",
+              },
+            },
+            {
+              $not: {
+                id:
+                  "c8ebf9fda4f430ba8deafada71fa859b64f266ca7348e81bbbc23666719a9fd6",
+              },
+            },
+          ],
+        },
+        {
+          id: {
+            $in: [
+              "de43f1284b87a9af744f9b4f5a817c543c2e1c2da44590fa88a7e52824ec86de",
+            ],
+          },
+        },
+        {
+          company: "AcmeCo",
+        },
+        {
+          whatever: "1",
+        },
+      ],
+    });
   });
 });
 

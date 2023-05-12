@@ -657,7 +657,6 @@ interface hashStringsArgs {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   obj: any;
   salt: string;
-  attributes: SDKAttributeSchema;
   attribute?: SDKAttribute;
   doHash?: boolean;
 }
@@ -667,7 +666,9 @@ function hashStrings({
   attributes,
   attribute,
   doHash = false,
-}: hashStringsArgs): // eslint-disable-next-line @typescript-eslint/no-explicit-any
+}: hashStringsArgs & {
+  attributes: SDKAttributeSchema;
+}): // eslint-disable-next-line @typescript-eslint/no-explicit-any
 any {
   if (Array.isArray(obj)) {
     // parse array
@@ -676,7 +677,6 @@ any {
       newObj[i] = processVal({
         obj: obj[i],
         salt,
-        attributes,
         attribute,
         doHash,
       });
@@ -702,7 +702,6 @@ any {
       newObj[key] = processVal({
         obj: obj[key],
         salt,
-        attributes,
         attribute,
         doHash,
       });
@@ -715,7 +714,6 @@ any {
   function processVal({
     obj,
     salt,
-    attributes,
     attribute,
     doHash = false,
   }: hashStringsArgs): // eslint-disable-next-line @typescript-eslint/no-explicit-any
