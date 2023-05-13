@@ -51,6 +51,11 @@ export const postSDKConnection = async (
     encryptPayload = params.encryptPayload;
   }
 
+  let hashSecureAttributes = false;
+  if (orgHasPremiumFeature(org, "hash-secure-attributes")) {
+    hashSecureAttributes = params.hashSecureAttributes;
+  }
+
   let sseEnabled = false;
   if (orgHasPremiumFeature(org, "cloud-proxy")) {
     sseEnabled = params.sseEnabled || false;
@@ -59,6 +64,7 @@ export const postSDKConnection = async (
   const doc = await createSDKConnection({
     ...params,
     encryptPayload,
+    hashSecureAttributes,
     sseEnabled,
     organization: org.id,
   });
@@ -98,6 +104,12 @@ export const putSDKConnection = async (
     encryptPayload = false;
   }
 
+  let hashSecureAttributes = false;
+  if (orgHasPremiumFeature(org, "hash-secure-attributes")) {
+    hashSecureAttributes = req.body.hashSecureAttributes || false;
+  }
+
+
   let sseEnabled = false;
   if (orgHasPremiumFeature(org, "cloud-proxy")) {
     sseEnabled = req.body.sseEnabled || false;
@@ -106,6 +118,7 @@ export const putSDKConnection = async (
   await editSDKConnection(connection, {
     ...req.body,
     encryptPayload,
+    hashSecureAttributes,
     sseEnabled,
   });
 

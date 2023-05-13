@@ -4,7 +4,7 @@ import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
-import { FeatureDefinition } from "../../types/api";
+import { FeatureDefinition, FeatureDefinitionRule } from "../../types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -33,6 +33,7 @@ import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
+import { orgHasPremiumFeature } from "../util/organization.util";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -41,14 +42,10 @@ function generatePayload({
   features,
   environment,
   groupMap,
-  attributes = [],
-  secureAttributeSalt = "",
 }: {
   features: FeatureInterface[];
   environment: string;
   groupMap: GroupMap;
-  attributes?: SDKAttributeSchema;
-  secureAttributeSalt?: string;
 }): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
   features.forEach((feature) => {
@@ -56,9 +53,6 @@ function generatePayload({
       feature,
       environment,
       groupMap,
-      hashSecureAttributeRules: true,
-      attributes,
-      secureAttributeSalt,
     });
     if (def) {
       defs[feature.id] = def;
@@ -77,16 +71,10 @@ function generateVisualExperimentsPayload({
   visualExperiments,
   // environment,
   groupMap,
-  hashSecureAttributeRules = false,
-  attributes = [],
-  secureAttributeSalt = "",
 }: {
   visualExperiments: Array<VisualExperiment>;
   // environment: string,
   groupMap: GroupMap;
-  hashSecureAttributeRules?: boolean;
-  attributes?: SDKAttributeSchema;
-  secureAttributeSalt?: string;
 }): SDKExperiment[] {
   const isValidSDKExperiment = (e: SDKExperiment | null): e is SDKExperiment =>
     !!e;
@@ -101,15 +89,9 @@ function generateVisualExperimentsPayload({
       let condition;
       if (phase?.condition && phase.condition !== "{}") {
         try {
-          condition = replaceSavedGroupsInCondition(phase.condition, groupMap);
-          condition = JSON.parse(condition);
-          if (hashSecureAttributeRules) {
-            condition = applyRuleHashing(
-              condition,
-              attributes,
-              secureAttributeSalt
-            );
-          }
+          condition = JSON.parse(
+            replaceSavedGroupsInCondition(phase.condition, groupMap)
+          );
         } catch (e) {
           // ignore condition parse errors here
         }
@@ -225,24 +207,16 @@ export async function refreshSDKPayloadCache(
 
     if (!projectFeatures.length && !projectExperiments.length) continue;
 
-    const attributes = organization.settings?.attributeSchema;
-    const secureAttributeSalt = organization.settings?.secureAttributeSalt;
-
     const featureDefinitions = generatePayload({
       features: projectFeatures,
       environment: key.environment,
       groupMap,
-      attributes,
-      secureAttributeSalt,
     });
 
     const experimentsDefinitions = generateVisualExperimentsPayload({
       visualExperiments: projectExperiments,
       // environment: key.environment,
       groupMap,
-      hashSecureAttributeRules: true,
-      attributes,
-      secureAttributeSalt,
     });
 
     promises.push(async () => {
@@ -279,8 +253,9 @@ export type FeatureDefinitionsResponseArgs = {
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  attributes?: SDKAttributeSchema;
+  secureAttributeSalt?: string;
 };
-
 async function getFeatureDefinitionsResponse({
   features,
   experiments,
@@ -289,6 +264,8 @@ async function getFeatureDefinitionsResponse({
   includeVisualExperiments,
   includeDraftExperiments,
   includeExperimentNames,
+  attributes,
+  secureAttributeSalt,
 }: FeatureDefinitionsResponseArgs) {
   if (!includeDraftExperiments) {
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
@@ -302,6 +279,18 @@ async function getFeatureDefinitionsResponse({
         meta: exp.meta ? exp.meta.map((m) => omit(m, ["name"])) : undefined,
       };
     });
+  }
+
+  if (attributes && secureAttributeSalt !== undefined) {
+    features = applyFeatureHashing(features, attributes, secureAttributeSalt);
+
+    if (experiments) {
+      experiments = applyExperimentHashing(
+        experiments,
+        attributes,
+        secureAttributeSalt
+      );
+    }
   }
 
   if (!encryptionKey) {
@@ -337,6 +326,7 @@ export type FeatureDefinitionArgs = {
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  hashSecureAttributes?: boolean;
 };
 
 export async function getFeatureDefinitions({
@@ -347,6 +337,7 @@ export async function getFeatureDefinitions({
   includeVisualExperiments,
   includeDraftExperiments,
   includeExperimentNames,
+  hashSecureAttributes,
 }: FeatureDefinitionArgs): Promise<{
   features: Record<string, FeatureDefinition>;
   experiments?: SDKExperiment[];
@@ -362,6 +353,15 @@ export async function getFeatureDefinitions({
       project: project || "",
     });
     if (cached) {
+      let attributes: SDKAttributeSchema | undefined = undefined;
+      let secureAttributeSalt: string | undefined = undefined;
+      if (hashSecureAttributes) {
+        const org = await getOrganizationById(organization);
+        if (org && orgHasPremiumFeature(org, "hash-secure-attributes")) {
+          secureAttributeSalt = org.settings?.secureAttributeSalt;
+          attributes = org.settings?.attributeSchema;
+        }
+      }
       const { features, experiments } = cached.contents;
       return await getFeatureDefinitionsResponse({
         features,
@@ -371,6 +371,8 @@ export async function getFeatureDefinitions({
         includeVisualExperiments,
         includeDraftExperiments,
         includeExperimentNames,
+        attributes,
+        secureAttributeSalt,
       });
     }
   } catch (e) {
@@ -378,6 +380,14 @@ export async function getFeatureDefinitions({
   }
 
   const org = await getOrganizationById(organization);
+  let attributes: SDKAttributeSchema | undefined = undefined;
+  let secureAttributeSalt: string | undefined = undefined;
+  if (hashSecureAttributes) {
+    if (org && orgHasPremiumFeature(org, "hash-secure-attributes")) {
+      secureAttributeSalt = org?.settings?.secureAttributeSalt;
+      attributes = org.settings?.attributeSchema;
+    }
+  }
   if (!org) {
     return await getFeatureDefinitionsResponse({
       features: {},
@@ -387,21 +397,19 @@ export async function getFeatureDefinitions({
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      attributes,
+      secureAttributeSalt,
     });
   }
 
   // Generate the feature definitions
   const features = await getAllFeatures(organization, project);
   const groupMap = await getSavedGroupMap(org);
-  const attributes = org.settings?.attributeSchema;
-  const secureAttributeSalt = org.settings?.secureAttributeSalt;
 
   const featureDefinitions = generatePayload({
     features,
     environment,
     groupMap,
-    attributes,
-    secureAttributeSalt,
   });
 
   const allVisualExperiments = await getAllVisualExperiments(
@@ -414,9 +422,6 @@ export async function getFeatureDefinitions({
     visualExperiments: allVisualExperiments,
     // environment: key.environment,
     groupMap,
-    hashSecureAttributeRules: true,
-    attributes,
-    secureAttributeSalt,
   });
 
   // Cache in Mongo
@@ -436,6 +441,8 @@ export async function getFeatureDefinitions({
     includeVisualExperiments,
     includeDraftExperiments,
     includeExperimentNames,
+    attributes,
+    secureAttributeSalt,
   });
 }
 
@@ -644,13 +651,56 @@ export function getNextScheduledUpdate(
   return new Date(sortedFutureDates[0]);
 }
 
-export function applyRuleHashing(
+export function applyFeatureHashing(
+  features: Record<string, FeatureDefinition>,
+  attributes: SDKAttributeSchema,
+  salt: string
+): Record<string, FeatureDefinition> {
+  let newFeatures = cloneDeep(features);
+  newFeatures = Object.keys(newFeatures).reduce<
+    Record<string, FeatureDefinition>
+  >((acc, key) => {
+    const feature = newFeatures[key];
+    if (feature?.rules) {
+      feature.rules = feature.rules.map<FeatureDefinitionRule>((rule) => {
+        if (rule?.condition) {
+          rule.condition = applyRuleHashing(rule.condition, attributes, salt);
+        }
+        return rule;
+      });
+    }
+    acc[key] = feature;
+    return acc;
+  }, {});
+  return newFeatures;
+}
+
+export function applyExperimentHashing(
+  experiments: SDKExperiment[],
+  attributes: SDKAttributeSchema,
+  salt: string
+): SDKExperiment[] {
+  let newExperiments = cloneDeep(experiments);
+  newExperiments = newExperiments.map((experiment) => {
+    if (experiment?.condition) {
+      experiment.condition = applyRuleHashing(
+        experiment.condition,
+        attributes,
+        salt
+      );
+    }
+    return experiment;
+  });
+  return newExperiments;
+}
+
+function applyRuleHashing(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   condition: any,
   attributes: SDKAttributeSchema,
   salt: string
-): FeatureDefinition {
-  return hashStrings({ obj: cloneDeep(condition), salt, attributes });
+) {
+  return hashStrings({ obj: condition, salt, attributes });
 }
 
 interface hashStringsArgs {

@@ -7,8 +7,6 @@ import {
 import { FeatureDefinition, FeatureDefinitionRule } from "../../types/api";
 import { GroupMap } from "../../types/saved-group";
 import { SDKPayloadKey } from "../../types/sdk-payload";
-import { applyRuleHashing } from "../services/features";
-import { SDKAttributeSchema } from "../../types/organization";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 export function replaceSavedGroupsInCondition(
@@ -184,17 +182,11 @@ export function getFeatureDefinition({
   environment,
   groupMap,
   useDraft = false,
-  hashSecureAttributeRules = false,
-  attributes = [],
-  secureAttributeSalt = "",
 }: {
   feature: FeatureInterface;
   environment: string;
   groupMap: GroupMap;
   useDraft?: boolean;
-  hashSecureAttributeRules?: boolean;
-  attributes?: SDKAttributeSchema;
-  secureAttributeSalt?: string;
 }): FeatureDefinition | null {
   const settings = feature.environmentSettings?.[environment];
 
@@ -223,17 +215,9 @@ export function getFeatureDefinition({
         const rule: FeatureDefinitionRule = {};
         if (r.condition && r.condition !== "{}") {
           try {
-            let condition;
-            condition = replaceSavedGroupsInCondition(r.condition, groupMap);
-            condition = JSON.parse(condition);
-            if (hashSecureAttributeRules) {
-              condition = applyRuleHashing(
-                condition,
-                attributes,
-                secureAttributeSalt
-              );
-            }
-            rule.condition = condition;
+            rule.condition = JSON.parse(
+              replaceSavedGroupsInCondition(r.condition, groupMap)
+            );
           } catch (e) {
             // ignore condition parse errors here
           }

@@ -125,6 +125,18 @@ export default function SDKConnectionsList() {
                   )}
                   <td>{connection.environment}</td>
                   <td className="text-center">
+                    {connection.hashSecureAttributes && (
+                      <Tooltip
+                        body={
+                          <>
+                            <strong>Secure Attribute Hashing</strong> is enabled for this
+                            connection&apos;s SDK payload
+                          </>
+                        }
+                      >
+                        <FaLock className="mx-1 text-warning-orange" />
+                      </Tooltip>
+                    )}
                     {connection.encryptPayload && (
                       <Tooltip
                         body={

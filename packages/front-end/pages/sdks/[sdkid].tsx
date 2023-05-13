@@ -262,6 +262,14 @@ export default function SDKConnectionPage() {
           </div>
         )}
 
+        {connection.hashSecureAttributes && (
+          <div className="col-auto">
+            Secure Attribute Hashing:{" "}
+            <strong>
+              <FaLock className="text-warning-orange" /> yes
+            </strong>
+          </div>
+        )}
         {connection.encryptPayload && (
           <div className="col-auto">
             Encrypted:{" "}

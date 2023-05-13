@@ -4,7 +4,7 @@ import {
   SDKLanguage,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
@@ -25,6 +25,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import SDKLanguageLogo, { languageMapping } from "./SDKLanguageLogo";
+import { DocLink } from "@/components/DocLink";
 
 export default function SDKConnectionForm({
   initialValue = {},
@@ -62,6 +63,7 @@ export default function SDKConnectionForm({
       environment: initialValue.environment || environments[0]?.id || "",
       project: "project" in initialValue ? initialValue.project : project || "",
       encryptPayload: initialValue.encryptPayload || false,
+      hashSecureAttributes: initialValue.hashSecureAttributes || false,
       includeVisualExperiments: initialValue.includeVisualExperiments || false,
       includeDraftExperiments: initialValue.includeDraftExperiments || false,
       includeExperimentNames: initialValue.includeExperimentNames || false,
@@ -149,6 +151,7 @@ export default function SDKConnectionForm({
           track("Create SDK Connection", {
             languages: value.languages,
             encryptPayload: value.encryptPayload,
+            hashSecureAttributes: value.hashSecureAttributes,
             proxyEnabled: value.proxyEnabled,
           });
           const res = await apiCall<{ connection: SDKConnectionInterface }>(
@@ -421,6 +424,31 @@ export default function SDKConnectionForm({
           )}
         </>
       )}
+
+      <div className="form-group mt-4">
+        <label htmlFor="hash-secure-attributes">
+          <PremiumTooltip commercialFeature="encrypt-features-endpoint">
+            Hash secure attributes?
+          </PremiumTooltip>
+        </label>
+        <div className="row mb-4">
+          <div className="col-md-3">
+            <Toggle
+              id="hash-secure-attributes"
+              value={form.watch("hashSecureAttributes")}
+              setValue={(val) => form.setValue("hashSecureAttributes", val)}
+              disabled={!hasCloudProxyFeature}
+            />
+          </div>
+          <div
+            className="col-md-9 text-gray text-right pt-2"
+            style={{ fontSize: 11 }}
+          >
+            Requires changes to your implementation.{" "}
+            <DocLink docSection="hashSecureAttributes">View docs</DocLink>
+          </div>
+        </div>
+      </div>
 
       {languages.length > 0 && !hasSDKsWithoutEncryptionSupport && (
         <EncryptionToggle

@@ -33,7 +33,7 @@ export default function EncryptionToggle({
           </PremiumTooltip>
         </label>
         <div className="row mb-4">
-          <div className="col-md-3 mt-1">
+          <div className="col-md-3">
             <Toggle
               id={"encryptSDK"}
               value={!!value}
