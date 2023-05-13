@@ -226,16 +226,16 @@ describe("Hashing secureString types", () => {
       ids: {
         $elemMatch: {
           $eq:
-            "48ff6c0bf923440d1625c91e68c12765e234ef155db9b6fca8c4d251ec3f2b3e",
+            "855279ed7f7f86a26b1c9f6a5c827b35728638219b0dae61db6b0578d8e21360",
         },
       },
       id: {
         $in: [
-          "de43f1284b87a9af744f9b4f5a817c543c2e1c2da44590fa88a7e52824ec86de",
-          "48ff6c0bf923440d1625c91e68c12765e234ef155db9b6fca8c4d251ec3f2b3e",
-          "fedc9257d3c0abd53d1a674dd28d1f63c052611de5f1a7a34f872a5f12b4fab6",
+          "5ec1a7686c15f1fef131baea7d59acf29f2623d50dbad079a2685e19158ad494",
+          "855279ed7f7f86a26b1c9f6a5c827b35728638219b0dae61db6b0578d8e21360",
+          "cfec6b2485875c0172509320a1076d9d91cc9fd7fb70ed4d2d4c62d29b1a9ce3",
         ],
-        $ne: "48ff6c0bf923440d1625c91e68c12765e234ef155db9b6fca8c4d251ec3f2b3e",
+        $ne: "855279ed7f7f86a26b1c9f6a5c827b35728638219b0dae61db6b0578d8e21360",
       },
       company: "AcmeCo",
     });
@@ -287,7 +287,7 @@ describe("Hashing secureString types", () => {
             {
               $not: {
                 id:
-                  "c8ebf9fda4f430ba8deafada71fa859b64f266ca7348e81bbbc23666719a9fd6",
+                  "29532748527922fa2c4b8b02388d1fe3dedc42c86ba021265cfc693c622c0ad3",
               },
             },
           ],
@@ -295,7 +295,7 @@ describe("Hashing secureString types", () => {
         {
           id: {
             $in: [
-              "de43f1284b87a9af744f9b4f5a817c543c2e1c2da44590fa88a7e52824ec86de",
+              "5ec1a7686c15f1fef131baea7d59acf29f2623d50dbad079a2685e19158ad494",
             ],
           },
         },

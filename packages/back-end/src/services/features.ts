@@ -1,5 +1,5 @@
 import { webcrypto as crypto } from "node:crypto";
-import { createHmac } from "crypto";
+import { createHash } from "crypto";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
@@ -784,5 +784,7 @@ any {
 }
 
 function sha256(str: string, salt: string): string {
-  return createHmac("sha256", salt).update(str).digest("hex");
+  return createHash("sha256")
+    .update(salt + str)
+    .digest("hex");
 }
