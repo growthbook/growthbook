@@ -694,7 +694,7 @@ export function applyExperimentHashing(
   return newExperiments;
 }
 
-function applyRuleHashing(
+export function applyRuleHashing(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   condition: any,
   attributes: SDKAttributeSchema,
