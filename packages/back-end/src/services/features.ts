@@ -706,7 +706,6 @@ export function applyRuleHashing(
 interface hashStringsArgs {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   obj: any;
-  salt: string;
   attribute?: SDKAttribute;
   doHash?: boolean;
 }
@@ -717,6 +716,7 @@ function hashStrings({
   attribute,
   doHash = false,
 }: hashStringsArgs & {
+  salt: string;
   attributes: SDKAttributeSchema;
 }): // eslint-disable-next-line @typescript-eslint/no-explicit-any
 any {
@@ -726,7 +726,6 @@ any {
     for (let i = 0; i < obj.length; i++) {
       newObj[i] = processVal({
         obj: obj[i],
-        salt,
         attribute,
         doHash,
       });
@@ -751,7 +750,6 @@ any {
 
       newObj[key] = processVal({
         obj: obj[key],
-        salt,
         attribute,
         doHash,
       });
@@ -763,7 +761,6 @@ any {
 
   function processVal({
     obj,
-    salt,
     attribute,
     doHash = false,
   }: hashStringsArgs): // eslint-disable-next-line @typescript-eslint/no-explicit-any
