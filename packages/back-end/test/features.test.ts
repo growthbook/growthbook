@@ -10,7 +10,7 @@ import {
 } from "../src/util/features";
 import { getCurrentEnabledState } from "../src/util/scheduleRules";
 import { FeatureInterface, ScheduleRule } from "../types/feature";
-import { applyRuleHashing } from "../src/services/features";
+import { applyConditionHashing } from "../src/services/features";
 import { SDKAttributeSchema } from "../types/organization";
 
 const groupMap = new Map();
@@ -220,7 +220,11 @@ describe("Hashing secureString types", () => {
       company: "AcmeCo",
     };
 
-    condition = applyRuleHashing(condition, attributes, secureAttributeSalt);
+    condition = applyConditionHashing(
+      condition,
+      attributes,
+      secureAttributeSalt
+    );
 
     expect(condition).toEqual({
       ids: {
@@ -273,7 +277,11 @@ describe("Hashing secureString types", () => {
       ],
     };
 
-    condition = applyRuleHashing(condition, attributes, secureAttributeSalt);
+    condition = applyConditionHashing(
+      condition,
+      attributes,
+      secureAttributeSalt
+    );
 
     expect(condition).toEqual({
       $or: [

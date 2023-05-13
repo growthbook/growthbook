@@ -664,7 +664,11 @@ export function applyFeatureHashing(
     if (feature?.rules) {
       feature.rules = feature.rules.map<FeatureDefinitionRule>((rule) => {
         if (rule?.condition) {
-          rule.condition = applyRuleHashing(rule.condition, attributes, salt);
+          rule.condition = applyConditionHashing(
+            rule.condition,
+            attributes,
+            salt
+          );
         }
         return rule;
       });
@@ -683,7 +687,7 @@ export function applyExperimentHashing(
   let newExperiments = cloneDeep(experiments);
   newExperiments = newExperiments.map((experiment) => {
     if (experiment?.condition) {
-      experiment.condition = applyRuleHashing(
+      experiment.condition = applyConditionHashing(
         experiment.condition,
         attributes,
         salt
@@ -694,7 +698,7 @@ export function applyExperimentHashing(
   return newExperiments;
 }
 
-export function applyRuleHashing(
+export function applyConditionHashing(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   condition: any,
   attributes: SDKAttributeSchema,
