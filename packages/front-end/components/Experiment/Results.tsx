@@ -85,9 +85,11 @@ const Results: FC<{
 
   const status = getQueryStatus(latest?.queries || [], latest?.error);
 
+  const analysis = snapshot?.analyses?.[0];
+
   const hasData =
-    (snapshot?.results?.[0]?.variations?.length ?? 0) > 0 &&
-    (snapshot?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
+    (analysis?.results?.[0]?.variations?.length ?? 0) > 0 &&
+    (analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
 
   const phaseObj = experiment.phases?.[phase];
 
@@ -102,6 +104,16 @@ const Results: FC<{
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
   });
+
+  const snapshotMetricRegressionAdjustmentStatuses =
+    snapshot?.settings?.goalMetrics?.map((m) => ({
+      metric: m.id,
+      reason: m.computedSettings?.reason || "",
+      regressionAdjustmentDays:
+        m.computedSettings?.regressionAdjustmentDays || 0,
+      regressionAdjustmentEnabled: !!m.computedSettings
+        ?.regressionAdjustmentEnabled,
+    })) || [];
 
   return (
     <>
@@ -164,7 +176,7 @@ const Results: FC<{
         <VariationIdWarning
           unknownVariations={snapshot.unknownVariations || []}
           isUpdating={status === "running"}
-          results={snapshot.results?.[0]}
+          results={analysis?.results?.[0]}
           variations={variations}
           setVariationIds={async (ids) => {
             // Don't do anything if the query is currently running
@@ -206,13 +218,13 @@ const Results: FC<{
           <DateResults
             metrics={experiment.metrics}
             guardrails={experiment.guardrails}
-            results={snapshot.results ?? []}
+            results={analysis?.results ?? []}
             variations={variations}
           />
         ) : (
           <BreakDownResults
             key={snapshot.dimension}
-            results={snapshot.results ?? []}
+            results={analysis?.results ?? []}
             variations={variations}
             metrics={experiment.metrics}
             metricOverrides={experiment.metricOverrides ?? []}
@@ -223,85 +235,90 @@ const Results: FC<{
             reportDate={snapshot.dateCreated}
             activationMetric={experiment.activationMetric}
             status={experiment.status}
-            statsEngine={snapshot.statsEngine}
+            statsEngine={analysis?.settings?.statsEngine}
             pValueCorrection={pValueCorrection}
-            regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
+            regressionAdjustmentEnabled={analysis?.settings?.regressionAdjusted}
             metricRegressionAdjustmentStatuses={
-              snapshot.metricRegressionAdjustmentStatuses
+              snapshotMetricRegressionAdjustmentStatuses
             }
-            sequentialTestingEnabled={snapshot.sequentialTestingEnabled}
+            sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           />
         ))}
-      {hasData && snapshot && snapshot.results?.[0] && !snapshot?.dimension && (
-        <>
-          {reportDetailsLink && (
-            <div className="float-right pr-3">
-              <FilterSummary
-                experiment={experiment}
-                phase={phaseObj}
-                snapshot={snapshot}
-              />
-            </div>
-          )}
-          <CompactResults
-            editMetrics={editMetrics}
-            variations={variations}
-            multipleExposures={snapshot.multipleExposures || 0}
-            results={snapshot.results[0]}
-            reportDate={snapshot.dateCreated}
-            startDate={phaseObj?.dateStarted ?? ""}
-            isLatestPhase={phase === experiment.phases.length - 1}
-            status={experiment.status}
-            metrics={experiment.metrics}
-            metricOverrides={experiment.metricOverrides ?? []}
-            id={experiment.id}
-            statsEngine={snapshot.statsEngine}
-            pValueCorrection={pValueCorrection}
-            regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
-            metricRegressionAdjustmentStatuses={
-              snapshot.metricRegressionAdjustmentStatuses
-            }
-            sequentialTestingEnabled={snapshot.sequentialTestingEnabled}
-          />
-          {(experiment.guardrails?.length ?? 0) > 0 && (
-            <div className="mt-1 px-3">
-              <h3 className="mb-3">Guardrails</h3>
-              <div className="row">
-                {experiment.guardrails?.map((g) => {
-                  const metric = getMetricById(g);
-                  if (!metric) return "";
-
-                  const data = snapshot.results?.[0]?.variations;
-                  if (!data) return "";
-
-                  const xlargeCols =
-                    experiment.guardrails?.length === 2 ? 6 : 4;
-                  return (
-                    <div
-                      className={`col-12 col-xl-${xlargeCols} col-lg-6`}
-                      key={g}
-                    >
-                      {snapshot.statsEngine === "frequentist" ? (
-                        <PValueGuardrailResults
-                          data={data}
-                          variations={variations}
-                          metric={metric}
-                        />
-                      ) : (
-                        <GuardrailResults
-                          data={data}
-                          variations={variations}
-                          metric={metric}
-                        />
-                      )}
-                    </div>
-                  );
-                })}
+      {hasData &&
+        analysis &&
+        analysis.results?.[0] &&
+        !analysis?.settings?.dimensions?.length && (
+          <>
+            {reportDetailsLink && (
+              <div className="float-right pr-3">
+                <FilterSummary
+                  experiment={experiment}
+                  phase={phaseObj}
+                  snapshot={snapshot}
+                />
               </div>
-            </div>
-          )}
-        </>
-      )}
+            )}
+            <CompactResults
+              editMetrics={editMetrics}
+              variations={variations}
+              multipleExposures={snapshot.multipleExposures || 0}
+              results={analysis.results[0]}
+              reportDate={snapshot.dateCreated}
+              startDate={phaseObj?.dateStarted ?? ""}
+              isLatestPhase={phase === experiment.phases.length - 1}
+              status={experiment.status}
+              metrics={experiment.metrics}
+              metricOverrides={experiment.metricOverrides ?? []}
+              id={experiment.id}
+              statsEngine={analysis.settings.statsEngine}
+              pValueCorrection={pValueCorrection}
+              regressionAdjustmentEnabled={
+                analysis.settings?.regressionAdjusted
+              }
+              metricRegressionAdjustmentStatuses={
+                snapshotMetricRegressionAdjustmentStatuses
+              }
+              sequentialTestingEnabled={analysis.settings?.sequentialTesting}
+            />
+            {(experiment.guardrails?.length ?? 0) > 0 && (
+              <div className="mt-1 px-3">
+                <h3 className="mb-3">Guardrails</h3>
+                <div className="row">
+                  {experiment.guardrails?.map((g) => {
+                    const metric = getMetricById(g);
+                    if (!metric) return "";
+
+                    const data = analysis.results?.[0]?.variations;
+                    if (!data) return "";
+
+                    const xlargeCols =
+                      experiment.guardrails?.length === 2 ? 6 : 4;
+                    return (
+                      <div
+                        className={`col-12 col-xl-${xlargeCols} col-lg-6`}
+                        key={g}
+                      >
+                        {analysis.settings.statsEngine === "frequentist" ? (
+                          <PValueGuardrailResults
+                            data={data}
+                            variations={variations}
+                            metric={metric}
+                          />
+                        ) : (
+                          <GuardrailResults
+                            data={data}
+                            variations={variations}
+                            metric={metric}
+                          />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       {hasData && (
         <div className="row align-items-center mx-2 my-3">
           <div className="col-auto small" style={{ lineHeight: 1.2 }}>
@@ -311,19 +328,19 @@ const Results: FC<{
             <div>
               <span className="text-muted">Engine:</span>{" "}
               <span>
-                {snapshot?.statsEngine === "frequentist"
+                {analysis?.settings?.statsEngine === "frequentist"
                   ? "Frequentist"
                   : "Bayesian"}
               </span>
             </div>
-            {snapshot?.statsEngine === "frequentist" && (
+            {analysis?.settings?.statsEngine === "frequentist" && (
               <>
                 <div>
                   <span className="text-muted">
                     <GBCuped size={13} /> CUPED:
                   </span>{" "}
                   <span>
-                    {snapshot?.regressionAdjustmentEnabled
+                    {analysis?.settings?.regressionAdjusted
                       ? "Enabled"
                       : "Disabled"}
                   </span>
@@ -333,7 +350,7 @@ const Results: FC<{
                     <GBSequential size={13} /> Sequential:
                   </span>{" "}
                   <span>
-                    {snapshot?.sequentialTestingEnabled
+                    {analysis?.settings?.sequentialTesting
                       ? "Enabled"
                       : "Disabled"}
                   </span>

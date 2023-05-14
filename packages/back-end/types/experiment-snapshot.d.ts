@@ -7,6 +7,7 @@ import {
   MetricRegressionAdjustmentStatus,
 } from "./report";
 import { DimensionInterface } from "./dimension";
+import { AttributionModel } from "./experiment";
 
 export interface SnapshotMetric {
   value: number;
@@ -38,14 +39,6 @@ export interface SnapshotVariation {
   };
 }
 
-export interface ExperimentSnapshotSettings {
-  statsEngine: StatsEngine;
-  regressionAdjustmentEnabled: boolean;
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
-  sequentialTestingEnabled: boolean;
-  sequentialTestingTuningParameter: number;
-}
-
 export type LegacyExperimentSnapshotInterface = ExperimentSnapshotInterface & {
   activationMetric?: string;
   statsEngine?: StatsEngine;
@@ -60,28 +53,12 @@ export type LegacyExperimentSnapshotInterface = ExperimentSnapshotInterface & {
   segment?: string;
   skipPartialData?: boolean;
   manual: boolean;
+  query?: string;
 };
-
-export interface SnapshotAnalysis {
-  // Determines which analysis this is
-  settings: {
-    dimensions: string[];
-    statsEngine: StatsEngine;
-    frequentistSettings: null | {
-      regressionAdjusted: boolean;
-      sequentialTesting: boolean;
-      sequentialTestingTuningParameter: number;
-      pValueCorrection: null | "holm-bonferroni" | "benjamini-hochberg";
-    };
-  };
-  dateCreated: Date;
-  status: "running" | "success" | "error";
-  error?: string;
-  results: ExperimentReportResultDimension[];
-}
 
 export interface MetricForSnapshot {
   id: string;
+  // Settings directly from the Metric object at the time the snapshot was created
   settings?: Pick<
     MetricInterface,
     | "datasource"
@@ -92,16 +69,63 @@ export interface MetricForSnapshot {
     | "userIdTypes"
     | "type"
   >;
+  // Computed settings that take into account overrides
+  computedSettings?: {
+    regressionAdjustmentEnabled: boolean;
+    regressionAdjustmentDays: number;
+    reason: string;
+    conversionWindowHours: number;
+    conversionDelayHours: number;
+  };
 }
 
-export type DimensionForSnapshot = {
+export interface DimensionForSnapshot {
   // The same format we use today that encodes both the type and id
   // For example: `exp:country` or `pre:date`
   id: string;
   // Dimension settings at the time the snapshot was created
   // Used to show an "out-of-date" warning on the front-end
   settings?: Pick<DimensionInterface, "datasource" | "userIdType" | "sql">;
-};
+}
+
+export interface ExperimentSnapshotAnalysisSettings {
+  dimensions: string[];
+  statsEngine: StatsEngine;
+  regressionAdjusted?: boolean;
+  sequentialTesting?: boolean;
+  sequentialTestingTuningParameter?: number;
+  pValueCorrection?: null | "holm-bonferroni" | "benjamini-hochberg";
+}
+
+export interface ExperimentSnapshotAnalysis {
+  // Determines which analysis this is
+  settings: ExperimentSnapshotAnalysisSettings;
+  dateCreated: Date;
+  status: "running" | "success" | "error";
+  error?: string;
+  results: ExperimentReportResultDimension[];
+}
+
+// Settings that control which queries are run
+// Used to determine which types of analyses are possible
+// Also used to determine when to show "out-of-date" in the UI
+export interface ExperimentSnapshotSettings {
+  manual: boolean;
+  dimensions: DimensionForSnapshot[];
+  goalMetrics: MetricForSnapshot[];
+  guardrailMetrics: MetricForSnapshot[];
+  activationMetric: MetricForSnapshot | null;
+  regressionAdjustmentEnabled: boolean;
+  attributionModel: AttributionModel;
+  experimentId: string;
+  queryFilter: string;
+  segment: string;
+  skipPartialData: boolean;
+  datasourceId: string;
+  exposureQuery: string;
+  startDate: Date;
+  endDate: Date;
+}
 
 export interface ExperimentSnapshotInterface {
   // Fields that uniquely define the snapshot
@@ -116,38 +140,14 @@ export interface ExperimentSnapshotInterface {
   dateCreated: Date;
   runStarted: Date | null;
   status: "running" | "success" | "error";
-
-  // Settings that control which queries are run
-  // Used to determine which types of analyses are possible
-  querySettings: {
-    manual: boolean;
-    dimensions: DimensionForSnapshot[];
-    goalMetrics: MetricForSnapshot[];
-    guardrailMetrics: MetricForSnapshot[];
-    activationMetric: MetricForSnapshot | null;
-    regressionAdjustmentEnabled: boolean;
-    startDate: Date;
-    endDate: Date;
-  };
-
-  // Experiment settings at the time the snapshot was run
-  // These are only used to show an "out-of-date" warning on the front-end
-  settings: {
-    experimentId: string;
-    queryFilter: string;
-    segment: string;
-    skipPartialData: boolean;
-    datasourceId: string;
-    exposureQuery: string;
-  };
+  settings: ExperimentSnapshotSettings;
 
   // List of queries that were run as part of this snapshot
-  query?: string;
   queryLanguage?: QueryLanguage;
   queries: Queries;
 
   // Results
   unknownVariations?: string[];
   multipleExposures?: number;
-  analyses: SnapshotAnalysis[];
+  analyses: ExperimentSnapshotAnalysis[];
 }

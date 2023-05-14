@@ -27,6 +27,9 @@ const experimentSnapshotSchema = new mongoose.Schema({
   unknownVariations: [String],
   multipleExposures: Number,
   hasCorrectedStats: Boolean,
+  status: String,
+  settings: {},
+  analyses: {},
   results: [
     {
       _id: false,
@@ -109,21 +112,7 @@ const toInterface = (
   doc: ExperimentSnapshotDocument
 ): ExperimentSnapshotInterface =>
   migrateSnapshot(omit(doc.toJSON(), ["__v", "_id"]));
-/**
- * 
- * @param orig   activationMetric?: string;
-  statsEngine?: StatsEngine;
-  hasRawQueries?: boolean;
-  hasCorrectedStats?: boolean;
-  results?: ExperimentReportResultDimension[];
-  regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
-  sequentialTestingEnabled?: boolean;
-  sequentialTestingTuningParameter?: number;
-  queryFilter?: string;
-  segment?: string;
-  skipPartialData?: boolean;
- */
+
 export function migrateSnapshot(
   orig: LegacyExperimentSnapshotInterface
 ): ExperimentSnapshotInterface {
@@ -134,6 +123,8 @@ export function migrateSnapshot(
     hasRawQueries,
     // eslint-disable-next-line
     hasCorrectedStats,
+    // eslint-disable-next-line
+    query,
     results,
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
@@ -165,17 +156,12 @@ export function migrateSnapshot(
           settings: {
             statsEngine: statsEngine || "bayesian",
             dimensions: snapshot.dimension ? [snapshot.dimension] : [],
-            frequentistSettings:
-              statsEngine === "frequentist"
-                ? {
-                    pValueCorrection: null,
-                    regressionAdjusted,
-                    sequentialTesting: !!sequentialTestingEnabled,
-                    sequentialTestingTuningParameter:
-                      sequentialTestingTuningParameter ||
-                      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-                  }
-                : null,
+            pValueCorrection: null,
+            regressionAdjusted,
+            sequentialTesting: !!sequentialTestingEnabled,
+            sequentialTestingTuningParameter:
+              sequentialTestingTuningParameter ||
+              DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
           },
           results,
         },
@@ -194,9 +180,10 @@ export function migrateSnapshot(
       : "running";
   }
 
-  // Migrate querySettings
-  if (!snapshot.querySettings) {
-    snapshot.querySettings = {
+  // Migrate settings
+  // We weren't tracking all of these before, so just pick good defaults
+  if (!snapshot.settings) {
+    snapshot.settings = {
       manual: !!manual,
       dimensions: snapshot.dimension
         ? [
@@ -205,27 +192,20 @@ export function migrateSnapshot(
             },
           ]
         : [],
-      // TODO: figure out metrics from results
+      // TODO: figure out metrics from results?
       goalMetrics: [],
       guardrailMetrics: [],
       activationMetric: activationMetric ? { id: activationMetric } : null,
       regressionAdjustmentEnabled: true,
-      // TODO: figure out start date from results?
       startDate: snapshot.dateCreated,
       endDate: snapshot.dateCreated,
-    };
-  }
-
-  // Migrate other settings
-  if (!snapshot.settings) {
-    snapshot.settings = {
-      // We weren't tracking these before, so just set them to an empty string
       experimentId: "",
       datasourceId: "",
       exposureQuery: "",
       queryFilter: queryFilter || "",
       segment: segment || "",
       skipPartialData: !!skipPartialData,
+      attributionModel: "firstExposure",
     };
   }
 
