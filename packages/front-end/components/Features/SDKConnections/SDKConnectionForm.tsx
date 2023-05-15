@@ -23,9 +23,9 @@ import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { DocLink } from "@/components/DocLink";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import SDKLanguageLogo, { languageMapping } from "./SDKLanguageLogo";
-import { DocLink } from "@/components/DocLink";
 
 export default function SDKConnectionForm({
   initialValue = {},
@@ -427,8 +427,17 @@ export default function SDKConnectionForm({
 
       <div className="form-group mt-4">
         <label htmlFor="hash-secure-attributes">
-          <PremiumTooltip commercialFeature="encrypt-features-endpoint">
-            Hash secure attributes?
+          <PremiumTooltip
+            commercialFeature="encrypt-features-endpoint"
+            body={
+              <>
+                Targeting conditions referencing <code>secureString</code>{" "}
+                attributes will be anonymized via SHA-256 hashing. This allows
+                you to safely target users based on sensitive attributes.
+              </>
+            }
+          >
+            Hash secure attributes? <FaInfoCircle />
           </PremiumTooltip>
         </label>
         <div className="row mb-4">

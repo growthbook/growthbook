@@ -1,4 +1,4 @@
-import { useState, useEffect, ReactElement } from "react";
+import React, { useState, useEffect, ReactElement } from "react";
 import {
   SDKConnectionInterface,
   SDKLanguage,
@@ -10,6 +10,9 @@ import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { getApiHost, getCdnHost, isCloud } from "@/services/env";
+import Code from "@/components/SyntaxHighlighting/Code";
+import { useAttributeSchema } from "@/services/features";
+import { GBHashLock } from "@/components/Icons";
 import Modal from "../Modal";
 import { DocLink } from "../DocLink";
 import InstallationCodeSnippet from "../SyntaxHighlighting/Snippets/InstallationCodeSnippet";
@@ -94,6 +97,7 @@ export default function CodeSnippetModal({
 
   const { refreshOrganization } = useUser();
   const settings = useOrgSettings();
+  const attributeSchema = useAttributeSchema();
 
   // Record the fact that the SDK instructions have been seen
   useEffect(() => {
@@ -135,6 +139,12 @@ export default function CodeSnippetModal({
     currentConnection &&
     currentConnection.encryptPayload &&
     currentConnection.encryptionKey;
+  const hashSecureAttributes = !!currentConnection.hashSecureAttributes;
+  const secureAttributes =
+    attributeSchema?.filter((a) =>
+      ["secureString", "secureString[]"].includes(a.datatype)
+    ) || [];
+  const secureAttributeSalt = settings.secureAttributeSalt ?? "";
 
   return (
     <>
@@ -345,10 +355,87 @@ export default function CodeSnippetModal({
               </h4>
               {attributesOpen && (
                 <div className="appbox bg-light p-3">
-                  Replace the placeholders with your real targeting attribute
-                  values. This enables you to target feature flags based on user
-                  attributes.
-                  <TargetingAttributeCodeSnippet language={language} />
+                  <span>
+                    Replace the placeholders with your real targeting attribute
+                    values. This enables you to target feature flags based on
+                    user attributes.
+                  </span>
+                  <TargetingAttributeCodeSnippet
+                    language={language}
+                    hashSecureAttributes={hashSecureAttributes}
+                    secureAttributeSalt={secureAttributeSalt}
+                  />
+
+                  {hashSecureAttributes && (
+                    <div
+                      className="appbox mt-4"
+                      style={{ background: "rgb(209 236 241 / 25%)" }}
+                    >
+                      <div className="alert alert-info mb-0">
+                        <GBHashLock className="text-blue" /> This connection has{" "}
+                        <strong>secure attribute hashing</strong> enabled. You
+                        must manually hash all attributes with datatype{" "}
+                        <code>secureString</code> or <code>secureString[]</code>{" "}
+                        in your SDK implementation code.
+                      </div>
+                      <div className="px-3 pb-3">
+                        <div className="mt-3">
+                          Your organization currently has{" "}
+                          {secureAttributes.length} secure attribute
+                          {secureAttributes.length === 1 ? "" : "s"}
+                          {secureAttributes.length > 0 && (
+                            <>
+                              {" "}
+                              which need to be hashed before using them in the
+                              SDK:
+                              <table className="table table-borderless w-auto mt-1 ml-2">
+                                {secureAttributes.map((a, i) => (
+                                  <tr key={i}>
+                                    <td className="pt-1 pb-0">
+                                      <code className="font-weight-bold">
+                                        {a.property}
+                                      </code>
+                                    </td>
+                                    <td className="pt-1 pb-0">
+                                      <span className="text-gray">
+                                        {a.datatype}
+                                      </span>
+                                    </td>
+                                    {i < secureAttributes.length - 1 ? (
+                                      <br />
+                                    ) : (
+                                      ""
+                                    )}
+                                  </tr>
+                                ))}
+                              </table>
+                            </>
+                          )}
+                        </div>
+                        <div className="mt-3">
+                          To hash an attribute, use a cryptographic library with{" "}
+                          <strong>SHA-256</strong> support, and compute the
+                          SHA-256 hashed value of your attribute <em>plus</em>{" "}
+                          your organization&apos;s secure attribute salt.
+                        </div>
+                        <div className="mt-2">
+                          Example, using your organization&apos;s secure
+                          attribute salt:
+                          <Code
+                            filename="psuedocode"
+                            language="javascript"
+                            code={`const salt = "${secureAttributeSalt}";
+
+// hashing a secureString attribute
+myAttribute = sha256( myAttribute + salt );
+
+// hashing an secureString[] attribute
+myAttributes = myAttributes.map( attribute => sha256( attribute + salt ) );`}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -3,12 +3,15 @@ import {
   SDKAttributeSchema,
   SDKAttributeType,
 } from "back-end/types/organization";
-import { FaQuestionCircle, FaTrash } from "react-icons/fa";
+import { FaInfoCircle, FaQuestionCircle, FaTrash } from "react-icons/fa";
+import React from "react";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { GBAddCircle } from "@/components/Icons";
 import Modal from "../Modal";
 import Toggle from "../Forms/Toggle";
 import Field from "../Forms/Field";
@@ -68,7 +71,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
         </p>
       )}
       <div className="form-inline">
-        <table className="table table-sm">
+        <table className="table table-sm mb-0">
           <thead>
             <tr>
               <th>Attribute</th>
@@ -107,7 +110,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                         v as SDKAttributeType
                       )
                     }
-                    style={{ width: 200 }}
+                    style={{ width: 225 }}
                     options={[
                       { value: "boolean", label: "Boolean" },
                       { value: "number", label: "Number" },
@@ -116,7 +119,10 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                       { value: "secureString", label: "Secure String" },
                       { value: "number[]", label: "Array of Numbers" },
                       { value: "string[]", label: "Array of Strings" },
-                      { value: "secureString[]", label: "Array of Secure Strings" },
+                      {
+                        value: "secureString[]",
+                        label: "Array of Secure Strings",
+                      },
                     ]}
                     sort={false}
                   />
@@ -125,11 +131,36 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                       <Field
                         textarea
                         minRows={1}
-                        style={{ width: 200 }}
+                        style={{ width: 225 }}
                         required
                         {...form.register(`attributeSchema.${i}.enum`)}
                         placeholder="Comma-separated list of all possible values"
                       />
+                    </div>
+                  )}
+                  {["secureString", "secureString[]"].includes(
+                    form.watch(`attributeSchema.${i}.datatype`)
+                  ) && (
+                    <div
+                      className="text-muted text-right"
+                      style={{ width: 185 }}
+                    >
+                      <PremiumTooltip
+                        commercialFeature="hash-secure-attributes"
+                        innerClassName="text-left"
+                        body={
+                          <>
+                            Targeting conditions referencing{" "}
+                            <code>secureString</code> attributes will be
+                            anonymized via SHA-256 hashing. This allows you to
+                            safely target users based on sensitive attributes.
+                            You must enable this feature in your SDK Connection
+                            for it to take effect.
+                          </>
+                        }
+                      >
+                        What is this? <FaInfoCircle />
+                      </PremiumTooltip>
                     </div>
                   )}
                 </td>
@@ -165,10 +196,9 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
           </tbody>
         </table>
       </div>
-      <div>
-        <a
-          href="#"
-          className="btn btn-outline-primary"
+      <div className="mt-2">
+        <button
+          className="btn btn-link mt-0"
           onClick={(e) => {
             e.preventDefault();
             attributeSchema.append({
@@ -177,8 +207,8 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
             });
           }}
         >
-          add attribute
-        </a>
+          <GBAddCircle /> Add attribute
+        </button>
       </div>
     </Modal>
   );
