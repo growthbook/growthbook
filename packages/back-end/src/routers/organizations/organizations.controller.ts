@@ -1237,6 +1237,7 @@ export async function postApiKey(
     environment: environment || "",
     project: project || "",
     secret: !!secret,
+    userId: type === "user" ? req.userId : undefined,
     type,
     encryptSDK,
   });
