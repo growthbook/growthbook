@@ -589,7 +589,7 @@ Rules:
 
 - Segments are separated by `.` and `-` characters
 - Segments should be compared alphanumerically from the left-most segment
-  - Digit-only segments should be left-padded (e.g. with a space or a `'0'`) so that they have the same number of characters, e.g. when comparing segment `1` with `10`, the comparison should be `'01' === '10'` so that 10 is recognized as greater than 1.
+  - Digit-only segments should be left-padded (e.g. with a space or a `'0'`) so that they have the same number of characters, e.g. when comparing segment `2` with `10`, the comparison should be `'02' === '10'` so that 10 is recognized as greater than 2.
 - A leading `v` in a version string should be ignored
 - Semantic version syntax used to denote build information (as denoted by a `+`, e.g. `+mybuild`) should be ignored for comparisons.
 
