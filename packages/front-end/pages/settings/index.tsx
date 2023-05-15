@@ -15,7 +15,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
-} from "shared";
+} from "shared/constants";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";

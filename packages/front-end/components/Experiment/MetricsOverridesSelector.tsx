@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { isUndefined } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";

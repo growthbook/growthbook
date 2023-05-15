@@ -13,9 +13,9 @@ import uniq from "lodash/uniq";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  getValidDate,
-  getScopedSettings,
-} from "shared";
+} from "shared/constants";
+import { getValidDate } from "shared/dates";
+import { getScopedSettings } from "shared/settings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";

@@ -5,7 +5,7 @@ import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import Link from "next/link";
 import clsx from "clsx";
-import { ago } from "shared";
+import { ago } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Button";
 import SegmentForm from "@/components/Segments/SegmentForm";

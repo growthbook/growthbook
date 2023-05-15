@@ -3,7 +3,7 @@ import uniqid from "uniqid";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_STATS_ENGINE,
-} from "shared";
+} from "shared/constants";
 import { AuthRequest } from "../types/AuthRequest";
 import { getOrgFromReq } from "../services/organizations";
 import {
