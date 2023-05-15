@@ -168,7 +168,7 @@ describe("json test suite", () => {
   describe("version strings", () => {
     describe("equality", () => {
       it.each((cases as Cases).versionCompare.eq)(
-        "semver.eq[%#] %s === %s",
+        "versionCompare.eq[%#] %s === %s",
         (version, otherVersion, expected) => {
           expect(
             paddedVersionString(version) === paddedVersionString(otherVersion)

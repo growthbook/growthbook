@@ -1773,7 +1773,10 @@
       ["1.2.3-beta", "1.2.3-beta", true],
       ["1.2.3-beta", "v1.2.3-beta", true],
       ["1.2.3-beta+build", "1.2.3-beta+otherbuild", true],
-      ["1.2.3-beta+build", "v1.2.3-beta+otherbuild", true]
+      ["1.2.3-beta+build", "v1.2.3-beta+otherbuild", true],
+      ["1-2-3", "1.2.3", true],
+      ["1-2-3", "1-2.3+build99", true],
+      ["1-2-3", "v1.2.3", true]
     ]
   },
   "hash": [
