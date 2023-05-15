@@ -41,6 +41,9 @@
     "vite": "^4.3.0",
     "vitest": "^0.25.3"
   },
+  "dependencies": {
+    "@growthbook/growthbook": "^0.26.0"
+  },
   "svelte": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "type": "module"
