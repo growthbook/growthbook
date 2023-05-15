@@ -134,12 +134,25 @@ def accumulate_time_series_df(
 ) -> pd.DataFrame:
     if time_series == TimeSeries.NONE:
         return df
-    df = df.sort_values("dimension")
-    cols_to_accum = (
-        SUM_COLS if time_series == TimeSeries.CUMULATIVE else ["users", "count"]
-    )
-    df[cols_to_accum] = df.groupby(["variation", "dimension"])[cols_to_accum].cumsum()
-    return df
+    dfc = df.copy()
+    dfc.sort_values("dimension", inplace=True)
+    cols_to_accum = [
+        x
+        for x in (
+            SUM_COLS
+            if time_series == TimeSeries.CUMULATIVE
+            else [
+                "users",
+                "count",
+                "covariate_sum",
+                "covariate_sum_squares",
+                "main_covariate_sum_product",
+            ]
+        )
+        if x in dfc.columns
+    ]
+    dfc[cols_to_accum] = dfc.groupby(["variation"])[cols_to_accum].cumsum()
+    return dfc.loc[(dfc["users"] != 0) | (dfc["count"] != 0)].copy()
 
 
 # Run A/B test analysis for each variation and dimension

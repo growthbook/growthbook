@@ -103,6 +103,8 @@ class TTest(BaseABTest):
         """
         if self.stat_a.mean == 0:
             return self._default_output()
+        if self.stat_a.unadjusted_mean == 0:
+            return self._default_output()
         if self._has_zero_variance():
             return self._default_output()
         return FrequentistTestResult(
