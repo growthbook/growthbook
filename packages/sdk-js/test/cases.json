@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.4.2",
+  "specVersion": "0.5.0",
   "evalCondition": [
     [
       "$not - pass",
