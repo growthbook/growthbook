@@ -574,6 +574,19 @@ There are 3 other operators:
 - `$not`
   1. Return `!evalConditionValue(conditionValue, attributeValue)`
 
+There are 6 operators that are used for comparing version strings, e.g. `v1.2.3` or `1.2.3`:
+
+| Condition | Comparison | Description                                                      |
+| --------- | ---------- | ---------------------------------------------------------------- |
+| `$veq`    | `==`       | Versions are equal                                               |
+| `$vne`    | `!=`       | Versions are not equal                                           |
+| `$vlt`    | `<`        | The first version is lesser than the second version              |
+| `$vlte`   | `<=`       | The first version is lesser than or equal to the second version  |
+| `$vgt`    | `>`        | The first version is greater than the second version             |
+| `$vgte`   | `>=`       | The first version is greater than or equal to the second version |
+
+A leading `v` in a version string should be ignored and segments are separated by `.` and `-` characters. Segments should be compared alphanumerically with digit-only segments left-padded with zeros.
+
 If operator doesn't match any of these, return false and potentially log the error for debug purposes.
 
 ## GrowthBook Class
