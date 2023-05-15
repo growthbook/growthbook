@@ -1183,9 +1183,13 @@ export async function putOrganization(
 export async function getApiKeys(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
   const keys = await getAllApiKeysByOrganization(org.id);
+  const filteredKeys = keys.filter(
+    (k) => k.type !== "user" || k.userId === req.userId
+  );
+
   res.status(200).json({
     status: 200,
-    keys,
+    keys: filteredKeys,
   });
 }
 
