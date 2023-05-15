@@ -3,13 +3,14 @@ import cronParser from "cron-parser";
 import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
+import { isEqual } from "lodash";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
-  getValidDate,
-  getScopedSettings,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-} from "shared";
+} from "shared/constants";
+import { getValidDate } from "shared/dates";
+import { getScopedSettings } from "shared/settings";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotInterface,
@@ -67,6 +68,7 @@ import {
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { postMetricValidator } from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
+import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
 import {
   getReportVariations,
@@ -1359,4 +1361,33 @@ export function getRegressionAdjustmentsForMetric({
       reason,
     },
   };
+}
+
+export function visualChangesetsHaveChanges({
+  oldVisualChangeset,
+  newVisualChangeset,
+}: {
+  oldVisualChangeset: VisualChangesetInterface;
+  newVisualChangeset: VisualChangesetInterface;
+}): boolean {
+  // If there are visual change differences
+  const oldVisualChanges = oldVisualChangeset.visualChanges.map(
+    ({ css, domMutations }) => ({ css, domMutations })
+  );
+  const newVisualChanges = newVisualChangeset.visualChanges.map(
+    ({ css, domMutations }) => ({ css, domMutations })
+  );
+  if (!isEqual(oldVisualChanges, newVisualChanges)) {
+    return true;
+  }
+
+  // If there are URL targeting differences
+  if (
+    !isEqual(oldVisualChangeset.urlPatterns, newVisualChangeset.urlPatterns)
+  ) {
+    return true;
+  }
+
+  // Otherwise, there are no meaningful changes
+  return false;
 }

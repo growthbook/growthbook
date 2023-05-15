@@ -3,7 +3,6 @@ import { createHash } from "crypto";
 import uniqid from "uniqid";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
-import cloneDeep from "lodash/cloneDeep";
 import { FeatureDefinition, FeatureDefinitionRule } from "../../types/api";
 import {
   FeatureDraftChanges,
@@ -656,27 +655,26 @@ export function applyFeatureHashing(
   attributes: SDKAttributeSchema,
   salt: string
 ): Record<string, FeatureDefinition> {
-  let newFeatures = cloneDeep(features);
-  newFeatures = Object.keys(newFeatures).reduce<
-    Record<string, FeatureDefinition>
-  >((acc, key) => {
-    const feature = newFeatures[key];
-    if (feature?.rules) {
-      feature.rules = feature.rules.map<FeatureDefinitionRule>((rule) => {
-        if (rule?.condition) {
-          rule.condition = applyConditionHashing(
-            rule.condition,
-            attributes,
-            salt
-          );
-        }
-        return rule;
-      });
-    }
-    acc[key] = feature;
-    return acc;
-  }, {});
-  return newFeatures;
+  return Object.keys(features).reduce<Record<string, FeatureDefinition>>(
+    (acc, key) => {
+      const feature = features[key];
+      if (feature?.rules) {
+        feature.rules = feature.rules.map<FeatureDefinitionRule>((rule) => {
+          if (rule?.condition) {
+            rule.condition = applyConditionHashing(
+              rule.condition,
+              attributes,
+              salt
+            );
+          }
+          return rule;
+        });
+      }
+      acc[key] = feature;
+      return acc;
+    },
+    {}
+  );
 }
 
 export function applyExperimentHashing(
@@ -684,8 +682,7 @@ export function applyExperimentHashing(
   attributes: SDKAttributeSchema,
   salt: string
 ): SDKExperiment[] {
-  let newExperiments = cloneDeep(experiments);
-  newExperiments = newExperiments.map((experiment) => {
+  return experiments.map((experiment) => {
     if (experiment?.condition) {
       experiment.condition = applyConditionHashing(
         experiment.condition,
@@ -695,7 +692,6 @@ export function applyExperimentHashing(
     }
     return experiment;
   });
-  return newExperiments;
 }
 
 export function applyConditionHashing(

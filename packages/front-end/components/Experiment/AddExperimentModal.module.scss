@@ -15,14 +15,20 @@
   height: 18rem;
   border: 1px solid $highlight-purple;
   border-radius: 0.5rem;
-  cursor: pointer;
   padding: 1rem;
   margin: 1rem;
   text-align: center;
+}
+.enabled {
+  cursor: pointer;
   transition: 200ms all ease-in-out;
   &:hover {
     transform: scale(1.025);
   }
+}
+.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .ctaIconContainer {

@@ -3,7 +3,7 @@ import { UseFormReturn } from "react-hook-form";
 import { StatsEngine } from "back-end/types/stats";
 import { ProjectSettings } from "back-end/types/project";
 import { OrganizationSettings } from "back-end/types/organization";
-import { ScopedSettings } from "shared";
+import { ScopedSettings } from "shared/settings";
 import SelectField from "@/components/Forms/SelectField";
 import { capitalizeFirstLetter } from "@/services/utils";
 

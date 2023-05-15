@@ -1,5 +1,6 @@
 import { Response } from "express";
-import { DEFAULT_STATS_ENGINE, getValidDate } from "shared";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { getValidDate } from "shared/dates";
 import { ReportInterface } from "../../types/report";
 import {
   getExperimentById,

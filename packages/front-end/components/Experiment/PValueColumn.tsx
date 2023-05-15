@@ -26,7 +26,7 @@ const PValueColumn: FC<{
   snapshotDate: Date;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
-  pValueCorrection: PValueCorrection;
+  pValueCorrection?: PValueCorrection;
 }> = ({
   metric,
   status,
@@ -91,12 +91,13 @@ const PValueColumn: FC<{
     className += " draw";
   }
 
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
-  let pValText = <>{pValueFormatter(stats?.pValue)}</>;
+  let pValText = <>{stats?.pValue ? pValueFormatter(stats.pValue) : ""}</>;
   if (stats?.pValueAdjusted !== undefined && pValueCorrection) {
     pValText = (
       <>
-        <div>{pValueFormatter(stats?.pValueAdjusted)}</div>
+        <div>
+          {stats?.pValueAdjusted ? pValueFormatter(stats.pValueAdjusted) : ""}
+        </div>
         <div className="small text-muted">(unadj.: {pValText})</div>
       </>
     );
@@ -114,8 +115,9 @@ const PValueColumn: FC<{
           <div className="mb-1 d-flex flex-row">
             <Tooltip
               body={`A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
-                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                metric.maxPercentChange * 100
+                (metric.maxPercentChange ??
+                  metricDefaults?.maxPercentageChange ??
+                  0) * 100
               }%).`}
             >
               <span className="badge badge-pill badge-warning">
