@@ -5,7 +5,7 @@ import {
   NotificationEventPayload,
   NotificationEventResource,
 } from "back-end/types/event";
-import { datetime } from "shared";
+import { datetime } from "shared/dates";
 import { getEventText } from "./utils";
 
 type EventsTableRowProps = {

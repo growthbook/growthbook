@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { DEFAULT_STATS_ENGINE } from "shared";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ApiProject } from "../../types/openapi";
 import { ProjectInterface, ProjectSettings } from "../../types/project";
 

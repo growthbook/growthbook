@@ -5,12 +5,10 @@ import {
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
-import {
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  getValidDate,
-  getScopedSettings,
-  getAffectedEnvsForExperiment,
-} from "shared";
+import { getValidDate } from "shared/dates";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { getAffectedEnvsForExperiment } from "shared/util";
+import { getScopedSettings } from "shared/settings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";

@@ -1,4 +1,4 @@
-import { date } from "shared";
+import { date } from "shared/dates";
 import { phaseSummary } from "@/services/utils";
 import SelectField from "../Forms/SelectField";
 import { useSnapshot } from "./SnapshotProvider";

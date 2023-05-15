@@ -3,7 +3,7 @@
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import { NotificationEventName } from "back-end/src/events/base-types";
 import { action } from "@storybook/addon-actions";
-import { getValidDate } from "shared";
+import { getValidDate } from "shared/dates";
 import { EventWebHookDetail } from "./EventWebHookDetail";
 
 export default {
