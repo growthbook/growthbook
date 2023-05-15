@@ -12,7 +12,7 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { ScaleLinear } from "d3-scale";
-import { date } from "shared";
+import { date } from "shared/dates";
 import styles from "./ExperimentDateGraph.module.scss";
 export interface ExperimentDateGraphDataPoint {
   d: Date;

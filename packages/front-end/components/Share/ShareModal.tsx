@@ -15,7 +15,7 @@ import { GrDrag } from "react-icons/gr";
 import { FaCheck, FaRegTrashAlt } from "react-icons/fa";
 import { FiAlertTriangle } from "react-icons/fi";
 import { HexColorPicker } from "react-colorful";
-import { getValidDate, ago, datetime, date } from "shared";
+import { getValidDate, ago, datetime, date } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useSearch } from "@/services/search";

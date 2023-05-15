@@ -1,7 +1,7 @@
 import React, { FC, useState, ReactElement } from "react";
 import { Invite, MemberRoleInfo } from "back-end/types/organization";
 import { FaCheck, FaTimes } from "react-icons/fa";
-import { datetime } from "shared";
+import { datetime } from "shared/dates";
 import ConfirmModal from "@/components/ConfirmModal";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
