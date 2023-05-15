@@ -1299,6 +1299,11 @@ export async function postApiKeyReveal(
   const { id } = req.body;
 
   const key = await getUnredactedSecretKey(org.id, id);
+  if (key?.type === "user" && req.userId !== key.userId) {
+    return res.status(403).json({
+      status: 403,
+    });
+  }
 
   res.status(200).json({
     status: 200,
