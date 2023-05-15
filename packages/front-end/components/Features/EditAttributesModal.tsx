@@ -148,6 +148,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                       <PremiumTooltip
                         commercialFeature="hash-secure-attributes"
                         innerClassName="text-left"
+                        tipPosition="bottom"
                         body={
                           <>
                             Targeting conditions referencing{" "}
