@@ -92,7 +92,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     defaultValues: {
       visualEditorEnabled: false,
       pastExperimentsMinLength: 6,
-      metricAnalysisDays: 90, // should we use DEFAULT_METRIC_ANALYSIS_DAYS here?
+      metricAnalysisDays: 90,
       // customization:
       customized: false,
       logoPath: "",
@@ -1003,11 +1003,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     })}
                   />
                   {metricAnalysisDaysWarningMsg && (
-                    <small
-                      style={{
-                        color: "#e27202",
-                      }}
-                    >
+                    <small className="text-danger">
                       {metricAnalysisDaysWarningMsg}
                     </small>
                   )}
