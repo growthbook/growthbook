@@ -1,6 +1,7 @@
 import {
   DataSourceProperties,
   DataSourceSettings,
+  SchemaFormat,
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
@@ -295,9 +296,12 @@ export interface SourceIntegrationInterface {
   getTrackedEvents?: () => Promise<
     { event: string; hasUserId: boolean; createForUser: boolean }[]
   >;
-  getAutomaticMetricSqlQuery?(metric: {
-    event: string;
-    hasUserId: boolean;
-    createForUser: boolean;
-  }): string;
+  getAutomaticMetricSqlQuery?(
+    metric: {
+      event: string;
+      hasUserId: boolean;
+      createForUser: boolean;
+    },
+    schemaFormat: SchemaFormat
+  ): string;
 }

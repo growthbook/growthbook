@@ -7,6 +7,7 @@ import {
   DataSourceProperties,
   ExposureQuery,
   DataSourceType,
+  SchemaFormat,
 } from "../../types/datasource";
 import {
   MetricValueParams,
@@ -1320,19 +1321,30 @@ export default abstract class SqlIntegration
     return "TODO";
   }
 
-  getAutomaticMetricSqlQuery(metric: {
-    event: string;
-    hasUserId: boolean;
-    createForUser: boolean;
-  }): string {
+  getAutomaticMetricTimestampColumn(schemaFormat: SchemaFormat): string {
+    switch (schemaFormat) {
+      case "segment":
+        return "loaded_at";
+      default:
+        return "timestamp";
+    }
+  }
+
+  getAutomaticMetricSqlQuery(
+    metric: {
+      event: string;
+      hasUserId: boolean;
+      createForUser: boolean;
+    },
+    schemaFormat: SchemaFormat
+  ): string {
     return `
     SELECT 
     ${
       metric.hasUserId ? "user_id, " : ""
-      //TODO: I need to figure out how to customize the timestamp column based on the type (e.g. Segment vs GA4)
-    }anonymous_id, loaded_at as timestamp FROM ${this.getAutomaticMetricFromClause(
-      metric.event
-    )}
+    }anonymous_id, ${this.getAutomaticMetricTimestampColumn(
+      schemaFormat
+    )} as timestamp FROM ${this.getAutomaticMetricFromClause(metric.event)}
   `;
   }
 
