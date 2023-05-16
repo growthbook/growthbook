@@ -25,7 +25,7 @@ const CommaList: FC<{ vals: string[] }> = ({ vals }) => {
 };
 
 const VariationIdWarning: FC<{
-  results: ExperimentReportResultDimension;
+  results?: ExperimentReportResultDimension;
   isUpdating?: boolean;
   variations: ExperimentReportVariation[];
   unknownVariations: string[];
@@ -97,13 +97,12 @@ const VariationIdWarning: FC<{
   if (unknownVariations?.length > 0) {
     return (
       <div className="px-3">
-        {idModal && (
+        {idModal && setVariationIds && (
           <FixVariationIds
             close={() => setIdModal(false)}
             expected={definedVariations}
             actual={returnedVariations}
             names={variations.map((v) => v.name)}
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((ids: string[]) => Promise<void>) | undefin... Remove this comment to see the full error message
             setVariationIds={setVariationIds}
           />
         )}

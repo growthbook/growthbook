@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
 import { ProjectInterface, ProjectSettings } from "back-end/types/project";
-import { getScopedSettings } from "shared";
+import { getScopedSettings } from "shared/settings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import LoadingOverlay from "@/components/LoadingOverlay";

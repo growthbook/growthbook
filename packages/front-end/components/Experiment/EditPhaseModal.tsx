@@ -26,11 +26,9 @@ export default function EditPhaseModal({
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       ...experiment.phases[i],
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      dateStarted: experiment.phases[i].dateStarted.substr(0, 16),
+      dateStarted: (experiment.phases[i].dateStarted ?? "").substr(0, 16),
       dateEnded: experiment.phases[i].dateEnded
-        ? // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          experiment.phases[i].dateEnded.substr(0, 16)
+        ? (experiment.phases[i].dateEnded ?? "").substr(0, 16)
         : "",
     },
   });

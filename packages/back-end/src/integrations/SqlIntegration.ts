@@ -1,5 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS, getValidDate } from "shared";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
+import { getValidDate } from "shared/dates";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceSettings,
