@@ -3,7 +3,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { ReportInterface } from "back-end/types/report";
 import { ExperimentInterface } from "back-end/types/experiment";
-import { datetime, ago } from "shared";
+import { datetime, ago } from "shared/dates";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "../services/search";
 import Tooltip from "../components/Tooltip/Tooltip";

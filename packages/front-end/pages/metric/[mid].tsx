@@ -13,7 +13,7 @@ import { MetricInterface } from "back-end/types/metric";
 import { useForm } from "react-hook-form";
 import { BsGear } from "react-icons/bs";
 import { IdeaInterface } from "back-end/types/idea";
-import { date } from "shared";
+import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import DiscussionThread from "@/components/DiscussionThread";

@@ -3,7 +3,8 @@ import {
   OrganizationSettings,
 } from "back-end/types/organization";
 import { ProjectInterface } from "back-end/types/project";
-import { DEFAULT_STATS_ENGINE, getScopedSettings } from "../../src";
+import { DEFAULT_STATS_ENGINE } from "../../src/constants";
+import { getScopedSettings } from "../../src/settings";
 import { experiments, metrics } from "./test-objects";
 
 const baseOrganization: OrganizationInterface = {

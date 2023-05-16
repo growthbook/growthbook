@@ -1,7 +1,7 @@
 import React, { FC, Fragment, useState } from "react";
 import { WebhookInterface } from "back-end/types/webhook";
 import { FaCheck, FaBolt, FaPencilAlt } from "react-icons/fa";
-import { ago } from "shared";
+import { ago } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";

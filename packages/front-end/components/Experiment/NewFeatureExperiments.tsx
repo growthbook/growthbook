@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ago } from "shared";
+import { ago } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";

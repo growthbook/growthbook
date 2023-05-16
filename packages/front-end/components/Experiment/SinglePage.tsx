@@ -16,11 +16,9 @@ import { MetricInterface } from "back-end/types/metric";
 import uniq from "lodash/uniq";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import {
-  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  getScopedSettings,
-  getAffectedEnvsForExperiment,
-} from "shared";
+import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared/constants";
+import { getAffectedEnvsForExperiment } from "shared/util";
+import { getScopedSettings } from "shared/settings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";

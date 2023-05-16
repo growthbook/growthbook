@@ -7,10 +7,10 @@ import { isEqual } from "lodash";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
-  getValidDate,
-  getScopedSettings,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-} from "shared";
+} from "shared/constants";
+import { getValidDate } from "shared/dates";
+import { getScopedSettings } from "shared/settings";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotInterface,
