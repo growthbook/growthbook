@@ -2,6 +2,7 @@
   import type { GrowthBook } from "@growthbook/growthbook";
   import { setContext } from "svelte";
   import { ContextSymbol, type GrowthBookContext } from "./context";
+  import { writable } from "svelte/store";
 
   export let growthbook: GrowthBook | undefined;
 
@@ -9,7 +10,10 @@
     console.warn("GrowthBookProvider: GrowthBook instance not provided")
   }
 
-  setContext<GrowthBookContext>(ContextSymbol, { growthbook });
+  const growthbookClient = writable<GrowthBook | undefined>(growthbook);
+  setContext<GrowthBookContext>(ContextSymbol, { growthbookClient });
+
+  $: growthbookClient.set(growthbook);
 </script>
 
 <slot />

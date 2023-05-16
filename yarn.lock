@@ -2210,6 +2210,14 @@
     pirates "^4.0.5"
     source-map-support "^0.5.16"
 
+"@babel/runtime-corejs3@^7.10.3", "@babel/runtime-corejs3@^7.19.0":
+  version "7.21.5"
+  resolved "https://registry.yarnpkg.com/@babel/runtime-corejs3/-/runtime-corejs3-7.21.5.tgz#a6d4e132ab1cb2fae2354f02284ebb6e07b4f7d8"
+  integrity sha512-FRqFlFKNazWYykft5zvzuEl1YyTDGsIRrjV9rvxvYkUC7W/ueBng1X68Xd6uRMzAaJ0xMKn08/wem5YS1lpX8w==
+  dependencies:
+    core-js-pure "^3.25.1"
+    regenerator-runtime "^0.13.11"
+
 "@babel/runtime@7.5.5", "@babel/runtime@~7.5.4":
   version "7.5.5"
   resolved "https://registry.yarnpkg.com/@babel/runtime/-/runtime-7.5.5.tgz#74fba56d35efbeca444091c7850ccd494fd2f132"
@@ -4842,6 +4850,20 @@
   resolved "https://registry.yarnpkg.com/@tediousjs/connection-string/-/connection-string-0.4.1.tgz#6c92dcde392ff2401d9e9de628c1cd8f4b2a735f"
   integrity sha512-gr1mFN7KMOn+VviQKcrt+z1/7ttn7s9NSMFFyg5GrJylNH6JGrDDNRm7C5vE4PNwhW6hYT67QRUO44Ns2LQijg==
 
+"@testing-library/dom@^8.1.0":
+  version "8.20.0"
+  resolved "https://registry.yarnpkg.com/@testing-library/dom/-/dom-8.20.0.tgz#914aa862cef0f5e89b98cc48e3445c4c921010f6"
+  integrity sha512-d9ULIT+a4EXLX3UU8FBjauG9NnsZHkHztXoIcTsOKoOw030fyjheN9svkTULjJxtYag9DZz5Jz5qkWZDPxTFwA==
+  dependencies:
+    "@babel/code-frame" "^7.10.4"
+    "@babel/runtime" "^7.12.5"
+    "@types/aria-query" "^5.0.1"
+    aria-query "^5.0.0"
+    chalk "^4.1.0"
+    dom-accessibility-api "^0.5.9"
+    lz-string "^1.4.4"
+    pretty-format "^27.0.2"
+
 "@testing-library/dom@^8.3.0":
   version "8.19.0"
   resolved "https://registry.yarnpkg.com/@testing-library/dom/-/dom-8.19.0.tgz#bd3f83c217ebac16694329e413d9ad5fdcfd785f"
@@ -4878,6 +4900,13 @@
     "@babel/runtime" "^7.12.5"
     "@testing-library/dom" "^9.0.0"
     "@types/react-dom" "^18.0.0"
+
+"@testing-library/svelte@^3.2.2":
+  version "3.2.2"
+  resolved "https://registry.yarnpkg.com/@testing-library/svelte/-/svelte-3.2.2.tgz#aa8ca6bde3136593c5f8b4554e3634d7adc9bdc5"
+  integrity sha512-IKwZgqbekC3LpoRhSwhd0JswRGxKdAGkf39UiDXTywK61YyLXbCYoR831e/UUC6EeNW4hiHPY+2WuovxOgI5sw==
+  dependencies:
+    "@testing-library/dom" "^8.1.0"
 
 "@testing-library/user-event@^13.2.1":
   version "13.5.0"
@@ -8423,10 +8452,20 @@ core-js-pure@^3.23.3:
   resolved "https://registry.yarnpkg.com/core-js-pure/-/core-js-pure-3.26.0.tgz#7ad8a5dd7d910756f3124374b50026e23265ca9a"
   integrity sha512-LiN6fylpVBVwT8twhhluD9TzXmZQQsr2I2eIKtWNbZI1XMfBT7CV18itaN6RA7EtQd/SDdRx/wzvAShX2HvhQA==
 
+core-js-pure@^3.25.1:
+  version "3.30.2"
+  resolved "https://registry.yarnpkg.com/core-js-pure/-/core-js-pure-3.30.2.tgz#005a82551f4af3250dcfb46ed360fad32ced114e"
+  integrity sha512-p/npFUJXXBkCCTIlEGBdghofn00jWG6ZOtdoIXSJmAu2QBvN0IqpZXWweOytcwE6cfx8ZvVUy1vw8zxhe4Y2vg==
+
 core-js@^3.0.4, core-js@^3.6.5, core-js@^3.8.2:
   version "3.26.0"
   resolved "https://registry.yarnpkg.com/core-js/-/core-js-3.26.0.tgz#a516db0ed0811be10eac5d94f3b8463d03faccfe"
   integrity sha512-+DkDrhoR4Y0PxDz6rurahuB+I45OsEUv8E1maPTB6OuHRohMMcznBq9TMpdpDMm/hUPob/mJJS3PqgbHpMTQgw==
+
+core-js@^3.25.1:
+  version "3.30.2"
+  resolved "https://registry.yarnpkg.com/core-js/-/core-js-3.30.2.tgz#6528abfda65e5ad728143ea23f7a14f0dcf503fc"
+  integrity sha512-uBJiDmwqsbJCWHAwjrx3cvjbMXP7xD72Dmsn5LOJpiRmE3WbBbN5rCqQ2Qh6Ek6/eOrjlWngEynBWo4VxerQhg==
 
 core-util-is@1.0.2:
   version "1.0.2"
@@ -11635,6 +11674,11 @@ hosted-git-info@^4.0.1:
   integrity sha512-kyCuEOWjJqZuDbRHzL8V93NzQhwIB71oFWSyzVo+KPZI+pnQPPxucdkrOZvkLRnrf5URsQM+IJ09Dw29cRALIA==
   dependencies:
     lru-cache "^6.0.0"
+
+htm@^3.1.1:
+  version "3.1.1"
+  resolved "https://registry.yarnpkg.com/htm/-/htm-3.1.1.tgz#49266582be0dc66ed2235d5ea892307cc0c24b78"
+  integrity sha512-983Vyg8NwUE7JkZ6NmOqpCZ+sh1bKv2iYTlUkzlWmA5JD2acKoxd4KVxbMmxX/85mtfdnDmTFoNKcg5DGAvxNQ==
 
 html-encoding-sniffer@^2.0.1:
   version "2.0.1"
@@ -17206,6 +17250,11 @@ regenerator-runtime@^0.13.10, regenerator-runtime@^0.13.7:
   resolved "https://registry.yarnpkg.com/regenerator-runtime/-/regenerator-runtime-0.13.10.tgz#ed07b19616bcbec5da6274ebc75ae95634bfc2ee"
   integrity sha512-KepLsg4dU12hryUO7bp/axHAKvwGOCV0sGloQtpagJ12ai+ojVDqkeGSiRX1zlq+kjIMZ1t7gpze+26QqtdGqw==
 
+regenerator-runtime@^0.13.11:
+  version "0.13.11"
+  resolved "https://registry.yarnpkg.com/regenerator-runtime/-/regenerator-runtime-0.13.11.tgz#f6dca3e7ceec20590d07ada785636a90cdca17f9"
+  integrity sha512-kY1AZVr2Ra+t+piVaJ4gxaFaReZVH40AKNo7UCX6W+dEwBo/2oZJzqfuN1qLq1oL45o56cPaTXELwrTh8Fpggg==
+
 regenerator-runtime@^0.13.2, regenerator-runtime@^0.13.4:
   version "0.13.9"
   resolved "https://registry.yarnpkg.com/regenerator-runtime/-/regenerator-runtime-0.13.9.tgz#8925742a98ffd90814988d7566ad30ca3b263b52"
@@ -18960,10 +19009,34 @@ svelte-check@^3.0.1:
     svelte-preprocess "^5.0.3"
     typescript "^5.0.3"
 
+svelte-fragment-component@^1.2.0:
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/svelte-fragment-component/-/svelte-fragment-component-1.2.0.tgz#36842c609a15c934b9d32a8bc99c460b0374d796"
+  integrity sha512-rRstmz2oAy2Y/7X57tRaIAJdMYsa2K/MOx/YJN/ETb7Bj9U3vjgioz27dMG1hl2vAKFTtQpxDhC31ur7ECwpog==
+
 svelte-hmr@^0.15.1:
   version "0.15.1"
   resolved "https://registry.yarnpkg.com/svelte-hmr/-/svelte-hmr-0.15.1.tgz#d11d878a0bbb12ec1cba030f580cd2049f4ec86b"
   integrity sha512-BiKB4RZ8YSwRKCNVdNxK/GfY+r4Kjgp9jCLEy0DuqAKfmQtpL38cQK3afdpjw4sqSs4PLi3jIPJIFp259NkZtA==
+
+svelte-htm@^1.2.0:
+  version "1.2.0"
+  resolved "https://registry.yarnpkg.com/svelte-htm/-/svelte-htm-1.2.0.tgz#fe53d4ea48713dfa1acd275fa9ff14e2b4cccdd7"
+  integrity sha512-6YFNncbyXbCa3PSoMQc/JR6O/Yg1OgNioH5rMgE88RVPzU8714y2Urfenlqs+ryRS+Inv+m6TJ9jH3W7wDCS1A==
+  dependencies:
+    "@babel/runtime-corejs3" "^7.19.0"
+    core-js "^3.25.1"
+    htm "^3.1.1"
+    svelte-fragment-component "^1.2.0"
+    svelte-hyperscript "^1.2.1"
+
+svelte-hyperscript@^1.2.1:
+  version "1.2.1"
+  resolved "https://registry.yarnpkg.com/svelte-hyperscript/-/svelte-hyperscript-1.2.1.tgz#e8fd4194994eeb22dcb82a69caff98ab5b6fb40b"
+  integrity sha512-IVk91VDSOrhOUe0KI+Jfu7yCruUTOXgr4WysrK7hBNbFMDjeBOcPhk+LMYjUjdWxJx3+QSt3bUXj09YrUfRkjg==
+  dependencies:
+    "@babel/runtime-corejs3" "^7.10.3"
+    core-js "^3.6.5"
 
 svelte-preprocess@^5.0.3:
   version "5.0.3"

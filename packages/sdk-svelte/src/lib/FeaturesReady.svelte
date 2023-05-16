@@ -1,30 +1,30 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { useGrowthBook } from "./useGrowthBook";
+  import { getContext, onMount } from "svelte";
+  import { ContextSymbol, type GrowthBookContext } from "./context";
+  
+  export let timeout = 0;
 
-  export let timeout: number | undefined;
-
-  const growthbook = useGrowthBook();
-  const ready = growthbook ? growthbook.ready : false;
+  const { growthbookClient } = getContext<GrowthBookContext>(ContextSymbol);
+  $: ready = $growthbookClient?.ready || false;
   let hitTimeout = false;
 
-  onMount(() => {
-    if (timeout && !ready) {
-      const timer = setTimeout(() => {
-        growthbook &&
-          growthbook.log("FeaturesReady timed out waiting for features to load", {
+  $: {
+    if (timeout !== 0 && !ready) {
+      setTimeout(() => {
+        $growthbookClient &&
+          $growthbookClient.log("FeaturesReady timed out waiting for features to load", {
             timeout,
           });
         hitTimeout = true;
       }, timeout);
-
-      return () => clearTimeout(timer);
     }
-  });
+  }
 </script>
 
 {#if ready || hitTimeout}
-  <slot />
+  {#key ready}
+    <slot name="primary" />
+  {/key}
 {:else}
   <slot name="fallback" />
 {/if}
