@@ -39,7 +39,7 @@ const docSections = {
   env_prod: "/self-host/env#production-settings",
   visual_editor: "/app/visual",
   encryptedSDKEndpoints: "/lib/js#loading-features",
-  hashSecureAttributes: "/lib/js#attributes",
+  hashSecureAttributes: "/lib/js#secure-attributes",
 };
 
 export type DocSection = keyof typeof docSections;
