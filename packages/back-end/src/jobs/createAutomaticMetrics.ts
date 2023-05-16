@@ -3,6 +3,7 @@ import uniqid from "uniqid";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { insertMetric } from "../models/MetricModel";
 import { MetricInterface } from "../../types/metric";
+import { getSourceIntegrationObject } from "../services/datasource";
 
 const CREATE_AUTOMATIC_METRICS_JOB_NAME = "createAutomaticMetrics";
 
@@ -31,23 +32,30 @@ export default function (ag: Agenda) {
 
       if (!datasource) return;
 
+      const integration = getSourceIntegrationObject(datasource);
+
       try {
         // This is where I guess I'll loop through the metricsToCreate & call the createMetric function?
-        const createdMetrics = metricsToCreate.map(async (metric) => {
-          const data: Partial<MetricInterface> = {
-            id: uniqid("met_"),
-            organization,
-            datasource: datasourceId,
-            name: metric.event,
-            type: "binomial",
-            sql: "SELECT * FROM SOMETHING",
-            dateCreated: new Date(),
-            dateUpdated: new Date(),
-            conversionWindowHours: 72,
-          };
-          return await insertMetric(data);
+        metricsToCreate.map(async (metric) => {
+          if (metric.createForUser) {
+            // We need to build the SQL query
+            if (!integration.getAutomaticMetricSqlQuery) return; //TODO: Throw an error?
+            const sqlQuery = integration.getAutomaticMetricSqlQuery(metric);
+
+            //TODO: Should I create a new method on the metric controller where we pass it an array of metrics to create rather than doing it one by one?
+            const data: Partial<MetricInterface> = {
+              id: uniqid("met_"),
+              organization,
+              datasource: datasourceId,
+              name: metric.event,
+              type: "binomial", //TODO: I need to come up with a way to build non-binomial metrics
+              sql: sqlQuery,
+              dateCreated: new Date(),
+              dateUpdated: new Date(),
+            };
+            return await insertMetric(data);
+          }
         });
-        console.log("createdMetrics", createdMetrics);
       } catch (e) {
         // Not sure what to do here yet - catch the errors, but what should I do with them?
       }

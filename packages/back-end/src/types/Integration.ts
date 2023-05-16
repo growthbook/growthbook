@@ -295,4 +295,9 @@ export interface SourceIntegrationInterface {
   getTrackedEvents?: () => Promise<
     { event: string; hasUserId: boolean; createForUser: boolean }[]
   >;
+  getAutomaticMetricSqlQuery?(metric: {
+    event: string;
+    hasUserId: boolean;
+    createForUser: boolean;
+  }): string;
 }

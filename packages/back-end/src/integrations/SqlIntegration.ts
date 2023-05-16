@@ -1315,6 +1315,27 @@ export default abstract class SqlIntegration
     return results;
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  getAutomaticMetricFromClause(event: string): string {
+    return "TODO";
+  }
+
+  getAutomaticMetricSqlQuery(metric: {
+    event: string;
+    hasUserId: boolean;
+    createForUser: boolean;
+  }): string {
+    return `
+    SELECT 
+    ${
+      metric.hasUserId ? "user_id, " : ""
+      //TODO: I need to figure out how to customize the timestamp column based on the type (e.g. Segment vs GA4)
+    }anonymous_id, loaded_at as timestamp FROM ${this.getAutomaticMetricFromClause(
+      metric.event
+    )}
+  `;
+  }
+
   private getMetricQueryFormat(metric: MetricInterface) {
     return metric.queryFormat || (metric.sql ? "sql" : "builder");
   }
