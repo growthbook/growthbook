@@ -3,7 +3,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { ReactElement, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
-import { getAffectedEnvsForExperiment } from "shared";
+import { getAffectedEnvsForExperiment } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";

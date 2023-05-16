@@ -3,7 +3,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import clsx from "clsx";
 import { useMemo, useState } from "react";
 import { MdRestore } from "react-icons/md";
-import { ago, datetime } from "shared";
+import { ago, datetime } from "shared/dates";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
 import Dropdown from "../Dropdown/Dropdown";

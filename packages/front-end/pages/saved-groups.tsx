@@ -1,7 +1,7 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
-import { ago } from "shared";
+import { ago } from "shared/dates";
 import Button from "../components/Button";
 import SavedGroupForm from "../components/SavedGroupForm";
 import { GBAddCircle } from "../components/Icons";

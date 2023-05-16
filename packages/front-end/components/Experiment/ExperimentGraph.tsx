@@ -9,7 +9,7 @@ import format from "date-fns/format";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
-import { getValidDate } from "shared";
+import { getValidDate } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";

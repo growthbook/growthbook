@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { useRouter } from "next/router";
 import { IdeaInterface } from "back-end/types/idea";
-import { ago } from "shared";
+import { ago } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";

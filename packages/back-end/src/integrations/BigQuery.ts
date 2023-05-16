@@ -1,5 +1,5 @@
 import * as bq from "@google-cloud/bigquery";
-import { getValidDate } from "shared";
+import { getValidDate } from "shared/dates";
 import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
