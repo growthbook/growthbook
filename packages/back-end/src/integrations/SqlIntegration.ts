@@ -1,7 +1,7 @@
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { MetricInterface } from "../../types/metric";
+import { MetricInterface, MetricType } from "../../types/metric";
 import {
   DataSourceSettings,
   DataSourceProperties,
@@ -1330,22 +1330,39 @@ export default abstract class SqlIntegration
     }
   }
 
+  getAutomaticMetricAggregatorColumn(metricType: MetricType): string {
+    switch (metricType) {
+      case "count":
+        return ", count as value";
+      case "revenue":
+        return ", revenue as value";
+      default:
+        return "";
+    }
+  }
+
   getAutomaticMetricSqlQuery(
     metric: {
       event: string;
       hasUserId: boolean;
       createForUser: boolean;
     },
-    schemaFormat: SchemaFormat
+    schemaFormat: SchemaFormat,
+    metricType: MetricType
   ): string {
-    return `
+    const sqlQuery = `
     SELECT 
     ${
       metric.hasUserId ? "user_id, " : ""
     }anonymous_id, ${this.getAutomaticMetricTimestampColumn(
       schemaFormat
-    )} as timestamp FROM ${this.getAutomaticMetricFromClause(metric.event)}
+    )} as timestamp
+    ${this.getAutomaticMetricAggregatorColumn(
+      metricType
+    )} FROM ${this.getAutomaticMetricFromClause(metric.event)}
   `;
+
+    return format(sqlQuery, this.getFormatDialect());
   }
 
   private getMetricQueryFormat(metric: MetricInterface) {

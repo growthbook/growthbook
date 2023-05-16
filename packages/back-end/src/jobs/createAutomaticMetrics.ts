@@ -145,44 +145,18 @@ export default function (ag: Agenda) {
                 metricType = "count";
               }
             }
-            // else {
-            //   const { tableData } = await fetchTableData(
-            //     datasource,
-            //     informationSchema,
-            //     informationSchemaTableId
-            //   );
-            //   if (
-            //     tableData?.some(
-            //       (column: { data_type: string; column_name: string }) =>
-            //         column_name === "revenue"
-            //     )
-            //   ) {
-            //     metricType = "revenue";
-            //   } else if (tableData.some((column) => column_name === "count")) {
-            //     metricType = "count";
-            //   }
-            // }
-
-            // From there, I can check if there's a revenue or count column
-
-            // if (tableColumnData?.some((column) => columnName === "revenue")) {
-            //   metricType = "revenue";
-            // } else if (
-            //   tableColumnData?.some((column) => columnName === "count")
-            // ) {
-            //   metricType = "count";
-            // }
 
             const sqlQuery = integration.getAutomaticMetricSqlQuery(
               metric,
-              integration.settings.schemaFormat || "custom"
+              integration.settings.schemaFormat || "custom",
+              metricType
             );
             metrics.push({
               id: uniqid("met_"),
               organization,
               datasource: datasourceId,
               name: metric.event,
-              type: metricType, //TODO: I need to come up with a way to build non-binomial metrics
+              type: metricType,
               sql: sqlQuery,
               dateCreated: new Date(),
               dateUpdated: new Date(),

@@ -585,7 +585,7 @@ const NewDataSourceForm: FC<{
                   </p>
                   {metricsToCreate.map((metric, i) => {
                     return (
-                      <>
+                      <div key={`${metric}-${i}`}>
                         <Toggle
                           value={metric.createForUser}
                           id={`${metric}-${i}`}
@@ -598,7 +598,7 @@ const NewDataSourceForm: FC<{
                           }}
                         />
                         <label className="ml-2">{metric.event}</label>
-                      </>
+                      </div>
                     );
                   })}
                 </div>

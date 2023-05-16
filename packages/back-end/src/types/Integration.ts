@@ -302,6 +302,7 @@ export interface SourceIntegrationInterface {
       hasUserId: boolean;
       createForUser: boolean;
     },
-    schemaFormat: SchemaFormat
+    schemaFormat: SchemaFormat,
+    metricType: MetricType
   ): string;
 }
