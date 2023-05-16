@@ -3,16 +3,24 @@ from dataclasses import dataclass
 from typing import List
 
 import numpy as np
-from scipy.stats import t
+from scipy.stats import t  # type: ignore
 
-from gbstats.shared.models import FrequentistTestResult, Statistic, Uplift
+from gbstats.shared.models import (
+    FrequentistTestResult,
+    Statistic,
+    Uplift,
+)
 from gbstats.shared.tests import BaseABTest
 
 
 @dataclass
 class FrequentistConfig:
     alpha: float = 0.05
-    sequential: bool = False
+    test_value: float = 0
+
+
+@dataclass
+class SequentialConfig(FrequentistConfig):
     sequential_tuning_parameter: float = 5000
 
 
@@ -22,7 +30,6 @@ class TTest(BaseABTest):
         stat_a: Statistic,
         stat_b: Statistic,
         config: FrequentistConfig = FrequentistConfig(),
-        test_value: float = 0,
     ):
         """Base class for one- and two-sided T-Tests with unequal variance.
         All values are with respect to relative effects, not absolute effects.
@@ -32,12 +39,10 @@ class TTest(BaseABTest):
         Args:
             stat_a (Statistic): the "control" or "baseline" statistic
             stat_b (Statistic): the "treatment" or "variation" statistic
-            test_value (float, optional): the null hypothesis for the difference in means. Defaults to 0.
-            alpha (float, optional): the significance level for the CI construction. Defaults to 0.05.
         """
         super().__init__(stat_a, stat_b)
         self.alpha = config.alpha
-        self.test_value = test_value
+        self.test_value = config.test_value
 
     @property
     def variance(self) -> float:
@@ -155,10 +160,13 @@ class SequentialTwoSidedTTest(TTest):
         self,
         stat_a: Statistic,
         stat_b: Statistic,
-        config: FrequentistConfig = FrequentistConfig(),
-        test_value: float = 0,
+        config: SequentialConfig = SequentialConfig(),
     ):
-        super().__init__(stat_a, stat_b, config, test_value)
+        super().__init__(
+            stat_a,
+            stat_b,
+            FrequentistConfig(alpha=config.alpha, test_value=config.test_value),
+        )
         self.sequential_tuning_parameter = config.sequential_tuning_parameter
 
     @property
