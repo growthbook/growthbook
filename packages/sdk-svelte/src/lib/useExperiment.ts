@@ -1,10 +1,8 @@
 import type { Experiment, Result } from "@growthbook/growthbook";
-import { getContext } from "svelte";
-import type { GrowthBookContext } from "./context";
-import { ContextSymbol } from "./context";
+import { useGrowthBook } from "./useGrowthBook";
 
 export function useExperiment<T>(experiment: Experiment<T>): Result<T> {
-  const { growthbook } = getContext<GrowthBookContext>(ContextSymbol);
+  const growthbook = useGrowthBook();
   if (!growthbook) {
     return {
       featureId: null,

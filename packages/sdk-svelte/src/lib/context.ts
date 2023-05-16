@@ -1,7 +1,8 @@
 import type { GrowthBook } from "@growthbook/growthbook";
+import type { Writable } from "svelte/store";
 
 export interface GrowthBookContext {
-  growthbook?: GrowthBook;
+  growthbookClient: Writable<GrowthBook | undefined>;
 }
 
 export const ContextSymbol = Symbol("GrowthBookContext");
