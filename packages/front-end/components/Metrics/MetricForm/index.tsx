@@ -41,6 +41,7 @@ import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import { GBCuped } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
+import { useCurrency } from "@/hooks/useCurrency";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -181,7 +182,7 @@ const MetricForm: FC<MetricFormProps> = ({
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
 
-  const displayCurrency = settings.displayCurrency || "USD";
+  const displayCurrency = useCurrency();
 
   const {
     getMinSampleSizeForMetric,

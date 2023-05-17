@@ -6,8 +6,7 @@ import {
   formatConversionRate,
 } from "@/services/metrics";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { supportedCurrencies, SupportedCurrencies } from "@/pages/settings";
+import { useCurrency } from "@/hooks/useCurrency";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -27,12 +26,7 @@ export default function RiskColumn({
     row,
     metricDefaults
   );
-  const orgSettings = useOrgSettings();
-
-  const displayCurrency =
-    (Object.keys(supportedCurrencies).find(
-      (key) => key === orgSettings.displayCurrency
-    ) as SupportedCurrencies) || "USD";
+  const displayCurrency = useCurrency();
 
   const winRiskThreshold = row.metric.winRisk ?? defaultWinRiskThreshold;
   const loseRiskThreshold = row.metric.loseRisk ?? defaultLoseRiskThreshold;

@@ -19,10 +19,11 @@ import { ScaleLinear } from "d3-scale";
 import { getValidDate, date } from "shared/dates";
 import { formatConversionRate } from "@/services/metrics";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { supportedCurrencies, SupportedCurrencies } from "@/pages/settings";
+import { SupportedCurrencies } from "@/pages/settings";
+import { useCurrency } from "@/hooks/useCurrency";
 import styles from "./DateGraph.module.scss";
-
 type TooltipData = { x: number; y: number; d: Datapoint };
+
 interface Datapoint {
   d: Date | number;
   v: number; // value
@@ -178,6 +179,7 @@ const DateGraph: FC<DateGraphProps> = ({
   hoverDate,
 }: DateGraphProps) => {
   const [marginTop, marginRight, marginBottom, marginLeft] = margin;
+  const displayCurrency = useCurrency();
 
   const data = useMemo(
     () =>
@@ -448,9 +450,6 @@ const DateGraph: FC<DateGraphProps> = ({
             onHover({ d: null });
           }
         };
-
-        const displayCurrency =
-          supportedCurrencies[orgSettings.displayCurrency || "USD"];
 
         return (
           <>

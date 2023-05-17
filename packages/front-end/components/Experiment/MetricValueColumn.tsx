@@ -1,8 +1,7 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { formatConversionRate } from "@/services/metrics";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { supportedCurrencies, SupportedCurrencies } from "@/pages/settings";
+import { useCurrency } from "@/hooks/useCurrency";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -17,12 +16,7 @@ export default function MetricValueColumn({
   users: number;
   className?: string;
 }) {
-  const orgSettings = useOrgSettings();
-
-  const displayCurrency =
-    (Object.keys(supportedCurrencies).find(
-      (key) => key === orgSettings.displayCurrency
-    ) as SupportedCurrencies) || "USD";
+  const displayCurrency = useCurrency();
   return (
     <td className={className}>
       {metric && stats.users ? (

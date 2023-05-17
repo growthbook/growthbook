@@ -7,8 +7,7 @@ import {
 import { getValidDate } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatConversionRate } from "@/services/metrics";
-import useOrgSettings from "@/hooks/useOrgSettings";
-import { SupportedCurrencies, supportedCurrencies } from "@/pages/settings";
+import { useCurrency } from "@/hooks/useCurrency";
 import Toggle from "../Forms/Toggle";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
@@ -34,14 +33,9 @@ const DateResults: FC<{
   guardrails?: string[];
 }> = ({ results, variations, metrics, guardrails }) => {
   const { getMetricById, ready } = useDefinitions();
-  const orgSettings = useOrgSettings();
+  const displayCurrency = useCurrency();
 
   const [cumulative, setCumulative] = useState(false);
-
-  const displayCurrency =
-    (Object.keys(supportedCurrencies).find(
-      (key) => key === orgSettings.displayCurrency
-    ) as SupportedCurrencies) || "USD";
 
   // Get data for users graph
   const users = useMemo<ExperimentDateGraphDataPoint[]>(() => {
