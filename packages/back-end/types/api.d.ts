@@ -1,7 +1,8 @@
 import { EventAuditUser } from "../src/events/event-types";
+import { PermissionFunctions } from "../src/types/AuthRequest";
 import { AuditInterface } from "./audit";
 import { ExperimentStatus } from "./experiment";
-import { OrganizationInterface, Permission } from "./organization";
+import { OrganizationInterface } from "./organization";
 
 export interface ExperimentOverride {
   weights?: number[];
@@ -43,24 +44,12 @@ export interface ErrorResponse {
   error: string;
 }
 
-export interface ApiRequestLocals {
+export type ApiRequestLocals = PermissionFunctions & {
   apiKey: string;
   organization: OrganizationInterface;
   eventAudit: EventAuditUser;
   audit: (data: Partial<AuditInterface>) => Promise<void>;
-
-  /**
-   * Verifies permission for the API key and optional project and environments.
-   * @param permission
-   * @param project
-   * @param envs
-   */
-  checkPermissions(
-    permission: Permission,
-    project?: string,
-    envs?: string[]
-  ): void;
-}
+};
 
 export interface ApiErrorResponse {
   message: string;

@@ -75,16 +75,25 @@ export default function authenticateApiRequestMiddleware(
       // Check permissions for user API keys
       req.checkPermissions = (
         permission: Permission,
-        project?: string,
-        envs?: string[]
+        project?: string | (string | undefined)[] | undefined,
+        envs?: string[] | Set<string>
       ) => {
-        verifyApiKeyPermission({
-          apiKey: apiKeyPartial,
-          permission,
-          organization: org,
-          project,
-          environments: envs,
-        });
+        let checkProjects: (string | undefined)[];
+        if (Array.isArray(project)) {
+          checkProjects = project.length > 0 ? project : [undefined];
+        } else {
+          checkProjects = [project];
+        }
+
+        for (const p of checkProjects) {
+          verifyApiKeyPermission({
+            apiKey: apiKeyPartial,
+            permission,
+            organization: org,
+            project: p,
+            environments: envs ? [...envs] : undefined,
+          });
+        }
       };
 
       // Add user info to logger
