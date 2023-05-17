@@ -24,10 +24,11 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<4.0"
+python = ">=3.8,<3.12"
 pandas = "^1.5.1"
 scipy = "^1.9.2"
 numpy = "^1.23.4"
+nbformat = "^5.8.0"
 
 [tool.poetry.group.dev.dependencies]
 certifi = "2022.12.7"
@@ -41,6 +42,8 @@ flake8 = "3.8.4"
 flake8-docstrings = "^1.6.0"
 pytest = "6.2.5"
 pytest-cov = "2.10.1"
+mypy = "^1.1.1"
+pandas-stubs = "^2.0.1.230501"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -63,3 +66,6 @@ exclude = '''
   | dist
 )/
 '''
+
+[tool.mypy]
+exclude = '^tests'
