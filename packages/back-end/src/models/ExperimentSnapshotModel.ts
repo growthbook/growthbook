@@ -286,11 +286,29 @@ export async function getLatestSnapshot(
     dimension: dimension || null,
   };
 
+  // First try getting new snapshots that have a `status` field
+  let all = await ExperimentSnapshotModel.find(
+    {
+      ...query,
+      status: {
+        $in: withResults ? ["success"] : ["success", "running", "error"],
+      },
+    },
+    null,
+    {
+      sort: { dateCreated: -1 },
+      limit: 1,
+    }
+  ).exec();
+  if (all[0]) {
+    return toInterface(all[0]);
+  }
+
+  // Otherwise, try getting old snapshot records
   if (withResults) {
     query.results = { $exists: true, $type: "array", $ne: [] };
   }
-
-  const all = await ExperimentSnapshotModel.find(query, null, {
+  all = await ExperimentSnapshotModel.find(query, null, {
     sort: { dateCreated: -1 },
     limit: 1,
   }).exec();
