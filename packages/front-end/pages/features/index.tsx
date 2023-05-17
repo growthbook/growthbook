@@ -4,7 +4,7 @@ import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
-import { ago, datetime } from "shared";
+import { ago, datetime } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
