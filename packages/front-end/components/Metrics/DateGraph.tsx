@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { SupportedCurrencies } from "@/../back-end/types/organization";
 import { MetricType } from "back-end/types/metric";
 import { FC, useState, useMemo, Fragment, useEffect } from "react";
 import { ParentSizeModern } from "@visx/responsive";
@@ -20,6 +19,7 @@ import { ScaleLinear } from "d3-scale";
 import { getValidDate, date } from "shared/dates";
 import { formatConversionRate } from "@/services/metrics";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { supportedCurrencies, SupportedCurrencies } from "@/pages/settings";
 import styles from "./DateGraph.module.scss";
 
 type TooltipData = { x: number; y: number; d: Datapoint };
@@ -82,7 +82,7 @@ function getTooltipContents(
   type: MetricType,
   method: "sum" | "avg",
   smoothBy: "day" | "week",
-  currency?: SupportedCurrencies
+  displayCurrency?: SupportedCurrencies
 ) {
   if (!d || d.oor) return null;
   return (
@@ -98,14 +98,14 @@ function getTooltipContents(
         <>
           <div className={styles.val}>
             {method === "sum" ? `Σ` : `μ`}:{" "}
-            {formatConversionRate(type, d.v as number, currency)}
+            {formatConversionRate(type, d.v as number, displayCurrency)}
             {smoothBy === "week" && (
               <sub style={{ fontWeight: "normal", fontSize: 8 }}> smooth</sub>
             )}
           </div>
           {"s" in d && method === "avg" && (
             <div className={styles.secondary}>
-              {`σ`}: {formatConversionRate(type, d.s || 0, currency)}
+              {`σ`}: {formatConversionRate(type, d.s || 0, displayCurrency)}
               {smoothBy === "week" && (
                 <sub style={{ fontWeight: "normal", fontSize: 8 }}> smooth</sub>
               )}
@@ -449,6 +449,9 @@ const DateGraph: FC<DateGraphProps> = ({
           }
         };
 
+        const displayCurrency =
+          supportedCurrencies[orgSettings.displayCurrency || "USD"];
+
         return (
           <>
             <div
@@ -487,7 +490,7 @@ const DateGraph: FC<DateGraphProps> = ({
                         type,
                         method,
                         smoothBy,
-                        orgSettings.displayCurrency
+                        displayCurrency
                       )}
                   </TooltipWithBounds>
                 </>
@@ -668,11 +671,7 @@ const DateGraph: FC<DateGraphProps> = ({
                   tickFormat={(v) =>
                     type === "binomial"
                       ? (v as number).toLocaleString()
-                      : formatConversionRate(
-                          type,
-                          v as number,
-                          orgSettings.displayCurrency
-                        )
+                      : formatConversionRate(type, v as number, displayCurrency)
                   }
                 />
               </Group>

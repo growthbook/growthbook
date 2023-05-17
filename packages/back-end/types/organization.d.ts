@@ -4,14 +4,12 @@ import {
   GLOBAL_PERMISSIONS,
   PROJECT_SCOPED_PERMISSIONS,
 } from "../src/util/organization.util";
-import { supportedCurrencies } from "../src/util/currencies";
 import { AttributionModel, ImplementationType } from "./experiment";
 import type { PValueCorrection, StatsEngine } from "./stats";
 
 export type EnvScopedPermission = typeof ENV_SCOPED_PERMISSIONS[number];
 export type ProjectScopedPermission = typeof PROJECT_SCOPED_PERMISSIONS[number];
 export type GlobalPermission = typeof GLOBAL_PERMISSIONS[number];
-export type SupportedCurrencies = keyof typeof supportedCurrencies;
 
 export type Permission =
   | GlobalPermission
@@ -169,7 +167,7 @@ export interface OrganizationSettings {
   attributionModel?: AttributionModel;
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
-  displayCurrency?: SupportedCurrencies;
+  displayCurrency?: string;
 }
 
 export interface SubscriptionQuote {
