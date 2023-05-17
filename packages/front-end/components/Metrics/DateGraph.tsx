@@ -18,7 +18,6 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
 import { getValidDate, date } from "shared/dates";
 import { formatConversionRate } from "@/services/metrics";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { SupportedCurrencies } from "@/pages/settings";
 import { useCurrency } from "@/hooks/useCurrency";
 import styles from "./DateGraph.module.scss";
