@@ -46,6 +46,9 @@ export default function SDKConnectionForm({
   const { hasCommercialFeature } = useUser();
 
   const hasCloudProxyFeature = hasCommercialFeature("cloud-proxy");
+  const hasSecureAttributesFeature = hasCommercialFeature(
+    "hash-secure-attributes"
+  );
 
   useEffect(() => {
     if (edit) return;
@@ -446,7 +449,7 @@ export default function SDKConnectionForm({
               id="hash-secure-attributes"
               value={form.watch("hashSecureAttributes")}
               setValue={(val) => form.setValue("hashSecureAttributes", val)}
-              disabled={!hasCloudProxyFeature}
+              disabled={!hasSecureAttributesFeature}
             />
           </div>
           <div

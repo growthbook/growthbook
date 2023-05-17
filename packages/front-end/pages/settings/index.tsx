@@ -73,6 +73,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"
   );
+  const hasSecureAttributesFeature = hasCommercialFeature(
+    "hash-secure-attributes"
+  );
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -1100,7 +1103,30 @@ const GeneralSettingsPage = (): React.ReactElement => {
               <div className="col-sm-9">
                 <div className="form-inline">
                   <Field
-                    label="Salt string for secure attributes"
+                    label={
+                      <PremiumTooltip
+                        commercialFeature={"hash-secure-attributes"}
+                        body={
+                          <>
+                            <p>
+                              Feature targeting conditions referencing{" "}
+                              <code>secureString</code> attributes will be
+                              anonymized via SHA-256 hashing. This allows you to
+                              safely target users based on sensitive attributes.
+                            </p>
+                            <p className="mb-0">
+                              You may add a cryptographic salt string (a random
+                              string of your choosing) to the hashing algorithm,
+                              which helps defend against hash lookup
+                              vulnerabilities.
+                            </p>
+                          </>
+                        }
+                      >
+                        Salt string for secure attributes <FaQuestionCircle />
+                      </PremiumTooltip>
+                    }
+                    disabled={!hasSecureAttributesFeature}
                     className="ml-2"
                     containerClassName="mb-3"
                     type="string"

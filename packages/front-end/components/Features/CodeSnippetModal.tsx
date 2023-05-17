@@ -3,8 +3,13 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "back-end/types/sdk-connection";
-import { FaAngleDown, FaAngleRight } from "react-icons/fa";
+import {
+  FaAngleDown,
+  FaAngleRight,
+  FaExclamationTriangle,
+} from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
+import Link from "next/link";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -421,16 +426,27 @@ export default function CodeSnippetModal({
                         <div className="mt-2">
                           Example, using your organization&apos;s secure
                           attribute salt:
+                          {secureAttributeSalt === "" && (
+                            <div className="alert alert-warning mt-2 px-2 py-1">
+                              <FaExclamationTriangle /> Your organization has an
+                              empty salt string. Add a salt string in your{" "}
+                              <Link href="/settings">
+                                organization settings
+                              </Link>{" "}
+                              to improve the security of hashed targeting
+                              conditions.
+                            </div>
+                          )}
                           <Code
                             filename="psuedocode"
                             language="javascript"
                             code={`const salt = "${secureAttributeSalt}";
 
 // hashing a secureString attribute
-myAttribute = sha256( myAttribute + salt );
+myAttribute = sha256(myAttribute + salt);
 
 // hashing an secureString[] attribute
-myAttributes = myAttributes.map( attribute => sha256( attribute + salt ) );`}
+myAttributes = myAttributes.map(attribute => sha256(attribute + salt));`}
                           />
                         </div>
                       </div>

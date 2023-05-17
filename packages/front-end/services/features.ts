@@ -649,7 +649,7 @@ function parseValue(
   type?: "string" | "number" | "boolean" | "secureString"
 ) {
   if (type === "number") return parseFloat(value) || 0;
-  if (type === "boolean") return value === "true";
+  if (type === "boolean") return value === "false" ? false : true;
   return value;
 }
 
