@@ -83,6 +83,12 @@ class RatioStatistic(Statistic):
         return self.m_statistic.sum / self.d_statistic.sum
 
     @property
+    def sum(self):
+        raise NotImplementedError(
+            "RatioStatistic does not have a unique `sum` property"
+        )
+
+    @property
     def variance(self):
         if self.d_statistic.mean == 0 or self.n <= 1:
             return 0
@@ -117,6 +123,12 @@ class RegressionAdjustedStatistic(Statistic):
     @property
     def mean(self):
         return self.post_statistic.mean - self.theta * self.pre_statistic.mean
+
+    @property
+    def sum(self):
+        raise NotImplementedError(
+            "Regression Adjusted Statistic does not have a unique `sum` property"
+        )
 
     @property
     def unadjusted_mean(self):
