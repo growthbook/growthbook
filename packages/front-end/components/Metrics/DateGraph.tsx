@@ -350,8 +350,6 @@ const DateGraph: FC<DateGraphProps> = ({
     [min, max, xMax]
   );
 
-  const orgSettings = useOrgSettings();
-
   const yScale = useMemo(
     () =>
       scaleLinear<number>({
