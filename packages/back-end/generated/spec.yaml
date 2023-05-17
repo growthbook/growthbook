@@ -178,6 +178,75 @@ paths:
                         items:
                           $ref: '#/components/schemas/Feature'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - features
+      summary: Create a single feature
+      operationId: postFeature
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/features \
+              -d '{
+                "defaultValue": "Hello, world!",
+                "id": "greeting",
+                "description": "Greeting created in the API",
+                "valueType": "string"
+              }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - valueType
+                - defaultValue
+              properties:
+                id:
+                  type: string
+                  description: The feature key
+                archived:
+                  type: boolean
+                  description: Whether the feature is archived or not
+                description:
+                  type: string
+                  description: A description of the feature
+                owner:
+                  type: string
+                  description: 'The name of the owner of this feature, for reference'
+                project:
+                  type: string
+                  description: Project ID
+                valueType:
+                  type: string
+                  description: The type of the value
+                  enum:
+                    - boolean
+                    - string
+                    - number
+                    - json
+                defaultValue:
+                  type: string
+                tags:
+                  type: array
+                  description: A list of tags
+                  items:
+                    type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - feature
+                properties:
+                  feature:
+                    $ref: '#/components/schemas/Feature'
   '/features/{id}':
     parameters:
       - $ref: '#/components/parameters/id'

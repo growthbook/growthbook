@@ -12,6 +12,12 @@ export const listFeaturesValidator = {
   paramsSchema: z.never(),
 };
 
+export const postFeatureValidator = {
+  bodySchema: z.object({"id":z.string().describe("The feature key"),"archived":z.boolean().describe("Whether the feature is archived or not").optional(),"description":z.string().describe("A description of the feature").optional(),"owner":z.string().describe("The name of the owner of this feature, for reference").optional(),"project":z.string().describe("Project ID").optional(),"valueType":z.enum(["boolean","string","number","json"]).describe("The type of the value"),"defaultValue":z.string(),"tags":z.array(z.string()).describe("A list of tags").optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
 export const getFeatureValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),

@@ -14,6 +14,8 @@ export interface paths {
   "/features": {
     /** Get all features */
     get: operations["listFeatures"];
+    /** Create a single feature */
+    post: operations["postFeature"];
   };
   "/features/{id}": {
     /** Get a single feature */
@@ -1050,6 +1052,149 @@ export interface operations {
             total: number;
             hasMore: boolean;
             nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  postFeature: {
+    /** Create a single feature */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The feature key */
+          id: string;
+          /** @description Whether the feature is archived or not */
+          archived?: boolean;
+          /** @description A description of the feature */
+          description?: string;
+          /** @description The name of the owner of this feature, for reference */
+          owner?: string;
+          /** @description Project ID */
+          project?: string;
+          /**
+           * @description The type of the value 
+           * @enum {string}
+           */
+          valueType: "boolean" | "string" | "number" | "json";
+          defaultValue: string;
+          /** @description A list of tags */
+          tags?: (string)[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            feature: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              archived: boolean;
+              description: string;
+              owner: string;
+              project: string;
+              /** @enum {string} */
+              valueType: "boolean" | "string" | "number" | "json";
+              defaultValue: string;
+              tags: (string)[];
+              environments: {
+                [key: string]: ({
+                  enabled: boolean;
+                  defaultValue: string;
+                  rules: ({
+                      description: string;
+                      condition: string;
+                      id: string;
+                      enabled: boolean;
+                      type: string;
+                      value: string;
+                    } | {
+                      description: string;
+                      condition: string;
+                      id: string;
+                      enabled: boolean;
+                      type: string;
+                      value: string;
+                      coverage: number;
+                      hashAttribute: string;
+                    } | {
+                      description: string;
+                      condition: string;
+                      id: string;
+                      enabled: boolean;
+                      type: string;
+                      trackingKey?: string;
+                      hashAttribute?: string;
+                      namespace?: {
+                        enabled: boolean;
+                        name: string;
+                        range: (number)[];
+                      };
+                      coverage?: number;
+                      value?: ({
+                          value: string;
+                          weight: number;
+                          name?: string;
+                        })[];
+                    })[];
+                  /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+                  definition?: string;
+                  draft?: {
+                    enabled: boolean;
+                    defaultValue: string;
+                    rules: ({
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        value: string;
+                      } | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        value: string;
+                        coverage: number;
+                        hashAttribute: string;
+                      } | {
+                        description: string;
+                        condition: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        trackingKey?: string;
+                        hashAttribute?: string;
+                        namespace?: {
+                          enabled: boolean;
+                          name: string;
+                          range: (number)[];
+                        };
+                        coverage?: number;
+                        value?: ({
+                            value: string;
+                            weight: number;
+                            name?: string;
+                          })[];
+                      })[];
+                    /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
+                    definition?: string;
+                  };
+                }) | undefined;
+              };
+              revision: {
+                version: number;
+                comment: string;
+                /** Format: date-time */
+                date: string;
+                publishedBy: string;
+              };
+            };
           };
         };
       };
@@ -2696,6 +2841,7 @@ export type ApiSavedGroup = components["schemas"]["SavedGroup"];
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
+export type PostFeatureResponse = operations["postFeature"]["responses"]["200"]["content"]["application/json"];
 export type GetFeatureResponse = operations["getFeature"]["responses"]["200"]["content"]["application/json"];
 export type ToggleFeatureResponse = operations["toggleFeature"]["responses"]["200"]["content"]["application/json"];
 export type ListProjectsResponse = operations["listProjects"]["responses"]["200"]["content"]["application/json"];
