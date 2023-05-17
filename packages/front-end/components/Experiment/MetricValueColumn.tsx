@@ -2,6 +2,7 @@ import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { formatConversionRate } from "@/services/metrics";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { supportedCurrencies, SupportedCurrencies } from "@/pages/settings";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -17,16 +18,17 @@ export default function MetricValueColumn({
   className?: string;
 }) {
   const orgSettings = useOrgSettings();
+
+  const displayCurrency =
+    (Object.keys(supportedCurrencies).find(
+      (key) => key === orgSettings.displayCurrency
+    ) as SupportedCurrencies) || "USD";
   return (
     <td className={className}>
       {metric && stats.users ? (
         <>
           <div className="result-number">
-            {formatConversionRate(
-              metric?.type,
-              stats.cr,
-              orgSettings.displayCurrency
-            )}
+            {formatConversionRate(metric?.type, stats.cr, displayCurrency)}
           </div>
           <div>
             <small className="text-muted">
@@ -45,7 +47,7 @@ export default function MetricValueColumn({
                   {formatConversionRate(
                     metric.type === "binomial" ? "count" : metric.type,
                     stats.value,
-                    orgSettings.displayCurrency
+                    displayCurrency
                   )}
                 </span>{" "}
                 /&nbsp;

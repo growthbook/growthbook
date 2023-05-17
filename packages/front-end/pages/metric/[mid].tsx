@@ -58,6 +58,7 @@ import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBCuped, GBEdit } from "@/components/Icons";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { SupportedCurrencies, supportedCurrencies } from "../settings";
 
 const MetricPage: FC = () => {
   const router = useRouter();
@@ -289,6 +290,11 @@ const MetricPage: FC = () => {
       }
     };
   };
+
+  const displayCurrency =
+    (Object.keys(supportedCurrencies).find(
+      (key) => key === orgSettings.displayCurrency
+    ) as SupportedCurrencies) || "USD";
 
   return (
     <div className="container-fluid pagecontents">
@@ -656,7 +662,7 @@ const MetricPage: FC = () => {
                                 {formatConversionRate(
                                   metric.type,
                                   analysis.average,
-                                  orgSettings.displayCurrency
+                                  displayCurrency
                                 )}
                               </div>
                               <div className="pb-2 ml-1">average</div>
