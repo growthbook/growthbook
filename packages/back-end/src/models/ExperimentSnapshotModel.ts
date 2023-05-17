@@ -1,6 +1,6 @@
 import mongoose, { FilterQuery } from "mongoose";
 import omit from "lodash/omit";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
@@ -183,6 +183,9 @@ export function migrateSnapshot(
   // Migrate settings
   // We weren't tracking all of these before, so just pick good defaults
   if (!snapshot.settings) {
+    // Try to figure out metric ids from results
+    const metricIds = Object.keys(results?.[0]?.variations?.[0]?.metrics || {});
+
     snapshot.settings = {
       manual: !!manual,
       dimensions: snapshot.dimension
@@ -192,11 +195,13 @@ export function migrateSnapshot(
             },
           ]
         : [],
-      // TODO: figure out metrics from results?
-      goalMetrics: [],
+      // We know the list of metric ids, but don't know if they were goals or guardrails
+      // Just add them all as goals (doesn't really change much)
+      goalMetrics: metricIds.map((id) => ({ id })),
       guardrailMetrics: [],
       activationMetric: activationMetric ? { id: activationMetric } : null,
       regressionAdjustmentEnabled: true,
+
       startDate: snapshot.dateCreated,
       endDate: snapshot.dateCreated,
       experimentId: "",

@@ -73,7 +73,7 @@ export interface MetricForSnapshot {
   computedSettings?: {
     regressionAdjustmentEnabled: boolean;
     regressionAdjustmentDays: number;
-    reason: string;
+    regressionAdjustmentReason: string;
     conversionWindowHours: number;
     conversionDelayHours: number;
   };

@@ -109,7 +109,7 @@ const Results: FC<{
   const snapshotMetricRegressionAdjustmentStatuses =
     snapshot?.settings?.goalMetrics?.map((m) => ({
       metric: m.id,
-      reason: m.computedSettings?.reason || "",
+      reason: m.computedSettings?.regressionAdjustmentReason || "",
       regressionAdjustmentDays:
         m.computedSettings?.regressionAdjustmentDays || 0,
       regressionAdjustmentEnabled: !!m.computedSettings

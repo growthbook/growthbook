@@ -49,7 +49,7 @@ function isOutdated(
     return { outdated: false, reason: "" };
   }
   if (isDifferent(analysisSettings.statsEngine, statsEngine)) {
-    return { outdated: true, reason: "stats engine changed" };
+    return { outdated: true, reason: "Stats engine changed" };
   }
   if (
     isDifferent(
