@@ -153,8 +153,6 @@ class TestNorm(TestCase):
         result = GaussianBayesianABTest(
             SampleMeanStatistic(sum=99.06, sum_squares=9987.2276, n=381),
             SampleMeanStatistic(sum=20281.8, sum_squares=3646063.4064, n=381),
-            # Statistic(0.26, 5.12, 381, 381),
-            # Statistic(0.84, 12.26, 24145, 24145),
         ).compute_result()
 
         for key in expected.keys():
