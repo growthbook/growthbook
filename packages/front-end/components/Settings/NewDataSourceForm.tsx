@@ -558,7 +558,7 @@ const NewDataSourceForm: FC<{
                               createForUser: boolean;
                             }[];
                             message?: string;
-                          }>(`/metrics/generate/${dataSourceId}`, {
+                          }>(`/datasource/${dataSourceId}/auto-metrics`, {
                             method: "GET",
                           });
                           if (res.message) {

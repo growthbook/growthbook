@@ -99,7 +99,9 @@ export default class BigQuery extends SqlIntegration {
   ): string {
     return `\`${databaseName}.${tableSchema}.INFORMATION_SCHEMA.COLUMNS\``;
   }
-  getTrackedEventsFromClause(trackedEventTableName: string): string {
+  getEventsTrackedByDatasourceFromClause(
+    trackedEventTableName: string
+  ): string {
     if (!this.params.projectId)
       throw new Error(
         "No projectId provided. In order to get the information schema, you must provide a projectId."
