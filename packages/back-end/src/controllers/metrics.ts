@@ -483,7 +483,11 @@ export async function getAutoMetrics(
 
   const integration = getSourceIntegrationObject(dataSourceObj);
 
-  if (!integration.getTrackedEvents) {
+  if (
+    !integration.getTrackedEvents ||
+    !integration.settings.schemaFormat ||
+    integration.settings.schemaFormat === "custom" //MKTODO: Is this logic correct?
+  ) {
     //TODO: Is this the correct error code?
     res.status(403).json({
       status: 403,
@@ -493,7 +497,9 @@ export async function getAutoMetrics(
   }
 
   try {
-    const results = await integration.getTrackedEvents();
+    const results = await integration.getTrackedEvents(
+      integration.settings.schemaFormat
+    );
 
     if (results.length) {
       return res.status(200).json({

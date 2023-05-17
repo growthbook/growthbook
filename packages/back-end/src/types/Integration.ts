@@ -293,9 +293,9 @@ export interface SourceIntegrationInterface {
     query: string
   ): Promise<ExperimentMetricQueryResponse>;
   runPastExperimentQuery(query: string): Promise<PastExperimentResponse>;
-  getTrackedEvents?: () => Promise<
-    { event: string; hasUserId: boolean; createForUser: boolean }[]
-  >;
+  getTrackedEvents?: (
+    schemaFormat: SchemaFormat
+  ) => Promise<{ event: string; hasUserId: boolean; createForUser: boolean }[]>;
   getAutomaticMetricSqlQuery?(
     metric: {
       event: string;

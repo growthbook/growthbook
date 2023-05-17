@@ -1290,24 +1290,33 @@ export default abstract class SqlIntegration
     return { tableData };
   }
 
-  getTrackedEventsFromClause(): string {
-    return "TODO";
+  getTrackedEventsFromClause(trackedEventTableName: string): string {
+    return trackedEventTableName;
   }
 
-  async getTrackedEvents(): Promise<
-    { event: string; hasUserId: boolean; createForUser: boolean }[]
-  > {
+  async getTrackedEvents(
+    schemaFormat: SchemaFormat
+  ): Promise<{ event: string; hasUserId: boolean; createForUser: boolean }[]> {
+    let eventColumn;
+    let trackedEventTableName;
+
+    switch (schemaFormat) {
+      //TODO: Add cases for schemaFormats where the tracked events aren't stored in a column called "events"
+      default:
+        eventColumn = "event";
+        trackedEventTableName = "tracks";
+    }
+
     const sql = `
       SELECT
-        event,
-        (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId
+        ${eventColumn} as event,
+        (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
+        (CASE WHEN (1 > 0) THEN 1 ELSE 0 END) as createForUser
       FROM
-        ${this.getTrackedEventsFromClause()}
+        ${this.getTrackedEventsFromClause(trackedEventTableName)}
       GROUP BY event`;
 
     const results = await this.runQuery(format(sql, this.getFormatDialect()));
-
-    results.forEach((result) => (result.createForUser = true));
 
     if (!results) {
       throw new Error(`No events found.`);
@@ -1316,15 +1325,16 @@ export default abstract class SqlIntegration
     return results;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   getAutomaticMetricFromClause(event: string): string {
-    return "TODO";
+    return event;
   }
 
   getAutomaticMetricTimestampColumn(schemaFormat: SchemaFormat): string {
     switch (schemaFormat) {
-      case "segment":
-        return "loaded_at";
+      case "segment" || "rudderstack":
+        return "received_at";
+      case "amplitude":
+        return "server_upload_time";
       default:
         return "timestamp";
     }
@@ -1352,9 +1362,9 @@ export default abstract class SqlIntegration
   ): string {
     const sqlQuery = `
     SELECT 
-    ${
-      metric.hasUserId ? "user_id, " : ""
-    }anonymous_id, ${this.getAutomaticMetricTimestampColumn(
+    ${metric.hasUserId ? "user_id, " : ""}${
+      schemaFormat === "amplitude" ? "amplitude_id" : "anonymous_id"
+    } as anonymous_id, ${this.getAutomaticMetricTimestampColumn(
       schemaFormat
     )} as timestamp
     ${this.getAutomaticMetricAggregatorColumn(
