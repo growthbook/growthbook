@@ -119,59 +119,6 @@ export async function createApiKey({
   return doc.toJSON();
 }
 
-/**
- * Creates an API key for read-only access to an organization
- * This will have the `type` "read-only"
- * @param organization
- * @param description
- */
-export async function createReadOnlyApiKey({
-  organization,
-  description,
-}: {
-  organization: string;
-  description: string;
-}): Promise<ApiKeyInterface> {
-  return createApiKey({
-    environment: "",
-    project: "",
-    organization,
-    description,
-    secret: true,
-    encryptSDK: false,
-    type: "read-only",
-  });
-}
-
-/**
- * Creates an API key that is linked to a user of an organization.
- * This token is sensitive and should be used to grant access to everything that user has access to.
- * This will have the `type` "user"
- * @param organization
- * @param description
- * @param userId
- */
-export async function createUserApiKey({
-  organization,
-  description,
-  userId,
-}: {
-  organization: string;
-  description: string;
-  userId: string;
-}): Promise<ApiKeyInterface> {
-  return createApiKey({
-    environment: "",
-    project: "",
-    organization,
-    description,
-    secret: true,
-    encryptSDK: false,
-    userId,
-    type: "user",
-  });
-}
-
 export async function deleteApiKeyById(organization: string, id: string) {
   await ApiKeyModel.deleteOne({
     organization,
