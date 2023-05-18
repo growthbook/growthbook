@@ -66,7 +66,7 @@ describe("REST API auth middleware", () => {
       organization: "org_sktwi1id9l7z9xkjb",
       key: "secret_read-only_abc123456789xyz987654321",
       encryptSDK: false,
-      type: "read-only",
+      role: "readonly",
       description: "My test readonly key created in the REPL",
     };
     const userKey: Partial<ApiKeyInterface> = {
@@ -75,7 +75,6 @@ describe("REST API auth middleware", () => {
       organization: "org_sktwi1id9l7z9xkjb",
       key: "secret_read-only_abc123456789xyz987654321",
       encryptSDK: false,
-      type: "user",
       userId: "u_sktwi1id9l7z9xkis",
       description: "My user key created in the REPL",
     };

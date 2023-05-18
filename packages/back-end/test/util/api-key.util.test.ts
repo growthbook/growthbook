@@ -1,6 +1,9 @@
 import { ApiKeyInterface } from "../../types/apikey";
 import { OrganizationInterface } from "../../types/organization";
-import { isApiKeyForUserInOrganization } from "../../src/util/api-key.util";
+import {
+  isApiKeyForUserInOrganization,
+  roleForApiKey,
+} from "../../src/util/api-key.util";
 
 describe("api key utils", () => {
   describe("isApiKeyForUserInOrganization", () => {
@@ -85,6 +88,48 @@ describe("api key utils", () => {
       const result = isApiKeyForUserInOrganization(apiKey, org);
 
       expect(result).toEqual(false);
+    });
+  });
+
+  describe("roleForApiKey", () => {
+    it("should return admin for secret keys without roles", () => {
+      const input: Pick<ApiKeyInterface, "role" | "userId" | "secret"> = {
+        role: undefined,
+        userId: undefined,
+        secret: true,
+      };
+
+      expect(roleForApiKey(input)).toEqual("admin");
+    });
+
+    it("should return null for non-secret keys", () => {
+      const input: Pick<ApiKeyInterface, "role" | "userId" | "secret"> = {
+        role: undefined,
+        userId: undefined,
+        secret: false,
+      };
+
+      expect(roleForApiKey(input)).toEqual(null);
+    });
+
+    it("should return null for secret keys with user IDs", () => {
+      const input: Pick<ApiKeyInterface, "role" | "userId" | "secret"> = {
+        role: undefined,
+        userId: "user-abc123",
+        secret: true,
+      };
+
+      expect(roleForApiKey(input)).toEqual(null);
+    });
+
+    it("should return readonly for secret keys with readonly specified", () => {
+      const input: Pick<ApiKeyInterface, "role" | "userId" | "secret"> = {
+        role: "readonly",
+        userId: undefined,
+        secret: true,
+      };
+
+      expect(roleForApiKey(input)).toEqual("readonly");
     });
   });
 });

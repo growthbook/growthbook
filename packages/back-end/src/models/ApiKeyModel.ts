@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { webcrypto } from "node:crypto";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import omit from "lodash/omit";
 import {
   ApiKeyInterface,
   PublishableApiKey,
@@ -24,7 +25,7 @@ const apiKeySchema = new mongoose.Schema({
   encryptSDK: Boolean,
   encryptionKey: String,
   secret: Boolean,
-  type: {
+  role: {
     type: String,
     required: false,
   },
@@ -37,6 +38,20 @@ const apiKeySchema = new mongoose.Schema({
 type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
 
 const ApiKeyModel = mongoose.model<ApiKeyDocument>("ApiKey", apiKeySchema);
+
+const toInterface = (doc: ApiKeyDocument): ApiKeyInterface => {
+  const asJson = omit(doc.toJSON(), ["__v", "_id"]);
+
+  return {
+    ...asJson,
+    role:
+      asJson.role === "readonly"
+        ? "readonly"
+        : asJson.userId
+        ? undefined
+        : "admin",
+  };
+};
 
 export async function generateEncryptionKey(): Promise<string> {
   const key = await webcrypto.subtle.generateKey(
@@ -116,7 +131,7 @@ export async function createApiKey({
     dateCreated: new Date(),
   });
 
-  return doc.toJSON();
+  return toInterface(doc);
 }
 
 export async function deleteApiKeyById(organization: string, id: string) {
@@ -143,7 +158,7 @@ export async function getApiKeyByIdOrKey(
   const doc = await ApiKeyModel.findOne(
     id ? { organization, id } : { organization, key }
   );
-  return doc ? doc.toJSON() : null;
+  return doc ? toInterface(doc) : null;
 }
 
 export async function lookupOrganizationByApiKey(
@@ -167,7 +182,7 @@ export async function lookupOrganizationByApiKey(
   });
 
   if (!doc || !doc.organization) return {};
-  return doc.toJSON();
+  return toInterface(doc);
 }
 
 export async function getAllApiKeysByOrganization(
@@ -180,7 +195,7 @@ export async function getAllApiKeysByOrganization(
     { encryptionKey: 0 }
   );
   return docs.map((k) => {
-    const json = k.toJSON();
+    const json = toInterface(k);
     if (json.secret) {
       json.key = "";
     }
@@ -217,5 +232,5 @@ export async function getUnredactedSecretKey(
     id,
   });
   if (!doc) return null;
-  return doc.toJSON() as SecretApiKey;
+  return toInterface(doc) as SecretApiKey;
 }

@@ -1183,9 +1183,7 @@ export async function putOrganization(
 export async function getApiKeys(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
   const keys = await getAllApiKeysByOrganization(org.id);
-  const filteredKeys = keys.filter(
-    (k) => k.type !== "user" || k.userId === req.userId
-  );
+  const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
 
   res.status(200).json({
     status: 200,
@@ -1299,7 +1297,7 @@ export async function postApiKeyReveal(
   const { id } = req.body;
 
   const key = await getUnredactedSecretKey(org.id, id);
-  if (key?.type === "user" && req.userId !== key.userId) {
+  if (!key || (key.userId && req.userId !== key.userId)) {
     return res.status(403).json({
       status: 403,
     });

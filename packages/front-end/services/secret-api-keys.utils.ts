@@ -25,17 +25,12 @@ export function groupApiKeysByType(apiKeys: ApiKeyInterface[]): GroupedApiKeys {
   return apiKeys
     .filter((apiKey) => apiKey.secret === true)
     .reduce<GroupedApiKeys>((previousValue, currentValue) => {
-      switch (currentValue.type) {
-        case "read-only":
-          grouped.readonly.push(currentValue);
-          break;
-
-        case "user":
-          grouped.user.push(currentValue);
-          break;
-
-        default:
-          grouped.secret.push(currentValue);
+      if (currentValue.userId) {
+        previousValue.user.push(currentValue);
+      } else if (currentValue.role === "readonly") {
+        previousValue.readonly.push(currentValue);
+      } else {
+        previousValue.secret.push(currentValue);
       }
 
       return previousValue;

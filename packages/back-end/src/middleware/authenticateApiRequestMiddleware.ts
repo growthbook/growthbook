@@ -66,7 +66,7 @@ export default function authenticateApiRequestMiddleware(
       // If it's a user API key, verify that the user is part of the organization
       // This is important to check in the event that a user leaves an organization, the member list is updated, and the user's API keys are orphaned
       if (
-        apiKeyPartial.type === "user" &&
+        apiKeyPartial.userId &&
         !isApiKeyForUserInOrganization(apiKeyPartial, org)
       ) {
         throw new Error("Could not find user attached to this API key");
@@ -187,29 +187,26 @@ export function verifyApiKeyPermission({
   environments,
   project,
 }: VerifyApiKeyPermissionOptions) {
-  switch (apiKey.type) {
-    case "read-only":
-      // The `readonly` role is empty so it's not there
-      throw new Error("read-only keys do not have this level of access");
+  if (apiKey.role === "readonly") {
+    // The `readonly` role is empty so it's not there
+    throw new Error("read-only keys do not have this level of access");
+  }
 
-    case "user":
-      if (
-        !doesUserHavePermission(
-          organization,
-          permission,
-          apiKey,
-          project,
-          environments
-        )
-      ) {
-        throw new Error("API key user does not have this level of access");
-      }
-      break;
+  if (apiKey.userId) {
+    if (
+      !doesUserHavePermission(
+        organization,
+        permission,
+        apiKey,
+        project,
+        environments
+      )
+    ) {
+      throw new Error("API key user does not have this level of access");
+    }
 
-    default:
-      // secret API keys without a type are the full access API keys
-      if (apiKey.secret !== true) {
-        throw new Error("API key does not have this level of access");
-      }
+    if (apiKey.secret !== true) {
+      throw new Error("API key does not have this level of access");
+    }
   }
 }
