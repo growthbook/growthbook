@@ -1,11 +1,11 @@
 import { FC, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "../../services/auth";
+import { useAuth } from "@/services/auth";
+import { useEnvironments } from "@/services/features";
 import Modal from "../Modal";
 import track from "../../services/track";
 import Field from "../Forms/Field";
-import { useEnvironments } from "../../services/features";
 import SelectField from "../Forms/SelectField";
 import EncryptionToggle from "./EncryptionToggle";
 import UpgradeModal from "./UpgradeModal";
@@ -50,7 +50,7 @@ const ApiKeysModal: FC<{
   const modalTitle = useMemo(() => {
     if (!secret) return "Create SDK Endpoint";
 
-    if (type === "user") return "Create User API key";
+    if (type === "user") return "Create a Personal Access Token";
     if (type === "read-only") return "Create Read-only API key";
 
     return "Create Secret key";

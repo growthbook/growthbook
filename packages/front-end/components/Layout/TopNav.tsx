@@ -227,6 +227,17 @@ const TopNav: FC<{
                 </>
               )}
               <div className="dropdown-divider"></div>
+              <Link href={"/settings/personal-access-tokens"}>
+                <a
+                  className="dropdown-item"
+                  onClick={() => {
+                    setUserDropdownOpen(false);
+                  }}
+                >
+                  My Personal Access Tokens
+                </a>
+              </Link>
+              <div className="dropdown-divider"></div>
               <button
                 className="dropdown-item"
                 onClick={(e) => {
