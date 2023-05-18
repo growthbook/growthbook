@@ -1228,7 +1228,10 @@ export async function postApiKey(
 
   // Only require permissions if we are creating a new API key
   if (secret) {
-    req.checkPermissions("manageApiKeys");
+    if (type !== "user") {
+      // All access token types except `user` require the permission
+      req.checkPermissions("manageApiKeys");
+    }
   } else {
     req.checkPermissions("manageEnvironments", "", [environment]);
   }
@@ -1291,16 +1294,28 @@ export async function postApiKeyReveal(
   req: AuthRequest<{ id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageApiKeys");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.body;
 
   const key = await getUnredactedSecretKey(org.id, id);
-  if (!key || (key.userId && req.userId !== key.userId)) {
+  if (!key) {
     return res.status(403).json({
       status: 403,
     });
+  }
+
+  if (!key.userId) {
+    // Only admins can reveal non-user keys
+    req.checkPermissions("manageApiKeys");
+  } else {
+    // This is a user key
+    // The key must be owned by the user requesting to reveal it
+    const isMatchingUserKey = req.userId === key.userId;
+    if (!isMatchingUserKey) {
+      return res.status(403).json({
+        status: 403,
+      });
+    }
   }
 
   res.status(200).json({
