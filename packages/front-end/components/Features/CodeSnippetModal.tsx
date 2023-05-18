@@ -6,6 +6,7 @@ import {
 import {
   FaAngleDown,
   FaAngleRight,
+  FaExclamationCircle,
   FaExclamationTriangle,
 } from "react-icons/fa";
 import { FeatureInterface } from "back-end/types/feature";
@@ -448,6 +449,14 @@ myAttribute = sha256(myAttribute + salt);
 // hashing an secureString[] attribute
 myAttributes = myAttributes.map(attribute => sha256(attribute + salt));`}
                           />
+                        </div>
+                        <div className="alert text-warning-orange mt-3 mb-0 px-2 py-1">
+                          <FaExclamationCircle /> When using an insecure
+                          environment (such as a browser), do not rely
+                          exclusively on hashing as a means of securing highly
+                          sensitive data. Hashing is an obfuscation technique
+                          that makes it very difficult, but not impossible, to
+                          extract sensitive data.
                         </div>
                       </div>
                     </div>

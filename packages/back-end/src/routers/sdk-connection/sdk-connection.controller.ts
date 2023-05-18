@@ -109,7 +109,6 @@ export const putSDKConnection = async (
     hashSecureAttributes = req.body.hashSecureAttributes || false;
   }
 
-
   let sseEnabled = false;
   if (orgHasPremiumFeature(org, "cloud-proxy")) {
     sseEnabled = req.body.sseEnabled || false;

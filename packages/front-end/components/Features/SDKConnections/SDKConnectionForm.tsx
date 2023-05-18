@@ -7,7 +7,11 @@ import { useForm } from "react-hook-form";
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
+import {
+  FaExclamationCircle,
+  FaExclamationTriangle,
+  FaInfoCircle,
+} from "react-icons/fa";
 import { BsLightningFill } from "react-icons/bs";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
@@ -434,9 +438,21 @@ export default function SDKConnectionForm({
             commercialFeature="encrypt-features-endpoint"
             body={
               <>
-                Targeting conditions referencing <code>secureString</code>{" "}
-                attributes will be anonymized via SHA-256 hashing. This allows
-                you to safely target users based on sensitive attributes.
+                <p>
+                  Feature targeting conditions referencing{" "}
+                  <code>secureString</code> attributes will be anonymized via
+                  SHA-256 hashing. When evaluating feature flags in a public or
+                  insecure environment (such as a browser), hashing provides an
+                  additional layer of security through obfuscation. This allows
+                  you to target users based on sensitive attributes.
+                </p>
+                <p className="mb-0 text-warning-orange small">
+                  <FaExclamationCircle /> When using an insecure environment, do
+                  not rely exclusively on hashing as a means of securing highly
+                  sensitive data. Hashing is an obfuscation technique that makes
+                  it very difficult, but not impossible, to extract sensitive
+                  data.
+                </p>
               </>
             }
           >

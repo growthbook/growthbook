@@ -3,7 +3,12 @@ import {
   SDKAttributeSchema,
   SDKAttributeType,
 } from "back-end/types/organization";
-import { FaInfoCircle, FaQuestionCircle, FaTrash } from "react-icons/fa";
+import {
+  FaExclamationCircle,
+  FaInfoCircle,
+  FaQuestionCircle,
+  FaTrash,
+} from "react-icons/fa";
 import React from "react";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
@@ -151,12 +156,28 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                         tipPosition="bottom"
                         body={
                           <>
-                            Targeting conditions referencing{" "}
-                            <code>secureString</code> attributes will be
-                            anonymized via SHA-256 hashing. This allows you to
-                            safely target users based on sensitive attributes.
-                            You must enable this feature in your SDK Connection
-                            for it to take effect.
+                            <p>
+                              Feature targeting conditions referencing{" "}
+                              <code>secureString</code> attributes will be
+                              anonymized via SHA-256 hashing. When evaluating
+                              feature flags in a public or insecure environment
+                              (such as a browser), hashing provides an
+                              additional layer of security through obfuscation.
+                              This allows you to target users based on sensitive
+                              attributes.
+                            </p>
+                            <p>
+                              You must enable this feature in your SDK
+                              Connection for it to take effect.
+                            </p>
+                            <p className="mb-0 text-warning-orange small">
+                              <FaExclamationCircle /> When using an insecure
+                              environment, do not rely exclusively on hashing as
+                              a means of securing highly sensitive data. Hashing
+                              is an obfuscation technique that makes it very
+                              difficult, but not impossible, to extract
+                              sensitive data.
+                            </p>
                           </>
                         }
                       >

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  FaExclamationCircle,
   FaExclamationTriangle,
   FaPencilAlt,
   FaQuestionCircle,
@@ -1121,14 +1122,30 @@ const GeneralSettingsPage = (): React.ReactElement => {
                             <p>
                               Feature targeting conditions referencing{" "}
                               <code>secureString</code> attributes will be
-                              anonymized via SHA-256 hashing. This allows you to
-                              safely target users based on sensitive attributes.
+                              anonymized via SHA-256 hashing. When evaluating
+                              feature flags in a public or insecure environment
+                              (such as a browser), hashing provides an
+                              additional layer of security through obfuscation.
+                              This allows you to target users based on sensitive
+                              attributes.
                             </p>
-                            <p className="mb-0">
+                            <p>
+                              You must enable this feature in your SDK
+                              Connection for it to take effect.
+                            </p>
+                            <p>
                               You may add a cryptographic salt string (a random
                               string of your choosing) to the hashing algorithm,
                               which helps defend against hash lookup
                               vulnerabilities.
+                            </p>
+                            <p className="mb-0 text-warning-orange small">
+                              <FaExclamationCircle /> When using an insecure
+                              environment, do not rely exclusively on hashing as
+                              a means of securing highly sensitive data. Hashing
+                              is an obfuscation technique that makes it very
+                              difficult, but not impossible, to extract
+                              sensitive data.
                             </p>
                           </>
                         }
