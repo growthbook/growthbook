@@ -1,5 +1,6 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
 import { FaKey } from "react-icons/fa";
+import Link from "next/link";
 import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
 import ApiKeysModal from "@/components/Settings/ApiKeysModal";
@@ -33,7 +34,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
         />
       )}
 
-      <div className="mb-5">
+      <div className="mb-4">
         <h1>Personal Access Tokens</h1>
         <p>
           User keys have full read and write access to your user account.
@@ -57,6 +58,13 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
         >
           <FaKey /> Create New Personal Access Token
         </button>
+      </div>
+
+      <div className="mb-5">
+        <div className="alert alert-info">
+          Administrators can also create read-only keys for an organization on
+          the <Link href="/settings/keys">API Keys</Link> page.
+        </div>
       </div>
     </div>
   );
