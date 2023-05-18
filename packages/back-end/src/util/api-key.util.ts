@@ -31,8 +31,8 @@ export const roleForApiKey = (
   if (apiKey.role === "readonly") return "readonly";
 
   if (apiKey.role) {
-    // If there's another role type that isn't handled here, throw.
-    throw new Error("Unknown/unsupported role");
+    // If there's another role type that isn't handled here, return null.
+    return null;
   }
 
   return "admin";

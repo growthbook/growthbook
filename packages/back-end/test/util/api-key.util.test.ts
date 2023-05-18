@@ -131,5 +131,14 @@ describe("api key utils", () => {
 
       expect(roleForApiKey(input)).toEqual("readonly");
     });
+
+    it("should return null for secret keys with an unsupported assigned role", () => {
+      const input: Pick<ApiKeyInterface, "role" | "userId" | "secret"> = {
+        role: "editor",
+        secret: true,
+      };
+
+      expect(roleForApiKey(input)).toEqual(null);
+    });
   });
 });

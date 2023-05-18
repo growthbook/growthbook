@@ -9,6 +9,7 @@ import {
   SecretApiKey,
 } from "../../types/apikey";
 import { IS_CLOUD, SECRET_API_KEY } from "../util/secrets";
+import { roleForApiKey } from "../util/api-key.util";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const apiKeySchema = new mongoose.Schema({
@@ -41,15 +42,11 @@ const ApiKeyModel = mongoose.model<ApiKeyDocument>("ApiKey", apiKeySchema);
 
 const toInterface = (doc: ApiKeyDocument): ApiKeyInterface => {
   const asJson = omit(doc.toJSON(), ["__v", "_id"]);
+  const role = roleForApiKey(asJson) || undefined;
 
   return {
     ...asJson,
-    role:
-      asJson.role === "readonly"
-        ? "readonly"
-        : asJson.userId
-        ? undefined
-        : "admin",
+    role,
   };
 };
 
@@ -116,6 +113,8 @@ export async function createApiKey({
 
   const id = uniqid("key_");
 
+  const role = type === "read-only" ? "readonly" : undefined;
+
   const doc = await ApiKeyModel.create({
     environment,
     project,
@@ -127,6 +126,7 @@ export async function createApiKey({
     encryptSDK,
     userId,
     type,
+    role,
     encryptionKey: encryptSDK ? await generateEncryptionKey() : null,
     dateCreated: new Date(),
   });
