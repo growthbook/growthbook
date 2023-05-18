@@ -80,10 +80,10 @@ export default class Mssql extends SqlIntegration {
   getEventsTrackedByDatasourceFromClause(
     trackedEventTableName: string
   ): string {
-    if (!this.params.database)
+    if (!this.params.defaultSchema)
       throw new Error(
-        "No database provided. To automatically generate metrics, you must provide a database."
+        "No default schema provided. To automatically generate metrics, you must provide a default schema. This should be the schema where the Rudderstack tracked events are stored."
       );
-    return `${this.params.database}.${trackedEventTableName}`;
+    return `${this.params.defaultSchema}.${trackedEventTableName}`;
   }
 }

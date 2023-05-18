@@ -50,10 +50,10 @@ export default class Snowflake extends SqlIntegration {
   getEventsTrackedByDatasourceFromClause(
     trackedEventTableName: string
   ): string {
-    if (!this.params.database)
+    if (!this.params.schema)
       throw new Error(
-        "No database provided. To automatically generate metrics, you must provide a database."
+        "No schema provided. To automatically generate metrics, you must provide a schema."
       );
-    return `${this.params.database}.${trackedEventTableName}`;
+    return `${this.params.schema}.${trackedEventTableName}`;
   }
 }
