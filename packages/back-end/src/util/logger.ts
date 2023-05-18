@@ -32,8 +32,8 @@ export const httpLogger = pinoHttp({
   redact: {
     paths: [
       "req.headers.authorization",
-      'req.headers["if-none-match"]',
-      'req.headers["cache-control"]',
+      // 'req.headers["if-none-match"]',
+      // 'req.headers["cache-control"]',
       'req.headers["upgrade-insecure-requests"]',
       "req.headers.cookie",
       "req.headers.connection",
@@ -46,7 +46,7 @@ export const httpLogger = pinoHttp({
       'req.headers["sec-ch-ua-mobile"]',
       'req.headers["sec-ch-ua"]',
       'req.headers["sec-fetch-user"]',
-      "res.headers.etag",
+      // "res.headers.etag",
       'res.headers["x-powered-by"]',
       'res.headers["access-control-allow-credentials"]',
       'res.headers["access-control-allow-origin"]',
