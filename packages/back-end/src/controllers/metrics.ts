@@ -31,7 +31,6 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
-import { getSourceIntegrationObject } from "../services/datasource";
 
 export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,
