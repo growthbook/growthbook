@@ -59,4 +59,13 @@ export default class Athena extends SqlIntegration {
   getInformationSchemaTableFromClause(databaseName: string): string {
     return `${databaseName}.information_schema.columns`;
   }
+  getEventsTrackedByDatasourceFromClause(
+    trackedEventTableName: string
+  ): string {
+    if (!this.params.catalog)
+      throw new MissingDatasourceParamsError(
+        "To automatically generate metrics for an Athena data source, you must define a default catalog."
+      );
+    return `${this.params.catalog}.${trackedEventTableName}`;
+  }
 }

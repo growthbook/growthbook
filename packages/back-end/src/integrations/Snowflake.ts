@@ -47,4 +47,13 @@ export default class Snowflake extends SqlIntegration {
   getInformationSchemaTableFromClause(databaseName: string): string {
     return `${databaseName}.information_schema.columns`;
   }
+  getEventsTrackedByDatasourceFromClause(
+    trackedEventTableName: string
+  ): string {
+    if (!this.params.database)
+      throw new Error(
+        "No database provided. To automatically generate metrics, you must provide a database."
+      );
+    return `${this.params.database}.${trackedEventTableName}`;
+  }
 }
