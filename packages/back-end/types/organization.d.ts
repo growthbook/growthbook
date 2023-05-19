@@ -43,7 +43,8 @@ export type CommercialFeature =
   | "sequential-testing"
   | "audit-logging"
   | "visual-editor"
-  | "cloud-proxy";
+  | "cloud-proxy"
+  | "server-side-evaluation";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {

@@ -56,10 +56,21 @@ export const postSDKConnection = async (
     sseEnabled = params.sseEnabled || false;
   }
 
+  let ssEvalEnabled = false;
+  if (orgHasPremiumFeature(org, "server-side-evaluation")) {
+    ssEvalEnabled = params.ssEvalEnabled || false;
+  }
+
+  if (ssEvalEnabled) {
+    encryptPayload = false;
+    // hashSecureAttributes = false;
+  }
+
   const doc = await createSDKConnection({
     ...params,
     encryptPayload,
     sseEnabled,
+    ssEvalEnabled,
     organization: org.id,
   });
 
@@ -103,10 +114,21 @@ export const putSDKConnection = async (
     sseEnabled = req.body.sseEnabled || false;
   }
 
+  let ssEvalEnabled = false;
+  if (orgHasPremiumFeature(org, "server-side-evaluation")) {
+    ssEvalEnabled = req.body.ssEvalEnabled || false;
+  }
+
+  if (ssEvalEnabled) {
+    encryptPayload = false;
+    // hashSecureAttributes = false;
+  }
+
   await editSDKConnection(connection, {
     ...req.body,
     encryptPayload,
     sseEnabled,
+    ssEvalEnabled,
   });
 
   res.status(200).json({

@@ -43,6 +43,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeExperimentNames: Boolean,
   connected: Boolean,
   sseEnabled: Boolean,
+  ssEvalEnabled: Boolean,
   key: {
     type: String,
     unique: true,
@@ -116,6 +117,7 @@ export const createSDKConnectionValidator = z
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     sseEnabled: z.boolean().optional(),
+    ssEvalEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -181,6 +183,7 @@ export const editSDKConnectionValidator = z
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     sseEnabled: z.boolean().optional(),
+    ssEvalEnabled: z.boolean().optional(),
   })
   .strict();
 

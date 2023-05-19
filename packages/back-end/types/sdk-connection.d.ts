@@ -22,6 +22,7 @@ export type EditSDKConnectionParams = {
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
   sseEnabled?: boolean;
+  ssEvalEnabled?: boolean;
 };
 export type CreateSDKConnectionParams = {
   organization: string;
@@ -36,6 +37,7 @@ export type CreateSDKConnectionParams = {
   includeDraftExperiments: boolean;
   includeExperimentNames: boolean;
   sseEnabled?: boolean;
+  ssEvalEnabled?: boolean;
 };
 
 export type SDKLanguage =
@@ -77,7 +79,9 @@ export interface SDKConnectionInterface {
 
   // Set to true when it's used for the first time
   connected: boolean;
+
   sseEnabled?: boolean;
+  ssEvalEnabled?: boolean;
   proxy: ProxyConnection;
 }
 

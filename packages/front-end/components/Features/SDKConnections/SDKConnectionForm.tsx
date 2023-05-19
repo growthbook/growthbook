@@ -7,7 +7,11 @@ import { useForm } from "react-hook-form";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
+import {
+  FaExclamationCircle,
+  FaExclamationTriangle,
+  FaInfoCircle,
+} from "react-icons/fa";
 import { BsLightningFill } from "react-icons/bs";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
@@ -45,6 +49,9 @@ export default function SDKConnectionForm({
   const { hasCommercialFeature } = useUser();
 
   const hasCloudProxyFeature = hasCommercialFeature("cloud-proxy");
+  const hasServerSideEvaluationFeature = hasCommercialFeature(
+    "server-side-evaluation"
+  );
 
   useEffect(() => {
     if (edit) return;
@@ -68,6 +75,7 @@ export default function SDKConnectionForm({
       proxyEnabled: initialValue.proxy?.enabled || false,
       proxyHost: initialValue.proxy?.host || "",
       sseEnabled: initialValue.sseEnabled || false,
+      ssEvalEnabled: initialValue.ssEvalEnabled || false,
     },
   });
 
@@ -182,57 +190,82 @@ export default function SDKConnectionForm({
         </small>
       </div>
 
-      {(projects.length > 0 || projectIsOprhaned) && (
-        <SelectField
-          label="Project"
-          initialOption="All Projects"
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-          value={form.watch("project")}
-          onChange={(project) => form.setValue("project", project)}
-          options={projectsOptions}
-          sort={false}
-          formatOptionLabel={({ value, label }) => {
-            if (value === "") {
-              return <em>{label}</em>;
-            }
-            if (value === projectId && projectIsOprhaned) {
-              return (
-                <Tooltip
-                  body={
-                    <>
-                      Project <code>{value}</code> not found
-                    </>
-                  }
-                >
-                  <span className="text-danger">
-                    <FaExclamationTriangle /> <code>{value}</code>
-                  </span>
-                </Tooltip>
-              );
-            }
-            return label;
-          }}
-        />
-      )}
+      <div className="row">
+        {(projects.length > 0 || projectIsOprhaned) && (
+          <div className="col">
+            <SelectField
+              label="Project"
+              initialOption="All Projects"
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
+              value={form.watch("project")}
+              onChange={(project) => form.setValue("project", project)}
+              options={projectsOptions}
+              sort={false}
+              formatOptionLabel={({ value, label }) => {
+                if (value === "") {
+                  return <em>{label}</em>;
+                }
+                if (value === projectId && projectIsOprhaned) {
+                  return (
+                    <Tooltip
+                      body={
+                        <>
+                          Project <code>{value}</code> not found
+                        </>
+                      }
+                    >
+                      <span className="text-danger">
+                        <FaExclamationTriangle /> <code>{value}</code>
+                      </span>
+                    </Tooltip>
+                  );
+                }
+                return label;
+              }}
+            />
+          </div>
+        )}
 
-      <SelectField
-        label="Environment"
-        required
-        placeholder="Choose one..."
-        value={form.watch("environment")}
-        onChange={(env) => form.setValue("environment", env)}
-        options={environments.map((e) => ({ label: e.id, value: e.id }))}
-      />
+        <div className="col">
+          <SelectField
+            label="Environment"
+            required
+            placeholder="Choose one..."
+            value={form.watch("environment")}
+            onChange={(env) => form.setValue("environment", env)}
+            options={environments.map((e) => ({ label: e.id, value: e.id }))}
+          />
+        </div>
+      </div>
 
       {!hasNoSDKsWithVisualExperimentSupport && (
         <>
-          <label>Visual experiments</label>
-          <div className="border rounded pt-2 pb-3 px-3">
-            <div>
+          <label>
+            <PremiumTooltip
+              commercialFeature="visual-editor"
+              body={
+                <>
+                  <p>
+                    <strong>Visual Experiments</strong> allow you to make
+                    front-end changes to your site without deploying code by
+                    using the Visual Editor.
+                  </p>
+                  <p className="mb-0">
+                    Front-end SDK environments that support these visual
+                    experiments should enable this option.
+                  </p>
+                </>
+              }
+            >
+              Visual Experiments <FaInfoCircle />
+            </PremiumTooltip>
+          </label>
+          <div className="row border rounded mx-0 px-1 pt-2 pb-3">
+            <div className="col">
               <label htmlFor="sdk-connection-visual-experiments-toggle">
-                Include visual experiments in endpoint&apos;s response?
+                Include visual experiments?
               </label>
-              <div className="form-inline">
+              <div>
                 <Toggle
                   id="sdk-connection-visual-experiments-toggle"
                   value={form.watch("includeVisualExperiments")}
@@ -242,9 +275,10 @@ export default function SDKConnectionForm({
                 />
               </div>
             </div>
+
             {form.watch("includeVisualExperiments") && (
               <>
-                <div className="mt-3">
+                <div className="col">
                   <Tooltip
                     body={
                       <>
@@ -276,13 +310,15 @@ export default function SDKConnectionForm({
                   </div>
                 </div>
 
-                <div className="mt-3">
+                <div className="col">
                   <Tooltip
                     body={
                       <>
                         <p>
-                          This can help add context when debugging or tracking
-                          events.
+                          Normally, experiment and variation names will be
+                          removed from the payload. Enabling this keeps the
+                          names in the payload. This can help add context when
+                          debugging or tracking events.
                         </p>
                         <div>
                           However, this could expose potentially sensitive
@@ -293,7 +329,7 @@ export default function SDKConnectionForm({
                     }
                   >
                     <label htmlFor="sdk-connection-include-experiment-meta">
-                      Include experiment/variation names? <FaInfoCircle />
+                      Include experiment names? <FaInfoCircle />
                     </label>
                   </Tooltip>
                   <div>
@@ -313,7 +349,7 @@ export default function SDKConnectionForm({
       )}
 
       {(!hasNoSDKsWithSSESupport || initialValue.sseEnabled) &&
-        isCloud() &&
+        !isCloud() &&
         // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         gb.isOn("proxy-cloud-sse") && (
           <div className="mt-3 mb-3">
@@ -394,8 +430,7 @@ export default function SDKConnectionForm({
         )}
 
       {/*todo: deprecate this in favor of sseEnabled switch?*/}
-      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-      {isCloud() && gb.isOn("proxy-cloud") && (
+      {isCloud() && gb?.isOn("proxy-cloud") && (
         <>
           <div className="mb-3">
             <label htmlFor="sdk-connection-proxy-toggle">
@@ -422,15 +457,95 @@ export default function SDKConnectionForm({
         </>
       )}
 
-      {languages.length > 0 && !hasSDKsWithoutEncryptionSupport && (
-        <EncryptionToggle
-          showUpgradeModal={() => setUpgradeModal(true)}
-          value={form.watch("encryptPayload")}
-          setValue={(value) => form.setValue("encryptPayload", value)}
-          showRequiresChangesWarning={edit}
-          showUpgradeMessage={false}
-        />
+      {gb?.isOn("server-side-evaluation") && (
+        <div className="form-group mt-4">
+          <label htmlFor="server-side-evaluation">
+            <PremiumTooltip
+              commercialFeature="server-side-evaluation"
+              tipMinWidth="600px"
+              body={
+                <>
+                  <p>
+                    <strong>Server Side Evaluation</strong> fully secures your
+                    SDK by evaluating feature flags exclusively on a private
+                    server instead of within a front-end environment. This
+                    ensures that any sensitive information within targeting
+                    rules or unused feature variations are never seen by the
+                    client. When used in a front-end context, server side
+                    evaluation provides the same benefits as a backend SDK.
+                    However, this feature is not needed nor recommended for
+                    backend contexts.
+                  </p>
+                  <p>
+                    Server side evaluation does come with a few cost
+                    considerations:
+                    <ol className="pl-3 mt-2">
+                      <li className="mb-2">
+                        It will increase network traffic. Evaluated payloads
+                        cannot be shared across different users; therefore CDN
+                        cache misses will increase.
+                      </li>
+                      <li>
+                        Connections using instant feature deployments through{" "}
+                        <strong>
+                          {isCloud() ? "Streaming Updates" : "GrowthBook Proxy"}
+                        </strong>{" "}
+                        will incur a slight delay. An additional network hop is
+                        required to retrieve the evaluated payload from the
+                        server.
+                      </li>
+                    </ol>
+                  </p>
+                  <p className="text-warning-orange">
+                    <FaExclamationCircle /> Neither <strong>Encryption</strong>{" "}
+                    nor <strong>Secure Attribute Hashing</strong> may be used in
+                    conjunction with <strong>Server Side Evaluation</strong>.
+                    However, these features are not needed as the SDK will never
+                    receive sensitive information.
+                  </p>
+                  <div className="mt-4" style={{ lineHeight: 1.2 }}>
+                    <p className="mb-0">
+                      <span className="badge badge-purple text-uppercase mr-2">
+                        Beta
+                      </span>
+                      <span className="text-purple">
+                        This is an opt-in beta feature.
+                      </span>
+                    </p>
+                  </div>
+                </>
+              }
+            >
+              Use Server Side Evaluation? <FaInfoCircle />{" "}
+              <span className="badge badge-purple text-uppercase mr-2">
+                Beta
+              </span>
+            </PremiumTooltip>
+          </label>
+          <div className="row mb-4">
+            <div className="col-md-3">
+              <Toggle
+                id="server-side-evaluation"
+                value={form.watch("ssEvalEnabled")}
+                setValue={(val) => form.setValue("ssEvalEnabled", val)}
+                disabled={!hasServerSideEvaluationFeature}
+              />
+            </div>
+          </div>
+        </div>
       )}
+
+      {languages.length > 0 &&
+        !hasSDKsWithoutEncryptionSupport &&
+        !form.watch("ssEvalEnabled") && (
+          <EncryptionToggle
+            showUpgradeModal={() => setUpgradeModal(true)}
+            value={form.watch("encryptPayload")}
+            setValue={(value) => form.setValue("encryptPayload", value)}
+            showRequiresChangesWarning={edit}
+            showUpgradeMessage={false}
+          />
+        )}
     </Modal>
   );
 }
