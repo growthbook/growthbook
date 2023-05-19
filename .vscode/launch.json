@@ -5,22 +5,13 @@
       "name": "Debug Back-end",
       "type": "node",
       "request": "launch",
-      "runtimeArgs": [
-        "nodemon",
-        "-e",
-        "ts",
-        "--exec",
-        "node",
-        "-r",
-        "ts-node/register"
-      ],
-      "args": ["${workspaceFolder}/packages/back-end/src/server.ts"],
+      "runtimeExecutable": "yarn",
+      "args": ["debug"],
       "cwd": "${workspaceFolder}/packages/back-end",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": ["<node_internals>/**"],
       "sourceMaps": true,
-      "runtimeExecutable": "yarn",
       "restart": true,
       "presentation": {
         "hidden": true
