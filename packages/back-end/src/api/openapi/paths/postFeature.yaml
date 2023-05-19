@@ -28,6 +28,7 @@ requestBody:
           - id
           - valueType
           - defaultValue
+          - environments
         properties:
           id:
             type: string
@@ -64,6 +65,9 @@ requestBody:
             type: array
             items:
               type: object
+              required:
+                - id
+                - enabled
               properties:
                 id:
                   type: string

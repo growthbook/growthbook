@@ -1081,11 +1081,11 @@ export interface operations {
           defaultValue: string;
           /** @description A list of tags */
           tags?: (string)[];
-          environments?: ({
+          environments: ({
               /** @description Environment ID */
-              id?: string;
+              id: string;
               /** @description Whether the environment is enabled */
-              enabled?: boolean;
+              enabled: boolean;
             })[];
         };
       };
