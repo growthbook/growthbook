@@ -226,6 +226,7 @@ export async function editSDKConnection(
       "project",
       "environment",
       "encryptPayload",
+      "ssEvalEnabled",
     ] as const;
     keysRequiringProxyUpdate.forEach((key) => {
       if (key in otherChanges && otherChanges[key] !== connection[key]) {
@@ -403,5 +404,6 @@ export function toApiSDKConnectionInterface(
     proxyHost: connection.proxy.host,
     proxySigningKey: connection.proxy.signingKey,
     sseEnabled: connection.sseEnabled,
+    ssEvalEnabled: connection.ssEvalEnabled,
   };
 }
