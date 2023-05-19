@@ -193,10 +193,10 @@ Content-Security-Policy: connect-src https://api.growthbook.io;
 
 ### CSP Requirements for Global JavaScript
 
-If you have the `script-src` directive defined in your website's CSP, you'll need to enable `'unsafe-inline'` in order to leverage the Global JavaScript injection feature of the Visual Editor:
+If you have the `script-src` directive defined in your website's CSP, you'll need to enable `'unsafe-inline'` and `'unsafe-eval'` in order to leverage the Global JavaScript injection feature of the Visual Editor:
 
 ```
-Content-Security-Policy: script-src 'self' 'unsafe-inline';
+Content-Security-Policy: script-src 'self' 'unsafe-inline' 'unsafe-eval';
 ```
 
 Read more about Content Security Policy [here](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP).
