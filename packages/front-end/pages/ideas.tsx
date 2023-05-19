@@ -3,7 +3,7 @@ import Link from "next/link";
 import { IdeaInterface } from "back-end/types/idea";
 import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
 import clsx from "clsx";
-import { date } from "shared";
+import { date } from "shared/dates";
 import useApi from "../hooks/useApi";
 import LoadingOverlay from "../components/LoadingOverlay";
 import IdeaForm from "../components/Ideas/IdeaForm";

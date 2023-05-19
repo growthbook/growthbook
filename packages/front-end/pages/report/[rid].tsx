@@ -3,13 +3,8 @@ import { ExperimentReportArgs, ReportInterface } from "back-end/types/report";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
-import {
-  getValidDate,
-  ago,
-  datetime,
-  date,
-  DEFAULT_STATS_ENGINE,
-} from "shared";
+import { getValidDate, ago, datetime, date } from "shared/dates";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";

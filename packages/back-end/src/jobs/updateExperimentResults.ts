@@ -1,8 +1,6 @@
 import Agenda, { Job } from "agenda";
-import {
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  getScopedSettings,
-} from "shared";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { getScopedSettings } from "shared/settings";
 import {
   getExperimentById,
   getExperimentsToUpdate,
