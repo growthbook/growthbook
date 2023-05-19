@@ -8,39 +8,36 @@ import { AuthRequest } from "../types/AuthRequest";
 import { getOrgFromReq } from "../services/organizations";
 import {
   addFeatureRule,
-  createFeature,
+  archiveFeature,
   deleteFeature,
-  setFeatureDraftRules,
+  discardDraft,
   editFeatureRule,
   getAllFeatures,
+  getDraftRules,
   getFeature,
   publishDraft,
   setDefaultValue,
+  setFeatureDraftRules,
   toggleFeatureEnvironment,
-  updateFeature,
-  archiveFeature,
-  getDraftRules,
-  discardDraft,
   updateDraft,
+  updateFeature,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
 import {
-  addIdsToRules,
   arrayMove,
   getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
-import { ensureWatching } from "../services/experiments";
 import { getExperimentByTrackingKey } from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
   auditDetailsCreate,
-  auditDetailsUpdate,
   auditDetailsDelete,
+  auditDetailsUpdate,
 } from "../services/audit";
 import { getRevisions } from "../models/FeatureRevisionModel";
-import { getEnabledEnvironments } from "../util/features";
+import { BasicFeatureCreator, getEnabledEnvironments } from "../util/features";
 import { ExperimentInterface } from "../../types/experiment";
 import {
   findSDKConnectionByKey,
@@ -210,65 +207,22 @@ export async function postFeatures(
   const { id, environmentSettings, ...otherProps } = req.body;
   const { org, userId, email, userName } = getOrgFromReq(req);
 
-  req.checkPermissions("manageFeatures", otherProps.project);
-  req.checkPermissions("createFeatureDrafts", otherProps.project);
-
-  if (!id) {
-    throw new Error("Must specify feature key");
-  }
-
-  if (!environmentSettings) {
-    throw new Error("Feature missing initial environment toggle settings");
-  }
-
-  if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
-    throw new Error(
-      "Feature keys can only include letters, numbers, hyphens, and underscores."
-    );
-  }
-  const existing = await getFeature(org.id, id);
-  if (existing) {
-    throw new Error(
-      "This feature key already exists. Feature keys must be unique."
-    );
-  }
-
-  const feature: FeatureInterface = {
-    defaultValue: "",
-    valueType: "boolean",
-    owner: userName,
-    description: "",
-    project: "",
-    environmentSettings,
-    ...otherProps,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    organization: org.id,
-    id: id.toLowerCase(),
-    archived: false,
-    revision: {
-      version: 1,
-      comment: "New feature",
-      date: new Date(),
-      publishedBy: {
-        id: userId,
-        email,
-        name: userName,
-      },
+  const featureCreator = new BasicFeatureCreator({
+    organization: org,
+    valueType: otherProps.valueType || "boolean",
+    publishedBy: {
+      id: userId,
+      email,
+      name: userName,
     },
-  };
-
-  // Require publish permission for any enabled environments
-  req.checkPermissions(
-    "publishFeatures",
-    feature.project,
-    getEnabledEnvironments(feature)
-  );
-
-  addIdsToRules(feature.environmentSettings, feature.id);
-
-  await createFeature(org, res.locals.eventAudit, feature);
-  await ensureWatching(userId, org.id, feature.id, "features");
+    defaultValue: otherProps.defaultValue || "",
+    checkPermissions: req.checkPermissions,
+    id,
+    project: otherProps.project,
+    environmentSettings,
+    eventAudit: res.locals.eventAudit,
+  });
+  const feature = await featureCreator.perform();
 
   await req.audit({
     event: "feature.create",

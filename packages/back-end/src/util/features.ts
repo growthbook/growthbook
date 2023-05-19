@@ -1,5 +1,6 @@
 import isEqual from "lodash/isEqual";
 import {
+  FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
   FeatureValueType,
@@ -7,6 +8,12 @@ import {
 import { FeatureDefinition, FeatureDefinitionRule } from "../../types/api";
 import { GroupMap } from "../../types/saved-group";
 import { SDKPayloadKey } from "../../types/sdk-payload";
+import { OrganizationInterface } from "../../types/organization";
+import { PermissionFunctions } from "../types/AuthRequest";
+import { createFeature, getFeature } from "../models/FeatureModel";
+import { addIdsToRules } from "../services/features";
+import { ensureWatching } from "../services/experiments";
+import { EventAuditUser } from "../events/event-types";
 import { getCurrentEnabledState } from "./scheduleRules";
 
 export function replaceSavedGroupsInCondition(
@@ -247,9 +254,9 @@ export function getFeatureDefinition({
             rule.namespace = [
               r.namespace.name,
               // eslint-disable-next-line
-                parseFloat(r.namespace.range[0] as any) || 0,
+              parseFloat(r.namespace.range[0] as any) || 0,
               // eslint-disable-next-line
-                parseFloat(r.namespace.range[1] as any) || 0,
+              parseFloat(r.namespace.range[1] as any) || 0,
             ];
           }
         } else if (r.type === "rollout") {
@@ -268,4 +275,113 @@ export function getFeatureDefinition({
   }
 
   return def;
+}
+
+type FeatureCreatorOptions = PermissionFunctions & {
+  organization: OrganizationInterface;
+  defaultValue: string;
+  environmentSettings?: Record<string, FeatureEnvironment>;
+  eventAudit: EventAuditUser;
+  id?: string;
+  project?: string;
+  description?: string;
+  valueType?: FeatureValueType;
+  owner?: string;
+  publishedBy: {
+    id: string;
+    email: string;
+    name: string;
+  };
+};
+
+/**
+ * Encapsulates feature creation and validation, creating a feature with as minimal properties as necessary.
+ * @throws Error - Various errors for validation
+ */
+export class BasicFeatureCreator {
+  private readonly options: FeatureCreatorOptions;
+
+  constructor(options: FeatureCreatorOptions) {
+    this.options = options;
+  }
+
+  public async perform(): Promise<FeatureInterface> {
+    const {
+      checkPermissions,
+      project,
+      id,
+      environmentSettings,
+      organization,
+      defaultValue,
+      valueType = "boolean",
+      owner = "",
+      description = "",
+      publishedBy,
+      eventAudit,
+    } = this.options;
+
+    // Validation
+    checkPermissions("manageFeatures", project);
+    checkPermissions("createFeatureDrafts", project);
+
+    // Request payload validation
+    if (!id) {
+      throw new Error("Must specify feature key");
+    }
+    if (!environmentSettings) {
+      throw new Error("Feature missing initial environment toggle settings");
+    }
+    if (!id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
+      throw new Error(
+        "Feature keys can only include letters, numbers, hyphens, and underscores."
+      );
+    }
+
+    // Check existing feature
+    const existing = await getFeature(organization.id, id);
+    if (existing) {
+      throw new Error(
+        "This feature key already exists. Feature keys must be unique."
+      );
+    }
+
+    const feature: FeatureInterface = {
+      defaultValue,
+      valueType,
+      owner,
+      description,
+      project,
+      environmentSettings,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      organization: organization.id,
+      id: id.toLowerCase(),
+      archived: false,
+      revision: {
+        version: 1,
+        comment: "New feature",
+        date: new Date(),
+        publishedBy,
+      },
+    };
+
+    // Require publish permission for any enabled environments
+    checkPermissions(
+      "publishFeatures",
+      project,
+      getEnabledEnvironments(feature)
+    );
+
+    addIdsToRules(feature.environmentSettings, feature.id);
+
+    await createFeature(organization, eventAudit, feature);
+    await ensureWatching(
+      publishedBy.id,
+      organization.id,
+      feature.id,
+      "features"
+    );
+
+    return feature;
+  }
 }
