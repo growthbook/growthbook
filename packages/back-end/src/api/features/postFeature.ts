@@ -1,52 +1,61 @@
 import { PostFeatureResponse } from "../../../types/openapi";
-import { createFeature } from "../../models/FeatureModel";
 import { createApiRequestHandler } from "../../util/handler";
 import { postFeatureValidator } from "../../validators/openapi";
 import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
-import { FeatureInterface } from "../../../types/feature";
+import { FeatureEnvironment } from "../../../types/feature";
 import { EventAuditUser, EventAuditUserApiKey } from "../../events/event-types";
+import { BasicFeatureCreator } from "../../util/features";
 
 export const postFeature = createApiRequestHandler(postFeatureValidator)(
   async (req): Promise<PostFeatureResponse> => {
-    // TODO: Enable once this is merged: https://github.com/growthbook/growthbook/pull/1265
-    // req.checkPermissions("manageFeatures", otherProps.project);
-    // req.checkPermissions("createFeatureDrafts", otherProps.project);
-
     const {
-      id,
-      defaultValue,
-      description = "",
-      project,
-      archived = false,
-      owner = "",
-      tags,
-      valueType,
-      // TODO: environments
-    } = req.body;
-    const groupMap = await getSavedGroupMap(req.organization);
-
-    const feature: FeatureInterface = {
-      id: id.toLowerCase(),
-      defaultValue,
-      archived,
-      valueType,
-      owner,
-      description,
-      project,
-      tags,
-      // TODO: Environments
-      environmentSettings: {},
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
-      organization: req.organization.id,
-      revision: {
-        version: 1,
-        comment: "New feature",
-        date: new Date(),
-        publishedBy: getPublishedByFromRequest(req.eventAudit),
+      organization,
+      body: {
+        id,
+        defaultValue,
+        description,
+        project,
+        archived, // TODO: add this?
+        valueType,
+        owner,
+        tags, // TODO: add this?
+        environments,
       },
-    };
-    await createFeature(req.organization, req.eventAudit, feature);
+    } = req;
+
+    if (!environments.length) {
+      throw new Error("Must include environments");
+    }
+
+    const environmentSettings: Record<
+      string,
+      FeatureEnvironment
+    > = environments.reduce<Record<string, FeatureEnvironment>>(
+      (prev, curr) => {
+        prev[curr.id] = {
+          enabled: curr.enabled,
+          rules: [],
+        };
+        return prev;
+      },
+      {}
+    );
+
+    const featureCreator = new BasicFeatureCreator({
+      organization,
+      valueType,
+      description,
+      owner,
+      publishedBy: getPublishedByFromRequest(req.eventAudit),
+      defaultValue,
+      checkPermissions: () => undefined, // TODO: Update once this is merged: https://github.com/growthbook/growthbook/pull/1265
+      id,
+      project,
+      environmentSettings,
+      eventAudit: req.eventAudit,
+    });
+    const feature = await featureCreator.perform();
+    const groupMap = await getSavedGroupMap(organization);
 
     return {
       feature: getApiFeatureObj(feature, req.organization, groupMap),
