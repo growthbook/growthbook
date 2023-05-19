@@ -192,7 +192,11 @@ paths:
                 "defaultValue": "Hello, world!",
                 "id": "greeting",
                 "description": "Greeting created in the API",
-                "valueType": "string"
+                "valueType": "string",
+                "environments": [
+                  {"id": "production", "enabled": false},
+                  {"id": "development", "enabled": true}
+                ]
               }'
               -u secret_abc123DEF456:
       requestBody:
@@ -208,7 +212,7 @@ paths:
               properties:
                 id:
                   type: string
-                  description: The feature key
+                  description: 'The feature key. Only letters, numbers, hyphens, and underscores allowed. No spaces. Valid examples: greeting, enable_dark_mode, meal-preferences'
                 archived:
                   type: boolean
                   description: Whether the feature is archived or not
@@ -231,11 +235,23 @@ paths:
                     - json
                 defaultValue:
                   type: string
+                  description: JSON parsable default value
                 tags:
                   type: array
                   description: A list of tags
                   items:
                     type: string
+                environments:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        description: Environment ID
+                      enabled:
+                        type: boolean
+                        description: Whether the environment is enabled
       responses:
         '200':
           content:

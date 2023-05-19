@@ -1062,7 +1062,7 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** @description The feature key */
+          /** @description The feature key. Only letters, numbers, hyphens, and underscores allowed. No spaces. Valid examples: greeting, enable_dark_mode, meal-preferences */
           id: string;
           /** @description Whether the feature is archived or not */
           archived?: boolean;
@@ -1077,9 +1077,16 @@ export interface operations {
            * @enum {string}
            */
           valueType: "boolean" | "string" | "number" | "json";
+          /** @description JSON parsable default value */
           defaultValue: string;
           /** @description A list of tags */
           tags?: (string)[];
+          environments?: ({
+              /** @description Environment ID */
+              id?: string;
+              /** @description Whether the environment is enabled */
+              enabled?: boolean;
+            })[];
         };
       };
     };
