@@ -68,6 +68,7 @@ async function getPayloadParamsFromApiKey(
   encrypted: boolean;
   encryptionKey?: string;
   sseEnabled?: boolean;
+  ssEvalEnabled?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
@@ -95,6 +96,7 @@ async function getPayloadParamsFromApiKey(
       encrypted: connection.encryptPayload,
       encryptionKey: connection.encryptionKey,
       sseEnabled: connection.sseEnabled,
+      ssEvalEnabled: connection.ssEvalEnabled,
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
@@ -153,10 +155,17 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       project,
       encryptionKey,
       sseEnabled,
+      ssEvalEnabled,
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
     } = await getPayloadParamsFromApiKey(key, req);
+
+    if (ssEvalEnabled) {
+      throw new Error(
+        "Connection uses server-side evaluation, cannot get feature definitions"
+      );
+    }
 
     const defs = await getFeatureDefinitions({
       organization,
