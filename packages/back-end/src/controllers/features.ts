@@ -48,7 +48,7 @@ import {
 } from "../models/SdkConnectionModel";
 import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
-import { IS_CLOUD } from "../util/secrets";
+import { IS_CLOUD, SECRET_API_KEY } from "../util/secrets";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 
 class ApiKeyError extends Error {
@@ -162,9 +162,14 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     } = await getPayloadParamsFromApiKey(key, req);
 
     if (ssEvalEnabled) {
-      throw new Error(
-        "Connection uses server-side evaluation, cannot get feature definitions"
-      );
+      if (
+        !SECRET_API_KEY ||
+        req.headers["authorization"] !== `Bearer ${SECRET_API_KEY}`
+      ) {
+        throw new Error(
+          "Connection uses server-side evaluation, cannot get feature definitions"
+        );
+      }
     }
 
     const defs = await getFeatureDefinitions({
