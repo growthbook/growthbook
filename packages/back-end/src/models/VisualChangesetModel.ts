@@ -2,6 +2,7 @@ import { isEqual, keyBy } from "lodash";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { ObjectId } from "mongodb";
 import { ExperimentInterface, Variation } from "../../types/experiment";
 import { ApiVisualChangeset } from "../../types/openapi";
 import { OrganizationInterface } from "../../types/organization";
@@ -94,16 +95,23 @@ const visualChangesetSchema = new mongoose.Schema({
   },
 });
 
-export type VisualChangesetDocument = mongoose.Document &
+export type VisualChangesetDocument = mongoose.Document<
+  ObjectId,
+  Record<string, never>,
+  VisualChangesetInterface
+> &
   VisualChangesetInterface;
 
-export const VisualChangesetModel = mongoose.model<VisualChangesetDocument>(
+export const VisualChangesetModel = mongoose.model<VisualChangesetInterface>(
   "VisualChangeset",
   visualChangesetSchema
 );
 
 const toInterface = (doc: VisualChangesetDocument): VisualChangesetInterface =>
-  omit(doc.toJSON(), ["__v", "_id"]);
+  omit(doc.toJSON({ flattenMaps: false }), [
+    "__v",
+    "_id",
+  ]) as VisualChangesetInterface;
 
 export function toVisualChangesetApiInterface(
   visualChangeset: VisualChangesetInterface
@@ -159,7 +167,7 @@ export async function createVisualChange(
   id: string,
   organization: string,
   visualChange: VisualChange
-): Promise<{ nModified: number }> {
+): Promise<{ modifiedCount: number }> {
   const visualChangeset = await VisualChangesetModel.findOne({
     id,
     organization,
@@ -181,7 +189,7 @@ export async function createVisualChange(
     }
   );
 
-  return { nModified: res.nModified };
+  return { modifiedCount: res.modifiedCount };
 }
 
 export async function updateVisualChange({
@@ -194,7 +202,7 @@ export async function updateVisualChange({
   visualChangeId: string;
   organization: string;
   payload: Partial<VisualChange>;
-}): Promise<{ nModified: number }> {
+}): Promise<{ modifiedCount: number }> {
   const visualChangeset = await findVisualChangesetById(
     changesetId,
     organization
@@ -224,7 +232,7 @@ export async function updateVisualChange({
     }
   );
 
-  return { nModified: res.nModified };
+  return { modifiedCount: res.modifiedCount };
 }
 
 const genNewVisualChange = (variation: Variation): VisualChange => ({
@@ -358,7 +366,7 @@ export const updateVisualChangeset = async ({
     bypassWebhooks,
   });
 
-  return { nModified: res.nModified, visualChanges };
+  return { modifiedCount: res.modifiedCount, visualChanges };
 };
 
 const hasVisualChanges = ({ visualChanges }: VisualChangesetInterface) =>

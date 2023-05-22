@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { getUserByEmail } from "../services/users";
 import { APP_ORIGIN } from "../util/secrets";
 import { isEmailEnabled, sendResetPasswordEmail } from "../services/email";
@@ -24,7 +25,11 @@ const forgotPasswordSchema = new mongoose.Schema({
   },
 });
 
-export type ForgotPasswordDocument = mongoose.Document &
+export type ForgotPasswordDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  ForgotPasswordDocument
+> &
   ForgotPasswordInterface;
 
 export const ForgotPasswordModel = mongoose.model<ForgotPasswordDocument>(

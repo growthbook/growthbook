@@ -1,11 +1,12 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import uniqid from "uniqid";
 import { ImpactEstimateInterface } from "../../types/impact-estimate";
-import { getMetricById } from "../models/MetricModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { SegmentInterface } from "../../types/segment";
 import { processMetricValueQueryResponse } from "../services/queries";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import { getMetricById } from "./MetricModel";
 import { findSegmentById } from "./SegmentModel";
 import { getDataSourceById } from "./DataSourceModel";
 
@@ -19,7 +20,11 @@ const impactEstimateSchema = new mongoose.Schema({
   queryLanguage: String,
   dateCreated: Date,
 });
-export type ImpactEstimateDocument = mongoose.Document &
+export type ImpactEstimateDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  ImpactEstimateInterface
+> &
   ImpactEstimateInterface;
 
 export const ImpactEstimateModel = mongoose.model<ImpactEstimateDocument>(

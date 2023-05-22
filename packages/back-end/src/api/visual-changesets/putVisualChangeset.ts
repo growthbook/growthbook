@@ -15,7 +15,7 @@ export const putVisualChangeset = createApiRequestHandler(
     });
 
     return {
-      nModified: res.nModified,
+      modifiedCount: res.modifiedCount,
     };
   }
 );

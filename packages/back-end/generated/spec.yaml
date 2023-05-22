@@ -944,9 +944,9 @@ paths:
               schema:
                 type: object
                 required:
-                  - nModified
+                  - modifiedCount
                 properties:
-                  nModified:
+                  modifiedCount:
                     type: number
   '/visual-changesets/{id}/visual-change':
     parameters:
@@ -970,9 +970,9 @@ paths:
               schema:
                 type: object
                 required:
-                  - nModified
+                  - modifiedCount
                 properties:
-                  nModified:
+                  modifiedCount:
                     type: number
   '/visual-changesets/{id}/visual-change/{visualChangeId}':
     parameters:
@@ -997,9 +997,9 @@ paths:
               schema:
                 type: object
                 required:
-                  - nModified
+                  - modifiedCount
                 properties:
-                  nModified:
+                  modifiedCount:
                     type: number
 components:
   parameters:

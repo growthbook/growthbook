@@ -19,7 +19,7 @@ post:
           schema:
             type: object
             required:
-              - nModified
+              - modifiedCount
             properties:
-              nModified:
+              modifiedCount:
                 type: number

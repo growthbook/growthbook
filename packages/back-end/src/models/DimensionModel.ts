@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { ApiDimension } from "../../types/openapi";
 import { DimensionInterface } from "../../types/dimension";
 import { getConfigDimensions, usingFileConfig } from "../init/config";
@@ -18,14 +19,21 @@ const dimensionSchema = new mongoose.Schema({
   dateUpdated: Date,
 });
 dimensionSchema.index({ id: 1, organization: 1 }, { unique: true });
-type DimensionDocument = mongoose.Document & DimensionInterface;
+
+type DimensionDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  DimensionInterface
+> &
+  DimensionInterface;
+
 const DimensionModel = mongoose.model<DimensionDocument>(
   "Dimension",
   dimensionSchema
 );
 
 function toInterface(doc: DimensionDocument): DimensionInterface {
-  return doc.toJSON();
+  return doc.toJSON({ flattenMaps: false });
 }
 
 export async function createDimension(dimension: Partial<DimensionInterface>) {

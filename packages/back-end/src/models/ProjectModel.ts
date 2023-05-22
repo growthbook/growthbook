@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import uniqid from "uniqid";
 import { ApiProject } from "../../types/openapi";
 import { ProjectInterface } from "../../types/project";
@@ -17,12 +18,17 @@ const projectSchema = new mongoose.Schema({
   dateUpdated: Date,
 });
 
-type ProjectDocument = mongoose.Document & ProjectInterface;
+type ProjectDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  ProjectDocument
+> &
+  ProjectInterface;
 
 const ProjectModel = mongoose.model<ProjectDocument>("Project", projectSchema);
 
 function toInterface(doc: ProjectDocument): ProjectInterface {
-  return doc.toJSON();
+  return doc.toJSON({ flattenMaps: false });
 }
 
 export async function createProject(

@@ -1,6 +1,7 @@
 import omit from "lodash/omit";
 import z from "zod";
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { errorStringFromZodResult } from "../util/validation";
 import { logger } from "../util/logger";
 import { usingFileConfig } from "../init/config";
@@ -54,7 +55,11 @@ informationSchemaTablesSchema.index(
   { unique: true }
 );
 
-type InformationSchemaTablesDocument = mongoose.Document &
+type InformationSchemaTablesDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  InformationSchemaTablesInterface
+> &
   InformationSchemaTablesInterface;
 
 const InformationSchemaTablesModel = mongoose.model<InformationSchemaTablesDocument>(
@@ -68,7 +73,11 @@ const InformationSchemaTablesModel = mongoose.model<InformationSchemaTablesDocum
  */
 const toInterface = (
   doc: InformationSchemaTablesDocument
-): InformationSchemaTablesInterface => omit(doc.toJSON(), ["__v", "_id"]);
+): InformationSchemaTablesInterface =>
+  omit(doc.toJSON({ flattenMaps: false }), [
+    "__v",
+    "_id",
+  ]) as InformationSchemaTablesInterface;
 
 export async function createInformationSchemaTable(
   tableData: Omit<

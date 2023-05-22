@@ -2425,7 +2425,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            nModified: number;
+            modifiedCount: number;
           };
         };
       };
@@ -2437,7 +2437,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            nModified: number;
+            modifiedCount: number;
           };
         };
       };
@@ -2449,7 +2449,7 @@ export interface operations {
       200: {
         content: {
           "application/json": {
-            nModified: number;
+            modifiedCount: number;
           };
         };
       };

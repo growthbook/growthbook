@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { QueryInterface } from "../../types/query";
 
 export const queriesSchema = [
@@ -32,6 +33,11 @@ const querySchema = new mongoose.Schema({
   error: String,
 });
 
-export type QueryDocument = mongoose.Document & QueryInterface;
+export type QueryDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  QueryInterface
+> &
+  QueryInterface;
 
 export const QueryModel = mongoose.model<QueryDocument>("Query", querySchema);

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
 import { ReportInterface } from "../../types/report";
@@ -23,12 +24,20 @@ const reportSchema = new mongoose.Schema({
   results: {},
 });
 
-type ReportDocument = mongoose.Document & ReportInterface;
+type ReportDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  ReportInterface
+> &
+  ReportInterface;
 
 const ReportModel = mongoose.model<ReportDocument>("Report", reportSchema);
 
 const toInterface = (doc: ReportDocument): ReportInterface => {
-  const json: ReportInterface = omit(doc, ["__v", "_id"]);
+  const json: ReportInterface = omit(doc.toJSON({ flattenMaps: false }), [
+    "__v",
+    "_id",
+  ]) as ReportInterface;
   if ((json.args.attributionModel as string) === "allExposures") {
     json.args.attributionModel = "experimentDuration";
   }

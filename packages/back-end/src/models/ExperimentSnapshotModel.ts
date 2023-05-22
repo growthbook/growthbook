@@ -1,4 +1,5 @@
 import mongoose, { FilterQuery } from "mongoose";
+import { ObjectId } from "mongodb";
 import omit from "lodash/omit";
 import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { queriesSchema } from "./QueryModel";
@@ -91,7 +92,11 @@ experimentSnapshotSchema.index({
   dateCreated: -1,
 });
 
-type ExperimentSnapshotDocument = mongoose.Document &
+type ExperimentSnapshotDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  ExperimentSnapshotInterface
+> &
   ExperimentSnapshotInterface;
 
 const ExperimentSnapshotModel = mongoose.model<ExperimentSnapshotDocument>(
@@ -101,7 +106,11 @@ const ExperimentSnapshotModel = mongoose.model<ExperimentSnapshotDocument>(
 
 const toInterface = (
   doc: ExperimentSnapshotDocument
-): ExperimentSnapshotInterface => omit(doc, ["__v", "_id"]);
+): ExperimentSnapshotInterface =>
+  omit(doc.toJSON({ flattenMaps: false }), [
+    "__v",
+    "_id",
+  ]) as ExperimentSnapshotInterface;
 
 export async function updateSnapshotsOnPhaseDelete(
   organization: string,

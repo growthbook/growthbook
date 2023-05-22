@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { WatchInterface } from "../../types/watch";
 
 const watchSchema = new mongoose.Schema({
@@ -9,6 +10,11 @@ const watchSchema = new mongoose.Schema({
 });
 watchSchema.index({ userId: 1, organization: 1 }, { unique: true });
 
-export type WatchDocument = mongoose.Document & WatchInterface;
+export type WatchDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  WatchInterface
+> &
+  WatchInterface;
 
 export const WatchModel = mongoose.model<WatchDocument>("Watch", watchSchema);

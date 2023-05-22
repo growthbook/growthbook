@@ -2015,9 +2015,9 @@ export async function putVisualChangeset(
   res.status(200).json({
     status: 200,
     data: {
-      nModified: ret.nModified,
-      changesetId: ret.nModified > 0 ? req.params.id : undefined,
-      updates: ret.nModified > 0 ? req.body : undefined,
+      modifiedCount: ret.modifiedCount,
+      changesetId: ret.modifiedCount > 0 ? req.params.id : undefined,
+      updates: ret.modifiedCount > 0 ? req.body : undefined,
     },
   });
 }

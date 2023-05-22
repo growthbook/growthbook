@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { UserInterface } from "../../types/user";
 
 const userSchema = new mongoose.Schema({
@@ -16,7 +17,12 @@ const userSchema = new mongoose.Schema({
   verified: Boolean,
 });
 
-export type UserDocument = mongoose.Document & UserInterface;
+export type UserDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  UserInterface
+> &
+  UserInterface;
 
 export const UserModel = mongoose.model<UserDocument>("User", userSchema);
 
@@ -33,12 +39,12 @@ export async function markUserAsVerified(id: string) {
 
 export async function getAllUsers(): Promise<UserInterface[]> {
   const users = await UserModel.find();
-  return users.map((u) => u.toJSON());
+  return users.map((u) => u.toJSON({ flattenMaps: false }));
 }
 
 export async function findUserById(id: string): Promise<UserInterface | null> {
   const user = await UserModel.findOne({ id });
-  return user ? user : null;
+  return user ? user.toJSON({ flattenMaps: false }) : null;
 }
 
 export async function deleteUser(id: string): Promise<void> {

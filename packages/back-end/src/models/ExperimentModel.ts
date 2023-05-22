@@ -1,5 +1,6 @@
 import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
+import { ObjectId } from "mongodb";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import uniq from "lodash/uniq";
@@ -152,7 +153,12 @@ const experimentSchema = new mongoose.Schema({
   hasVisualChangesets: Boolean,
 });
 
-type ExperimentDocument = mongoose.Document & ExperimentInterface;
+type ExperimentDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  ExperimentInterface
+> &
+  ExperimentInterface;
 
 const ExperimentModel = mongoose.model<ExperimentDocument>(
   "Experiment",
@@ -164,7 +170,7 @@ const ExperimentModel = mongoose.model<ExperimentDocument>(
  * @param doc
  */
 const toInterface = (doc: ExperimentDocument): ExperimentInterface => {
-  const experiment = omit(doc, ["__v", "_id"]);
+  const experiment = omit(doc.toJSON({ flattenMaps: false }), ["__v", "_id"]);
   return upgradeExperimentDoc(
     (experiment as unknown) as LegacyExperimentInterface
   );

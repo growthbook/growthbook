@@ -1,5 +1,6 @@
 import omit from "lodash/omit";
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { ApiSegment } from "../../types/openapi";
 import { SegmentInterface } from "../../types/segment";
 import { getConfigSegments, usingFileConfigForSegments } from "../init/config";
@@ -19,12 +20,17 @@ const segmentSchema = new mongoose.Schema({
   dateUpdated: Date,
 });
 
-type SegmentDocument = mongoose.Document & SegmentInterface;
+type SegmentDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  SegmentInterface
+> &
+  SegmentInterface;
 
 const SegmentModel = mongoose.model<SegmentDocument>("Segment", segmentSchema);
 
 const toInterface = (doc: SegmentDocument): SegmentInterface =>
-  omit(doc, ["__v", "_id"]);
+  omit(doc.toJSON({ flattenMaps: false }), ["__v", "_id"]) as SegmentInterface;
 
 export async function createSegment(segment: Partial<SegmentInterface>) {
   return toInterface(await SegmentModel.create(segment));

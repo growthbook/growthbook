@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import omit from "lodash/omit";
 import pick from "lodash/pick";
 import intersection from "lodash/intersection";
@@ -88,7 +89,12 @@ const slackIntegrationSchema = new mongoose.Schema({
 
 slackIntegrationSchema.index({ organizationId: 1 });
 
-type SlackIntegrationDocument = mongoose.Document & SlackIntegrationInterface;
+type SlackIntegrationDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  SlackIntegrationInterface
+> &
+  SlackIntegrationInterface;
 
 /**
  * Convert the Mongo document to a SlackIntegrationInterface by omitting Mongo default fields __v, _id
@@ -98,7 +104,10 @@ type SlackIntegrationDocument = mongoose.Document & SlackIntegrationInterface;
 const toInterface = (
   doc: SlackIntegrationDocument
 ): SlackIntegrationInterface =>
-  omit(doc.toJSON(), ["__v", "_id"]) as SlackIntegrationInterface;
+  omit(doc.toJSON({ flattenMaps: false }), [
+    "__v",
+    "_id",
+  ]) as SlackIntegrationInterface;
 
 const SlackIntegrationModel = mongoose.model<SlackIntegrationDocument>(
   "SlackIntegration",

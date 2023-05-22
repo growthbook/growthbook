@@ -3,6 +3,7 @@ import z from "zod";
 import omit from "lodash/omit";
 import md5 from "md5";
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import {
   NotificationEventName,
   notificationEventNames,
@@ -86,7 +87,12 @@ const eventWebHookSchema = new mongoose.Schema({
 
 eventWebHookSchema.index({ organizationId: 1 });
 
-type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
+type EventWebHookDocument = mongoose.Document<
+  ObjectId,
+  Record<string, never>,
+  EventWebHookInterface
+> &
+  EventWebHookInterface;
 
 /**
  * Convert the Mongo document to an EventWebHookDocument, omitting Mongo default fields __v, _id
@@ -94,7 +100,10 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  * @returns
  */
 const toInterface = (doc: EventWebHookDocument): EventWebHookInterface =>
-  omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookInterface;
+  omit(doc.toJSON({ flattenMaps: false }), [
+    "__v",
+    "_id",
+  ]) as EventWebHookInterface;
 
 const EventWebHookModel = mongoose.model<EventWebHookDocument>(
   "EventWebHook",

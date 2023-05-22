@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { WebhookInterface } from "../../types/webhook";
 
 const webhookSchema = new mongoose.Schema({
@@ -21,7 +22,12 @@ const webhookSchema = new mongoose.Schema({
   created: Date,
 });
 
-export type WebhookDocument = mongoose.Document & WebhookInterface;
+export type WebhookDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  WebhookInterface
+> &
+  WebhookInterface;
 
 export const WebhookModel = mongoose.model<WebhookDocument>(
   "Webhook",

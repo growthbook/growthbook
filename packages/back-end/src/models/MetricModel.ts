@@ -1,4 +1,5 @@
 import mongoose, { FilterQuery } from "mongoose";
+import { ObjectId } from "mongodb";
 import { MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
@@ -93,12 +94,17 @@ const metricSchema = new mongoose.Schema({
   },
 });
 metricSchema.index({ id: 1, organization: 1 }, { unique: true });
-type MetricDocument = mongoose.Document & MetricInterface;
+type MetricDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  MetricInterface
+> &
+  MetricInterface;
 
 const MetricModel = mongoose.model<MetricDocument>("Metric", metricSchema);
 
 function toInterface(doc: MetricDocument): MetricInterface {
-  return upgradeMetricDoc(doc.toJSON());
+  return upgradeMetricDoc(doc.toJSON({ flattenMaps: false }));
 }
 
 export async function insertMetric(metric: Partial<MetricInterface>) {

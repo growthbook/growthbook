@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 
 const ssoConnectionSchema = new mongoose.Schema({
@@ -23,7 +24,12 @@ const ssoConnectionSchema = new mongoose.Schema({
   metadata: {},
 });
 
-type SSOConnectionDocument = mongoose.Document & SSOConnectionInterface;
+type SSOConnectionDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  SSOConnectionInterface
+> &
+  SSOConnectionInterface;
 
 const SSOConnectionModel = mongoose.model<SSOConnectionDocument>(
   "SSOConnection",
@@ -36,7 +42,7 @@ export async function getSSOConnectionById(
   if (!id) return null;
   const doc = await SSOConnectionModel.findOne({ id });
 
-  return doc ? doc : null;
+  return doc ? doc.toJSON({ flattenMaps: false }) : null;
 }
 
 export async function getSSOConnectionByEmailDomain(
@@ -45,7 +51,7 @@ export async function getSSOConnectionByEmailDomain(
   if (!emailDomain) return null;
   const doc = await SSOConnectionModel.findOne({ emailDomain });
 
-  return doc ? doc : null;
+  return doc ? doc.toJSON({ flattenMaps: false }) : null;
 }
 
 export function getSSOConnectionSummary(

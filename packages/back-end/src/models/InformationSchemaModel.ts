@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import z from "zod";
 import uniqid from "uniqid";
 import omit from "lodash/omit";
@@ -75,7 +76,12 @@ const informationSchema = new mongoose.Schema({
   dateUpdated: Date,
 });
 
-type InformationSchemaDocument = mongoose.Document & InformationSchemaInterface;
+type InformationSchemaDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  InformationSchemaInterface
+> &
+  InformationSchemaInterface;
 
 const InformationSchemaModel = mongoose.model<InformationSchemaDocument>(
   "InformationSchema",
@@ -88,7 +94,11 @@ const InformationSchemaModel = mongoose.model<InformationSchemaDocument>(
  */
 const toInterface = (
   doc: InformationSchemaDocument
-): InformationSchemaInterface => omit(doc.toJSON(), ["__v", "_id"]);
+): InformationSchemaInterface =>
+  omit(doc.toJSON({ flattenMaps: false }), [
+    "__v",
+    "_id",
+  ]) as InformationSchemaInterface;
 
 export async function createInformationSchema(
   informationSchema: InformationSchema[],

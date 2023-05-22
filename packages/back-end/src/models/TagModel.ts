@@ -1,4 +1,5 @@
-import mongoose from "mongoose";
+import mongoose, { InferSchemaType } from "mongoose";
+import { ObjectId } from "mongodb";
 import { TagDBInterface, TagInterface } from "../../types/tag";
 
 const tagSchema = new mongoose.Schema({
@@ -10,7 +11,14 @@ const tagSchema = new mongoose.Schema({
   settings: {},
 });
 
-type TagDocument = mongoose.Document & TagDBInterface;
+type TagSchema = InferSchemaType<typeof tagSchema>;
+
+type TagDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  TagSchema
+> &
+  TagDBInterface;
 
 const TagModel = mongoose.model<TagDocument>("Tag", tagSchema);
 
@@ -19,9 +27,10 @@ const MAX_TAG_LENGTH = 64;
 
 function toTagInterface(doc: TagDocument | null): TagInterface[] {
   if (!doc) return [];
-  if (!doc.tags) return [];
-  const settings = doc.settings || {};
-  return doc.tags.map((t) => {
+  const json = doc.toJSON({ flattenMaps: false });
+  if (!json.tags) return [];
+  const settings = json.settings || {};
+  return json.tags.map((t) => {
     return {
       id: t,
       color: settings[t]?.color || "#029dd1",

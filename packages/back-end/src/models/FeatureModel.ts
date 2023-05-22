@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import {
@@ -82,7 +83,12 @@ const featureSchema = new mongoose.Schema({
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 
-type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
+type FeatureDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  LegacyFeatureInterface
+> &
+  LegacyFeatureInterface;
 
 const FeatureModel = mongoose.model<FeatureDocument>("Feature", featureSchema);
 
@@ -91,7 +97,7 @@ const FeatureModel = mongoose.model<FeatureDocument>("Feature", featureSchema);
  * @param doc
  */
 const toInterface = (doc: FeatureDocument): FeatureInterface =>
-  omit(doc, ["__v", "_id"]);
+  omit(doc.toJSON({ flattenMaps: false }), ["__v", "_id"]) as FeatureInterface;
 
 export async function getAllFeatures(
   organization: string,

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { DiscussionInterface } from "../../types/discussion";
 
 const discussionSchema = new mongoose.Schema({
@@ -20,7 +21,12 @@ const discussionSchema = new mongoose.Schema({
   dateUpdated: Date,
 });
 
-export type DiscussionDocument = mongoose.Document & DiscussionInterface;
+export type DiscussionDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  DiscussionInterface
+> &
+  DiscussionInterface;
 
 export const DiscussionModel = mongoose.model<DiscussionDocument>(
   "Discussion",

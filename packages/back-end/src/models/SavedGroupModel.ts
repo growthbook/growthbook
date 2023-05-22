@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import uniqid from "uniqid";
 import { SavedGroupInterface } from "../../types/saved-group";
 import { usingFileConfig } from "../init/config";
@@ -20,7 +21,12 @@ const savedGroupSchema = new mongoose.Schema({
   attributeKey: String,
 });
 
-type SavedGroupDocument = mongoose.Document & SavedGroupInterface;
+type SavedGroupDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  SavedGroupDocument
+> &
+  SavedGroupInterface;
 
 const SavedGroupModel = mongoose.model<SavedGroupDocument>(
   "savedGroup",
@@ -49,19 +55,20 @@ export function parseSavedGroupString(list: string) {
 export async function createSavedGroup(
   group: CreateSavedGroupProps
 ): Promise<SavedGroupInterface> {
-  return SavedGroupModel.create({
+  const newGroup = await SavedGroupModel.create({
     ...group,
     id: uniqid("grp_"),
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
+  return newGroup.toJSON({ flattenMaps: false });
 }
 
 export async function getAllSavedGroups(
   organization: string
 ): Promise<SavedGroupInterface[]> {
   const savedGroups = await SavedGroupModel.find({ organization });
-  return savedGroups.map((value) => value.toJSON()) || [];
+  return savedGroups.map((value) => value.toJSON({ flattenMaps: false })) || [];
 }
 
 export async function getSavedGroupById(

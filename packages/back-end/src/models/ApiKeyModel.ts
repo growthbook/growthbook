@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { webcrypto } from "node:crypto";
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import uniqid from "uniqid";
 import {
   ApiKeyInterface,
@@ -26,7 +27,12 @@ const apiKeySchema = new mongoose.Schema({
   secret: Boolean,
 });
 
-type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
+type ApiKeyDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  ApiKeyInterface
+> &
+  ApiKeyInterface;
 
 const ApiKeyModel = mongoose.model<ApiKeyDocument>("ApiKey", apiKeySchema);
 
@@ -86,7 +92,7 @@ export async function createApiKey({
 
   const id = uniqid("key_");
 
-  return ApiKeyModel.create({
+  const doc = await ApiKeyModel.create({
     environment,
     project,
     organization,
@@ -98,6 +104,7 @@ export async function createApiKey({
     encryptionKey: encryptSDK ? await generateEncryptionKey() : null,
     dateCreated: new Date(),
   });
+  return doc.toJSON({ flattenMaps: false });
 }
 
 export async function deleteApiKeyById(organization: string, id: string) {
@@ -124,7 +131,7 @@ export async function getApiKeyByIdOrKey(
   const doc = await ApiKeyModel.findOne(
     id ? { organization, id } : { organization, key }
   );
-  return doc ? doc : null;
+  return doc ? doc.toJSON({ flattenMaps: false }) : null;
 }
 
 export async function lookupOrganizationByApiKey(
@@ -161,10 +168,11 @@ export async function getAllApiKeysByOrganization(
     { encryptionKey: 0 }
   );
   return docs.map((k) => {
-    if (k.secret) {
-      k.key = "";
+    const json = k.toJSON({ flattenMaps: false });
+    if (json.secret) {
+      json.key = "";
     }
-    return k;
+    return json;
   });
 }
 
@@ -185,7 +193,7 @@ export async function getFirstPublishableApiKey(
 
   if (!doc) return null;
 
-  return doc.toJSON() as PublishableApiKey;
+  return doc.toJSON({ flattenMaps: false });
 }
 
 export async function getUnredactedSecretKey(
@@ -197,5 +205,5 @@ export async function getUnredactedSecretKey(
     id,
   });
   if (!doc) return null;
-  return doc.toJSON() as SecretApiKey;
+  return doc.toJSON({ flattenMaps: false });
 }

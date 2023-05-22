@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { Request } from "express";
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { UserInterface } from "../../types/user";
 
 export interface AuthRefreshInterface {
@@ -28,7 +29,12 @@ const authRefreshSchema = new mongoose.Schema({
   lastLogin: Date,
 });
 
-export type AuthRefreshDocument = mongoose.Document & AuthRefreshInterface;
+export type AuthRefreshDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  AuthRefreshInterface
+> &
+  AuthRefreshInterface;
 
 export const AuthRefreshModel = mongoose.model<AuthRefreshDocument>(
   "AuthRefresh",

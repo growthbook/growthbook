@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { IdeaInterface } from "../../types/idea";
 
 const ideaSchema = new mongoose.Schema({
@@ -31,6 +32,11 @@ const ideaSchema = new mongoose.Schema({
     userAdjustment: Number,
   },
 });
-export type IdeaDocument = mongoose.Document & IdeaInterface;
+export type IdeaDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  IdeaInterface
+> &
+  IdeaInterface;
 
 export const IdeaModel = mongoose.model<IdeaDocument>("Idea", ideaSchema);

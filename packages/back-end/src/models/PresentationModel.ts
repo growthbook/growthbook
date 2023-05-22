@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { PresentationInterface } from "../../types/presentation";
 
 const presentationSchema = new mongoose.Schema({
@@ -41,7 +42,12 @@ const presentationSchema = new mongoose.Schema({
   dateUpdated: Date,
 });
 
-export type PresentationDocument = mongoose.Document & PresentationInterface;
+export type PresentationDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  PresentationInterface
+> &
+  PresentationInterface;
 
 export const PresentationModel = mongoose.model<PresentationDocument>(
   "Presentation",

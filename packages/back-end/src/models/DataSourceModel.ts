@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import uniqid from "uniqid";
 import {
   DataSourceInterface,
@@ -37,7 +38,13 @@ const dataSourceSchema = new mongoose.Schema({
   settings: {},
 });
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
-type DataSourceDocument = mongoose.Document & DataSourceInterface;
+
+type DataSourceDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  DataSourceInterface
+> &
+  DataSourceInterface;
 
 const DataSourceModel = mongoose.model<DataSourceDocument>(
   "DataSource",
@@ -45,7 +52,7 @@ const DataSourceModel = mongoose.model<DataSourceDocument>(
 );
 
 function toInterface(doc: DataSourceDocument): DataSourceInterface {
-  return upgradeDatasourceObject(doc.toJSON());
+  return upgradeDatasourceObject(doc.toJSON({ flattenMaps: false }));
 }
 
 export async function getDataSourcesByOrganization(organization: string) {

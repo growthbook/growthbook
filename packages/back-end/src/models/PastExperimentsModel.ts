@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { PastExperimentsInterface } from "../../types/past-experiments";
 import { queriesSchema } from "./QueryModel";
 
@@ -32,7 +33,11 @@ const pastExperimentsSchema = new mongoose.Schema({
   dateUpdated: Date,
 });
 
-export type PastExperimentsDocument = mongoose.Document &
+export type PastExperimentsDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  PastExperimentsInterface
+> &
   PastExperimentsInterface;
 
 export const PastExperimentsModel = mongoose.model<PastExperimentsDocument>(

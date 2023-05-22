@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { FeatureInterface, FeatureRule } from "../../types/feature";
 import { FeatureRevisionInterface } from "../../types/feature-revision";
 import { logger } from "../util/logger";
@@ -20,7 +21,12 @@ featureRevisionSchema.index(
   { unique: true }
 );
 
-type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
+type FeatureRevisionDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  FeatureRevisionInterface
+> &
+  FeatureRevisionInterface;
 
 const FeatureRevisionModel = mongoose.model<FeatureRevisionDocument>(
   "FeatureRevision",
@@ -35,7 +41,7 @@ export async function getRevisions(
     organization,
     featureId,
   });
-  return docs.map((d) => d.toJSON());
+  return docs.map((d) => d.toJSON({ flattenMaps: false }));
 }
 
 export async function saveRevision(feature: FeatureInterface) {

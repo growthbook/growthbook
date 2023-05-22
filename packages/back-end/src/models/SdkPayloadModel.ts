@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { FeatureDefinition } from "../../types/api";
 import {
   SDKExperiment,
@@ -23,7 +24,12 @@ sdkPayloadSchema.index(
   { organization: 1, project: 1, environment: 1 },
   { unique: true }
 );
-type SDKPayloadDocument = mongoose.Document & SDKStringifiedPayloadInterface;
+type SDKPayloadDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  SDKStringifiedPayloadInterface
+> &
+  SDKStringifiedPayloadInterface;
 
 const SDKPayloadModel = mongoose.model<SDKPayloadDocument>(
   "SdkPayload",
@@ -31,14 +37,15 @@ const SDKPayloadModel = mongoose.model<SDKPayloadDocument>(
 );
 
 function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
+  const json = doc.toJSON({ flattenMaps: false });
   try {
-    const contents = JSON.parse(doc.contents);
+    const contents = JSON.parse(json.contents);
 
     // TODO: better validation here to make sure contents are the correct type?
     if (!contents.features && !contents.experiments) return null;
 
     return {
-      ...doc,
+      ...json,
       contents,
     };
   } catch (e) {

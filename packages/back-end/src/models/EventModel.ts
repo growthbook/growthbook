@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import z from "zod";
 import omit from "lodash/omit";
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import {
   notificationEventNames,
   notificationEventResources,
@@ -86,7 +87,12 @@ const eventSchema = new mongoose.Schema({
 
 eventSchema.index({ organizationId: 1, dateCreated: -1 });
 
-type EventDocument<T> = mongoose.Document & EventInterface<T>;
+type EventDocument<T> = mongoose.Document<
+  ObjectId,
+  Record<string, never>,
+  EventInterface<T>
+> &
+  EventInterface<T>;
 
 /**
  * Convert the Mongo document to an EventInterface, omitting Mongo default fields __v, _id
@@ -94,7 +100,7 @@ type EventDocument<T> = mongoose.Document & EventInterface<T>;
  * @returns
  */
 const toInterface = <T>(doc: EventDocument<T>): EventInterface<T> =>
-  omit(doc.toJSON(), ["__v", "_id"]) as EventInterface<T>;
+  omit(doc.toJSON({ flattenMaps: false }), ["__v", "_id"]) as EventInterface<T>;
 
 const EventModel = mongoose.model<EventDocument<unknown>>("Event", eventSchema);
 

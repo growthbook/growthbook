@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import uniqid from "uniqid";
 import { cloneDeep } from "lodash";
 import {
@@ -96,7 +97,12 @@ const organizationSchema = new mongoose.Schema({
 
 organizationSchema.index({ "members.id": 1 });
 
-type OrganizationDocument = mongoose.Document & OrganizationInterface;
+type OrganizationDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  OrganizationInterface
+> &
+  OrganizationInterface;
 
 const OrganizationModel = mongoose.model<OrganizationDocument>(
   "Organization",
@@ -104,7 +110,7 @@ const OrganizationModel = mongoose.model<OrganizationDocument>(
 );
 
 function toInterface(doc: OrganizationDocument): OrganizationInterface {
-  return upgradeOrganizationDoc(doc.toJSON());
+  return upgradeOrganizationDoc(doc.toJSON({ flattenMaps: false }));
 }
 
 export async function createOrganization({

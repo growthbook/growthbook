@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 import { AuditInterface } from "../../types/audit";
 
 const auditSchema = new mongoose.Schema({
@@ -34,6 +35,11 @@ const auditSchema = new mongoose.Schema({
   dateCreated: Date,
 });
 
-type AuditDocument = mongoose.Document & AuditInterface;
+type AuditDocument = mongoose.Document<
+  ObjectId | undefined,
+  Record<string, never>,
+  AuditInterface
+> &
+  AuditInterface;
 
 export const AuditModel = mongoose.model<AuditDocument>("Audit", auditSchema);
