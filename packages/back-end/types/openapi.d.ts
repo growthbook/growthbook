@@ -171,6 +171,20 @@ export interface paths {
       };
     };
   };
+  "/saved-groups": {
+    /** Get all saved group */
+    get: operations["listSavedGroups"];
+    /** Create a single saved group */
+    post: operations["postSavedGroup"];
+  };
+  "/saved-groups/{id}": {
+    /** Get a single saved group */
+    get: operations["getSavedGroup"];
+    /** Partially update a single saved group */
+    post: operations["updateSavedGroup"];
+    /** Deletes a single saved group */
+    delete: operations["deleteSavedGroup"];
+  };
 }
 
 export type webhooks = Record<string, never>;
@@ -258,6 +272,10 @@ export interface components {
       dateCreated: string;
       /** Format: date-time */
       dateUpdated: string;
+      description?: string;
+      settings?: {
+        statsEngine?: string;
+      };
     };
     Segment: {
       id: string;
@@ -564,10 +582,12 @@ export interface components {
       encryptionKey: string;
       includeVisualExperiments?: boolean;
       includeDraftExperiments?: boolean;
+      includeExperimentNames?: boolean;
       key: string;
       proxyEnabled: boolean;
       proxyHost: string;
       proxySigningKey: string;
+      sseEnabled?: any;
     };
     Experiment: {
       id: string;
@@ -833,6 +853,7 @@ export interface components {
       visualChanges: ({
           description?: string;
           css?: string;
+          js?: string;
           variation: string;
           domMutations: ({
               selector: string;
@@ -840,12 +861,15 @@ export interface components {
               action: "append" | "set" | "remove";
               attribute: string;
               value?: string;
+              parentSelector?: string;
+              insertBeforeSelector?: string;
             })[];
         })[];
     };
     VisualChange: {
       description?: string;
       css?: string;
+      js?: string;
       variation: string;
       domMutations?: ({
           selector: string;
@@ -853,7 +877,20 @@ export interface components {
           action: "append" | "set" | "remove";
           attribute: string;
           value?: string;
+          parentSelector?: string;
+          insertBeforeSelector?: string;
         })[];
+    };
+    SavedGroup: {
+      id: string;
+      /** Format: date-time */
+      dateCreated: string;
+      /** Format: date-time */
+      dateUpdated: string;
+      name: string;
+      owner?: string;
+      attributeKey: string;
+      values: (string)[];
     };
   };
   responses: {
@@ -1287,6 +1324,10 @@ export interface operations {
                 dateCreated: string;
                 /** Format: date-time */
                 dateUpdated: string;
+                description?: string;
+                settings?: {
+                  statsEngine?: string;
+                };
               })[];
           } & {
             limit: number;
@@ -1313,6 +1354,10 @@ export interface operations {
               dateCreated: string;
               /** Format: date-time */
               dateUpdated: string;
+              description?: string;
+              settings?: {
+                statsEngine?: string;
+              };
             };
           };
         };
@@ -1468,10 +1513,12 @@ export interface operations {
                 encryptionKey: string;
                 includeVisualExperiments?: boolean;
                 includeDraftExperiments?: boolean;
+                includeExperimentNames?: boolean;
                 key: string;
                 proxyEnabled: boolean;
                 proxyHost: string;
                 proxySigningKey: string;
+                sseEnabled?: any;
               })[];
           } & {
             limit: number;
@@ -1505,10 +1552,12 @@ export interface operations {
               encryptionKey: string;
               includeVisualExperiments?: boolean;
               includeDraftExperiments?: boolean;
+              includeExperimentNames?: boolean;
               key: string;
               proxyEnabled: boolean;
               proxyHost: string;
               proxySigningKey: string;
+              sseEnabled?: any;
             };
           };
         };
@@ -2267,6 +2316,7 @@ export interface operations {
                 visualChanges: ({
                     description?: string;
                     css?: string;
+                    js?: string;
                     variation: string;
                     domMutations: ({
                         selector: string;
@@ -2274,6 +2324,8 @@ export interface operations {
                         action: "append" | "set" | "remove";
                         attribute: string;
                         value?: string;
+                        parentSelector?: string;
+                        insertBeforeSelector?: string;
                       })[];
                   })[];
               })[];
@@ -2311,6 +2363,7 @@ export interface operations {
               visualChanges: ({
                   description?: string;
                   css?: string;
+                  js?: string;
                   variation: string;
                   domMutations: ({
                       selector: string;
@@ -2318,6 +2371,8 @@ export interface operations {
                       action: "append" | "set" | "remove";
                       attribute: string;
                       value?: string;
+                      parentSelector?: string;
+                      insertBeforeSelector?: string;
                     })[];
                 })[];
             };
@@ -2455,6 +2510,165 @@ export interface operations {
       };
     };
   };
+  listSavedGroups: {
+    /** Get all saved group */
+    parameters: {
+        /** @description The number of items to return */
+        /** @description How many items to skip (use in conjunction with limit for pagination) */
+      query: {
+        limit?: number;
+        offset?: number;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            savedGroups: ({
+                id: string;
+                /** Format: date-time */
+                dateCreated: string;
+                /** Format: date-time */
+                dateUpdated: string;
+                name: string;
+                owner?: string;
+                attributeKey: string;
+                values: (string)[];
+              })[];
+          } & {
+            limit: number;
+            offset: number;
+            count: number;
+            total: number;
+            hasMore: boolean;
+            nextOffset: OneOf<[number, null]>;
+          };
+        };
+      };
+    };
+  };
+  postSavedGroup: {
+    /** Create a single saved group */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The display name of the Saved Group */
+          name: string;
+          /** @description An array of values to target (Ex: a list of userIds). */
+          values: (string)[];
+          /** @description The parameter you want to target users with. Ex: userId, orgId, ... */
+          attributeKey: string;
+          /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
+          owner?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            savedGroup: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              owner?: string;
+              attributeKey: string;
+              values: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  getSavedGroup: {
+    /** Get a single saved group */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            savedGroup: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              owner?: string;
+              attributeKey: string;
+              values: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  updateSavedGroup: {
+    /** Partially update a single saved group */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description The display name of the Saved Group */
+          name?: string;
+          /** @description An array of values to target (Ex: a list of userIds). */
+          values?: (string)[];
+          /** @description The person or team that owns this Saved Group. If no owner, you can pass an empty string. */
+          owner?: string;
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            savedGroup: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              owner?: string;
+              attributeKey: string;
+              values: (string)[];
+            };
+          };
+        };
+      };
+    };
+  };
+  deleteSavedGroup: {
+    /** Deletes a single saved group */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
 }
 
 // Schemas
@@ -2478,6 +2692,7 @@ export type ApiExperimentResults = components["schemas"]["ExperimentResults"];
 export type ApiDataSource = components["schemas"]["DataSource"];
 export type ApiVisualChangeset = components["schemas"]["VisualChangeset"];
 export type ApiVisualChange = components["schemas"]["VisualChange"];
+export type ApiSavedGroup = components["schemas"]["SavedGroup"];
 
 // Operations
 export type ListFeaturesResponse = operations["listFeatures"]["responses"]["200"]["content"]["application/json"];
@@ -2504,3 +2719,8 @@ export type GetVisualChangesetResponse = operations["getVisualChangeset"]["respo
 export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PostVisualChangeResponse = operations["postVisualChange"]["responses"]["200"]["content"]["application/json"];
 export type PutVisualChangeResponse = operations["putVisualChange"]["responses"]["200"]["content"]["application/json"];
+export type ListSavedGroupsResponse = operations["listSavedGroups"]["responses"]["200"]["content"]["application/json"];
+export type PostSavedGroupResponse = operations["postSavedGroup"]["responses"]["200"]["content"]["application/json"];
+export type GetSavedGroupResponse = operations["getSavedGroup"]["responses"]["200"]["content"]["application/json"];
+export type UpdateSavedGroupResponse = operations["updateSavedGroup"]["responses"]["200"]["content"]["application/json"];
+export type DeleteSavedGroupResponse = operations["deleteSavedGroup"]["responses"]["200"]["content"]["application/json"];

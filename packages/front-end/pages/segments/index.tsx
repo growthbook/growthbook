@@ -5,8 +5,8 @@ import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import Link from "next/link";
 import clsx from "clsx";
+import { ago } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { ago } from "@/services/dates";
 import Button from "@/components/Button";
 import SegmentForm from "@/components/Segments/SegmentForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -72,40 +72,54 @@ const SegmentPage: FC = () => {
         if (res.total) {
           subtitleText = "This segment is referenced in ";
           const refs = [];
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           if (res.metrics.length) {
             refs.push(
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               res.metrics.length === 1
                 ? "1 metric"
-                : res.metrics.length + " metrics"
+                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  res.metrics.length + " metrics"
             );
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             res.metrics.forEach((m) => {
               metricLinks.push(
+                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
                 <Link href={`/metric/${m.id}`}>
                   <a className="">{m.name}</a>
                 </Link>
               );
             });
           }
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           if (res.ideas.length) {
             refs.push(
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               res.ideas.length === 1 ? "1 idea" : res.ideas.length + " ideas"
             );
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             res.ideas.forEach((i) => {
               ideaLinks.push(
+                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
                 <Link href={`/idea/${i.id}`}>
                   <a>{i.text}</a>
                 </Link>
               );
             });
           }
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           if (res.experiments.length) {
             refs.push(
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               res.experiments.length === 1
                 ? "1 experiment"
-                : res.experiments.length + " Experiments"
+                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  res.experiments.length + " Experiments"
             );
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             res.experiments.forEach((e) => {
               expLinks.push(
+                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
                 <Link href={`/experiment/${e.id}`}>
                   <a>{e.name}</a>
                 </Link>
@@ -305,6 +319,7 @@ const SegmentPage: FC = () => {
                         />
                       </td>
                       {canAddEditRemoveSegments() && (
+                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message
                         <td>{ago(s.dateUpdated)}</td>
                       )}
                       {canAddEditRemoveSegments() && (
@@ -325,6 +340,7 @@ const SegmentPage: FC = () => {
                             className={"tr-hover text-primary"}
                             displayName={s.name}
                             title="Delete this segment"
+                            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '() => Promise<JSX.Element | undefined>' is n... Remove this comment to see the full error message
                             getConfirmationContent={getSegmentUsage(s)}
                             onClick={async () => {
                               await apiCall<{

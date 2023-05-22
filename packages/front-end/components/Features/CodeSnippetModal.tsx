@@ -127,7 +127,7 @@ export default function CodeSnippetModal({
     return null;
   }
 
-  const { docs, label, usesEntireEndpoint } = languageMapping[language];
+  const { docs, label } = languageMapping[language];
   const apiHost = getApiBaseUrl(currentConnection);
   const clientKey = currentConnection.key;
   const featuresEndpoint = apiHost + "/api/features/" + clientKey;
@@ -146,6 +146,7 @@ export default function CodeSnippetModal({
           }}
           connection={currentConnection}
           mutate={mutateConnections}
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | undefined' is not assignable ... Remove this comment to see the full error message
           goToNextStep={submit}
         />
       )}
@@ -158,6 +159,7 @@ export default function CodeSnippetModal({
         size={"max"}
         header="Implementation Instructions"
         autoCloseOnSubmit={false}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => Promise<void>) | null' is not assigna... Remove this comment to see the full error message
         submit={
           includeCheck
             ? async () => {
@@ -243,51 +245,37 @@ export default function CodeSnippetModal({
               <div className="appbox bg-light p-3">
                 <table className="gbtable table table-bordered table-sm">
                   <tbody>
-                    {usesEntireEndpoint ? (
-                      <tr>
-                        <th
-                          className="pl-3"
-                          style={{ verticalAlign: "middle" }}
-                        >
-                          Features Endpoint
-                        </th>
-                        <td>
-                          <ClickToCopy>{featuresEndpoint}</ClickToCopy>
-                        </td>
-                      </tr>
-                    ) : (
-                      <>
-                        <tr>
-                          <th
-                            className="pl-3"
-                            style={{ verticalAlign: "middle" }}
-                          >
-                            API Host
-                          </th>
-                          <td>
-                            <ClickToCopy>{apiHost}</ClickToCopy>
-                          </td>
-                        </tr>
-                        <tr>
-                          <th
-                            className="pl-3"
-                            style={{ verticalAlign: "middle" }}
-                          >
-                            Client Key
-                          </th>
-                          <td>
-                            <ClickToCopy>{clientKey}</ClickToCopy>
-                          </td>
-                        </tr>
-                      </>
-                    )}
+                    <tr>
+                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
+                        Full API Endpoint
+                      </th>
+                      <td>
+                        <ClickToCopy>{featuresEndpoint}</ClickToCopy>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
+                        API Host
+                      </th>
+                      <td>
+                        <ClickToCopy>{apiHost}</ClickToCopy>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th className="pl-3" style={{ verticalAlign: "middle" }}>
+                        Client Key
+                      </th>
+                      <td>
+                        <ClickToCopy>{clientKey}</ClickToCopy>
+                      </td>
+                    </tr>
                     {encryptionKey && (
                       <tr>
                         <th
                           className="pl-3"
                           style={{ verticalAlign: "middle" }}
                         >
-                          Encryption Key
+                          Decryption Key
                         </th>
                         <td>
                           <ClickToCopy>{encryptionKey}</ClickToCopy>
@@ -335,6 +323,7 @@ export default function CodeSnippetModal({
                     language={language}
                     apiHost={apiHost}
                     apiKey={clientKey}
+                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | false' is not assignable to type 's... Remove this comment to see the full error message
                     encryptionKey={encryptionKey}
                   />
                 </div>

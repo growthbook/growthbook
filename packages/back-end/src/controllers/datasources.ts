@@ -1,5 +1,9 @@
 import { Response } from "express";
 import uniqid from "uniqid";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { AuthRequest } from "../types/AuthRequest";
 import { getOrgFromReq } from "../services/organizations";
 import {
@@ -38,6 +42,8 @@ import {
   getSampleMetrics,
 } from "../models/MetricModel";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { deleteInformationSchemaById } from "../models/InformationSchemaModel";
+import { deleteInformationSchemaTablesByInformationSchemaId } from "../models/InformationSchemaTablesModel";
 
 export async function postSampleData(
   req: AuthRequest,
@@ -51,7 +57,7 @@ export async function postSampleData(
 
   const { org, userId } = getOrgFromReq(req);
   const orgId = org.id;
-  const statsEngine = org.settings?.statsEngine;
+  const statsEngine = org.settings?.statsEngine || DEFAULT_STATS_ENGINE;
 
   const existingMetrics = await getSampleMetrics(orgId);
 
@@ -213,7 +219,13 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
           },
         ],
       },
-      statsEngine
+      {
+        statsEngine,
+        regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+        metricRegressionAdjustmentStatuses: [],
+        sequentialTestingEnabled: false,
+        sequentialTestingTuningParameter: 0,
+      }
     );
   }
 
@@ -273,6 +285,17 @@ export async function deleteDataSource(
   }
 
   await deleteDatasourceById(datasource.id, org.id);
+
+  if (datasource.settings?.informationSchemaId) {
+    const informationSchemaId = datasource.settings.informationSchemaId;
+
+    await deleteInformationSchemaById(org.id, informationSchemaId);
+
+    await deleteInformationSchemaTablesByInformationSchemaId(
+      org.id,
+      informationSchemaId
+    );
+  }
 
   res.status(200).json({
     status: 200,

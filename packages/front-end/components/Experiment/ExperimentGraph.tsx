@@ -9,7 +9,7 @@ import format from "date-fns/format";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { TooltipWithBounds, useTooltip } from "@visx/tooltip";
 import { localPoint } from "@visx/event";
-import { getValidDate } from "@/services/dates";
+import { getValidDate } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
@@ -90,14 +90,15 @@ export default function ExperimentGraph({
 
         const handlePointer = (event: React.MouseEvent<SVGElement>) => {
           const coords = localPoint(event);
-          const xCoord = coords.x - barWidth;
+          const xCoord = (coords?.x ?? 0) - barWidth;
 
           const barData = graphData.map((d) => {
             return { xcord: xScale(getValidDate(d.date)), numExp: d.numExp };
           });
 
           const closestBar = barData.reduce((prev, curr) =>
-            Math.abs(curr.xcord - xCoord) < Math.abs(prev.xcord - xCoord)
+            Math.abs((curr?.xcord ?? 0) - xCoord) <
+            Math.abs((prev?.xcord ?? 0) - xCoord)
               ? curr
               : prev
           );
@@ -141,7 +142,8 @@ export default function ExperimentGraph({
                   stroke="var(--border-color-200)"
                 />
                 {graphData.map((d, i) => {
-                  const barX = xScale(getValidDate(d.date)) - barWidth / 2;
+                  const barX =
+                    (xScale(getValidDate(d.date)) ?? 0) - barWidth / 2;
                   let barHeight = yMax - (yScale(d.numExp) ?? 0);
                   // if there are no experiments this month, show a little nub for design reasons.
                   if (barHeight === 0) barHeight = 6;

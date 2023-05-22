@@ -1,5 +1,9 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { APP_ORIGIN } from "../util/secrets";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
 import { getExperimentById } from "../models/ExperimentModel";
@@ -126,6 +130,14 @@ export async function generateNotebook(
     run_query: datasource.settings.notebookRunQuery,
   }).replace(/\\/g, "\\\\");
 
+  const statsEngine = args.statsEngine ?? DEFAULT_STATS_ENGINE;
+  const configString =
+    statsEngine === "frequentist" && (args.sequentialTestingEnabled ?? false)
+      ? `{'sequential': True, 'sequential_tuning_parameter': ${
+          args.sequentialTestingTuningParameter ??
+          DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
+        }}`
+      : "{}";
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gen_notebook import create_notebook
@@ -156,10 +168,11 @@ print(create_notebook(
     weights=data['weights'],
     run_query=data['run_query'],
     stats_engine=${
-      (args.statsEngine ?? "bayesian") === "frequentist"
+      statsEngine === "frequentist"
         ? "StatsEngine.FREQUENTIST"
         : "StatsEngine.BAYESIAN"
-    }
+    },
+    engine_config=${configString}
 ))`,
     {}
   );

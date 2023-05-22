@@ -6,12 +6,13 @@ import {
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
-import { StatsEngine } from "back-end/types/stats";
+import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
 import { FaTimes } from "react-icons/fa";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
+  setAdjustedPValuesOnResults,
   ExperimentTableRow,
   useRiskVariation,
 } from "@/services/experiments";
@@ -35,8 +36,10 @@ const CompactResults: FC<{
   metricOverrides: MetricOverride[];
   id: string;
   statsEngine?: StatsEngine;
+  pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  sequentialTestingEnabled?: boolean;
 }> = ({
   results,
   variations,
@@ -50,16 +53,22 @@ const CompactResults: FC<{
   metricOverrides,
   id,
   statsEngine,
+  pValueCorrection,
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
+  sequentialTestingEnabled,
 }) => {
   const { getMetricById, ready } = useDefinitions();
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     if (!results || !results.variations || !ready) return [];
+    if (pValueCorrection && statsEngine === "frequentist") {
+      setAdjustedPValuesOnResults([results], metrics, pValueCorrection);
+    }
     return metrics
       .map((metricId) => {
         const metric = getMetricById(metricId);
+        if (!metric) return null;
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
         let regressionAdjustmentStatus:
           | MetricRegressionAdjustmentStatus
@@ -80,13 +89,14 @@ const CompactResults: FC<{
           regressionAdjustmentStatus,
         };
       })
-      .filter((row) => row.metric);
+      .filter((row) => row?.metric) as ExperimentTableRow[];
   }, [
     results,
     metrics,
     metricOverrides,
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
+    pValueCorrection,
     ready,
   ]);
 
@@ -100,10 +110,12 @@ const CompactResults: FC<{
     <>
       <div className="px-3">
         <DataQualityWarning results={results} variations={variations} />
-        <MultipleExposureWarning
-          users={users}
-          multipleExposures={multipleExposures}
-        />
+        {multipleExposures !== undefined && (
+          <MultipleExposureWarning
+            users={users}
+            multipleExposures={multipleExposures}
+          />
+        )}
         <h3 className="mb-3">
           Metrics
           {editMetrics && (
@@ -131,9 +143,12 @@ const CompactResults: FC<{
           rows={rows}
           id={id}
           {...risk}
+          tableRowAxis="metric"
           labelHeader="Metric"
           users={users}
           statsEngine={statsEngine}
+          sequentialTestingEnabled={sequentialTestingEnabled}
+          pValueCorrection={pValueCorrection}
           renderLabelColumn={(label, metric, row) => {
             const metricLink = (
               <Tooltip

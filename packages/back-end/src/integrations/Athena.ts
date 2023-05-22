@@ -2,11 +2,12 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { runAthenaQuery } from "../services/athena";
 import { AthenaConnectionParams } from "../../types/integrations/athena";
 import { FormatDialect } from "../util/sql";
+import { MissingDatasourceParamsError } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   params: AthenaConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<AthenaConnectionParams>(
@@ -36,6 +37,9 @@ export default class Athena extends SqlIntegration {
   formatDate(col: string): string {
     return `substr(to_iso8601(${col}),1,10)`;
   }
+  formatDateTimeString(col: string): string {
+    return `to_iso8601(${col})`;
+  }
   dateDiff(startCol: string, endCol: string) {
     return `date_diff('day', ${startCol}, ${endCol})`;
   }
@@ -44,5 +48,15 @@ export default class Athena extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `1.0*${col}`;
+  }
+  getInformationSchemaFromClause(): string {
+    if (!this.params.catalog)
+      throw new MissingDatasourceParamsError(
+        "To view the information schema for an Athena data source, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings."
+      );
+    return `${this.params.catalog}.information_schema.columns`;
+  }
+  getInformationSchemaTableFromClause(databaseName: string): string {
+    return `${databaseName}.information_schema.columns`;
   }
 }

@@ -3,6 +3,7 @@ import { FC } from "react";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentStatus } from "back-end/types/experiment";
+import { PValueCorrection } from "back-end/types/stats";
 import {
   hasEnoughData,
   isBelowMinChange,
@@ -25,6 +26,7 @@ const PValueColumn: FC<{
   snapshotDate: Date;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
+  pValueCorrection?: PValueCorrection;
 }> = ({
   metric,
   status,
@@ -33,6 +35,7 @@ const PValueColumn: FC<{
   snapshotDate,
   baseline,
   stats,
+  pValueCorrection,
 }) => {
   const {
     getMinSampleSizeForMetric,
@@ -62,7 +65,10 @@ const PValueColumn: FC<{
     belowMinChange,
   });
 
-  const statSig = isStatSig(stats, pValueThreshold);
+  const statSig = isStatSig(
+    stats.pValueAdjusted ?? stats.pValue ?? 1,
+    pValueThreshold
+  );
   const expectedDirection = isExpectedDirection(stats, metric);
 
   let sigText: string | JSX.Element = "";
@@ -85,6 +91,18 @@ const PValueColumn: FC<{
     className += " draw";
   }
 
+  let pValText = <>{stats?.pValue ? pValueFormatter(stats.pValue) : ""}</>;
+  if (stats?.pValueAdjusted !== undefined && pValueCorrection) {
+    pValText = (
+      <>
+        <div>
+          {stats?.pValueAdjusted ? pValueFormatter(stats.pValueAdjusted) : ""}
+        </div>
+        <div className="small text-muted">(unadj.: {pValText})</div>
+      </>
+    );
+  }
+
   return (
     <td
       className={clsx(
@@ -97,7 +115,9 @@ const PValueColumn: FC<{
           <div className="mb-1 d-flex flex-row">
             <Tooltip
               body={`A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
-                metric.maxPercentChange * 100
+                (metric.maxPercentChange ??
+                  metricDefaults?.maxPercentageChange ??
+                  0) * 100
               }%).`}
             >
               <span className="badge badge-pill badge-warning">
@@ -126,7 +146,7 @@ const PValueColumn: FC<{
             phaseStart={startDate}
           />
         ) : (
-          <>{pValueFormatter(stats?.pValue) || "P-value missing"}</>
+          <>{pValText || "P-value missing"}</>
         )}
       </Tooltip>
     </td>

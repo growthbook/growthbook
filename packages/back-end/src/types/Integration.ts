@@ -7,6 +7,7 @@ import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface, MetricType } from "../../types/metric";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { SegmentInterface } from "../../types/segment";
+import { FormatDialect } from "../util/sql";
 
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
@@ -252,6 +253,7 @@ export interface InformationSchemaTablesInterface {
 export interface SourceIntegrationInterface {
   datasource: string;
   organization: string;
+  type: string;
   settings: DataSourceSettings;
   decryptionError: boolean;
   // eslint-disable-next-line
@@ -264,6 +266,7 @@ export interface SourceIntegrationInterface {
     activationMetric: MetricInterface | null,
     dimension: DimensionInterface | null
   ): string;
+  getFormatDialect?(): FormatDialect;
   getExperimentResults(
     experiment: ExperimentInterface,
     phase: ExperimentPhase,
@@ -277,7 +280,7 @@ export interface SourceIntegrationInterface {
     databaseName: string,
     tableSchema: string,
     tableName: string
-  ): Promise<{ tableData: null | unknown[]; refreshMS: number }>;
+  ): Promise<{ tableData: null | unknown[] }>;
   getInformationSchema?(): Promise<InformationSchema[]>;
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;

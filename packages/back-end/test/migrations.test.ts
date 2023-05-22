@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import cloneDeep from "lodash/cloneDeep";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { MetricInterface } from "../types/metric";
 import {
   upgradeDatasourceObject,
@@ -854,6 +858,8 @@ describe("backend", () => {
           },
         },
       ],
+      sequentialTestingEnabled: false,
+      sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     };
 
     expect(upgradeExperimentDoc(exp)).toEqual(upgraded);
@@ -956,7 +962,7 @@ describe("backend", () => {
           environments: [],
           limitAccessByEnvironment: false,
         },
-        statsEngine: "bayesian",
+        statsEngine: DEFAULT_STATS_ENGINE,
         environments: [
           {
             id: "dev",

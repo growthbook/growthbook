@@ -6,6 +6,7 @@ import {
   Invite,
   Member,
   OrganizationInterface,
+  OrganizationMessage,
 } from "../../types/organization";
 import { upgradeOrganizationDoc } from "../util/migrations";
 
@@ -60,6 +61,23 @@ const organizationSchema = new mongoose.Schema({
       email: String,
     },
   ],
+  messages: {
+    required: false,
+    type: [
+      {
+        _id: false,
+        message: {
+          required: true,
+          type: String,
+        },
+        level: {
+          required: true,
+          type: String,
+          enum: ["info", "warning", "danger"],
+        },
+      },
+    ],
+  },
   stripeCustomerId: String,
   discountCode: String,
   priceId: String,
@@ -282,4 +300,19 @@ export async function removeProjectFromProjectRoles(
 export async function findOrganizationsByDomain(domain: string) {
   const docs = await OrganizationModel.find({ verifiedDomain: domain });
   return docs.map(toInterface);
+}
+
+export async function setOrganizationMessages(
+  orgId: string,
+  messages: OrganizationMessage[]
+): Promise<void> {
+  await OrganizationModel.updateOne(
+    {
+      id: orgId,
+    },
+    { messages },
+    {
+      runValidators: true,
+    }
+  );
 }

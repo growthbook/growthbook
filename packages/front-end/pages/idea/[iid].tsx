@@ -11,6 +11,7 @@ import Link from "next/link";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
+import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -18,7 +19,6 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import DiscussionThread from "@/components/DiscussionThread";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import ImpactModal from "@/components/Ideas/ImpactModal";
-import { date } from "@/services/dates";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import ViewQueryButton from "@/components/Metrics/ViewQueryButton";
 import ImpactProjections from "@/components/Ideas/ImpactProjections";
@@ -66,6 +66,7 @@ const IdeaPage = (): ReactElement => {
     experiment?: Partial<ExperimentInterfaceStringDates>;
   }>(`/idea/${iid}`);
 
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   useSwitchOrg(data?.idea?.organization);
 
   const form = useForm<{
@@ -221,7 +222,9 @@ const IdeaPage = (): ReactElement => {
               </a>
             </Link>
             <StatusIndicator
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentStatus | undefined' is not assigna... Remove this comment to see the full error message
               status={data.experiment.status}
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean | undefined' is not assignable to ty... Remove this comment to see the full error message
               archived={data.experiment.archived}
             />
           </div>
@@ -316,6 +319,7 @@ const IdeaPage = (): ReactElement => {
                         <small>
                           Submitted by{" "}
                           <strong className="mr-1">
+                            {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | null' is not assignable... Remove this comment to see the full error message */}
                             {getUserDisplay(idea.userId) || idea.userName}
                           </strong>
                           {idea.source && idea.source !== "web" && (
@@ -334,6 +338,7 @@ const IdeaPage = (): ReactElement => {
                         <small>
                           Project:{" "}
                           <span className="badge badge-secondary">
+                            {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
                             {getProjectById(idea.project)?.name || "None"}
                           </span>
                         </small>
@@ -357,6 +362,7 @@ const IdeaPage = (): ReactElement => {
                   },
                 });
               }}
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
               value={idea.details}
               canCreate={canEdit}
               canEdit={canEdit}
@@ -440,6 +446,7 @@ const IdeaPage = (): ReactElement => {
                       {idea?.estimateParams?.numVariations || 2}
                     </RightRailSectionGroup>
                     <RightRailSectionGroup title="User Segment" type="badge">
+                      {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
                       {getSegmentById(estimate?.segment)?.name || "Everyone"}
                     </RightRailSectionGroup>
                     <RightRailSectionGroup
@@ -452,11 +459,14 @@ const IdeaPage = (): ReactElement => {
                 </div>
               )}
 
+              {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
               {estimate?.query?.length > 0 && (
                 <div>
                   <hr />
                   <ViewQueryButton
+                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                     queries={[estimate.query]}
+                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                     language={estimate.queryLanguage}
                   />
                 </div>

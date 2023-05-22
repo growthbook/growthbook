@@ -1,20 +1,32 @@
-import { useCallback, useMemo, useState } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import React, { useMemo } from "react";
+import { useFieldArray, useForm, UseFormReturn } from "react-hook-form";
 import {
   MetricRegressionAdjustmentStatus,
   ReportInterface,
 } from "back-end/types/report";
 import { FaQuestionCircle } from "react-icons/fa";
-import { AttributionModel } from "back-end/types/experiment";
+import {
+  AttributionModel,
+  ExperimentInterfaceStringDates,
+} from "back-end/types/experiment";
 import uniq from "lodash/uniq";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+} from "shared/constants";
+import { getValidDate } from "shared/dates";
+import { getScopedSettings } from "shared/settings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { getRegressionAdjustmentsForMetric } from "@/services/experiments";
+import { hasFileConfig } from "@/services/env";
+import { GBCuped, GBSequential } from "@/components/Icons";
+import useApi from "@/hooks/useApi";
+import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -31,20 +43,37 @@ export default function ConfigureReport({
   mutate: () => void;
   viewResults: () => void;
 }) {
-  const settings = useOrgSettings();
+  const orgSettings = useOrgSettings();
   const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const {
     metrics,
     segments,
+    getProjectById,
     getDatasourceById,
     getMetricById,
   } = useDefinitions();
   const datasource = getDatasourceById(report.args.datasource);
-  const [usingStatsEngineDefault, setUsingStatsEngineDefault] = useState(false);
+
+  const eid = report.experimentId;
+  const { data: experimentData } = useApi<{
+    experiment: ExperimentInterfaceStringDates;
+  }>(`/experiment/${eid}`);
+  const experiment = experimentData?.experiment;
+  const pid = experiment?.project;
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
+  const project = getProjectById(pid);
+
+  const { settings: parentSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+  });
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
+  );
+  const hasSequentialTestingFeature = hasCommercialFeature(
+    "sequential-testing"
   );
 
   const allExperimentMetricIds = uniq([
@@ -57,8 +86,10 @@ export default function ConfigureReport({
   const denominatorMetricIds = uniq(
     allExperimentMetrics.map((m) => m?.denominator).filter((m) => m)
   );
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
 
+  // todo: type this form
   const form = useForm({
     defaultValues: {
       ...report.args,
@@ -70,7 +101,7 @@ export default function ConfigureReport({
         )?.id || "",
       attributionModel:
         report.args.attributionModel ||
-        settings.attributionModel ||
+        orgSettings.attributionModel ||
         "firstExposure",
       startDate: getValidDate(report.args.startDate)
         .toISOString()
@@ -78,13 +109,17 @@ export default function ConfigureReport({
       endDate: report.args.endDate
         ? getValidDate(report.args.endDate).toISOString().substr(0, 16)
         : undefined,
-      statsEngine:
-        report.args.statsEngine || settings.statsEngine || "bayesian",
+      statsEngine: report.args.statsEngine || parentSettings.statsEngine.value,
       regressionAdjustmentEnabled:
-        hasRegressionAdjustmentFeature &&
-        !!report.args.regressionAdjustmentEnabled,
+        (hasRegressionAdjustmentFeature &&
+          report.args.regressionAdjustmentEnabled) ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       metricRegressionAdjustmentStatuses:
         report.args.metricRegressionAdjustmentStatuses || [],
+      sequentialTestingEnabled:
+        hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled,
+      sequentialTestingTuningParameter:
+        report.args.sequentialTestingTuningParameter,
     },
   });
 
@@ -97,11 +132,12 @@ export default function ConfigureReport({
         metricRegressionAdjustmentStatus,
       } = getRegressionAdjustmentsForMetric({
         metric: metric,
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(MetricInterface | null)[]' is not assignabl... Remove this comment to see the full error message
         denominatorMetrics: denominatorMetrics,
         experimentRegressionAdjustmentEnabled: !!form.watch(
           `regressionAdjustmentEnabled`
         ),
-        organizationSettings: settings,
+        organizationSettings: orgSettings,
         metricOverrides: report.args.metricOverrides,
       });
       metricRegressionAdjustmentStatuses.push(metricRegressionAdjustmentStatus);
@@ -110,7 +146,7 @@ export default function ConfigureReport({
   }, [
     allExperimentMetrics,
     denominatorMetrics,
-    settings,
+    orgSettings,
     form,
     report.args.metricOverrides,
   ]);
@@ -132,16 +168,6 @@ export default function ConfigureReport({
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
-
-  const setStatsEngineToDefault = useCallback(
-    (enable: boolean) => {
-      if (enable) {
-        form.setValue("statsEngine", settings.statsEngine);
-      }
-      setUsingStatsEngineDefault(enable);
-    },
-    [form, setUsingStatsEngineDefault, settings.statsEngine]
-  );
 
   return (
     <Modal
@@ -282,12 +308,14 @@ export default function ConfigureReport({
           improve.
         </div>
         <MetricsSelector
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
           selected={form.watch("guardrails")}
           onChange={(metrics) => form.setValue("guardrails", metrics)}
           datasource={report.args.datasource}
         />
       </div>
       <DimensionChooser
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null | undefined' is not assignable... Remove this comment to see the full error message
         value={form.watch("dimension")}
         setValue={(value) => form.setValue("dimension", value || "")}
         activationMetric={!!form.watch("activationMetric")}
@@ -307,6 +335,7 @@ export default function ConfigureReport({
           };
         })}
         initialOption="None"
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
         value={form.watch("activationMetric")}
         onChange={(value) => form.setValue("activationMetric", value || "")}
         helpText="Users must convert on this metric before being included"
@@ -315,6 +344,7 @@ export default function ConfigureReport({
         <SelectField
           label="Segment"
           labelClassName="font-weight-bold"
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           value={form.watch("segment")}
           onChange={(value) => form.setValue("segment", value || "")}
           initialOption="None (All Users)"
@@ -373,69 +403,107 @@ export default function ConfigureReport({
         />
       )}
 
-      <div className="d-flex flex-row no-gutters align-items-center">
-        <div className="col-3">
-          <SelectField
-            disabled={usingStatsEngineDefault}
-            label={<strong>Stats Engine</strong>}
-            value={form.watch("statsEngine")}
-            onChange={(value) =>
-              form.setValue(
-                "statsEngine",
-                value === "frequentist" ? "frequentist" : "bayesian"
-              )
-            }
-            options={[
-              {
-                label: "Bayesian",
-                value: "bayesian",
-              },
-              {
-                label: "Frequentist",
-                value: "frequentist",
-              },
-            ]}
-          />
-        </div>
-        <label className="ml-5 mt-3">
-          <input
-            type="checkbox"
-            className="form-check-input"
-            checked={usingStatsEngineDefault}
-            onChange={(e) => setStatsEngineToDefault(e.target.checked)}
-          />
-          Use Organization Default
-        </label>
-      </div>
+      <StatsEngineSelect
+        form={
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          form as UseFormReturn<any>
+        }
+        parentSettings={parentSettings}
+        allowUndefined={false}
+      />
 
-      <div className="d-flex flex-row no-gutters align-items-center">
-        <div className="col-3">
-          <SelectField
-            label={
-              <PremiumTooltip commercialFeature="regression-adjustment">
-                Use Regression Adjustment (CUPED)
-              </PremiumTooltip>
-            }
-            labelClassName="font-weight-bold"
-            value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
-            onChange={(v) => {
-              form.setValue("regressionAdjustmentEnabled", v === "on");
-            }}
-            options={[
-              {
-                label: "On",
-                value: "on",
-              },
-              {
-                label: "Off",
-                value: "off",
-              },
-            ]}
-            helpText="Only applicable to frequentist analyses"
-            disabled={!hasRegressionAdjustmentFeature}
-          />
-        </div>
-      </div>
+      {form.watch("statsEngine") === "frequentist" && (
+        <>
+          <div className="d-flex flex-row no-gutters align-items-center">
+            <div className="col-3">
+              <SelectField
+                label={
+                  <PremiumTooltip commercialFeature="regression-adjustment">
+                    <GBCuped /> Use Regression Adjustment (CUPED)
+                  </PremiumTooltip>
+                }
+                labelClassName="font-weight-bold"
+                value={form.watch("regressionAdjustmentEnabled") ? "on" : "off"}
+                onChange={(v) => {
+                  form.setValue("regressionAdjustmentEnabled", v === "on");
+                }}
+                options={[
+                  {
+                    label: "On",
+                    value: "on",
+                  },
+                  {
+                    label: "Off",
+                    value: "off",
+                  },
+                ]}
+                helpText="Only applicable to frequentist analyses"
+                disabled={!hasRegressionAdjustmentFeature}
+              />
+            </div>
+          </div>
+
+          <div className="d-flex flex-row no-gutters align-items-top">
+            <div className="col-3">
+              <SelectField
+                label={
+                  <PremiumTooltip commercialFeature="sequential-testing">
+                    <GBSequential /> Use Sequential Testing
+                  </PremiumTooltip>
+                }
+                labelClassName="font-weight-bold"
+                value={form.watch("sequentialTestingEnabled") ? "on" : "off"}
+                onChange={(v) => {
+                  form.setValue("sequentialTestingEnabled", v === "on");
+                }}
+                options={[
+                  {
+                    label: "On",
+                    value: "on",
+                  },
+                  {
+                    label: "Off",
+                    value: "off",
+                  },
+                ]}
+                helpText="Only applicable to frequentist analyses"
+                disabled={!hasSequentialTestingFeature}
+              />
+            </div>
+            <div
+              className="col-2 px-4"
+              style={{
+                opacity: form.watch("sequentialTestingEnabled") ? "1" : "0.5",
+              }}
+            >
+              <Field
+                label="Tuning parameter"
+                type="number"
+                containerClassName="mb-0"
+                min="0"
+                disabled={!hasSequentialTestingFeature || hasFileConfig()}
+                helpText={
+                  <>
+                    <span className="ml-2">
+                      (
+                      {orgSettings.sequentialTestingTuningParameter ??
+                        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                      is organization default)
+                    </span>
+                  </>
+                }
+                {...form.register("sequentialTestingTuningParameter", {
+                  valueAsNumber: true,
+                  validate: (v) => {
+                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                    return !(v <= 0);
+                  },
+                })}
+              />
+            </div>
+          </div>
+        </>
+      )}
 
       {datasourceProperties?.queryLanguage === "sql" && (
         <div className="row">

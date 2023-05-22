@@ -8,10 +8,13 @@
     "type-check": "wsrun -m type-check",
     "unused-export-check": "wsrun -m unused-export-check",
     "test": "wsrun -m test",
-    "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && wsrun -p '*-end' -m dev",
-    "build": "wsrun -p '*-end' -m build",
-    "start": "wsrun -p '*-end' -m start",
-    "setup": "wsrun -p '@growthbook/growthbook' -c build && wsrun -p '@growthbook/growthbook-react' -c build && wsrun -p 'stats' -c setup",
+    "dev:apps": "wsrun -p 'back-end' -p 'front-end' -p 'shared' -c dev",
+    "dev": ". $(cd packages/stats && poetry env info --path)/bin/activate && yarn dev:apps",
+    "build:deps": "wsrun -p '@growthbook/growthbook' -p '@growthbook/growthbook-react' -p 'shared' -t -c build",
+    "build:app": "wsrun -p 'back-end' -p 'front-end' -c build",
+    "build": "yarn build:deps && yarn build:app",
+    "start": "wsrun -p 'back-end' -p 'front-end' -c start",
+    "setup": "yarn build:deps && wsrun -p 'stats' -c setup",
     "prepare": "husky install",
     "plop": "plop",
     "migrate-encryption-key": "yarn workspace back-end migrate-encryption-key",
@@ -33,6 +36,7 @@
     "eslint-config-prettier": "^6.11.0",
     "eslint-import-resolver-typescript": "^3.5.1",
     "eslint-plugin-import": "^2.26.0",
+    "eslint-plugin-no-async-foreach": "^0.1.1",
     "eslint-plugin-prettier": "^3.1.3",
     "eslint-plugin-react": "^7.30.1",
     "growthbook": "^0.0.2",
@@ -51,7 +55,8 @@
     ],
     "./packages/stats/gbstats/**/*.py": [
       "black",
-      "flake8 --config=packages/stats/.flake8"
+      "flake8 --config=packages/stats/.flake8",
+      "mypy --check-untyped-defs"
     ]
   },
   "prettier": {

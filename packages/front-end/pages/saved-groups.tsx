@@ -1,11 +1,11 @@
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import React, { useMemo, useState } from "react";
 import Link from "next/link";
+import { ago } from "shared/dates";
 import Button from "../components/Button";
 import SavedGroupForm from "../components/SavedGroupForm";
 import { GBAddCircle } from "../components/Icons";
 import LoadingOverlay from "../components/LoadingOverlay";
-import { ago } from "../services/dates";
 import { useDefinitions } from "../services/DefinitionsContext";
 import usePermissions from "../hooks/usePermissions";
 import Modal from "../components/Modal";
@@ -22,12 +22,14 @@ const getSavedGroupMessage = (
   featuresUsingSavedGroups: Set<string> | undefined
 ) => {
   return async () => {
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     if (featuresUsingSavedGroups?.size > 0) {
       return (
         <div>
           <p className="alert alert-danger">
             <strong>Whoops!</strong> Before you can delete this saved group, you
             will need to update the feature
+            {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
             {featuresUsingSavedGroups.size > 1 && "s"} listed below by removing
             any targeting conditions that rely on this saved group.
           </p>
@@ -35,6 +37,7 @@ const getSavedGroupMessage = (
             className="border rounded bg-light pt-3 pb-3 overflow-auto"
             style={{ maxHeight: "200px" }}
           >
+            {/* @ts-expect-error TS(2488) If you come across this, please fix it!: Type 'Set<string> | undefined' must have a '[Symbo... Remove this comment to see the full error message */}
             {[...featuresUsingSavedGroups].map((feature) => {
               return (
                 <li key={feature}>
@@ -218,9 +221,11 @@ export default function SavedGroupsPage() {
                                   });
                                   mutateDefinitions({});
                                 }}
+                                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '() => Promise<JSX.Element | undefined>' is n... Remove this comment to see the full error message
                                 getConfirmationContent={getSavedGroupMessage(
                                   savedGroupFeatureIds[s.id]
                                 )}
+                                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean | 0' is not assignable to type 'bool... Remove this comment to see the full error message
                                 canDelete={
                                   savedGroupFeatureIds[s.id]?.size &&
                                   savedGroupFeatureIds[s.id]?.size === 0

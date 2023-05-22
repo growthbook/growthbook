@@ -2,11 +2,12 @@ import mssql from "mssql";
 import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
+import { MissingDatasourceParamsError } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mssql extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   params: MssqlConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<MssqlConnectionParams>(
@@ -33,6 +34,12 @@ export default class Mssql extends SqlIntegration {
     return results.recordset;
   }
 
+  // MS SQL Server doesn't support the LIMIT keyword, so we have to use the TOP or OFFSET and FETCH keywords instead.
+  // (and OFFSET/FETCH only work when there is an ORDER BY clause)
+  selectSampleRows(table: string, limit: number): string {
+    return `SELECT TOP ${limit} * FROM ${table}`;
+  }
+
   addTime(
     col: string,
     unit: "hour" | "minute",
@@ -57,10 +64,17 @@ export default class Mssql extends SqlIntegration {
   castToString(col: string): string {
     return `cast(${col} as varchar(256))`;
   }
-  castDateToStandardString(col: string): string {
+  formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
-  replaceDateDimensionString(minDateDimString: string): string {
-    return `SUBSTRING(${minDateDimString}, 29, 99999)`;
+  getInformationSchemaFromClause(): string {
+    if (!this.params.database)
+      throw new MissingDatasourceParamsError(
+        "To view the information schema for a MS Sql dataset, you must define a default database. Please add a default database by editing the datasource's connection settings."
+      );
+    return `${this.params.database}.information_schema.columns`;
+  }
+  getInformationSchemaTableFromClause(databaseName: string): string {
+    return `${databaseName}.information_schema.columns`;
   }
 }

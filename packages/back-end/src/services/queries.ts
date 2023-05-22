@@ -1,4 +1,5 @@
 import uniqid from "uniqid";
+import { getValidDate } from "shared/dates";
 import { QueryDocument, QueryModel } from "../models/QueryModel";
 import {
   ExperimentMetricStats,
@@ -21,7 +22,6 @@ import {
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
-import { getValidDate } from "../util/dates";
 import { QUERY_CACHE_TTL_MINS } from "../util/secrets";
 import { meanVarianceFromSums } from "../util/stats";
 export type QueryMap = Map<string, QueryInterface>;

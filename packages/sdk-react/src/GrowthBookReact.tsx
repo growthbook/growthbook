@@ -139,17 +139,22 @@ export function FeaturesReady({
   fallback?: React.ReactNode;
 }) {
   const gb = useGrowthBook();
-  const [ready, setReady] = React.useState(gb ? gb.ready : false);
+  const [hitTimeout, setHitTimeout] = React.useState(false);
+  const ready = gb ? gb.ready : false;
   React.useEffect(() => {
     if (timeout && !ready) {
       const timer = setTimeout(() => {
-        setReady(true);
+        gb &&
+          gb.log("FeaturesReady timed out waiting for features to load", {
+            timeout,
+          });
+        setHitTimeout(true);
       }, timeout);
       return () => clearTimeout(timer);
     }
-  }, [timeout, ready]);
+  }, [timeout, ready, gb]);
 
-  return ready ? children : fallback || null;
+  return <>{ready || hitTimeout ? children : fallback || null}</>;
 }
 
 export function IfFeatureEnabled({

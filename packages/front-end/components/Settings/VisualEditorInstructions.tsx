@@ -82,6 +82,7 @@ export default function VisualEditorInstructions({
             href="#"
             onClick={(e) => {
               e.preventDefault();
+              // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
               changeUrl();
             }}
           >

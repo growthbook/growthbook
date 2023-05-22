@@ -1,7 +1,7 @@
 import { ExperimentPhaseStringDates } from "back-end/types/experiment";
 import { useState } from "react";
 import { FaCaretDown, FaCaretRight } from "react-icons/fa";
-import { date } from "@/services/dates";
+import { date } from "shared/dates";
 import { phaseSummary } from "@/services/utils";
 import ConditionDisplay from "../Features/ConditionDisplay";
 import { GBEdit } from "../Icons";
@@ -39,7 +39,7 @@ export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
         <div className="small">
           <div style={{ fontSize: "1.2em" }}>{phase.name}</div>
           <div>
-            <strong>{date(phase.dateStarted)}</strong> to{" "}
+            <strong>{date(phase.dateStarted ?? "")}</strong> to{" "}
             <strong>{phase.dateEnded ? date(phase.dateEnded) : "now"}</strong>
           </div>
         </div>

@@ -4,7 +4,8 @@ import { FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
-import { StatsEngine } from "back-end/types/stats";
+import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentTableRow, useDomain } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "../Tooltip/Tooltip";
@@ -24,6 +25,7 @@ export type ResultsTableProps = {
   startDate: string;
   rows: ExperimentTableRow[];
   users?: number[];
+  tableRowAxis: "metric" | "dimension";
   labelHeader: string;
   renderLabelColumn: (
     label: string,
@@ -36,6 +38,8 @@ export type ResultsTableProps = {
   riskVariation: number;
   setRiskVariation: (riskVariation: number) => void;
   statsEngine?: StatsEngine;
+  pValueCorrection?: PValueCorrection;
+  sequentialTestingEnabled?: boolean;
 };
 
 const numberFormatter = new Intl.NumberFormat();
@@ -51,6 +55,7 @@ export default function ResultsTable({
   rows,
   labelHeader,
   users,
+  tableRowAxis,
   variations,
   startDate,
   renderLabelColumn,
@@ -59,11 +64,13 @@ export default function ResultsTable({
   hasRisk,
   riskVariation,
   setRiskVariation,
-  statsEngine,
+  statsEngine = DEFAULT_STATS_ENGINE,
+  pValueCorrection,
+  sequentialTestingEnabled = false,
 }: ResultsTableProps) {
-  const domain = useDomain(variations, rows);
   const orgSettings = useOrgSettings();
-  statsEngine = statsEngine ?? orgSettings.statsEngine ?? "bayesian";
+
+  const domain = useDomain(variations, rows);
 
   return (
     <table
@@ -136,9 +143,51 @@ export default function ResultsTable({
                   className={`variation${i} head-last-row text-center pt-2`}
                   style={{ minWidth: 110 }}
                 >
-                  {statsEngine === "frequentist"
-                    ? "P-value"
-                    : "Chance to Beat Control"}
+                  {statsEngine === "frequentist" ? (
+                    <>
+                      P-value
+                      {(sequentialTestingEnabled || pValueCorrection) && (
+                        <Tooltip
+                          innerClassName="text-left"
+                          body={
+                            <>
+                              {sequentialTestingEnabled && (
+                                <div className={pValueCorrection ? "mb-3" : ""}>
+                                  Sequential testing is enabled. These are
+                                  &apos;always valid p-values&apos; and robust
+                                  to peeking. They have a slightly different
+                                  interpretation to normal p-values and can
+                                  often be 1.000. Nonetheless, the
+                                  interpretation remains that the result is
+                                  still statistically significant if it drops
+                                  below your threshold (
+                                  {orgSettings.pValueThreshold ?? 0.05}).
+                                </div>
+                              )}
+                              {pValueCorrection && (
+                                <div>
+                                  The p-values presented below are adjusted for
+                                  multiple comparisons using the{" "}
+                                  {pValueCorrection} method. P-values were
+                                  adjusted across tests for
+                                  {tableRowAxis === "dimension"
+                                    ? "all dimension values, non-guardrail metrics, and variations"
+                                    : "all non-guardrail metrics and variations"}
+                                  . The unadjusted p-values are returned in
+                                  parentheses.
+                                </div>
+                              )}
+                            </>
+                          }
+                        >
+                          {" "}
+                          <FaQuestionCircle />
+                        </Tooltip>
+                      )}
+                    </>
+                  ) : (
+                    "Chance to Beat Control"
+                  )}
                 </th>
               )}
               {i > 0 && (
@@ -147,12 +196,43 @@ export default function ResultsTable({
                   {fullStats && (
                     <>
                       {hasRisk && statsEngine === "bayesian" && (
-                        <Tooltip body="This is a 95% credible interval. The true value is more likely to be in the thicker parts of the graph.">
+                        <Tooltip
+                          innerClassName="text-left"
+                          body="This is a 95% credible interval. The true value is more likely to be in the thicker parts of the graph."
+                        >
                           <FaQuestionCircle />
                         </Tooltip>
                       )}
                       {statsEngine === "frequentist" && (
-                        <Tooltip body="This is a 95% confidence interval. If you re-ran the experiment 100 times, the true value would be in this range 95% of the time.">
+                        <Tooltip
+                          innerClassName="text-left"
+                          body={
+                            <>
+                              <p className="mb-0">
+                                This is a 95% confidence interval. If you re-ran
+                                the experiment 100 times, the true value would
+                                be in this range 95% of the time.
+                              </p>
+                              {sequentialTestingEnabled && (
+                                <p className="mt-4 mb-0">
+                                  Because sequential testing is enabled, these
+                                  confidence intervals are valid no matter how
+                                  many times you analyze (or peek at) this
+                                  experiment as it runs.
+                                </p>
+                              )}
+                              {pValueCorrection && (
+                                <p className="mt-4 mb-0">
+                                  These confidence intervals are not adjusted
+                                  for multiple comparisons as the multiple
+                                  comparisons adjustments GrowthBook implements
+                                  only have associated adjusted p-values, not
+                                  confidence intervals.
+                                </p>
+                              )}
+                            </>
+                          }
+                        >
                           <FaQuestionCircle />
                         </Tooltip>
                       )}
@@ -258,6 +338,7 @@ export default function ResultsTable({
                           startDate={startDate}
                           metric={row.metric}
                           snapshotDate={dateCreated}
+                          pValueCorrection={pValueCorrection}
                         />
                       ) : (
                         <ChanceToWinColumn
@@ -274,7 +355,7 @@ export default function ResultsTable({
                       (fullStats ? (
                         <PercentGraphColumn
                           barType={
-                            statsEngine === "frequentist" ? "pill" : null
+                            statsEngine === "frequentist" ? "pill" : undefined
                           }
                           baseline={baseline}
                           domain={domain}

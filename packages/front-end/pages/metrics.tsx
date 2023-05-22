@@ -3,6 +3,7 @@ import { FaArchive, FaPlus, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useRouter } from "next/router";
 import Link from "next/link";
+import { ago, datetime } from "shared/dates";
 import SortedTags from "@/components/Tags/SortedTags";
 import { GBAddCircle } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -10,7 +11,6 @@ import TagsFilter, {
   filterByTags,
   useTagsFilter,
 } from "@/components/Tags/TagsFilter";
-import { ago, datetime } from "@/services/dates";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -308,9 +308,11 @@ const MetricsPage = (): React.ReactElement => {
               <td>{metric.type}</td>
 
               <td className="nowrap">
+                {/* @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call. */}
                 <SortedTags tags={Object.values(metric.tags)} />
               </td>
               <td className="col-2">
+                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                 {metric?.projects?.length > 0 ? (
                   <ProjectBadges
                     projectIds={metric.projects}
@@ -334,9 +336,11 @@ const MetricsPage = (): React.ReactElement => {
               </td>
               {!hasFileConfig() && (
                 <td
+                  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message
                   title={datetime(metric.dateUpdated)}
                   className="d-none d-md-table-cell"
                 >
+                  {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message */}
                   {ago(metric.dateUpdated)}
                 </td>
               )}

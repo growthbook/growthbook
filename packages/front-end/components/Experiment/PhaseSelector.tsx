@@ -1,4 +1,4 @@
-import { date } from "@/services/dates";
+import { date } from "shared/dates";
 import { phaseSummary } from "@/services/utils";
 import SelectField from "../Forms/SelectField";
 import { useSnapshot } from "./SnapshotProvider";
@@ -11,7 +11,7 @@ export interface Props {
 export default function PhaseSelector({ mutateExperiment, editPhases }: Props) {
   const { phase, setPhase, experiment } = useSnapshot();
 
-  const phaseOptions = experiment.phases.map((phase, i) => ({
+  const phaseOptions = experiment?.phases?.map((phase, i) => ({
     label: i + "",
     value: i + "",
   }));
@@ -35,7 +35,7 @@ export default function PhaseSelector({ mutateExperiment, editPhases }: Props) {
             ],
           },
         ]
-      : phaseOptions;
+      : phaseOptions ?? [];
 
   return (
     <SelectField
@@ -57,7 +57,7 @@ export default function PhaseSelector({ mutateExperiment, editPhases }: Props) {
         }
 
         const phaseIndex = parseInt(value) || 0;
-        const phase = experiment.phases[phaseIndex];
+        const phase = experiment?.phases?.[phaseIndex];
         if (!phase) return value;
 
         return (
@@ -68,7 +68,7 @@ export default function PhaseSelector({ mutateExperiment, editPhases }: Props) {
                 {phase.name === "Main" ? phaseSummary(phase) : phase.name}
               </div>
               <div>
-                <strong>{date(phase.dateStarted)}</strong> to{" "}
+                <strong>{date(phase.dateStarted ?? "")}</strong> to{" "}
                 <strong>
                   {phase.dateEnded ? date(phase.dateEnded) : "now"}
                 </strong>

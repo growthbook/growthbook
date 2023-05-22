@@ -2,9 +2,9 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { RxDesktop } from "react-icons/rx";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
+import { datetime, ago } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
-import { datetime, ago } from "@/services/dates";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
@@ -52,24 +52,33 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const experiments = useAddComputedFields(
     allExperiments,
-    (exp) => ({
-      ownerName: getUserDisplay(exp.owner, false) || "",
-      metricNames: exp.metrics
-        .map((m) => getMetricById(m)?.name)
-        .filter(Boolean),
-      projectName: getProjectById(exp.project)?.name || "",
-      tab: exp.archived
-        ? "archived"
-        : exp.status === "draft"
-        ? "drafts"
-        : exp.status,
-      date:
-        (exp.status === "running"
-          ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
-          : exp.status === "stopped"
-          ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
-          : exp.dateCreated) ?? "",
-    }),
+    (exp) => {
+      const projectId = exp.project;
+      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
+      const projectName = getProjectById(projectId)?.name || "";
+      const projectIsOprhaned = projectId && !projectName;
+
+      return {
+        ownerName: getUserDisplay(exp.owner, false) || "",
+        metricNames: exp.metrics
+          .map((m) => getMetricById(m)?.name)
+          .filter(Boolean),
+        projectId,
+        projectName,
+        projectIsOprhaned,
+        tab: exp.archived
+          ? "archived"
+          : exp.status === "draft"
+          ? "drafts"
+          : exp.status,
+        date:
+          (exp.status === "running"
+            ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
+            : exp.status === "stopped"
+            ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
+            : exp.dateCreated) ?? "",
+      };
+    },
     [getMetricById, getProjectById]
   );
 
@@ -306,7 +315,7 @@ const ExperimentsPage = (): React.ReactElement => {
                               className="d-flex align-items-center ml-2"
                               body="Visual experiment"
                             >
-                              <RxDesktop />
+                              <RxDesktop className="text-blue" />
                             </Tooltip>
                           ) : null}
                         </div>
@@ -322,7 +331,19 @@ const ExperimentsPage = (): React.ReactElement => {
                     </td>
                     {showProjectColumn && (
                       <td className="nowrap" data-title="Project:">
-                        {e.projectName}
+                        {e.projectIsOprhaned ? (
+                          <Tooltip
+                            body={
+                              <>
+                                Project <code>{e.project}</code> not found
+                              </>
+                            }
+                          >
+                            <span className="text-danger">Invalid project</span>
+                          </Tooltip>
+                        ) : (
+                          e.projectName ?? <em>All Projects</em>
+                        )}
                       </td>
                     )}
                     <td className="nowrap" data-title="Tags:">
@@ -343,6 +364,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     </td>
                     {tab === "stopped" && (
                       <td className="nowrap" data-title="Results:">
+                        {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentResultsType | undefined' is not as... Remove this comment to see the full error message */}
                         <ResultsIndicator results={e.results} />
                       </td>
                     )}
@@ -365,6 +387,7 @@ const ExperimentsPage = (): React.ReactElement => {
         </div>
       </div>
       {openNewExperimentModal &&
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         (growthbook.isOn("new-experiment-modal") ? (
           <AddExperimentModal
             onClose={() => setOpenNewExperimentModal(false)}

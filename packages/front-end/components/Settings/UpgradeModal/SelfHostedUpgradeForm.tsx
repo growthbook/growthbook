@@ -81,17 +81,20 @@ export default function SelfHostedUpgradeForm({
         switch (txt) {
           case "active license exists":
             setError(
+              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '"You already have an active lice... Remove this comment to see the full error message
               "You already have an active license key. Please check your email, or click below to resend the key to your email address. Contact us at sales@growthbook.io for more information."
             );
             setUseResendForm(true);
             break;
           case "expired license exists":
             setError(
+              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '"Your license key has already ex... Remove this comment to see the full error message
               "Your license key has already expired. Please contact us at sales@growthbook.io for more information."
             );
             break;
           default:
             setError(
+              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
               <>
                 <p className="mb-2">
                   There was a server error. Please try again later, or contact
@@ -235,6 +238,7 @@ export default function SelfHostedUpgradeForm({
                 } else {
                   setLoading(false);
                   const txt = await resp.text();
+                  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
                   setError(txt);
                   setSubmitState("resend failed");
                 }

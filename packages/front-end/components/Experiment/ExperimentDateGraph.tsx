@@ -12,7 +12,7 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { ScaleLinear } from "d3-scale";
-import { date } from "@/services/dates";
+import { date } from "shared/dates";
 import styles from "./ExperimentDateGraph.module.scss";
 export interface ExperimentDateGraphDataPoint {
   d: Date;
@@ -217,7 +217,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                         key={i}
                         className={styles.positionIndicator}
                         style={{
-                          transform: `translate(${tooltipLeft}px, ${tooltipData.y[i]}px)`,
+                          transform: `translate(${tooltipLeft}px, ${tooltipData?.y[i]}px)`,
                           background: COLORS[i % COLORS.length],
                         }}
                       />
@@ -227,14 +227,16 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     className={styles.crosshair}
                     style={{ transform: `translateX(${tooltipLeft}px)` }}
                   />
-                  <TooltipWithBounds
-                    left={tooltipLeft}
-                    top={tooltipTop}
-                    className={styles.tooltip}
-                    unstyled={true}
-                  >
-                    {getTooltipContents(tooltipData.d, variationNames)}
-                  </TooltipWithBounds>
+                  {tooltipData && (
+                    <TooltipWithBounds
+                      left={tooltipLeft}
+                      top={tooltipTop}
+                      className={styles.tooltip}
+                      unstyled={true}
+                    >
+                      {getTooltipContents(tooltipData.d, variationNames)}
+                    </TooltipWithBounds>
+                  )}
                 </>
               )}
             </div>
@@ -263,8 +265,8 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                       yScale={yScale}
                       data={datapoints}
                       x={(d) => xScale(d.d) ?? 0}
-                      y0={(d) => yScale(d.variations[i]?.error?.[0]) ?? 0}
-                      y1={(d) => yScale(d.variations[i]?.error?.[1]) ?? 0}
+                      y0={(d) => yScale(d.variations[i]?.error?.[0] ?? 0) ?? 0}
+                      y1={(d) => yScale(d.variations[i]?.error?.[1] ?? 0) ?? 0}
                       fill={COLORS[i % COLORS.length]}
                       opacity={0.12}
                       curve={curveMonotoneX}

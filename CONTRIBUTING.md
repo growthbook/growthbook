@@ -84,6 +84,7 @@ This repository is a monorepo with the following packages:
 
 - **packages/front-end** is a Next.js app and contains the full UI of the GrowthBook app.
 - **packages/back-end** is an Express app and serves as the REST api for the front-end.
+- **package/shared** is a collection of Typescript functions and constants shared between the front-end and back-end.
 - **packages/sdk-js** is our javascript SDK (`@growthbook/growthbook` on npm)
 - **packages/sdk-react** is our React SDK (`@growthbook/growthbook-react` on npm)
 - **packages/stats** is our Python stats engine (`gbstats` on PyPi)
@@ -94,8 +95,6 @@ Depending on what you're changing, you may need to edit one or more of these pac
 ### Working on the main app
 
 The `yarn dev` command starts both the front-end and back-end in parallel.
-
-The back-end can take up to 30 seconds for the initial build, so be patient.
 
 The packages are available at the following urls with hot-reloading:
 
@@ -141,7 +140,7 @@ mongosh -u root
 
 ### Working on docs
 
-To start the docs site, first `cd docs` and then run `yarn dev`. You can view the site at http://localhost:3200
+To start the docs site, first `cd docs` and then run `yarn` to install and `yarn dev` to run the docs server. You can view the site at http://localhost:3200
 
 ### Working on the SDKs
 
@@ -153,11 +152,11 @@ To work on the SDKs, `cd` into the desired directory and the following commands 
 
 ### Working on the stats engine
 
-To work on the Python stats engine, `cd` into the `packages/stats` directory and the following commands are available:
+- `yarn workspace stats test` - Run pytest
+- `yarn workspace stats lint` - Run flake8, black, and mypy
+- `yarn workspace stats build` - Run the build process
 
-- `. $(cd packages/stats && poetry env info --path)/bin/activate && yarn test` - Run pytest
-- `yarn lint` - Run flake8 and black
-- `poetry build` - Run the build process
+You can also just run `yarn *` where \* is test, lint, build if `cd` to the `packages/stats` directory first.
 
 ## Code Quality
 
@@ -166,7 +165,7 @@ There are a few repo-wide code quality tools:
 - `yarn test` - Run the full test suite on all packages
 - `yarn type-check` - Typescript type checking
 - `yarn lint` - Typescript code linting
-- `yarn workspace stats lint` - Python code linting (need to `pip install flake8 black` first)
+- `yarn workspace stats lint` - Python code linting (need to `pip install flake8 black mypy` first)
 
 There is a pre-commit hook that runs `yarn lint` automatically, so you shouldn't need to run that yourself.
 
@@ -182,7 +181,7 @@ There is a pre-commit hook that runs `yarn lint` automatically, so you shouldn't
 
 ### `black` not found
 
-If you experience issues with `black` when committing during the pre-commit hook stage, it's possible your virtual environment is not enabled. Run the following from the project root: `. $(cd packages/stats && poetry env info --path)/bin/activate`.
+If you experience issues with `black` when committing during the pre-commit hook stage, it's possible your virtual environment is not enabled. Run the following from the project root: `. $(cd packages/stats && poetry env info --path)/bin/activate` (you could also just install all the python linting dependencies, but these exist in the poetry venv that will be activated by this command).
 
 If you get the error that `poetry env info --path` is not defined, try re-running `yarn setup` from the project root.
 

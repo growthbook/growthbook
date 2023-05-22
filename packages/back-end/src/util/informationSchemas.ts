@@ -1,11 +1,11 @@
 import uniqid from "uniqid";
-import { DataSourceType } from "../../types/datasource";
 import {
   InformationSchema,
   RawInformationSchema,
   Schema,
   Table,
 } from "../types/Integration";
+import { DataSourceType } from "../../types/datasource";
 
 type RowType = {
   tableCatalog: string;
@@ -14,10 +14,10 @@ type RowType = {
   columnName?: string;
 };
 
-export function getPath(dataSource: DataSourceType, path: RowType): string {
+export function getPath(dataSourceType: DataSourceType, path: RowType): string {
   const pathArray = Object.values(path);
   const returnValue = pathArray.join(".");
-  switch (dataSource) {
+  switch (dataSourceType) {
     // MySQL only supports path's that go two levels deep. E.G. If the full path is database.schema.table.column, it only supports table.column.
     case "mysql":
       if (pathArray.length === 1) {

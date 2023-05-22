@@ -14,6 +14,7 @@ router.post(
     body: z
       .object({
         name: z.string(),
+        description: z.string(),
       })
       .strict(),
   }),
@@ -31,6 +32,7 @@ router.put(
     body: z
       .object({
         name: z.string(),
+        description: z.string(),
       })
       .strict(),
   }),
@@ -47,6 +49,20 @@ router.delete(
       .strict(),
   }),
   projectController.deleteProject
+);
+
+router.put(
+  "/:id/settings",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        settings: z.object({
+          statsEngine: z.string().optional(),
+        }),
+      })
+      .strict(),
+  }),
+  projectController.putProjectSettings
 );
 
 export { router as projectRouter };

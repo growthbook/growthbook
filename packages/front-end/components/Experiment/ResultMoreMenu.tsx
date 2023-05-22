@@ -44,8 +44,8 @@ export default function ResultMoreMenu({
   supportsNotebooks?: boolean;
   id: string;
   generateReport?: boolean;
-  notebookUrl?: string;
-  notebookFilename?: string;
+  notebookUrl: string;
+  notebookFilename: string;
   hasUserQuery?: boolean;
   forceRefresh?: () => Promise<void>;
   results?: ExperimentReportResultDimension[];
@@ -81,9 +81,9 @@ export default function ResultMoreMenu({
           <FaCog className="mr-2" /> Configure Analysis
         </button>
       )}
-      {queries?.length > 0 && (
+      {(queries?.length ?? 0) > 0 && (
         <ViewAsyncQueriesButton
-          queries={queries.map((q) => q.query)}
+          queries={queries?.map((q) => q.query) ?? []}
           error={queryError}
           className="dropdown-item py-2"
         />
@@ -174,8 +174,8 @@ export default function ResultMoreMenu({
           results={results}
           metrics={metrics}
           variations={variations}
-          trackingKey={trackingKey}
-          dimension={dimension}
+          trackingKey={trackingKey || ""}
+          dimension={dimension || ""}
         />
       )}
     </MoreMenu>

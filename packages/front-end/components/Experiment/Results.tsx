@@ -3,10 +3,10 @@ import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
+import { getValidDate, ago } from "shared/dates";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ago, getValidDate } from "@/services/dates";
 import usePermissions from "@/hooks/usePermissions";
-import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -16,7 +16,8 @@ import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import StatusBanner from "@/components/Experiment/StatusBanner";
-import { GBCuped } from "@/components/Icons";
+import { GBCuped, GBSequential } from "@/components/Icons";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import PValueGuardrailResults from "./PValueGuardrailResults";
 
 const BreakDownResults = dynamic(
@@ -34,9 +35,10 @@ const Results: FC<{
   mutateExperiment: () => void;
   alwaysShowPhaseSelector?: boolean;
   reportDetailsLink?: boolean;
-  statsEngine?: StatsEngine;
+  statsEngine: StatsEngine;
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentHasValidMetrics?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
 }> = ({
@@ -50,13 +52,17 @@ const Results: FC<{
   statsEngine,
   regressionAdjustmentAvailable = false,
   regressionAdjustmentEnabled = false,
+  regressionAdjustmentHasValidMetrics = false,
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
 }) => {
   const { getMetricById } = useDefinitions();
-  const settings = useOrgSettings();
 
   const { apiCall } = useAuth();
+
+  // todo: move to snapshot property
+  const orgSettings = useOrgSettings();
+  const pValueCorrection = orgSettings?.pValueCorrection;
 
   const {
     error,
@@ -81,14 +87,14 @@ const Results: FC<{
   const status = getQueryStatus(latest?.queries || [], latest?.error);
 
   const hasData =
-    snapshot?.results?.[0]?.variations?.length > 0 &&
-    (snapshot.statsEngine || "bayesian") ===
-      (settings.statsEngine || "bayesian");
+    (snapshot?.results?.[0]?.variations?.length ?? 0) > 0 &&
+    (snapshot?.statsEngine || DEFAULT_STATS_ENGINE) === statsEngine;
 
   const phaseObj = experiment.phases?.[phase];
 
   const phaseAgeMinutes =
-    (Date.now() - getValidDate(phaseObj?.dateStarted).getTime()) / (1000 * 60);
+    (Date.now() - getValidDate(phaseObj?.dateStarted ?? "").getTime()) /
+    (1000 * 60);
 
   const variations = experiment.variations.map((v, i) => {
     return {
@@ -113,6 +119,9 @@ const Results: FC<{
         statsEngine={statsEngine}
         regressionAdjustmentAvailable={regressionAdjustmentAvailable}
         regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+        regressionAdjustmentHasValidMetrics={
+          regressionAdjustmentHasValidMetrics
+        }
         metricRegressionAdjustmentStatuses={metricRegressionAdjustmentStatuses}
         onRegressionAdjustmentChange={onRegressionAdjustmentChange}
       />
@@ -145,7 +154,7 @@ const Results: FC<{
             {snapshot &&
               phaseAgeMinutes < 120 &&
               "It was just started " +
-                ago(experiment.phases[phase]?.dateStarted) +
+                ago(experiment.phases[phase]?.dateStarted ?? "") +
                 ". Give it a little longer and click the 'Update' button above to check again."}
             {!snapshot &&
               permissions.check("runQueries", "") &&
@@ -193,36 +202,38 @@ const Results: FC<{
         />
       )}
       {hasData &&
-        snapshot.dimension &&
+        snapshot?.dimension &&
         (snapshot.dimension === "pre:date" ? (
           <DateResults
             metrics={experiment.metrics}
             guardrails={experiment.guardrails}
-            results={snapshot.results}
+            results={snapshot.results ?? []}
             variations={variations}
           />
         ) : (
           <BreakDownResults
-            isLatestPhase={phase === experiment.phases.length - 1}
-            metrics={experiment.metrics}
-            metricOverrides={experiment.metricOverrides}
-            reportDate={snapshot.dateCreated}
-            results={snapshot.results || []}
-            status={experiment.status}
-            startDate={phaseObj?.dateStarted}
-            dimensionId={snapshot.dimension}
-            activationMetric={experiment.activationMetric}
-            guardrails={experiment.guardrails}
-            variations={variations}
             key={snapshot.dimension}
+            results={snapshot.results ?? []}
+            variations={variations}
+            metrics={experiment.metrics}
+            metricOverrides={experiment.metricOverrides ?? []}
+            guardrails={experiment.guardrails}
+            dimensionId={snapshot.dimension}
+            isLatestPhase={phase === experiment.phases.length - 1}
+            startDate={phaseObj?.dateStarted ?? ""}
+            reportDate={snapshot.dateCreated}
+            activationMetric={experiment.activationMetric}
+            status={experiment.status}
             statsEngine={snapshot.statsEngine}
+            pValueCorrection={pValueCorrection}
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses
             }
+            sequentialTestingEnabled={snapshot.sequentialTestingEnabled}
           />
         ))}
-      {hasData && !snapshot.dimension && (
+      {hasData && snapshot && snapshot.results?.[0] && !snapshot?.dimension && (
         <>
           {reportDetailsLink && (
             <div className="float-right pr-3">
@@ -235,40 +246,43 @@ const Results: FC<{
           )}
           <CompactResults
             editMetrics={editMetrics}
-            id={experiment.id}
-            isLatestPhase={phase === experiment.phases.length - 1}
-            metrics={experiment.metrics}
-            metricOverrides={experiment.metricOverrides}
-            reportDate={snapshot.dateCreated}
-            results={snapshot.results?.[0]}
-            status={experiment.status}
-            startDate={phaseObj?.dateStarted}
-            multipleExposures={snapshot.multipleExposures || 0}
             variations={variations}
+            multipleExposures={snapshot.multipleExposures || 0}
+            results={snapshot.results[0]}
+            reportDate={snapshot.dateCreated}
+            startDate={phaseObj?.dateStarted ?? ""}
+            isLatestPhase={phase === experiment.phases.length - 1}
+            status={experiment.status}
+            metrics={experiment.metrics}
+            metricOverrides={experiment.metricOverrides ?? []}
+            id={experiment.id}
             statsEngine={snapshot.statsEngine}
+            pValueCorrection={pValueCorrection}
             regressionAdjustmentEnabled={snapshot.regressionAdjustmentEnabled}
             metricRegressionAdjustmentStatuses={
               snapshot.metricRegressionAdjustmentStatuses
             }
+            sequentialTestingEnabled={snapshot.sequentialTestingEnabled}
           />
-          {experiment.guardrails?.length > 0 && (
+          {(experiment.guardrails?.length ?? 0) > 0 && (
             <div className="mt-1 px-3">
               <h3 className="mb-3">Guardrails</h3>
               <div className="row">
-                {experiment.guardrails.map((g) => {
+                {experiment.guardrails?.map((g) => {
                   const metric = getMetricById(g);
                   if (!metric) return "";
 
-                  const data = snapshot.results[0]?.variations;
+                  const data = snapshot.results?.[0]?.variations;
                   if (!data) return "";
 
-                  const xlargeCols = experiment.guardrails.length === 2 ? 6 : 4;
+                  const xlargeCols =
+                    experiment.guardrails?.length === 2 ? 6 : 4;
                   return (
                     <div
                       className={`col-12 col-xl-${xlargeCols} col-lg-6`}
                       key={g}
                     >
-                      {settings.statsEngine === "frequentist" ? (
+                      {snapshot.statsEngine === "frequentist" ? (
                         <PValueGuardrailResults
                           data={data}
                           variations={variations}
@@ -304,22 +318,33 @@ const Results: FC<{
               </span>
             </div>
             {snapshot?.statsEngine === "frequentist" && (
-              <div>
-                <span className="text-muted">
-                  <GBCuped size={12} />
-                  CUPED:
-                </span>{" "}
-                <span>
-                  {snapshot?.regressionAdjustmentEnabled
-                    ? "Enabled"
-                    : "Disabled"}
-                </span>
-              </div>
+              <>
+                <div>
+                  <span className="text-muted">
+                    <GBCuped size={13} /> CUPED:
+                  </span>{" "}
+                  <span>
+                    {snapshot?.regressionAdjustmentEnabled
+                      ? "Enabled"
+                      : "Disabled"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted">
+                    <GBSequential size={13} /> Sequential:
+                  </span>{" "}
+                  <span>
+                    {snapshot?.sequentialTestingEnabled
+                      ? "Enabled"
+                      : "Disabled"}
+                  </span>
+                </div>
+              </>
             )}
             <div>
               <span className="text-muted">Run date:</span>{" "}
               <span>
-                {getValidDate(snapshot.dateCreated).toLocaleString([], {
+                {getValidDate(snapshot?.dateCreated ?? "").toLocaleString([], {
                   year: "numeric",
                   month: "numeric",
                   day: "numeric",

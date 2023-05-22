@@ -71,7 +71,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       close={onClose}
       open={isOpen}
       submit={handleSubmit}
-      error={error}
+      error={error ?? undefined}
       ctaEnabled={ctaEnabled}
     >
       <div className="form-group">

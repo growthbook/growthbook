@@ -1,7 +1,9 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
+import { PValueCorrection } from "back-end/types/stats";
 import { useState } from "react";
 import {
+  ExperimentReportResultDimension,
   ExperimentReportVariation,
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
@@ -11,7 +13,8 @@ import {
 } from "back-end/types/organization";
 import { MetricOverride } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
-import { useOrganizationMetricDefaults } from "../hooks/useOrganizationMetricDefaults";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
+import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 
 export type ExperimentTableRow = {
   label: string;
@@ -32,6 +35,7 @@ export function hasEnoughData(
   const minSampleSize =
     metric.minSampleSize || metricDefaults.minimumSampleSize;
 
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   return Math.max(baseline.value, stats.value) >= minSampleSize;
 }
 
@@ -46,6 +50,7 @@ export function isSuspiciousUplift(
   const maxPercentChange =
     metric.maxPercentChange || metricDefaults?.maxPercentageChange;
 
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
 }
 
@@ -60,6 +65,7 @@ export function isBelowMinChange(
   const minPercentChange =
     metric.minPercentChange || metricDefaults.minPercentageChange;
 
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   return Math.abs(baseline.cr - stats.cr) / baseline.cr < minPercentChange;
 }
 
@@ -78,6 +84,7 @@ export function shouldHighlight({
   suspiciousChange: boolean;
   belowMinChange: boolean;
 }): boolean {
+  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | boolean' is not assignable to type ... Remove this comment to see the full error message
   return (
     metric &&
     baseline?.value &&
@@ -101,6 +108,7 @@ export function getRisk(
 
   if (riskVariation > 0) {
     const stats = row.variations[riskVariation];
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
     risk = stats?.risk?.[row.metric.inverse ? 0 : 1];
     riskCR = stats?.cr;
     showRisk =
@@ -120,19 +128,24 @@ export function getRisk(
       }
 
       const vRisk = stats.risk?.[row.metric.inverse ? 1 : 0];
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       if (vRisk > risk) {
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
         risk = vRisk;
         riskCR = stats.cr;
       }
     });
+    // @ts-expect-error TS(2454) If you come across this, please fix it!: Variable 'riskCR' is used before being assigned.
     showRisk = risk >= 0 && riskCR > 0;
   }
   if (showRisk) {
+    // @ts-expect-error TS(2454) If you come across this, please fix it!: Variable 'riskCR' is used before being assigned.
     relativeRisk = risk / riskCR;
   }
 
   return {
     risk,
+    // @ts-expect-error TS(2454) If you come across this, please fix it!: Variable 'relativeRisk' is used before being assig... Remove this comment to see the full error message
     relativeRisk,
     showRisk,
   };
@@ -208,10 +221,13 @@ export function useDomain(
       }
 
       const ci = stats.ci || [];
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       if (!lowerBound || ci[0] < lowerBound) lowerBound = ci[0];
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       if (!upperBound || ci[1] > upperBound) upperBound = ci[1];
     });
   });
+  // @ts-expect-error TS(2454) If you come across this, please fix it!: Variable 'lowerBound' is used before being assigne... Remove this comment to see the full error message
   return [lowerBound || 0, upperBound || 0];
 }
 
@@ -286,7 +302,7 @@ export function getRegressionAdjustmentsForMetric({
 
   // start with default RA settings
   let regressionAdjustmentEnabled = false;
-  let regressionAdjustmentDays = 14;
+  let regressionAdjustmentDays = DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
   let reason = "";
 
   // get RA settings from organization
@@ -303,7 +319,8 @@ export function getRegressionAdjustmentsForMetric({
   // get RA settings from metric
   if (metric?.regressionAdjustmentOverride) {
     regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
-    regressionAdjustmentDays = metric?.regressionAdjustmentDays ?? 14;
+    regressionAdjustmentDays =
+      metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
     if (!regressionAdjustmentEnabled) {
       reason = "disabled in metric settings";
     }
@@ -370,11 +387,7 @@ export function isExpectedDirection(
   return expected > 0;
 }
 
-export function isStatSig(
-  stats: SnapshotMetric,
-  pValueThreshold: number
-): boolean {
-  const pValue: number = stats?.pValue ?? 1;
+export function isStatSig(pValue: number, pValueThreshold: number): boolean {
   return pValue < pValueThreshold;
 }
 
@@ -383,4 +396,99 @@ export function pValueFormatter(pValue: number): string {
     return "";
   }
   return pValue < 0.001 ? "<0.001" : pValue.toFixed(3);
+}
+
+export type IndexedPValue = {
+  pValue: number;
+  index: (number | string)[];
+};
+
+export function adjustPValuesBenjaminiHochberg(
+  indexedPValues: IndexedPValue[]
+): IndexedPValue[] {
+  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
+  const m = newIndexedPValues.length;
+
+  newIndexedPValues.sort((a, b) => {
+    return b.pValue - a.pValue;
+  });
+  newIndexedPValues.forEach((p, i) => {
+    newIndexedPValues[i].pValue = Math.min((p.pValue * m) / (m - i), 1);
+  });
+
+  let tempval = newIndexedPValues[0].pValue;
+  for (let i = 1; i < m; i++) {
+    if (newIndexedPValues[i].pValue < tempval) {
+      tempval = newIndexedPValues[i].pValue;
+    } else {
+      newIndexedPValues[i].pValue = tempval;
+    }
+  }
+  return newIndexedPValues;
+}
+
+export function adjustPValuesHolmBonferroni(
+  indexedPValues: IndexedPValue[]
+): IndexedPValue[] {
+  const newIndexedPValues = cloneDeep<IndexedPValue[]>(indexedPValues);
+  const m = newIndexedPValues.length;
+  newIndexedPValues.sort((a, b) => {
+    return a.pValue - b.pValue;
+  });
+  newIndexedPValues.forEach((p, i) => {
+    newIndexedPValues[i].pValue = Math.min(p.pValue * (m - i), 1);
+  });
+
+  let tempval = newIndexedPValues[0].pValue;
+  for (let i = 1; i < m; i++) {
+    if (newIndexedPValues[i].pValue > tempval) {
+      tempval = newIndexedPValues[i].pValue;
+    } else {
+      newIndexedPValues[i].pValue = tempval;
+    }
+  }
+  return newIndexedPValues;
+}
+
+export function setAdjustedPValuesOnResults(
+  results: ExperimentReportResultDimension[],
+  nonGuardrailMetrics: string[],
+  adjustment: PValueCorrection
+): void {
+  if (!adjustment) {
+    return;
+  }
+
+  let indexedPValues: IndexedPValue[] = [];
+  results.forEach((r, i) => {
+    r.variations.forEach((v, j) => {
+      nonGuardrailMetrics.forEach((m) => {
+        if (v.metrics[m]?.pValue !== undefined) {
+          indexedPValues.push({
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
+            pValue: v.metrics[m].pValue,
+            index: [i, j, m],
+          });
+        }
+      });
+    });
+  });
+
+  if (indexedPValues.length === 0) {
+    return;
+  }
+
+  if (adjustment === "benjamini-hochberg") {
+    indexedPValues = adjustPValuesBenjaminiHochberg(indexedPValues);
+  } else if (adjustment === "holm-bonferroni") {
+    indexedPValues = adjustPValuesHolmBonferroni(indexedPValues);
+  }
+
+  // modify results in place
+  indexedPValues.forEach((ip) => {
+    const ijk = ip.index;
+    results[ijk[0]].variations[ijk[1]].metrics[ijk[2]].pValueAdjusted =
+      ip.pValue;
+  });
+  return;
 }

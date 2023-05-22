@@ -1,5 +1,5 @@
 import fs from "fs";
-
+import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared/constants";
 import { DataSourceInterface, DataSourceType } from "../../types/datasource";
 import {
   AttributionModel,
@@ -12,6 +12,7 @@ import { SegmentInterface } from "../../types/segment";
 import { Dimension } from "../../src/types/Integration";
 import { MetricInterface, MetricType } from "../../types/metric";
 import { getSourceIntegrationObject } from "../../src/services/datasource";
+import metricConfigData from "./metrics.json";
 
 const currentDate = new Date();
 const endDateString = "2022-02-01T00:00:00"; // premature end date to ensure some filter
@@ -48,7 +49,6 @@ const experimentConfigs = experimentConfigData as TestExperimentConfig[];
 // },
 
 // import metricConfigs
-import metricConfigData from "./metrics.json";
 type TestMetricConfig = {
   id: string;
   type: MetricType;
@@ -305,7 +305,8 @@ engines.forEach((engine) => {
         dimension: dimension,
         segment: segment,
         regressionAdjustmentEnabled:
-          metric.regressionAdjustmentEnabled || false,
+          metric.regressionAdjustmentEnabled ??
+          DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       });
 
       testCases.push({

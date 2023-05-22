@@ -2,13 +2,16 @@ interface DOMMutation {
   selector: string;
   action: "append" | "set" | "remove";
   attribute: string;
-  value: string;
+  value?: string;
+  parentSelector?: string;
+  insertBeforeSelector?: string;
 }
 
 interface VisualChange {
   id: string;
   description: string;
   css: string;
+  js?: string;
   variation: string;
   domMutations: DOMMutation[];
 }

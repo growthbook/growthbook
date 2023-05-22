@@ -7,9 +7,9 @@ const ssoConnectionSchema = new mongoose.Schema({
     type: String,
     unique: true,
   },
-  emailDomain: {
-    type: String,
-    unique: true,
+  emailDomains: {
+    type: [String],
+    index: true,
   },
   organization: {
     type: String,
@@ -36,22 +36,28 @@ const SSOConnectionModel = mongoose.model<SSOConnectionDocument>(
   ssoConnectionSchema
 );
 
+function toInterface(doc: SSOConnectionDocument): SSOConnectionInterface {
+  return doc.toJSON({ flattenMaps: false });
+}
+
 export async function getSSOConnectionById(
   id: string
 ): Promise<null | SSOConnectionInterface> {
   if (!id) return null;
   const doc = await SSOConnectionModel.findOne({ id });
 
-  return doc ? doc.toJSON({ flattenMaps: false }) : null;
+  return doc ? toInterface(doc) : null;
 }
 
 export async function getSSOConnectionByEmailDomain(
   emailDomain: string
 ): Promise<null | SSOConnectionInterface> {
   if (!emailDomain) return null;
-  const doc = await SSOConnectionModel.findOne({ emailDomain });
+  const doc = await SSOConnectionModel.findOne({
+    emailDomains: emailDomain,
+  });
 
-  return doc ? doc.toJSON({ flattenMaps: false }) : null;
+  return doc ? toInterface(doc) : null;
 }
 
 export function getSSOConnectionSummary(
@@ -61,7 +67,7 @@ export function getSSOConnectionSummary(
     return null;
   }
   return {
-    emailDomain: conn.emailDomain,
+    emailDomains: conn.emailDomains,
     idpType: conn.idpType,
     clientId: conn.clientId,
     clientSecret: conn.clientSecret ? "********" : undefined,

@@ -77,7 +77,7 @@ const ManualSnapshotForm: FC<{
           // Make sure binomial metrics have count = conversions
           // In the past, we stored it as count = conversions and mean = 1
           // Now, we store it as count = users, mean = conversions/count
-          // So if we multiple mean * count, it works for both cases
+          // So if we multiply mean * count, it works for both cases
           if (type === "binomial") {
             count = Math.round(mean * count);
           }
@@ -91,11 +91,11 @@ const ManualSnapshotForm: FC<{
       }
     }
   });
-  const [hash, setHash] = useState(null);
+  const [hash, setHash] = useState<string | null>(null);
   const form = useForm({
     defaultValues: initialValue,
   });
-  const [preview, setPreview] = useState<SnapshotPreview>(null);
+  const [preview, setPreview] = useState<SnapshotPreview | null>(null);
 
   const values = {
     metrics: form.watch("metrics"),
@@ -107,7 +107,7 @@ const ManualSnapshotForm: FC<{
     Object.keys(values.metrics).forEach((key) => {
       const m = getMetricById(key);
       ret[key] = values.metrics[key].map((v, i) => {
-        if (m.type === "binomial") {
+        if (m?.type === "binomial") {
           // Use the normal approximation for a bernouli variable to calculate stddev
           const p = v.count / values.users[i];
           return {
@@ -116,15 +116,14 @@ const ManualSnapshotForm: FC<{
             mean: p,
             stddev: Math.sqrt(p * (1 - p)),
           };
-        } else if (isRatio(m)) {
-          // For ratio metrics, the count (denominator) may be different from the number of users
+        } else if (m && isRatio(m)) {
           return {
             users: values.users[i],
             count: v.count,
             mean: v.mean,
             stddev: v.stddev,
           };
-        } else if (m.ignoreNulls || m.denominator) {
+        } else if (m?.ignoreNulls || m?.denominator) {
           // When ignoring nulls (or using a funnel metric)
           // Limit the users to only ones who converted
           return {
@@ -337,10 +336,8 @@ const ManualSnapshotForm: FC<{
                           preview &&
                           preview.variations[i].metrics[m.id] &&
                           parseFloat(
-                            (
-                              preview.variations[i].metrics[m.id].chanceToWin *
-                              100
-                            ).toFixed(2)
+                            // prettier-ignore
+                            ((preview.variations[i].metrics[m.id].chanceToWin ?? 0) * 100).toFixed(2)
                           ) + "%"}
                       </td>
                     </tr>
