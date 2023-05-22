@@ -219,7 +219,7 @@ export class GrowthBook<
 
   public setURL(url: string) {
     this._ctx.url = url;
-    this._updateAllAutoExperiments();
+    this._updateAllAutoExperiments(true);
   }
 
   public getAttributes() {
@@ -306,7 +306,12 @@ export class GrowthBook<
     const valueHash = JSON.stringify(result.value);
 
     // If the changes are already active, no need to re-apply them
-    if (result.inExperiment && existing && existing.valueHash === valueHash) {
+    if (
+      result.inExperiment &&
+      existing &&
+      existing.valueHash === valueHash &&
+      !forced
+    ) {
       return result;
     }
 
@@ -335,7 +340,7 @@ export class GrowthBook<
     }
   }
 
-  private _updateAllAutoExperiments() {
+  private _updateAllAutoExperiments(force?: boolean) {
     const experiments = this._ctx.experiments || [];
 
     // Stop any experiments that are no longer defined
@@ -349,7 +354,7 @@ export class GrowthBook<
 
     // Re-run all new/updated experiments
     experiments.forEach((exp) => {
-      this._runAutoExperiment(exp, false);
+      this._runAutoExperiment(exp, force ?? false);
     });
   }
 
