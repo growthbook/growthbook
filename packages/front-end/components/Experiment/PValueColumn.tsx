@@ -98,7 +98,9 @@ const PValueColumn: FC<{
     pValText = (
       <>
         <div>
-          {stats?.pValueAdjusted ? pValueFormatter(stats.pValueAdjusted) : ""}
+          {stats?.pValueAdjusted !== undefined
+            ? pValueFormatter(stats.pValueAdjusted)
+            : ""}
         </div>
         <div className="small text-muted">(unadj.: {pValText})</div>
       </>
