@@ -75,8 +75,8 @@ import {
   auditDetailsUpdate,
 } from "../services/audit";
 import {
+  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
 import { StatsEngine } from "../../types/stats";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
@@ -1521,6 +1521,8 @@ export async function getSnapshotStatus(
 
   const phase = experiment.phases[snapshot.phase];
 
+  const analysis = snapshot.analyses[0];
+
   const result = await getStatusEndpoint(
     snapshot,
     org.id,
@@ -1528,25 +1530,32 @@ export async function getSnapshotStatus(
       analyzeExperimentResults({
         organization: org.id,
         variations: getReportVariations(experiment, phase),
-        dimension: snapshot.dimension,
+        dimension: analysis?.settings?.dimensions?.[0],
         queryData,
-        statsEngine: snapshot.statsEngine,
+        statsEngine: analysis?.settings?.statsEngine,
         sequentialTestingEnabled:
-          snapshot.sequentialTestingEnabled ??
+          analysis?.settings?.sequentialTesting ??
           org.settings?.sequentialTestingEnabled,
         sequentialTestingTuningParameter:
-          snapshot.sequentialTestingTuningParameter ??
+          analysis?.settings?.sequentialTestingTuningParameter ??
           org.settings?.sequentialTestingTuningParameter,
       }),
     async (updates, results, error) => {
+      const analyses = [...snapshot.analyses];
+      if (analyses[0]) {
+        analyses[0].results = results?.dimensions || [];
+        analyses[0].status = error ? "error" : "success";
+        analyses[0].error = error;
+      }
+
       await updateSnapshot(org.id, id, {
         ...updates,
-        hasCorrectedStats: true,
         unknownVariations:
           results?.unknownVariations || snapshot.unknownVariations || [],
         multipleExposures:
           results?.multipleExposures ?? snapshot.multipleExposures ?? 0,
-        results: results?.dimensions || snapshot.results,
+        analyses,
+        status: error ? "error" : "success",
         error,
       });
     },
@@ -1660,12 +1669,11 @@ export async function postSnapshot(
   // Set timeout to 30 minutes
   req.setTimeout(30 * 60 * 1000);
 
-  const experimentSnapshotSettings: ExperimentSnapshotSettings = {
+  const analysisSettings: ExperimentSnapshotAnalysisSettings = {
     statsEngine: statsEngine as StatsEngine,
-    regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses:
-      metricRegressionAdjustmentStatuses || [],
-    sequentialTestingEnabled,
+    regressionAdjusted: !!regressionAdjustmentEnabled,
+    dimensions: dimension ? [dimension] : [],
+    sequentialTesting: !!sequentialTestingEnabled,
     sequentialTestingTuningParameter,
   };
 
@@ -1682,7 +1690,7 @@ export async function postSnapshot(
         phase,
         users,
         metrics,
-        experimentSnapshotSettings
+        analysisSettings
       );
       res.status(200).json({
         status: 200,
@@ -1728,8 +1736,9 @@ export async function postSnapshot(
       user: res.locals.eventAudit,
       phaseIndex: phase,
       useCache,
-      dimension,
-      experimentSnapshotSettings,
+      analysisSettings,
+      metricRegressionAdjustmentStatuses:
+        metricRegressionAdjustmentStatuses || [],
     });
 
     await req.audit({

@@ -28,8 +28,8 @@ import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
 import {
+  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
 import { orgHasPremiumFeature } from "../util/organization.util";
 import { findProjectById } from "../models/ProjectModel";
@@ -163,13 +163,12 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     const statsEngine = scopedSettings.statsEngine.value;
 
-    const experimentSnapshotSettings: ExperimentSnapshotSettings = {
+    const analysisSettings: ExperimentSnapshotAnalysisSettings = {
       statsEngine,
-      regressionAdjustmentEnabled:
+      dimensions: [],
+      regressionAdjusted:
         hasRegressionAdjustmentFeature && regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses:
-        metricRegressionAdjustmentStatuses || [],
-      sequentialTestingEnabled:
+      sequentialTesting:
         hasSequentialTestingFeature &&
         statsEngine === "frequentist" &&
         (experiment?.sequentialTestingEnabled ??
@@ -184,7 +183,9 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       experiment,
       organization,
       phaseIndex: experiment.phases.length - 1,
-      experimentSnapshotSettings,
+      analysisSettings,
+      metricRegressionAdjustmentStatuses:
+        metricRegressionAdjustmentStatuses || [],
     });
 
     await new Promise<void>((resolve, reject) => {
@@ -202,22 +203,27 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
               organization: experiment.organization,
               variations: getReportVariations(experiment, phase),
               queryData,
-              statsEngine: currentSnapshot.statsEngine,
-              sequentialTestingEnabled:
-                currentSnapshot.sequentialTestingEnabled ??
-                organization.settings?.sequentialTestingEnabled,
+              statsEngine: analysisSettings.statsEngine,
+              sequentialTestingEnabled: analysisSettings.sequentialTesting,
               sequentialTestingTuningParameter:
-                currentSnapshot.sequentialTestingTuningParameter ??
-                organization.settings?.sequentialTestingTuningParameter,
+                analysisSettings.sequentialTestingTuningParameter,
             });
           },
           async (updates, results, error) => {
+            const analyses = currentSnapshot.analyses;
+            if (analyses[0]) {
+              analyses[0].results = results?.dimensions || [];
+              analyses[0].error = error;
+              analyses[0].status = error ? "error" : "success";
+            }
+
             await updateSnapshot(experiment.organization, currentSnapshot.id, {
               ...updates,
               unknownVariations: results?.unknownVariations || [],
               multipleExposures: results?.multipleExposures || 0,
-              results: results?.dimensions || currentSnapshot.results,
+              analyses,
               error,
+              status: error ? "error" : "success",
             });
           },
           currentSnapshot.error
@@ -269,7 +275,11 @@ async function sendSignificanceEmail(
     return;
   }
 
-  if (!currentSnapshot?.results?.[0]?.variations) {
+  const currentVariations =
+    currentSnapshot.analyses[0]?.results?.[0]?.variations;
+  const lastVariations = lastSnapshot.analyses[0]?.results?.[0]?.variations;
+
+  if (!currentVariations || !lastVariations) {
     return;
   }
 
@@ -281,9 +291,9 @@ async function sendSignificanceEmail(
 
     // check this and the previous snapshot to see if anything changed:
     const experimentChanges: string[] = [];
-    for (let i = 1; i < currentSnapshot.results[0].variations.length; i++) {
-      const curVar = currentSnapshot.results?.[0]?.variations?.[i];
-      const lastVar = lastSnapshot.results?.[0]?.variations?.[i];
+    for (let i = 1; i < currentVariations.length; i++) {
+      const curVar = currentVariations[i];
+      const lastVar = lastVariations[i];
 
       for (const m in curVar.metrics) {
         const curMetric = curVar?.metrics?.[m];

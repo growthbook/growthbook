@@ -1,8 +1,9 @@
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { MetricInterface } from "../../types/metric";
 import {
   ExperimentReportArgs,
   ExperimentReportVariation,
+  MetricRegressionAdjustmentStatus,
   ReportInterface,
 } from "../../types/report";
 import { getMetricsByOrganization } from "../models/MetricModel";
@@ -12,7 +13,11 @@ import { SegmentInterface } from "../../types/segment";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { updateReport } from "../models/ReportModel";
-import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+} from "../../types/experiment-snapshot";
 import { expandDenominatorMetrics } from "../util/sql";
 import { orgHasPremiumFeature } from "../util/organization.util";
 import { OrganizationInterface } from "../../types/organization";
@@ -34,37 +39,66 @@ export function getReportVariations(
   });
 }
 
+function getMetricRegressionAdjustmentStatusesFromSnapshot(
+  snapshotSettings: ExperimentSnapshotSettings,
+  analysisSettings: ExperimentSnapshotAnalysisSettings
+): MetricRegressionAdjustmentStatus[] {
+  const metrics = snapshotSettings.goalMetrics.concat(
+    snapshotSettings.guardrailMetrics
+  );
+  if (snapshotSettings.activationMetric) {
+    metrics.push(snapshotSettings.activationMetric);
+  }
+
+  return metrics.map((m) => {
+    return {
+      metric: m.id,
+      reason: m.computedSettings?.regressionAdjustmentReason || "",
+      regressionAdjustmentDays:
+        m.computedSettings?.regressionAdjustmentDays ||
+        DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+      regressionAdjustmentEnabled:
+        (analysisSettings.regressionAdjusted &&
+          m.computedSettings?.regressionAdjustmentEnabled) ||
+        false,
+    };
+  });
+}
+
 export function reportArgsFromSnapshot(
   experiment: ExperimentInterface,
-  snapshot: ExperimentSnapshotInterface
+  snapshot: ExperimentSnapshotInterface,
+  analysisSettings: ExperimentSnapshotAnalysisSettings
 ): ExperimentReportArgs {
   const phase = experiment.phases[snapshot.phase];
   if (!phase) {
     throw new Error("Unknown experiment phase");
   }
   return {
-    trackingKey: experiment.trackingKey,
-    datasource: experiment.datasource,
+    trackingKey: snapshot.settings.experimentId || experiment.trackingKey,
+    datasource: snapshot.settings.datasourceId || experiment.datasource,
     exposureQueryId: experiment.exposureQueryId,
-    userIdType: experiment.userIdType,
-    startDate: phase.dateStarted,
-    endDate: phase.dateEnded || undefined,
+    startDate: snapshot.settings.startDate,
+    endDate: snapshot.settings.endDate,
     dimension: snapshot.dimension || undefined,
     variations: getReportVariations(experiment, phase),
-    segment: snapshot.segment,
+    segment: snapshot.settings.segment,
     metrics: experiment.metrics,
     metricOverrides: experiment.metricOverrides,
     guardrails: experiment.guardrails,
-    activationMetric: snapshot.activationMetric,
-    queryFilter: snapshot.queryFilter,
-    skipPartialData: snapshot.skipPartialData,
-    attributionModel: experiment.attributionModel || "firstExposure",
-    statsEngine: snapshot.statsEngine || DEFAULT_STATS_ENGINE,
-    regressionAdjustmentEnabled: snapshot.regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses:
-      snapshot.metricRegressionAdjustmentStatuses || [],
-    sequentialTestingEnabled: snapshot.sequentialTestingEnabled,
-    sequentialTestingTuningParameter: snapshot.sequentialTestingTuningParameter,
+    activationMetric: snapshot.settings.activationMetric?.id || undefined,
+    queryFilter: snapshot.settings.queryFilter,
+    skipPartialData: snapshot.settings.skipPartialData,
+    attributionModel: snapshot.settings.attributionModel,
+    statsEngine: analysisSettings.statsEngine,
+    regressionAdjustmentEnabled: analysisSettings.regressionAdjusted,
+    metricRegressionAdjustmentStatuses: getMetricRegressionAdjustmentStatusesFromSnapshot(
+      snapshot.settings,
+      analysisSettings
+    ),
+    sequentialTestingEnabled: analysisSettings.sequentialTesting,
+    sequentialTestingTuningParameter:
+      analysisSettings.sequentialTestingTuningParameter,
   };
 }
 

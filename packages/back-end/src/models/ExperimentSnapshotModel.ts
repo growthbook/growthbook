@@ -4,6 +4,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
+  MetricForSnapshot,
 } from "../../types/experiment-snapshot";
 import { queriesSchema } from "./QueryModel";
 
@@ -186,6 +187,27 @@ export function migrateSnapshot(
     // Try to figure out metric ids from results
     const metricIds = Object.keys(results?.[0]?.variations?.[0]?.metrics || {});
 
+    const metrics: MetricForSnapshot[] = metricIds.map((id) => {
+      const regressionSettings = metricRegressionAdjustmentStatuses?.find(
+        (s) => s.metric === id
+      );
+
+      return {
+        id,
+        computedSettings: {
+          conversionDelayHours: 0,
+          conversionWindowHours: 0,
+          regressionAdjustmentDays:
+            regressionSettings?.regressionAdjustmentDays || 0,
+          regressionAdjustmentEnabled: !!(
+            regressionAdjustmentEnabled &&
+            regressionSettings?.regressionAdjustmentEnabled
+          ),
+          regressionAdjustmentReason: regressionSettings?.reason || "",
+        },
+      };
+    });
+
     snapshot.settings = {
       manual: !!manual,
       dimensions: snapshot.dimension
@@ -195,13 +217,16 @@ export function migrateSnapshot(
             },
           ]
         : [],
-      // We know the list of metric ids, but don't know if they were goals or guardrails
+      // We know the metric ids included, but don't know if they were goals or guardrails
       // Just add them all as goals (doesn't really change much)
-      goalMetrics: metricIds.map((id) => ({ id })),
+      goalMetrics: metrics,
       guardrailMetrics: [],
-      activationMetric: activationMetric ? { id: activationMetric } : null,
-      regressionAdjustmentEnabled: true,
-
+      activationMetric: activationMetric
+        ? metrics.find((m) => m.id === activationMetric) || {
+            id: activationMetric,
+          }
+        : null,
+      regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
       startDate: snapshot.dateCreated,
       endDate: snapshot.dateCreated,
       experimentId: "",

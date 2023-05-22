@@ -1,5 +1,6 @@
 import { Response } from "express";
 import uniqid from "uniqid";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   findAllOrganizations,
@@ -393,6 +394,11 @@ export async function addSampleData(
         organization: org,
         user: res.locals.eventAudit,
         phaseIndex: 0,
+        analysisSettings: {
+          statsEngine: DEFAULT_STATS_ENGINE,
+          dimensions: [],
+        },
+        metricRegressionAdjustmentStatuses: [],
       });
     })
   );
