@@ -6,7 +6,7 @@ import { BsLightningFill } from "react-icons/bs";
 import { RxDesktop } from "react-icons/rx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBAddCircle } from "@/components/Icons";
+import { GBAddCircle, GBServerSideEvalIcon } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
@@ -125,6 +125,17 @@ export default function SDKConnectionsList() {
                   )}
                   <td>{connection.environment}</td>
                   <td className="text-center">
+                    {connection.ssEvalEnabled && (
+                      <Tooltip
+                        body={
+                          <>
+                            <strong>Server Side Evaluation</strong> is enabled
+                          </>
+                        }
+                      >
+                        <GBServerSideEvalIcon className="mx-1 text-purple" />
+                      </Tooltip>
+                    )}
                     {connection.encryptPayload && (
                       <Tooltip
                         body={

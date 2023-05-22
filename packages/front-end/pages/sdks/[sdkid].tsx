@@ -11,7 +11,11 @@ import {
 } from "react-icons/fa";
 import { BsArrowRepeat, BsLightningFill } from "react-icons/bs";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
+import {
+  GBCircleArrowLeft,
+  GBEdit,
+  GBServerSideEvalIcon,
+} from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
@@ -259,6 +263,15 @@ export default function SDKConnectionPage() {
             ) : (
               <em className="text-muted">All Projects</em>
             )}
+          </div>
+        )}
+
+        {connection.ssEvalEnabled && (
+          <div className="col-auto">
+            Server Side Evaluation:{" "}
+            <strong>
+              <GBServerSideEvalIcon className="text-purple" /> yes
+            </strong>
           </div>
         )}
 
