@@ -354,7 +354,7 @@ export class GrowthBook<
 
     // Re-run all new/updated experiments
     experiments.forEach((exp) => {
-      this._runAutoExperiment(exp, force ?? false);
+      this._runAutoExperiment(exp, !!force);
     });
   }
 
