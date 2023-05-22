@@ -59,13 +59,12 @@ import {
   ExperimentStatus,
   Variation,
 } from "../../types/experiment";
-import { getMetricById } from "../models/MetricModel";
+import { getMetricById, getMetricMap } from "../models/MetricModel";
 import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
 import { analyzeExperimentResults } from "../services/stats";
-import { getReportVariations } from "../services/reports";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, FeatureInterface } from "../../types/feature";
@@ -1480,11 +1479,14 @@ export async function previewManualSnapshot(
   }
 
   try {
+    const metricMap = await getMetricMap(org.id);
+
     const data = await getManualSnapshotData(
       experiment,
       phaseIndex,
       req.body.users,
-      req.body.metrics
+      req.body.metrics,
+      metricMap
     );
     res.status(200).json({
       status: 200,
@@ -1519,27 +1521,26 @@ export async function getSnapshotStatus(
 
   if (!experiment) throw new Error("Invalid experiment id");
 
-  const phase = experiment.phases[snapshot.phase];
-
   const analysis = snapshot.analyses[0];
+
+  if (!analysis) {
+    throw new Error("Missing snapshot analysis");
+  }
 
   const result = await getStatusEndpoint(
     snapshot,
     org.id,
-    (queryData) =>
-      analyzeExperimentResults({
-        organization: org.id,
-        variations: getReportVariations(experiment, phase),
-        dimension: analysis?.settings?.dimensions?.[0],
+    async (queryData) => {
+      const metricMap = await getMetricMap(experiment.organization);
+
+      return analyzeExperimentResults({
         queryData,
-        statsEngine: analysis?.settings?.statsEngine,
-        sequentialTestingEnabled:
-          analysis?.settings?.sequentialTesting ??
-          org.settings?.sequentialTestingEnabled,
-        sequentialTestingTuningParameter:
-          analysis?.settings?.sequentialTestingTuningParameter ??
-          org.settings?.sequentialTestingTuningParameter,
-      }),
+        snapshotSettings: snapshot.settings,
+        analysisSettings: analysis.settings,
+        variationNames: experiment.variations.map((v) => v.name),
+        metricMap,
+      });
+    },
     async (updates, results, error) => {
       const analyses = [...snapshot.analyses];
       if (analyses[0]) {
@@ -1677,6 +1678,8 @@ export async function postSnapshot(
     sequentialTestingTuningParameter,
   };
 
+  const metricMap = await getMetricMap(org.id);
+
   // Manual snapshot
   if (!experiment.datasource) {
     const { users, metrics } = req.body;
@@ -1690,7 +1693,8 @@ export async function postSnapshot(
         phase,
         users,
         metrics,
-        analysisSettings
+        analysisSettings,
+        metricMap
       );
       res.status(200).json({
         status: 200,
@@ -1739,6 +1743,7 @@ export async function postSnapshot(
       analysisSettings,
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
+      metricMap,
     });
 
     await req.audit({

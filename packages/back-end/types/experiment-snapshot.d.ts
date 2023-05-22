@@ -112,9 +112,10 @@ export interface ExperimentSnapshotAnalysis {
 export interface ExperimentSnapshotSettings {
   manual: boolean;
   dimensions: DimensionForSnapshot[];
-  goalMetrics: MetricForSnapshot[];
-  guardrailMetrics: MetricForSnapshot[];
-  activationMetric: MetricForSnapshot | null;
+  metricSettings: MetricForSnapshot[];
+  goalMetrics: string[];
+  guardrailMetrics: string[];
+  activationMetric: string | null;
   regressionAdjustmentEnabled: boolean;
   attributionModel: AttributionModel;
   experimentId: string;
@@ -122,9 +123,13 @@ export interface ExperimentSnapshotSettings {
   segment: string;
   skipPartialData: boolean;
   datasourceId: string;
-  exposureQuery: string;
+  exposureQueryId: string;
   startDate: Date;
   endDate: Date;
+  variations: {
+    id: string;
+    weight: number;
+  }[];
 }
 
 export interface ExperimentSnapshotInterface {

@@ -1,4 +1,7 @@
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { MetricInterface } from "../../types/metric";
 import {
   ExperimentReportArgs,
@@ -6,21 +9,26 @@ import {
   MetricRegressionAdjustmentStatus,
   ReportInterface,
 } from "../../types/report";
-import { getMetricsByOrganization } from "../models/MetricModel";
+import { getMetricMap } from "../models/MetricModel";
 import { QueryDocument } from "../models/QueryModel";
 import { findSegmentById } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
 import { getDataSourceById } from "../models/DataSourceModel";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
+import {
+  ExperimentInterface,
+  ExperimentPhase,
+  MetricOverride,
+} from "../../types/experiment";
 import { updateReport } from "../models/ReportModel";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
+  MetricForSnapshot,
 } from "../../types/experiment-snapshot";
 import { expandDenominatorMetrics } from "../util/sql";
-import { orgHasPremiumFeature } from "../util/organization.util";
 import { OrganizationInterface } from "../../types/organization";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { analyzeExperimentResults } from "./stats";
 import { parseDimensionId } from "./experiments";
 import { getExperimentMetric, getExperimentResults, startRun } from "./queries";
@@ -43,14 +51,7 @@ function getMetricRegressionAdjustmentStatusesFromSnapshot(
   snapshotSettings: ExperimentSnapshotSettings,
   analysisSettings: ExperimentSnapshotAnalysisSettings
 ): MetricRegressionAdjustmentStatus[] {
-  const metrics = snapshotSettings.goalMetrics.concat(
-    snapshotSettings.guardrailMetrics
-  );
-  if (snapshotSettings.activationMetric) {
-    metrics.push(snapshotSettings.activationMetric);
-  }
-
-  return metrics.map((m) => {
+  return snapshotSettings.metricSettings.map((m) => {
     return {
       metric: m.id,
       reason: m.computedSettings?.regressionAdjustmentReason || "",
@@ -86,7 +87,7 @@ export function reportArgsFromSnapshot(
     metrics: experiment.metrics,
     metricOverrides: experiment.metricOverrides,
     guardrails: experiment.guardrails,
-    activationMetric: snapshot.settings.activationMetric?.id || undefined,
+    activationMetric: snapshot.settings.activationMetric || undefined,
     queryFilter: snapshot.settings.queryFilter,
     skipPartialData: snapshot.settings.skipPartialData,
     attributionModel: snapshot.settings.attributionModel,
@@ -102,25 +103,76 @@ export function reportArgsFromSnapshot(
   };
 }
 
-export async function startExperimentAnalysis(
-  organization: OrganizationInterface,
+export function getSnapshotSettingsFromReportArgs(
   args: ExperimentReportArgs,
-  useCache: boolean
-) {
-  const hasRegressionAdjustmentFeature = organization
-    ? orgHasPremiumFeature(organization, "regression-adjustment")
-    : false;
-  const hasSequentialTestingFeature = organization
-    ? orgHasPremiumFeature(organization, "sequential-testing")
-    : false;
-  const metricObjs = await getMetricsByOrganization(organization.id);
-  const metricMap = new Map<string, MetricInterface>();
-  metricObjs.forEach((m) => {
-    metricMap.set(m.id, m);
-  });
+  metricMap: Map<string, MetricInterface>
+): {
+  snapshotSettings: ExperimentSnapshotSettings;
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+} {
+  const snapshotSettings: ExperimentSnapshotSettings = {
+    metricSettings: args.metrics
+      .concat(args.guardrails || [])
+      .concat(args.activationMetric ? [args.activationMetric] : [])
+      .map((m) =>
+        getMetricForSnapsot(
+          m,
+          metricMap,
+          args.metricRegressionAdjustmentStatuses,
+          args.metricOverrides
+        )
+      )
+      .filter(Boolean) as MetricForSnapshot[],
+    activationMetric: args.activationMetric || null,
+    attributionModel: args.attributionModel || "firstExposure",
+    datasourceId: args.datasource,
+    startDate: args.startDate,
+    endDate: args.endDate || new Date(),
+    experimentId: args.trackingKey,
+    exposureQueryId: args.exposureQueryId,
+    manual: false,
+    segment: args.segment || "",
+    queryFilter: args.queryFilter || "",
+    skipPartialData: !!args.skipPartialData,
+    regressionAdjustmentEnabled: !!args.regressionAdjustmentEnabled,
+    goalMetrics: args.metrics,
+    guardrailMetrics: args.guardrails || [],
+    dimensions: args.dimension ? [{ id: args.dimension }] : [],
+    variations: args.variations.map((v) => ({
+      id: v.id,
+      weight: v.weight,
+    })),
+  };
 
+  const analysisSettings: ExperimentSnapshotAnalysisSettings = {
+    dimensions: args.dimension ? [args.dimension] : [],
+    statsEngine: args.statsEngine || DEFAULT_STATS_ENGINE,
+    regressionAdjusted: args.regressionAdjustmentEnabled,
+    pValueCorrection: null,
+    sequentialTesting: args.sequentialTestingEnabled,
+    sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
+  };
+
+  return { snapshotSettings, analysisSettings };
+}
+
+export async function startExperimentAnalysis({
+  organization,
+  snapshotSettings,
+  analysisSettings,
+  variationNames,
+  useCache,
+  metricMap,
+}: {
+  organization: OrganizationInterface;
+  snapshotSettings: ExperimentSnapshotSettings;
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  variationNames: string[];
+  metricMap: Map<string, MetricInterface>;
+  useCache: boolean;
+}) {
   const datasourceObj = await getDataSourceById(
-    args.datasource,
+    snapshotSettings.datasourceId,
     organization.id
   );
   if (!datasourceObj) {
@@ -128,9 +180,9 @@ export async function startExperimentAnalysis(
   }
 
   const activationMetrics: MetricInterface[] = [];
-  if (args.activationMetric) {
+  if (snapshotSettings.activationMetric) {
     activationMetrics.push(
-      ...expandDenominatorMetrics(args.activationMetric, metricMap)
+      ...expandDenominatorMetrics(snapshotSettings.activationMetric, metricMap)
         .map((m) => metricMap.get(m) as MetricInterface)
         .filter(Boolean)
     );
@@ -138,7 +190,9 @@ export async function startExperimentAnalysis(
 
   // Only include metrics tied to this experiment (both goal and guardrail metrics)
   const selectedMetrics = Array.from(
-    new Set(args.metrics.concat(args.guardrails || []))
+    new Set(
+      snapshotSettings.goalMetrics.concat(snapshotSettings.guardrailMetrics)
+    )
   )
     .map((m) => metricMap.get(m))
     .filter((m) => m) as MetricInterface[];
@@ -147,8 +201,11 @@ export async function startExperimentAnalysis(
   }
 
   let segmentObj: SegmentInterface | null = null;
-  if (args.segment) {
-    segmentObj = await findSegmentById(args.segment, organization.id);
+  if (snapshotSettings.segment) {
+    segmentObj = await findSegmentById(
+      snapshotSettings.segment,
+      organization.id
+    );
   }
 
   const integration = getSourceIntegrationObject(datasourceObj);
@@ -159,72 +216,20 @@ export async function startExperimentAnalysis(
   }
 
   const queryDocs: { [key: string]: Promise<QueryDocument> } = {};
-
-  const experimentPhaseObj: ExperimentPhase = {
-    name: "Report",
-    dateStarted: args.startDate,
-    dateEnded: args.endDate,
-    coverage: 1,
-    reason: "",
-    variationWeights: args.variations.map((v) => v.weight),
-    condition: "",
-    namespace: {
-      enabled: false,
-      name: "",
-      range: [0, 1],
-    },
-  };
-  const experimentObj: ExperimentInterface = {
-    exposureQueryId: args.exposureQueryId,
-    userIdType: args.userIdType,
-    hashAttribute: "",
-    releasedVariationId: "",
-    organization: organization.id,
-    skipPartialData: args.skipPartialData,
-    trackingKey: args.trackingKey,
-    datasource: args.datasource,
-    segment: args.segment,
-    queryFilter: args.queryFilter,
-    activationMetric: args.activationMetric,
-    metrics: args.metrics,
-    metricOverrides: args.metricOverrides,
-    guardrails: args.guardrails,
-    attributionModel: args.attributionModel || "firstExposure",
-    id: "",
-    name: "",
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    tags: [],
-    autoAssign: false,
-    owner: "",
-    implementation: "code",
-    previewURL: "",
-    status: "stopped",
-    phases: [experimentPhaseObj],
-    autoSnapshots: false,
-    targetURLRegex: "",
-    archived: false,
-    variations: args.variations.map((v) => {
-      return {
-        id: v.id,
-        name: v.name,
-        key: v.id,
-        screenshots: [],
-      };
-    }),
-  };
-  const dimensionObj = await parseDimensionId(args.dimension, organization.id);
+  const dimensionObj = await parseDimensionId(
+    snapshotSettings.dimensions[0]?.id,
+    organization.id
+  );
 
   // Run it as a single synchronous task (non-sql datasources and legacy code)
   if (!integration.getSourceProperties().separateExperimentResultQueries) {
-    queryDocs["results"] = getExperimentResults(
+    queryDocs["results"] = getExperimentResults({
       integration,
-      experimentObj,
-      experimentPhaseObj,
-      selectedMetrics,
-      activationMetrics[0],
-      dimensionObj?.type === "user" ? dimensionObj.dimension : null
-    );
+      snapshotSettings,
+      metrics: selectedMetrics,
+      activationMetric: activationMetrics[0],
+      dimension: dimensionObj?.type === "user" ? dimensionObj.dimension : null,
+    });
   }
   // Run as multiple async queries (new way for sql datasources)
   else {
@@ -237,23 +242,15 @@ export async function startExperimentAnalysis(
             .filter(Boolean)
         );
       }
-      const metricRegressionAdjustmentStatus = args?.metricRegressionAdjustmentStatuses?.find(
-        (mras) => mras.metric === m.id
-      );
       queryDocs[m.id] = getExperimentMetric(
         integration,
         {
           metric: m,
-          experiment: experimentObj,
           dimension: dimensionObj,
           activationMetrics,
           denominatorMetrics,
-          phase: experimentPhaseObj,
           segment: segmentObj,
-          regressionAdjustmentEnabled:
-            hasRegressionAdjustmentFeature &&
-            !!args.regressionAdjustmentEnabled,
-          metricRegressionAdjustmentStatus: metricRegressionAdjustmentStatus,
+          settings: snapshotSettings,
         },
         useCache
       );
@@ -264,34 +261,82 @@ export async function startExperimentAnalysis(
     queryDocs,
     async (queryData) => {
       return analyzeExperimentResults({
-        organization: organization.id,
-        variations: args.variations,
-        dimension: args.dimension,
+        analysisSettings,
+        snapshotSettings,
+        variationNames,
+        metricMap,
         queryData,
-        statsEngine: args.statsEngine,
-        sequentialTestingEnabled: hasSequentialTestingFeature
-          ? args.sequentialTestingEnabled
-          : false,
-        sequentialTestingTuningParameter: args.sequentialTestingTuningParameter,
       });
     }
   );
+
   return { queries, results };
 }
 
+export function getMetricForSnapsot(
+  id: string | null | undefined,
+  metricMap: Map<string, MetricInterface>,
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[],
+  metricOverrides?: MetricOverride[]
+): MetricForSnapshot | null {
+  if (!id) return null;
+  const metric = metricMap.get(id);
+  if (!metric) return null;
+  const overrides = metricOverrides?.find((o) => o.id === id);
+  const regressionAdjustmentStatus = metricRegressionAdjustmentStatuses?.find(
+    (s) => s.metric === id
+  );
+  return {
+    id,
+    settings: {
+      datasource: metric.datasource,
+      type: metric.type,
+      aggregation: metric.aggregation || undefined,
+      cap: metric.cap || undefined,
+      denominator: metric.denominator || undefined,
+      sql: metric.sql || undefined,
+      userIdTypes: metric.userIdTypes || undefined,
+    },
+    computedSettings: {
+      conversionDelayHours:
+        overrides?.conversionDelayHours ?? metric.conversionDelayHours ?? 0,
+      conversionWindowHours:
+        overrides?.conversionWindowHours ??
+        metric.conversionWindowHours ??
+        DEFAULT_CONVERSION_WINDOW_HOURS,
+      regressionAdjustmentDays:
+        regressionAdjustmentStatus?.regressionAdjustmentDays ??
+        DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+      regressionAdjustmentEnabled:
+        regressionAdjustmentStatus?.regressionAdjustmentEnabled ?? false,
+      regressionAdjustmentReason: regressionAdjustmentStatus?.reason ?? "",
+    },
+  };
+}
+
 export async function runReport(
-  org: OrganizationInterface,
+  organization: OrganizationInterface,
   report: ReportInterface,
   useCache: boolean = true
 ) {
   const updates: Partial<ReportInterface> = {};
 
   if (report.type === "experiment") {
-    const { queries, results } = await startExperimentAnalysis(
-      org,
-      report.args,
-      useCache
-    );
+    const metricMap = await getMetricMap(organization.id);
+
+    const {
+      snapshotSettings,
+      analysisSettings,
+    } = getSnapshotSettingsFromReportArgs(report.args, metricMap);
+
+    const { queries, results } = await startExperimentAnalysis({
+      organization,
+      snapshotSettings,
+      analysisSettings,
+      variationNames: report.args.variations.map((v) => v.name),
+      metricMap,
+      useCache,
+    });
 
     if (results) {
       results.hasCorrectedStats = true;
@@ -305,5 +350,5 @@ export async function runReport(
     throw new Error("Unsupported report type");
   }
 
-  await updateReport(org.id, report.id, updates);
+  await updateReport(organization.id, report.id, updates);
 }

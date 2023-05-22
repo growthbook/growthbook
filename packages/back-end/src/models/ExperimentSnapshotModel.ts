@@ -6,6 +6,7 @@ import {
   LegacyExperimentSnapshotInterface,
   MetricForSnapshot,
 } from "../../types/experiment-snapshot";
+import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
 import { queriesSchema } from "./QueryModel";
 
 const experimentSnapshotSchema = new mongoose.Schema({
@@ -187,7 +188,12 @@ export function migrateSnapshot(
     // Try to figure out metric ids from results
     const metricIds = Object.keys(results?.[0]?.variations?.[0]?.metrics || {});
 
-    const metrics: MetricForSnapshot[] = metricIds.map((id) => {
+    const variations = (results?.[0]?.variations || []).map((v, i) => ({
+      id: i + "",
+      weight: 0,
+    }));
+
+    const metricSettings: MetricForSnapshot[] = metricIds.map((id) => {
       const regressionSettings = metricRegressionAdjustmentStatuses?.find(
         (s) => s.metric === id
       );
@@ -196,7 +202,7 @@ export function migrateSnapshot(
         id,
         computedSettings: {
           conversionDelayHours: 0,
-          conversionWindowHours: 0,
+          conversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS,
           regressionAdjustmentDays:
             regressionSettings?.regressionAdjustmentDays || 0,
           regressionAdjustmentEnabled: !!(
@@ -217,25 +223,23 @@ export function migrateSnapshot(
             },
           ]
         : [],
+      metricSettings,
       // We know the metric ids included, but don't know if they were goals or guardrails
       // Just add them all as goals (doesn't really change much)
-      goalMetrics: metrics,
+      goalMetrics: metricIds,
       guardrailMetrics: [],
-      activationMetric: activationMetric
-        ? metrics.find((m) => m.id === activationMetric) || {
-            id: activationMetric,
-          }
-        : null,
+      activationMetric: activationMetric || null,
       regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
       startDate: snapshot.dateCreated,
       endDate: snapshot.dateCreated,
       experimentId: "",
       datasourceId: "",
-      exposureQuery: "",
+      exposureQueryId: "",
       queryFilter: queryFilter || "",
       segment: segment || "",
       skipPartialData: !!skipPartialData,
       attributionModel: "firstExposure",
+      variations,
     };
   }
 

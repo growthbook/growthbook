@@ -21,7 +21,6 @@ import {
 } from "../../types/experiment-snapshot";
 import {
   getMetricsByIds,
-  getMetricsByOrganization,
   insertMetric,
   updateMetric,
 } from "../models/MetricModel";
@@ -73,8 +72,8 @@ import { EventAuditUser } from "../events/event-types";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
 import {
+  getMetricForSnapsot,
   getReportVariations,
-  reportArgsFromSnapshot,
   startExperimentAnalysis,
 } from "./reports";
 import { getMetricValue, QueryMap, startRun } from "./queries";
@@ -248,15 +247,10 @@ export async function getManualSnapshotData(
   users: number[],
   metrics: {
     [key: string]: MetricStats[];
-  }
+  },
+  metricMap: Map<string, MetricInterface>
 ) {
   const phase = experiment.phases[phaseIndex];
-
-  const metricMap = new Map<string, MetricInterface>();
-  const allMetrics = await getMetricsByOrganization(experiment.organization);
-  allMetrics.forEach((m) => {
-    metricMap.set(m.id, m);
-  });
 
   // Default variation values, override from SQL results if available
   const variations: SnapshotVariation[] = experiment.variations.map((v, i) => ({
@@ -315,45 +309,36 @@ function getSnapshotSettings(
   experiment: ExperimentInterface,
   phaseIndex: number,
   settings: ExperimentSnapshotAnalysisSettings,
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[]
+  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[],
+  metricMap: Map<string, MetricInterface>
 ): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
     throw new Error("Invalid snapshot phase");
   }
 
-  const metrics = new Map<string, MetricForSnapshot>();
-  const metricIds = new Set(
-    experiment.metrics
-      .concat(experiment.guardrails || [])
-      .concat(experiment.activationMetric ? [experiment.activationMetric] : [])
-  );
-  metricIds.forEach((m) => {
-    const status = metricRegressionAdjustmentStatuses.find(
-      (s) => s.metric === m
-    );
-    metrics.set(m, {
-      id: m,
-      computedSettings: {
-        // TODO: get conversion window data from metrics / experiment overrides
-        conversionDelayHours: 0,
-        conversionWindowHours: 0,
-        regressionAdjustmentEnabled: !!(
-          status?.regressionAdjustmentEnabled && settings.regressionAdjusted
-        ),
-        regressionAdjustmentDays: status?.regressionAdjustmentDays || 0,
-        regressionAdjustmentReason: status?.reason || "",
-      },
-    });
-  });
+  const metricSettings = [
+    ...new Set(
+      experiment.metrics
+        .concat(experiment.guardrails || [])
+        .concat(
+          experiment.activationMetric ? [experiment.activationMetric] : []
+        )
+    ),
+  ]
+    .map((m) =>
+      getMetricForSnapsot(
+        m,
+        metricMap,
+        metricRegressionAdjustmentStatuses,
+        experiment.metricOverrides
+      )
+    )
+    .filter(Boolean) as MetricForSnapshot[];
 
   return {
     manual: !experiment.datasource,
-    activationMetric: experiment.activationMetric
-      ? metrics.get(experiment.activationMetric) || {
-          id: experiment.activationMetric,
-        }
-      : null,
+    activationMetric: experiment.activationMetric || null,
     attributionModel: experiment.attributionModel || "firstExposure",
     skipPartialData: !!experiment.skipPartialData,
     segment: experiment.segment || "",
@@ -363,13 +348,15 @@ function getSnapshotSettings(
     startDate: phase.dateStarted,
     endDate: phase.dateEnded || new Date(),
     experimentId: experiment.id,
-    goalMetrics: experiment.metrics.map((id) => metrics.get(id) || { id }),
-    guardrailMetrics: (experiment.guardrails || []).map(
-      (id) => metrics.get(id) || { id }
-    ),
+    goalMetrics: experiment.metrics,
+    guardrailMetrics: experiment.guardrails || [],
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
-    // TODO: get exposure query from datasource
-    exposureQuery: "",
+    exposureQueryId: experiment.exposureQueryId,
+    metricSettings: metricSettings,
+    variations: experiment.variations.map((v, i) => ({
+      id: v.key || i + "",
+      weight: phase.variationWeights[i] || 0,
+    })),
   };
 }
 
@@ -380,13 +367,15 @@ export async function createManualSnapshot(
   metrics: {
     [key: string]: MetricStats[];
   },
-  settings: ExperimentSnapshotAnalysisSettings
+  settings: ExperimentSnapshotAnalysisSettings,
+  metricMap: Map<string, MetricInterface>
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
     phaseIndex,
     users,
-    metrics
+    metrics,
+    metricMap
   );
 
   const data: ExperimentSnapshotInterface = {
@@ -399,7 +388,13 @@ export async function createManualSnapshot(
     runStarted: new Date(),
     dateCreated: new Date(),
     status: "success",
-    settings: getSnapshotSettings(experiment, phaseIndex, settings, []),
+    settings: getSnapshotSettings(
+      experiment,
+      phaseIndex,
+      settings,
+      [],
+      metricMap
+    ),
     analyses: [
       {
         dateCreated: new Date(),
@@ -485,6 +480,7 @@ export async function createSnapshot({
   useCache = false,
   analysisSettings,
   metricRegressionAdjustmentStatuses,
+  metricMap,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
@@ -493,6 +489,7 @@ export async function createSnapshot({
   useCache?: boolean;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
+  metricMap: Map<string, MetricInterface>;
 }) {
   const dimension = analysisSettings.dimensions[0] || null;
 
@@ -511,7 +508,8 @@ export async function createSnapshot({
       experiment,
       phaseIndex,
       analysisSettings,
-      metricRegressionAdjustmentStatuses
+      metricRegressionAdjustmentStatuses,
+      metricMap
     ),
     unknownVariations: [],
     multipleExposures: 0,
@@ -534,11 +532,14 @@ export async function createSnapshot({
     },
   });
 
-  const { queries, results } = await startExperimentAnalysis(
+  const { queries, results } = await startExperimentAnalysis({
     organization,
-    reportArgsFromSnapshot(experiment, data, analysisSettings),
-    useCache
-  );
+    useCache,
+    analysisSettings,
+    snapshotSettings: data.settings,
+    variationNames: experiment.variations.map((v) => v.name),
+    metricMap,
+  });
 
   data.queries = queries;
 
@@ -840,7 +841,7 @@ export function toSnapshotApiInterface(
   const phase = experiment.phases[snapshot.phase];
 
   const activationMetric =
-    snapshot.settings.activationMetric?.id || experiment.activationMetric;
+    snapshot.settings.activationMetric || experiment.activationMetric;
 
   const metricIds = new Set([
     ...experiment.metrics,

@@ -21,10 +21,9 @@ import {
 } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
-import { getMetricById } from "../models/MetricModel";
+import { getMetricById, getMetricMap } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { analyzeExperimentResults } from "../services/stats";
-import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
 import {
@@ -179,6 +178,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     };
 
+    const metricMap = await getMetricMap(organization.id);
+
     const currentSnapshot = await createSnapshot({
       experiment,
       organization,
@@ -186,6 +187,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       analysisSettings,
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
+      metricMap,
     });
 
     await new Promise<void>((resolve, reject) => {
@@ -198,15 +200,15 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         const res = await getStatusEndpoint(
           currentSnapshot,
           currentSnapshot.organization,
-          (queryData) => {
+          async (queryData) => {
+            const metricMap = await getMetricMap(experiment.organization);
+
             return analyzeExperimentResults({
-              organization: experiment.organization,
-              variations: getReportVariations(experiment, phase),
               queryData,
-              statsEngine: analysisSettings.statsEngine,
-              sequentialTestingEnabled: analysisSettings.sequentialTesting,
-              sequentialTestingTuningParameter:
-                analysisSettings.sequentialTestingTuningParameter,
+              snapshotSettings: currentSnapshot.settings,
+              analysisSettings,
+              metricMap,
+              variationNames: experiment.variations.map((v) => v.name),
             });
           },
           async (updates, results, error) => {

@@ -21,6 +21,7 @@ import { processPastExperimentQueryResponse } from "../services/queries";
 import { createExperiment } from "../models/ExperimentModel";
 import { createSegment } from "../models/SegmentModel";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { getMetricMap } from "../models/MetricModel";
 
 export async function getOrganizations(req: AuthRequest, res: Response) {
   if (!req.admin) {
@@ -367,6 +368,7 @@ export async function addSampleData(
     }
   });
   const evidence: string[] = [];
+  const metricMap = await getMetricMap(org.id);
   await Promise.all(
     Object.keys(experiments).map(async (key) => {
       const data = experiments[key];
@@ -399,6 +401,7 @@ export async function addSampleData(
           dimensions: [],
         },
         metricRegressionAdjustmentStatuses: [],
+        metricMap,
       });
     })
   );
