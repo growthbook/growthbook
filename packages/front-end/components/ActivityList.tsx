@@ -1,7 +1,7 @@
 import { FC } from "react";
 import { AuditInterface } from "back-end/types/audit";
 import Link from "next/link";
-import { date, datetime } from "shared";
+import { date, datetime } from "shared/dates";
 import useApi from "../hooks/useApi";
 import LoadingOverlay from "./LoadingOverlay";
 import Avatar from "./Avatar/Avatar";

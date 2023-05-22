@@ -2,7 +2,7 @@ import React, { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";

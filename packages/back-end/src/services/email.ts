@@ -1,7 +1,7 @@
 import path from "path";
 import nodemailer from "nodemailer";
 import nunjucks from "nunjucks";
-import { daysLeft } from "shared";
+import { daysLeft } from "shared/dates";
 import {
   EMAIL_ENABLED,
   EMAIL_FROM,

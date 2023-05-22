@@ -4,7 +4,7 @@ import Link from "next/link";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer";
 import { BsArrowRepeat } from "react-icons/bs";
 import { FaAngleDown, FaAngleUp } from "react-icons/fa";
-import { ago, datetime } from "shared";
+import { ago, datetime } from "shared/dates";
 import { useDefinitions } from "../services/DefinitionsContext";
 import useApi from "../hooks/useApi";
 import Button from "./Button";

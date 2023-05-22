@@ -3,8 +3,8 @@ from unittest import TestCase, main as unittest_main
 
 import numpy as np
 import pandas as pd
-from scipy.special import digamma
-from scipy.stats import beta, norm
+from scipy.special import digamma  # type: ignore
+from scipy.stats import beta, norm  # type: ignore
 from gbstats.bayesian.dists import Beta, Norm
 
 

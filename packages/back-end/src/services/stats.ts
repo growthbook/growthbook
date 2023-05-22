@@ -3,7 +3,7 @@ import { PythonShell } from "python-shell";
 import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
-} from "shared";
+} from "shared/constants";
 import { MetricInterface } from "../../types/metric";
 import { ExperimentMetricAnalysis, StatsEngine } from "../../types/stats";
 import {

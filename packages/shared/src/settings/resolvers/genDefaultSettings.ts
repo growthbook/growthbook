@@ -3,7 +3,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_STATS_ENGINE,
-} from "shared";
+} from "../../constants";
 import { Settings } from "../types";
 
 export const DEFAULT_CONFIDENCE_LEVEL = 0.95;
