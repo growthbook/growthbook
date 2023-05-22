@@ -91,7 +91,9 @@ const PValueColumn: FC<{
     className += " draw";
   }
 
-  let pValText = <>{stats?.pValue ? pValueFormatter(stats.pValue) : ""}</>;
+  let pValText = (
+    <>{stats?.pValue !== undefined ? pValueFormatter(stats.pValue) : ""}</>
+  );
   if (stats?.pValueAdjusted !== undefined && pValueCorrection) {
     pValText = (
       <>
