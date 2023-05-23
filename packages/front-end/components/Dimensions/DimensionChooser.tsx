@@ -25,7 +25,7 @@ export default function DimensionChooser({
   showHelp,
 }: Props) {
   const { dimensions, getDatasourceById } = useDefinitions();
-  const datasource = getDatasourceById(datasourceId);
+  const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
 
   // If activation metric is not selected, don't allow using that dimension
   useEffect(() => {
@@ -66,8 +66,8 @@ export default function DimensionChooser({
     }
   }
   // Legacy data sources - add experiment dimensions
-  else if (datasource.settings?.experimentDimensions?.length > 0) {
-    datasource.settings.experimentDimensions.forEach((d) => {
+  else if ((datasource?.settings?.experimentDimensions?.length ?? 0) > 0) {
+    datasource?.settings?.experimentDimensions?.forEach((d) => {
       filteredDimensions.push({
         label: d,
         value: "exp:" + d,

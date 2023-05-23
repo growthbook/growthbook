@@ -106,7 +106,7 @@ const DimensionForm: FC<{
             required
             value={userIdType}
             onChange={(v) => form.setValue("userIdType", v)}
-            options={(dsObj.settings.userIdTypes || []).map((t) => {
+            options={(dsObj?.settings?.userIdTypes || []).map((t) => {
               return {
                 label: t.userIdType,
                 value: t.userIdType,

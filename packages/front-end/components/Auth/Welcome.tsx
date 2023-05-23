@@ -127,12 +127,11 @@ export default function Welcome({
             setError(null);
             setLoading(true);
             try {
-              await submit();
-              setLoading(false);
+              await submit?.();
             } catch (e) {
               setError(e.message);
-              setLoading(false);
             }
+            setLoading(false);
           }}
         >
           {state === "register" && (

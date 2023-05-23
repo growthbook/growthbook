@@ -1,7 +1,7 @@
 import React, { FC, useState, ReactElement } from "react";
 import { Invite, MemberRoleInfo } from "back-end/types/organization";
 import { FaCheck, FaTimes } from "react-icons/fa";
-import { datetime } from "shared";
+import { datetime } from "shared/dates";
 import ConfirmModal from "@/components/ConfirmModal";
 import { roleHasAccessToEnv, useAuth } from "@/services/auth";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -25,6 +25,7 @@ const InviteList: FC<{
     email: string;
   } | null>(null);
   const { apiCall } = useAuth();
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
   const [roleModal, setRoleModal] = useState<ChangeRoleInfo>(null);
   const [resending, setResending] = useState(false);
   const [resendMessage, setResendMessage] = useState<ReactElement | null>(null);
@@ -104,6 +105,7 @@ const InviteList: FC<{
         <ChangeRoleModal
           displayInfo={roleModal.displayInfo}
           roleInfo={roleModal.roleInfo}
+          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
           close={() => setRoleModal(null)}
           onConfirm={async (value) => {
             await apiCall(`/invite/${roleModal.key}/role`, {
@@ -122,6 +124,7 @@ const InviteList: FC<{
         modalState={deleteInvite !== null}
         setModalState={() => setDeleteInvite(null)}
         onConfirm={async () => {
+          // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'key' does not exist on type '{ key: stri... Remove this comment to see the full error message
           const { key } = deleteInvite;
           setDeleteInvite(null);
           await apiCall(`/invite`, {

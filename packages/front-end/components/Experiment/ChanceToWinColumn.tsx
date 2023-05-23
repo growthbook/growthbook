@@ -102,7 +102,7 @@ export default function ChanceToWinColumn({
           <div className="mb-1 d-flex flex-row">
             <Tooltip
               body={`A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
-                metric.maxPercentChange * 100
+                (metric.maxPercentChange ?? 0) * 100
               }%).`}
             >
               <span className="badge badge-pill badge-warning">

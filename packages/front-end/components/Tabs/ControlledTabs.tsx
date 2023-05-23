@@ -152,9 +152,11 @@ const ControlledTabs: FC<{
   });
 
   useEffect(() => {
+    // @ts-expect-error TS(2538) If you come across this, please fix it!: Type 'null' cannot be used as an index type.
     if (!loaded[active]) {
       setLoaded({
         ...loaded,
+        // @ts-expect-error TS(2464) If you come across this, please fix it!: A computed property name must be of type 'string',... Remove this comment to see the full error message
         [active]: true,
       });
     }

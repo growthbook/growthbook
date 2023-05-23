@@ -26,7 +26,7 @@ const PValueColumn: FC<{
   snapshotDate: Date;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
-  pValueCorrection: PValueCorrection;
+  pValueCorrection?: PValueCorrection;
 }> = ({
   metric,
   status,
@@ -91,11 +91,17 @@ const PValueColumn: FC<{
     className += " draw";
   }
 
-  let pValText = <>{pValueFormatter(stats?.pValue)}</>;
+  let pValText = (
+    <>{stats?.pValue !== undefined ? pValueFormatter(stats.pValue) : ""}</>
+  );
   if (stats?.pValueAdjusted !== undefined && pValueCorrection) {
     pValText = (
       <>
-        <div>{pValueFormatter(stats?.pValueAdjusted)}</div>
+        <div>
+          {stats?.pValueAdjusted !== undefined
+            ? pValueFormatter(stats.pValueAdjusted)
+            : ""}
+        </div>
         <div className="small text-muted">(unadj.: {pValText})</div>
       </>
     );
@@ -113,7 +119,9 @@ const PValueColumn: FC<{
           <div className="mb-1 d-flex flex-row">
             <Tooltip
               body={`A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
-                metric.maxPercentChange * 100
+                (metric.maxPercentChange ??
+                  metricDefaults?.maxPercentageChange ??
+                  0) * 100
               }%).`}
             >
               <span className="badge badge-pill badge-warning">

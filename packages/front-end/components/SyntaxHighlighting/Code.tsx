@@ -1,13 +1,15 @@
 import clsx from "clsx";
-import { useEffect, useState, Suspense } from "react";
-import { FaCompressAlt, FaExpandAlt, FaRegClipboard } from "react-icons/fa";
+import React, { Suspense, useState } from "react";
+import { FaCompressAlt, FaExpandAlt } from "react-icons/fa";
 import cloneDeep from "lodash/cloneDeep";
 import dynamic from "next/dynamic";
 import {
-  tomorrow as dark,
   ghcolors as light,
+  tomorrow as dark,
 } from "react-syntax-highlighter/dist/cjs/styles/prism";
+import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import PrismFallback from "./PrismFallback";
 
 // Lazy-load syntax highlighting to improve page load time
@@ -62,15 +64,7 @@ export default function Code({
   language = language || "none";
   if (language === "sh") language = "bash";
 
-  const [copied, setCopied] = useState(false);
   const [expanded, setExpanded] = useState(!expandable);
-  useEffect(() => {
-    if (!copied) return;
-    const timer = setTimeout(() => {
-      setCopied(false);
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [copied]);
 
   const { theme } = useAppearanceUITheme();
 
@@ -94,6 +88,10 @@ export default function Code({
       ? LanguageDisplay[language]
       : language.toUpperCase());
 
+  const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
+    timeout: 1500,
+  });
+
   return (
     <div
       className={clsx(`code-holder d-flex flex-column`, containerClassName, {
@@ -109,25 +107,26 @@ export default function Code({
           <small className="text-muted px-2">{display}</small>
         </div>
         <div className="ml-auto"></div>
-        {copied && (
+        {copySuccess && (
           <div className="message">
             copied!
             <div className="arrow" />
           </div>
         )}
-        <div
-          className="p-1 text-muted"
-          title="Copy to Clipboard"
-          role="button"
-          style={{ cursor: "pointer" }}
-          onClick={async (e) => {
-            e.preventDefault();
-            await navigator.clipboard.writeText(code);
-            setCopied(true);
-          }}
-        >
-          <FaRegClipboard />
-        </div>
+        {copySupported && (
+          <div
+            className="p-1 text-muted"
+            title="Copy to Clipboard"
+            role="button"
+            style={{ cursor: "pointer", fontSize: "1.1rem" }}
+            onClick={async (e) => {
+              e.preventDefault();
+              performCopy(code);
+            }}
+          >
+            {copySuccess ? <HiOutlineClipboardCheck /> : <HiOutlineClipboard />}
+          </div>
+        )}
 
         {expandable && enoughLines && (
           <div

@@ -10,6 +10,7 @@ type Props = {
   setValue: (value: boolean) => void;
   showUpgradeModal: () => void;
   showRequiresChangesWarning?: boolean;
+  showUpgradeMessage?: boolean;
 };
 
 export default function EncryptionToggle({
@@ -17,6 +18,7 @@ export default function EncryptionToggle({
   setValue,
   showUpgradeModal,
   showRequiresChangesWarning = true,
+  showUpgradeMessage = true,
 }: Props) {
   const { hasCommercialFeature } = useUser();
 
@@ -50,11 +52,13 @@ export default function EncryptionToggle({
           )}
         </div>
       </div>
-      <UpgradeMessage
-        showUpgradeModal={showUpgradeModal}
-        commercialFeature="encrypt-features-endpoint"
-        upgradeMessage="enable encryption"
-      />
+      {showUpgradeMessage && (
+        <UpgradeMessage
+          showUpgradeModal={showUpgradeModal}
+          commercialFeature="encrypt-features-endpoint"
+          upgradeMessage="enable encryption"
+        />
+      )}
     </div>
   );
 }

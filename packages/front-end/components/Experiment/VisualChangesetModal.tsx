@@ -22,9 +22,8 @@ const VisualChangesetModal: FC<{
 }> = ({ mode, experiment, visualChangeset, mutate, close }) => {
   const { apiCall } = useAuth();
 
-  // todo: bug bash this
   let forceAdvancedMode = false;
-  if (visualChangeset?.urlPatterns?.length > 0) {
+  if ((visualChangeset?.urlPatterns?.length ?? 0) > 0) {
     forceAdvancedMode = true;
   }
   if (visualChangeset?.urlPatterns?.length === 1) {
@@ -69,7 +68,7 @@ const VisualChangesetModal: FC<{
         body: JSON.stringify(payload),
       });
     } else {
-      await apiCall(`/visual-changesets/${visualChangeset.id}`, {
+      await apiCall(`/visual-changesets/${visualChangeset?.id}`, {
         method: "PUT",
         body: JSON.stringify(payload),
       });

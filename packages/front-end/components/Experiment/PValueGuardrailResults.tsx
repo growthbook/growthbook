@@ -161,7 +161,9 @@ const PValueGuardrailResults: FC<{
                     >
                       {r.expectedDirection ? "Better" : "Worse"}{" "}
                       {`(${
-                        pValueFormatter(r.stats?.pValue) || "P-value missing"
+                        r.stats?.pValue !== undefined
+                          ? pValueFormatter(r.stats?.pValue)
+                          : "P-value missing"
                       })`}
                     </td>
                   ) : (

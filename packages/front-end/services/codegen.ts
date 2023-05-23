@@ -88,6 +88,7 @@ export function generateJavascriptSnippet(
   let cw = 0;
   for (let i = 0; i < adjustedWeights.length; i++) {
     cw += adjustedWeights[i];
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number' is not assignable to par... Remove this comment to see the full error message
     cumulativeWeights.push(cw);
   }
 

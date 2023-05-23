@@ -64,7 +64,6 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageBilling: false,
   manageNamespaces: false,
   manageNorthStarMetric: false,
-  manageProjects: false,
   manageSavedGroups: false,
   manageTags: false,
   manageTargetingAttributes: false,
@@ -169,6 +168,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       });
       setData(res);
       if (res.organizations) {
+        // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
         setOrganizations(res.organizations);
       }
     } catch (e) {
@@ -186,6 +186,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     return userMap;
   }, [currentOrg?.members]);
 
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   let user = users.get(data?.userId);
   if (!user && data) {
     user = {
@@ -207,6 +208,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const permissionsObj: Record<GlobalPermission, boolean> = {
     ...DEFAULT_PERMISSIONS,
   };
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MemberRole | undefined' is not a... Remove this comment to see the full error message
   getPermissionsByRole(role, currentOrg?.roles || []).forEach((p) => {
     permissionsObj[p] = true;
   });
@@ -216,6 +218,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     currentUser = {
       org: orgId || "",
       id: data?.userId || "",
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MemberRole | undefined' is not assignable to... Remove this comment to see the full error message
       role: role,
     };
   }, [orgId, data?.userId, role]);
@@ -255,6 +258,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   // Update growthbook tarageting attributes
   const growthbook = useGrowthBook<AppFeatures>();
   useEffect(() => {
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     growthbook.setAttributes({
       id: data?.userId || "",
       name: data?.userName || "",
@@ -339,6 +343,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         updateUser,
         user,
         users,
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(id: string, fallback?: boolean | undefined)... Remove this comment to see the full error message
         getUserDisplay: (id, fallback = true) => {
           const u = users.get(id);
           if (!u && fallback) return id;
@@ -354,10 +359,12 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         },
         settings: currentOrg?.organization?.settings || {},
         license: data?.license,
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'SSOConnectionInterface | null | undefined' i... Remove this comment to see the full error message
         enterpriseSSO: currentOrg?.enterpriseSSO,
         accountPlan: currentOrg?.accountPlan,
         commercialFeatures: currentOrg?.commercialFeatures || [],
         apiKeys: currentOrg?.apiKeys || [],
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'OrganizationInterface | undefined' is not as... Remove this comment to see the full error message
         organization: currentOrg?.organization,
         error,
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),

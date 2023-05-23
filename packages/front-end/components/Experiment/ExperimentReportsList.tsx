@@ -3,7 +3,7 @@ import Link from "next/link";
 import React from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
-import { ago, datetime } from "shared";
+import { ago, datetime } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
@@ -17,7 +17,7 @@ export default function ExperimentReportsList({
   experiment,
 }: {
   experiment: ExperimentInterfaceStringDates;
-}): React.ReactElement {
+}) {
   const router = useRouter();
   const { apiCall } = useAuth();
   const permissions = usePermissions();
@@ -43,7 +43,7 @@ export default function ExperimentReportsList({
     return null;
   }
 
-  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
+  const hasData = (snapshot?.results?.[0]?.variations?.length ?? 0) > 0;
   const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
   const canCreateReports =
     hasData &&
@@ -97,7 +97,7 @@ export default function ExperimentReportsList({
         </thead>
         <tbody>
           {reports.map((report) => {
-            const user = users.get(report.userId);
+            const user = report.userId ? users.get(report.userId) : null;
             const name = user ? user.name : "";
             return (
               <tr key={report.id} className="">

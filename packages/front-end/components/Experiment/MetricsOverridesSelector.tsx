@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useFieldArray, UseFormReturn } from "react-hook-form";
 import { FaTimes } from "react-icons/fa";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
+import { isUndefined } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import Toggle from "@/components/Forms/Toggle";
@@ -52,13 +53,20 @@ export default function MetricsOverridesSelector({
         const metricDefinition = metricDefinitions.find(
           (md) => md.id === mo.id
         );
-        const loseRisk = isNaN(mo.loseRisk)
-          ? metricDefinition.loseRisk
-          : mo.loseRisk / 100;
-        const winRisk = isNaN(mo.winRisk)
-          ? metricDefinition.winRisk
-          : mo.winRisk / 100;
-        if (loseRisk < winRisk) {
+
+        const loseRisk =
+          isUndefined(mo.loseRisk) || isNaN(mo.loseRisk)
+            ? metricDefinition?.loseRisk
+            : mo.loseRisk / 100;
+        const winRisk =
+          isUndefined(mo.winRisk) || isNaN(mo.winRisk)
+            ? metricDefinition?.winRisk
+            : mo.winRisk / 100;
+        if (
+          !isUndefined(loseRisk) &&
+          !isUndefined(winRisk) &&
+          loseRisk < winRisk
+        ) {
           hasRiskError = true;
         }
       });
@@ -85,7 +93,7 @@ export default function MetricsOverridesSelector({
           );
           let regressionAdjustmentAvailableForMetric = true;
           let regressionAdjustmentAvailableForMetricReason = <></>;
-          if (metricDefinition.denominator) {
+          if (metricDefinition?.denominator) {
             const denominator = metricDefinitions.find(
               (m) => m.id === metricDefinition.denominator
             );
@@ -99,32 +107,43 @@ export default function MetricsOverridesSelector({
               );
             }
           }
-          if (metricDefinition.aggregation) {
+          if (metricDefinition?.aggregation) {
             regressionAdjustmentAvailableForMetric = false;
             regressionAdjustmentAvailableForMetricReason = (
               <>Not available for metrics with custom aggregations.</>
             );
           }
 
-          const loseRisk = isNaN(mo.loseRisk)
-            ? metricDefinition.loseRisk
-            : mo.loseRisk / 100;
-          const winRisk = isNaN(mo.winRisk)
-            ? metricDefinition.winRisk
-            : mo.winRisk / 100;
-          const riskError =
+          const loseRisk =
+            isUndefined(mo.loseRisk) || isNaN(mo.loseRisk)
+              ? metricDefinition?.loseRisk
+              : mo.loseRisk / 100;
+          const winRisk =
+            isUndefined(mo.winRisk) || isNaN(mo.winRisk)
+              ? metricDefinition?.winRisk
+              : mo.winRisk / 100;
+          let riskError = "";
+          if (
+            !isUndefined(loseRisk) &&
+            !isUndefined(winRisk) &&
             loseRisk < winRisk
-              ? "The acceptable risk percentage cannot be higher than the too risky percentage"
-              : "";
+          ) {
+            riskError =
+              "The acceptable risk percentage cannot be higher than the too risky percentage";
+          }
 
           const regressionAdjustmentDaysHighlightColor =
-            mo.regressionAdjustmentDays > 28 || mo.regressionAdjustmentDays < 7
+            !isUndefined(mo.regressionAdjustmentDays) &&
+            (mo.regressionAdjustmentDays > 28 ||
+              mo.regressionAdjustmentDays < 7)
               ? "#e27202"
               : "";
           const regressionAdjustmentDaysWarningMsg =
+            !isUndefined(mo.regressionAdjustmentDays) &&
             mo.regressionAdjustmentDays > 28
               ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
-              : mo.regressionAdjustmentDays < 7
+              : !isUndefined(mo.regressionAdjustmentDays) &&
+                mo.regressionAdjustmentDays < 7
               ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
               : "";
 
@@ -146,7 +165,7 @@ export default function MetricsOverridesSelector({
               <div>
                 <label className="mb-1">
                   <strong className="text-purple">
-                    {metricDefinition.name}
+                    {metricDefinition?.name}
                   </strong>
                 </label>
 
@@ -168,7 +187,7 @@ export default function MetricsOverridesSelector({
                           placeholder="default"
                           helpText={
                             <div className="text-right">
-                              default: {metricDefinition.conversionDelayHours}
+                              default: {metricDefinition?.conversionDelayHours}
                             </div>
                           }
                           labelClassName="small mb-1"
@@ -187,7 +206,7 @@ export default function MetricsOverridesSelector({
                           placeholder="default"
                           helpText={
                             <div className="text-right">
-                              default: {metricDefinition.conversionWindowHours}{" "}
+                              default: {metricDefinition?.conversionWindowHours}{" "}
                             </div>
                           }
                           labelClassName="small mb-1"
@@ -211,7 +230,7 @@ export default function MetricsOverridesSelector({
                           placeholder="default"
                           helpText={
                             <div className="text-right">
-                              default: {(metricDefinition.winRisk || 0) * 100}%
+                              default: {(metricDefinition?.winRisk ?? 0) * 100}%
                             </div>
                           }
                           append="%"
@@ -231,7 +250,8 @@ export default function MetricsOverridesSelector({
                           placeholder="default"
                           helpText={
                             <div className="text-right">
-                              default: {(metricDefinition.loseRisk || 0) * 100}%
+                              default: {(metricDefinition?.loseRisk ?? 0) * 100}
+                              %
                             </div>
                           }
                           append="%"
@@ -320,7 +340,7 @@ export default function MetricsOverridesSelector({
                             />
                             <div className="small">
                               <small className="form-text text-muted">
-                                {metricDefinition.regressionAdjustmentOverride ? (
+                                {metricDefinition?.regressionAdjustmentOverride ? (
                                   <>
                                     (metric default:{" "}
                                     {metricDefinition.regressionAdjustmentEnabled
@@ -370,7 +390,7 @@ export default function MetricsOverridesSelector({
                               helpText={
                                 <>
                                   <span className="ml-2">
-                                    {metricDefinition.regressionAdjustmentOverride ? (
+                                    {metricDefinition?.regressionAdjustmentOverride ? (
                                       <>
                                         (metric default:{" "}
                                         {
@@ -394,7 +414,7 @@ export default function MetricsOverridesSelector({
                                 {
                                   valueAsNumber: true,
                                   validate: (v) => {
-                                    return !(v <= 0 || v > 100);
+                                    return !((v ?? 0) <= 0 || (v ?? 0) > 100);
                                   },
                                 }
                               )}
@@ -436,8 +456,8 @@ export default function MetricsOverridesSelector({
               options={unusedMetrics.map((m) => {
                 const metric = metricDefinitions.find((md) => md.id === m);
                 return {
-                  label: metric.name,
-                  value: metric.id,
+                  label: metric?.name || `Unknown metric (${m})`,
+                  value: m,
                 };
               })}
               disabled={disabled}

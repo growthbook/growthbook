@@ -3,7 +3,7 @@
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import { NotificationEventName } from "back-end/src/events/base-types";
 import { action } from "@storybook/addon-actions";
-import { getValidDate } from "shared";
+import { getValidDate } from "shared/dates";
 import { EventWebHookDetail } from "./EventWebHookDetail";
 
 export default {
@@ -116,18 +116,9 @@ export const LotsOfEvents = () => {
     "feature.created",
     "feature.updated",
     "feature.deleted",
-    // @ts-ignore
     "experiment.created",
-    // @ts-ignore
     "experiment.updated",
-    // @ts-ignore
     "experiment.deleted",
-    // @ts-ignore
-    "another_resource.created",
-    // @ts-ignore
-    "another_resource.updated",
-    // @ts-ignore
-    "another_resource.deleted",
   ];
 
   return (

@@ -5,6 +5,7 @@ import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentTableRow, useDomain } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "../Tooltip/Tooltip";
@@ -63,14 +64,13 @@ export default function ResultsTable({
   hasRisk,
   riskVariation,
   setRiskVariation,
-  statsEngine,
+  statsEngine = DEFAULT_STATS_ENGINE,
   pValueCorrection,
-  sequentialTestingEnabled,
+  sequentialTestingEnabled = false,
 }: ResultsTableProps) {
-  const domain = useDomain(variations, rows);
   const orgSettings = useOrgSettings();
-  statsEngine = statsEngine ?? orgSettings.statsEngine ?? "bayesian";
-  sequentialTestingEnabled = sequentialTestingEnabled ?? false;
+
+  const domain = useDomain(variations, rows);
 
   return (
     <table
@@ -355,7 +355,7 @@ export default function ResultsTable({
                       (fullStats ? (
                         <PercentGraphColumn
                           barType={
-                            statsEngine === "frequentist" ? "pill" : null
+                            statsEngine === "frequentist" ? "pill" : undefined
                           }
                           baseline={baseline}
                           domain={domain}

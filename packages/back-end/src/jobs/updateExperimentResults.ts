@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { getScopedSettings } from "shared/settings";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -31,6 +32,7 @@ import {
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
 import { orgHasPremiumFeature } from "../util/organization.util";
+import { findProjectById } from "../models/ProjectModel";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -121,6 +123,16 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
   const organization = await findOrganizationById(experiment.organization);
   if (!organization) return;
+
+  let project = null;
+  if (experiment.project) {
+    project = await findProjectById(experiment.project, organization.id);
+  }
+  const { settings: scopedSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+  });
+
   if (organization?.settings?.updateSchedule?.type === "never") return;
 
   const hasRegressionAdjustmentFeature = organization
@@ -149,14 +161,17 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       metricRegressionAdjustmentStatuses,
     } = await getRegressionAdjustmentInfo(experiment, organization);
 
+    const statsEngine = scopedSettings.statsEngine.value;
+
     const experimentSnapshotSettings: ExperimentSnapshotSettings = {
-      statsEngine: organization.settings?.statsEngine || "bayesian",
+      statsEngine,
       regressionAdjustmentEnabled:
         hasRegressionAdjustmentFeature && regressionAdjustmentEnabled,
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
       sequentialTestingEnabled:
         hasSequentialTestingFeature &&
+        statsEngine === "frequentist" &&
         (experiment?.sequentialTestingEnabled ??
           !!organization.settings?.sequentialTestingEnabled),
       sequentialTestingTuningParameter:
@@ -187,9 +202,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
               organization: experiment.organization,
               variations: getReportVariations(experiment, phase),
               queryData,
-              statsEngine:
-                currentSnapshot.statsEngine ??
-                organization.settings?.statsEngine,
+              statsEngine: currentSnapshot.statsEngine,
               sequentialTestingEnabled:
                 currentSnapshot.sequentialTestingEnabled ??
                 organization.settings?.sequentialTestingEnabled,

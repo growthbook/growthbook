@@ -1,13 +1,25 @@
 import { Settings, SettingsContext, SettingsResolver } from "../types";
+import { DEFAULT_STATS_ENGINE } from "../../constants";
 
 const regressionAdjustmentResolver = (
   field: "enabled" | "days"
 ): SettingsResolver<boolean | number> => {
+  // todo: set `meta.scopeApplied`
   return (ctx: SettingsContext) => {
-    if (ctx.baseSettings.statsEngine.value === "bayesian") {
+    if (ctx.baseSettings.statsEngine.value === DEFAULT_STATS_ENGINE) {
       return {
-        enabled: { value: false, meta: { reason: "stats engine is bayesian" } },
-        days: { value: 0, meta: { reason: "" } },
+        enabled: {
+          value: false,
+          meta: {
+            reason: "stats engine is bayesian",
+          },
+        },
+        days: {
+          value: 0,
+          meta: {
+            reason: "",
+          },
+        },
       }[field];
     }
 
@@ -17,6 +29,7 @@ const regressionAdjustmentResolver = (
       .value as Settings["regressionAdjustmentEnabled"];
     let regressionAdjustmentDays = ctx.baseSettings.regressionAdjustmentDays
       .value as Settings["regressionAdjustmentDays"];
+
     let reason = ctx.baseSettings.regressionAdjustmentEnabled.meta.reason;
 
     if (ctx.scopes?.experiment?.regressionAdjustmentEnabled) {
@@ -73,7 +86,10 @@ const regressionAdjustmentResolver = (
           reason,
         },
       },
-      days: { value: regressionAdjustmentDays, meta: {} },
+      days: {
+        value: regressionAdjustmentDays,
+        meta: {},
+      },
     }[field];
   };
 };

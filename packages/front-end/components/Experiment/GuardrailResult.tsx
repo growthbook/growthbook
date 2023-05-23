@@ -44,7 +44,7 @@ const GuardrailResults: FC<{
         return -1;
       }
 
-      return 1 - v.metrics[metric.id]?.chanceToWin;
+      return 1 - (v.metrics[metric.id]?.chanceToWin ?? 0);
     })
   );
   if (maxChance < 0) {

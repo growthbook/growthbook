@@ -1,6 +1,9 @@
 import isEqual from "lodash/isEqual";
 import cloneDeep from "lodash/cloneDeep";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
@@ -341,7 +344,7 @@ export function upgradeOrganizationDoc(
 
   // Add statsEngine setting if not defined
   if (!org.settings.statsEngine) {
-    org.settings.statsEngine = "bayesian";
+    org.settings.statsEngine = DEFAULT_STATS_ENGINE;
   }
 
   // Rename legacy roles

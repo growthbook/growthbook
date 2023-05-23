@@ -150,6 +150,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
 }) => {
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState("");
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
   const [orgId, setOrgId] = useState<string>(null);
   const [organizations, setOrganizations] = useState<UserOrganizations>([]);
   const [
@@ -226,9 +227,12 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   }, []);
 
   const orgList = [...organizations];
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   if (specialOrg && !orgList.map((o) => o.id).includes(specialOrg.id)) {
     orgList.push({
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
       id: specialOrg.id,
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
       name: specialOrg.name,
     });
   }
@@ -317,10 +321,23 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
       }
 
       if (orgs.length > 0) {
-        setOrgId(orgs[0].id);
+        try {
+          const pickedOrg = localStorage.getItem("gb-last-picked-org");
+          if (pickedOrg && !router.query.org) {
+            try {
+              setOrgId(JSON.parse(pickedOrg));
+            } catch (e) {
+              setOrgId(orgs[0].id);
+            }
+          } else {
+            setOrgId(orgs[0].id);
+          }
+        } catch (e) {
+          setOrgId(orgs[0].id);
+        }
       }
     },
-    [initialOrgId, orgId, specialOrg]
+    [initialOrgId, orgId, router.query.org, specialOrg?.id]
   );
 
   if (initError) {
@@ -374,6 +391,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
             method: "POST",
             credentials: "include",
           });
+          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
           setOrgId(null);
           setOrganizations([]);
           setSpecialOrg(null);

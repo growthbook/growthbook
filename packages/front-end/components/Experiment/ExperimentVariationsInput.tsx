@@ -6,7 +6,7 @@ import { SortableExperimentVariationCard } from "./SortableVariationData";
 
 export interface Props {
   variations: Variation[];
-  setVariations?: (variations: Variation[]) => void;
+  setVariations: (variations: Variation[]) => void;
   className?: string;
 }
 

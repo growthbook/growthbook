@@ -3,7 +3,14 @@ import cronParser from "cron-parser";
 import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS, getValidDate } from "shared";
+import { isEqual } from "lodash";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_STATS_ENGINE,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+} from "shared/constants";
+import { getValidDate } from "shared/dates";
+import { getScopedSettings } from "shared/settings";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotInterface,
@@ -61,6 +68,8 @@ import {
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { postMetricValidator } from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
+import { VisualChangesetInterface } from "../../types/visual-changeset";
+import { findProjectById } from "../models/ProjectModel";
 import {
   getReportVariations,
   reportArgsFromSnapshot,
@@ -163,7 +172,7 @@ export async function refreshMetric(
     }
 
     let days = metricAnalysisDays;
-    if (days < 1 || days > 400) {
+    if (days < 1) {
       days = DEFAULT_METRIC_ANALYSIS_DAYS;
     }
 
@@ -448,9 +457,7 @@ export async function createSnapshot({
     queryFilter: experiment.queryFilter || "",
     skipPartialData: experiment.skipPartialData || false,
     statsEngine:
-      experimentSnapshotSettings?.statsEngine ||
-      organization.settings?.statsEngine ||
-      "bayesian",
+      experimentSnapshotSettings?.statsEngine || DEFAULT_STATS_ENGINE,
     regressionAdjustmentEnabled:
       experimentSnapshotSettings?.regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses:
@@ -651,10 +658,20 @@ function getExperimentMetric(
   return ret;
 }
 
-export function toExperimentApiInterface(
+export async function toExperimentApiInterface(
   organization: OrganizationInterface,
   experiment: ExperimentInterface
-): ApiExperiment {
+): Promise<ApiExperiment> {
+  let project = null;
+  if (experiment.project) {
+    project = await findProjectById(experiment.project, organization.id);
+  }
+  const { settings: scopedSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+    // todo: experiment settings
+  });
+
   const activationMetric = experiment.activationMetric;
   return {
     id: experiment.id,
@@ -704,7 +721,7 @@ export function toExperimentApiInterface(
       queryFilter: experiment.queryFilter || "",
       inProgressConversions: experiment.skipPartialData ? "exclude" : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
-      statsEngine: organization.settings?.statsEngine || "bayesian",
+      statsEngine: scopedSettings.statsEngine.value || DEFAULT_STATS_ENGINE,
       goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
       guardrails: (experiment.guardrails || []).map((m) =>
         getExperimentMetric(experiment, m)
@@ -783,7 +800,7 @@ export function toSnapshotApiInterface(
       queryFilter: snapshot.queryFilter || "",
       inProgressConversions: snapshot.skipPartialData ? "exclude" : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
-      statsEngine: snapshot.statsEngine || "bayesian",
+      statsEngine: snapshot.statsEngine || DEFAULT_STATS_ENGINE,
       goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
       guardrails: (experiment.guardrails || []).map((m) =>
         getExperimentMetric(experiment, m)
@@ -810,7 +827,7 @@ export function toSnapshotApiInterface(
               variationId: variationIds[i],
               analyses: [
                 {
-                  engine: snapshot.statsEngine || "bayesian",
+                  engine: snapshot.statsEngine || DEFAULT_STATS_ENGINE,
                   numerator: data?.value || 0,
                   denominator: data?.denominator || data?.users || 0,
                   mean: data?.stats?.mean || 0,
@@ -1233,9 +1250,11 @@ export async function getRegressionAdjustmentInfo(
     const {
       metricRegressionAdjustmentStatus,
     } = getRegressionAdjustmentsForMetric({
-      metric: metric,
-      denominatorMetrics: denominatorMetrics,
-      experimentRegressionAdjustmentEnabled: !!experiment.regressionAdjustmentEnabled,
+      metric: metric as MetricInterface,
+      denominatorMetrics: denominatorMetrics as MetricInterface[],
+      experimentRegressionAdjustmentEnabled:
+        experiment.regressionAdjustmentEnabled ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       organizationSettings: organization.settings,
       metricOverrides: experiment.metricOverrides,
     });
@@ -1342,4 +1361,33 @@ export function getRegressionAdjustmentsForMetric({
       reason,
     },
   };
+}
+
+export function visualChangesetsHaveChanges({
+  oldVisualChangeset,
+  newVisualChangeset,
+}: {
+  oldVisualChangeset: VisualChangesetInterface;
+  newVisualChangeset: VisualChangesetInterface;
+}): boolean {
+  // If there are visual change differences
+  const oldVisualChanges = oldVisualChangeset.visualChanges.map(
+    ({ css, domMutations }) => ({ css, domMutations })
+  );
+  const newVisualChanges = newVisualChangeset.visualChanges.map(
+    ({ css, domMutations }) => ({ css, domMutations })
+  );
+  if (!isEqual(oldVisualChanges, newVisualChanges)) {
+    return true;
+  }
+
+  // If there are URL targeting differences
+  if (
+    !isEqual(oldVisualChangeset.urlPatterns, newVisualChangeset.urlPatterns)
+  ) {
+    return true;
+  }
+
+  // Otherwise, there are no meaningful changes
+  return false;
 }

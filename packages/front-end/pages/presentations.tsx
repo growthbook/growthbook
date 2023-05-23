@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { PresentationInterface } from "back-end/types/presentation";
 import { FaPlus } from "react-icons/fa";
-import { date } from "shared";
+import { date } from "shared/dates";
 import useApi from "../hooks/useApi";
 import LoadingOverlay from "../components/LoadingOverlay";
 import ShareModal from "../components/Share/ShareModal";
@@ -264,6 +264,7 @@ const PresentationPage = (): React.ReactElement => {
         title="Edit Presentation"
         modalState={openEditPresentationModal}
         setModalState={setOpenEditPresentationModal}
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'PresentationInterface | null' is not assigna... Remove this comment to see the full error message
         existing={specificPresentation}
         refreshList={mutate}
       />

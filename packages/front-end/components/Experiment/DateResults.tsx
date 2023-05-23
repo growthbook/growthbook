@@ -4,7 +4,7 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { getValidDate } from "shared";
+import { getValidDate } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatConversionRate } from "@/services/metrics";
 import Toggle from "../Forms/Toggle";
@@ -75,6 +75,7 @@ const DateResults: FC<{
       Array.from(new Set(metrics.concat(guardrails || [])))
         .map((metricId) => {
           const metric = getMetricById(metricId);
+          if (!metric) return;
           // Keep track of cumulative users and value for each variation
           const totalUsers: number[] = [];
           const totalValue: number[] = [];
@@ -153,7 +154,7 @@ const DateResults: FC<{
           };
         })
         // Filter out any edge cases when the metric is undefined
-        .filter((table) => table.metric)
+        .filter((table) => table?.metric) as Metric[]
     );
   }, [results, cumulative, ready]);
 

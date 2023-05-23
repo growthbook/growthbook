@@ -30,7 +30,9 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
     dataSource.settings.userIdTypes,
   ]);
   const existingIdentityJoins = useMemo(
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     () => dataSource.settings.queries.identityJoins || [],
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     [dataSource.settings.queries.identityJoins]
   );
 
@@ -88,6 +90,7 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
       return "Add Identifier Join";
     }
 
+    // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
     return `Edit Identifier Join: ${identityJoin.ids.join(" ↔ ")}`;
   }, [mode, identityJoin]);
 
@@ -106,6 +109,7 @@ export const AddEditIdentityJoinModal: FC<AddEditIdentityJoinModalProps> = ({
       size="max"
       header={modalTitle}
       cta="Save"
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean | ""' is not assignable to type 'boo... Remove this comment to see the full error message
       ctaEnabled={saveEnabled}
       autoFocusSelector="#id-modal-identify-joins-heading"
     >

@@ -4,7 +4,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentStatus,
 } from "back-end/types/experiment";
-import { ago, datetime } from "shared";
+import { ago, datetime, getValidDate } from "shared/dates";
 import { phaseSummary } from "@/services/utils";
 
 export default function ExperimentList({
@@ -32,10 +32,17 @@ export default function ExperimentList({
           endDate;
 
         test.phases.forEach((p) => {
-          if (!startDate || p.dateStarted < startDate) {
-            startDate = p.dateStarted;
+          if (
+            !startDate ||
+            getValidDate(p?.dateStarted ?? "") < getValidDate(startDate)
+          ) {
+            startDate = p.dateStarted ?? "";
           }
-          if (!endDate || p.dateEnded > endDate) endDate = p.dateEnded;
+          if (
+            !endDate ||
+            getValidDate(p?.dateEnded ?? "") > getValidDate(endDate)
+          )
+            endDate = p.dateEnded;
         });
         const currentPhase = test.phases[test.phases.length - 1];
         return (

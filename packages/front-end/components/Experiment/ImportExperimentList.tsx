@@ -2,7 +2,7 @@ import Link from "next/link";
 import React, { FC, useCallback, useState } from "react";
 import { PastExperimentsInterface } from "back-end/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { getValidDate, ago, date, datetime, daysBetween } from "shared";
+import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
@@ -37,7 +37,9 @@ const ImportExperimentList: FC<{
     experiments: PastExperimentsInterface;
     existing: Record<string, string>;
   }>(`/experiments/import/${importId}`);
-  const datasource = getDatasourceById(data?.experiments?.datasource);
+  const datasource = data?.experiments?.datasource
+    ? getDatasourceById(data?.experiments?.datasource)
+    : null;
 
   const status = getQueryStatus(
     data?.experiments?.queries || [],
@@ -119,7 +121,7 @@ const ImportExperimentList: FC<{
   }
 
   const supportedDatasources = datasources.filter(
-    (d) => d.properties.pastExperiments
+    (d) => d?.properties?.pastExperiments
   );
 
   function clearFilters() {
@@ -159,9 +161,9 @@ const ImportExperimentList: FC<{
           <div
             className="text-muted"
             style={{ fontSize: "0.8em" }}
-            title={datetime(data.experiments.runStarted)}
+            title={datetime(data.experiments.runStarted ?? "")}
           >
-            last updated {ago(data.experiments.runStarted)}
+            last updated {ago(data.experiments.runStarted ?? "")}
           </div>
         </div>
         {permissions.check("runQueries", "") && (
@@ -199,7 +201,7 @@ const ImportExperimentList: FC<{
         <>
           <div className="alert alert-danger my-3">
             <p>Error importing experiments.</p>
-            {datasource.id && (
+            {datasource?.id && (
               <p>
                 Your datasource&apos;s <em>Experiment Assignment Queries</em>{" "}
                 may be misconfigured.{" "}
@@ -402,7 +404,7 @@ const ImportExperimentList: FC<{
                               datasource: data?.experiments?.datasource,
                               exposureQueryId: e.exposureQueryId || "",
                               variations: e.variationKeys.map((vKey, i) => {
-                                let vName = e.variationNames[i] || vKey;
+                                let vName = e.variationNames?.[i] || vKey;
                                 // If the name is an integer, rename 0 to "Control" and anything else to "Variation {name}"
                                 if (vName.match(/^[0-9]{1,2}$/)) {
                                   vName =

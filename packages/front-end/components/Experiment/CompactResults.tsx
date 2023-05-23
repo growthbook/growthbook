@@ -68,6 +68,7 @@ const CompactResults: FC<{
     return metrics
       .map((metricId) => {
         const metric = getMetricById(metricId);
+        if (!metric) return null;
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
         let regressionAdjustmentStatus:
           | MetricRegressionAdjustmentStatus
@@ -88,7 +89,7 @@ const CompactResults: FC<{
           regressionAdjustmentStatus,
         };
       })
-      .filter((row) => row.metric);
+      .filter((row) => row?.metric) as ExperimentTableRow[];
   }, [
     results,
     metrics,
@@ -109,10 +110,12 @@ const CompactResults: FC<{
     <>
       <div className="px-3">
         <DataQualityWarning results={results} variations={variations} />
-        <MultipleExposureWarning
-          users={users}
-          multipleExposures={multipleExposures}
-        />
+        {multipleExposures !== undefined && (
+          <MultipleExposureWarning
+            users={users}
+            multipleExposures={multipleExposures}
+          />
+        )}
         <h3 className="mb-3">
           Metrics
           {editMetrics && (
