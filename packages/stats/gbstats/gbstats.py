@@ -16,7 +16,7 @@ from gbstats.frequentist.tests import (
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 )
-from gbstats.shared.constants import StatsEngine
+from gbstats.shared.constants import StatsEngine, TimeSeries
 from gbstats.shared.models import (
     compute_theta,
     BayesianTestResult,
@@ -52,6 +52,20 @@ def detect_unknown_variations(rows, var_id_map, ignore_ids={"__multiple__"}):
         if id not in ignore_ids and id not in var_id_map:
             unknown_var_ids.append(id)
     return set(unknown_var_ids)
+
+
+def accumulate_time_series_df(
+    df: pd.DataFrame, time_series: TimeSeries
+) -> pd.DataFrame:
+    if time_series == TimeSeries.NONE:
+        return df
+    dfc = df.copy()
+    if time_series == TimeSeries.CUMULATIVE:
+        cols_to_accum = ["users", "count"]
+        dfc.sort_values("dimension", inplace=True)
+        dfc[cols_to_accum] = dfc.groupby(["variation"])[cols_to_accum].cumsum()
+        return dfc.loc[(dfc["users"] != 0) | (dfc["count"] != 0)].copy()
+    return dfc
 
 
 # Transform raw SQL result for metrics into a dataframe of dimensions

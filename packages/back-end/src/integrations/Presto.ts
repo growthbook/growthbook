@@ -85,8 +85,8 @@ export default class Presto extends SqlIntegration {
   }
   addTime(
     col: string,
-    unit: "hour" | "minute",
-    sign: "+" | "-",
+    unit: "day" | "hour" | "minute",
+    sign: "+" | "-" | "",
     amount: number
   ): string {
     return `${col} ${sign} INTERVAL '${amount}' ${unit}`;
@@ -105,6 +105,23 @@ export default class Presto extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
+  }
+  getDateTable(startDate: Date, endDate: Date | null): string {
+    return `
+      SELECT ${this.castToDate("t.day")} AS day
+      FROM
+        UNNEST(
+          SEQUENCE(
+            ${this.castToDate(this.toTimestamp(startDate))},
+            ${
+              endDate
+                ? this.castToDate(this.toTimestamp(endDate))
+                : this.currentDate()
+            },
+            ${this.addTime("", "day", "", 1)}
+          )
+        ) AS t(day)
+     `;
   }
   getInformationSchemaFromClause(): string {
     if (!this.params.catalog)

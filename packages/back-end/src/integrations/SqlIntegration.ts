@@ -121,8 +121,8 @@ export default abstract class SqlIntegration
   }
   addTime(
     col: string,
-    unit: "hour" | "minute",
-    sign: "+" | "-",
+    unit: "day" | "hour" | "minute",
+    sign: "+" | "-" | "",
     amount: number
   ): string {
     return `${col} ${sign} INTERVAL '${amount} ${unit}s'`;
@@ -152,6 +152,9 @@ export default abstract class SqlIntegration
   castToString(col: string): string {
     return `cast(${col} as varchar)`;
   }
+  castToDate(col: string): string {
+    return `CAST(${col} AS DATE)`;
+  }
   ensureFloat(col: string): string {
     return col;
   }
@@ -160,6 +163,9 @@ export default abstract class SqlIntegration
   }
   useAliasInGroupBy(): boolean {
     return true;
+  }
+  currentDate(): string {
+    return this.castToDate("CURRENT_DATE()");
   }
   formatDateTimeString(col: string): string {
     return this.castToString(col);
@@ -831,6 +837,7 @@ export default abstract class SqlIntegration
     // across all users. The following flag determines whether to filter out users
     // that have no denominator values
     const ratioIsFunnel = true; // @todo: allow this to be configured
+    const metricDateDimensionCumulative = dimension?.type === "date" && true; // @todo: allow this to be configured
 
     // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
     // where RA is actually possible
@@ -882,6 +889,9 @@ export default abstract class SqlIntegration
     );
 
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
+    const userMetricDimensionCol = metricDateDimensionCumulative
+      ? `${this.formatDate("dr.day")}`
+      : "d.dimension";
 
     const intialMetric =
       activationMetrics.length > 0
@@ -889,6 +899,18 @@ export default abstract class SqlIntegration
         : denominatorMetrics.length > 0
         ? denominatorMetrics[0]
         : metric;
+
+    // Get date range for experiment and analysis
+    const initialConversionWindowHours =
+      intialMetric.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
+    const initialConversionDelayHours = intialMetric.conversionDelayHours || 0;
+
+    const startDate: Date = phase.dateStarted;
+    const endDate: Date | null = this.getExperimentEndDate(
+      experiment,
+      phase,
+      initialConversionWindowHours + initialConversionDelayHours
+    );
 
     return format(
       `-- ${metric.name} (${metric.type})
@@ -903,10 +925,11 @@ export default abstract class SqlIntegration
       ),
       __experiment as (${this.getExperimentCTE({
         experiment,
-        phase,
         baseIdType,
-        conversionWindowHours: intialMetric.conversionWindowHours || 0,
-        conversionDelayHours: intialMetric.conversionDelayHours || 0,
+        startDate,
+        endDate,
+        conversionWindowHours: initialConversionWindowHours,
+        conversionDelayHours: initialConversionDelayHours,
         experimentDimension:
           dimension?.type === "experiment" ? dimension.id : null,
         isRegressionAdjusted: isRegressionAdjusted,
@@ -1064,11 +1087,18 @@ export default abstract class SqlIntegration
         GROUP BY
           e.${baseIdType}
       )
+      ${
+        metricDateDimensionCumulative
+          ? `, __dateRange AS (
+        ${this.getDateTable(startDate, endDate)}
+      )`
+          : ""
+      }
       , __userMetric as (
         -- Add in the aggregate metric value for each user
         SELECT
           d.variation,
-          d.dimension,
+          ${userMetricDimensionCol} AS dimension,
           d.${baseIdType},
           ${this.getAggregateMetricColumn(
             metric,
@@ -1087,15 +1117,16 @@ export default abstract class SqlIntegration
         JOIN __metric m ON (
           m.${baseIdType} = d.${baseIdType}
         )
+        ${metricDateDimensionCumulative ? "CROSS JOIN __dateRange dr" : ""}
         WHERE
           ${this.getMetricWindowWhereClause(
             isRegressionAdjusted,
             ignoreConversionEnd,
-            "d"
+            metricDateDimensionCumulative
           )}
         GROUP BY
           d.variation,
-          d.dimension,
+          ${userMetricDimensionCol},
           d.${baseIdType}
       )
       ${
@@ -1104,7 +1135,7 @@ export default abstract class SqlIntegration
               -- Add in the aggregate denominator value for each user
               SELECT
                 d.variation,
-                d.dimension,
+                ${userMetricDimensionCol} AS dimension,
                 d.${baseIdType},
                 ${this.getAggregateMetricColumn(
                   denominator,
@@ -1115,6 +1146,11 @@ export default abstract class SqlIntegration
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
                   m.${baseIdType} = d.${baseIdType}
                 )
+                ${
+                  metricDateDimensionCumulative
+                    ? "CROSS JOIN __dateRange dr"
+                    : ""
+                }
               WHERE
                 m.timestamp >= d.conversion_start
                 ${
@@ -1122,9 +1158,18 @@ export default abstract class SqlIntegration
                     ? ""
                     : "AND m.timestamp <= d.conversion_end"
                 }
+                ${
+                  metricDateDimensionCumulative
+                    ? `AND ${this.castToDate(
+                        "m.timestamp"
+                      )} <= dr.day AND ${this.castToDate(
+                        "d.dimension"
+                      )} <= dr.day`
+                    : ""
+                }
               GROUP BY
                 d.variation,
-                d.dimension,
+                ${userMetricDimensionCol},
                 d.${baseIdType}
             )`
           : ""
@@ -1161,6 +1206,11 @@ export default abstract class SqlIntegration
             ? `__userDenominator d
               LEFT JOIN __userMetric m ON (
                 d.${baseIdType} = m.${baseIdType}
+                ${
+                  metricDateDimensionCumulative
+                    ? "AND d.dimension = m.dimension"
+                    : ""
+                }
               )`
             : `__userMetric m`
         }
@@ -1184,9 +1234,11 @@ export default abstract class SqlIntegration
           dimension
       )
       SELECT
-        u.variation,
-        u.dimension,
-        ${metric.ignoreNulls ? "COALESCE(s.count, 0)" : "u.users"} AS users,
+        COALESCE(u.variation, s.variation) AS variation,
+        COALESCE(u.dimension, s.dimension) AS dimension,
+        ${
+          metric.ignoreNulls ? "COALESCE(s.count, 0)" : "COALESCE(u.users, 0)"
+        } AS users,
         '${this.getStatisticType(
           isRatio,
           isRegressionAdjusted
@@ -1216,7 +1268,7 @@ export default abstract class SqlIntegration
         }
       FROM
       __overallUsers u
-      LEFT JOIN
+      ${metricDateDimensionCumulative ? "FULL OUTER" : "LEFT"} JOIN
         __stats s ON (
           u.variation = s.variation
           AND u.dimension = s.dimension
@@ -1291,6 +1343,25 @@ export default abstract class SqlIntegration
 
   private getMetricQueryFormat(metric: MetricInterface) {
     return metric.queryFormat || (metric.sql ? "sql" : "builder");
+  }
+
+  getDateTable(startDate: Date, endDate: Date | null): string {
+    return `
+      SELECT ${this.castToDate("t.day")} AS day
+      FROM
+        (
+          SELECT 
+            GENERATE_SERIES(
+              ${this.castToDate(this.toTimestamp(startDate))},
+              ${
+                endDate
+                  ? this.castToDate(this.toTimestamp(endDate))
+                  : this.currentDate()
+              },
+              ${this.addTime("", "day", "", 1)}
+            ) AS day
+        ) t
+     `;
   }
 
   private getMetricCTE({
@@ -1421,17 +1492,18 @@ export default abstract class SqlIntegration
   private getMetricWindowWhereClause(
     isRegressionAdjusted: boolean,
     ignoreConversionEnd: boolean,
-    userAlias: string
+    metricDateDimensionCumulative: boolean
   ): string {
-    const conversionWindowFilter = `
-      m.timestamp >= ${userAlias}.conversion_start
-      ${
-        ignoreConversionEnd
-          ? ""
-          : `AND m.timestamp <= ${userAlias}.conversion_end`
-      }`;
+    let conversionWindowFilter = `
+      m.timestamp >= d.conversion_start
+      ${ignoreConversionEnd ? "" : `AND m.timestamp <= d.conversion_end`}`;
     if (isRegressionAdjusted) {
-      return `(${conversionWindowFilter}) OR (m.timestamp >= ${userAlias}.preexposure_start AND m.timestamp < ${userAlias}.preexposure_end)`;
+      conversionWindowFilter = `(${conversionWindowFilter}) OR (m.timestamp >= d.preexposure_start AND m.timestamp < d.preexposure_end)`;
+    }
+    if (metricDateDimensionCumulative) {
+      conversionWindowFilter = `(${conversionWindowFilter})
+      AND ${this.castToDate("d.dimension")} <= dr.day
+      AND ${this.castToDate("m.timestamp")} <= dr.day`;
     }
     return conversionWindowFilter;
   }
@@ -1439,7 +1511,8 @@ export default abstract class SqlIntegration
   private getExperimentCTE({
     experiment,
     baseIdType,
-    phase,
+    startDate,
+    endDate,
     conversionWindowHours = 0,
     conversionDelayHours = 0,
     experimentDimension = null,
@@ -1450,7 +1523,8 @@ export default abstract class SqlIntegration
   }: {
     experiment: ExperimentInterface;
     baseIdType: string;
-    phase: ExperimentPhase;
+    startDate: Date;
+    endDate: Date | null;
     conversionWindowHours: number;
     conversionDelayHours: number;
     experimentDimension: string | null;
@@ -1459,15 +1533,6 @@ export default abstract class SqlIntegration
     minMetricDelay: number;
     ignoreConversionEnd: boolean;
   }) {
-    conversionWindowHours =
-      conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
-
-    const endDate = this.getExperimentEndDate(
-      experiment,
-      phase,
-      conversionWindowHours + conversionDelayHours
-    );
-
     const timestampColumn = this.castUserDateCol("e.timestamp");
 
     return `-- Viewed Experiment
@@ -1504,7 +1569,7 @@ export default abstract class SqlIntegration
         __rawExperiment e
     WHERE
         e.experiment_id = '${experiment.trackingKey}'
-        AND ${timestampColumn} >= ${this.toTimestamp(phase.dateStarted)}
+        AND ${timestampColumn} >= ${this.toTimestamp(startDate)}
         ${
           endDate
             ? `AND ${timestampColumn} <= ${this.toTimestamp(endDate)}`

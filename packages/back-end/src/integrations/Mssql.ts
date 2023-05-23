@@ -42,7 +42,7 @@ export default class Mssql extends SqlIntegration {
 
   addTime(
     col: string,
-    unit: "hour" | "minute",
+    unit: "day" | "hour" | "minute",
     sign: "+" | "-",
     amount: number
   ): string {
@@ -66,6 +66,9 @@ export default class Mssql extends SqlIntegration {
   }
   formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
+  }
+  currentDate(): string {
+    return this.castToDate("GETDATE()");
   }
   getInformationSchemaFromClause(): string {
     if (!this.params.database)

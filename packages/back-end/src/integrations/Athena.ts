@@ -28,7 +28,7 @@ export default class Athena extends SqlIntegration {
   }
   addTime(
     col: string,
-    unit: "hour" | "minute",
+    unit: "day" | "day" | "day" | "day" | "day" | "day" | "hour" | "minute",
     sign: "+" | "-",
     amount: number
   ): string {

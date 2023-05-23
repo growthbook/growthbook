@@ -27,7 +27,7 @@ export default class Databricks extends SqlIntegration {
   }
   addTime(
     col: string,
-    unit: "hour" | "minute",
+    unit: "day" | "hour" | "minute",
     sign: "+" | "-",
     amount: number
   ): string {

@@ -34,6 +34,21 @@ export default class Snowflake extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
+  getDateTable(startDate: Date, endDate: Date | null): string {
+    const startDateTrunc: string = this.castToDate(this.toTimestamp(startDate));
+    return `
+      SELECT ${this.castToDate(startDateTrunc)} + VALUE::INT AS day
+      FROM TABLE(FLATTEN(ARRAY_GENERATE_RANGE(
+        0, 
+        ${this.dateDiff(
+          startDateTrunc,
+          this.castToDate(
+            endDate ? this.toTimestamp(endDate) : "CURRENT_DATE()"
+          )
+        )} +1
+      )))
+    `;
+  }
   getInformationSchemaFromClause(): string {
     if (!this.params.database)
       throw new Error(
