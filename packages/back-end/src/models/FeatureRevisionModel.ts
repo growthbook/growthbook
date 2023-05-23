@@ -20,9 +20,9 @@ featureRevisionSchema.index(
   { unique: true }
 );
 
-type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
+// type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
 
-const FeatureRevisionModel = mongoose.model<FeatureRevisionDocument>(
+const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
   "FeatureRevision",
   featureRevisionSchema
 );

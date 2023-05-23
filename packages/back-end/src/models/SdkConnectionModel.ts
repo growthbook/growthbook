@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
+import { omit } from "lodash";
 import { ApiSdkConnection } from "../../types/openapi";
 import {
   CreateSDKConnectionParams,
@@ -61,7 +62,7 @@ const sdkConnectionSchema = new mongoose.Schema({
 
 type SDKConnectionDocument = mongoose.Document & SDKConnectionInterface;
 
-const SDKConnectionModel = mongoose.model<SDKConnectionDocument>(
+const SDKConnectionModel = mongoose.model<SDKConnectionInterface>(
   "SdkConnection",
   sdkConnectionSchema
 );
@@ -78,9 +79,9 @@ function addEnvProxySettings(proxy: ProxyConnection): ProxyConnection {
 }
 
 function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
-  const conn = doc.toJSON();
+  const conn = doc.toJSON<SDKConnectionDocument>();
   conn.proxy = addEnvProxySettings(conn.proxy);
-  return conn;
+  return omit(conn, ["__v", "_id"]);
 }
 
 export async function findSDKConnectionById(id: string) {
