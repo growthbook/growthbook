@@ -191,7 +191,6 @@ export const supportedCurrencies = {
   UAH: "Hryvnia (UAH)",
   UGX: "Uganda Shilling (UGX)",
   USD: "US Dollar (USD)",
-  USN: "US Dollar (Next day) (USN)",
   UYI: "Uruguay Peso en Unidades Indexadas (UI) (UYI)",
   UYU: "Peso Uruguayo (UYU)",
   UYW: "Unidad Previsional (UYW)",
