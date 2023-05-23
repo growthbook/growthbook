@@ -3,9 +3,8 @@ import { useUser } from "@/services/UserContext";
 
 export function useCurrency(): string {
   const { settings } = useUser();
-  return (
-    Object.keys(supportedCurrencies).find(
-      (key) => key === settings.displayCurrency
-    ) || "USD"
-  );
+  return settings.displayCurrency &&
+    settings.displayCurrency in supportedCurrencies
+    ? settings.displayCurrency
+    : "USD";
 }
