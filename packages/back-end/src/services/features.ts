@@ -651,6 +651,7 @@ export function getNextScheduledUpdate(
   return new Date(sortedFutureDates[0]);
 }
 
+// Specific hashing entrypoint for Feature rules
 export function applyFeatureHashing(
   features: Record<string, FeatureDefinition>,
   attributes: SDKAttributeSchema,
@@ -662,11 +663,11 @@ export function applyFeatureHashing(
       if (feature?.rules) {
         feature.rules = feature.rules.map<FeatureDefinitionRule>((rule) => {
           if (rule?.condition) {
-            rule.condition = applyConditionHashing(
-              rule.condition,
+            rule.condition = hashStrings({
+              obj: rule.condition,
+              salt,
               attributes,
-              salt
-            );
+            });
           }
           return rule;
         });
@@ -678,6 +679,7 @@ export function applyFeatureHashing(
   );
 }
 
+// Specific hashing entrypoint for Experiment conditions
 export function applyExperimentHashing(
   experiments: SDKExperiment[],
   attributes: SDKAttributeSchema,
@@ -685,44 +687,36 @@ export function applyExperimentHashing(
 ): SDKExperiment[] {
   return experiments.map((experiment) => {
     if (experiment?.condition) {
-      experiment.condition = applyConditionHashing(
-        experiment.condition,
+      experiment.condition = hashStrings({
+        obj: experiment.condition,
+        salt,
         attributes,
-        salt
-      );
+      });
     }
     return experiment;
   });
 }
 
-export function applyConditionHashing(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  condition: any,
-  attributes: SDKAttributeSchema,
-  salt: string
-) {
-  return hashStrings({ obj: condition, salt, attributes });
-}
-
 interface hashStringsArgs {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   obj: any;
+  salt: string;
+  attributes: SDKAttributeSchema;
   attribute?: SDKAttribute;
   doHash?: boolean;
 }
-function hashStrings({
+// General recursive entrypoint for hashing secure attributes within a set of targeting conditions:
+export function hashStrings({
   obj,
   salt,
   attributes,
   attribute,
   doHash = false,
-}: hashStringsArgs & {
-  salt: string;
-  attributes: SDKAttributeSchema;
-}): // eslint-disable-next-line @typescript-eslint/no-explicit-any
+}: hashStringsArgs): // eslint-disable-next-line @typescript-eslint/no-explicit-any
 any {
+  // Given an object of unknown type, determine whether to recurse into it or return it
   if (Array.isArray(obj)) {
-    // parse array
+    // loop over array elements, process them
     const newObj = [];
     for (let i = 0; i < obj.length; i++) {
       newObj[i] = processVal({
@@ -733,7 +727,7 @@ any {
     }
     return newObj;
   } else if (typeof obj === "object" && obj !== null) {
-    // parse object
+    // loop over object entries, process them
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const newObj: any = {};
     for (const key in obj) {
@@ -760,11 +754,17 @@ any {
     return obj;
   }
 
+  // Helper function for processing a value. Will either hash it, recurse into it, or skip (return) it.
   function processVal({
     obj,
     attribute,
     doHash = false,
-  }: hashStringsArgs): // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  }: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    obj: any;
+    attribute?: SDKAttribute;
+    doHash?: boolean;
+  }): // eslint-disable-next-line @typescript-eslint/no-explicit-any
   any {
     if (Array.isArray(obj)) {
       // recurse array

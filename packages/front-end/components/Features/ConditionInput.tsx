@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { some } from "lodash";
+import { FaExclamationCircle } from "react-icons/fa";
 import {
   condToJson,
   jsonToConds,
@@ -58,6 +60,11 @@ export default function ConditionInput(props: Props) {
   ];
 
   if (advanced || !attributes.size || !simpleAllowed) {
+    const hasSecureAttributes = some(
+      [...attributes].filter(([_, a]) =>
+        ["secureString", "secureString[]"].includes(a.datatype)
+      )
+    );
     return (
       <div className="mb-3">
         <CodeTextArea
@@ -67,26 +74,34 @@ export default function ConditionInput(props: Props) {
           value={value}
           setValue={setValue}
           helpText={
-            <div className="d-flex">
-              <div>JSON format using MongoDB query syntax.</div>
-              {simpleAllowed && attributes.size && (
-                <div className="ml-auto">
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const newConds = jsonToConds(value, attributes);
-                      // TODO: show error
-                      if (newConds === null) return;
-                      setConds(newConds);
-                      setAdvanced(false);
-                    }}
-                  >
-                    switch to simple mode
-                  </a>
+            <>
+              <div className="d-flex">
+                <div>JSON format using MongoDB query syntax.</div>
+                {simpleAllowed && attributes.size && (
+                  <div className="ml-auto">
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const newConds = jsonToConds(value, attributes);
+                        // TODO: show error
+                        if (newConds === null) return;
+                        setConds(newConds);
+                        setAdvanced(false);
+                      }}
+                    >
+                      switch to simple mode
+                    </a>
+                  </div>
+                )}
+              </div>
+              {hasSecureAttributes && (
+                <div className="mt-1 text-warning-orange">
+                  <FaExclamationCircle /> Secure attribute hashing not
+                  guaranteed to work for complicated rules
                 </div>
               )}
-            </div>
+            </>
           }
         />
       </div>

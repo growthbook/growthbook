@@ -10,7 +10,7 @@ import {
 } from "../src/util/features";
 import { getCurrentEnabledState } from "../src/util/scheduleRules";
 import { FeatureInterface, ScheduleRule } from "../types/feature";
-import { applyConditionHashing } from "../src/services/features";
+import { hashStrings } from "../src/services/features";
 import { SDKAttributeSchema } from "../types/organization";
 
 const groupMap = new Map();
@@ -220,11 +220,11 @@ describe("Hashing secureString types", () => {
       company: "AcmeCo",
     };
 
-    condition = applyConditionHashing(
-      condition,
+    condition = hashStrings({
+      obj: condition,
+      salt: secureAttributeSalt,
       attributes,
-      secureAttributeSalt
-    );
+    });
 
     expect(condition).toEqual({
       ids: {
@@ -274,14 +274,24 @@ describe("Hashing secureString types", () => {
         {
           whatever: "1",
         },
+        {
+          id: ["3", "5", "10"],
+        },
       ],
+      id: {
+        $not: {
+          $elemMatch: {
+            $in: ["b", "c", "d"],
+          },
+        },
+      },
     };
 
-    condition = applyConditionHashing(
-      condition,
+    condition = hashStrings({
+      obj: condition,
+      salt: secureAttributeSalt,
       attributes,
-      secureAttributeSalt
-    );
+    });
 
     expect(condition).toEqual({
       $or: [
@@ -313,7 +323,25 @@ describe("Hashing secureString types", () => {
         {
           whatever: "1",
         },
+        {
+          id: [
+            "5ec1a7686c15f1fef131baea7d59acf29f2623d50dbad079a2685e19158ad494",
+            "855279ed7f7f86a26b1c9f6a5c827b35728638219b0dae61db6b0578d8e21360",
+            "cfec6b2485875c0172509320a1076d9d91cc9fd7fb70ed4d2d4c62d29b1a9ce3",
+          ],
+        },
       ],
+      id: {
+        $not: {
+          $elemMatch: {
+            $in: [
+              "4d07b4e570f0e719baa23054c01a49eabfe55952c2161c28b73d1f98cfdc4991",
+              "b1f66640509e58acb4b99afd32ecf51d1b8e61d577b909d2e7a3d2a48a53ed51",
+              "374877627d479396ae4c4bae9bf06fe1f0db9d6571ddb23479a2ff76ff925c0f",
+            ],
+          },
+        },
+      },
     });
   });
 });
