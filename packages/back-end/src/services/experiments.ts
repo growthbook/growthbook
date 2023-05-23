@@ -305,7 +305,7 @@ export async function getManualSnapshotData(
   };
 }
 
-function getSnapshotSettings(
+export function getSnapshotSettings(
   experiment: ExperimentInterface,
   phaseIndex: number,
   settings: ExperimentSnapshotAnalysisSettings,
