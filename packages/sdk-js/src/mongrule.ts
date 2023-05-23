@@ -129,6 +129,14 @@ function elemMatch(actual: any, expected: any) {
   return false;
 }
 
+function isIn(actual: any, expected: Array<any>): boolean {
+  // Do an intersection is attribute is an array
+  if (Array.isArray(actual)) {
+    return actual.some((el) => expected.includes(el));
+  }
+  return expected.includes(actual);
+}
+
 // Evaluate a single operator condition
 function evalOperatorCondition(
   operator: Operator,
@@ -163,9 +171,11 @@ function evalOperatorCondition(
     case "$exists":
       return expected ? actual !== null : actual === null;
     case "$in":
-      return expected.includes(actual);
+      if (!Array.isArray(expected)) return false;
+      return isIn(actual, expected);
     case "$nin":
-      return !expected.includes(actual);
+      if (!Array.isArray(expected)) return false;
+      return !isIn(actual, expected);
     case "$not":
       return !evalConditionValue(expected, actual);
     case "$size":

@@ -89,6 +89,7 @@ function generateVisualExperimentsPayload(
         status: e.status,
         variations: v.visualChanges.map((vc) => ({
           css: vc.css,
+          js: vc.js || "",
           domMutations: vc.domMutations,
         })),
         hashVersion: 2,
