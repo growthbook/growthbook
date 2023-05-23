@@ -29,7 +29,10 @@ import ResultMoreMenu from "./ResultMoreMenu";
 import PhaseSelector from "./PhaseSelector";
 import { useSnapshot } from "./SnapshotProvider";
 
-function isDifferent(val1?: string | boolean, val2?: string | boolean) {
+function isDifferent(
+  val1?: string | boolean | null,
+  val2?: string | boolean | null
+) {
   if (!val1 && !val2) return false;
   return val1 !== val2;
 }
@@ -52,10 +55,7 @@ function isOutdated(
     return { outdated: true, reason: "Stats engine changed" };
   }
   if (
-    isDifferent(
-      experiment.activationMetric,
-      snapshotSettings.activationMetric?.id
-    )
+    isDifferent(experiment.activationMetric, snapshotSettings.activationMetric)
   ) {
     return { outdated: true, reason: "Activation metric changed" };
   }
