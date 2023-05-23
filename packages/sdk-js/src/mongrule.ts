@@ -8,6 +8,7 @@ import {
   OperatorConditionValue,
   VarType,
 } from "./types/mongrule";
+import { paddedVersionString } from "./util";
 
 const _regexCache: { [key: string]: RegExp } = {};
 
@@ -143,6 +144,18 @@ function evalOperatorCondition(
   expected: any
 ): boolean {
   switch (operator) {
+    case "$veq":
+      return paddedVersionString(actual) === paddedVersionString(expected);
+    case "$vne":
+      return paddedVersionString(actual) !== paddedVersionString(expected);
+    case "$vgt":
+      return paddedVersionString(actual) > paddedVersionString(expected);
+    case "$vgte":
+      return paddedVersionString(actual) >= paddedVersionString(expected);
+    case "$vlt":
+      return paddedVersionString(actual) < paddedVersionString(expected);
+    case "$vlte":
+      return paddedVersionString(actual) <= paddedVersionString(expected);
     case "$eq":
       return actual === expected;
     case "$ne":
