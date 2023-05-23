@@ -39,7 +39,7 @@ import { AttributionModelTooltip } from "@/components/Experiment/AttributionMode
 import Tab from "@/components/Tabs/Tab";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
-import useOrgSettings from "@/hooks/useOrgSettings";
+import { useCurrency } from "@/hooks/useCurrency";
 
 export const supportedCurrencies = {
   AED: "UAE Dirham (AED)",
@@ -239,7 +239,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
     settings.statsEngine || DEFAULT_STATS_ENGINE
   );
-  const orgSettings = useOrgSettings();
+  const displayCurrency = useCurrency();
 
   const currencyOptions = Object.entries(
     supportedCurrencies
@@ -308,7 +308,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       sequentialTestingEnabled: false,
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       attributionModel: "firstExposure",
-      displayCurrency: orgSettings.displayCurrency || "USD",
+      displayCurrency,
     },
   });
   const { apiCall } = useAuth();
