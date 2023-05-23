@@ -4,7 +4,6 @@ import {
   ProjectScopedPermission,
 } from "back-end/types/organization";
 import { PermissionFunctions } from "@/services/UserContext";
-import { SupportedCurrencies } from "@/pages/settings";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -30,7 +29,7 @@ export function getMetricConversionTitle(type: MetricType): string {
 export function formatConversionRate(
   type: MetricType,
   value: number,
-  currency?: SupportedCurrencies
+  currency?: string
 ): string {
   value = value || 0;
   if (type === "count") {

@@ -18,7 +18,6 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
 import { getValidDate, date } from "shared/dates";
 import { formatConversionRate } from "@/services/metrics";
-import { SupportedCurrencies } from "@/pages/settings";
 import { useCurrency } from "@/hooks/useCurrency";
 import styles from "./DateGraph.module.scss";
 type TooltipData = { x: number; y: number; d: Datapoint };
@@ -82,7 +81,7 @@ function getTooltipContents(
   type: MetricType,
   method: "sum" | "avg",
   smoothBy: "day" | "week",
-  displayCurrency?: SupportedCurrencies
+  displayCurrency?: string
 ) {
   if (!d || d.oor) return null;
   return (

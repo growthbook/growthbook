@@ -214,8 +214,6 @@ export const supportedCurrencies = {
   ZWL: "Zimbabwe Dollar (ZWL)",
 };
 
-export type SupportedCurrencies = keyof typeof supportedCurrencies;
-
 function hasChanges(
   value: OrganizationSettings,
   existing: OrganizationSettings
@@ -1284,7 +1282,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     label="Display Currency"
                     value={form.watch("displayCurrency") || "USD"}
                     options={currencyOptions}
-                    onChange={(v: SupportedCurrencies) =>
+                    onChange={(v: string) =>
                       form.setValue("displayCurrency", v)
                     }
                     required
