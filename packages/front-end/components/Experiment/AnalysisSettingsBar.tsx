@@ -20,6 +20,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { trackSnapshot } from "@/services/track";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import DimensionChooser from "../Dimensions/DimensionChooser";
@@ -304,6 +305,20 @@ export default function AnalysisSettingsBar({
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
+                      const snapshotProps = {
+                        source: "RunQueriesButton",
+                        experiment: experiment.id,
+                        engine: statsEngine,
+                        regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
+                        sequentialTestingEnabled: !!experiment.sequentialTestingEnabled,
+                        sequentialTestingTuningParameter:
+                          experiment.sequentialTestingTuningParameter || null,
+                        skipPartialData: !!experiment.skipPartialData,
+                        activationMetricSelected: !!experiment.activationMetric,
+                        queryFilterSelected: !!experiment.queryFilter,
+                        segmentSelected: !!experiment.segment,
+                        dimension: dimension || "",
+                      };
                       apiCall(`/experiment/${experiment.id}/snapshot`, {
                         method: "POST",
                         body: JSON.stringify({
@@ -315,11 +330,16 @@ export default function AnalysisSettingsBar({
                         }),
                       })
                         .then(() => {
+                          trackSnapshot("create", snapshotProps);
                           mutate();
                           setRefreshError("");
                         })
                         .catch((e) => {
                           setRefreshError(e.message);
+                          trackSnapshot("error", {
+                            ...snapshotProps,
+                            error: e.message,
+                          });
                         });
                     }}
                   >
@@ -355,6 +375,20 @@ export default function AnalysisSettingsBar({
             <ResultMoreMenu
               id={snapshot?.id || ""}
               forceRefresh={async () => {
+                const snapshotProps = {
+                  source: "ForceRerunQueriesButton",
+                  experiment: experiment.id,
+                  engine: statsEngine,
+                  regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
+                  sequentialTestingEnabled: !!experiment.sequentialTestingEnabled,
+                  sequentialTestingTuningParameter:
+                    experiment.sequentialTestingTuningParameter || null,
+                  skipPartialData: !!experiment.skipPartialData,
+                  activationMetricSelected: !!experiment.activationMetric,
+                  queryFilterSelected: !!experiment.queryFilter,
+                  segmentSelected: !!experiment.segment,
+                  dimension: dimension || "",
+                };
                 await apiCall(
                   `/experiment/${experiment.id}/snapshot?force=true`,
                   {
@@ -369,10 +403,15 @@ export default function AnalysisSettingsBar({
                   }
                 )
                   .then(() => {
+                    trackSnapshot("create", snapshotProps);
                     mutate();
                   })
                   .catch((e) => {
                     console.error(e);
+                    trackSnapshot("error", {
+                      ...snapshotProps,
+                      error: e.message,
+                    });
                   });
               }}
               configure={() => setModalOpen(true)}

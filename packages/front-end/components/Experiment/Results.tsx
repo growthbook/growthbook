@@ -18,6 +18,7 @@ import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import StatusBanner from "@/components/Experiment/StatusBanner";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { trackSnapshot } from "@/services/track";
 import PValueGuardrailResults from "./PValueGuardrailResults";
 
 const BreakDownResults = dynamic(
@@ -193,6 +194,20 @@ const Results: FC<{
                 phase,
                 dimension,
               }),
+            });
+            trackSnapshot("create", {
+              source: "VariationIdWarning",
+              experiment: experiment.id,
+              engine: statsEngine,
+              regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
+              sequentialTestingEnabled: !!experiment.sequentialTestingEnabled,
+              sequentialTestingTuningParameter:
+                experiment.sequentialTestingTuningParameter || null,
+              skipPartialData: !!experiment.skipPartialData,
+              activationMetricSelected: !!experiment.activationMetric,
+              queryFilterSelected: !!experiment.queryFilter,
+              segmentSelected: !!experiment.segment,
+              dimension: dimension || "",
             });
 
             mutateExperiment();

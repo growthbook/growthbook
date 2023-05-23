@@ -10,6 +10,7 @@ Track anonymous usage statistics
 
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
+import { StatsEngine } from "@/../back-end/types/stats";
 import { getCurrentUser } from "./UserContext";
 import {
   getGrowthBookBuild,
@@ -76,4 +77,26 @@ export default function track(
   }
 
   jitsu.track(event, trackProps);
+}
+
+export function trackSnapshot(
+  event: "create" | "update" | "delete" | "error",
+  props: {
+    source: string;
+    experiment: string;
+    engine: StatsEngine;
+    regressionAdjustmentEnabled: boolean;
+    sequentialTestingEnabled: boolean;
+    sequentialTestingTuningParameter: number | null;
+    skipPartialData: boolean;
+    activationMetricSelected: boolean;
+    queryFilterSelected: boolean;
+    segmentSelected: boolean;
+    dimension: string;
+    error?: string;
+  }
+): void {
+  props.experiment = md5(props.experiment);
+  props.dimension = props.dimension ? md5(props.dimension) : "";
+  track("Experiment Snapshot: " + event, props);
 }

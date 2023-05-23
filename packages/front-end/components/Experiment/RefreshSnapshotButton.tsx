@@ -5,6 +5,7 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import { StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useAuth } from "@/services/auth";
+import { trackSnapshot } from "@/services/track";
 import Button from "../Button";
 import ManualSnapshotForm from "./ManualSnapshotForm";
 
@@ -54,7 +55,20 @@ const RefreshSnapshotButton: FC<{
         }),
       }
     );
-
+    trackSnapshot("create", {
+      source: "RefreshSnapshotButton",
+      experiment: experiment.id,
+      engine: statsEngine || "bayesian",
+      regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
+      sequentialTestingEnabled: !!experiment.sequentialTestingEnabled,
+      sequentialTestingTuningParameter:
+        experiment.sequentialTestingTuningParameter || null,
+      skipPartialData: !!experiment.skipPartialData,
+      activationMetricSelected: !!experiment.activationMetric,
+      queryFilterSelected: !!experiment.queryFilter,
+      segmentSelected: !!experiment.segment,
+      dimension: dimension || "",
+    });
     mutate();
   };
 

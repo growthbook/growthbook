@@ -12,6 +12,7 @@ import {
   formatConversionRate,
   getMetricConversionTitle,
 } from "@/services/metrics";
+import { trackSnapshot } from "@/services/track";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import { SRM_THRESHOLD } from "./SRMWarning";
@@ -209,6 +210,20 @@ const ManualSnapshotForm: FC<{
         }),
       }
     );
+    trackSnapshot("create", {
+      source: "ManualSnapshotForm",
+      experiment: experiment.id,
+      engine: "bayesian",
+      regressionAdjustmentEnabled: false,
+      sequentialTestingEnabled: !!experiment.sequentialTestingEnabled,
+      sequentialTestingTuningParameter:
+        experiment.sequentialTestingTuningParameter || null,
+      skipPartialData: !!experiment.skipPartialData,
+      activationMetricSelected: !!experiment.activationMetric,
+      queryFilterSelected: !!experiment.queryFilter,
+      segmentSelected: !!experiment.segment,
+      dimension: "",
+    });
 
     success();
   });
