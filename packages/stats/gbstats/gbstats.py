@@ -60,11 +60,25 @@ def accumulate_time_series_df(
     if time_series == TimeSeries.NONE:
         return df
     dfc = df.copy()
-    if time_series == TimeSeries.CUMULATIVE:
-        cols_to_accum = ["users", "count"]
-        dfc.sort_values("dimension", inplace=True)
-        dfc[cols_to_accum] = dfc.groupby(["variation"])[cols_to_accum].cumsum()
-        return dfc.loc[(dfc["users"] != 0) | (dfc["count"] != 0)].copy()
+    cols_to_accum = ["users", "count"]
+    dfc.sort_values("dimension", inplace=True)
+    dfc[cols_to_accum] = dfc.groupby(["variation"])[cols_to_accum].cumsum()
+    if time_series == TimeSeries.DAILY:
+        diff_cols = [
+            x
+            for x in [
+                "main_sum",
+                "main_sum_squares",
+                "denominator_sum",
+                "denominator_sum_squares",
+                "main_denominator_sum_product",
+                "covariate_sum",
+                "covariate_sum_squares",
+                "main_covariate_sum_product",
+            ]
+            if x in dfc.columns
+        ]
+        dfc[diff_cols] = dfc.groupby(["variation"])[diff_cols].diff().fillna(0)
     return dfc
 
 

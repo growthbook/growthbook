@@ -49,7 +49,7 @@ export default class Mysql extends SqlIntegration {
   addTime(
     col: string,
     unit: "day" | "hour" | "minute",
-    sign: "+" | "-",
+    sign: "+" | "-" | "",
     amount: number
   ): string {
     return `DATE_${

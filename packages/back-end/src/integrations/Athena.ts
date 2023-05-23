@@ -28,8 +28,8 @@ export default class Athena extends SqlIntegration {
   }
   addTime(
     col: string,
-    unit: "day" | "day" | "day" | "day" | "day" | "day" | "hour" | "minute",
-    sign: "+" | "-",
+    unit: "day" | "hour" | "minute",
+    sign: "+" | "-" | "",
     amount: number
   ): string {
     return `${col} ${sign} INTERVAL '${amount}' ${unit}`;
