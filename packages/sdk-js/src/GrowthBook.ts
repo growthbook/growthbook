@@ -292,12 +292,16 @@ export class GrowthBook<
     return this._runAutoExperiment(exp, true);
   }
 
-  private _runAutoExperiment(experiment: AutoExperiment, forced?: boolean) {
+  private _runAutoExperiment(
+    experiment: AutoExperiment,
+    forceManual?: boolean,
+    forceRerun?: boolean
+  ) {
     const key = experiment.key;
     const existing = this._activeAutoExperiments.get(key);
 
     // If this is a manual experiment and it's not already running, skip
-    if (!forced && experiment.manual && !existing) return null;
+    if (experiment.manual && !forceManual && !existing) return null;
 
     // Run the experiment
     const result = this.run(experiment);
@@ -307,10 +311,10 @@ export class GrowthBook<
 
     // If the changes are already active, no need to re-apply them
     if (
+      !forceRerun &&
       result.inExperiment &&
       existing &&
-      existing.valueHash === valueHash &&
-      !forced
+      existing.valueHash === valueHash
     ) {
       return result;
     }
@@ -340,7 +344,7 @@ export class GrowthBook<
     }
   }
 
-  private _updateAllAutoExperiments(force?: boolean) {
+  private _updateAllAutoExperiments(forceRerun?: boolean) {
     const experiments = this._ctx.experiments || [];
 
     // Stop any experiments that are no longer defined
@@ -354,7 +358,7 @@ export class GrowthBook<
 
     // Re-run all new/updated experiments
     experiments.forEach((exp) => {
-      this._runAutoExperiment(exp, !!force);
+      this._runAutoExperiment(exp, false, forceRerun);
     });
   }
 
