@@ -48,7 +48,8 @@ export async function generateExperimentNotebook(
   if (!snapshot.queries?.length) {
     throw new Error("Snapshot does not have queries");
   }
-  if (!snapshot.results?.[0]?.variations?.[0]) {
+  const analysis = snapshot.analyses[0];
+  if (!analysis || !analysis.results?.[0]?.variations?.[0]) {
     throw new Error("Snapshot does not have data");
   }
 
@@ -64,7 +65,7 @@ export async function generateExperimentNotebook(
   return generateNotebook(
     organization,
     snapshot.queries,
-    reportArgsFromSnapshot(experiment, snapshot),
+    reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
     `/experiment/${experiment.id}`,
     experiment.name,
     experiment.hypothesis || ""
