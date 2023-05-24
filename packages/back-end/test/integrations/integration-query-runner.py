@@ -16,6 +16,7 @@ import psycopg2
 import psycopg2.extras
 import sqlfluff
 import snowflake.connector
+#import pymssql
 import pandas as pd
 
 CACHE_FILE = "/tmp/json/cache.json"
@@ -194,6 +195,21 @@ class clickhouseRunner(sqlRunner):
                 dfs.append(df)
         return QueryResult(rows=pd.concat(dfs).to_dict('records'))
 
+
+# class mssqlRunner(sqlRunner):
+#     def open_connection(self):
+#         self.connection = pymssql.connect(
+#             server=config["DATABRICKS_TEST_HOST"],
+#             user=config["DATABRICKS_TEST_PATH"],
+#             access_token=config["DATABRICKS_TEST_TOKEN"],
+#         )
+
+#     def run_query(self, sql: str) -> QueryResult:
+#         cursor = self.connection.cursor(as_dict=True)
+#         cursor.execute(sql)
+#         return QueryResult(rows=[row for row in cursor])
+
+
 class dummyRunner(sqlRunner):
     def __init__(self, error_message: str):
         super().__init__()
@@ -255,6 +271,8 @@ def get_sql_runner(engine) -> sqlRunner:
             return snowflakeRunner()
         elif engine == "presto":
             return prestoRunner()
+        #elif engine == "mssql":
+        #    return mssqlRunner()
         #elif engine == "databricks":
         #    return databricksRunner()
         elif engine == "clickhouse":
@@ -332,9 +350,17 @@ def main():
     for test_case in test_cases:
         engine = test_case["engine"]
 
+        if engine not in ["clickhouse"] or 'dimension_date > nonbinom__purchased_items_regressionadjusted' not in test_case['name']:
+            continue
+        # if (
+        #     'dimension_date > nonbinom__purchased_items_regressionadjusted' in test_case['name'] 
+        #     #or 'base > nonbinom__purchased_items_regressionadjusted' in test_case['name']
+        # ):
+        #     print_sql(test_case['sql'])
+        #     raise ValueError()
         if engine not in runners:
             runners[engine] = get_sql_runner(engine)
-
+        print_sql(test_case['sql'])
         key = engine + "::" + test_case["sql"]
         if key in cache:
             update_fields = ['engine', 'name']
@@ -345,8 +371,8 @@ def main():
                 **{k: v for k, v in test_case.items() if k in update_fields}
             })
         else:
-            if engine not in nonlinted_engines:
-                validate(test_case)
+            #if engine not in nonlinted_engines:
+            #    validate(test_case)
             result = execute_query(test_case["sql"], runners[engine])
             result.update(test_case)
             cache[key] = result

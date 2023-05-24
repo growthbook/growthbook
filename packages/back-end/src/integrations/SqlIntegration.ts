@@ -1097,7 +1097,7 @@ export default abstract class SqlIntegration
       , __userMetric as (
         -- Add in the aggregate metric value for each user
         SELECT
-          d.variation,
+          d.variation AS variation,
           ${userMetricDimensionCol} AS dimension,
           d.${baseIdType},
           ${this.getAggregateMetricColumn(

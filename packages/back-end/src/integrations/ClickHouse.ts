@@ -83,6 +83,44 @@ export default class ClickHouse extends SqlIntegration {
   castToString(col: string): string {
     return `toString(${col})`;
   }
+  getDateTable(startDate: Date, endDate: Date | null): string {
+    const startDateStr = this.castToDate(this.toTimestamp(startDate));
+    return `
+    SELECT
+      ${startDateStr} + INTERVAL i DAY AS day
+    FROM
+    (
+        SELECT arrayJoin(range(${
+          endDate
+            ? this.castToDate(this.toTimestamp(endDate))
+            : this.currentDate()
+        } - ${startDateStr} + 1)) AS i
+    )
+  `;
+  }
+  getUserStatSelectAndJoinStatement(
+    metricDateDimensionCumulative: boolean,
+    selectStatement: string
+  ): string {
+    return `
+    ${selectStatement}
+    LEFT JOIN
+      __stats s ON (
+        u.variation = s.variation
+        AND u.dimension = s.dimension
+      )
+    ${
+      metricDateDimensionCumulative
+        ? `UNION ALL
+      ${selectStatement}
+      RIGHT JOIN
+      __stats s ON (
+        u.variation = s.variation
+        AND u.dimension = s.dimension
+      )`
+        : ""
+    }`;
+  }
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)
       throw new Error(
