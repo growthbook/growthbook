@@ -123,6 +123,7 @@ export function toVisualChangesetApiInterface(
       id: c.id,
       description: c.description,
       css: c.css,
+      js: c.js,
       variation: c.variation,
       domMutations: c.domMutations,
     })),
