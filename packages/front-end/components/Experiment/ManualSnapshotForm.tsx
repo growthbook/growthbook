@@ -217,7 +217,7 @@ const ManualSnapshotForm: FC<{
       regressionAdjustmentEnabled: false,
       sequentialTestingEnabled: !!experiment.sequentialTestingEnabled,
       sequentialTestingTuningParameter:
-        experiment.sequentialTestingTuningParameter || null,
+        experiment.sequentialTestingTuningParameter,
       skipPartialData: !!experiment.skipPartialData,
       activationMetricSelected: !!experiment.activationMetric,
       queryFilterSelected: !!experiment.queryFilter,

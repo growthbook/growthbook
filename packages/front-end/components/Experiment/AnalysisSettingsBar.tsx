@@ -312,7 +312,7 @@ export default function AnalysisSettingsBar({
                         regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
                         sequentialTestingEnabled: !!experiment.sequentialTestingEnabled,
                         sequentialTestingTuningParameter:
-                          experiment.sequentialTestingTuningParameter || null,
+                          experiment.sequentialTestingTuningParameter,
                         skipPartialData: !!experiment.skipPartialData,
                         activationMetricSelected: !!experiment.activationMetric,
                         queryFilterSelected: !!experiment.queryFilter,
@@ -382,7 +382,7 @@ export default function AnalysisSettingsBar({
                   regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
                   sequentialTestingEnabled: !!experiment.sequentialTestingEnabled,
                   sequentialTestingTuningParameter:
-                    experiment.sequentialTestingTuningParameter || null,
+                    experiment.sequentialTestingTuningParameter,
                   skipPartialData: !!experiment.skipPartialData,
                   activationMetricSelected: !!experiment.activationMetric,
                   queryFilterSelected: !!experiment.queryFilter,

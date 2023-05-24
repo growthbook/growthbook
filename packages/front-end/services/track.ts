@@ -87,7 +87,7 @@ export function trackSnapshot(
     engine: StatsEngine;
     regressionAdjustmentEnabled: boolean;
     sequentialTestingEnabled: boolean;
-    sequentialTestingTuningParameter: number | null;
+    sequentialTestingTuningParameter?: number;
     skipPartialData: boolean;
     activationMetricSelected: boolean;
     queryFilterSelected: boolean;
