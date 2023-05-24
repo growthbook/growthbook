@@ -11,6 +11,7 @@ import {
   getQueryStringOverride,
   hash,
   inNamespace,
+  paddedVersionString,
 } from "../src/util";
 import cases from "./cases.json";
 
@@ -40,6 +41,12 @@ type Cases = {
   getEqualWeights: [number, number[]][];
   // name, encryptedString, key, result
   decrypt: [string, string, string, string | null][];
+  versionCompare: {
+    // version, version, meets condition
+    lt: [string, string, boolean][];
+    gt: [string, string, boolean][];
+    eq: [string, string, boolean][];
+  };
 };
 
 const round = (n: number) => Math.floor(n * 1e8) / 1e8;
@@ -157,4 +164,52 @@ describe("json test suite", () => {
       expect(result).toEqual(expected);
     }
   );
+
+  describe("version strings", () => {
+    describe("equality", () => {
+      it.each((cases as Cases).versionCompare.eq)(
+        "versionCompare.eq[%#] %s === %s",
+        (version, otherVersion, expected) => {
+          expect(
+            paddedVersionString(version) === paddedVersionString(otherVersion)
+          ).toBe(expected);
+          expect(
+            paddedVersionString(version) !== paddedVersionString(otherVersion)
+          ).toBe(!expected);
+          expect(
+            paddedVersionString(version) >= paddedVersionString(otherVersion)
+          ).toBe(expected);
+          expect(
+            paddedVersionString(version) <= paddedVersionString(otherVersion)
+          ).toBe(expected);
+        }
+      );
+    });
+
+    describe("comparisons", () => {
+      it.each((cases as Cases).versionCompare.gt)(
+        "versionCompare.gt[%#] %s > %s",
+        (version, otherVersion, expected) => {
+          expect(
+            paddedVersionString(version) >= paddedVersionString(otherVersion)
+          ).toBe(expected);
+          expect(
+            paddedVersionString(version) > paddedVersionString(otherVersion)
+          ).toBe(expected);
+        }
+      );
+
+      it.each((cases as Cases).versionCompare.lt)(
+        "versionCompare.lt[%#] %s < %s",
+        (version, otherVersion, expected) => {
+          expect(
+            paddedVersionString(version) < paddedVersionString(otherVersion)
+          ).toBe(expected);
+          expect(
+            paddedVersionString(version) <= paddedVersionString(otherVersion)
+          ).toBe(expected);
+        }
+      );
+    });
+  });
 });

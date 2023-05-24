@@ -1,5 +1,12 @@
 # Changelog
 
+## **0.27.0** - May 23, 2023
+
+- SemVer targeting conditions support (and other SemVer-like version strings)
+- Make targeting condition `$in` and `$nin` operators work with arrays
+- Support for custom JS injection as part of the visual editor
+- Fix bug - localStorage cache not getting updated TTL when features are refreshed
+
 ## **0.26.0** - May 1, 2023
 
 - Update GrowthBook test suite to v0.4.2
