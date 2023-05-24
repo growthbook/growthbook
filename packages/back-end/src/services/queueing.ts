@@ -7,7 +7,6 @@ export const getAgendaInstance = (): Agenda => {
   if (!agendaInstance) {
     // @ts-expect-error - Type instantiation is excessively deep and possibly infinite.ts(2589)
     const config: AgendaConfig = {
-      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
       // @ts-expect-error - For some reason the Mongoose MongoDB instance does not match (missing 5 properties)
       mongo: mongoose.connection.db,
       defaultLockLimit: 5,
