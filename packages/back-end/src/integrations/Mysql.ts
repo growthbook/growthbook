@@ -71,6 +71,45 @@ export default class Mysql extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
+  getDateTable(startDate: Date, endDate: Date | null): string {
+    const startDateStr = this.castToDate(this.toTimestamp(startDate));
+    return `
+      SELECT day
+      FROM (
+        SELECT DATE_ADD(${startDateStr}, INTERVAL a.i + b.i * 10 + c.i * 100 + d.i * 1000 DAY) AS day
+        FROM (SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) AS a
+        CROSS JOIN (SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) AS b
+        CROSS JOIN (SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) AS c
+        CROSS JOIN (SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) AS d
+      ) AS n
+      WHERE day BETWEEN ${startDateStr} AND ${
+      endDate ? this.castToDate(this.toTimestamp(endDate)) : this.currentDate()
+    }
+  `;
+  }
+  getUserStatSelectAndJoinStatement(
+    metricDateDimensionCumulative: boolean,
+    selectStatement: string
+  ): string {
+    return `
+    ${selectStatement}
+    LEFT JOIN
+      __stats s ON (
+        u.variation = s.variation
+        AND u.dimension = s.dimension
+      )
+    ${
+      metricDateDimensionCumulative
+        ? `UNION
+      ${selectStatement}
+      RIGHT JOIN
+      __stats s ON (
+        u.variation = s.variation
+        AND u.dimension = s.dimension
+      )`
+        : ""
+    }`;
+  }
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)
       throw new Error(

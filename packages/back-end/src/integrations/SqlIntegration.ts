@@ -1233,49 +1233,71 @@ export default abstract class SqlIntegration
           variation,
           dimension
       )
-      SELECT
-        COALESCE(u.variation, s.variation) AS variation,
-        COALESCE(u.dimension, s.dimension) AS dimension,
-        ${
-          metric.ignoreNulls ? "COALESCE(s.count, 0)" : "COALESCE(u.users, 0)"
-        } AS users,
-        '${this.getStatisticType(
+      ${this.getUserStatSelectAndJoinStatement(
+        metricDateDimensionCumulative,
+        this.getUserStatSelectStatement(
+          metric,
+          denominator,
           isRatio,
           isRegressionAdjusted
-        )}' as statistic_type,
-        '${metric.type}' as main_metric_type,
-        COALESCE(s.main_sum, 0) AS main_sum,
-        COALESCE(s.main_sum_squares, 0) AS main_sum_squares
-        ${
-          isRatio
-            ? `,
-            '${denominator?.type}' as denominator_metric_type,
-            COALESCE(s.denominator_sum, 0) AS denominator_sum,
-            COALESCE(s.denominator_sum_squares, 0) AS denominator_sum_squares,
-            COALESCE(s.main_denominator_sum_product, 0) AS main_denominator_sum_product
-        `
-            : ""
-        }
-        ${
-          isRegressionAdjusted
-            ? `,
-            '${metric.type}' as covariate_metric_type,
-            COALESCE(s.covariate_sum, 0) AS covariate_sum,
-            COALESCE(s.covariate_sum_squares, 0) AS covariate_sum_squares,
-            COALESCE(s.main_covariate_sum_product, 0) AS main_covariate_sum_product
-            `
-            : ""
-        }
-      FROM
-      __overallUsers u
-      ${metricDateDimensionCumulative ? "FULL OUTER" : "LEFT"} JOIN
-        __stats s ON (
-          u.variation = s.variation
-          AND u.dimension = s.dimension
         )
+      )}
     `,
       this.getFormatDialect()
     );
+  }
+  getUserStatSelectStatement(
+    metric: MetricInterface,
+    denominator: MetricInterface | undefined,
+    isRatio: boolean,
+    isRegressionAdjusted: boolean
+  ): string {
+    return `
+      SELECT
+        COALESCE(u.variation, s.variation) AS variation,
+        COALESCE(u.dimension, s.dimension) AS dimension,
+      ${
+        metric.ignoreNulls ? "COALESCE(s.count, 0)" : "COALESCE(u.users, 0)"
+      } AS users,
+      '' as statistic_type,
+      '${metric.type}' as main_metric_type,
+      COALESCE(s.main_sum, 0) AS main_sum,
+      COALESCE(s.main_sum_squares, 0) AS main_sum_squares
+      ${
+        isRatio
+          ? `,
+          '${denominator?.type}' as denominator_metric_type,
+          COALESCE(s.denominator_sum, 0) AS denominator_sum,
+          COALESCE(s.denominator_sum_squares, 0) AS denominator_sum_squares,
+          COALESCE(s.main_denominator_sum_product, 0) AS main_denominator_sum_product
+      `
+          : ""
+      }
+      ${
+        isRegressionAdjusted
+          ? `,
+          '${metric.type}' as covariate_metric_type,
+          COALESCE(s.covariate_sum, 0) AS covariate_sum,
+          COALESCE(s.covariate_sum_squares, 0) AS covariate_sum_squares,
+          COALESCE(s.main_covariate_sum_product, 0) AS main_covariate_sum_product
+          `
+          : ""
+      }
+    FROM
+    __overallUsers u
+  `;
+  }
+  getUserStatSelectAndJoinStatement(
+    metricDateDimensionCumulative: boolean,
+    selectStatement: string
+  ): string {
+    return `
+    ${selectStatement}
+    ${metricDateDimensionCumulative ? "FULL OUTER" : "LEFT"} JOIN
+    __stats s ON (
+      u.variation = s.variation
+      AND u.dimension = s.dimension
+    )`;
   }
   getExperimentResultsQuery(): string {
     throw new Error("Not implemented");
