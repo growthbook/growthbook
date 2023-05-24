@@ -36,5 +36,5 @@ const auditSchema = new mongoose.Schema({
 
 // type AuditDocument = mongoose.Document & AuditInterface;
 
-// TODO: don't export
+// TODO: don't export and add toInterface() method https://github.com/growthbook/growthbook/issues/1300
 export const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
