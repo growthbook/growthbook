@@ -1328,89 +1328,11 @@ export default abstract class SqlIntegration
     }
   }
 
-  toTitleCase(s: string): string {
-    return s
-      .replace(/^[-_]*(.)/, (_, c) => c.toUpperCase())
-      .replace(/[-_]+(.)/g, (_, c) => " " + c.toUpperCase());
-  }
-
-  async getEventsTrackedByDatasource(
-    schemaFormat: SchemaFormat
-  ): Promise<{ event: string; hasUserId: boolean; createForUser: boolean }[]> {
-    const {
-      trackedEventTableName,
-      eventColumn,
-      timestampColumn,
-    } = this.getSchemaFormatConfig(schemaFormat);
-
-    //MKTODO: Refactor how we're building the date string, it needs to be in the YYYY-mm-dd format
-    //MKTODO: Verify this sql works for non big query tables (it worked for MsSql & BigQuery)
-    // Create a date object from a date string
-    const currentDateTime = new Date();
-    const sevenDaysAgo = new Date(
-      currentDateTime.valueOf() - 7 * 60 * 60 * 24 * 1000
-    );
-
-    // Generate yyyy-mm-dd date string
-    const currentDateTimeString =
-      "'" +
-      currentDateTime.toLocaleString("default", { year: "numeric" }) +
-      "-" +
-      currentDateTime.toLocaleString("default", {
-        month: "2-digit",
-      }) +
-      "-" +
-      currentDateTime.toLocaleString("default", { day: "2-digit" }) +
-      "'";
-
-    // Generate yyyy-mm-dd date string
-    const sevenDaysAgoDateTimeString =
-      "'" +
-      sevenDaysAgo.toLocaleString("default", { year: "numeric" }) +
-      "-" +
-      sevenDaysAgo.toLocaleString("default", {
-        month: "2-digit",
-      }) +
-      "-" +
-      sevenDaysAgo.toLocaleString("default", { day: "2-digit" }) +
-      "'";
-
-    const sql = `
-      SELECT
-        ${eventColumn} as event,
-        ${timestampColumn},
-        (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
-        COUNT (*) as count,
-        MAX(${timestampColumn}) as lastTrackedAt
-      FROM
-        ${this.generateTableName(trackedEventTableName)}
-        WHERE received_at > ${sevenDaysAgoDateTimeString} AND received_at < ${currentDateTimeString}
-        AND event NOT IN ('experiment_viewed', 'experiment_started')
-        GROUP BY event, ${timestampColumn}`;
-
-    const pageViewedSql = `
-       SELECT
-          context_page_title as event,
-          ${timestampColumn},
-          (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
-          COUNT (*) as count,
-          MAX(${timestampColumn}) as lastTrackedAt
-       FROM
-          ${this.generateTableName("pages")}
-          GROUP BY event, ${timestampColumn}
-       ORDER BY lastTrackedAt DESC
-       LIMIT 1`;
-
-    const results = await this.runQuery(format(sql, this.getFormatDialect()));
-
-    const pageViewedResults = await this.runQuery(
-      format(pageViewedSql, this.getFormatDialect())
-    );
-
-    console.log("results: ", results);
-
-    if (!results && !pageViewedResults) {
-      throw new Error(`No events found.`);
+  formatTrackedEventResults(results: any[], schemaFormat: SchemaFormat): any[] {
+    function toTitleCase(input: string): string {
+      return input
+        .replace(/^[-_]*(.)/, (_, c) => c.toUpperCase())
+        .replace(/[-_]+(.)/g, (_, c) => " " + c.toUpperCase());
     }
 
     const formattedResults: {
@@ -1425,21 +1347,118 @@ export default abstract class SqlIntegration
     results.forEach((result) => {
       result.createForUser = true;
       result.lastTrackedAt = new Date(result.lastTrackedAt.value);
-      result.displayName =
-        schemaFormat === "segment"
-          ? this.toTitleCase(result.event)
-          : result.event;
+      result.displayName = result.event;
+      result.type = "binomial";
+
+      if (schemaFormat === "segment") {
+        result.displayName = toTitleCase(result.event);
+      }
       formattedResults.push(result);
     });
 
-    if (pageViewedResults.length) {
-      pageViewedResults[0].event = "pages";
-      pageViewedResults[0].displayName = "Page Viewed";
-      pageViewedResults[0].createForUser = true;
-      formattedResults.push(pageViewedResults[0]);
+    return formattedResults;
+  }
+
+  generateMetricsToCreate(
+    formattedResults: any[],
+    timestampColumn: string,
+    userIdColumn: string,
+    anonymousIdColumn: string
+  ): any[] {
+    const metricsToCreate = cloneDeep(formattedResults);
+    // What are we trying to do here? Let's say formattedResults has 4 metrics - Placed Order, Added to Cart, Viewed Product, Subscribed, & Page Viewed
+    formattedResults.forEach((result) => {
+      // Do something here
+      if (result.event === "placed_order") {
+        const metric = {
+          event: result.event,
+          displayName: "Average Order Value",
+          createForUser: true,
+          lastTrackedAt: undefined,
+          hasUserId: result.hasUserId,
+          type: "revenue",
+          valueClause: "AVG(revenue)",
+          groupByClause: `GROUP BY ${userIdColumn}, ${anonymousIdColumn}, ${timestampColumn}`,
+        };
+        metricsToCreate.push(metric);
+      }
+    });
+
+    return metricsToCreate;
+  }
+
+  async getEventsTrackedByDatasource(
+    schemaFormat: SchemaFormat
+  ): Promise<{ event: string; hasUserId: boolean; createForUser: boolean }[]> {
+    const {
+      trackedEventTableName,
+      eventColumn,
+      timestampColumn,
+      userIdColumn,
+      anonymousIdColumn,
+    } = this.getSchemaFormatConfig(schemaFormat);
+
+    const currentDateTime = new Date();
+    const sevenDaysAgo = new Date(
+      currentDateTime.valueOf() - 7 * 60 * 60 * 24 * 1000
+    );
+
+    const sql = `
+      SELECT
+        ${eventColumn} as event,
+        ${timestampColumn},
+        (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
+        COUNT (*) as count,
+        MAX(${timestampColumn}) as lastTrackedAt
+      FROM
+        ${this.generateTableName(trackedEventTableName)}
+        WHERE received_at < '${currentDateTime
+          .toISOString()
+          .slice(0, 10)}' AND received_at > '${sevenDaysAgo
+      .toISOString()
+      .slice(0, 10)}'
+        AND event NOT IN ('experiment_viewed', 'experiment_started')
+        GROUP BY event, ${timestampColumn}`;
+
+    const results = await this.runQuery(format(sql, this.getFormatDialect()));
+
+    if (schemaFormat === "segment") {
+      const pageViewedSql = `
+      SELECT
+         'page-viewed' as event,
+         ${timestampColumn},
+         (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
+         COUNT (*) as count,
+         MAX(${timestampColumn}) as lastTrackedAt
+      FROM
+         ${this.generateTableName("pages")}
+         GROUP BY event, ${timestampColumn}
+      ORDER BY lastTrackedAt DESC
+      LIMIT 1`;
+
+      const pageViewedResults = await this.runQuery(
+        format(pageViewedSql, this.getFormatDialect())
+      );
+
+      pageViewedResults.forEach((result) => results.push(result));
     }
 
-    return formattedResults;
+    if (!results) {
+      throw new Error(`No events found.`);
+    }
+
+    const formattedResults = this.formatTrackedEventResults(
+      results,
+      schemaFormat
+    );
+
+    // Now that we have the formattedResults, is there where we should build logic to define additional metrics?
+    return this.generateMetricsToCreate(
+      formattedResults,
+      userIdColumn,
+      timestampColumn,
+      anonymousIdColumn
+    );
   }
 
   getAutoGeneratedMetricValueColumn(
@@ -1466,9 +1485,11 @@ export default abstract class SqlIntegration
       createForUser: boolean;
       lastTrackedAt: Date;
       count: number;
+      valueClause?: string;
+      type?: MetricType;
+      groupByClause?: string;
     },
-    schemaFormat: SchemaFormat,
-    metricType: MetricType
+    schemaFormat: SchemaFormat
   ): string {
     const {
       timestampColumn,
@@ -1481,10 +1502,13 @@ export default abstract class SqlIntegration
     ${
       metric.hasUserId ? `${userIdColumn}, ` : ""
     }${anonymousIdColumn} as anonymous_id, ${timestampColumn} as timestamp
-    ${this.getAutoGeneratedMetricValueColumn(
-      metricType,
-      schemaFormat
-    )} FROM ${this.generateTableName(metric.event)}
+    ${
+      metric.type !== "binomial" && metric.valueClause
+        ? `, ${metric.valueClause} as value`
+        : ""
+    }
+     FROM ${this.generateTableName(metric.event)}
+     ${metric.groupByClause || ""}
   `;
 
     return format(sqlQuery, this.getFormatDialect());
