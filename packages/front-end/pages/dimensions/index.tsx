@@ -3,7 +3,7 @@ import { FaPencilAlt } from "react-icons/fa";
 import { DimensionInterface } from "back-end/types/dimension";
 import clsx from "clsx";
 import Link from "next/link";
-import { ago } from "shared";
+import { ago } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/components/Button";
 import DimensionForm from "@/components/Dimensions/DimensionForm";

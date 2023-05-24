@@ -11,7 +11,7 @@ import Link from "next/link";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
-import { date } from "shared";
+import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";

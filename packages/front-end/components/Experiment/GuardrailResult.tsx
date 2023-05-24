@@ -44,8 +44,7 @@ const GuardrailResults: FC<{
         return -1;
       }
 
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      return 1 - v.metrics[metric.id]?.chanceToWin;
+      return 1 - (v.metrics[metric.id]?.chanceToWin ?? 0);
     })
   );
   if (maxChance < 0) {

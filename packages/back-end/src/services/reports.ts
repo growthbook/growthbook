@@ -1,4 +1,4 @@
-import { DEFAULT_STATS_ENGINE } from "shared";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { MetricInterface } from "../../types/metric";
 import {
   ExperimentReportArgs,

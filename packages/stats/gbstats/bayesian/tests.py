@@ -1,12 +1,19 @@
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from typing import Tuple, List
+from typing import List, Tuple, Union
 
 import numpy as np
-from scipy.stats import norm
+from scipy.stats import norm  # type: ignore
 
 from gbstats.bayesian.dists import Beta, Norm
-from gbstats.shared.models import BayesianTestResult, Statistic, Uplift
+from gbstats.shared.models import (
+    BayesianTestResult,
+    ProportionStatistic,
+    RatioStatistic,
+    SampleMeanStatistic,
+    Statistic,
+    Uplift,
+)
 from gbstats.shared.tests import BaseABTest
 
 
@@ -24,13 +31,19 @@ class BetaPrior:
 
 
 @dataclass
-class BinomialBayesianConfig:
+class BayesianConfig:
+    inverse: bool = False
+    ccr: float = 0.05
+
+
+@dataclass
+class BinomialBayesianConfig(BayesianConfig):
     prior_a: BetaPrior = field(default_factory=BetaPrior)
     prior_b: BetaPrior = field(default_factory=BetaPrior)
 
 
 @dataclass
-class GaussianBayesianConfig:
+class GaussianBayesianConfig(BayesianConfig):
     prior_a: GaussianPrior = field(default_factory=GaussianPrior)
     prior_b: GaussianPrior = field(default_factory=GaussianPrior)
     epsilon: float = 1e-4
@@ -105,13 +118,11 @@ class BayesianABTest(BaseABTest):
 class BinomialBayesianABTest(BayesianABTest):
     def __init__(
         self,
-        stat_a: Statistic,
-        stat_b: Statistic,
+        stat_a: ProportionStatistic,
+        stat_b: ProportionStatistic,
         config: BinomialBayesianConfig = BinomialBayesianConfig(),
-        inverse: bool = False,
-        ccr: float = 0.05,
     ):
-        super().__init__(stat_a, stat_b, inverse, ccr)
+        super().__init__(stat_a, stat_b, config.inverse, config.ccr)
         self.prior_a = config.prior_a
         self.prior_b = config.prior_b
 
@@ -121,10 +132,10 @@ class BinomialBayesianABTest(BayesianABTest):
             return self._default_output()
 
         alpha_a, beta_a = Beta.posterior(
-            [self.prior_a.alpha, self.prior_a.beta], [self.stat_a.sum, self.stat_a.n]
+            [self.prior_a.alpha, self.prior_a.beta], [self.stat_a.sum, self.stat_a.n]  # type: ignore
         )
         alpha_b, beta_b = Beta.posterior(
-            [self.prior_b.alpha, self.prior_b.beta], [self.stat_b.sum, self.stat_b.n]
+            [self.prior_b.alpha, self.prior_b.beta], [self.stat_b.sum, self.stat_b.n]  # type: ignore
         )
 
         mean_a, var_a = Beta.moments(alpha_a, beta_a, log=True)
@@ -154,13 +165,11 @@ class BinomialBayesianABTest(BayesianABTest):
 class GaussianBayesianABTest(BayesianABTest):
     def __init__(
         self,
-        stat_a: Statistic,
-        stat_b: Statistic,
+        stat_a: Union[SampleMeanStatistic, RatioStatistic],
+        stat_b: Union[SampleMeanStatistic, RatioStatistic],
         config: GaussianBayesianConfig = GaussianBayesianConfig(),
-        inverse: bool = False,
-        ccr: float = 0.05,
     ):
-        super().__init__(stat_a, stat_b, inverse, ccr)
+        super().__init__(stat_a, stat_b, config.inverse, config.ccr)
         self.prior_a = config.prior_a
         self.prior_b = config.prior_b
         self.epsilon = config.epsilon

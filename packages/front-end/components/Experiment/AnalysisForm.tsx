@@ -5,11 +5,10 @@ import {
   ExperimentInterfaceStringDates,
 } from "back-end/types/experiment";
 import { FaQuestionCircle } from "react-icons/fa";
-import {
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  getValidDate,
-  getScopedSettings,
-} from "shared";
+import { getValidDate } from "shared/dates";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { getAffectedEnvsForExperiment } from "shared/util";
+import { getScopedSettings } from "shared/settings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -18,6 +17,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
+import usePermissions from "@/hooks/usePermissions";
 import { GBSequential } from "@/components/Icons";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
@@ -49,11 +49,12 @@ const AnalysisForm: FC<{
 
   const { organization, hasCommercialFeature } = useUser();
 
+  const permissions = usePermissions();
+
   const orgSettings = useOrgSettings();
 
   const pid = experiment?.project;
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const project = getProjectById(pid);
+  const project = pid ? getProjectById(pid) : null;
 
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -66,6 +67,14 @@ const AnalysisForm: FC<{
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"
   );
+
+  let canRunExperiment = !experiment.archived;
+  const envs = getAffectedEnvsForExperiment({ experiment });
+  if (envs.length > 0) {
+    if (!permissions.check("runExperiments", experiment.project, envs)) {
+      canRunExperiment = false;
+    }
+  }
 
   const attributeSchema = useAttributeSchema();
 
@@ -90,12 +99,12 @@ const AnalysisForm: FC<{
         experiment.attributionModel ||
         orgSettings.attributionModel ||
         "firstExposure",
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-      dateStarted: getValidDate(phaseObj?.dateStarted)
+      dateStarted: getValidDate(phaseObj?.dateStarted ?? "")
         .toISOString()
         .substr(0, 16),
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-      dateEnded: getValidDate(phaseObj?.dateEnded).toISOString().substr(0, 16),
+      dateEnded: getValidDate(phaseObj?.dateEnded ?? "")
+        .toISOString()
+        .substr(0, 16),
       variations: experiment.variations || [],
       sequentialTestingEnabled:
         hasSequentialTestingFeature &&
@@ -255,6 +264,7 @@ const AnalysisForm: FC<{
         labelClassName="font-weight-bold"
         {...form.register("trackingKey")}
         helpText="Will match against the experiment_id column in your data source"
+        disabled={!canRunExperiment}
       />
       <SelectField
         label="Assignment Attribute"
@@ -453,8 +463,7 @@ const AnalysisForm: FC<{
               {...form.register("sequentialTestingTuningParameter", {
                 valueAsNumber: true,
                 validate: (v) => {
-                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  return !(v <= 0);
+                  return !((v ?? 0) <= 0);
                 },
               })}
             />

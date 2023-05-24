@@ -1,5 +1,5 @@
 import uniqid from "uniqid";
-import { getValidDate } from "shared";
+import { getValidDate } from "shared/dates";
 import { QueryDocument, QueryModel } from "../models/QueryModel";
 import {
   ExperimentMetricStats,
