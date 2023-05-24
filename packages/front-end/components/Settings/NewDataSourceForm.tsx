@@ -70,6 +70,9 @@ const NewDataSourceForm: FC<{
       event: string;
       hasUserId: boolean;
       createForUser: boolean;
+      displayName: string;
+      lastTrackedAt: Date;
+      count: number;
     }[]
   >([]);
 
@@ -577,8 +580,11 @@ const NewDataSourceForm: FC<{
                           const res = await apiCall<{
                             results: {
                               event: string;
+                              displayName: string;
                               hasUserId: boolean;
                               createForUser: boolean;
+                              lastTrackedAt: Date;
+                              count: number;
                             }[];
                             message?: string;
                           }>(`/datasource/${dataSourceId}/auto-metrics`, {
@@ -620,7 +626,7 @@ const NewDataSourceForm: FC<{
                             setMetricsToCreate(newMetricsToCreate);
                           }}
                         />
-                        <label className="ml-2">{metric.event}</label>
+                        <label className="ml-2">{metric.displayName}</label>
                       </div>
                     );
                   })}

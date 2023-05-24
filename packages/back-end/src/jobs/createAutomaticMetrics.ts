@@ -20,8 +20,15 @@ type CreateAutomaticMetricsJob = Job<{
     event: string;
     hasUserId: boolean;
     createForUser: boolean;
+    displayName: string;
+    lastTrackedAt: Date;
+    count: number;
   }[];
 }>;
+
+function toSnakeCase(s: string): string {
+  return s.replace(" ", "_").toLowerCase();
+}
 
 let agenda: Agenda;
 export default function (ag: Agenda) {
@@ -30,7 +37,6 @@ export default function (ag: Agenda) {
   agenda.define(
     CREATE_AUTOMATIC_METRICS_JOB_NAME,
     async (job: CreateAutomaticMetricsJob) => {
-      console.log("made it to the job");
       const { datasourceId, organization, metricsToCreate } = job.attrs.data;
 
       try {
@@ -67,7 +73,10 @@ export default function (ag: Agenda) {
             informationSchema.databases.forEach((database) => {
               database.schemas.forEach((schema) => {
                 schema.tables.forEach((table) => {
-                  if (table.tableName === metric.event) {
+                  if (
+                    table.tableName === metric.event ||
+                    table.tableName === toSnakeCase(metric.event)
+                  ) {
                     informationSchemaTableId = table.id;
                   }
                 });
@@ -122,7 +131,7 @@ export default function (ag: Agenda) {
               id: uniqid("met_"),
               organization,
               datasource: datasourceId,
-              name: metric.event,
+              name: metric.displayName,
               type: metricType,
               sql: sqlQuery,
               dateCreated: new Date(),

@@ -81,6 +81,14 @@ export interface SchemaInterface {
   getMetricSQL(name: string, type: MetricType, tablePrefix: string): string;
 }
 
+export interface SchemaFormatConfig {
+  userIdColumn: string;
+  anonymousIdColumn: string;
+  trackedEventTableName: string;
+  eventColumn: string;
+  timestampColumn: string;
+}
+
 export interface DataSourceProperties {
   queryLanguage: QueryLanguage;
   metricCaps?: boolean;

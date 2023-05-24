@@ -424,6 +424,8 @@ export async function putDataSource(
         event: string;
         hasUserId: boolean;
         createForUser: boolean;
+        lastTrackedAt: Date;
+        count: number;
       }[];
     },
     { id: string }

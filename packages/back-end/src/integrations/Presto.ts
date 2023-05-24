@@ -106,14 +106,15 @@ export default class Presto extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
-  getInformationSchemaFromClause(): string {
+  getInformationSchemaTableFromClause(databaseName: string): string {
+    return `${databaseName}.information_schema.columns`;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  generateTableName(tableName?: string) {
     if (!this.params.catalog)
       throw new MissingDatasourceParamsError(
         "To view the information schema for a Presto data source, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings."
       );
     return `${this.params.catalog}.information_schema.columns`;
-  }
-  getInformationSchemaTableFromClause(databaseName: string): string {
-    return `${databaseName}.information_schema.columns`;
   }
 }
