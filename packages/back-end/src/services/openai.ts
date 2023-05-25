@@ -1,6 +1,11 @@
 import { Configuration, OpenAIApi, ChatCompletionRequestMessage } from "openai";
 import { encoding_for_model, get_encoding } from "@dqbd/tiktoken";
 import { logger } from "../util/logger";
+import { OrganizationInterface } from "../../types/organization";
+import {
+  getTokenUsedByOrganization,
+  updateTokenUsage,
+} from "../models/AITokenUsageModel";
 
 /**
  * Snapshot of gpt-3.5-turbo from March 1st 2023. Unlike gpt-3.5-turbo, this
@@ -23,6 +28,8 @@ const MODEL = "gpt-3.5-turbo-0301";
 const MODEL_TOKEN_LIMIT = 4096;
 // Require a minimum of 30 tokens for responses.
 const MESSAGE_TOKEN_LIMIT = MODEL_TOKEN_LIMIT - 30;
+// TODO fine tune
+const DAILY_TOKEN_LIMIT = 1000000;
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY || "",
@@ -61,14 +68,23 @@ const numTokensFromMessages = (messages: ChatCompletionRequestMessage[]) => {
   return numTokens;
 };
 
+export const hasExceededUsageQuota = async (
+  organization: OrganizationInterface
+) => {
+  const numTokensUsed = await getTokenUsedByOrganization(organization);
+  return numTokensUsed > DAILY_TOKEN_LIMIT;
+};
+
 export const simpleCompletion = async ({
   behavior,
   prompt,
   maxTokens,
+  organization,
 }: {
   behavior: string;
   prompt: string;
   maxTokens?: number;
+  organization: OrganizationInterface;
 }) => {
   const messages: ChatCompletionRequestMessage[] = [
     {
@@ -93,13 +109,29 @@ export const simpleCompletion = async ({
     );
   }
 
-  const completion = await openai.createChatCompletion({
+  const inputModerationRes = await openai.createModeration({
+    input: prompt,
+    model: MODEL,
+  });
+  if (inputModerationRes.data.results.some((r) => r.flagged)) {
+    throw new Error("Prompt was flagged by OpenAI moderation");
+  }
+
+  const response = await openai.createChatCompletion({
     model: MODEL,
     messages,
   });
 
-  // TODO tokens used, from response
-  // TODO moderation
+  const numTokensUsed = response.data.usage?.total_tokens ?? numTokens; // fallback to numTokens if usage is not available
+  await updateTokenUsage({ numTokensUsed, organization });
 
-  return completion.data.choices[0].message?.content || "";
+  const outputModerationRes = await openai.createModeration({
+    input: prompt,
+    model: MODEL,
+  });
+  if (outputModerationRes.data.results.some((r) => r.flagged)) {
+    throw new Error("Output was flagged by OpenAI moderation");
+  }
+
+  return response.data.choices[0].message?.content || "";
 };
