@@ -142,8 +142,7 @@ export default function FeaturesPage() {
               features: [...features, feature],
             });
           }}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'FeatureInterface | null' is not assignable t... Remove this comment to see the full error message
-          featureToDuplicate={featureToDuplicate}
+          featureToDuplicate={featureToDuplicate || undefined}
         />
       )}
       <div className="row mb-3">

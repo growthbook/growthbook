@@ -80,8 +80,7 @@ const TeamPage: FC = () => {
           <div>You can now invite more team members to your account.</div>
         </div>
       )}
-      {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'SSOConnectionInterface | undefined' is not a... Remove this comment to see the full error message */}
-      <SSOSettings ssoConnection={ssoConnection} />
+      <SSOSettings ssoConnection={ssoConnection || null} />
       <h1>Team Members</h1>
       {projects.length > 0 && (
         <div className="row align-items-center">

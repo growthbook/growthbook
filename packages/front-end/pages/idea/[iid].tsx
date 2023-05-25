@@ -66,8 +66,7 @@ const IdeaPage = (): ReactElement => {
     experiment?: Partial<ExperimentInterfaceStringDates>;
   }>(`/idea/${iid}`);
 
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  useSwitchOrg(data?.idea?.organization);
+  useSwitchOrg(data?.idea?.organization || null);
 
   const form = useForm<{
     text: string;
