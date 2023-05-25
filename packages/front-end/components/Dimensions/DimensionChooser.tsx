@@ -78,8 +78,16 @@ export default function DimensionChooser({
   // Date is always available
   const builtInDimensions = [
     {
-      label: "Date",
+      label: "First Exposure Date",
       value: "pre:date",
+    },
+    {
+      label: "Cumulative Results By Date",
+      value: "pre:datecumulative",
+    },
+    {
+      label: "Results for all users by Date",
+      value: "pre:datedaily",
     },
   ];
   // Activation status is only available when an activation metric is chosen

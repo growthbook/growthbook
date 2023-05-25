@@ -668,7 +668,11 @@ export default abstract class SqlIntegration
       return `COALESCE(MAX(${this.castToString(
         "d.value"
       )}),'${missingDimString}')`;
-    } else if (dimension.type === "date") {
+    } else if (
+      dimension.type === "date" ||
+      dimension.type === "datecumulative" ||
+      dimension.type === "datedaily"
+    ) {
       return `MIN(${this.formatDate(this.dateTrunc("e.timestamp"))})`;
     } else if (dimension.type === "experiment") {
       return `SUBSTRING(
@@ -837,7 +841,8 @@ export default abstract class SqlIntegration
     // across all users. The following flag determines whether to filter out users
     // that have no denominator values
     const ratioIsFunnel = true; // @todo: allow this to be configured
-    const cumulativeDate = dimension?.type === "date" && true; // @todo: allow this to be configured
+    const cumulativeDate =
+      dimension?.type === "datecumulative" || dimension?.type === "datedaily";
 
     // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
     // where RA is actually possible
@@ -1251,7 +1256,10 @@ export default abstract class SqlIntegration
       ${
         metric.ignoreNulls ? "COALESCE(s.count, 0)" : "COALESCE(u.users, 0)"
       } AS users,
-      '' as statistic_type,
+      '${this.getStatisticType(
+        isRatio,
+        isRegressionAdjusted
+      )}' as statistic_type,
       '${metric.type}' as main_metric_type,
       COALESCE(s.main_sum, 0) AS main_sum,
       COALESCE(s.main_sum_squares, 0) AS main_sum_squares

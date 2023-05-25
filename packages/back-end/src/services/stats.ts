@@ -65,7 +65,8 @@ data = json.loads("""${JSON.stringify({
       weights: variations.map((v) => v.weight),
       ignore_nulls: !!metric.ignoreNulls,
       inverse: !!metric.inverse,
-      max_dimensions: dimension === "pre:date" ? 9999 : MAX_DIMENSIONS,
+      max_dimensions:
+        dimension?.substring(0, 8) === "pre:date" ? 9999 : MAX_DIMENSIONS,
       rows,
     }).replace(/\\/g, "\\\\")}""", strict=False)
 
@@ -86,7 +87,11 @@ unknown_var_ids = detect_unknown_variations(
 accumulated = accumulate_time_series_df(
   df=rows,
   time_series=${
-    dimension === "pre:date" ? "TimeSeries.DAILY" : "TimeSeries.NONE"
+    dimension === "pre:datecumulative"
+      ? "TimeSeries.CUMULATIVE"
+      : dimension === "pre:datedaily"
+      ? "TimeSeries.DAILY"
+      : "TimeSeries.NONE"
   },
 )
 

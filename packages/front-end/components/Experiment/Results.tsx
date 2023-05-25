@@ -203,7 +203,7 @@ const Results: FC<{
       )}
       {hasData &&
         snapshot?.dimension &&
-        (snapshot.dimension === "pre:date" ? (
+        (snapshot.dimension.substring(0, 8) === "pre:date" ? (
           <DateResults
             metrics={experiment.metrics}
             guardrails={experiment.guardrails}
