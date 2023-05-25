@@ -1099,7 +1099,7 @@ export default abstract class SqlIntegration
         SELECT
           d.variation AS variation,
           ${userMetricDimensionCol} AS dimension,
-          d.${baseIdType},
+          d.${baseIdType} AS ${baseIdType},
           ${this.getAggregateMetricColumn(
             metric,
             isRegressionAdjusted ? "post" : "noWindow"
@@ -1134,9 +1134,9 @@ export default abstract class SqlIntegration
           ? `, __userDenominator as (
               -- Add in the aggregate denominator value for each user
               SELECT
-                d.variation,
+                d.variation AS variation,
                 ${userMetricDimensionCol} AS dimension,
-                d.${baseIdType},
+                d.${baseIdType} AS ${baseIdType},
                 ${this.getAggregateMetricColumn(
                   denominator,
                   "noWindow"
