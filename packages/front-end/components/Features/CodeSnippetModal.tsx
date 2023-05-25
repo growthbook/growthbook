@@ -47,7 +47,7 @@ export default function CodeSnippetModal({
   feature,
   inline,
   cta = "Finish",
-  submit,
+  submit = () => undefined,
   secondaryCTA,
   sdkConnection,
   connections,
@@ -146,7 +146,6 @@ export default function CodeSnippetModal({
           }}
           connection={currentConnection}
           mutate={mutateConnections}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => void) | undefined' is not assignable ... Remove this comment to see the full error message
           goToNextStep={submit}
         />
       )}
@@ -159,7 +158,6 @@ export default function CodeSnippetModal({
         size={"max"}
         header="Implementation Instructions"
         autoCloseOnSubmit={false}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => Promise<void>) | null' is not assigna... Remove this comment to see the full error message
         submit={
           includeCheck
             ? async () => {
@@ -170,7 +168,7 @@ export default function CodeSnippetModal({
                 submit();
                 close && close();
               }
-            : null
+            : undefined
         }
         cta={cta}
       >
@@ -323,8 +321,7 @@ export default function CodeSnippetModal({
                     language={language}
                     apiHost={apiHost}
                     apiKey={clientKey}
-                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | false' is not assignable to type 's... Remove this comment to see the full error message
-                    encryptionKey={encryptionKey}
+                    encryptionKey={encryptionKey ? encryptionKey : undefined}
                   />
                 </div>
               )}
