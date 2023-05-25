@@ -54,9 +54,8 @@ const ExperimentsPage = (): React.ReactElement => {
     allExperiments,
     (exp) => {
       const projectId = exp.project;
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-      const projectName = getProjectById(projectId)?.name || "";
-      const projectIsOprhaned = projectId && !projectName;
+      const projectName = projectId ? getProjectById(projectId)?.name : "";
+      const projectIsOrphaned = projectId && !projectName;
 
       return {
         ownerName: getUserDisplay(exp.owner, false) || "",
@@ -65,7 +64,7 @@ const ExperimentsPage = (): React.ReactElement => {
           .filter(Boolean),
         projectId,
         projectName,
-        projectIsOprhaned,
+        projectIsOrphaned,
         tab: exp.archived
           ? "archived"
           : exp.status === "draft"
@@ -331,7 +330,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     </td>
                     {showProjectColumn && (
                       <td className="nowrap" data-title="Project:">
-                        {e.projectIsOprhaned ? (
+                        {e.projectIsOrphaned ? (
                           <Tooltip
                             body={
                               <>
@@ -362,9 +361,8 @@ const ExperimentsPage = (): React.ReactElement => {
                     <td className="nowrap" title={datetime(e.date)}>
                       {ago(e.date)}
                     </td>
-                    {tab === "stopped" && (
+                    {tab === "stopped" && e.results && (
                       <td className="nowrap" data-title="Results:">
-                        {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentResultsType | undefined' is not as... Remove this comment to see the full error message */}
                         <ResultsIndicator results={e.results} />
                       </td>
                     )}
@@ -387,8 +385,7 @@ const ExperimentsPage = (): React.ReactElement => {
         </div>
       </div>
       {openNewExperimentModal &&
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        (growthbook.isOn("new-experiment-modal") ? (
+        (growthbook?.isOn("new-experiment-modal") ? (
           <AddExperimentModal
             onClose={() => setOpenNewExperimentModal(false)}
             source="experiment-list"

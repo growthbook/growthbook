@@ -106,19 +106,15 @@ const TeamPage: FC = () => {
         canDeleteMembers={true}
         canInviteMembers={true}
       />
-      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-      {organization?.pendingMembers?.length > 0 && (
+      {organization && organization.pendingMembers && organization.pendingMembers.length > 0 && (
         <PendingMemberList
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'PendingMember[] | undefined' is not assignab... Remove this comment to see the full error message
           pendingMembers={organization.pendingMembers}
           mutate={refreshOrganization}
           project={currentProject}
         />
       )}
-      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-      {organization.invites.length > 0 && (
+      {organization && organization.invites && organization.invites.length > 0 && (
         <InviteList
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Invite[] | undefined' is not assignable to t... Remove this comment to see the full error message
           invites={organization.invites}
           mutate={refreshOrganization}
           project={currentProject}
