@@ -59,7 +59,7 @@ export default class Mssql extends SqlIntegration {
     return `CAST(${col} as FLOAT)`;
   }
   formatDate(col: string): string {
-    return `FORMAT(${col}, "yyyy-MM-dd")`;
+    return `FORMAT(${col}, 'yyyy-MM-dd')`;
   }
   castToString(col: string): string {
     return `cast(${col} as varchar(256))`;
@@ -69,6 +69,22 @@ export default class Mssql extends SqlIntegration {
   }
   currentDate(): string {
     return this.castToDate("GETDATE()");
+  }
+  getDateTable(startDate: Date, endDate: Date | null): string {
+    const startDateStr = this.castToDate(this.toTimestamp(startDate));
+    return `
+      SELECT day
+      FROM (
+        SELECT DATEADD(DAY, a.i + b.i * 10 + c.i * 100 + d.i * 1000, ${startDateStr}) AS day
+        FROM (SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) AS a
+        CROSS JOIN (SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) AS b
+        CROSS JOIN (SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) AS c
+        CROSS JOIN (SELECT 0 AS i UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3 UNION ALL SELECT 4 UNION ALL SELECT 5 UNION ALL SELECT 6 UNION ALL SELECT 7 UNION ALL SELECT 8 UNION ALL SELECT 9) AS d
+      ) AS n
+      WHERE day BETWEEN ${startDateStr} AND ${
+      endDate ? this.castToDate(this.toTimestamp(endDate)) : this.currentDate()
+    }
+  `;
   }
   getInformationSchemaFromClause(): string {
     if (!this.params.database)
