@@ -29,15 +29,14 @@ export default function ConditionInput(props: Props) {
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
   const [value, setValue] = useState(props.defaultValue);
-  const [conds, setConds] = useState(() =>
-    jsonToConds(props.defaultValue, attributes)
+  const [conds, setConds] = useState(
+    () => jsonToConds(props.defaultValue, attributes) || []
   );
 
   const attributeSchema = useAttributeSchema();
 
   useEffect(() => {
     if (advanced) return;
-    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Condition[] | null' is not assig... Remove this comment to see the full error message
     setValue(condToJson(conds, attributes));
   }, [advanced, conds]);
 
@@ -93,7 +92,6 @@ export default function ConditionInput(props: Props) {
     );
   }
 
-  // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
   if (!conds.length) {
     return (
       <div className="form-group">
@@ -128,7 +126,6 @@ export default function ConditionInput(props: Props) {
       <label className={props.labelClassName || ""}>Targeting Conditions</label>
       <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
         <ul className={styles.conditionslist}>
-          {/* @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'. */}
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
 
@@ -144,7 +141,6 @@ export default function ConditionInput(props: Props) {
               const name = e.target.name;
               const value: string | number = e.target.value;
 
-              // @ts-expect-error TS(2488) If you come across this, please fix it!: Type 'Condition[] | null' must have a '[Symbol.ite... Remove this comment to see the full error message
               const newConds = [...conds];
               newConds[i] = { ...newConds[i] };
               newConds[i][name] = value;
