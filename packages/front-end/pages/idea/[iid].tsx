@@ -220,12 +220,12 @@ const IdeaPage = (): ReactElement => {
                 <FaExternalLinkAlt /> {data.experiment.name}
               </a>
             </Link>
-            <StatusIndicator
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentStatus | undefined' is not assigna... Remove this comment to see the full error message
-              status={data.experiment.status}
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean | undefined' is not assignable to ty... Remove this comment to see the full error message
-              archived={data.experiment.archived}
-            />
+            {data.experiment.status && (
+              <StatusIndicator
+                status={data.experiment.status}
+                archived={data.experiment.archived || false}
+              />
+            )}
           </div>
         </div>
       )}
@@ -318,8 +318,7 @@ const IdeaPage = (): ReactElement => {
                         <small>
                           Submitted by{" "}
                           <strong className="mr-1">
-                            {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | null' is not assignable... Remove this comment to see the full error message */}
-                            {getUserDisplay(idea.userId) || idea.userName}
+                            {idea.userId ? getUserDisplay(idea.userId) : idea.userName}
                           </strong>
                           {idea.source && idea.source !== "web" && (
                             <span className="mr-1">via {idea.source}</span>
@@ -337,8 +336,7 @@ const IdeaPage = (): ReactElement => {
                         <small>
                           Project:{" "}
                           <span className="badge badge-secondary">
-                            {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
-                            {getProjectById(idea.project)?.name || "None"}
+                            {idea.project ? getProjectById(idea.project)?.name || "None" : "None"}
                           </span>
                         </small>
                       </div>
@@ -361,8 +359,7 @@ const IdeaPage = (): ReactElement => {
                   },
                 });
               }}
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-              value={idea.details}
+              value={idea.details || ''}
               canCreate={canEdit}
               canEdit={canEdit}
               label="More Details"
@@ -445,8 +442,7 @@ const IdeaPage = (): ReactElement => {
                       {idea?.estimateParams?.numVariations || 2}
                     </RightRailSectionGroup>
                     <RightRailSectionGroup title="User Segment" type="badge">
-                      {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
-                      {getSegmentById(estimate?.segment)?.name || "Everyone"}
+                      {estimate?.segment ? getSegmentById(estimate?.segment)?.name || "Everyone" : "Everyone"}
                     </RightRailSectionGroup>
                     <RightRailSectionGroup
                       title="Expected Metric Change"
@@ -458,14 +454,11 @@ const IdeaPage = (): ReactElement => {
                 </div>
               )}
 
-              {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-              {estimate?.query?.length > 0 && (
+              {estimate && (estimate.query?.length || 0) > 0 && (
                 <div>
                   <hr />
                   <ViewQueryButton
-                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                     queries={[estimate.query]}
-                    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                     language={estimate.queryLanguage}
                   />
                 </div>
