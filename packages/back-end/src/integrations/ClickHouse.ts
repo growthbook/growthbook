@@ -98,29 +98,6 @@ export default class ClickHouse extends SqlIntegration {
     )
   `;
   }
-  getUserStatSelectAndJoinStatement(
-    cumulativeDate: boolean,
-    selectStatement: string
-  ): string {
-    return `
-    ${selectStatement}
-    LEFT JOIN
-      __stats s ON (
-        u.variation = s.variation
-        AND u.dimension = s.dimension
-      )
-    ${
-      cumulativeDate
-        ? `UNION ALL
-      ${selectStatement}
-      RIGHT JOIN
-      __stats s ON (
-        u.variation = s.variation
-        AND u.dimension = s.dimension
-      )`
-        : ""
-    }`;
-  }
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)
       throw new Error(

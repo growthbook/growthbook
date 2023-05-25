@@ -71,6 +71,9 @@ export default class Mysql extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
+  // Based on https://stackoverflow.com/a/2157776/4257918, this generates
+  // 10000 dates into the future starting on the start date and then filters
+  // to the requested range. Tends to be faster than recursive CTEs.
   getDateTable(startDate: Date, endDate: Date | null): string {
     const startDateStr = this.castToDate(this.toTimestamp(startDate));
     return `

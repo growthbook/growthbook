@@ -70,6 +70,9 @@ export default class Mssql extends SqlIntegration {
   currentDate(): string {
     return this.castToDate("GETDATE()");
   }
+  // Based on https://stackoverflow.com/a/2157776/4257918, this generates
+  // 10000 dates into the future starting on the start date and then filters
+  // to the requested range. Tends to be faster than recursive CTEs.
   getDateTable(startDate: Date, endDate: Date | null): string {
     const startDateStr = this.castToDate(this.toTimestamp(startDate));
     return `
