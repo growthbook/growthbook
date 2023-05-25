@@ -58,7 +58,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
 
   // Hit their free limit and needs to upgrade to invite more team members
   if (showUpgradeModal) {
-    // The upgrade modal won't actually show for these plans, so show a generic failure / upgrade message
+    // The <UpgradeModal> won't actually render for these plans, so show a generic modal instead
     if (["pro", "pro_sso", "enterprise"].includes(accountPlan ?? "")) {
       return (
         <Modal open={true} close={close} size="md">
