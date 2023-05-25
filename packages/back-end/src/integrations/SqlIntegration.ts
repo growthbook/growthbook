@@ -837,7 +837,7 @@ export default abstract class SqlIntegration
     // across all users. The following flag determines whether to filter out users
     // that have no denominator values
     const ratioIsFunnel = true; // @todo: allow this to be configured
-    const metricDateDimensionCumulative = dimension?.type === "date" && true; // @todo: allow this to be configured
+    const cumulativeDate = dimension?.type === "date" && true; // @todo: allow this to be configured
 
     // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
     // where RA is actually possible
@@ -889,7 +889,7 @@ export default abstract class SqlIntegration
     );
 
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
-    const userMetricDimensionCol = metricDateDimensionCumulative
+    const userMetricDimensionCol = cumulativeDate
       ? `${this.formatDate("dr.day")}`
       : "d.dimension";
 
@@ -1088,7 +1088,7 @@ export default abstract class SqlIntegration
           e.${baseIdType}
       )
       ${
-        metricDateDimensionCumulative
+        cumulativeDate
           ? `, __dateRange AS (
         ${this.getDateTable(startDate, endDate)}
       )`
@@ -1117,12 +1117,12 @@ export default abstract class SqlIntegration
         JOIN __metric m ON (
           m.${baseIdType} = d.${baseIdType}
         )
-        ${metricDateDimensionCumulative ? "CROSS JOIN __dateRange dr" : ""}
+        ${cumulativeDate ? "CROSS JOIN __dateRange dr" : ""}
         WHERE
           ${this.getMetricWindowWhereClause(
             isRegressionAdjusted,
             ignoreConversionEnd,
-            metricDateDimensionCumulative
+            cumulativeDate
           )}
         GROUP BY
           d.variation,
@@ -1146,11 +1146,7 @@ export default abstract class SqlIntegration
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
                   m.${baseIdType} = d.${baseIdType}
                 )
-                ${
-                  metricDateDimensionCumulative
-                    ? "CROSS JOIN __dateRange dr"
-                    : ""
-                }
+                ${cumulativeDate ? "CROSS JOIN __dateRange dr" : ""}
               WHERE
                 m.timestamp >= d.conversion_start
                 ${
@@ -1159,7 +1155,7 @@ export default abstract class SqlIntegration
                     : "AND m.timestamp <= d.conversion_end"
                 }
                 ${
-                  metricDateDimensionCumulative
+                  cumulativeDate
                     ? `AND ${this.castToDate(
                         "m.timestamp"
                       )} <= dr.day AND ${this.castToDate(
@@ -1206,11 +1202,7 @@ export default abstract class SqlIntegration
             ? `__userDenominator d
               LEFT JOIN __userMetric m ON (
                 d.${baseIdType} = m.${baseIdType}
-                ${
-                  metricDateDimensionCumulative
-                    ? "AND d.dimension = m.dimension"
-                    : ""
-                }
+                ${cumulativeDate ? "AND d.dimension = m.dimension" : ""}
               )`
             : `__userMetric m`
         }
@@ -1234,7 +1226,7 @@ export default abstract class SqlIntegration
           dimension
       )
       ${this.getUserStatSelectAndJoinStatement(
-        metricDateDimensionCumulative,
+        cumulativeDate,
         this.getUserStatSelectStatement(
           metric,
           denominator,
@@ -1288,12 +1280,12 @@ export default abstract class SqlIntegration
   `;
   }
   getUserStatSelectAndJoinStatement(
-    metricDateDimensionCumulative: boolean,
+    cumulativeDate: boolean,
     selectStatement: string
   ): string {
     return `
     ${selectStatement}
-    ${metricDateDimensionCumulative ? "FULL OUTER" : "LEFT"} JOIN
+    ${cumulativeDate ? "FULL OUTER" : "LEFT"} JOIN
     __stats s ON (
       u.variation = s.variation
       AND u.dimension = s.dimension
@@ -1514,7 +1506,7 @@ export default abstract class SqlIntegration
   private getMetricWindowWhereClause(
     isRegressionAdjusted: boolean,
     ignoreConversionEnd: boolean,
-    metricDateDimensionCumulative: boolean
+    cumulativeDate: boolean
   ): string {
     let conversionWindowFilter = `
       m.timestamp >= d.conversion_start
@@ -1522,7 +1514,7 @@ export default abstract class SqlIntegration
     if (isRegressionAdjusted) {
       conversionWindowFilter = `(${conversionWindowFilter}) OR (m.timestamp >= d.preexposure_start AND m.timestamp < d.preexposure_end)`;
     }
-    if (metricDateDimensionCumulative) {
+    if (cumulativeDate) {
       conversionWindowFilter = `(${conversionWindowFilter})
       AND ${this.castToDate("d.dimension")} <= dr.day
       AND ${this.castToDate("m.timestamp")} <= dr.day`;

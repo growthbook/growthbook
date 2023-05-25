@@ -99,7 +99,7 @@ export default class ClickHouse extends SqlIntegration {
   `;
   }
   getUserStatSelectAndJoinStatement(
-    metricDateDimensionCumulative: boolean,
+    cumulativeDate: boolean,
     selectStatement: string
   ): string {
     return `
@@ -110,7 +110,7 @@ export default class ClickHouse extends SqlIntegration {
         AND u.dimension = s.dimension
       )
     ${
-      metricDateDimensionCumulative
+      cumulativeDate
         ? `UNION ALL
       ${selectStatement}
       RIGHT JOIN
