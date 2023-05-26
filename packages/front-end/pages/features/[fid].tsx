@@ -117,7 +117,7 @@ export default function FeaturePage() {
   const projectId = data.feature.project;
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
-  const projectIsOprhaned = projectId && !projectName;
+  const projectIsDeReferenced = projectId && !projectName;
 
   const hasDraftPublishPermission =
     isDraft &&
@@ -438,10 +438,10 @@ export default function FeaturePage() {
       </div>
 
       <div className="mb-2 row">
-        {(projects.length > 0 || projectIsOprhaned) && (
+        {(projects.length > 0 || projectIsDeReferenced) && (
           <div className="col-auto">
             Project:{" "}
-            {projectIsOprhaned ? (
+            {projectIsDeReferenced ? (
               <Tooltip
                 body={
                   <>

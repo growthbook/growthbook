@@ -284,7 +284,7 @@ export default function FeaturesPage() {
                 const projectName = projectId
                   ? getProjectById(projectId)?.name || null
                   : null;
-                const projectIsOrphaned = projectId && !projectName;
+                const projectIsDeReferenced = projectId && !projectName;
 
                 return (
                   <tr
@@ -307,7 +307,7 @@ export default function FeaturesPage() {
                     </td>
                     {showProjectColumn && (
                       <td>
-                        {projectIsOrphaned ? (
+                        {projectIsDeReferenced ? (
                           <Tooltip
                             body={
                               <>

@@ -55,7 +55,7 @@ const ExperimentsPage = (): React.ReactElement => {
     (exp) => {
       const projectId = exp.project;
       const projectName = projectId ? getProjectById(projectId)?.name : "";
-      const projectIsOrphaned = projectId && !projectName;
+      const projectIsDeReferenced = projectId && !projectName;
 
       return {
         ownerName: getUserDisplay(exp.owner, false) || "",
@@ -64,7 +64,7 @@ const ExperimentsPage = (): React.ReactElement => {
           .filter(Boolean),
         projectId,
         projectName,
-        projectIsOrphaned,
+        projectIsDeReferenced,
         tab: exp.archived
           ? "archived"
           : exp.status === "draft"
@@ -330,7 +330,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     </td>
                     {showProjectColumn && (
                       <td className="nowrap" data-title="Project:">
-                        {e.projectIsOrphaned ? (
+                        {e.projectIsDeReferenced ? (
                           <Tooltip
                             body={
                               <>

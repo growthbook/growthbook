@@ -104,8 +104,8 @@ export default function SDKConnectionForm({
   const projectId = initialValue.project;
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   const projectName = getProjectById(projectId)?.name || null;
-  const projectIsOprhaned = projectId && !projectName;
-  if (projectIsOprhaned) {
+  const projectIsDeReferenced = projectId && !projectName;
+  if (projectIsDeReferenced) {
     projectsOptions.push({
       label: "Invalid project",
       value: projectId,
@@ -182,7 +182,7 @@ export default function SDKConnectionForm({
         </small>
       </div>
 
-      {(projects.length > 0 || projectIsOprhaned) && (
+      {(projects.length > 0 || projectIsDeReferenced) && (
         <SelectField
           label="Project"
           initialOption="All Projects"
@@ -195,7 +195,7 @@ export default function SDKConnectionForm({
             if (value === "") {
               return <em>{label}</em>;
             }
-            if (value === projectId && projectIsOprhaned) {
+            if (value === projectId && projectIsDeReferenced) {
               return (
                 <Tooltip
                   body={
