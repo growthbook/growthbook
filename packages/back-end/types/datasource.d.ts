@@ -87,6 +87,7 @@ export interface SchemaFormatConfig {
   trackedEventTableName: string;
   eventColumn: string;
   timestampColumn: string;
+  displayNameColumn?: string;
 }
 
 export interface DataSourceProperties {
