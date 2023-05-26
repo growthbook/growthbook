@@ -308,7 +308,9 @@ const MetricsPage = (): React.ReactElement => {
               <td>{metric.type}</td>
 
               <td className="nowrap">
-                <SortedTags tags={metric.tags ? Object.values(metric.tags) : []} />
+                <SortedTags
+                  tags={metric.tags ? Object.values(metric.tags) : []}
+                />
               </td>
               <td className="col-2">
                 {metric && (metric.projects || []).length > 0 ? (
@@ -334,10 +336,10 @@ const MetricsPage = (): React.ReactElement => {
               </td>
               {!hasFileConfig() && (
                 <td
-                  title={datetime(metric.dateUpdated || '')}
+                  title={datetime(metric.dateUpdated || "")}
                   className="d-none d-md-table-cell"
                 >
-                  {ago(metric.dateUpdated || '')}
+                  {ago(metric.dateUpdated || "")}
                 </td>
               )}
               <td className="text-muted">

@@ -318,7 +318,9 @@ const IdeaPage = (): ReactElement => {
                         <small>
                           Submitted by{" "}
                           <strong className="mr-1">
-                            {idea.userId ? getUserDisplay(idea.userId) : idea.userName}
+                            {idea.userId
+                              ? getUserDisplay(idea.userId)
+                              : idea.userName}
                           </strong>
                           {idea.source && idea.source !== "web" && (
                             <span className="mr-1">via {idea.source}</span>
@@ -336,7 +338,9 @@ const IdeaPage = (): ReactElement => {
                         <small>
                           Project:{" "}
                           <span className="badge badge-secondary">
-                            {idea.project ? getProjectById(idea.project)?.name || "None" : "None"}
+                            {idea.project
+                              ? getProjectById(idea.project)?.name || "None"
+                              : "None"}
                           </span>
                         </small>
                       </div>
@@ -359,7 +363,7 @@ const IdeaPage = (): ReactElement => {
                   },
                 });
               }}
-              value={idea.details || ''}
+              value={idea.details || ""}
               canCreate={canEdit}
               canEdit={canEdit}
               label="More Details"
@@ -442,7 +446,9 @@ const IdeaPage = (): ReactElement => {
                       {idea?.estimateParams?.numVariations || 2}
                     </RightRailSectionGroup>
                     <RightRailSectionGroup title="User Segment" type="badge">
-                      {estimate?.segment ? getSegmentById(estimate?.segment)?.name || "Everyone" : "Everyone"}
+                      {estimate?.segment
+                        ? getSegmentById(estimate?.segment)?.name || "Everyone"
+                        : "Everyone"}
                     </RightRailSectionGroup>
                     <RightRailSectionGroup
                       title="Expected Metric Change"

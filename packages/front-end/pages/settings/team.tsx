@@ -106,20 +106,24 @@ const TeamPage: FC = () => {
         canDeleteMembers={true}
         canInviteMembers={true}
       />
-      {organization && organization.pendingMembers && organization.pendingMembers.length > 0 && (
-        <PendingMemberList
-          pendingMembers={organization.pendingMembers}
-          mutate={refreshOrganization}
-          project={currentProject}
-        />
-      )}
-      {organization && organization.invites && organization.invites.length > 0 && (
-        <InviteList
-          invites={organization.invites}
-          mutate={refreshOrganization}
-          project={currentProject}
-        />
-      )}
+      {organization &&
+        organization.pendingMembers &&
+        organization.pendingMembers.length > 0 && (
+          <PendingMemberList
+            pendingMembers={organization.pendingMembers}
+            mutate={refreshOrganization}
+            project={currentProject}
+          />
+        )}
+      {organization &&
+        organization.invites &&
+        organization.invites.length > 0 && (
+          <InviteList
+            invites={organization.invites}
+            mutate={refreshOrganization}
+            project={currentProject}
+          />
+        )}
 
       <OrphanedUsersList
         mutateUsers={refreshOrganization}
