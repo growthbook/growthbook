@@ -35,6 +35,7 @@ import {
 } from "./util";
 import { evalCondition } from "./mongrule";
 import { refreshFeatures, subscribe, unsubscribe } from "./feature-repository";
+import { TrackExperimentData } from "./types/growthbook";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -73,6 +74,7 @@ export class GrowthBook<
     string,
     { valueHash: string; undo: () => void }
   >;
+  private _trackedExperimentQueue: TrackExperimentData[] = [];
 
   constructor(context?: Context) {
     context = context || {};
@@ -891,21 +893,32 @@ export class GrowthBook<
     else console.log(msg, ctx);
   }
 
-  public trackRemoteExperiments(
-    data: {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      experiment: Experiment<any>;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      result: Result<any>;
-    }[]
+  public enqueueTrackedExperiments(
+    data: TrackExperimentData | TrackExperimentData[]
   ) {
+    if (!Array.isArray(data)) {
+      data = [data];
+    }
+    this._trackedExperimentQueue.push(...data);
+  }
+
+  public getTrackedExperiments(): TrackExperimentData[] {
+    return this._trackedExperimentQueue;
+  }
+
+  public trackEnqueuedExperiments() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    data.forEach(({ experiment, result }) => {
+    this._trackedExperimentQueue.forEach(({ experiment, result }) => {
       this._track(experiment, result);
     });
+    this._trackedExperimentQueue = [];
   }
 
   private _track<T>(experiment: Experiment<T>, result: Result<T>) {
+    if (this._ctx.exportTrackEvents) {
+      this.enqueueTrackedExperiments({ experiment, result });
+      return;
+    }
     if (!this._ctx.trackingCallback) return;
 
     const key = experiment.key;

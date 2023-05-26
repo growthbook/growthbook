@@ -244,7 +244,11 @@ async function fetchFeatures(
   const serverSideEval = instance.getServerSideEval();
 
   const endpoint = serverSideEval
-    ? apiHost + "/eval/features/" + clientKey + "?attributes=" + encodeURIComponent( JSON.stringify( instance.getAttributes() ))
+    ? apiHost +
+      "/eval/features/" +
+      clientKey +
+      "?attributes=" +
+      encodeURIComponent(JSON.stringify(instance.getAttributes()))
     : apiHost + "/api/features/" + clientKey;
 
   let promise = activeFetches.get(key);
@@ -259,7 +263,8 @@ async function fetchFeatures(
       })
       .then((data: FeatureApiResponse) => {
         onNewFeatureData(key, data);
-        instance.trackRemoteExperiments(data.trackExperiments || []);
+        instance.enqueueTrackedExperiments(data.trackExperiments || []);
+        instance.trackEnqueuedExperiments();
         startAutoRefresh(instance);
         activeFetches.delete(key);
         return data;
