@@ -415,6 +415,7 @@ export default function ConfigureReport({
       )}
 
       <StatsEngineSelect
+        value={form.watch("statsEngine")}
         onChange={(v) => {
           form.setValue("statsEngine", v);
         }}

@@ -677,6 +677,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   <StatsEngineSelect
                     label="Default Statistics Engine"
                     allowUndefined={false}
+                    value={form.watch("statsEngine")}
                     onChange={(value) => {
                       setStatsEngineTab(value);
                       form.setValue("statsEngine", value);

@@ -179,6 +179,7 @@ const ProjectPage: FC = () => {
             </div>
             <div className="col-sm-9">
               <StatsEngineSelect
+                value={form.watch("statsEngine")}
                 onChange={(v) => {
                   form.setValue("statsEngine", v);
                 }}
