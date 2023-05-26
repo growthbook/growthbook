@@ -1407,10 +1407,7 @@ export default abstract class SqlIntegration
          COUNT (*) as count,
          MAX(${timestampColumn}) as lastTrackedAt
       FROM
-         ${this.generateTableName("pages")}
-         GROUP BY event, ${timestampColumn}
-      ORDER BY lastTrackedAt DESC
-      LIMIT 1`;
+         ${this.generateTableName("pages")}`;
 
       const pageViewedResults = await this.runQuery(
         format(pageViewedSql, this.getFormatDialect())
@@ -1426,9 +1423,9 @@ export default abstract class SqlIntegration
     return results.map((result) => {
       result.createBinomialFromEvent = true;
       result.createCountFromEvent = true;
-      result.lastTrackedAt = result.lastTrackedAt
-        ? new Date(result.lastTrackedAt)
-        : null;
+      result.lastTrackedAt = result.lastTrackedAt.value
+        ? new Date(result.lastTrackedAt.value)
+        : new Date(result.lastTrackedAt);
       return result;
     });
   }
