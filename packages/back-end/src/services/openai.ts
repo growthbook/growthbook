@@ -80,21 +80,32 @@ export const simpleCompletion = async ({
   prompt,
   maxTokens,
   organization,
+  temperature,
+  priorKnowledge,
 }: {
   behavior: string;
   prompt: string;
+  priorKnowledge?: string[];
   maxTokens?: number;
+  temperature?: number;
   organization: OrganizationInterface;
 }) => {
   const messages: ChatCompletionRequestMessage[] = [
     {
-      role: "system",
+      // In general, gpt-3.5-turbo-0301 does not pay strong attention to the
+      // system message, and therefore important instructions are often better
+      // placed in a user message.
+      role: "user",
       content: behavior,
     },
     {
       role: "user",
       content: prompt,
     },
+    ...(priorKnowledge || []).map<ChatCompletionRequestMessage>((message) => ({
+      role: "assistant",
+      content: message,
+    })),
   ];
 
   const numTokens = numTokensFromMessages(messages);
@@ -109,10 +120,7 @@ export const simpleCompletion = async ({
     );
   }
 
-  const inputModerationRes = await openai.createModeration({
-    input: prompt,
-    model: MODEL,
-  });
+  const inputModerationRes = await openai.createModeration({ input: prompt });
   if (inputModerationRes.data.results.some((r) => r.flagged)) {
     throw new Error("Prompt was flagged by OpenAI moderation");
   }
@@ -120,15 +128,13 @@ export const simpleCompletion = async ({
   const response = await openai.createChatCompletion({
     model: MODEL,
     messages,
+    ...(temperature != null ? { temperature } : {}),
   });
 
   const numTokensUsed = response.data.usage?.total_tokens ?? numTokens; // fallback to numTokens if usage is not available
   await updateTokenUsage({ numTokensUsed, organization });
 
-  const outputModerationRes = await openai.createModeration({
-    input: prompt,
-    model: MODEL,
-  });
+  const outputModerationRes = await openai.createModeration({ input: prompt });
   if (outputModerationRes.data.results.some((r) => r.flagged)) {
     throw new Error("Output was flagged by OpenAI moderation");
   }
