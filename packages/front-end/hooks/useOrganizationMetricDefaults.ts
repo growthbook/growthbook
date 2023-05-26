@@ -59,7 +59,7 @@ type OrganizationMetricDefaults = {
   getMinSampleSizeForMetric: (metric: Partial<MetricInterface>) => number;
 };
 
-export type OrganizationWithMetricDefaults = Omit<
+export type OrganizationSettingsWithMetricDefaults = Omit<
   OrganizationSettings,
   "metricDefaults"
 > & {

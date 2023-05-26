@@ -179,7 +179,9 @@ const ProjectPage: FC = () => {
             </div>
             <div className="col-sm-9">
               <StatsEngineSelect
-                form={form}
+                onChange={(v) => {
+                  form.setValue("statsEngine", v);
+                }}
                 label="Default Statistics Engine"
                 parentSettings={parentSettings}
               />

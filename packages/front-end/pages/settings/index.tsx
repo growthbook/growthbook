@@ -26,7 +26,10 @@ import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import TempMessage from "@/components/TempMessage";
 import Button from "@/components/Button";
 import { DocLink } from "@/components/DocLink";
-import { OrganizationWithMetricDefaults, useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import {
+  OrganizationSettingsWithMetricDefaults,
+  useOrganizationMetricDefaults,
+} from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import { GBCuped, GBPremiumBadge, GBSequential } from "@/components/Icons";
@@ -77,7 +80,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const showUpgradeButton = ["oss", "starter"].includes(accountPlan || '');
+  const showUpgradeButton = ["oss", "starter"].includes(accountPlan || "");
   const licensePlanText =
     (accountPlan === "enterprise"
       ? "Enterprise"
@@ -87,7 +90,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ? "Pro + SSO"
       : "Starter") + (license && license.trial ? " (trial)" : "");
 
-  const form = useForm<OrganizationWithMetricDefaults>({
+  const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
       visualEditorEnabled: false,
       pastExperimentsMinLength: 6,
@@ -213,9 +216,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ...value,
       metricDefaults: {
         ...value.metricDefaults,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         minPercentageChange: value.metricDefaults.minPercentageChange / 100,
       },
       // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
@@ -674,11 +675,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     )}
                   </div>
                   <StatsEngineSelect
-                    form={form}
                     label="Default Statistics Engine"
                     allowUndefined={false}
                     onChange={(value) => {
                       setStatsEngineTab(value);
+                      form.setValue("statsEngine", value);
                     }}
                   />
                 </div>
