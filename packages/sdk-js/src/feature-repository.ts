@@ -241,7 +241,11 @@ async function fetchFeatures(
   instance: GrowthBook
 ): Promise<FeatureApiResponse> {
   const [key, apiHost, clientKey] = getKey(instance);
-  const endpoint = apiHost + "/api/features/" + clientKey;
+  const serverSideEval = instance.getServerSideEval();
+
+  const endpoint = serverSideEval
+    ? apiHost + "/eval/features/" + clientKey + "?attributes=" + encodeURIComponent( JSON.stringify( instance.getAttributes() ))
+    : apiHost + "/api/features/" + clientKey;
 
   let promise = activeFetches.get(key);
   if (!promise) {
@@ -255,6 +259,7 @@ async function fetchFeatures(
       })
       .then((data: FeatureApiResponse) => {
         onNewFeatureData(key, data);
+        instance.trackRemoteExperiments(data.trackExperiments || []);
         startAutoRefresh(instance);
         activeFetches.delete(key);
         return data;
@@ -278,6 +283,8 @@ async function fetchFeatures(
 // Will prefer SSE if enabled, otherwise fall back to cron
 function startAutoRefresh(instance: GrowthBook): void {
   const [key, apiHost, clientKey] = getKey(instance);
+  const serverSideEval = instance.getServerSideEval();
+
   if (
     cacheSettings.backgroundSync &&
     supportsSSE.has(key) &&
@@ -288,8 +295,13 @@ function startAutoRefresh(instance: GrowthBook): void {
       src: null,
       cb: (event: MessageEvent<string>) => {
         try {
-          const json: FeatureApiResponse = JSON.parse(event.data);
-          onNewFeatureData(key, json);
+          if (serverSideEval) {
+            const json: { update: boolean } = JSON.parse(event.data);
+            if (json.update) fetchFeatures(instance);
+          } else {
+            const json: FeatureApiResponse = JSON.parse(event.data);
+            onNewFeatureData(key, json);
+          }
           // Reset error count on success
           channel.errors = 0;
         } catch (e) {

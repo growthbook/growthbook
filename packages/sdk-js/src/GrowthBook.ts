@@ -106,7 +106,7 @@ export class GrowthBook<
       this._updateAllAutoExperiments();
     }
 
-    if (context.clientKey) {
+    if (context.clientKey && !context.serverSideEval) {
       this._refresh({}, true, false);
     }
   }
@@ -129,6 +129,10 @@ export class GrowthBook<
       (this._ctx.apiHost || "https://cdn.growthbook.io").replace(/\/*$/, ""),
       this._ctx.clientKey || "",
     ];
+  }
+
+  public getServerSideEval(): boolean {
+    return this._ctx.serverSideEval || false;
   }
 
   private async _refresh(
@@ -556,7 +560,7 @@ export class GrowthBook<
             });
 
           // If this was a remotely evaluated experiment, fire the tracking callbacks
-          if (rule.tracks) {
+          if (rule.tracks && !this._ctx.serverSideEval) {
             rule.tracks.forEach((t) => {
               this._track(t.experiment, t.result);
             });
@@ -868,7 +872,9 @@ export class GrowthBook<
     const result = this._getResult(experiment, assigned, true, featureId, n);
 
     // 14. Fire the tracking callback
-    this._track(experiment, result);
+    if (!this._ctx.serverSideEval) {
+      this._track(experiment, result);
+    }
 
     // 15. Return the result
     process.env.NODE_ENV !== "production" &&
@@ -883,6 +889,20 @@ export class GrowthBook<
     if (!this.debug) return;
     if (this._ctx.log) this._ctx.log(msg, ctx);
     else console.log(msg, ctx);
+  }
+
+  public trackRemoteExperiments(
+    data: {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      experiment: Experiment<any>;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      result: Result<any>;
+    }[]
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    data.forEach(({ experiment, result }) => {
+      this._track(experiment, result);
+    });
   }
 
   private _track<T>(experiment: Experiment<T>, result: Result<T>) {

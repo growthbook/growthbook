@@ -169,6 +169,7 @@ export interface Context {
   apiHost?: string;
   clientKey?: string;
   decryptionKey?: string;
+  serverSideEval?: boolean;
 }
 
 export type SubscriptionFunction = (
@@ -216,6 +217,7 @@ export type FeatureApiResponse = {
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
+  trackExperiments?: { experiment: Experiment<any>; result: Result<any> }[];
 };
 
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
