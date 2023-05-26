@@ -124,8 +124,7 @@ export default function FeaturePage() {
     permissions.check(
       "publishFeatures",
       projectId,
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      "defaultValue" in data.feature.draft
+      "defaultValue" in (data?.feature?.draft || {})
         ? getEnabledEnvironments(data.feature)
         : getAffectedEnvs(
             data.feature,
@@ -252,8 +251,7 @@ export default function FeaturePage() {
       )}
       {editTagsModal && (
         <EditTagsForm
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
-          tags={data.feature?.tags}
+          tags={data.feature?.tags || []}
           save={async (tags) => {
             await apiCall(`/feature/${data.feature.id}`, {
               method: "PUT",
@@ -517,8 +515,7 @@ export default function FeaturePage() {
       <div className="mb-3">
         <div className={data.feature.description ? "appbox mb-4 p-3" : ""}>
           <MarkdownInlineEdit
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-            value={data.feature.description}
+            value={data.feature.description || ""}
             canEdit={permissions.check("manageFeatures", projectId)}
             canCreate={permissions.check("manageFeatures", projectId)}
             save={async (description) => {
@@ -576,8 +573,7 @@ export default function FeaturePage() {
       <div className="appbox mb-4 p-3">
         <ForceSummary
           type={type}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-          value={getFeatureDefaultValue(data.feature)}
+          value={getFeatureDefaultValue(data.feature) || ""}
         />
       </div>
 
@@ -588,8 +584,9 @@ export default function FeaturePage() {
       </p>
 
       <ControlledTabs
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<string>>' is not ass... Remove this comment to see the full error message
-        setActive={setEnv}
+        setActive={(v) => {
+          setEnv(v || "");
+        }}
         active={env}
         showActiveCount={true}
         newStyle={false}

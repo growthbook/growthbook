@@ -102,8 +102,9 @@ export default function SDKConnectionForm({
     value: p.id,
   }));
   const projectId = initialValue.project;
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const projectName = getProjectById(projectId)?.name || null;
+  const projectName = projectId
+    ? getProjectById(projectId)?.name || null
+    : null;
   const projectIsDeReferenced = projectId && !projectName;
   if (projectIsDeReferenced) {
     projectsOptions.push({
@@ -134,9 +135,9 @@ export default function SDKConnectionForm({
           value.includeDraftExperiments = false;
         }
 
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ name: string; languages: SDKLanguage[]; en... Remove this comment to see the full error message
         const body: Omit<CreateSDKConnectionParams, "organization"> = {
           ...value,
+          project: value.project || "",
         };
 
         if (edit) {
@@ -186,8 +187,7 @@ export default function SDKConnectionForm({
         <SelectField
           label="Project"
           initialOption="All Projects"
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-          value={form.watch("project")}
+          value={form.watch("project") || ""}
           onChange={(project) => form.setValue("project", project)}
           options={projectsOptions}
           sort={false}
@@ -314,8 +314,7 @@ export default function SDKConnectionForm({
 
       {(!hasNoSDKsWithSSESupport || initialValue.sseEnabled) &&
         isCloud() &&
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        gb.isOn("proxy-cloud-sse") && (
+        gb?.isOn("proxy-cloud-sse") && (
           <div className="mt-3 mb-3">
             <label htmlFor="sdk-connection-sseEnabled-toggle">
               <PremiumTooltip
@@ -394,8 +393,7 @@ export default function SDKConnectionForm({
         )}
 
       {/*todo: deprecate this in favor of sseEnabled switch?*/}
-      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-      {isCloud() && gb.isOn("proxy-cloud") && (
+      {isCloud() && gb?.isOn("proxy-cloud") && (
         <>
           <div className="mb-3">
             <label htmlFor="sdk-connection-proxy-toggle">
