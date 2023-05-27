@@ -94,6 +94,7 @@ import { projectRouter } from "./routers/project/project.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
+import authencateApiRequestMiddleware from "./middleware/authenticateApiRequestMiddleware";
 
 const app = express();
 
@@ -194,6 +195,8 @@ app.get(
   }),
   getExperimentConfig
 );
+
+// Public features for SDKs
 app.get(
   "/api/features/:key?",
   cors({
@@ -203,6 +206,7 @@ app.get(
   featuresController.getFeaturesPublic
 );
 // For preflight requests
+// todo: do we actually need this?
 app.options(
   "/api/features/:key?",
   cors({
@@ -212,6 +216,18 @@ app.options(
   function (req, res) {
     res.send(200);
   }
+);
+
+// API-key authenticated features for server side eval
+// to be used by infrastructure only (i.e. GB Proxy)
+app.get(
+  "/api/eval/features/:key?",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  authencateApiRequestMiddleware,
+  featuresController.getFeaturesForEval
 );
 
 // Secret API routes (no JWT or CORS)
