@@ -12,6 +12,7 @@ import {
 import { useForm } from "react-hook-form";
 import { cloneDeep } from "lodash";
 import { ago } from "@/../shared/dates";
+import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getInitialSettings } from "@/services/datasources";
@@ -60,6 +61,7 @@ const NewDataSourceForm: FC<{
     mutateDefinitions,
   } = useDefinitions();
   const [step, setStep] = useState(0);
+  const [showSqlPreview, setShowSqlPreview] = useState(false);
   const [schema, setSchema] = useState("");
   const [dataSourceId, setDataSourceId] = useState<string | null>(
     data?.id || null
@@ -77,8 +79,13 @@ const NewDataSourceForm: FC<{
       displayName: string;
       lastTrackedAt: Date;
       count: number;
+      binomialSqlQuery: string;
+      countSqlQuery: string;
+      countDisplayName: string;
     }[]
   >([]);
+
+  console.log("metricsToCreate", metricsToCreate);
 
   const permissions = usePermissions();
 
@@ -526,6 +533,17 @@ const NewDataSourceForm: FC<{
   } else {
     stepContents = (
       <div>
+        {showSqlPreview && (
+          <Modal
+            open={true}
+            header={"Sql Preview"}
+            closeCta="Close"
+            close={() => setShowSqlPreview(false)}
+            size="md"
+          >
+            SQL PREVIEW
+          </Modal>
+        )}
         <div className="mb-2">
           <a
             href="#"
@@ -612,6 +630,9 @@ const NewDataSourceForm: FC<{
                               createCountFromEvent: boolean;
                               lastTrackedAt: Date;
                               count: number;
+                              binomialSqlQuery: string;
+                              countSqlQuery: string;
+                              countDisplayName: string;
                             }[];
                             message?: string;
                           }>(`/datasource/${dataSourceId}/auto-metrics`, {
@@ -642,7 +663,8 @@ const NewDataSourceForm: FC<{
                           setAutoMetricError(e.message);
                         }
                       }}
-                      color="outline-primary"
+                      color="warning"
+                      className="font-weight-bold"
                     >
                       See What Metrics We Can Create
                     </Button>
@@ -661,7 +683,7 @@ const NewDataSourceForm: FC<{
                     </DocLink>
                   </p>
                   {metricsToCreate.length > 0 && (
-                    <div className="d-flex pb-2 w-100 justify-content-between align-items-center">
+                    <div className="d-flex pb-2 w-100 justify-content-between align-items-center border-bottom mb-2">
                       <h3 className="mb-0">
                         Tracked Events{" "}
                         <Tooltip
@@ -703,10 +725,7 @@ const NewDataSourceForm: FC<{
                   )}
                   {metricsToCreate.map((metric, i) => {
                     return (
-                      <div
-                        key={`${metric}-${i}`}
-                        className="border rounded p-3 mb-1"
-                      >
+                      <div key={`${metric}-${i}`} className="p-2 mb-1">
                         <div className="d-flex justify-content-between">
                           <div className="d-flex align-items-center pb-3">
                             <h4 className="mb-0">{metric.displayName}</h4>
@@ -714,52 +733,108 @@ const NewDataSourceForm: FC<{
                               className="pl-2 font-italic"
                               body="Limited to the last 7 days."
                             >
-                              (Tracked {metric.count} time
-                              {metric.count > 1 ? "s" : ""})
+                              (Count: {metric.count})
                             </Tooltip>
                           </div>
                           <div className="font-italic">
-                            Last tracked {ago(metric.lastTrackedAt)}
+                            Last seen {ago(metric.lastTrackedAt)}
                           </div>
                         </div>
                         <div className="d-flex flex-column">
-                          <div className="d-flex p-1">
-                            <Toggle
-                              value={metric.createBinomialFromEvent}
-                              id={`${metric}-${i}-binomial`}
-                              setValue={(value) => {
-                                const newMetricsToCreate = cloneDeep(
-                                  metricsToCreate
-                                );
-                                newMetricsToCreate[
-                                  i
-                                ].createBinomialFromEvent = value;
-                                setMetricsToCreate(newMetricsToCreate);
-                              }}
-                            />
-                            <label className="ml-2 mb-0">
-                              Create binomial type metric for{" "}
-                              <strong>{metric.displayName}</strong>
-                            </label>
+                          <div
+                            className={clsx(
+                              !metric.createBinomialFromEvent
+                                ? "text-muted"
+                                : "",
+                              "d-flex justify-content-between align-items-center border rounded px-2 mb-2 bg-light"
+                            )}
+                          >
+                            <div className="border-right p-1 pr-3">
+                              <Toggle
+                                value={metric.createBinomialFromEvent}
+                                id={`${metric}-${i}-binomial`}
+                                setValue={(value) => {
+                                  const newMetricsToCreate = cloneDeep(
+                                    metricsToCreate
+                                  );
+                                  newMetricsToCreate[
+                                    i
+                                  ].createBinomialFromEvent = value;
+                                  setMetricsToCreate(newMetricsToCreate);
+                                }}
+                              />
+                            </div>
+                            <div className="p-1 d-flex justify-content-between align-items-center w-100 px-5">
+                              <h4 className="m-0">
+                                Metric Name: {metric.displayName}{" "}
+                              </h4>
+                              <h4 className="m-0">
+                                Type:{" "}
+                                <code
+                                  className={clsx(
+                                    !metric.createBinomialFromEvent &&
+                                      "text-muted"
+                                  )}
+                                >
+                                  binomial
+                                </code>
+                              </h4>
+                            </div>
+                            <div className="border-left p-1 pl-3">
+                              <Button
+                                disabled={!metric.createBinomialFromEvent}
+                                color="link"
+                                onClick={async () => setShowSqlPreview(true)}
+                              >
+                                Preview SQL
+                              </Button>
+                            </div>
                           </div>
-                          <div className="d-flex p-1">
-                            <Toggle
-                              value={metric.createCountFromEvent}
-                              id={`${metric}-${i}-count`}
-                              setValue={(value) => {
-                                const newMetricsToCreate = cloneDeep(
-                                  metricsToCreate
-                                );
-                                newMetricsToCreate[
-                                  i
-                                ].createCountFromEvent = value;
-                                setMetricsToCreate(newMetricsToCreate);
-                              }}
-                            />
-                            <label className="ml-2 mb-0">
-                              Create count type metric for{" "}
-                              <strong>{metric.displayName}</strong>
-                            </label>
+                          <div
+                            className={clsx(
+                              !metric.createCountFromEvent ? "text-muted" : "",
+                              "d-flex justify-content-between align-items-center border rounded px-2 mb-2 bg-light"
+                            )}
+                          >
+                            <div className="border-right p-1 pr-3">
+                              <Toggle
+                                value={metric.createCountFromEvent}
+                                id={`${metric}-${i}-count`}
+                                setValue={(value) => {
+                                  const newMetricsToCreate = cloneDeep(
+                                    metricsToCreate
+                                  );
+                                  newMetricsToCreate[
+                                    i
+                                  ].createCountFromEvent = value;
+                                  setMetricsToCreate(newMetricsToCreate);
+                                }}
+                              />
+                            </div>
+                            <div className="p-1 d-flex justify-content-between align-items-center w-100 px-5">
+                              <h4 className="m-0">
+                                Metric Name: {metric.countDisplayName}{" "}
+                              </h4>
+                              <h4 className="m-0">
+                                Type:{" "}
+                                <code
+                                  className={clsx(
+                                    !metric.createCountFromEvent && "text-muted"
+                                  )}
+                                >
+                                  count
+                                </code>
+                              </h4>
+                            </div>
+                            <div className="border-left p-1 pl-3">
+                              <Button
+                                color="link"
+                                disabled={!metric.createCountFromEvent}
+                                onClick={async () => console.log("clicked")}
+                              >
+                                Preview SQL
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </div>
