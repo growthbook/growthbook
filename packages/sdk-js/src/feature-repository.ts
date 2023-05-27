@@ -199,6 +199,7 @@ function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse): void {
   const existing = cache.get(key);
   if (existing && version && existing.version === version) {
     existing.staleAt = staleAt;
+    updatePersistentCache();
     return;
   }
 

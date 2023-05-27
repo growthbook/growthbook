@@ -225,7 +225,7 @@ export class GrowthBook<
 
   public setURL(url: string) {
     this._ctx.url = url;
-    this._updateAllAutoExperiments();
+    this._updateAllAutoExperiments(true);
   }
 
   public getAttributes() {
@@ -298,12 +298,16 @@ export class GrowthBook<
     return this._runAutoExperiment(exp, true);
   }
 
-  private _runAutoExperiment(experiment: AutoExperiment, forced?: boolean) {
+  private _runAutoExperiment(
+    experiment: AutoExperiment,
+    forceManual?: boolean,
+    forceRerun?: boolean
+  ) {
     const key = experiment.key;
     const existing = this._activeAutoExperiments.get(key);
 
     // If this is a manual experiment and it's not already running, skip
-    if (!forced && experiment.manual && !existing) return null;
+    if (experiment.manual && !forceManual && !existing) return null;
 
     // Run the experiment
     const result = this.run(experiment);
@@ -312,7 +316,12 @@ export class GrowthBook<
     const valueHash = JSON.stringify(result.value);
 
     // If the changes are already active, no need to re-apply them
-    if (result.inExperiment && existing && existing.valueHash === valueHash) {
+    if (
+      !forceRerun &&
+      result.inExperiment &&
+      existing &&
+      existing.valueHash === valueHash
+    ) {
       return result;
     }
 
@@ -341,7 +350,7 @@ export class GrowthBook<
     }
   }
 
-  private _updateAllAutoExperiments() {
+  private _updateAllAutoExperiments(forceRerun?: boolean) {
     const experiments = this._ctx.experiments || [];
 
     // Stop any experiments that are no longer defined
@@ -355,7 +364,7 @@ export class GrowthBook<
 
     // Re-run all new/updated experiments
     experiments.forEach((exp) => {
-      this._runAutoExperiment(exp, false);
+      this._runAutoExperiment(exp, false, forceRerun);
     });
   }
 
@@ -1038,6 +1047,12 @@ export class GrowthBook<
       s.innerHTML = changes.css;
       document.head.appendChild(s);
       undo.push(() => s.remove());
+    }
+    if (changes.js) {
+      const script = document.createElement("script");
+      script.innerHTML = changes.js;
+      document.body.appendChild(script);
+      undo.push(() => script.remove());
     }
     if (changes.domMutations) {
       changes.domMutations.forEach((mutation) => {
