@@ -10,9 +10,6 @@ import {
   DataSourceSettings,
 } from "back-end/types/datasource";
 import { useForm } from "react-hook-form";
-import { cloneDeep } from "lodash";
-import { ago } from "@/../shared/dates";
-import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getInitialSettings } from "@/services/datasources";
@@ -29,11 +26,11 @@ import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { GBCircleArrowLeft } from "../Icons";
 import Button from "../Button";
-import Toggle from "../Forms/Toggle";
 import { DocLink } from "../DocLink";
 import Tooltip from "../Tooltip/Tooltip";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
+import AutoMetricCard from "./AutoMetricCard";
 
 const NewDataSourceForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
@@ -61,7 +58,8 @@ const NewDataSourceForm: FC<{
     mutateDefinitions,
   } = useDefinitions();
   const [step, setStep] = useState(0);
-  const [showSqlPreview, setShowSqlPreview] = useState(false);
+  // const [showSqlPreview, setShowSqlPreview] =
+  //   useState < { name: string, showPreview: boolean } >[]([]);
   const [schema, setSchema] = useState("");
   const [dataSourceId, setDataSourceId] = useState<string | null>(
     data?.id || null
@@ -84,8 +82,6 @@ const NewDataSourceForm: FC<{
       countDisplayName: string;
     }[]
   >([]);
-
-  console.log("metricsToCreate", metricsToCreate);
 
   const permissions = usePermissions();
 
@@ -533,17 +529,6 @@ const NewDataSourceForm: FC<{
   } else {
     stepContents = (
       <div>
-        {showSqlPreview && (
-          <Modal
-            open={true}
-            header={"Sql Preview"}
-            closeCta="Close"
-            close={() => setShowSqlPreview(false)}
-            size="md"
-          >
-            SQL PREVIEW
-          </Modal>
-        )}
         <div className="mb-2">
           <a
             href="#"
@@ -725,119 +710,15 @@ const NewDataSourceForm: FC<{
                   )}
                   {metricsToCreate.map((metric, i) => {
                     return (
-                      <div key={`${metric}-${i}`} className="p-2 mb-1">
-                        <div className="d-flex justify-content-between">
-                          <div className="d-flex align-items-center pb-3">
-                            <h4 className="mb-0">{metric.displayName}</h4>
-                            <Tooltip
-                              className="pl-2 font-italic"
-                              body="Limited to the last 7 days."
-                            >
-                              (Count: {metric.count})
-                            </Tooltip>
-                          </div>
-                          <div className="font-italic">
-                            Last seen {ago(metric.lastTrackedAt)}
-                          </div>
-                        </div>
-                        <div className="d-flex flex-column">
-                          <div
-                            className={clsx(
-                              !metric.createBinomialFromEvent
-                                ? "text-muted"
-                                : "",
-                              "d-flex justify-content-between align-items-center border rounded px-2 mb-2 bg-light"
-                            )}
-                          >
-                            <div className="border-right p-1 pr-3">
-                              <Toggle
-                                value={metric.createBinomialFromEvent}
-                                id={`${metric}-${i}-binomial`}
-                                setValue={(value) => {
-                                  const newMetricsToCreate = cloneDeep(
-                                    metricsToCreate
-                                  );
-                                  newMetricsToCreate[
-                                    i
-                                  ].createBinomialFromEvent = value;
-                                  setMetricsToCreate(newMetricsToCreate);
-                                }}
-                              />
-                            </div>
-                            <div className="p-1 d-flex justify-content-between align-items-center w-100 px-5">
-                              <h4 className="m-0">
-                                Metric Name: {metric.displayName}{" "}
-                              </h4>
-                              <h4 className="m-0">
-                                Type:{" "}
-                                <code
-                                  className={clsx(
-                                    !metric.createBinomialFromEvent &&
-                                      "text-muted"
-                                  )}
-                                >
-                                  binomial
-                                </code>
-                              </h4>
-                            </div>
-                            <div className="border-left p-1 pl-3">
-                              <Button
-                                disabled={!metric.createBinomialFromEvent}
-                                color="link"
-                                onClick={async () => setShowSqlPreview(true)}
-                              >
-                                Preview SQL
-                              </Button>
-                            </div>
-                          </div>
-                          <div
-                            className={clsx(
-                              !metric.createCountFromEvent ? "text-muted" : "",
-                              "d-flex justify-content-between align-items-center border rounded px-2 mb-2 bg-light"
-                            )}
-                          >
-                            <div className="border-right p-1 pr-3">
-                              <Toggle
-                                value={metric.createCountFromEvent}
-                                id={`${metric}-${i}-count`}
-                                setValue={(value) => {
-                                  const newMetricsToCreate = cloneDeep(
-                                    metricsToCreate
-                                  );
-                                  newMetricsToCreate[
-                                    i
-                                  ].createCountFromEvent = value;
-                                  setMetricsToCreate(newMetricsToCreate);
-                                }}
-                              />
-                            </div>
-                            <div className="p-1 d-flex justify-content-between align-items-center w-100 px-5">
-                              <h4 className="m-0">
-                                Metric Name: {metric.countDisplayName}{" "}
-                              </h4>
-                              <h4 className="m-0">
-                                Type:{" "}
-                                <code
-                                  className={clsx(
-                                    !metric.createCountFromEvent && "text-muted"
-                                  )}
-                                >
-                                  count
-                                </code>
-                              </h4>
-                            </div>
-                            <div className="border-left p-1 pl-3">
-                              <Button
-                                color="link"
-                                disabled={!metric.createCountFromEvent}
-                                onClick={async () => console.log("clicked")}
-                              >
-                                Preview SQL
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+                      <AutoMetricCard
+                        i={i}
+                        key={`${metric}-${i}`}
+                        metric={metric}
+                        setMetricsToCreate={setMetricsToCreate}
+                        metricsToCreate={metricsToCreate}
+                        dataSourceId={dataSourceId || ""}
+                        form={form}
+                      />
                     );
                   })}
                 </div>
