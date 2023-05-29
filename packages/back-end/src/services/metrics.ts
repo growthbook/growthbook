@@ -3,10 +3,10 @@ import { deleteMetricById, getMetricById } from "../models/MetricModel";
 import { ImpactEstimateModel } from "../models/ImpactEstimateModel";
 import { removeMetricFromExperiments } from "../models/ExperimentModel";
 import { EventAuditUser } from "../events/event-types";
+import { PermissionFunctions } from "../types/AuthRequest";
+import { MetricInterface } from "../../types/metric";
 
-// TODO: Enable after merging https://github.com/growthbook/growthbook/pull/1265
-// export type MetricDeleteOptions = PermissionFunctions & {
-export type MetricDeleteOptions = {
+export type MetricDeleteOptions = PermissionFunctions & {
   id: string;
   organization: OrganizationInterface;
   eventAudit: EventAuditUser;
@@ -19,21 +19,20 @@ export class MetricDeleter {
     this.options = options;
   }
 
-  public async perform(): Promise<string> {
-    const { id, organization, eventAudit } = this.options;
+  public async perform(): Promise<MetricInterface> {
+    const { id, organization, eventAudit, checkPermissions } = this.options;
 
-    // TODO: Enable after merging https://github.com/growthbook/growthbook/pull/1265
-    //  checkPermissions("createAnalyses", "");
+    checkPermissions("createAnalyses", "");
 
     const metric = await getMetricById(id, organization.id);
-    // TODO: Enable after merging https://github.com/growthbook/growthbook/pull/1265
-    // checkPermissions(
-    //   "createMetrics",
-    //   metric?.projects?.length ? metric.projects : ""
-    // );
+    checkPermissions(
+      "createMetrics",
+      metric?.projects?.length ? metric.projects : ""
+    );
     if (!metric) {
       throw new Error("Unable to delete - Could not find metric with that id");
     }
+
     // delete references:
     // ideas (impact estimate)
     ImpactEstimateModel.updateMany(
@@ -49,6 +48,6 @@ export class MetricDeleter {
 
     await deleteMetricById(metric.id, organization.id);
 
-    return metric.id;
+    return metric;
   }
 }

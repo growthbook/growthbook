@@ -7,17 +7,15 @@ import {
 } from "../services/experiments";
 import { MetricAnalysis, MetricInterface } from "../../types/metric";
 import {
-  getRecentExperimentsUsingMetric,
   getExperimentsByMetric,
-  removeMetricFromExperiments,
+  getRecentExperimentsUsingMetric,
 } from "../models/ExperimentModel";
 import { addTagsDiff } from "../models/TagModel";
 import { getOrgFromReq } from "../services/organizations";
-import { getStatusEndpoint, cancelRun } from "../services/queries";
+import { cancelRun, getStatusEndpoint } from "../services/queries";
 import {
-  deleteMetricById,
-  getMetricsByOrganization,
   getMetricById,
+  getMetricsByOrganization,
   updateMetric,
 } from "../models/MetricModel";
 import { IdeaInterface } from "../../types/idea";
@@ -27,58 +25,34 @@ import { getIdeasByQuery } from "../services/ideas";
 import { ImpactEstimateModel } from "../models/ImpactEstimateModel";
 import {
   auditDetailsCreate,
-  auditDetailsUpdate,
   auditDetailsDelete,
+  auditDetailsUpdate,
 } from "../services/audit";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { MetricDeleter } from "../services/metrics";
 
 export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,
   res: Response<unknown, EventAuditUserForResponseLocals>
 ) {
-  // TODO: use MetricDeleter service after merging https://github.com/growthbook/growthbook/pull/1265
-  req.checkPermissions("createAnalyses", "");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
-  const metric = await getMetricById(id, org.id);
-  req.checkPermissions(
-    "createMetrics",
-    metric?.projects?.length ? metric.projects : ""
-  );
-
-  if (!metric) {
-    res.status(403).json({
-      status: 404,
-      message: "Metric not found",
-    });
-    return;
-  }
-
-  // delete references:
-  // ideas (impact estimate)
-  ImpactEstimateModel.updateMany(
-    {
-      metric: metric.id,
-      organization: org.id,
-    },
-    { metric: "" }
-  );
-
-  // Experiments
-  await removeMetricFromExperiments(metric.id, org, res.locals.eventAudit);
-
-  // now remove the metric itself:
-  await deleteMetricById(metric.id, org.id);
+  const metricDeleter = new MetricDeleter({
+    id,
+    organization: org,
+    eventAudit: res.locals.eventAudit,
+    checkPermissions: req.checkPermissions,
+  });
+  const deletedMetric = await metricDeleter.perform();
 
   await req.audit({
     event: "metric.delete",
     entity: {
       object: "metric",
-      id: metric.id,
+      id: deletedMetric.id,
     },
-    details: auditDetailsDelete(metric),
+    details: auditDetailsDelete(deletedMetric),
   });
 
   res.status(200).json({

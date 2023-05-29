@@ -9,11 +9,13 @@ export const deleteMetric = createApiRequestHandler(deleteMetricValidator)(
       id: req.params.id,
       organization: req.organization,
       eventAudit: req.eventAudit,
+      // TODO: Add permission check after merging https://github.com/growthbook/growthbook/pull/1265
+      checkPermissions: () => undefined, // checkPermissions: req.checkPermissions
     });
-    const deletedId = await metricDeleter.perform();
+    const deletedMetric = await metricDeleter.perform();
 
     return {
-      deletedId,
+      deletedId: deletedMetric.id,
     };
   }
 );
