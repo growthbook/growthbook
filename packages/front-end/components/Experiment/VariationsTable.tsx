@@ -368,6 +368,7 @@ const VariationsTable: FC<Props> = ({
                             const changes = vc.visualChanges[j];
                             const numChanges =
                               (changes?.css ? 1 : 0) +
+                              (changes?.js ? 1 : 0) +
                               (changes?.domMutations?.length || 0);
                             return (
                               <td key={j} className="px-4 py-1">
