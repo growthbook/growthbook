@@ -1,6 +1,7 @@
 import { Delete{{pascalCase object}}Response } from "../../../types/openapi";
 import {
-  delete{{pascalCase object}},
+  find{{pascalCase object}}ById,
+  delete{{pascalCase object}}ById,
   to{{pascalCase object}}ApiInterface
 } from "../../models/{{pascalCase object}}Model";
 import { createApiRequestHandler } from "../../util/handler";
@@ -15,7 +16,7 @@ export const delete{{pascalCase object}} = createApiRequestHandler(delete{{pasca
     if (!{{camelCase object}}) {
       throw new Error("Unable to delete - Could not find {{camelCase object}} with that id");
     }
-    const {{camelCase object}} = await delete{{pascalCase object}}(/* */);
+    await delete{{pascalCase object}}ById(/* */);
 
     return {
       deletedId: req.params.id,
