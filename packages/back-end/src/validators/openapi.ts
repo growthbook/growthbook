@@ -120,6 +120,12 @@ export const getMetricValidator = {
   paramsSchema: z.object({"id":z.string()}).strict(),
 };
 
+export const deleteMetricValidator = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
 export const listVisualChangesetsValidator = {
   bodySchema: z.never(),
   querySchema: z.never(),

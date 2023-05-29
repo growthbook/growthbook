@@ -138,6 +138,8 @@ export interface paths {
   "/metrics/{id}": {
     /** Get a single metric */
     get: operations["getMetric"];
+    /** Deletes a single metric */
+    delete: operations["deleteMetric"];
   };
   "/experiments/{id}/visual-changesets": {
     /** Get all visual changesets */
@@ -2291,6 +2293,28 @@ export interface operations {
       };
     };
   };
+  deleteMetric: {
+    /** Deletes a single metric */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            /**
+             * @description The ID of the deleted metric 
+             * @example met_abc123
+             */
+            deletedId?: string;
+          };
+        };
+      };
+    };
+  };
   listVisualChangesets: {
     /** Get all visual changesets */
     parameters: {
@@ -2714,6 +2738,7 @@ export type GetExperimentResultsResponse = operations["getExperimentResults"]["r
 export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
 export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["content"]["application/json"];
 export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
+export type DeleteMetricResponse = operations["deleteMetric"]["responses"]["200"]["content"]["application/json"];
 export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetVisualChangesetResponse = operations["getVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];

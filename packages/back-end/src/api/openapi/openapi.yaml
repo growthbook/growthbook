@@ -125,6 +125,8 @@ paths:
   /metrics/{id}:
     get:
       $ref: "./paths/getMetric.yaml"
+    delete:
+      $ref: "./paths/deleteMetric.yaml"
   /experiments/{id}/visual-changesets:
     $ref: "./paths/listVisualChangesets.yaml"
   /visual-changesets/{id}:

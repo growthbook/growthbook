@@ -865,6 +865,30 @@ paths:
                 properties:
                   metric:
                     $ref: '#/components/schemas/Metric'
+    delete:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - metrics
+      summary: Deletes a single metric
+      operationId: deleteMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/metrics/met_abc123 \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required: []
+                properties:
+                  deletedId:
+                    type: string
+                    description: The ID of the deleted metric
+                    example: met_abc123
   '/experiments/{id}/visual-changesets':
     get:
       summary: Get all visual changesets
