@@ -36,6 +36,7 @@ export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,
   res: Response<unknown, EventAuditUserForResponseLocals>
 ) {
+  // TODO: use MetricDeleter service after merging https://github.com/growthbook/growthbook/pull/1265
   req.checkPermissions("createAnalyses", "");
 
   const { org } = getOrgFromReq(req);
