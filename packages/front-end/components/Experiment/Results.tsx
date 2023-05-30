@@ -67,6 +67,7 @@ const Results: FC<{
   const {
     error,
     snapshot,
+    analysis,
     latest,
     phase,
     setPhase,
@@ -85,8 +86,6 @@ const Results: FC<{
   }
 
   const status = getQueryStatus(latest?.queries || [], latest?.error);
-
-  const analysis = snapshot?.analyses?.[0];
 
   const hasData =
     (analysis?.results?.[0]?.variations?.length ?? 0) > 0 &&
@@ -246,6 +245,7 @@ const Results: FC<{
           />
         ))}
       {hasData &&
+        snapshot &&
         analysis &&
         analysis.results?.[0] &&
         !analysis?.settings?.dimensions?.length && (

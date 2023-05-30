@@ -1,6 +1,7 @@
 import { Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
+import { getSnapshotAnalysis } from "shared/util";
 import { ReportInterface } from "../../types/report";
 import {
   getExperimentById,
@@ -52,7 +53,7 @@ export async function postReportFromSnapshot(
     throw new Error("Unknown experiment phase");
   }
 
-  const analysis = snapshot.analyses[0];
+  const analysis = getSnapshotAnalysis(snapshot);
   if (!analysis) {
     throw new Error("Missing analysis settings");
   }

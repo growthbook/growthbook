@@ -11,6 +11,7 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
+import { getSnapshotAnalysis } from "shared/util";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotAnalysisSettings,
@@ -852,7 +853,9 @@ export function toSnapshotApiInterface(
   }
 
   const variationIds = experiment.variations.map((v) => v.id);
-  const analysis = snapshot.analyses[0];
+
+  // Get the default analysis
+  const analysis = getSnapshotAnalysis(snapshot);
 
   return {
     id: snapshot.id,

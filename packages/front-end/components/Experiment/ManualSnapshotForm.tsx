@@ -1,6 +1,6 @@
 import { FC, useState, useEffect } from "react";
 import {
-  ExperimentSnapshotInterface,
+  ExperimentSnapshotAnalysis,
   SnapshotVariation,
 } from "back-end/types/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -25,9 +25,9 @@ const ManualSnapshotForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   close: () => void;
   success: () => void;
-  lastSnapshot?: ExperimentSnapshotInterface;
+  lastAnalysis?: ExperimentSnapshotAnalysis;
   phase: number;
-}> = ({ experiment, close, success, lastSnapshot, phase }) => {
+}> = ({ experiment, close, success, lastAnalysis, phase }) => {
   const { metrics, getMetricById } = useDefinitions();
   const { apiCall } = useAuth();
 
@@ -55,7 +55,6 @@ const ManualSnapshotForm: FC<{
       [key: string]: Omit<MetricStats, "users">[];
     };
   } = { users: Array(experiment.variations.length).fill(0), metrics: {} };
-  const lastAnalysis = lastSnapshot?.analyses?.[0];
   if (lastAnalysis?.results?.[0]) {
     initialValue.users = lastAnalysis.results[0].variations.map((v) => v.users);
   }

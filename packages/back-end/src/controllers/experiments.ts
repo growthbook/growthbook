@@ -6,6 +6,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { getScopedSettings } from "shared/settings";
+import { getSnapshotAnalysis } from "shared/src/util";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
@@ -1521,7 +1522,7 @@ export async function getSnapshotStatus(
 
   if (!experiment) throw new Error("Invalid experiment id");
 
-  const analysis = snapshot.analyses[0];
+  const analysis = getSnapshotAnalysis(snapshot);
 
   if (!analysis) {
     throw new Error("Missing snapshot analysis");
@@ -1542,11 +1543,11 @@ export async function getSnapshotStatus(
       });
     },
     async (updates, results, error) => {
-      const analyses = [...snapshot.analyses];
-      if (analyses[0]) {
-        analyses[0].results = results?.dimensions || [];
-        analyses[0].status = error ? "error" : "success";
-        analyses[0].error = error;
+      const analysis = getSnapshotAnalysis(snapshot);
+      if (analysis) {
+        analysis.results = results?.dimensions || [];
+        analysis.status = error ? "error" : "success";
+        analysis.error = error;
       }
 
       await updateSnapshot(org.id, id, {
@@ -1555,7 +1556,7 @@ export async function getSnapshotStatus(
           results?.unknownVariations || snapshot.unknownVariations || [],
         multipleExposures:
           results?.multipleExposures ?? snapshot.multipleExposures ?? 0,
-        analyses,
+        analyses: snapshot.analyses,
         status: error ? "error" : "success",
         error,
       });

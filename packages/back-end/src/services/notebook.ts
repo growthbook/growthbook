@@ -4,6 +4,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { getSnapshotAnalysis } from "shared/util";
 import { APP_ORIGIN } from "../util/secrets";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
 import { getExperimentById } from "../models/ExperimentModel";
@@ -48,7 +49,7 @@ export async function generateExperimentNotebook(
   if (!snapshot.queries?.length) {
     throw new Error("Snapshot does not have queries");
   }
-  const analysis = snapshot.analyses[0];
+  const analysis = getSnapshotAnalysis(snapshot);
   if (!analysis || !analysis.results?.[0]?.variations?.[0]) {
     throw new Error("Snapshot does not have data");
   }

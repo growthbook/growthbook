@@ -1,6 +1,7 @@
 import Agenda, { Job } from "agenda";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
+import { getSnapshotAnalysis } from "shared/util";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -212,18 +213,18 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
             });
           },
           async (updates, results, error) => {
-            const analyses = currentSnapshot.analyses;
-            if (analyses[0]) {
-              analyses[0].results = results?.dimensions || [];
-              analyses[0].error = error;
-              analyses[0].status = error ? "error" : "success";
+            const analysis = getSnapshotAnalysis(currentSnapshot);
+            if (analysis) {
+              analysis.results = results?.dimensions || [];
+              analysis.error = error;
+              analysis.status = error ? "error" : "success";
             }
 
             await updateSnapshot(experiment.organization, currentSnapshot.id, {
               ...updates,
               unknownVariations: results?.unknownVariations || [],
               multipleExposures: results?.multipleExposures || 0,
-              analyses,
+              analyses: currentSnapshot.analyses,
               error,
               status: error ? "error" : "success",
             });
@@ -277,9 +278,10 @@ async function sendSignificanceEmail(
     return;
   }
 
-  const currentVariations =
-    currentSnapshot.analyses[0]?.results?.[0]?.variations;
-  const lastVariations = lastSnapshot.analyses[0]?.results?.[0]?.variations;
+  const currentVariations = getSnapshotAnalysis(currentSnapshot)?.results?.[0]
+    ?.variations;
+  const lastVariations = getSnapshotAnalysis(lastSnapshot)?.results?.[0]
+    ?.variations;
 
   if (!currentVariations || !lastVariations) {
     return;

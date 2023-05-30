@@ -11,6 +11,7 @@ import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import { OrganizationSettings } from "back-end/types/organization";
 import { ago, datetime } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { getSnapshotAnalysis } from "shared/src/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
@@ -46,7 +47,9 @@ function isOutdated(
   hasSequentialFeature: boolean
 ): { outdated: boolean; reason: string } {
   const snapshotSettings = snapshot?.settings;
-  const analysisSettings = snapshot?.analyses?.[0]?.settings;
+  const analysisSettings = snapshot
+    ? getSnapshotAnalysis(snapshot)?.settings
+    : null;
 
   if (!experiment || !snapshotSettings || !analysisSettings) {
     return { outdated: false, reason: "" };
@@ -142,6 +145,7 @@ export default function AnalysisSettingsBar({
     experiment,
     snapshot,
     latest,
+    analysis,
     dimension,
     mutateSnapshot: mutate,
     phase,
@@ -176,8 +180,7 @@ export default function AnalysisSettingsBar({
 
   const status = getQueryStatus(latest?.queries || [], latest?.error);
 
-  const hasData =
-    (snapshot?.analyses?.[0]?.results?.[0]?.variations?.length ?? 0) > 0;
+  const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
   const [refreshError, setRefreshError] = useState("");
 
@@ -346,7 +349,7 @@ export default function AnalysisSettingsBar({
                     mutate={mutate}
                     phase={phase}
                     experiment={experiment}
-                    lastSnapshot={snapshot}
+                    lastAnalysis={analysis}
                     dimension={dimension}
                     statsEngine={statsEngine}
                     regressionAdjustmentEnabled={regressionAdjustmentEnabled}
@@ -392,7 +395,7 @@ export default function AnalysisSettingsBar({
               supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
               hasData={hasData}
               metrics={experiment.metrics}
-              results={snapshot?.analyses?.[0]?.results}
+              results={analysis?.results}
               variations={variations}
               trackingKey={experiment.trackingKey}
               dimension={dimension}
