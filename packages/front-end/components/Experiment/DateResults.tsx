@@ -34,8 +34,11 @@ const DateResults: FC<{
 }> = ({ results, variations, seriestype, metrics, guardrails }) => {
   const { getMetricById, ready } = useDefinitions();
 
-  const [cumulative, setCumulative] = useState(false);
-
+  const [cumulativeState, setCumulative] = useState(false);
+  let cumulative = cumulativeState;
+  if (seriestype != "pre:date") {
+    cumulative = false;
+  }
   // Get data for users graph
   const users = useMemo<ExperimentDateGraphDataPoint[]>(() => {
     // Keep track of total users per variation for when cumulative is true
