@@ -11,7 +11,7 @@ import {
 } from "react-icons/fa";
 import { BsArrowRepeat, BsLightningFill } from "react-icons/bs";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
+import { GBCircleArrowLeft, GBEdit, GBHashLock } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
@@ -262,6 +262,14 @@ export default function SDKConnectionPage() {
           </div>
         )}
 
+        {connection.hashSecureAttributes && (
+          <div className="col-auto">
+            Secure Attribute Hashing:{" "}
+            <strong>
+              <GBHashLock className="text-blue" /> yes
+            </strong>
+          </div>
+        )}
         {connection.encryptPayload && (
           <div className="col-auto">
             Encrypted:{" "}
