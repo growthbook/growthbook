@@ -890,6 +890,8 @@ export default abstract class SqlIntegration
         ? denominatorMetrics[0]
         : metric;
 
+    const capPercentile = 0.99;
+
     return format(
       `-- ${metric.name} (${metric.type})
     WITH
@@ -1099,6 +1101,18 @@ export default abstract class SqlIntegration
           d.${baseIdType}
       )
       ${
+        capPercentile
+          ? `
+        , __capValue AS (
+          SELECT
+            ${this.percentileCapSelectClause(capPercentile)}
+          FROM 
+            __userMetric
+        )
+        `
+          : ""
+      }
+      ${
         isRatio
           ? `, __userDenominator as (
               -- Add in the aggregate denominator value for each user
@@ -1135,23 +1149,41 @@ export default abstract class SqlIntegration
           ${isRatio ? `d` : `m`}.variation,
           ${isRatio ? `d` : `m`}.dimension,
           COUNT(*) AS count,
-          SUM(COALESCE(m.value, 0)) AS main_sum,
-          SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
+          SUM(${this.getValueForStats("m.value", !!capPercentile)}) AS main_sum,
+          SUM(POWER(${this.getValueForStats(
+            "m.value",
+            !!capPercentile
+          )}, 2)) AS main_sum_squares
           ${
             isRatio
               ? `,
             SUM(COALESCE(d.value, 0)) AS denominator_sum,
             SUM(POWER(COALESCE(d.value, 0), 2)) AS denominator_sum_squares,
-            SUM(COALESCE(d.value, 0) * COALESCE(m.value, 0)) AS main_denominator_sum_product
+            SUM(COALESCE(d.value, 0) * ${this.getValueForStats(
+              "m.value",
+              !!capPercentile
+            )}) AS main_denominator_sum_product
           `
               : ""
           }
           ${
             isRegressionAdjusted
               ? `,
-              SUM(COALESCE(m.covariate_value, 0)) AS covariate_sum,
-              SUM(POWER(COALESCE(m.covariate_value, 0), 2)) AS covariate_sum_squares,
-              SUM(COALESCE(m.value, 0) * COALESCE(m.covariate_value, 0)) AS main_covariate_sum_product
+              SUM(${this.getValueForStats(
+                "m.covariate_value",
+                !!capPercentile
+              )}) AS covariate_sum,
+              SUM(POWER(${this.getValueForStats(
+                "m.covariate_value",
+                !!capPercentile
+              )}, 2)) AS covariate_sum_squares,
+              SUM(${this.getValueForStats(
+                "m.value",
+                !!capPercentile
+              )} * ${this.getValueForStats(
+                  "m.covariate_value",
+                  !!capPercentile
+                )}) AS main_covariate_sum_product
               `
               : ""
           }
@@ -1164,6 +1196,7 @@ export default abstract class SqlIntegration
               )`
             : `__userMetric m`
         }
+        ${capPercentile ? `CROSS JOIN __capValue c` : ""}
         ${
           isRegressionAdjusted && metric.ignoreNulls ? `WHERE m.value != 0` : ""
         }
@@ -1224,6 +1257,15 @@ export default abstract class SqlIntegration
     `,
       this.getFormatDialect()
     );
+  }
+  percentileCapSelectClause(capPercentile: number) {
+    return `PERCENTILE_CONT(${capPercentile}) WITHIN GROUP (ORDER BY value) AS cap_value`;
+  }
+  private getValueForStats(valueCol: string, pctileCapping: boolean): string {
+    if (pctileCapping) {
+      return `LEAST(COALESCE(${valueCol}, 0), c.cap_value)`;
+    }
+    return `COALESCE(${valueCol}, 0)`;
   }
   getExperimentResultsQuery(): string {
     throw new Error("Not implemented");

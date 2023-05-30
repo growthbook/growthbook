@@ -82,6 +82,11 @@ export default class BigQuery extends SqlIntegration {
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
+  percentileCapSelectClause(capPercentile: number): string {
+    return `APPROX_QUANTILES(value, 10000)[OFFSET(${
+      100 * capPercentile
+    })] AS cap_value`;
+  }
   getInformationSchemaFromClause(): string {
     if (!this.params.projectId)
       throw new Error(
