@@ -78,7 +78,9 @@ def accumulate_time_series_df(
             ]
             if x in dfc.columns
         ]
-        dfc[diff_cols] = dfc.groupby(["variation"])[diff_cols].diff().fillna(0)
+        dfc[diff_cols] = (
+            dfc.groupby(["variation"])[diff_cols].diff().fillna(dfc[diff_cols])
+        )
     return dfc
 
 

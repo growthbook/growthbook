@@ -368,6 +368,7 @@ export default function ReportPage() {
                 guardrails={report.args.guardrails}
                 // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                 results={report.results.dimensions}
+                seriestype={report.args.dimension}
                 variations={variations}
               />
             ) : (

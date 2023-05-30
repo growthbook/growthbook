@@ -28,9 +28,10 @@ type Metric = {
 const DateResults: FC<{
   variations: ExperimentReportVariation[];
   results: ExperimentReportResultDimension[];
+  seriestype: string;
   metrics: string[];
   guardrails?: string[];
-}> = ({ results, variations, metrics, guardrails }) => {
+}> = ({ results, variations, seriestype, metrics, guardrails }) => {
   const { getMetricById, ready } = useDefinitions();
 
   const [cumulative, setCumulative] = useState(false);
@@ -160,20 +161,24 @@ const DateResults: FC<{
 
   return (
     <div className="mb-4 mx-3 pb-4">
-      <div className="mb-3 d-flex align-items-center">
-        <div className="mr-3">
-          <strong>Graph Controls: </strong>
+      {seriestype === "pre:date" ? (
+        <div className="mb-3 d-flex align-items-center">
+          <div className="mr-3">
+            <strong>Graph Controls: </strong>
+          </div>
+          <div>
+            <Toggle
+              label="Cumulative"
+              id="cumulative"
+              value={cumulative}
+              setValue={setCumulative}
+            />
+            Cumulative
+          </div>
         </div>
-        <div>
-          <Toggle
-            label="Cumulative"
-            id="cumulative"
-            value={cumulative}
-            setValue={setCumulative}
-          />
-          Cumulative
-        </div>
-      </div>
+      ) : (
+        <></>
+      )}
       <div className="mb-5">
         <h3>Users</h3>
         <ExperimentDateGraph

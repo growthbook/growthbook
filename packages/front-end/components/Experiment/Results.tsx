@@ -208,6 +208,7 @@ const Results: FC<{
             metrics={experiment.metrics}
             guardrails={experiment.guardrails}
             results={snapshot.results ?? []}
+            seriestype={snapshot.dimension}
             variations={variations}
           />
         ) : (

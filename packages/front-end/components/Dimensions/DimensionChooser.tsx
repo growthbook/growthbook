@@ -78,15 +78,15 @@ export default function DimensionChooser({
   // Date is always available
   const builtInDimensions = [
     {
-      label: "First Exposure Date",
+      label: "Time Series (Date Exposed Cohort)",
       value: "pre:date",
     },
     {
-      label: "Cumulative Results By Date",
+      label: "Time Series (Cumulative)",
       value: "pre:datecumulative",
     },
     {
-      label: "Results for all users by Date",
+      label: "Time Series (Daily)",
       value: "pre:datedaily",
     },
   ];
