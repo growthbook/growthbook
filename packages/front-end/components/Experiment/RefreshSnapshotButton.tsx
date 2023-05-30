@@ -59,14 +59,14 @@ const RefreshSnapshotButton: FC<{
       source: "RefreshSnapshotButton",
       experiment: experiment.id,
       engine: statsEngine || "bayesian",
-      regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
-      sequentialTestingEnabled: !!experiment.sequentialTestingEnabled,
-      sequentialTestingTuningParameter:
+      regression_adjustment_enabled: !!regressionAdjustmentEnabled,
+      sequential_testing_enabled: !!experiment.sequentialTestingEnabled,
+      sequential_testing_tuning_parameter:
         experiment.sequentialTestingTuningParameter,
-      skipPartialData: !!experiment.skipPartialData,
-      activationMetricSelected: !!experiment.activationMetric,
-      queryFilterSelected: !!experiment.queryFilter,
-      segmentSelected: !!experiment.segment,
+      skip_partial_data: !!experiment.skipPartialData,
+      activation_metric_selected: !!experiment.activationMetric,
+      query_filter_selected: !!experiment.queryFilter,
+      segment_selected: !!experiment.segment,
       dimension: dimension || "",
     });
     mutate();

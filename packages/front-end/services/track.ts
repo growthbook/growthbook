@@ -20,10 +20,12 @@ import {
   isTelemetryEnabled,
 } from "./env";
 
+type TrackEventProps = Record<string, unknown>;
+
 let jitsu: JitsuClient;
 export default function track(
   event: string,
-  props: Record<string, unknown> = {}
+  props: TrackEventProps = {}
 ): void {
   // Only run client-side, not during SSR
   if (typeof window === "undefined") return;
@@ -85,18 +87,41 @@ export function trackSnapshot(
     source: string;
     experiment: string;
     engine: StatsEngine;
-    regressionAdjustmentEnabled: boolean;
-    sequentialTestingEnabled: boolean;
-    sequentialTestingTuningParameter?: number;
-    skipPartialData: boolean;
-    activationMetricSelected: boolean;
-    queryFilterSelected: boolean;
-    segmentSelected: boolean;
+    regression_adjustment_enabled: boolean;
+    sequential_testing_enabled: boolean;
+    sequential_testing_tuning_parameter?: number;
+    skip_partial_data: boolean;
+    activation_metric_selected: boolean;
+    query_filter_selected: boolean;
+    segment_selected: boolean;
     dimension: string;
     error?: string;
   }
 ): void {
   props.experiment = md5(props.experiment);
-  props.dimension = props.dimension ? md5(props.dimension) : "";
-  track("Experiment Snapshot: " + event, props);
+
+  const parsedDim = parseSnapshotDimension(props.dimension);
+
+  const trackEventProps: TrackEventProps = {
+    ...props,
+    dimension_type: parsedDim.type,
+    dimension_id: parsedDim.id,
+  };
+  delete trackEventProps.dimension;
+  track("Experiment Snapshot: " + event, trackEventProps);
+}
+
+export function parseSnapshotDimension(
+  dimension: string
+): { type: string; id: string } {
+  if (!dimension) {
+    return { type: "none", id: "" };
+  }
+  if (dimension.substring(0, 4) === "pre:") {
+    return { type: "predefined", id: dimension.substring(4) };
+  }
+  if (dimension.substring(0, 4) === "exp:") {
+    return { type: "experiment", id: md5(dimension.substring(4)) };
+  }
+  return { type: "user", id: md5(dimension) };
 }
