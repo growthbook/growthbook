@@ -11,7 +11,7 @@ import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import { OrganizationSettings } from "back-end/types/organization";
 import { ago, datetime } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import { getSnapshotAnalysis } from "shared/src/util";
+import { getSnapshotAnalysis } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";

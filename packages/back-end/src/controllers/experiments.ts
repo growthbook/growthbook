@@ -4,9 +4,8 @@ import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { getAffectedEnvsForExperiment } from "shared/util";
+import { getAffectedEnvsForExperiment, getSnapshotAnalysis } from "shared/util";
 import { getScopedSettings } from "shared/settings";
-import { getSnapshotAnalysis } from "shared/src/util";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
