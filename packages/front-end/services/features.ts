@@ -612,9 +612,21 @@ export function jsonToConds(
         }
 
         if (
-          ["$eq", "$ne", "$gt", "$gte", "$lt", "$lte", "$regex"].includes(
-            operator
-          ) &&
+          [
+            "$eq",
+            "$ne",
+            "$gt",
+            "$gte",
+            "$lt",
+            "$lte",
+            "$regex",
+            "$veq",
+            "$vne",
+            "$vgt",
+            "$vgte",
+            "$vlt",
+            "$vlte",
+          ].includes(operator) &&
           typeof v !== "object"
         ) {
           return conds.push({

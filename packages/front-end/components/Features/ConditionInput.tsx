@@ -202,6 +202,18 @@ export default function ConditionInput(props: Props) {
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
+                    { label: "version is equal to", value: "$veq" },
+                    { label: "version is not equal to", value: "$vne" },
+                    { label: "version is greater than", value: "$vgt" },
+                    {
+                      label: "version is greater than or equal to",
+                      value: "$vgte",
+                    },
+                    { label: "version is less than", value: "$vlt" },
+                    {
+                      label: "version is less than or equal to",
+                      value: "$vlte",
+                    },
                     ...(savedGroupOptions.length > 0
                       ? savedGroupOperators
                       : []),

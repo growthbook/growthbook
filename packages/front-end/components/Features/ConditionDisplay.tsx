@@ -47,6 +47,18 @@ function operatorToText(operator: string): string {
       return `matches the pattern`;
     case "$notRegex":
       return `does not match the pattern`;
+    case "$veq":
+      return "version is equal to";
+    case "$vne":
+      return "version is not equal to";
+    case "$vlt":
+      return "version is less than";
+    case "$vlte":
+      return "version is less than or equal to";
+    case "$vgt":
+      return "version is greater than";
+    case "$vgte":
+      return "version is greater than or equal to";
   }
   return operator;
 }
