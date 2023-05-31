@@ -4,15 +4,21 @@
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
-  "types": "dist/index.d.ts",
-  "typings": "dist/index.d.ts",
+  "types": "./dist/index.d.ts",
   "exports": {
-    "require": "./dist/cjs/index.js",
-    "import": "./dist/esm/index.js"
+    ".": {
+      "require": "./dist/cjs/index.js",
+      "import": "./dist/esm/index.js"
+    },
+    "./server": {
+      "require": "./dist/server/cjs/index.js",
+      "import": "./dist/server/esm/index.js"
+    }
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "server.d.ts"
   ],
   "engines": {
     "node": ">=10"
