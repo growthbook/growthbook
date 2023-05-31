@@ -1,21 +1,18 @@
 import { ReactNode } from "react";
-import { UseFormReturn } from "react-hook-form";
 import { StatsEngine } from "back-end/types/stats";
-import { ProjectSettings } from "back-end/types/project";
-import { OrganizationSettings } from "back-end/types/organization";
 import { ScopedSettings } from "shared/settings";
 import SelectField from "@/components/Forms/SelectField";
 import { capitalizeFirstLetter } from "@/services/utils";
 
 export default function StatsEngineSelect({
-  form,
   parentSettings,
   showDefault = true,
   allowUndefined = true,
   label = "Statistics Engine",
+  value,
   onChange,
 }: {
-  form: UseFormReturn<OrganizationSettings | ProjectSettings>;
+  value?: StatsEngine;
   parentSettings?: ScopedSettings;
   showDefault?: boolean;
   allowUndefined?: boolean;
@@ -38,8 +35,7 @@ export default function StatsEngineSelect({
       label: parentScopeId
         ? capitalizeFirstLetter(parentScopeId) + " default"
         : "Default",
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string'.
-      value: null,
+      value: "",
     });
   }
 
@@ -51,10 +47,9 @@ export default function StatsEngineSelect({
       labelClassName="font-weight-bold text-muted mr-2"
       sort={false}
       options={options}
-      value={form.watch("statsEngine") ?? options[0].value}
+      value={value ?? options[0].value}
       onChange={(v) => {
         onChange?.(v as StatsEngine);
-        form.setValue("statsEngine", (v as StatsEngine) || undefined);
       }}
       helpText={
         showDefault &&

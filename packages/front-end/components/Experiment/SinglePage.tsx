@@ -205,7 +205,7 @@ export default function SinglePage({
   const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
-  const projectIsOprhaned = projectId && !projectName;
+  const projectIsDeReferenced = projectId && !projectName;
 
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -548,10 +548,10 @@ export default function SinglePage({
         </div>
       </div>
       <div className="row align-items-center mb-4">
-        {(projects.length > 0 || projectIsOprhaned) && (
+        {(projects.length > 0 || projectIsDeReferenced) && (
           <div className="col-auto">
             Project:{" "}
-            {projectIsOprhaned ? (
+            {projectIsDeReferenced ? (
               <Tooltip
                 body={
                   <>

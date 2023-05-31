@@ -27,7 +27,10 @@ import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import TempMessage from "@/components/TempMessage";
 import Button from "@/components/Button";
 import { DocLink } from "@/components/DocLink";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import {
+  OrganizationSettingsWithMetricDefaults,
+  useOrganizationMetricDefaults,
+} from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import { GBCuped, GBPremiumBadge, GBSequential } from "@/components/Icons";
@@ -81,8 +84,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
+  const showUpgradeButton = ["oss", "starter"].includes(accountPlan || "");
   const licensePlanText =
     (accountPlan === "enterprise"
       ? "Enterprise"
@@ -92,7 +94,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ? "Pro + SSO"
       : "Starter") + (license && license.trial ? " (trial)" : "");
 
-  const form = useForm<OrganizationSettings>({
+  const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
       visualEditorEnabled: false,
       pastExperimentsMinLength: 6,
@@ -113,9 +115,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       },
       metricDefaults: {
         minimumSampleSize: metricDefaults.minimumSampleSize,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         maxPercentageChange: metricDefaults.maxPercentageChange * 100,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         minPercentageChange: metricDefaults.minPercentageChange * 100,
       },
       updateSchedule: {
@@ -198,10 +198,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
           newVal.metricDefaults = {
             ...newVal.metricDefaults,
             maxPercentageChange:
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               newVal.metricDefaults.maxPercentageChange * 100,
             minPercentageChange:
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               newVal.metricDefaults.minPercentageChange * 100,
           };
         }
@@ -224,9 +222,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ...value,
       metricDefaults: {
         ...value.metricDefaults,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         minPercentageChange: value.metricDefaults.minPercentageChange / 100,
       },
       // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
@@ -685,11 +681,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     )}
                   </div>
                   <StatsEngineSelect
-                    form={form}
                     label="Default Statistics Engine"
                     allowUndefined={false}
+                    value={form.watch("statsEngine")}
                     onChange={(value) => {
                       setStatsEngineTab(value);
+                      form.setValue("statsEngine", value);
                     }}
                   />
                 </div>
