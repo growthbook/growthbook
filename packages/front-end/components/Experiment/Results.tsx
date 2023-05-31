@@ -80,6 +80,7 @@ const Results: FC<{
   }, [experiment.phases.length]);
 
   const permissions = usePermissions();
+  const { getDatasourceById } = useDefinitions();
 
   if (error) {
     return <div className="alert alert-danger m-3">{error.message}</div>;
@@ -195,10 +196,14 @@ const Results: FC<{
                 dimension,
               }),
             });
+
             trackSnapshot("create", {
               source: "VariationIdWarning",
+              id: snapshot.id,
               experiment: experiment.id,
               engine: statsEngine,
+              datasource_type:
+                getDatasourceById(experiment.datasource)?.type || null,
               regression_adjustment_enabled: !!regressionAdjustmentEnabled,
               sequential_testing_enabled: !!experiment.sequentialTestingEnabled,
               sequential_testing_tuning_parameter:

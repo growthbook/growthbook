@@ -31,6 +31,7 @@ const ManualSnapshotForm: FC<{
 }> = ({ experiment, close, success, lastSnapshot, phase }) => {
   const { metrics, getMetricById } = useDefinitions();
   const { apiCall } = useAuth();
+  const { getDatasourceById } = useDefinitions();
 
   const filteredMetrics: MetricInterface[] = [];
 
@@ -212,8 +213,10 @@ const ManualSnapshotForm: FC<{
     );
     trackSnapshot("create", {
       source: "ManualSnapshotForm",
+      id: "",
       experiment: experiment.id,
       engine: "bayesian",
+      datasource_type: getDatasourceById(experiment.datasource)?.type || null,
       regression_adjustment_enabled: false,
       sequential_testing_enabled: !!experiment.sequentialTestingEnabled,
       sequential_testing_tuning_parameter:

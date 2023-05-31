@@ -5,6 +5,7 @@ import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot"
 import { StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { trackSnapshot } from "@/services/track";
 import Button from "../Button";
 import ManualSnapshotForm from "./ManualSnapshotForm";
@@ -31,6 +32,7 @@ const RefreshSnapshotButton: FC<{
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [longResult, setLongResult] = useState(false);
+  const { getDatasourceById } = useDefinitions();
 
   const { apiCall } = useAuth();
   const manual = !experiment.datasource;
@@ -57,8 +59,10 @@ const RefreshSnapshotButton: FC<{
     );
     trackSnapshot("create", {
       source: "RefreshSnapshotButton",
+      id: "",
       experiment: experiment.id,
       engine: statsEngine || "bayesian",
+      datasource_type: getDatasourceById(experiment.datasource)?.type || null,
       regression_adjustment_enabled: !!regressionAdjustmentEnabled,
       sequential_testing_enabled: !!experiment.sequentialTestingEnabled,
       sequential_testing_tuning_parameter:

@@ -22,6 +22,23 @@ import {
 
 type TrackEventProps = Record<string, unknown>;
 
+export interface TrackSnapshotProps {
+  id: string;
+  source: string;
+  experiment: string;
+  engine: StatsEngine;
+  datasource_type: string | null;
+  regression_adjustment_enabled: boolean;
+  sequential_testing_enabled: boolean;
+  sequential_testing_tuning_parameter?: number;
+  skip_partial_data: boolean;
+  activation_metric_selected: boolean;
+  query_filter_selected: boolean;
+  segment_selected: boolean;
+  dimension: string;
+  error?: string;
+}
+
 let jitsu: JitsuClient;
 export default function track(
   event: string,
@@ -83,23 +100,27 @@ export default function track(
 
 export function trackSnapshot(
   event: "create" | "update" | "delete" | "error",
-  props: {
-    source: string;
-    experiment: string;
-    engine: StatsEngine;
-    regression_adjustment_enabled: boolean;
-    sequential_testing_enabled: boolean;
-    sequential_testing_tuning_parameter?: number;
-    skip_partial_data: boolean;
-    activation_metric_selected: boolean;
-    query_filter_selected: boolean;
-    segment_selected: boolean;
-    dimension: string;
-    error?: string;
-  }
+  props: TrackSnapshotProps
 ): void {
-  props.experiment = md5(props.experiment);
+  track(
+    "Experiment Snapshot: " + event, 
+    cleanSnapshotProps(props)
+  );
+}
 
+export function trackReport(
+  event: "create" | "update" | "refresh" | "error" | "delete",
+  props?: TrackSnapshotProps
+): void {
+  track(
+    "Experiment Report: " + event, 
+    props ? cleanSnapshotProps(props) : {}
+  );
+}
+
+function cleanSnapshotProps(props: TrackSnapshotProps): TrackEventProps {
+  props.experiment = props.experiment ? md5(props.experiment) : "";
+  props.id = props.id ? md5(props.id) : "";
   const parsedDim = parseSnapshotDimension(props.dimension);
 
   const trackEventProps: TrackEventProps = {
@@ -108,7 +129,7 @@ export function trackSnapshot(
     dimension_id: parsedDim.id,
   };
   delete trackEventProps.dimension;
-  track("Experiment Snapshot: " + event, trackEventProps);
+  return trackEventProps;
 }
 
 export function parseSnapshotDimension(

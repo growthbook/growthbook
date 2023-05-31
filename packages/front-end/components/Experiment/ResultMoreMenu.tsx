@@ -15,6 +15,8 @@ import Button from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { trackReport } from "@/services/track"
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function ResultMoreMenu({
   editMetrics,
@@ -58,6 +60,7 @@ export default function ResultMoreMenu({
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissions = usePermissions();
+  const { getDatasourceById } = useDefinitions();
 
   const canEdit = permissions.check("createAnalyses", project);
 
@@ -114,6 +117,25 @@ export default function ResultMoreMenu({
             if (!res.report) {
               throw new Error("Failed to create report");
             }
+            trackReport(
+              "create", 
+              {
+                source: "AdhocReportButton",
+                id: res.report.id,
+                experiment: res.report.experimentId ?? "",
+                engine: res.report.args.statsEngine || "bayesian",
+                datasource_type: getDatasourceById(res.report.args.datasource)?.type || null,
+                regression_adjustment_enabled: !!res.report.args.regressionAdjustmentEnabled,
+                sequential_testing_enabled: !!res.report.args.sequentialTestingEnabled,
+                sequential_testing_tuning_parameter:
+                  res.report.args.sequentialTestingTuningParameter,
+                skip_partial_data: !!res.report.args.skipPartialData,
+                activation_metric_selected: !!res.report.args.activationMetric,
+                query_filter_selected: !!res.report.args.queryFilter,
+                segment_selected: !!res.report.args.segment,
+                dimension: res.report.args.dimension || "",
+              }
+            )
 
             await router.push(`/report/${res.report.id}`);
           }}

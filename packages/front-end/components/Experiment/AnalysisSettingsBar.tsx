@@ -309,6 +309,7 @@ export default function AnalysisSettingsBar({
                         source: "RunQueriesButton",
                         experiment: experiment.id,
                         engine: statsEngine,
+                        datasource_type: datasource?.type || null,
                         regression_adjustment_enabled: !!regressionAdjustmentEnabled,
                         sequential_testing_enabled: !!experiment.sequentialTestingEnabled,
                         sequential_testing_tuning_parameter:
@@ -330,15 +331,16 @@ export default function AnalysisSettingsBar({
                         }),
                       })
                         .then(() => {
-                          trackSnapshot("create", snapshotProps);
+                          trackSnapshot("create", {id: snapshot?.id || "", ...snapshotProps});
                           mutate();
                           setRefreshError("");
                         })
                         .catch((e) => {
                           setRefreshError(e.message);
                           trackSnapshot("error", {
-                            ...snapshotProps,
+                            id: snapshot?.id || "",
                             error: e.message,
+                            ...snapshotProps,
                           });
                         });
                     }}
@@ -377,8 +379,10 @@ export default function AnalysisSettingsBar({
               forceRefresh={async () => {
                 const snapshotProps = {
                   source: "ForceRerunQueriesButton",
+                  id: "",
                   experiment: experiment.id,
                   engine: statsEngine,
+                  datasource_type: datasource?.type || null,
                   regression_adjustment_enabled: !!regressionAdjustmentEnabled,
                   sequential_testing_enabled: !!experiment.sequentialTestingEnabled,
                   sequential_testing_tuning_parameter:

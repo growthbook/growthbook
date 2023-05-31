@@ -37,6 +37,7 @@ import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResults";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { trackReport } from "@/services/track";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -125,6 +126,22 @@ export default function ReportPage() {
   const sequentialTestingEnabled =
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
 
+  const reportProps = {
+    id: report.id ?? "",
+    experiment: report.experimentId ?? "",
+    engine: statsEngine,
+    datasource_type: datasource?.type || null,
+    regression_adjustment_enabled: regressionAdjustmentEnabled,
+    sequential_testing_enabled: sequentialTestingEnabled,
+    sequential_testing_tuning_parameter:
+      report.args.sequentialTestingTuningParameter,
+    skip_partial_data: !!report.args.skipPartialData,
+    activation_metric_selected: !!report.args.activationMetric,
+    query_filter_selected: !!report.args.queryFilter,
+    segment_selected: !!report.args.segment,
+    dimension: report.args.dimension || "",
+  };
+
   return (
     <div className="container-fluid pagecontents experiment-details">
       {editModalOpen && (
@@ -193,6 +210,10 @@ export default function ReportPage() {
                     method: "DELETE",
                   }
                 );
+                trackReport("delete", {
+                  source: "DeleteButton",
+                  ...reportProps,
+                });
                 router.push(`/experiment/${report.experimentId}#results`);
               }}
             />
@@ -267,9 +288,18 @@ export default function ReportPage() {
                         await apiCall(`/report/${report.id}/refresh`, {
                           method: "POST",
                         });
+                        trackReport("refresh", {
+                          source: "RefreshData",
+                          ...reportProps,
+                        });
                         mutate();
                         setRefreshError("");
                       } catch (e) {
+                        trackReport("error", {
+                          ...reportProps,
+                          source: "RefreshData",
+                          error: e.message,
+                        });
                         setRefreshError(e.message);
                       }
                     }}
@@ -297,8 +327,17 @@ export default function ReportPage() {
                       await apiCall(`/report/${report.id}/refresh?force=true`, {
                         method: "POST",
                       });
+                      trackReport("refresh", {
+                        source: "ForceRefreshData",
+                        ...reportProps,
+                      });
                       mutate();
                     } catch (e) {
+                      trackReport("error", {
+                        ...reportProps,
+                        source: "ForceRefreshData",
+                        error: e.message,
+                      });
                       console.error(e);
                     }
                   }}
@@ -414,6 +453,10 @@ export default function ReportPage() {
                   body: JSON.stringify({
                     args,
                   }),
+                });
+                trackReport("update", {
+                  ...reportProps,
+                  source: "VariationIdWarning",
                 });
                 mutate();
               }}
