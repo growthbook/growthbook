@@ -361,9 +361,9 @@ const ExperimentsPage = (): React.ReactElement => {
                     <td className="nowrap" title={datetime(e.date)}>
                       {ago(e.date)}
                     </td>
-                    {tab === "stopped" && e.results && (
+                    {tab === "stopped" && (
                       <td className="nowrap" data-title="Results:">
-                        <ResultsIndicator results={e.results} />
+                        {e.results && <ResultsIndicator results={e.results} />}
                       </td>
                     )}
                     {tab === "archived" && (
