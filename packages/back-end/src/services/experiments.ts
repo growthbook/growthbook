@@ -348,7 +348,7 @@ export function getSnapshotSettings(
     dimensions: settings.dimensions.map((id) => ({ id })),
     startDate: phase.dateStarted,
     endDate: phase.dateEnded || new Date(),
-    experimentId: experiment.id,
+    experimentId: experiment.trackingKey || experiment.id,
     goalMetrics: experiment.metrics,
     guardrailMetrics: experiment.guardrails || [],
     regressionAdjustmentEnabled: !!settings.regressionAdjusted,
