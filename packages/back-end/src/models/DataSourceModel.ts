@@ -18,7 +18,7 @@ import { upgradeDatasourceObject } from "../util/migrations";
 import { ApiDataSource } from "../../types/openapi";
 import { queueCreateInformationSchema } from "../jobs/createInformationSchema";
 
-const dataSourceSchema = new mongoose.Schema({
+const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
   id: String,
   name: String,
   description: String,
@@ -39,7 +39,7 @@ const dataSourceSchema = new mongoose.Schema({
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
 
-const DataSourceModel = mongoose.model<DataSourceDocument>(
+const DataSourceModel = mongoose.model<DataSourceInterface>(
   "DataSource",
   dataSourceSchema
 );
@@ -48,18 +48,21 @@ function toInterface(doc: DataSourceDocument): DataSourceInterface {
   return upgradeDatasourceObject(doc.toJSON());
 }
 
-export async function getDataSourcesByOrganization(organization: string) {
+export async function getDataSourcesByOrganization(
+  organization: string
+): Promise<DataSourceInterface[]> {
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
     return getConfigDatasources(organization);
   }
 
-  return (
-    await DataSourceModel.find({
-      organization,
-    })
-  ).map(toInterface);
+  const docs: DataSourceDocument[] = await DataSourceModel.find({
+    organization,
+  });
+
+  return docs.map(toInterface);
 }
+
 export async function getDataSourceById(id: string, organization: string) {
   // If using config.yml, immediately return the from there
   if (usingFileConfig()) {
@@ -68,7 +71,7 @@ export async function getDataSourceById(id: string, organization: string) {
     );
   }
 
-  const doc = await DataSourceModel.findOne({
+  const doc: DataSourceDocument | null = await DataSourceModel.findOne({
     id,
     organization,
   });
@@ -83,12 +86,12 @@ export async function getDataSourcesByIds(ids: string[], organization: string) {
     );
   }
 
-  return (
-    await DataSourceModel.find({
-      id: { $in: ids },
-      organization,
-    })
-  ).map(toInterface);
+  const docs: DataSourceDocument[] = await DataSourceModel.find({
+    id: { $in: ids },
+    organization,
+  });
+
+  return docs.map(toInterface);
 }
 
 export async function removeProjectFromDatasources(
@@ -165,7 +168,9 @@ export async function createDataSource(
   };
 
   await testDataSourceConnection(datasource);
-  const model = await DataSourceModel.create(datasource);
+  const model = (await DataSourceModel.create(
+    datasource
+  )) as DataSourceDocument;
 
   const integration = getSourceIntegrationObject(datasource);
   if (
@@ -212,7 +217,7 @@ export async function updateDataSource(
 export async function _dangerousGetAllDatasources(): Promise<
   DataSourceInterface[]
 > {
-  const all = await DataSourceModel.find();
+  const all: DataSourceDocument[] = await DataSourceModel.find();
   return all.map(toInterface);
 }
 

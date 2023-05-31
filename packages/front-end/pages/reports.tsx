@@ -35,10 +35,8 @@ const ReportsPage = (): React.ReactElement => {
   const reports = useAddComputedFields(
     data?.reports,
     (r) => ({
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-      userName: getUserDisplay(r.userId) || "",
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-      experimentName: experimentNames.get(r.experimentId) || "",
+      userName: r.userId ? getUserDisplay(r.userId) : "",
+      experimentName: r.experimentId ? experimentNames.get(r.experimentId) : "",
       status: r.status === "private" ? "private" : "published",
     }),
     [experimentNames]
