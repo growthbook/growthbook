@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  FaExclamationCircle,
   FaExclamationTriangle,
   FaPencilAlt,
   FaQuestionCircle,
@@ -76,6 +77,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"
   );
+  const hasSecureAttributesFeature = hasCommercialFeature(
+    "hash-secure-attributes"
+  );
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -129,6 +133,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       sequentialTestingEnabled: false,
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       attributionModel: "firstExposure",
+      secureAttributeSalt: "",
     },
   });
   const { apiCall } = useAuth();
@@ -161,6 +166,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       "sequentialTestingTuningParameter"
     ),
     attributionModel: form.watch("attributionModel"),
+    secureAttributeSalt: form.watch("secureAttributeSalt"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -1093,6 +1099,64 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   {/* endregion Minimum Percentage Change */}
                 </>
                 {/* endregion Metrics Behavior Defaults */}
+              </div>
+            </div>
+
+            <div className="divider border-bottom mb-3 mt-3" />
+
+            <div className="row">
+              <div className="col-sm-3">
+                <h4>Features Settings</h4>
+              </div>
+              <div className="col-sm-9">
+                <div className="form-inline">
+                  <Field
+                    label={
+                      <PremiumTooltip
+                        commercialFeature={"hash-secure-attributes"}
+                        body={
+                          <>
+                            <p>
+                              Feature targeting conditions referencing{" "}
+                              <code>secureString</code> attributes will be
+                              anonymized via SHA-256 hashing. When evaluating
+                              feature flags in a public or insecure environment
+                              (such as a browser), hashing provides an
+                              additional layer of security through obfuscation.
+                              This allows you to target users based on sensitive
+                              attributes.
+                            </p>
+                            <p>
+                              You must enable this feature in your SDK
+                              Connection for it to take effect.
+                            </p>
+                            <p>
+                              You may add a cryptographic salt string (a random
+                              string of your choosing) to the hashing algorithm,
+                              which helps defend against hash lookup
+                              vulnerabilities.
+                            </p>
+                            <p className="mb-0 text-warning-orange small">
+                              <FaExclamationCircle /> When using an insecure
+                              environment, do not rely exclusively on hashing as
+                              a means of securing highly sensitive data. Hashing
+                              is an obfuscation technique that makes it very
+                              difficult, but not impossible, to extract
+                              sensitive data.
+                            </p>
+                          </>
+                        }
+                      >
+                        Salt string for secure attributes <FaQuestionCircle />
+                      </PremiumTooltip>
+                    }
+                    disabled={!hasSecureAttributesFeature}
+                    className="ml-2"
+                    containerClassName="mb-3"
+                    type="string"
+                    {...form.register("secureAttributeSalt")}
+                  />
+                </div>
               </div>
             </div>
           </div>

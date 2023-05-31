@@ -38,6 +38,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   project: String,
   encryptPayload: Boolean,
   encryptionKey: String,
+  hashSecureAttributes: Boolean,
   includeVisualExperiments: Boolean,
   includeDraftExperiments: Boolean,
   includeExperimentNames: Boolean,
@@ -110,6 +111,7 @@ export const createSDKConnectionValidator = z
     environment: z.string(),
     project: z.string(),
     encryptPayload: z.boolean(),
+    hashSecureAttributes: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
@@ -177,6 +179,7 @@ export const editSDKConnectionValidator = z
     environment: z.string().optional(),
     project: z.string().optional(),
     encryptPayload: z.boolean(),
+    hashSecureAttributes: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
@@ -223,6 +226,7 @@ export async function editSDKConnection(
       "project",
       "environment",
       "encryptPayload",
+      "hashSecureAttributes",
     ] as const;
     keysRequiringProxyUpdate.forEach((key) => {
       if (key in otherChanges && otherChanges[key] !== connection[key]) {
@@ -392,6 +396,7 @@ export function toApiSDKConnectionInterface(
     project: connection.project,
     encryptPayload: connection.encryptPayload,
     encryptionKey: connection.encryptionKey,
+    hashSecureAttributes: connection.hashSecureAttributes,
     includeVisualExperiments: connection.includeVisualExperiments,
     includeDraftExperiments: connection.includeDraftExperiments,
     includeExperimentNames: connection.includeExperimentNames,
