@@ -369,6 +369,7 @@ export default function ReportPage() {
                 // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                 results={report.results.dimensions}
                 variations={variations}
+                statsEngine={report.args.statsEngine}
               />
             ) : (
               <BreakDownResults

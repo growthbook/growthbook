@@ -1,4 +1,4 @@
-import { FC, Fragment, useMemo } from "react";
+import { FC, useMemo } from "react";
 import { ParentSizeModern } from "@visx/responsive";
 import { Group } from "@visx/group";
 import { GridColumns, GridRows } from "@visx/grid";
@@ -13,43 +13,105 @@ import {
 } from "@visx/tooltip";
 import { ScaleLinear } from "d3-scale";
 import { date } from "shared/dates";
+import { variant_0, variant_1, variant_2, variant_3 } from "shared/constants";
+import { MetricType } from "back-end/types/metric";
+import { StatsEngine } from "back-end/types/stats";
+import { hasEnoughData, pValueFormatter } from "@/services/experiments";
 import styles from "./ExperimentDateGraph.module.scss";
+
+interface DataPointVariation {
+  v: number;
+  v_formatted: string;
+  up?: number; // uplift
+  p?: number; // p-value
+  ctw?: number; // chance to win
+  ci?: [number, number]; // confidence interval
+}
 export interface ExperimentDateGraphDataPoint {
   d: Date;
-  variations: {
-    label: string;
-    value: number;
-    error?: [number, number];
-  }[];
+  variations: DataPointVariation[];
 }
 export interface ExperimentDateGraphProps {
+  yaxis: "users" | "uplift";
   variationNames: string[];
   label: string;
   datapoints: ExperimentDateGraphDataPoint[];
   tickFormat: (v: number) => string;
+  statsEngine?: StatsEngine;
 }
 
-const COLORS = ["var(--text-color-primary)", "#039dd1", "#fd7e14", "#e83e8c"];
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 1,
+});
+const numberFormatter = new Intl.NumberFormat();
 
-type TooltipData = { x: number; y: number[]; d: ExperimentDateGraphDataPoint };
+const COLORS = [variant_0, variant_1, variant_2, variant_3];
+
+type TooltipData = {
+  x: number;
+  y: number[];
+  d: ExperimentDateGraphDataPoint;
+  yaxis: "users" | "uplift";
+};
 
 const height = 220;
 const margin = [15, 15, 30, 80];
 
 // Render the contents of a tooltip
 const getTooltipContents = (
-  d: ExperimentDateGraphDataPoint,
-  variationNames: string[]
+  data: TooltipData,
+  variationNames: string[],
+  statsEngine: StatsEngine
 ) => {
+  const { d, yaxis } = data;
   return (
     <>
-      {variationNames.map((v, i) => {
-        return (
-          <div key={i} style={{ color: COLORS[i % COLORS.length] }}>
-            {v}: <span className={styles.val}>{d.variations[i]?.label}</span>
-          </div>
-        );
-      })}
+      <table className={`table-sm ${styles.table}`}>
+        {yaxis === "uplift" && (
+          <thead>
+            <tr>
+              <td></td>
+              <td></td>
+              <td>Uplift</td>
+              <td>CI</td>
+              <td>
+                {statsEngine === "frequentist" ? "P-val" : "Chance to Win"}
+              </td>
+            </tr>
+          </thead>
+        )}
+        <tbody>
+          {variationNames.map((v, i) => {
+            const variation = d.variations[i];
+            return (
+              <tr key={i}>
+                <td style={{ color: COLORS[i % COLORS.length] }}>{v}</td>
+                <td>{d.variations[i].v_formatted}</td>
+                {i > 0 && yaxis === "uplift" && (
+                  <>
+                    <td>
+                      {((variation.up ?? 0) > 0 ? "+" : "") +
+                        percentFormatter.format(variation.up ?? 0)}
+                    </td>
+                    <td className="small">
+                      [{percentFormatter.format(variation?.ci?.[0] ?? 0)},{" "}
+                      {percentFormatter.format(variation?.ci?.[1] ?? 0)}]
+                    </td>
+                    <td>
+                      {statsEngine === "frequentist"
+                        ? typeof variation.p === "number" &&
+                          pValueFormatter(variation.p)
+                        : typeof variation.ctw === "number" &&
+                          percentFormatter.format(variation.ctw)}
+                    </td>
+                  </>
+                )}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
       <div className={styles.date}>{date(d.d as Date)}</div>
     </>
   );
@@ -61,7 +123,8 @@ const getTooltipData = (
   width: number,
   datapoints: ExperimentDateGraphDataPoint[],
   yScale: ScaleLinear<number, number, never>,
-  xScale
+  xScale,
+  yaxis: "users" | "uplift"
 ): TooltipData => {
   const innerWidth =
     width - margin[1] - margin[3] + width / datapoints.length - 1;
@@ -72,16 +135,32 @@ const getTooltipData = (
   );
   const d = datapoints[index];
   const x = xScale(d.d);
-  const y = d.variations.map((v) => yScale(v.value) ?? 0);
-  return { x, y, d };
+  const y = d.variations.map(
+    (variation) => yScale(getYVal(variation, yaxis)) ?? 0
+  );
+  return { x, y, d, yaxis };
+};
+
+const getYVal = (variation: DataPointVariation, yaxis: "users" | "uplift") => {
+  switch (yaxis) {
+    case "users":
+      return variation.v;
+    case "uplift":
+      return variation.up ?? 0;
+    default:
+      return variation.v;
+  }
 };
 
 const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
+  yaxis,
   datapoints,
   variationNames,
   label,
   tickFormat,
+  statsEngine = "bayesian",
 }) => {
+  // yaxis = "users";
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
     detectBounds: true,
@@ -99,22 +178,30 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   // Get y-axis domain
   const yDomain = useMemo<[number, number]>(() => {
     const minValue = Math.min(
-      ...datapoints.map((d) => Math.min(...d.variations.map((v) => v.value)))
+      ...datapoints.map((d) =>
+        Math.min(...d.variations.map((variation) => getYVal(variation, yaxis)))
+      )
     );
     const maxValue = Math.max(
-      ...datapoints.map((d) => Math.max(...d.variations.map((v) => v.value)))
+      ...datapoints.map((d) =>
+        Math.max(...d.variations.map((variation) => getYVal(variation, yaxis)))
+      )
     );
     const minError = Math.min(
       ...datapoints.map((d) =>
         Math.min(
-          ...d.variations.map((v) => (v.error?.[0] ? v.error[0] : v.value))
+          ...d.variations.map((variation) =>
+            variation.ci?.[0] ? variation.ci[0] : getYVal(variation, yaxis)
+          )
         )
       )
     );
     const maxError = Math.max(
       ...datapoints.map((d) =>
         Math.max(
-          ...d.variations.map((v) => (v.error?.[1] ? v.error[1] : v.value))
+          ...d.variations.map((variation) =>
+            variation.ci?.[1] ? variation.ci[1] : getYVal(variation, yaxis)
+          )
         )
       )
     );
@@ -124,7 +211,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
       Math.max(minError, minValue > 0 ? minValue / 2 : minValue * 2),
       Math.min(maxError, maxValue > 0 ? maxValue * 2 : maxValue / 2),
     ];
-  }, [datapoints]);
+  }, [datapoints, yaxis]);
 
   // Get x-axis domain
   const min = Math.min(...datapoints.map((d) => d.d.getTime()));
@@ -172,11 +259,13 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
             width,
             datapoints,
             yScale,
-            xScale
+            xScale,
+            yaxis
           );
           showTooltip({
             tooltipLeft: data.x,
-            tooltipTop: Math.min(...data.y),
+            // todo: make everything fit, even with lots of variations
+            tooltipTop: Math.max(Math.min(...data.y), 150),
             tooltipData: data,
           });
         };
@@ -211,6 +300,9 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
               {tooltipOpen && (
                 <>
                   {variationNames.map((v, i) => {
+                    if (yaxis === "uplift" && i === 0) {
+                      return;
+                    }
                     // Render a dot at the current x location for each variation
                     return (
                       <div
@@ -234,7 +326,11 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                       className={styles.tooltip}
                       unstyled={true}
                     >
-                      {getTooltipContents(tooltipData.d, variationNames)}
+                      {getTooltipContents(
+                        tooltipData,
+                        variationNames,
+                        statsEngine
+                      )}
                     </TooltipWithBounds>
                   )}
                 </>
@@ -257,33 +353,39 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 />
 
                 {variationNames.map((v, i) => {
+                  if (yaxis === "uplift" && i === 0) {
+                    return;
+                  }
                   // Render a shaded area for error bars for each variation if defined
-                  return typeof datapoints[0]?.variations?.[i]?.error !==
-                    "undefined" ? (
-                    <AreaClosed
-                      key={i}
-                      yScale={yScale}
-                      data={datapoints}
-                      x={(d) => xScale(d.d) ?? 0}
-                      y0={(d) => yScale(d.variations[i]?.error?.[0] ?? 0) ?? 0}
-                      y1={(d) => yScale(d.variations[i]?.error?.[1] ?? 0) ?? 0}
-                      fill={COLORS[i % COLORS.length]}
-                      opacity={0.12}
-                      curve={curveMonotoneX}
-                    />
-                  ) : (
-                    ""
+                  return (
+                    typeof datapoints[0]?.variations?.[i]?.ci !==
+                      "undefined" && (
+                      <AreaClosed
+                        key={i}
+                        yScale={yScale}
+                        data={datapoints}
+                        x={(d) => xScale(d.d) ?? 0}
+                        y0={(d) => yScale(d.variations[i]?.ci?.[0] ?? 0) ?? 0}
+                        y1={(d) => yScale(d.variations[i]?.ci?.[1] ?? 0) ?? 0}
+                        fill={COLORS[i % COLORS.length]}
+                        opacity={0.12}
+                        curve={curveMonotoneX}
+                      />
+                    )
                   );
                 })}
 
                 {variationNames.map((v, i) => {
+                  if (yaxis === "uplift" && i === 0) {
+                    return;
+                  }
                   // Render the actual line chart for each variation
                   return (
                     <LinePath
                       key={i}
                       data={datapoints}
                       x={(d) => xScale(d.d) ?? 0}
-                      y={(d) => yScale(d.variations[i]?.value) ?? 0}
+                      y={(d) => yScale(getYVal(d.variations[i], yaxis)) ?? 0}
                       stroke={COLORS[i % COLORS.length]}
                       strokeWidth={2}
                       curve={curveMonotoneX}

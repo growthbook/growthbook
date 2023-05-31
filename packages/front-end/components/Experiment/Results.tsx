@@ -209,6 +209,7 @@ const Results: FC<{
             guardrails={experiment.guardrails}
             results={snapshot.results ?? []}
             variations={variations}
+            statsEngine={snapshot.statsEngine}
           />
         ) : (
           <BreakDownResults
