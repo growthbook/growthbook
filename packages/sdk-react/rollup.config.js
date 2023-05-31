@@ -2,6 +2,7 @@ import babel from "@rollup/plugin-babel";
 import resolve from "@rollup/plugin-node-resolve";
 import replace from "@rollup/plugin-replace";
 import commonjs from "@rollup/plugin-commonjs";
+import banner from "rollup-plugin-banner2";
 
 const extensions = [".js", ".ts", ".tsx", ".jsx"];
 
@@ -35,6 +36,7 @@ export default [
         babelHelpers: "bundled",
         extensions,
       }),
+      banner(() => "'use client';\n"),
     ],
   },
   {

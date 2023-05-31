@@ -64,6 +64,7 @@
     "npm-run-all": "^4.1.5",
     "rimraf": "^3.0.2",
     "rollup": "^2.56.3",
+    "rollup-plugin-banner2": "^1.2.2",
     "ts-jest": "^27.0.5",
     "typescript": "4.7.4"
   },
