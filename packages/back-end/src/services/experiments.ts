@@ -396,6 +396,8 @@ export async function createManualSnapshot(
       [],
       metricMap
     ),
+    unknownVariations: [],
+    multipleExposures: 0,
     analyses: [
       {
         dateCreated: new Date(),
@@ -503,7 +505,6 @@ export async function createSnapshot({
     dateCreated: new Date(),
     phase: phaseIndex,
     queries: [],
-    queryLanguage: "sql",
     dimension: dimension || null,
     settings: getSnapshotSettings(
       experiment,
