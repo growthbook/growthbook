@@ -3,12 +3,20 @@ import {
   SDKAttributeSchema,
   SDKAttributeType,
 } from "back-end/types/organization";
-import { FaQuestionCircle, FaTrash } from "react-icons/fa";
+import {
+  FaExclamationCircle,
+  FaInfoCircle,
+  FaQuestionCircle,
+  FaTrash,
+} from "react-icons/fa";
+import React from "react";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { GBAddCircle } from "@/components/Icons";
 import Modal from "../Modal";
 import Toggle from "../Forms/Toggle";
 import Field from "../Forms/Field";
@@ -68,7 +76,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
         </p>
       )}
       <div className="form-inline">
-        <table className="table table-sm">
+        <table className="table table-sm mb-0">
           <thead>
             <tr>
               <th>Attribute</th>
@@ -107,26 +115,74 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                         v as SDKAttributeType
                       )
                     }
-                    style={{ width: 200 }}
+                    style={{ width: 225 }}
                     options={[
                       { value: "boolean", label: "Boolean" },
                       { value: "number", label: "Number" },
                       { value: "string", label: "String" },
                       { value: "enum", label: "Enum" },
+                      { value: "secureString", label: "Secure String" },
                       { value: "number[]", label: "Array of Numbers" },
                       { value: "string[]", label: "Array of Strings" },
+                      {
+                        value: "secureString[]",
+                        label: "Array of Secure Strings",
+                      },
                     ]}
+                    sort={false}
                   />
                   {form.watch(`attributeSchema.${i}.datatype`) === "enum" && (
                     <div>
                       <Field
                         textarea
                         minRows={1}
-                        style={{ width: 200 }}
+                        style={{ width: 225 }}
                         required
                         {...form.register(`attributeSchema.${i}.enum`)}
                         placeholder="Comma-separated list of all possible values"
                       />
+                    </div>
+                  )}
+                  {["secureString", "secureString[]"].includes(
+                    form.watch(`attributeSchema.${i}.datatype`)
+                  ) && (
+                    <div
+                      className="text-muted text-right"
+                      style={{ width: 185 }}
+                    >
+                      <PremiumTooltip
+                        commercialFeature="hash-secure-attributes"
+                        innerClassName="text-left"
+                        tipPosition="bottom"
+                        body={
+                          <>
+                            <p>
+                              Feature targeting conditions referencing{" "}
+                              <code>secureString</code> attributes will be
+                              anonymized via SHA-256 hashing. When evaluating
+                              feature flags in a public or insecure environment
+                              (such as a browser), hashing provides an
+                              additional layer of security through obfuscation.
+                              This allows you to target users based on sensitive
+                              attributes.
+                            </p>
+                            <p>
+                              You must enable this feature in your SDK
+                              Connection for it to take effect.
+                            </p>
+                            <p className="mb-0 text-warning-orange small">
+                              <FaExclamationCircle /> When using an insecure
+                              environment, do not rely exclusively on hashing as
+                              a means of securing highly sensitive data. Hashing
+                              is an obfuscation technique that makes it very
+                              difficult, but not impossible, to extract
+                              sensitive data.
+                            </p>
+                          </>
+                        }
+                      >
+                        What is this? <FaInfoCircle />
+                      </PremiumTooltip>
                     </div>
                   )}
                 </td>
@@ -162,10 +218,9 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
           </tbody>
         </table>
       </div>
-      <div>
-        <a
-          href="#"
-          className="btn btn-outline-primary"
+      <div className="mt-2">
+        <button
+          className="btn btn-link mt-0"
           onClick={(e) => {
             e.preventDefault();
             attributeSchema.append({
@@ -174,8 +229,8 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
             });
           }}
         >
-          add attribute
-        </a>
+          <GBAddCircle /> Add attribute
+        </button>
       </div>
     </Modal>
   );
