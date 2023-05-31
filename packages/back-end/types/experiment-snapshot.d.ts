@@ -54,6 +54,7 @@ export type LegacyExperimentSnapshotInterface = ExperimentSnapshotInterface & {
   skipPartialData?: boolean;
   manual: boolean;
   query?: string;
+  queryLanguage?: QueryLanguage;
 };
 
 export interface MetricForSnapshot {
@@ -148,11 +149,10 @@ export interface ExperimentSnapshotInterface {
   settings: ExperimentSnapshotSettings;
 
   // List of queries that were run as part of this snapshot
-  queryLanguage?: QueryLanguage;
   queries: Queries;
 
   // Results
-  unknownVariations?: string[];
-  multipleExposures?: number;
+  unknownVariations: string[];
+  multipleExposures: number;
   analyses: ExperimentSnapshotAnalysis[];
 }

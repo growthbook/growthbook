@@ -1,12 +1,10 @@
 import mongoose, { FilterQuery } from "mongoose";
 import omit from "lodash/omit";
-import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
-  MetricForSnapshot,
 } from "../../types/experiment-snapshot";
-import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import { migrateSnapshot } from "../util/migrations";
 import { queriesSchema } from "./QueryModel";
 
 const experimentSnapshotSchema = new mongoose.Schema({
@@ -114,137 +112,6 @@ const toInterface = (
   doc: ExperimentSnapshotDocument
 ): ExperimentSnapshotInterface =>
   migrateSnapshot(omit(doc.toJSON(), ["__v", "_id"]));
-
-export function migrateSnapshot(
-  orig: LegacyExperimentSnapshotInterface
-): ExperimentSnapshotInterface {
-  const {
-    activationMetric,
-    statsEngine,
-    // eslint-disable-next-line
-    hasRawQueries,
-    // eslint-disable-next-line
-    hasCorrectedStats,
-    // eslint-disable-next-line
-    query,
-    results,
-    regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses,
-    sequentialTestingEnabled,
-    sequentialTestingTuningParameter,
-    queryFilter,
-    segment,
-    skipPartialData,
-    manual,
-    ...snapshot
-  } = orig;
-
-  // Convert old results to new array of analyses
-  if (!snapshot.analyses) {
-    if (results) {
-      const regressionAdjusted =
-        regressionAdjustmentEnabled &&
-        metricRegressionAdjustmentStatuses?.some(
-          (s) => s.regressionAdjustmentEnabled
-        )
-          ? true
-          : false;
-
-      snapshot.analyses = [
-        {
-          dateCreated: snapshot.dateCreated,
-          status: snapshot.error ? "error" : "success",
-          error: snapshot.error,
-          settings: {
-            statsEngine: statsEngine || "bayesian",
-            dimensions: snapshot.dimension ? [snapshot.dimension] : [],
-            pValueCorrection: null,
-            regressionAdjusted,
-            sequentialTesting: !!sequentialTestingEnabled,
-            sequentialTestingTuningParameter:
-              sequentialTestingTuningParameter ||
-              DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-          },
-          results,
-        },
-      ];
-    } else {
-      snapshot.analyses = [];
-    }
-  }
-
-  // Figure out status from old fields
-  if (!snapshot.status) {
-    snapshot.status = snapshot.error
-      ? "error"
-      : snapshot.analyses.length > 0
-      ? "success"
-      : "running";
-  }
-
-  // Migrate settings
-  // We weren't tracking all of these before, so just pick good defaults
-  if (!snapshot.settings) {
-    // Try to figure out metric ids from results
-    const metricIds = Object.keys(results?.[0]?.variations?.[0]?.metrics || {});
-
-    const variations = (results?.[0]?.variations || []).map((v, i) => ({
-      id: i + "",
-      weight: 0,
-    }));
-
-    const metricSettings: MetricForSnapshot[] = metricIds.map((id) => {
-      const regressionSettings = metricRegressionAdjustmentStatuses?.find(
-        (s) => s.metric === id
-      );
-
-      return {
-        id,
-        computedSettings: {
-          conversionDelayHours: 0,
-          conversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS,
-          regressionAdjustmentDays:
-            regressionSettings?.regressionAdjustmentDays || 0,
-          regressionAdjustmentEnabled: !!(
-            regressionAdjustmentEnabled &&
-            regressionSettings?.regressionAdjustmentEnabled
-          ),
-          regressionAdjustmentReason: regressionSettings?.reason || "",
-        },
-      };
-    });
-
-    snapshot.settings = {
-      manual: !!manual,
-      dimensions: snapshot.dimension
-        ? [
-            {
-              id: snapshot.dimension,
-            },
-          ]
-        : [],
-      metricSettings,
-      // We know the metric ids included, but don't know if they were goals or guardrails
-      // Just add them all as goals (doesn't really change much)
-      goalMetrics: metricIds,
-      guardrailMetrics: [],
-      activationMetric: activationMetric || null,
-      regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
-      startDate: snapshot.dateCreated,
-      endDate: snapshot.dateCreated,
-      experimentId: "",
-      datasourceId: "",
-      exposureQueryId: "",
-      queryFilter: queryFilter || "",
-      segment: segment || "",
-      skipPartialData: !!skipPartialData,
-      attributionModel: "firstExposure",
-      variations,
-    };
-  }
-
-  return snapshot;
-}
 
 export async function updateSnapshotsOnPhaseDelete(
   organization: string,
