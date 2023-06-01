@@ -25,6 +25,7 @@ interface DataPointVariation {
   p?: number; // p-value
   ctw?: number; // chance to win
   ci?: [number, number]; // confidence interval
+  highlight?: boolean;
 }
 export interface ExperimentDateGraphDataPoint {
   d: Date;
@@ -82,6 +83,11 @@ const getTooltipContents = (
         <tbody>
           {variationNames.map((v, i) => {
             const variation = d.variations[i];
+            let className = "";
+            if (variation.highlight) {
+              className = "won";
+              console.log("won", i);
+            }
             return (
               <tr key={i}>
                 <td
@@ -93,7 +99,7 @@ const getTooltipContents = (
                 <td>{d.variations[i].v_formatted}</td>
                 {yaxis === "uplift" && (
                   <>
-                    <td>
+                    <td className={className}>
                       {i > 0 && (
                         <>
                           {((variation.up ?? 0) > 0 ? "+" : "") +

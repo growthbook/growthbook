@@ -8,7 +8,12 @@ import { getValidDate } from "shared/dates";
 import { StatsEngine } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatConversionRate } from "@/services/metrics";
-import { hasEnoughData } from "@/services/experiments";
+import {
+  hasEnoughData,
+  isBelowMinChange,
+  isSuspiciousUplift,
+  shouldHighlight,
+} from "@/services/experiments";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Toggle from "../Forms/Toggle";
@@ -112,23 +117,23 @@ const DateResults: FC<{
                   // For non-baseline variations and cumulative turned off, include error bars
                   if (i && !cumulative) {
                     const x = uplift?.mean || 0;
-                    const sx = uplift?.stddev || 0;
+                    // const sx = uplift?.stddev || 0;
                     const dist = uplift?.dist || "";
                     ci = stats?.ci;
                     if (dist === "lognormal") {
                       // Uplift distribution is lognormal, so need to correct this
                       // Add 2 standard deviations (~95% CI) for an error bar
-                      if (!ci) {
-                        ci = [
-                          Math.exp(x - 2 * sx) - 1,
-                          Math.exp(x + 2 * sx) - 1,
-                        ];
-                      }
+                      // if (!ci) {
+                      //   ci = [
+                      //     Math.exp(x - 2 * sx) - 1,
+                      //     Math.exp(x + 2 * sx) - 1,
+                      //   ];
+                      // }
                       up = Math.exp(x) - 1;
                     } else {
-                      if (!ci) {
-                        ci = [x - 2 * sx, x + 2 * sx];
-                      }
+                      // if (!ci) {
+                      //   ci = [x - 2 * sx, x + 2 * sx];
+                      // }
                       up = x;
                     }
                   }
@@ -142,18 +147,7 @@ const DateResults: FC<{
                       : 0;
                     up = crA ? (crB - crA) / crA : 0;
                   }
-                  // // Baseline should show the actual conversion rate
-                  // // Variations should show the relative uplift on top of this conversion rate
-                  // const label = i
-                  //   ? (up > 0 ? "+" : "") + percentFormatter.format(up)
-                  //   : formatConversionRate(
-                  //       metric?.type,
-                  //       cumulative
-                  //         ? totalUsers[i]
-                  //           ? totalValue[i] / totalUsers[i]
-                  //           : 0
-                  //         : stats?.cr || 0
-                  //     );
+
                   const v_formatted = formatConversionRate(
                     metric?.type,
                     cumulative
@@ -174,6 +168,33 @@ const DateResults: FC<{
                     ? stats?.chanceToWin
                     : undefined;
 
+                  const suspiciousChange = isSuspiciousUplift(
+                    baseline,
+                    stats,
+                    metric,
+                    metricDefaults
+                  );
+                  const belowMinChange = isBelowMinChange(
+                    baseline,
+                    stats,
+                    metric,
+                    metricDefaults
+                  );
+                  const enoughData = hasEnoughData(
+                    baseline,
+                    stats,
+                    metric,
+                    metricDefaults
+                  );
+                  const highlight = shouldHighlight({
+                    metric,
+                    baseline,
+                    stats,
+                    hasEnoughData: enoughData,
+                    suspiciousChange,
+                    belowMinChange,
+                  });
+
                   return {
                     v,
                     v_formatted,
@@ -181,6 +202,7 @@ const DateResults: FC<{
                     ci,
                     p,
                     ctw,
+                    highlight,
                   };
                 }),
               };
