@@ -13,7 +13,9 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
 }) => {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
-  const [modalApiKeyType, setModalApiKeyType] = useState<string | undefined>();
+  const [modalApiKeyType, setModalApiKeyType] = useState<
+    "readonly" | "admin" | "user" | undefined
+  >();
 
   const permissions = usePermissions();
   const canManageKeys = permissions.manageApiKeys;
@@ -90,8 +92,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
             className="btn btn-primary"
             onClick={(e) => {
               e.preventDefault();
-              // Secret API keys have no type
-              setModalApiKeyType(undefined);
+              setModalApiKeyType("admin");
               setOpen(true);
             }}
           >
@@ -118,7 +119,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
             className="btn btn-primary"
             onClick={(e) => {
               e.preventDefault();
-              setModalApiKeyType("read-only");
+              setModalApiKeyType("readonly");
               setOpen(true);
             }}
           >

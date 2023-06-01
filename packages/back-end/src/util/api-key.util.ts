@@ -20,20 +20,16 @@ export const isApiKeyForUserInOrganization = (
 
 export const roleForApiKey = (
   apiKey: Pick<ApiKeyInterface, "role" | "userId" | "secret">
-): "readonly" | "admin" | null => {
+): string | null => {
   // This role stuff is only for secret keys, not SDK keys
   if (!apiKey.secret) return null;
 
   // The role will need to be evaluated
   if (apiKey.userId) return null;
 
-  // Read-only keys have an explicit role assignment of read-only
-  if (apiKey.role === "readonly") return "readonly";
+  // If there's a role assigned, return that
+  if (apiKey.role) return apiKey.role;
 
-  if (apiKey.role) {
-    // If there's another role type that isn't handled here, return null.
-    return null;
-  }
-
+  // At this stage, we assume it's a secret key with full organizational access, like the initial secret API keys
   return "admin";
 };

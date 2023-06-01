@@ -15,7 +15,7 @@ const ApiKeysModal: FC<{
   onCreate: () => void;
   defaultDescription?: string;
   secret?: boolean;
-  type?: string;
+  type?: "admin" | "readonly" | "user";
 }> = ({ close, type, onCreate, defaultDescription = "", secret = false }) => {
   const { apiCall } = useAuth();
   const environments = useEnvironments();
@@ -51,7 +51,7 @@ const ApiKeysModal: FC<{
     if (!secret) return "Create SDK Endpoint";
 
     if (type === "user") return "Create a Personal Access Token";
-    if (type === "read-only") return "Create Read-only API key";
+    if (type === "readonly") return "Create Read-only API key";
 
     return "Create Secret key";
   }, [secret, type]);

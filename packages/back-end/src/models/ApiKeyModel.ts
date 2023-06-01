@@ -85,7 +85,83 @@ export function generateSigningKey(prefix: string = "", bytes = 32): string {
   );
 }
 
-export async function createApiKey({
+export async function createOrganizationApiKey({
+  organizationId,
+  description,
+  role = "readonly",
+}: {
+  organizationId: string;
+  description: string;
+  role: "admin" | "readonly";
+}): Promise<ApiKeyInterface> {
+  return await createApiKey({
+    organization: organizationId,
+    secret: true,
+    encryptSDK: false,
+    description,
+    environment: "",
+    project: "",
+    role,
+  });
+}
+
+export async function createUserPersonalAccessApiKey({
+  userId,
+  organizationId,
+  description,
+  environment,
+  project,
+}: {
+  userId: string;
+  organizationId: string;
+  description: string;
+  environment: string;
+  project: string;
+}): Promise<ApiKeyInterface> {
+  return await createApiKey({
+    organization: organizationId,
+    userId,
+    secret: true,
+    environment,
+    project,
+    encryptSDK: false,
+    description,
+    role: "user",
+    prefix: "user",
+  });
+}
+
+/**
+ * @deprecated
+ */
+export async function createLegacySdkKey({
+  organizationId,
+  environment,
+  project,
+  encryptSDK,
+  description,
+}: {
+  organizationId: string;
+  environment: string;
+  project: string;
+  encryptSDK: boolean;
+  description: string;
+}): Promise<ApiKeyInterface> {
+  return await createApiKey({
+    organization: organizationId,
+    secret: false,
+    environment,
+    project,
+    encryptSDK,
+    description,
+  });
+}
+
+/**
+ * This lower-level function should not be exported.
+ * Use either {@link createOrganizationApiKey} with role 'readonly' | 'admin' or {@link createLegacySdkKey}
+ */
+async function createApiKey({
   environment,
   project,
   organization,
@@ -93,7 +169,7 @@ export async function createApiKey({
   secret,
   encryptSDK,
   userId,
-  type,
+  role,
 }: {
   environment: string;
   project: string;
@@ -102,21 +178,20 @@ export async function createApiKey({
   secret: boolean;
   encryptSDK: boolean;
   userId?: string;
-  type?: string;
+  // prefix?: string;
+  role?: string;
 }): Promise<ApiKeyInterface> {
   // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
-  if (!secret && !environment && type !== "read-only") {
+  if (!secret && !environment) {
     throw new Error("SDK Endpoints must have an environment set");
   }
 
-  const prefix = secret
-    ? "secret_" + (type ? `${type}_` : "")
+  const fullPrefix = secret
+    ? "secret_" + (role ? `${role}_` : "")
     : `${getShortEnvName(environment)}_`;
-  const key = generateSigningKey(prefix);
+  const key = generateSigningKey(fullPrefix);
 
   const id = uniqid("key_");
-
-  const role = type === "read-only" ? "readonly" : undefined;
 
   const doc = await ApiKeyModel.create({
     environment,
@@ -128,7 +203,6 @@ export async function createApiKey({
     id,
     encryptSDK,
     userId,
-    type,
     role,
     encryptionKey: encryptSDK ? await generateEncryptionKey() : null,
     dateCreated: new Date(),
