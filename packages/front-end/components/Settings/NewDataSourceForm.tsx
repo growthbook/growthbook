@@ -668,16 +668,8 @@ const NewDataSourceForm: FC<{
                     </DocLink>
                   </p>
                   {metricsToCreate.length > 0 && (
-                    <div className="d-flex pb-2 w-100 justify-content-between align-items-center border-bottom mb-2">
-                      <h3 className="mb-0">
-                        Tracked Events{" "}
-                        <Tooltip
-                          body={`Events tracked by ${
-                            schemasMap.get(schema)?.label || ""
-                          } in the last 7 days.`}
-                        />
-                      </h3>
-                      <div>
+                    <>
+                      <div className="d-flex justify-content-end">
                         <Button
                           color="link"
                           onClick={async () => {
@@ -693,7 +685,6 @@ const NewDataSourceForm: FC<{
                         </Button>
                         <Button
                           color="link"
-                          className="ml-1"
                           onClick={async () => {
                             const updatedMetrics = metricsToCreate.map((m) => ({
                               ...m,
@@ -706,21 +697,109 @@ const NewDataSourceForm: FC<{
                           Uncheck All
                         </Button>
                       </div>
-                    </div>
+                      <table className="appbox table experiment-table gbtable responsive-table">
+                        <thead>
+                          <tr>
+                            <th>Metric Name</th>
+                            <th className="text-center">Count</th>
+                            <th className="text-center">
+                              <Tooltip body="Binomial metrics are simple yes/no conversions (E.G. Created Account)">
+                                Create Binomial Metric
+                              </Tooltip>
+                            </th>
+                            <th className="text-center">
+                              {" "}
+                              <Tooltip body="Count metrics sum conversion values per user (E.G. Pages per Visit)">
+                                Create Count Metric
+                              </Tooltip>
+                            </th>
+                          </tr>
+                        </thead>
+                        {metricsToCreate.map((metric, i) => {
+                          return (
+                            <AutoMetricCard
+                              key={`${metric}-${i}`}
+                              metric={metric}
+                              setMetricsToCreate={setMetricsToCreate}
+                              form={form}
+                              i={i}
+                              dataSourceId={dataSourceId || ""}
+                              metricsToCreate={metricsToCreate}
+                            />
+                            // <>
+                            //   <tr key={`${metric}-${i}`}>
+                            //     <td>{metric.displayName}</td>
+                            //     <td>
+                            //       <Tooltip
+                            //         className="d-flex align-items-center justify-content-center"
+                            //         body={`Last tracked ${ago(
+                            //           metric.lastTrackedAt
+                            //         )}`}
+                            //       >
+                            //         {metric.count}
+                            //       </Tooltip>
+                            //     </td>
+                            //     <td>
+                            //       <div className="d-flex flex-column justify-content-center align-items-center">
+                            //         <Toggle
+                            //           value={metric.createBinomialFromEvent}
+                            //           id={`${metric}-${i}-binomial`}
+                            //           setValue={(value) => {
+                            //             const newMetricsToCreate = cloneDeep(
+                            //               metricsToCreate
+                            //             );
+                            //             newMetricsToCreate[
+                            //               i
+                            //             ].createBinomialFromEvent = value;
+                            //             setMetricsToCreate(newMetricsToCreate);
+                            //           }}
+                            //         />
+                            //         <Button
+                            //           color="link"
+                            //           onClick={async () =>
+                            //             console.log("Clicked")
+                            //           }
+                            //         >
+                            //           Preview SQL
+                            //         </Button>
+                            //       </div>
+                            //     </td>
+                            //     <td>
+                            //       <div className="d-flex flex-column justify-content-center align-items-center">
+                            //         <Toggle
+                            //           value={metric.createCountFromEvent}
+                            //           id={`${metric}-${i}-count`}
+                            //           setValue={(value) => {
+                            //             const newMetricsToCreate = cloneDeep(
+                            //               metricsToCreate
+                            //             );
+                            //             newMetricsToCreate[
+                            //               i
+                            //             ].createCountFromEvent = value;
+                            //             setMetricsToCreate(newMetricsToCreate);
+                            //           }}
+                            //         />
+                            //         <Button
+                            //           color="link"
+                            //           onClick={async () =>
+                            //             console.log("Clicked")
+                            //           }
+                            //         >
+                            //           Preview SQL
+                            //         </Button>
+                            //       </div>
+                            //     </td>
+                            //   </tr>
+                            //   {}
+                            //   <tr className="text-center">
+                            //     SQL PREVIEW GOES HERE
+                            //   </tr>
+                            // </>
+                          );
+                        })}
+                      </table>
+                    </>
                   )}
-                  {metricsToCreate.map((metric, i) => {
-                    return (
-                      <AutoMetricCard
-                        i={i}
-                        key={`${metric}-${i}`}
-                        metric={metric}
-                        setMetricsToCreate={setMetricsToCreate}
-                        metricsToCreate={metricsToCreate}
-                        dataSourceId={dataSourceId || ""}
-                        form={form}
-                      />
-                    );
-                  })}
                 </div>
               )}
             </div>
