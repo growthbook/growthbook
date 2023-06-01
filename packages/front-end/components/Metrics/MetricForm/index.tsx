@@ -41,6 +41,7 @@ import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import { GBCuped } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
+import { useCurrency } from "@/hooks/useCurrency";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -181,6 +182,8 @@ const MetricForm: FC<MetricFormProps> = ({
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
 
+  const displayCurrency = useCurrency();
+
   const {
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
@@ -216,7 +219,7 @@ const MetricForm: FC<MetricFormProps> = ({
     {
       key: "revenue",
       display: "Revenue",
-      description: "How much money a user pays (in USD)",
+      description: `How much money a user pays (in ${displayCurrency})`,
       sub: "revenue per visitor, average order value, etc.",
     },
   ];
