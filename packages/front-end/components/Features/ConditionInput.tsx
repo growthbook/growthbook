@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { some } from "lodash";
+import { FaExclamationCircle } from "react-icons/fa";
 import {
   condToJson,
   jsonToConds,
@@ -29,15 +31,14 @@ export default function ConditionInput(props: Props) {
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
   const [value, setValue] = useState(props.defaultValue);
-  const [conds, setConds] = useState(() =>
-    jsonToConds(props.defaultValue, attributes)
+  const [conds, setConds] = useState(
+    () => jsonToConds(props.defaultValue, attributes) || []
   );
 
   const attributeSchema = useAttributeSchema();
 
   useEffect(() => {
     if (advanced) return;
-    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Condition[] | null' is not assig... Remove this comment to see the full error message
     setValue(condToJson(conds, attributes));
   }, [advanced, conds]);
 
@@ -58,6 +59,11 @@ export default function ConditionInput(props: Props) {
   ];
 
   if (advanced || !attributes.size || !simpleAllowed) {
+    const hasSecureAttributes = some(
+      [...attributes].filter(([_, a]) =>
+        ["secureString", "secureString[]"].includes(a.datatype)
+      )
+    );
     return (
       <div className="mb-3">
         <CodeTextArea
@@ -67,33 +73,40 @@ export default function ConditionInput(props: Props) {
           value={value}
           setValue={setValue}
           helpText={
-            <div className="d-flex">
-              <div>JSON format using MongoDB query syntax.</div>
-              {simpleAllowed && attributes.size && (
-                <div className="ml-auto">
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const newConds = jsonToConds(value, attributes);
-                      // TODO: show error
-                      if (newConds === null) return;
-                      setConds(newConds);
-                      setAdvanced(false);
-                    }}
-                  >
-                    switch to simple mode
-                  </a>
+            <>
+              <div className="d-flex">
+                <div>JSON format using MongoDB query syntax.</div>
+                {simpleAllowed && attributes.size && (
+                  <div className="ml-auto">
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const newConds = jsonToConds(value, attributes);
+                        // TODO: show error
+                        if (newConds === null) return;
+                        setConds(newConds);
+                        setAdvanced(false);
+                      }}
+                    >
+                      switch to simple mode
+                    </a>
+                  </div>
+                )}
+              </div>
+              {hasSecureAttributes && (
+                <div className="mt-1 text-warning-orange">
+                  <FaExclamationCircle /> Secure attribute hashing not
+                  guaranteed to work for complicated rules
                 </div>
               )}
-            </div>
+            </>
           }
         />
       </div>
     );
   }
 
-  // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
   if (!conds.length) {
     return (
       <div className="form-group">
@@ -128,7 +141,6 @@ export default function ConditionInput(props: Props) {
       <label className={props.labelClassName || ""}>Targeting Conditions</label>
       <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
         <ul className={styles.conditionslist}>
-          {/* @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'. */}
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
 
@@ -144,7 +156,6 @@ export default function ConditionInput(props: Props) {
               const name = e.target.name;
               const value: string | number = e.target.value;
 
-              // @ts-expect-error TS(2488) If you come across this, please fix it!: Type 'Condition[] | null' must have a '[Symbol.ite... Remove this comment to see the full error message
               const newConds = [...conds];
               newConds[i] = { ...newConds[i] };
               newConds[i][name] = value;
@@ -198,6 +209,19 @@ export default function ConditionInput(props: Props) {
                     { label: "is greater than or equal to", value: "$gte" },
                     { label: "is less than", value: "$lt" },
                     { label: "is less than or equal to", value: "$lte" },
+                    { label: "is in the list", value: "$in" },
+                    { label: "is not in the list", value: "$nin" },
+                    { label: "exists", value: "$exists" },
+                    { label: "does not exist", value: "$notExists" },
+                    ...(savedGroupOptions.length > 0
+                      ? savedGroupOperators
+                      : []),
+                  ]
+                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                attribute.datatype === "secureString"
+                ? [
+                    { label: "is equal to", value: "$eq" },
+                    { label: "is not equal to", value: "$ne" },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
@@ -269,6 +293,7 @@ export default function ConditionInput(props: Props) {
                       value={operator}
                       name="operator"
                       options={operatorOptions}
+                      sort={false}
                       onChange={(v) => {
                         onSelectFieldChange(v, "operator");
                       }}
@@ -338,7 +363,7 @@ export default function ConditionInput(props: Props) {
                       required
                     />
                   ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  attribute.datatype === "string" ? (
+                  ["string", "secureString"].includes(attribute.datatype) ? (
                     <Field
                       value={value}
                       onChange={onChange}

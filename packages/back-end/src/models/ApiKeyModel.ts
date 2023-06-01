@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { webcrypto } from "node:crypto";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { omit } from "lodash";
 import {
   ApiKeyInterface,
   PublishableApiKey,
@@ -28,7 +29,13 @@ const apiKeySchema = new mongoose.Schema({
 
 type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
 
-const ApiKeyModel = mongoose.model<ApiKeyDocument>("ApiKey", apiKeySchema);
+const ApiKeyModel = mongoose.model<ApiKeyInterface>("ApiKey", apiKeySchema);
+
+const toInterface = (doc: ApiKeyDocument): ApiKeyInterface =>
+  omit(
+    doc.toJSON<ApiKeyDocument>({ flattenMaps: true }),
+    ["__v", "_id"]
+  );
 
 export async function generateEncryptionKey(): Promise<string> {
   const key = await webcrypto.subtle.generateKey(
@@ -99,7 +106,7 @@ export async function createApiKey({
     dateCreated: new Date(),
   });
 
-  return doc.toJSON();
+  return toInterface(doc);
 }
 
 export async function deleteApiKeyById(organization: string, id: string) {
@@ -126,7 +133,7 @@ export async function getApiKeyByIdOrKey(
   const doc = await ApiKeyModel.findOne(
     id ? { organization, id } : { organization, key }
   );
-  return doc ? doc.toJSON() : null;
+  return doc ? toInterface(doc) : null;
 }
 
 export async function lookupOrganizationByApiKey(
@@ -150,20 +157,20 @@ export async function lookupOrganizationByApiKey(
   });
 
   if (!doc || !doc.organization) return {};
-  return doc.toJSON();
+  return toInterface(doc);
 }
 
 export async function getAllApiKeysByOrganization(
   organization: string
 ): Promise<ApiKeyInterface[]> {
-  const docs = await ApiKeyModel.find(
+  const docs: ApiKeyDocument[] = await ApiKeyModel.find(
     {
       organization,
     },
     { encryptionKey: 0 }
   );
   return docs.map((k) => {
-    const json = k.toJSON();
+    const json = toInterface(k);
     if (json.secret) {
       json.key = "";
     }
@@ -188,7 +195,7 @@ export async function getFirstPublishableApiKey(
 
   if (!doc) return null;
 
-  return doc.toJSON() as PublishableApiKey;
+  return toInterface(doc) as PublishableApiKey;
 }
 
 export async function getUnredactedSecretKey(
@@ -200,5 +207,5 @@ export async function getUnredactedSecretKey(
     id,
   });
   if (!doc) return null;
-  return doc.toJSON() as SecretApiKey;
+  return toInterface(doc) as SecretApiKey;
 }

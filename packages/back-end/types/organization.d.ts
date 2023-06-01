@@ -43,7 +43,8 @@ export type CommercialFeature =
   | "sequential-testing"
   | "audit-logging"
   | "visual-editor"
-  | "cloud-proxy";
+  | "cloud-proxy"
+  | "hash-secure-attributes";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {
@@ -112,7 +113,9 @@ export type SDKAttributeType =
   | "boolean"
   | "string[]"
   | "number[]"
-  | "enum";
+  | "enum"
+  | "secureString"
+  | "secureString[]";
 
 export type SDKAttribute = {
   property: string;
@@ -168,6 +171,7 @@ export interface OrganizationSettings {
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
   displayCurrency?: string;
+  secureAttributeSalt?: string;
 }
 
 export interface SubscriptionQuote {

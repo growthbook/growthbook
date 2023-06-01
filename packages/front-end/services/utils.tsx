@@ -1,5 +1,5 @@
 import { ExperimentPhaseStringDates } from "back-end/types/experiment";
-import React from "react";
+import React, { ReactNode } from "react";
 import qs from "query-string";
 
 export function formatTrafficSplit(weights: number[], decimals = 0): string {
@@ -7,11 +7,8 @@ export function formatTrafficSplit(weights: number[], decimals = 0): string {
   return weights.map((w) => +((w / sum) * 100).toFixed(decimals)).join("/");
 }
 
-export function phaseSummary(
-  phase: ExperimentPhaseStringDates
-): React.ReactElement {
+export function phaseSummary(phase: ExperimentPhaseStringDates): ReactNode {
   if (!phase) {
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'ReactElemen... Remove this comment to see the full error message
     return null;
   }
   return (

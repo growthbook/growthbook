@@ -1064,7 +1064,6 @@ const MetricForm: FC<MetricFormProps> = ({
                     ? metricDefaults.minimumSampleSize
                     : formatConversionRate(
                         value.type,
-                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
                         metricDefaults.minimumSampleSize
                       )}
                   )
@@ -1078,7 +1077,6 @@ const MetricForm: FC<MetricFormProps> = ({
                 {...form.register("maxPercentChange", { valueAsNumber: true })}
                 helpText={`An experiment that changes the metric by more than this percent will
             be flagged as suspicious (default ${
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               metricDefaults.maxPercentageChange * 100
             })`}
               />
@@ -1090,7 +1088,6 @@ const MetricForm: FC<MetricFormProps> = ({
                 {...form.register("minPercentChange", { valueAsNumber: true })}
                 helpText={`An experiment that changes the metric by less than this percent will be
             considered a draw (default ${
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               metricDefaults.minPercentageChange * 100
             })`}
               />

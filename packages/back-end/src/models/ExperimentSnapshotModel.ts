@@ -96,14 +96,15 @@ experimentSnapshotSchema.index({
 type ExperimentSnapshotDocument = mongoose.Document &
   ExperimentSnapshotInterface;
 
-const ExperimentSnapshotModel = mongoose.model<ExperimentSnapshotDocument>(
+const ExperimentSnapshotModel = mongoose.model<ExperimentSnapshotInterface>(
   "ExperimentSnapshot",
   experimentSnapshotSchema
 );
 
 const toInterface = (
   doc: ExperimentSnapshotDocument
-): ExperimentSnapshotInterface => omit(doc.toJSON(), ["__v", "_id"]);
+): ExperimentSnapshotInterface =>
+  omit(doc.toJSON<ExperimentSnapshotDocument>(), ["__v", "_id"]);
 
 export async function updateSnapshotsOnPhaseDelete(
   organization: string,

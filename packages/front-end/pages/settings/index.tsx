@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import {
+  FaExclamationCircle,
   FaExclamationTriangle,
   FaPencilAlt,
   FaQuestionCircle,
@@ -26,7 +27,10 @@ import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import TempMessage from "@/components/TempMessage";
 import Button from "@/components/Button";
 import { DocLink } from "@/components/DocLink";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import {
+  OrganizationSettingsWithMetricDefaults,
+  useOrganizationMetricDefaults,
+} from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import { GBCuped, GBPremiumBadge, GBSequential } from "@/components/Icons";
@@ -251,12 +255,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"
   );
+  const hasSecureAttributesFeature = hasCommercialFeature(
+    "hash-secure-attributes"
+  );
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
+  const showUpgradeButton = ["oss", "starter"].includes(accountPlan || "");
   const licensePlanText =
     (accountPlan === "enterprise"
       ? "Enterprise"
@@ -266,7 +272,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ? "Pro + SSO"
       : "Starter") + (license && license.trial ? " (trial)" : "");
 
-  const form = useForm<OrganizationSettings>({
+  const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
       visualEditorEnabled: false,
       pastExperimentsMinLength: 6,
@@ -287,9 +293,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       },
       metricDefaults: {
         minimumSampleSize: metricDefaults.minimumSampleSize,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         maxPercentageChange: metricDefaults.maxPercentageChange * 100,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         minPercentageChange: metricDefaults.minPercentageChange * 100,
       },
       updateSchedule: {
@@ -308,6 +312,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       attributionModel: "firstExposure",
       displayCurrency,
+      secureAttributeSalt: "",
     },
   });
   const { apiCall } = useAuth();
@@ -341,6 +346,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     ),
     attributionModel: form.watch("attributionModel"),
     displayCurrency: form.watch("displayCurrency"),
+    secureAttributeSalt: form.watch("secureAttributeSalt"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -372,10 +378,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
           newVal.metricDefaults = {
             ...newVal.metricDefaults,
             maxPercentageChange:
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               newVal.metricDefaults.maxPercentageChange * 100,
             minPercentageChange:
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               newVal.metricDefaults.minPercentageChange * 100,
           };
         }
@@ -398,9 +402,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ...value,
       metricDefaults: {
         ...value.metricDefaults,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         minPercentageChange: value.metricDefaults.minPercentageChange / 100,
       },
       // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
@@ -859,11 +861,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     )}
                   </div>
                   <StatsEngineSelect
-                    form={form}
                     label="Default Statistics Engine"
                     allowUndefined={false}
+                    value={form.watch("statsEngine")}
                     onChange={(value) => {
                       setStatsEngineTab(value);
+                      form.setValue("statsEngine", value);
                     }}
                   />
                 </div>
@@ -1289,6 +1292,64 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     helpText="This should match what is stored in the data source and controls what currency symbol is displayed."
                   />
                 </>
+              </div>
+            </div>
+
+            <div className="divider border-bottom mb-3 mt-3" />
+
+            <div className="row">
+              <div className="col-sm-3">
+                <h4>Features Settings</h4>
+              </div>
+              <div className="col-sm-9">
+                <div className="form-inline">
+                  <Field
+                    label={
+                      <PremiumTooltip
+                        commercialFeature={"hash-secure-attributes"}
+                        body={
+                          <>
+                            <p>
+                              Feature targeting conditions referencing{" "}
+                              <code>secureString</code> attributes will be
+                              anonymized via SHA-256 hashing. When evaluating
+                              feature flags in a public or insecure environment
+                              (such as a browser), hashing provides an
+                              additional layer of security through obfuscation.
+                              This allows you to target users based on sensitive
+                              attributes.
+                            </p>
+                            <p>
+                              You must enable this feature in your SDK
+                              Connection for it to take effect.
+                            </p>
+                            <p>
+                              You may add a cryptographic salt string (a random
+                              string of your choosing) to the hashing algorithm,
+                              which helps defend against hash lookup
+                              vulnerabilities.
+                            </p>
+                            <p className="mb-0 text-warning-orange small">
+                              <FaExclamationCircle /> When using an insecure
+                              environment, do not rely exclusively on hashing as
+                              a means of securing highly sensitive data. Hashing
+                              is an obfuscation technique that makes it very
+                              difficult, but not impossible, to extract
+                              sensitive data.
+                            </p>
+                          </>
+                        }
+                      >
+                        Salt string for secure attributes <FaQuestionCircle />
+                      </PremiumTooltip>
+                    }
+                    disabled={!hasSecureAttributesFeature}
+                    className="ml-2"
+                    containerClassName="mb-3"
+                    type="string"
+                    {...form.register("secureAttributeSalt")}
+                  />
+                </div>
               </div>
             </div>
           </div>

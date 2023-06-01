@@ -297,7 +297,7 @@ You can specify attributes about the current user and request. These are used fo
 1.  Feature targeting (e.g. paid users get one value, free users get another)
 2.  Assigning persistent variations in A/B tests (e.g. user id "123" always gets variation B)
 
-The following are some comonly used attributes, but use whatever makes sense for your application.
+The following are some commonly used attributes, but use whatever makes sense for your application.
 
 ```ts
 new GrowthBook({
@@ -315,7 +315,67 @@ new GrowthBook({
 });
 ```
 
-If you need to set or update attributes asynchronously, you can do so with `setAttributes()`. This will completely overwrite the attributes object with whatever you pass in. Also, be aware that changing attributes may change the assigned feature values. This can be disorienting to users if not handled carefully.
+#### Updating Attributes
+
+If attributes change, you can call `setAttributes()` to update. This will completely overwrite any existing attributes. To do a partial update, use the following pattern:
+
+```js
+gb.setAttributes({
+  // Only update the `url` attribute, keep the rest the same
+  ...gb.getAttributes(),
+  url: "/new-page"
+})
+```
+
+#### Secure Attributes
+
+When _secure attribute hashing_ is enabled, all targeting conditions in the SDK payload referencing attributes with datatype `secureString` or `secureString[]` will be anonymized via SHA-256 hashing. This allows you to safely target users based on sensitive attributes. You must enable this feature in your SDK Connection for it to take effect.
+
+If your SDK Connection has secure attribute hashing enabled, you will need to manually hash any `secureString` or `secureString[]` attributes that you pass into the GrowthBook SDK.
+
+To hash an attribute, use a cryptographic library with SHA-256 support, and compute the SHA-256 hashed value of your attribute _plus_ your organization's secure attribute salt.
+
+```js
+const salt = "f09jq3fij"; // Your organization's secure attribute salt (see Organization Settings)
+
+// hashing a secureString attribute
+const userEmail = sha256(user.email + salt);
+
+// hashing an secureString[] attribute
+const userTags = user.tags.map(tag => sha256(tag + salt));
+
+gb.setAttributes({
+  id: user.id,
+  loggedIn: true,
+  email: userEmail,
+  tags: userTags,
+});
+
+await gb.loadFeatures({ autoRefresh: true });
+
+// In this example, we are using Node.js's built-in crypto library
+function sha256(str) {
+  return crypto.createHash("sha256").update(str).digest("hex");
+}
+```
+
+Note that in a browser context, we will not be able to natively access the Node.js crypto library. In modern browsers `window.crypto.subtle` is available, although calls are asynchronous. You would need to await all attribute hashing to complete before calling `gb.setAttributes()`.
+
+```js
+async function sha256(str) {
+  const buffer = await crypto.subtle.digest("SHA-256", new TextEncoder("utf-8").encode(str));
+  const hashArray = Array.from(new Uint8Array(buffer));
+  return hashArray.map(byte => byte.toString(16).padStart(2, "0")).join("");
+}
+```
+
+Alternatively, CryptoJS (https://www.npmjs.com/package/crypto-js) provides a synchronous API:
+
+```js
+import sha256 from 'crypto-js/sha256';
+
+const userEmail = sha256(user.email + salt);
+```
 
 ### Feature Usage Callback
 

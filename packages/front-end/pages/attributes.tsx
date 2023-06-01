@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { SDKAttribute } from "back-end/types/organization";
-import Tooltip from "../components/Tooltip/Tooltip";
-import { GBEdit } from "../components/Icons";
-import EditAttributesModal from "../components/Features/EditAttributesModal";
-import usePermissions from "../hooks/usePermissions";
-import MoreMenu from "../components/Dropdown/MoreMenu";
-import { useAuth } from "../services/auth";
-import { useAttributeSchema } from "../services/features";
-import { useUser } from "../services/UserContext";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBEdit } from "@/components/Icons";
+import EditAttributesModal from "@/components/Features/EditAttributesModal";
+import usePermissions from "@/hooks/usePermissions";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import { useAuth } from "@/services/auth";
+import { useAttributeSchema } from "@/services/features";
+import { useUser } from "@/services/UserContext";
 
 const FeatureAttributesPage = (): React.ReactElement => {
   const [editOpen, setEditOpen] = useState(false);

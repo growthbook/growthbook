@@ -1,8 +1,8 @@
-import mssql from "mssql";
 import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
 import { MissingDatasourceParamsError } from "../types/Integration";
+import { findOrCreateConnection } from "../util/mssqlPoolManager";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mssql extends SqlIntegration {
@@ -21,7 +21,7 @@ export default class Mssql extends SqlIntegration {
     return ["password"];
   }
   async runQuery(sqlStr: string) {
-    const conn = await mssql.connect({
+    const conn = await findOrCreateConnection(this.datasource, {
       server: this.params.server,
       port: parseInt(this.params.port + "", 10),
       user: this.params.user,
@@ -59,7 +59,7 @@ export default class Mssql extends SqlIntegration {
     return `CAST(${col} as FLOAT)`;
   }
   formatDate(col: string): string {
-    return `FORMAT(${col}, "yyyy-MM-dd")`;
+    return `FORMAT(${col}, 'yyyy-MM-dd')`;
   }
   castToString(col: string): string {
     return `cast(${col} as varchar(256))`;
