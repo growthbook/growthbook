@@ -22,11 +22,18 @@ const ApiKeysModal: FC<{
   const [upgradeModal, setUpgradeModal] = useState(false);
   const { projects, project } = useDefinitions();
 
-  const form = useForm({
+  const form = useForm<{
+    description: string;
+    environment: string;
+    project: string;
+    type: string;
+    encryptSDK: boolean;
+  }>({
     defaultValues: {
       description: defaultDescription,
       environment: environments[0]?.id || "dev",
       project: project || "",
+      type,
       encryptSDK: false,
     },
   });
@@ -36,7 +43,6 @@ const ApiKeysModal: FC<{
       method: "POST",
       body: JSON.stringify({
         ...value,
-        type,
         secret,
       }),
     });
@@ -48,13 +54,8 @@ const ApiKeysModal: FC<{
   });
 
   const modalTitle = useMemo(() => {
-    if (!secret) return "Create SDK Endpoint";
-
-    if (type === "user") return "Create a Personal Access Token";
-    if (type === "readonly") return "Create Read-only API key";
-
-    return "Create Secret key";
-  }, [secret, type]);
+    return secret ? "Create Key" : "Create SDK Endpoint";
+  }, [secret]);
 
   if (upgradeModal) {
     return (
@@ -109,6 +110,23 @@ const ApiKeysModal: FC<{
           showUpgradeModal={() => setUpgradeModal(true)}
           value={form.watch("encryptSDK")}
           setValue={(value) => form.setValue("encryptSDK", value)}
+        />
+      )}
+      {type !== "user" && (
+        <SelectField
+          label="Role"
+          value={form.watch("type")}
+          onChange={(v) => form.setValue("type", v)}
+          options={[
+            {
+              label: "Admin",
+              value: "admin",
+            },
+            {
+              label: "Read-only",
+              value: "readonly",
+            },
+          ]}
         />
       )}
     </Modal>

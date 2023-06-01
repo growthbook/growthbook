@@ -3,7 +3,6 @@ import { ApiKeyInterface, SecretApiKey } from "back-end/types/apikey";
 import { FaKey } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
-import { groupApiKeysByType } from "@/services/secret-api-keys.utils";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
 import ApiKeysModal from "./ApiKeysModal";
 
@@ -20,12 +19,10 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
   const permissions = usePermissions();
   const canManageKeys = permissions.manageApiKeys;
 
-  const groupedKeys = useMemo(() => {
-    return groupApiKeysByType(keys);
-  }, [keys]);
-
-  const secretKeys = groupedKeys.secret;
-  const readOnlyKeys = groupedKeys.readonly;
+  const organizationSecretKeys = useMemo(
+    () => keys.filter((k) => k.secret && !k.userId),
+    [keys]
+  );
 
   const onReveal = useCallback(
     (keyId: string | undefined) => async (): Promise<string> => {
@@ -71,18 +68,16 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
         />
       )}
 
-      {/* region Secret API keys */}
       <div className="mb-5">
         <h1>Secret API Keys</h1>
         <p>
-          Secret keys have full read and write access to your organization.
-          Because of this, they must be kept secure and{" "}
+          Secret keys have access to your organization. They{" "}
           <strong>must not be exposed to users</strong>.
         </p>
-        {secretKeys.length > 0 && (
+        {organizationSecretKeys.length > 0 && (
           <ApiKeysTable
             onDelete={onDelete}
-            keys={secretKeys}
+            keys={organizationSecretKeys}
             canManageKeys={canManageKeys}
             onReveal={onReveal}
           />
@@ -100,34 +95,6 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
           </button>
         )}
       </div>
-      {/* endregion Secret API keys */}
-
-      {/* region Read-only API keys */}
-      <div className="mb-5">
-        <h1>Read-only API Keys</h1>
-        <p>Read-only API keys have read access to resources.</p>
-        {readOnlyKeys.length > 0 && (
-          <ApiKeysTable
-            onDelete={onDelete}
-            keys={readOnlyKeys}
-            canManageKeys={true}
-            onReveal={onReveal}
-          />
-        )}
-        {canManageKeys && (
-          <button
-            className="btn btn-primary"
-            onClick={(e) => {
-              e.preventDefault();
-              setModalApiKeyType("readonly");
-              setOpen(true);
-            }}
-          >
-            <FaKey /> Create New Read-only Key
-          </button>
-        )}
-      </div>
-      {/* endregion Read-only API keys */}
     </div>
   );
 };

@@ -23,6 +23,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
         <tr>
           <th style={{ width: 150 }}>Description</th>
           <th>Key</th>
+          <th>Role</th>
           {canManageKeys && <th style={{ width: 30 }}></th>}
         </tr>
       </thead>
@@ -40,6 +41,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                 <em>hidden</em>
               )}
             </td>
+            <td>{key.role || "-"}</td>
             {canManageKeys && (
               <td>
                 <MoreMenu>
