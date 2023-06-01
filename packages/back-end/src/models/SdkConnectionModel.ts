@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { z } from "zod";
+import { omit } from "lodash";
 import { ApiSdkConnection } from "../../types/openapi";
 import {
   CreateSDKConnectionParams,
@@ -38,6 +39,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   project: String,
   encryptPayload: Boolean,
   encryptionKey: String,
+  hashSecureAttributes: Boolean,
   includeVisualExperiments: Boolean,
   includeDraftExperiments: Boolean,
   includeExperimentNames: Boolean,
@@ -61,7 +63,7 @@ const sdkConnectionSchema = new mongoose.Schema({
 
 type SDKConnectionDocument = mongoose.Document & SDKConnectionInterface;
 
-const SDKConnectionModel = mongoose.model<SDKConnectionDocument>(
+const SDKConnectionModel = mongoose.model<SDKConnectionInterface>(
   "SdkConnection",
   sdkConnectionSchema
 );
@@ -78,9 +80,9 @@ function addEnvProxySettings(proxy: ProxyConnection): ProxyConnection {
 }
 
 function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {
-  const conn = doc.toJSON();
+  const conn = doc.toJSON<SDKConnectionDocument>();
   conn.proxy = addEnvProxySettings(conn.proxy);
-  return conn;
+  return omit(conn, ["__v", "_id"]);
 }
 
 export async function findSDKConnectionById(id: string) {
@@ -110,6 +112,7 @@ export const createSDKConnectionValidator = z
     environment: z.string(),
     project: z.string(),
     encryptPayload: z.boolean(),
+    hashSecureAttributes: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
@@ -177,6 +180,7 @@ export const editSDKConnectionValidator = z
     environment: z.string().optional(),
     project: z.string().optional(),
     encryptPayload: z.boolean(),
+    hashSecureAttributes: z.boolean().optional(),
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
@@ -223,6 +227,7 @@ export async function editSDKConnection(
       "project",
       "environment",
       "encryptPayload",
+      "hashSecureAttributes",
     ] as const;
     keysRequiringProxyUpdate.forEach((key) => {
       if (key in otherChanges && otherChanges[key] !== connection[key]) {
@@ -392,6 +397,7 @@ export function toApiSDKConnectionInterface(
     project: connection.project,
     encryptPayload: connection.encryptPayload,
     encryptionKey: connection.encryptionKey,
+    hashSecureAttributes: connection.hashSecureAttributes,
     includeVisualExperiments: connection.includeVisualExperiments,
     includeDraftExperiments: connection.includeDraftExperiments,
     includeExperimentNames: connection.includeExperimentNames,

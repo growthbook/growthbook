@@ -1,5 +1,4 @@
-import { FilterQuery } from "mongodb";
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import {
@@ -85,14 +84,17 @@ featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
-const FeatureModel = mongoose.model<FeatureDocument>("Feature", featureSchema);
+const FeatureModel = mongoose.model<LegacyFeatureInterface>(
+  "Feature",
+  featureSchema
+);
 
 /**
  * Convert the Mongo document to an FeatureInterface, omitting Mongo default fields __v, _id
  * @param doc
  */
 const toInterface = (doc: FeatureDocument): FeatureInterface =>
-  omit(doc.toJSON(), ["__v", "_id"]);
+  omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
 
 export async function getAllFeatures(
   organization: string,

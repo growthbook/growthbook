@@ -5,6 +5,7 @@ import {
   isValidElement,
   cloneElement,
   ReactNode,
+  ReactElement,
 } from "react";
 import clsx from "clsx";
 import Modal from "./Modal";
@@ -21,11 +22,10 @@ const Carousel: FC<{
 
   const current = active >= num ? num - 1 : active;
 
-  let currentChild = null;
+  let currentChild: null | ReactElement = null;
   if (modalOpen) {
     const orig = Children.toArray(children)[current];
     if (orig && isValidElement(orig)) {
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ReactElement<any, string | JSXElementConstru... Remove this comment to see the full error message
       currentChild = cloneElement(orig, {
         style: { ...orig.props.style, height: "100%" },
       });
