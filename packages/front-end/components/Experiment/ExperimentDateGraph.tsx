@@ -14,9 +14,8 @@ import {
 import { ScaleLinear } from "d3-scale";
 import { date } from "shared/dates";
 import { variant_0, variant_1, variant_2, variant_3 } from "shared/constants";
-import { MetricType } from "back-end/types/metric";
 import { StatsEngine } from "back-end/types/stats";
-import { hasEnoughData, pValueFormatter } from "@/services/experiments";
+import { pValueFormatter } from "@/services/experiments";
 import styles from "./ExperimentDateGraph.module.scss";
 
 interface DataPointVariation {
@@ -44,7 +43,6 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 1,
 });
-const numberFormatter = new Intl.NumberFormat();
 
 const COLORS = [variant_0, variant_1, variant_2, variant_3];
 
@@ -67,12 +65,12 @@ const getTooltipContents = (
   const { d, yaxis } = data;
   return (
     <>
-      <table className={`table-sm ${styles.table}`}>
+      <table className={`table-condensed ${styles.table}`}>
         {yaxis === "uplift" && (
           <thead>
             <tr>
               <td></td>
-              <td></td>
+              <td>Value</td>
               <td>Uplift</td>
               <td>CI</td>
               <td>
@@ -86,24 +84,41 @@ const getTooltipContents = (
             const variation = d.variations[i];
             return (
               <tr key={i}>
-                <td style={{ color: COLORS[i % COLORS.length] }}>{v}</td>
+                <td
+                  className="text-ellipsis"
+                  style={{ color: COLORS[i % COLORS.length] }}
+                >
+                  {v}
+                </td>
                 <td>{d.variations[i].v_formatted}</td>
-                {i > 0 && yaxis === "uplift" && (
+                {yaxis === "uplift" && (
                   <>
                     <td>
-                      {((variation.up ?? 0) > 0 ? "+" : "") +
-                        percentFormatter.format(variation.up ?? 0)}
+                      {i > 0 && (
+                        <>
+                          {((variation.up ?? 0) > 0 ? "+" : "") +
+                            percentFormatter.format(variation.up ?? 0)}
+                        </>
+                      )}
                     </td>
                     <td className="small">
-                      [{percentFormatter.format(variation?.ci?.[0] ?? 0)},{" "}
-                      {percentFormatter.format(variation?.ci?.[1] ?? 0)}]
+                      {i > 0 && (
+                        <>
+                          [{percentFormatter.format(variation?.ci?.[0] ?? 0)},{" "}
+                          {percentFormatter.format(variation?.ci?.[1] ?? 0)}]
+                        </>
+                      )}
                     </td>
                     <td>
-                      {statsEngine === "frequentist"
-                        ? typeof variation.p === "number" &&
-                          pValueFormatter(variation.p)
-                        : typeof variation.ctw === "number" &&
-                          percentFormatter.format(variation.ctw)}
+                      {i > 0 && (
+                        <>
+                          {statsEngine === "frequentist"
+                            ? typeof variation.p === "number" &&
+                              pValueFormatter(variation.p)
+                            : typeof variation.ctw === "number" &&
+                              percentFormatter.format(variation.ctw)}
+                        </>
+                      )}
                     </td>
                   </>
                 )}
@@ -112,7 +127,7 @@ const getTooltipContents = (
           })}
         </tbody>
       </table>
-      <div className={styles.date}>{date(d.d as Date)}</div>
+      <div className="text-sm-right mt-1 mr-1">{date(d.d as Date)}</div>
     </>
   );
 };
