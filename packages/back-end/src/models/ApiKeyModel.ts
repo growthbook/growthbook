@@ -127,7 +127,6 @@ export async function createUserPersonalAccessApiKey({
     encryptSDK: false,
     description,
     role: "user",
-    prefix: "user",
   });
 }
 
@@ -178,7 +177,6 @@ async function createApiKey({
   secret: boolean;
   encryptSDK: boolean;
   userId?: string;
-  // prefix?: string;
   role?: string;
 }): Promise<ApiKeyInterface> {
   // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
@@ -186,10 +184,10 @@ async function createApiKey({
     throw new Error("SDK Endpoints must have an environment set");
   }
 
-  const fullPrefix = secret
+  const prefix = secret
     ? "secret_" + (role ? `${role}_` : "")
     : `${getShortEnvName(environment)}_`;
-  const key = generateSigningKey(fullPrefix);
+  const key = generateSigningKey(prefix);
 
   const id = uniqid("key_");
 
