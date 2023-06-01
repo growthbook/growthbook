@@ -39,19 +39,17 @@ export default class Redshift extends SqlIntegration {
     return "SVV_COLUMNS";
   }
   generateTableName(tableName?: string): string {
-    if (tableName) {
-      if (!this.params.database) {
-        throw new MissingDatasourceParamsError(
-          "To automatically generate metrics for an Athena data source, you must define a default database."
-        );
-      }
-      if (!this.params.defaultSchema)
-        throw new MissingDatasourceParamsError(
-          "To automatically generate metrics for an Athena data source, you must define a default catalog."
-        );
-      return `${this.params.database}.${this.params.defaultSchema}.${tableName}`;
-    } else {
-      return "SVV_COLUMNS";
+    if (!tableName) return "SVV_COLUMNS";
+
+    if (!this.params.database) {
+      throw new MissingDatasourceParamsError(
+        "To automatically generate metrics for an Athena data source, you must define a default database."
+      );
     }
+    if (!this.params.defaultSchema)
+      throw new MissingDatasourceParamsError(
+        "To automatically generate metrics for an Athena data source, you must define a default catalog."
+      );
+    return `${this.params.database}.${this.params.defaultSchema}.${tableName}`;
   }
 }

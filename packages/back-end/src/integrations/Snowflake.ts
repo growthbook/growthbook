@@ -47,14 +47,13 @@ export default class Snowflake extends SqlIntegration {
         "No database provided. In order to get the information schema, you must provide a database."
       );
 
-    if (tableName) {
-      if (!this.params.schema)
-        throw new MissingDatasourceParamsError(
-          "No schema provided. To automatically generate metrics, you must provide a schema."
-        );
-      return `${this.params.database}.${this.params.schema}.${tableName}`;
-    } else {
-      return `${this.params.database}.information_schema.columns`;
-    }
+    if (!tableName) return `${this.params.database}.information_schema.columns`;
+
+    if (!this.params.schema)
+      throw new MissingDatasourceParamsError(
+        "No schema provided. To automatically generate metrics, you must provide a schema."
+      );
+
+    return `${this.params.database}.${this.params.schema}.${tableName}`;
   }
 }
