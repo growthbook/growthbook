@@ -107,6 +107,8 @@ export interface Namespaces {
   status: "active" | "inactive";
 }
 
+export type SDKAttributeFormat = "none" | "version";
+
 export type SDKAttributeType =
   | "string"
   | "number"
@@ -123,7 +125,9 @@ export type SDKAttribute = {
   hashAttribute?: boolean;
   enum?: string;
   archived?: boolean;
+  format?: SDKAttributeFormat;
 };
+
 export type SDKAttributeSchema = SDKAttribute[];
 
 export type ExperimentUpdateSchedule = {

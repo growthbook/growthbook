@@ -1,5 +1,6 @@
 import { useFieldArray, useForm } from "react-hook-form";
 import {
+  SDKAttributeFormat,
   SDKAttributeSchema,
   SDKAttributeType,
 } from "back-end/types/organization";
@@ -131,6 +132,27 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                     ]}
                     sort={false}
                   />
+                  {form.watch(`attributeSchema.${i}.datatype`) === "string" && (
+                    <div className="my-1">
+                      <SelectField
+                        value={
+                          form.watch(`attributeSchema.${i}.format`) || "none"
+                        }
+                        onChange={(v) =>
+                          form.setValue(
+                            `attributeSchema.${i}.format`,
+                            v as SDKAttributeFormat
+                          )
+                        }
+                        style={{ width: 225 }}
+                        options={[
+                          { value: "none", label: "None" },
+                          { value: "version", label: "Version string" },
+                        ]}
+                        sort={false}
+                      />
+                    </div>
+                  )}
                   {form.watch(`attributeSchema.${i}.datatype`) === "enum" && (
                     <div>
                       <Field

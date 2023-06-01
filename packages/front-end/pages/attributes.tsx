@@ -37,6 +37,11 @@ const FeatureAttributesPage = (): React.ReactElement => {
       <td className="text-gray">
         {v.datatype}
         {v.datatype === "enum" && <>: ({v.enum})</>}
+        {v.format && v.format !== "none" && (
+          <p className="my-0">
+            <small>(format: {v.format})</small>
+          </p>
+        )}
       </td>
       <td className="text-gray">{v.hashAttribute && <>yes</>}</td>
       <td className="text-gray">{v.archived && <>yes</>}</td>

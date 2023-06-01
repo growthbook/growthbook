@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from "react";
 import {
   NamespaceUsage,
+  SDKAttributeFormat,
   SDKAttributeSchema,
   SDKAttributeType,
 } from "back-end/types/organization";
@@ -38,6 +39,7 @@ export interface AttributeData {
   identifier: boolean;
   enum: string[];
   archived: boolean;
+  format?: SDKAttributeFormat;
 }
 
 export function validateFeatureValue(
@@ -747,6 +749,7 @@ export function useAttributeMap(): Map<string, AttributeData> {
             : [],
         identifier: !!schema.hashAttribute,
         archived: !!schema.archived,
+        format: schema.format || "none",
       });
     });
 
