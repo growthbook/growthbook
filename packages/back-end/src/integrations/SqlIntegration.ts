@@ -1419,8 +1419,6 @@ export default abstract class SqlIntegration
         format(pageViewedSql, this.getFormatDialect())
       );
 
-      console.log("pageViewedResults", pageViewedResults);
-
       pageViewedResults.forEach((result) => {
         if (result.count > 0) {
           results.push(result);
