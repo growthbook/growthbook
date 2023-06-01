@@ -106,6 +106,9 @@ export default class Presto extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
+  currentDate(): string {
+    return `CURRENT_DATE`;
+  }
   getDateTable(startDate: Date, endDate: Date | null): string {
     return `
       SELECT ${this.castToDate("t.day")} AS day

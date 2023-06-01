@@ -86,9 +86,11 @@ export default class BigQuery extends SqlIntegration {
     return `
     SELECT day
     FROM UNNEST(
-        GENERATE_DATE_ARRAY(DATE(${this.toTimestamp(startDate)}), ${
-      endDate ? `DATE(${this.toTimestamp(endDate)})` : `CURRENT_DATE()`
-    }, INTERVAL 1 DAY)
+        GENERATE_DATE_ARRAY(
+          DATE(${this.toTimestamp(startDate)}), 
+          ${endDate ? `DATE(${this.toTimestamp(endDate)})` : `CURRENT_DATE()`},
+          INTERVAL 1 DAY
+        )
     ) AS day`;
   }
   getInformationSchemaFromClause(): string {

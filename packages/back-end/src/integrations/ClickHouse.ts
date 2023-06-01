@@ -83,6 +83,9 @@ export default class ClickHouse extends SqlIntegration {
   castToString(col: string): string {
     return `toString(${col})`;
   }
+  currentDate(): string {
+    return this.castToDate("NOW()");
+  }
   getDateTable(startDate: Date, endDate: Date | null): string {
     const startDateStr = this.castToDate(this.toTimestamp(startDate));
     return `

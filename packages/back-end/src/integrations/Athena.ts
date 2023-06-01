@@ -49,6 +49,26 @@ export default class Athena extends SqlIntegration {
   ensureFloat(col: string): string {
     return `1.0*${col}`;
   }
+  currentDate(): string {
+    return `CURRENT_DATE`;
+  }
+  getDateTable(startDate: Date, endDate: Date | null): string {
+    return `
+      SELECT ${this.castToDate("t.day")} AS day
+      FROM
+        UNNEST(
+          SEQUENCE(
+            ${this.castToDate(this.toTimestamp(startDate))},
+            ${
+              endDate
+                ? this.castToDate(this.toTimestamp(endDate))
+                : this.currentDate()
+            },
+            ${this.addTime("", "day", "", 1)}
+          )
+        ) AS t(day)
+     `;
+  }
   getInformationSchemaFromClause(): string {
     if (!this.params.catalog)
       throw new MissingDatasourceParamsError(
