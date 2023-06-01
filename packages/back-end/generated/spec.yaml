@@ -15,9 +15,8 @@ info:
 
     You first need to generate a new API Key in GrowthBook by going to `Settings -> API Keys`. Different keys have different permissions:
 
-    - **Secret keys**: These are sensitive and provide full access to the organization
-    - **User API keys**: These are sensitive and provide the same level of access as the user has to an organization
-    - **Read-only keys**: These are sensitive and provide read access to resources under an organization
+    - **Personal Access Tokens**: These are sensitive and provide the same level of access as the user has to an organization.
+    - **Secret Keys**: These are sensitive and provide the level of access for the role, which currently is either `admin` or `readonly`. Only Admins with the `manageApiKeys` permission can manage Secret Keys on behalf of an organization.
 
     If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank:
 
