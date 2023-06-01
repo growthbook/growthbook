@@ -37,16 +37,20 @@ type Metric = {
 const DateResults: FC<{
   variations: ExperimentReportVariation[];
   results: ExperimentReportResultDimension[];
+  seriestype: string;
   metrics: string[];
   guardrails?: string[];
   statsEngine?: StatsEngine;
-}> = ({ results, variations, metrics, guardrails, statsEngine }) => {
+}> = ({ results, variations, seriestype, metrics, guardrails, statsEngine }) => {
   const { getMetricById, ready } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
   const displayCurrency = useCurrency();
 
-  const [cumulative, setCumulative] = useState(false);
-
+  const [cumulativeState, setCumulative] = useState(false);
+  let cumulative = cumulativeState;
+  if (seriestype != "pre:date") {
+    cumulative = false;
+  }
   // Get data for users graph
   const users = useMemo<ExperimentDateGraphDataPoint[]>(() => {
     // Keep track of total users per variation for when cumulative is true
@@ -222,20 +226,24 @@ const DateResults: FC<{
 
   return (
     <div className="mb-4 mx-3 pb-4">
-      <div className="mb-3 d-flex align-items-center">
-        <div className="mr-3">
-          <strong>Graph Controls: </strong>
+      {seriestype === "pre:date" ? (
+        <div className="mb-3 d-flex align-items-center">
+          <div className="mr-3">
+            <strong>Graph Controls: </strong>
+          </div>
+          <div>
+            <Toggle
+              label="Cumulative"
+              id="cumulative"
+              value={cumulative}
+              setValue={setCumulative}
+            />
+            Cumulative
+          </div>
         </div>
-        <div>
-          <Toggle
-            label="Cumulative"
-            id="cumulative"
-            value={cumulative}
-            setValue={setCumulative}
-          />
-          Cumulative
-        </div>
-      </div>
+      ) : (
+        <></>
+      )}
       <div className="mb-5">
         <h3>Users</h3>
         <ExperimentDateGraph

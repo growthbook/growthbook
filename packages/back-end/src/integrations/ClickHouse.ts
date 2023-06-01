@@ -56,7 +56,7 @@ export default class ClickHouse extends SqlIntegration {
   }
   addTime(
     col: string,
-    unit: "hour" | "minute",
+    unit: "day" | "hour" | "minute",
     sign: "+" | "-",
     amount: number
   ): string {
@@ -82,6 +82,37 @@ export default class ClickHouse extends SqlIntegration {
   }
   castToString(col: string): string {
     return `toString(${col})`;
+  }
+  currentDate(): string {
+    return this.castToDate("NOW()");
+  }
+  getDateTable(startDate: Date, endDate: Date | null): string {
+    const startDateStr = this.castToDate(this.toTimestamp(startDate));
+    return `
+    SELECT
+      ${startDateStr} + INTERVAL i DAY AS day
+    FROM
+    (
+        SELECT arrayJoin(range(${
+          endDate
+            ? this.castToDate(this.toTimestamp(endDate))
+            : this.currentDate()
+        } - ${startDateStr} + 1)) AS i
+    )
+  `;
+  }
+  getUserStatSelectAndJoinStatement(
+    cumulativeDate: boolean,
+    selectStatement: string
+  ): string {
+    return `
+    ${selectStatement}
+    ${cumulativeDate ? "FULL OUTER" : "LEFT"} JOIN
+    __stats s ON (
+      u.variation = s.variation
+      AND u.dimension = s.dimension
+    )
+    ${cumulativeDate ? `SETTINGS join_use_nulls=1` : ""}`;
   }
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)

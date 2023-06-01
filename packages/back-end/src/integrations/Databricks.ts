@@ -27,8 +27,8 @@ export default class Databricks extends SqlIntegration {
   }
   addTime(
     col: string,
-    unit: "hour" | "minute",
-    sign: "+" | "-",
+    unit: "day" | "hour" | "minute",
+    sign: "+" | "-" | "",
     amount: number
   ): string {
     return `timestampadd(${unit},${sign === "-" ? "-" : ""}${amount},${col})`;
@@ -44,5 +44,22 @@ export default class Databricks extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `cast(${col} as double)`;
+  }
+  getDateTable(startDate: Date, endDate: Date | null): string {
+    return `
+      SELECT ${this.castToDate("t.day")} AS day
+      FROM
+        UNNEST(
+          SEQUENCE(
+            ${this.castToDate(this.toTimestamp(startDate))},
+            ${
+              endDate
+                ? this.castToDate(this.toTimestamp(endDate))
+                : this.currentDate()
+            },
+            INTERVAL 1 DAY
+          )
+        ) AS t(day)
+     `;
   }
 }

@@ -27,7 +27,7 @@ export async function analyzeExperimentMetric(
   variations: ExperimentReportVariation[],
   metric: MetricInterface,
   rows: ExperimentMetricQueryResponse,
-  maxDimensions: number,
+  dimension: string | null = null,
   statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
   sequentialTestingEnabled: boolean = false,
   sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
@@ -48,13 +48,14 @@ export async function analyzeExperimentMetric(
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gbstats import (
+  accumulate_time_series_df,
   detect_unknown_variations,
   analyze_metric_df,
   get_metric_df,
   reduce_dimensionality,
   format_results
 )
-from gbstats.shared.constants import StatsEngine
+from gbstats.shared.constants import *
 import pandas as pd
 import json
 
@@ -64,7 +65,8 @@ data = json.loads("""${JSON.stringify({
       weights: variations.map((v) => v.weight),
       ignore_nulls: !!metric.ignoreNulls,
       inverse: !!metric.inverse,
-      max_dimensions: maxDimensions,
+      max_dimensions:
+        dimension?.substring(0, 8) === "pre:date" ? 9999 : MAX_DIMENSIONS,
       rows,
     }).replace(/\\/g, "\\\\")}""", strict=False)
 
@@ -82,8 +84,19 @@ unknown_var_ids = detect_unknown_variations(
   var_id_map=var_id_map
 )
 
+accumulated = accumulate_time_series_df(
+  df=rows,
+  time_series=${
+    dimension === "pre:datecumulative"
+      ? "TimeSeries.CUMULATIVE"
+      : dimension === "pre:datedaily"
+      ? "TimeSeries.DAILY"
+      : "TimeSeries.NONE"
+  },
+)
+
 df = get_metric_df(
-  rows=rows,
+  rows=accumulated,
   var_id_map=var_id_map,
   var_names=var_names,
 )
@@ -220,7 +233,7 @@ export async function analyzeExperimentResults({
           variations,
           metric,
           data.rows,
-          dimension === "pre:date" ? 100 : MAX_DIMENSIONS,
+          dimension,
           statsEngine,
           sequentialTestingEnabled,
           sequentialTestingTuningParameter
