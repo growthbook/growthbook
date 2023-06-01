@@ -9,6 +9,7 @@ import { StatsEngine } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatConversionRate } from "@/services/metrics";
 import { hasEnoughData } from "@/services/experiments";
+import { useCurrency } from "@/hooks/useCurrency";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import Toggle from "../Forms/Toggle";
 import ExperimentDateGraph, {
@@ -37,6 +38,7 @@ const DateResults: FC<{
 }> = ({ results, variations, metrics, guardrails, statsEngine }) => {
   const { getMetricById, ready } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
+  const displayCurrency = useCurrency();
 
   const [cumulative, setCumulative] = useState(false);
 
@@ -158,7 +160,8 @@ const DateResults: FC<{
                       ? totalUsers[i]
                         ? totalValue[i] / totalUsers[i]
                         : 0
-                      : stats?.cr || 0
+                      : stats?.cr || 0,
+                    displayCurrency
                   );
 
                   const p = stats?.pValueAdjusted ?? stats?.pValue;
