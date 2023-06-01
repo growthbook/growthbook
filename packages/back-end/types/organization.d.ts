@@ -170,6 +170,7 @@ export interface OrganizationSettings {
   attributionModel?: AttributionModel;
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
+  displayCurrency?: string;
   secureAttributeSalt?: string;
 }
 

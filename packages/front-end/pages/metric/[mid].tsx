@@ -58,11 +58,13 @@ import EditProjectsForm from "@/components/Projects/EditProjectsForm";
 import { GBCuped, GBEdit } from "@/components/Icons";
 import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useCurrency } from "@/hooks/useCurrency";
 
 const MetricPage: FC = () => {
   const router = useRouter();
   const { mid } = router.query;
   const permissions = usePermissions();
+  const displayCurrency = useCurrency();
   const { apiCall } = useAuth();
   const {
     mutateDefinitions,
@@ -654,7 +656,8 @@ const MetricPage: FC = () => {
                               <div style={{ fontSize: "2.5em" }}>
                                 {formatConversionRate(
                                   metric.type,
-                                  analysis.average
+                                  analysis.average,
+                                  displayCurrency
                                 )}
                               </div>
                               <div className="pb-2 ml-1">average</div>

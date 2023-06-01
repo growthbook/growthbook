@@ -6,7 +6,6 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { useForm } from "react-hook-form";
-import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import cronstrue from "cronstrue";
 import { AttributionModel } from "back-end/types/experiment";
@@ -17,6 +16,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { OrganizationSettings } from "@/../back-end/types/organization";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -43,6 +43,179 @@ import { AttributionModelTooltip } from "@/components/Experiment/AttributionMode
 import Tab from "@/components/Tabs/Tab";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import { useCurrency } from "@/hooks/useCurrency";
+
+export const supportedCurrencies = {
+  AED: "UAE Dirham (AED)",
+  AFN: "Afghani (AFN)",
+  ALL: "Lek (ALL)",
+  AMD: "Armenian Dram (AMD)",
+  ANG: "Netherlands Antillean Guilder (ANG)",
+  AOA: "Kwanza (AOA)",
+  ARS: "Argentine Peso (ARS)",
+  AUD: "Australian Dollar (AUD)",
+  AWG: "Aruban Florin (AWG)",
+  AZN: "Azerbaijan Manat (AZN)",
+  BAM: "Convertible Mark (BAM)",
+  BBD: "Barbados Dollar (BBD)",
+  BDT: "Taka (BDT)",
+  BGN: "Bulgarian Lev (BGN)",
+  BHD: "Bahraini Dinar (BHD)",
+  BIF: "Burundi Franc (BIF)",
+  BMD: "Bermudian Dollar (BMD)",
+  BND: "Brunei Dollar (BND)",
+  BOB: "Boliviano (BOB)",
+  BOV: "Mvdol (BOV)",
+  BRL: "Brazilian Real (BRL)",
+  BSD: "Bahamian Dollar (BSD)",
+  BTN: "Ngultrum (BTN)",
+  BWP: "Pula (BWP)",
+  BYN: "Belarusian Ruble (BYN)",
+  BZD: "Belize Dollar (BZD)",
+  CAD: "Canadian Dollar (CAD)",
+  CDF: "Congolese Franc (CDF)",
+  CHE: "WIR Euro (CHE)",
+  CHF: "Swiss Franc (CHF)",
+  CHW: "WIR Franc (CHW)",
+  CLF: "Unidad de Fomento (CLF)",
+  CLP: "Chilean Peso (CLP)",
+  CNY: "Yuan Renminbi (CNY)",
+  COP: "Colombian Peso (COP)",
+  COU: "Unidad de Valor Real (COU)",
+  CRC: "Costa Rican Colon (CRC)",
+  CUC: "Peso Convertible (CUC)",
+  CUP: "Cuban Peso (CUP)",
+  CVE: "Cabo Verde Escudo (CVE)",
+  CZK: "Czech Koruna (CZK)",
+  DJF: "Djibouti Franc (DJF)",
+  DKK: "Danish Krone (DKK)",
+  DOP: "Dominican Peso (DOP)",
+  DZD: "Algerian Dinar (DZD)",
+  EGP: "Egyptian Pound (EGP)",
+  ERN: "Nakfa (ERN)",
+  ETB: "Ethiopian Birr (ETB)",
+  EUR: "Euro (EUR)",
+  FJD: "Fiji Dollar (FJD)",
+  FKP: "Falkland Islands Pound (FKP)",
+  GBP: "Pound Sterling (GBP)",
+  GEL: "Lari (GEL)",
+  GHS: "Ghana Cedi (GHS)",
+  GIP: "Gibraltar Pound (GIP)",
+  GMD: "Dalasi (GMD)",
+  GNF: "Guinean Franc (GNF)",
+  GTQ: "Quetzal (GTQ)",
+  GYD: "Guyana Dollar (GYD)",
+  HKD: "Hong Kong Dollar (HKD)",
+  HNL: "Lempira (HNL)",
+  HTG: "Gourde (HTG)",
+  HUF: "Forint (HUF)",
+  IDR: "Rupiah (IDR)",
+  ILS: "New Israeli Sheqel (ILS)",
+  INR: "Indian Rupee (INR)",
+  IQD: "Iraqi Dinar (IQD)",
+  IRR: "Iranian Rial (IRR)",
+  ISK: "Iceland Krona (ISK)",
+  JMD: "Jamaican Dollar (JMD)",
+  JOD: "Jordanian Dinar (JOD)",
+  JPY: "Yen (JPY)",
+  KES: "Kenyan Shilling (KES)",
+  KGS: "Som (KGS)",
+  KHR: "Riel (KHR)",
+  KMF: "Comorian Franc (KMF)",
+  KPW: "North Korean Won (KPW)",
+  KRW: "Won (KRW)",
+  KWD: "Kuwaiti Dinar (KWD)",
+  KYD: "Cayman Islands Dollar (KYD)",
+  KZT: "Tenge (KZT)",
+  LAK: "Lao Kip (LAK)",
+  LBP: "Lebanese Pound (LBP)",
+  LKR: "Sri Lanka Rupee (LKR)",
+  LRD: "Liberian Dollar (LRD)",
+  LSL: "Loti (LSL)",
+  LYD: "Libyan Dinar (LYD)",
+  MAD: "Moroccan Dirham (MAD)",
+  MDL: "Moldovan Leu (MDL)",
+  MGA: "Malagasy Ariary (MGA)",
+  MKD: "Denar (MKD)",
+  MMK: "Kyat (MMK)",
+  MNT: "Tugrik (MNT)",
+  MOP: "Pataca (MOP)",
+  MRU: "Ouguiya (MRU)",
+  MUR: "Mauritius Rupee (MUR)",
+  MVR: "Rufiyaa (MVR)",
+  MWK: "Malawi Kwacha (MWK)",
+  MXN: "Mexican Peso (MXN)",
+  MXV: "Mexican Unidad de Inversion (UDI) (MXV)",
+  MYR: "Malaysian Ringgit (MYR)",
+  MZN: "Mozambique Metical (MZN)",
+  NAD: "Namibia Dollar (NAD)",
+  NGN: "Naira (NGN)",
+  NIO: "Cordoba Oro (NIO)",
+  NOK: "Norwegian Krone (NOK)",
+  NPR: "Nepalese Rupee (NPR)",
+  NZD: "New Zealand Dollar (NZD)",
+  OMR: "Rial Omani (OMR)",
+  PAB: "Balboa (PAB)",
+  PEN: "Sol (PEN)",
+  PGK: "Kina (PGK)",
+  PHP: "Philippine Peso (PHP)",
+  PKR: "Pakistan Rupee (PKR)",
+  PLN: "Zloty (PLN)",
+  PYG: "Guarani (PYG)",
+  QAR: "Qatari Rial (QAR)",
+  RON: "Romanian Leu (RON)",
+  RSD: "Serbian Dinar (RSD)",
+  RUB: "Russian Ruble (RUB)",
+  RWF: "Rwanda Franc (RWF)",
+  SAR: "Saudi Riyal (SAR)",
+  SBD: "Solomon Islands Dollar (SBD)",
+  SCR: "Seychelles Rupee (SCR)",
+  SDG: "Sudanese Pound (SDG)",
+  SEK: "Swedish Krona (SEK)",
+  SGD: "Singapore Dollar (SGD)",
+  SHP: "Saint Helena Pound (SHP)",
+  SLE: "Leone (SLE)",
+  SLL: "Leone (SLL)",
+  SOS: "Somali Shilling (SOS)",
+  SRD: "Surinam Dollar (SRD)",
+  SSP: "South Sudanese Pound (SSP)",
+  STN: "Dobra (STN)",
+  SVC: "El Salvador Colon (SVC)",
+  SYP: "Syrian Pound (SYP)",
+  SZL: "Lilangeni (SZL)",
+  THB: "Baht (THB)",
+  TJS: "Somoni (TJS)",
+  TMT: "Turkmenistan New Manat (TMT)",
+  TND: "Tunisian Dinar (TND)",
+  TOP: "Pa’anga (TOP)",
+  TRY: "Turkish Lira (TRY)",
+  TTD: "Trinidad and Tobago Dollar (TTD)",
+  TWD: "New Taiwan Dollar (TWD)",
+  TZS: "Tanzanian Shilling (TZS)",
+  UAH: "Hryvnia (UAH)",
+  UGX: "Uganda Shilling (UGX)",
+  USD: "US Dollar (USD)",
+  UYI: "Uruguay Peso en Unidades Indexadas (UI) (UYI)",
+  UYU: "Peso Uruguayo (UYU)",
+  UYW: "Unidad Previsional (UYW)",
+  UZS: "Uzbekistan Sum (UZS)",
+  VED: "Bolívar Soberano (VED)",
+  VES: "Bolívar Soberano (VES)",
+  VND: "Dong (VND)",
+  VUV: "Vatu (VUV)",
+  WST: "Tala (WST)",
+  XAF: "CFA Franc BEAC (XAF)",
+  XCD: "East Caribbean Dollar (XCD)",
+  XDR: "SDR (Special Drawing Right) (XDR)",
+  XOF: "CFA Franc BCEAO (XOF)",
+  XPF: "CFP Franc (XPF)",
+  XSU: "Sucre (XSU)",
+  XUA: "ADB Unit of Account (XUA)",
+  YER: "Yemeni Rial (YER)",
+  ZAR: "Rand (ZAR)",
+  ZMW: "Zambian Kwacha (ZMW)",
+  ZWL: "Zimbabwe Dollar (ZWL)",
+};
 
 function hasChanges(
   value: OrganizationSettings,
@@ -69,6 +242,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
     settings.statsEngine || DEFAULT_STATS_ENGINE
   );
+  const displayCurrency = useCurrency();
+
+  const currencyOptions = Object.entries(
+    supportedCurrencies
+  ).map(([value, label]) => ({ value, label }));
 
   const permissions = usePermissions();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
@@ -133,6 +311,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       sequentialTestingEnabled: false,
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       attributionModel: "firstExposure",
+      displayCurrency,
       secureAttributeSalt: "",
     },
   });
@@ -166,6 +345,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       "sequentialTestingTuningParameter"
     ),
     attributionModel: form.watch("attributionModel"),
+    displayCurrency: form.watch("displayCurrency"),
     secureAttributeSalt: form.watch("secureAttributeSalt"),
   };
 
@@ -1099,6 +1279,19 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   {/* endregion Minimum Percentage Change */}
                 </>
                 {/* endregion Metrics Behavior Defaults */}
+                <>
+                  <SelectField
+                    label="Display Currency"
+                    value={form.watch("displayCurrency") || "USD"}
+                    options={currencyOptions}
+                    onChange={(v: string) =>
+                      form.setValue("displayCurrency", v)
+                    }
+                    required
+                    placeholder="Select currency..."
+                    helpText="This should match what is stored in the data source and controls what currency symbol is displayed."
+                  />
+                </>
               </div>
             </div>
 

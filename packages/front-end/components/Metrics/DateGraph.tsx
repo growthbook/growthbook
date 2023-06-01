@@ -18,9 +18,10 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ScaleLinear } from "d3-scale";
 import { getValidDate, date } from "shared/dates";
 import { formatConversionRate } from "@/services/metrics";
+import { useCurrency } from "@/hooks/useCurrency";
 import styles from "./DateGraph.module.scss";
-
 type TooltipData = { x: number; y: number; d: Datapoint };
+
 interface Datapoint {
   d: Date | number;
   v: number; // value
@@ -79,7 +80,8 @@ function getTooltipContents(
   d: Datapoint,
   type: MetricType,
   method: "sum" | "avg",
-  smoothBy: "day" | "week"
+  smoothBy: "day" | "week",
+  displayCurrency?: string
 ) {
   if (!d || d.oor) return null;
   return (
@@ -95,15 +97,14 @@ function getTooltipContents(
         <>
           <div className={styles.val}>
             {method === "sum" ? `Σ` : `μ`}:{" "}
-            {formatConversionRate(type, d.v as number)}
+            {formatConversionRate(type, d.v as number, displayCurrency)}
             {smoothBy === "week" && (
               <sub style={{ fontWeight: "normal", fontSize: 8 }}> smooth</sub>
             )}
           </div>
           {"s" in d && method === "avg" && (
             <div className={styles.secondary}>
-              {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message */}
-              {`σ`}: {formatConversionRate(type, d.s)}
+              {`σ`}: {formatConversionRate(type, d.s || 0, displayCurrency)}
               {smoothBy === "week" && (
                 <sub style={{ fontWeight: "normal", fontSize: 8 }}> smooth</sub>
               )}
@@ -176,6 +177,7 @@ const DateGraph: FC<DateGraphProps> = ({
   hoverDate,
 }: DateGraphProps) => {
   const [marginTop, marginRight, marginBottom, marginLeft] = margin;
+  const displayCurrency = useCurrency();
 
   const data = useMemo(
     () =>
@@ -477,8 +479,14 @@ const DateGraph: FC<DateGraphProps> = ({
                     className={styles.tooltip}
                     unstyled={true}
                   >
-                    {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                    {getTooltipContents(tooltipData.d, type, method, smoothBy)}
+                    {tooltipData?.d &&
+                      getTooltipContents(
+                        tooltipData.d,
+                        type,
+                        method,
+                        smoothBy,
+                        displayCurrency
+                      )}
                   </TooltipWithBounds>
                 </>
               )}
@@ -658,7 +666,7 @@ const DateGraph: FC<DateGraphProps> = ({
                   tickFormat={(v) =>
                     type === "binomial"
                       ? (v as number).toLocaleString()
-                      : formatConversionRate(type, v as number)
+                      : formatConversionRate(type, v as number, displayCurrency)
                   }
                 />
               </Group>
