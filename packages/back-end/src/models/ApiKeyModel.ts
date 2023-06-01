@@ -38,10 +38,13 @@ const apiKeySchema = new mongoose.Schema({
 
 type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
 
-const ApiKeyModel = mongoose.model<ApiKeyDocument>("ApiKey", apiKeySchema);
+const ApiKeyModel = mongoose.model<ApiKeyInterface>("ApiKey", apiKeySchema);
 
 const toInterface = (doc: ApiKeyDocument): ApiKeyInterface => {
-  const asJson = omit(doc.toJSON(), ["__v", "_id"]);
+  const asJson = omit(
+    doc.toJSON<ApiKeyDocument>({ flattenMaps: true }),
+    ["__v", "_id"]
+  );
   const role = roleForApiKey(asJson) || undefined;
 
   return {
@@ -188,7 +191,7 @@ export async function lookupOrganizationByApiKey(
 export async function getAllApiKeysByOrganization(
   organization: string
 ): Promise<ApiKeyInterface[]> {
-  const docs = await ApiKeyModel.find(
+  const docs: ApiKeyDocument[] = await ApiKeyModel.find(
     {
       organization,
     },
@@ -220,7 +223,7 @@ export async function getFirstPublishableApiKey(
 
   if (!doc) return null;
 
-  return doc.toJSON() as PublishableApiKey;
+  return toInterface(doc) as PublishableApiKey;
 }
 
 export async function getUnredactedSecretKey(

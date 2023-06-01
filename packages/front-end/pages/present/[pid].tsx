@@ -27,8 +27,7 @@ const PresentPage = (): React.ReactElement => {
     }[];
   }>(`/presentation/${pid}`);
 
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  useSwitchOrg(pdata?.presentation?.organization);
+  useSwitchOrg(pdata?.presentation?.organization || null);
 
   if (error) {
     return <div className="alert alert-danger">An error occurred</div>;
