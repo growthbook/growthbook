@@ -58,8 +58,6 @@ const NewDataSourceForm: FC<{
     mutateDefinitions,
   } = useDefinitions();
   const [step, setStep] = useState(0);
-  // const [showSqlPreview, setShowSqlPreview] =
-  //   useState < { name: string, showPreview: boolean } >[]([]);
   const [schema, setSchema] = useState("");
   const [dataSourceId, setDataSourceId] = useState<string | null>(
     data?.id || null
@@ -621,7 +619,7 @@ const NewDataSourceForm: FC<{
                             }[];
                             message?: string;
                           }>(`/datasource/${dataSourceId}/auto-metrics`, {
-                            method: "GET",
+                            method: "POST",
                           });
                           if (res.message) {
                             track("Generate Auto Metrics Error", {

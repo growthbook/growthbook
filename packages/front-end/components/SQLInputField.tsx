@@ -31,7 +31,6 @@ type Props = {
   queryType: "segment" | "dimension" | "metric" | "experiment-assignment";
   className?: string;
   setCursorData?: (data: CursorData) => void;
-  showHeader?: boolean;
   showTestButton?: boolean;
 };
 
@@ -47,7 +46,6 @@ export default function SQLInputField({
   queryType,
   className,
   setCursorData,
-  showHeader = true,
   showTestButton = true,
 }: Props) {
   const [
@@ -172,7 +170,7 @@ export default function SQLInputField({
 
   return (
     <div className={className}>
-      {showHeader && <label className="font-weight-bold mb-1">SQL Query</label>}
+      <label className="font-weight-bold mb-1">SQL Query</label>
       <div className="row flex-column-reverse flex-md-row">
         <div
           className={

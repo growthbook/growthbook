@@ -59,19 +59,19 @@ export default function AutoMetricCard({
   form,
   i,
 }: Props) {
-  const [showSqlPreview, setShowSqlPreview] = useState<string>("");
+  const [sqlPreview, setSqlPreview] = useState<string>("");
 
   const handleSqlPreview = async (sql: string) => {
-    if (!showSqlPreview || showSqlPreview !== sql) {
-      setShowSqlPreview(sql);
+    if (!sqlPreview || sqlPreview !== sql) {
+      setSqlPreview(sql);
     } else {
-      setShowSqlPreview("");
+      setSqlPreview("");
     }
   };
 
   return (
-    <>
-      <tr key={`${metric}-${i}`}>
+    <div key={`${metric}-${i}`}>
+      <tr>
         <td>{metric.displayName}</td>
         <td>
           <Tooltip
@@ -96,7 +96,7 @@ export default function AutoMetricCard({
               color="link"
               onClick={async () => handleSqlPreview(metric.binomialSqlQuery)}
             >
-              {showSqlPreview && showSqlPreview === metric.binomialSqlQuery
+              {sqlPreview && sqlPreview === metric.binomialSqlQuery
                 ? "Hide SQL"
                 : "Preview SQL"}
             </Button>
@@ -117,26 +117,28 @@ export default function AutoMetricCard({
               color="link"
               onClick={async () => handleSqlPreview(metric.countSqlQuery)}
             >
-              {showSqlPreview && showSqlPreview === metric.countSqlQuery
+              {sqlPreview && sqlPreview === metric.countSqlQuery
                 ? "Hide SQL"
                 : "Preview SQL"}
             </Button>
           </div>
         </td>
       </tr>
-      {showSqlPreview && (
+      {sqlPreview && (
         <tr>
           <td colSpan={4}>
             <SQLInputField
-              userEnteredQuery={showSqlPreview}
+              showPreview
+              userEnteredQuery={sqlPreview}
               datasourceId={dataSourceId}
               form={form}
               requiredColumns={new Set()}
               queryType="metric"
+              showTestButton={false}
             />
           </td>
         </tr>
       )}
-    </>
+    </div>
   );
 }
