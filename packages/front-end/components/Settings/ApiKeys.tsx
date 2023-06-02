@@ -22,7 +22,7 @@ const ApiKeys: FC = () => {
 
       <div className="alert alert-info mb-3">
         You can also create{" "}
-        <Link href="/settings/personal-access-tokens">
+        <Link href="/account/personal-access-tokens">
           Personal Access Tokens
         </Link>{" "}
         for your user account

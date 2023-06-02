@@ -227,7 +227,7 @@ const TopNav: FC<{
                 </>
               )}
               <div className="dropdown-divider"></div>
-              <Link href={"/settings/personal-access-tokens"}>
+              <Link href={"/account/personal-access-tokens"}>
                 <a
                   className="dropdown-item"
                   onClick={() => {
