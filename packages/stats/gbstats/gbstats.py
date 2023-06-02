@@ -63,6 +63,29 @@ def accumulate_time_series_df(
     cols_to_accum = ["users", "count"]
     dfc.sort_values("dimension", inplace=True)
     dfc[cols_to_accum] = dfc.groupby(["variation"])[cols_to_accum].cumsum()
+
+    # Because we do full outer join to get metrics joined on to
+    # stats, some days when there are users who have no covariate value
+    # pre or post-exposure, we will end up with 0 values in the metric sum
+    # columns when we should have any previous values. ffill
+    # will accomplish this for us.
+    cols_to_ffill = [
+        x
+        for x in [
+            "main_sum",
+            "main_sum_squares",
+            "denominator_sum",
+            "denominator_sum_squares",
+            "main_denominator_sum_product",
+            "covariate_sum",
+            "covariate_sum_squares",
+            "main_covariate_sum_product",
+        ]
+        if x in dfc.columns
+    ]
+    dfc[cols_to_ffill] = dfc.groupby(["variation"], group_keys=False)[
+        cols_to_ffill
+    ].apply(lambda x: x.replace(to_replace=0, method="ffill"))
     if time_series == TimeSeries.DAILY:
         diff_cols = [
             x
@@ -72,8 +95,6 @@ def accumulate_time_series_df(
                 "denominator_sum",
                 "denominator_sum_squares",
                 "main_denominator_sum_product",
-                "covariate_sum",
-                "covariate_sum_squares",
                 "main_covariate_sum_product",
             ]
             if x in dfc.columns
@@ -171,7 +192,6 @@ def analyze_metric_df(
     engine_config: Dict[str, Any] = {},
 ) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
-
     # parse config
     test_config = engine_config.copy()
     if engine == StatsEngine.BAYESIAN:
