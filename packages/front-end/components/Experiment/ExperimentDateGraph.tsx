@@ -25,7 +25,7 @@ interface DataPointVariation {
   p?: number; // p-value
   ctw?: number; // chance to win
   ci?: [number, number]; // confidence interval
-  highlight?: boolean;
+  className?: string; // won/lost/draw class
 }
 export interface ExperimentDateGraphDataPoint {
   d: Date;
@@ -66,7 +66,11 @@ const getTooltipContents = (
   const { d, yaxis } = data;
   return (
     <>
-      <table className={`table-condensed ${styles.table}`}>
+      <table
+        className={`table-condensed ${styles.table} ${
+          yaxis !== "uplift" && "mt-1"
+        }`}
+      >
         {yaxis === "uplift" && (
           <thead>
             <tr>
@@ -83,11 +87,6 @@ const getTooltipContents = (
         <tbody>
           {variationNames.map((v, i) => {
             const variation = d.variations[i];
-            let className = "";
-            if (variation.highlight) {
-              className = "won";
-              console.log("won", i);
-            }
             return (
               <tr key={i}>
                 <td
@@ -99,7 +98,7 @@ const getTooltipContents = (
                 <td>{d.variations[i].v_formatted}</td>
                 {yaxis === "uplift" && (
                   <>
-                    <td className={className}>
+                    <td>
                       {i > 0 && (
                         <>
                           {((variation.up ?? 0) > 0 ? "+" : "") +
@@ -115,7 +114,7 @@ const getTooltipContents = (
                         </>
                       )}
                     </td>
-                    <td>
+                    <td className={variation.className}>
                       {i > 0 && (
                         <>
                           {statsEngine === "frequentist"
@@ -285,14 +284,23 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
           );
           showTooltip({
             tooltipLeft: data.x,
-            // todo: make everything fit, even with lots of variations
             tooltipTop: Math.max(Math.min(...data.y), 150),
             tooltipData: data,
           });
         };
 
         return (
-          <>
+          <div className="position-relative">
+            {tooltipData && (
+              <TooltipWithBounds
+                left={tooltipLeft + margin[3]}
+                top={tooltipTop + margin[0]}
+                className={`tooltip-experimentDateGraph ${styles.tooltip}`}
+                unstyled={true}
+              >
+                {getTooltipContents(tooltipData, variationNames, statsEngine)}
+              </TooltipWithBounds>
+            )}
             <div className="d-flex">
               {variationNames.map((v, i) => {
                 return (
@@ -301,14 +309,14 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     className="mx-2"
                     style={{ color: COLORS[i % COLORS.length] }}
                   >
-                    <strong>&mdash;</strong> {v}
+                    <strong>&mdash;</strong>&nbsp;{v}
                   </div>
                 );
               })}
             </div>
             <div
               ref={containerRef}
-              className={styles.tooltipDategraph}
+              className={styles.dategraph}
               style={{
                 width: width - margin[1] - margin[3],
                 height: height - margin[0] - margin[2],
@@ -340,20 +348,20 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     className={styles.crosshair}
                     style={{ transform: `translateX(${tooltipLeft}px)` }}
                   />
-                  {tooltipData && (
-                    <TooltipWithBounds
-                      left={tooltipLeft}
-                      top={tooltipTop}
-                      className={styles.tooltip}
-                      unstyled={true}
-                    >
-                      {getTooltipContents(
-                        tooltipData,
-                        variationNames,
-                        statsEngine
-                      )}
-                    </TooltipWithBounds>
-                  )}
+                  {/*{tooltipData && (*/}
+                  {/*  <TooltipWithBounds*/}
+                  {/*    left={tooltipLeft}*/}
+                  {/*    top={tooltipTop}*/}
+                  {/*    className={styles.tooltip}*/}
+                  {/*    unstyled={true}*/}
+                  {/*  >*/}
+                  {/*    {getTooltipContents(*/}
+                  {/*      tooltipData,*/}
+                  {/*      variationNames,*/}
+                  {/*      statsEngine*/}
+                  {/*    )}*/}
+                  {/*  </TooltipWithBounds>*/}
+                  {/*)}*/}
                 </>
               )}
             </div>
@@ -442,7 +450,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 />
               </Group>
             </svg>
-          </>
+          </div>
         );
       }}
     </ParentSizeModern>

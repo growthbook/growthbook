@@ -9,13 +9,13 @@ import { StatsEngine } from "back-end/types/stats";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatConversionRate } from "@/services/metrics";
 import {
-  hasEnoughData,
-  isBelowMinChange,
-  isSuspiciousUplift,
+  isExpectedDirection,
+  isStatSig,
   shouldHighlight,
 } from "@/services/experiments";
 import { useCurrency } from "@/hooks/useCurrency";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Toggle from "../Forms/Toggle";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
@@ -41,9 +41,19 @@ const DateResults: FC<{
   metrics: string[];
   guardrails?: string[];
   statsEngine?: StatsEngine;
-}> = ({ results, variations, seriestype, metrics, guardrails, statsEngine }) => {
+}> = ({
+  results,
+  variations,
+  seriestype,
+  metrics,
+  guardrails,
+  statsEngine,
+}) => {
   const { getMetricById, ready } = useDefinitions();
-  const { metricDefaults } = useOrganizationMetricDefaults();
+
+  const pValueThreshold = usePValueThreshold();
+  const { ciUpper, ciLower } = useConfidenceLevels();
+
   const displayCurrency = useCurrency();
 
   const [cumulativeState, setCumulative] = useState(false);
@@ -125,19 +135,8 @@ const DateResults: FC<{
                     const dist = uplift?.dist || "";
                     ci = stats?.ci;
                     if (dist === "lognormal") {
-                      // Uplift distribution is lognormal, so need to correct this
-                      // Add 2 standard deviations (~95% CI) for an error bar
-                      // if (!ci) {
-                      //   ci = [
-                      //     Math.exp(x - 2 * sx) - 1,
-                      //     Math.exp(x + 2 * sx) - 1,
-                      //   ];
-                      // }
                       up = Math.exp(x) - 1;
                     } else {
-                      // if (!ci) {
-                      //   ci = [x - 2 * sx, x + 2 * sx];
-                      // }
                       up = x;
                     }
                   }
@@ -162,42 +161,40 @@ const DateResults: FC<{
                     displayCurrency
                   );
 
-                  const p = stats?.pValueAdjusted ?? stats?.pValue;
-                  const ctw = hasEnoughData(
-                    baseline,
-                    stats,
-                    metric,
-                    metricDefaults
-                  )
-                    ? stats?.chanceToWin
-                    : undefined;
+                  const p = stats?.pValueAdjusted ?? stats?.pValue ?? 1;
+                  const ctw = stats?.chanceToWin;
 
-                  const suspiciousChange = isSuspiciousUplift(
-                    baseline,
-                    stats,
-                    metric,
-                    metricDefaults
-                  );
-                  const belowMinChange = isBelowMinChange(
-                    baseline,
-                    stats,
-                    metric,
-                    metricDefaults
-                  );
-                  const enoughData = hasEnoughData(
-                    baseline,
-                    stats,
-                    metric,
-                    metricDefaults
-                  );
+                  const statSig = isStatSig(p, pValueThreshold);
+
                   const highlight = shouldHighlight({
                     metric,
                     baseline,
                     stats,
-                    hasEnoughData: enoughData,
-                    suspiciousChange,
-                    belowMinChange,
+                    hasEnoughData: true,
+                    suspiciousChange: false,
+                    belowMinChange: false,
                   });
+
+                  let className = "";
+                  if (i && highlight) {
+                    if (statsEngine === "frequentist" && statSig) {
+                      const expectedDirection = isExpectedDirection(
+                        stats,
+                        metric
+                      );
+                      if (expectedDirection) {
+                        className = "won";
+                      } else {
+                        className = "lost";
+                      }
+                    } else if (statsEngine === "bayesian" && ctw) {
+                      if (ctw > ciUpper) {
+                        className = "won";
+                      } else if (ctw < ciLower) {
+                        className = "lost";
+                      }
+                    }
+                  }
 
                   return {
                     v,
@@ -206,7 +203,7 @@ const DateResults: FC<{
                     ci,
                     p,
                     ctw,
-                    highlight,
+                    className,
                   };
                 }),
               };
