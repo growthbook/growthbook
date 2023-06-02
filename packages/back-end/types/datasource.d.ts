@@ -88,6 +88,8 @@ export interface SchemaFormatConfig {
   eventColumn: string;
   timestampColumn: string;
   displayNameColumn?: string;
+  includesPagesTable: boolean;
+  includesScreensTable: boolean;
 }
 
 export interface DataSourceProperties {
