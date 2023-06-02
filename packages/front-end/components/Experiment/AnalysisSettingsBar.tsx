@@ -305,8 +305,7 @@ export default function AnalysisSettingsBar({
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      const snapshotProps: TrackSnapshotProps = {
-                        id: "",
+                      const snapshotProps: Omit<TrackSnapshotProps, "id"> = {
                         source: "RunQueriesButton",
                         experiment: experiment.id,
                         engine: statsEngine,
@@ -384,8 +383,7 @@ export default function AnalysisSettingsBar({
             <ResultMoreMenu
               id={snapshot?.id || ""}
               forceRefresh={async () => {
-                const snapshotProps: TrackSnapshotProps = {
-                  id: "",
+                const snapshotProps: Omit<TrackSnapshotProps, "id"> = {
                   source: "ForceRerunQueriesButton",
                   experiment: experiment.id,
                   engine: statsEngine,

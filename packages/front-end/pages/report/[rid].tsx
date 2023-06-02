@@ -126,9 +126,8 @@ export default function ReportPage() {
   const sequentialTestingEnabled =
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
 
-  const reportProps: TrackSnapshotProps = {
+  const reportProps: Omit<TrackSnapshotProps, "source"> = {
     id: report.id ?? "",
-    source: "",
     experiment: report.experimentId ?? "",
     engine: statsEngine,
     datasource_type: datasource?.type || null,
