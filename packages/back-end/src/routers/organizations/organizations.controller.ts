@@ -1204,7 +1204,7 @@ export async function postApiKey(
   }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
   const {
     description = "",
     environment = "",
@@ -1240,7 +1240,7 @@ export async function postApiKey(
 
   // Handle user personal access tokens
   if (type === "user") {
-    if (!req.userId) {
+    if (!userId) {
       throw new Error(
         "Cannot create user personal access token without a user ID"
       );
@@ -1248,7 +1248,7 @@ export async function postApiKey(
 
     const key = await createUserPersonalAccessApiKey({
       description,
-      userId: req.userId,
+      userId: userId,
       organizationId: org.id,
     });
 
