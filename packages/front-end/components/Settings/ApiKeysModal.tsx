@@ -112,7 +112,7 @@ const ApiKeysModal: FC<{
           setValue={(value) => form.setValue("encryptSDK", value)}
         />
       )}
-      {type !== "user" && (
+      {secret && type !== "user" && (
         <SelectField
           label="Role"
           value={form.watch("type")}
