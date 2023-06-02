@@ -109,21 +109,17 @@ export async function createUserPersonalAccessApiKey({
   userId,
   organizationId,
   description,
-  environment,
-  project,
 }: {
   userId: string;
   organizationId: string;
   description: string;
-  environment: string;
-  project: string;
 }): Promise<ApiKeyInterface> {
   return await createApiKey({
     organization: organizationId,
     userId,
     secret: true,
-    environment,
-    project,
+    environment: "",
+    project: "",
     encryptSDK: false,
     description,
     role: "user",

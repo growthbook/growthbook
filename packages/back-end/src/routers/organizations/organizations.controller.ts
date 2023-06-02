@@ -1248,8 +1248,6 @@ export async function postApiKey(
 
     const key = await createUserPersonalAccessApiKey({
       description,
-      environment,
-      project,
       userId: req.userId,
       organizationId: org.id,
     });
