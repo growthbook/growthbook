@@ -37,9 +37,9 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
       <div className="mb-4">
         <h1>Personal Access Tokens</h1>
         <p>
-          User keys have full read and write access to your user account.
-          Because of this, they must be kept secure and{" "}
-          <strong>must not be exposed to users</strong>.
+          Personal Access Tokens have full read and write access to your
+          account. Because of this, they must be kept secure and{" "}
+          <strong>must not be exposed to others</strong>.
         </p>
         {accessTokens.length > 0 && (
           <ApiKeysTable
