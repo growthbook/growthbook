@@ -59,6 +59,7 @@ describe("REST API auth middleware", () => {
       key: "secret_abc123456789xyz987654321",
       encryptSDK: false,
       description: "my all access key",
+      role: "admin", // this is added in the "JIT migration"
     };
     const readOnlyKey: Partial<ApiKeyInterface> = {
       id: "key_sktwiqiglh85h2k8",
