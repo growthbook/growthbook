@@ -146,7 +146,7 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
                         }
                         style={{ width: 225 }}
                         options={[
-                          { value: "none", label: "None" },
+                          { value: "none", label: "Any format" },
                           { value: "version", label: "Version string" },
                         ]}
                         sort={false}
