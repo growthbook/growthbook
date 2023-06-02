@@ -44,22 +44,23 @@ const RefreshSnapshotButton: FC<{
       return;
     }
 
-    await apiCall<{ status: number; message: string }>(
-      `/experiment/${experiment.id}/snapshot`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          phase,
-          dimension,
-          statsEngine,
-          regressionAdjustmentEnabled,
-          metricRegressionAdjustmentStatuses,
-        }),
-      }
-    );
+    const res = await apiCall<{
+      status: number;
+      message: string;
+      snapshot: ExperimentSnapshotInterface;
+    }>(`/experiment/${experiment.id}/snapshot`, {
+      method: "POST",
+      body: JSON.stringify({
+        phase,
+        dimension,
+        statsEngine,
+        regressionAdjustmentEnabled,
+        metricRegressionAdjustmentStatuses,
+      }),
+    });
     trackSnapshot("create", {
       source: "RefreshSnapshotButton",
-      id: "",
+      id: res.snapshot?.id || "",
       experiment: experiment.id,
       engine: statsEngine || "bayesian",
       datasource_type: getDatasourceById(experiment.datasource)?.type || null,

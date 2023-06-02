@@ -200,20 +200,21 @@ const ManualSnapshotForm: FC<{
   }, [hash]);
 
   const onSubmit = form.handleSubmit(async (values) => {
-    await apiCall<{ status: number; message: string }>(
-      `/experiment/${experiment.id}/snapshot`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          phase,
-          users: values.users,
-          metrics: getStats(),
-        }),
-      }
-    );
+    const res = await apiCall<{
+      status: number;
+      message: string;
+      snapshot: ExperimentSnapshotInterface;
+    }>(`/experiment/${experiment.id}/snapshot`, {
+      method: "POST",
+      body: JSON.stringify({
+        phase,
+        users: values.users,
+        metrics: getStats(),
+      }),
+    });
     trackSnapshot("create", {
       source: "ManualSnapshotForm",
-      id: "",
+      id: res.snapshot?.id || "",
       experiment: experiment.id,
       engine: "bayesian",
       datasource_type: getDatasourceById(experiment.datasource)?.type || null,

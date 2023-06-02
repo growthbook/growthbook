@@ -102,31 +102,26 @@ export function trackSnapshot(
   event: "create" | "update" | "delete" | "error",
   props: TrackSnapshotProps
 ): void {
-  track(
-    "Experiment Snapshot: " + event, 
-    cleanSnapshotProps(props)
-  );
+  track("Experiment Snapshot: " + event, cleanSnapshotProps(props));
 }
 
 export function trackReport(
   event: "create" | "update" | "refresh" | "error" | "delete",
   props?: TrackSnapshotProps
 ): void {
-  track(
-    "Experiment Report: " + event, 
-    props ? cleanSnapshotProps(props) : {}
-  );
+  track("Experiment Report: " + event, props ? cleanSnapshotProps(props) : {});
 }
 
 function cleanSnapshotProps(props: TrackSnapshotProps): TrackEventProps {
-  props.experiment = props.experiment ? md5(props.experiment) : "";
-  props.id = props.id ? md5(props.id) : "";
   const parsedDim = parseSnapshotDimension(props.dimension);
 
   const trackEventProps: TrackEventProps = {
     ...props,
     dimension_type: parsedDim.type,
     dimension_id: parsedDim.id,
+    // Overwrite `id` and `experiment`
+    id: props.id ? md5(props.id) : "",
+    experiment: props.experiment ? md5(props.experiment) : "",
   };
   delete trackEventProps.dimension;
   return trackEventProps;

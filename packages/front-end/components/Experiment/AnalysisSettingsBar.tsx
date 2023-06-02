@@ -320,27 +320,33 @@ export default function AnalysisSettingsBar({
                         segment_selected: !!experiment.segment,
                         dimension: dimension || "",
                       };
-                      apiCall(`/experiment/${experiment.id}/snapshot`, {
-                        method: "POST",
-                        body: JSON.stringify({
-                          phase,
-                          dimension,
-                          statsEngine,
-                          regressionAdjustmentEnabled,
-                          metricRegressionAdjustmentStatuses,
-                        }),
-                      })
-                        .then(() => {
-                          trackSnapshot("create", {id: snapshot?.id || "", ...snapshotProps});
+                      apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+                        `/experiment/${experiment.id}/snapshot`,
+                        {
+                          method: "POST",
+                          body: JSON.stringify({
+                            phase,
+                            dimension,
+                            statsEngine,
+                            regressionAdjustmentEnabled,
+                            metricRegressionAdjustmentStatuses,
+                          }),
+                        }
+                      )
+                        .then((res) => {
+                          trackSnapshot("create", {
+                            ...snapshotProps,
+                            id: res.snapshot.id,
+                          });
                           mutate();
                           setRefreshError("");
                         })
                         .catch((e) => {
                           setRefreshError(e.message);
                           trackSnapshot("error", {
-                            id: snapshot?.id || "",
-                            error: e.message,
                             ...snapshotProps,
+                            id: "",
+                            error: e.message,
                           });
                         });
                     }}
@@ -379,7 +385,6 @@ export default function AnalysisSettingsBar({
               forceRefresh={async () => {
                 const snapshotProps = {
                   source: "ForceRerunQueriesButton",
-                  id: "",
                   experiment: experiment.id,
                   engine: statsEngine,
                   datasource_type: datasource?.type || null,
@@ -393,7 +398,7 @@ export default function AnalysisSettingsBar({
                   segment_selected: !!experiment.segment,
                   dimension: dimension || "",
                 };
-                await apiCall(
+                await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
                   `/experiment/${experiment.id}/snapshot?force=true`,
                   {
                     method: "POST",
@@ -406,14 +411,18 @@ export default function AnalysisSettingsBar({
                     }),
                   }
                 )
-                  .then(() => {
-                    trackSnapshot("create", snapshotProps);
+                  .then((res) => {
+                    trackSnapshot("create", {
+                      ...snapshotProps,
+                      id: res.snapshot.id,
+                    });
                     mutate();
                   })
                   .catch((e) => {
                     console.error(e);
                     trackSnapshot("error", {
                       ...snapshotProps,
+                      id: "",
                       error: e.message,
                     });
                   });

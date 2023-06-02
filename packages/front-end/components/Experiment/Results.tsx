@@ -5,6 +5,7 @@ import { StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { getValidDate, ago } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { ExperimentSnapshotInterface } from "@/../back-end/types/experiment-snapshot";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -189,7 +190,9 @@ const Results: FC<{
             });
 
             // Fetch results again
-            await apiCall(`/experiment/${experiment.id}/snapshot`, {
+            const res = await apiCall<{
+              snapshot: ExperimentSnapshotInterface;
+            }>(`/experiment/${experiment.id}/snapshot`, {
               method: "POST",
               body: JSON.stringify({
                 phase,
@@ -199,7 +202,7 @@ const Results: FC<{
 
             trackSnapshot("create", {
               source: "VariationIdWarning",
-              id: snapshot.id,
+              id: res.snapshot?.id || "",
               experiment: experiment.id,
               engine: statsEngine,
               datasource_type:

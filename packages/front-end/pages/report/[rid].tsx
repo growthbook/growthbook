@@ -289,8 +289,8 @@ export default function ReportPage() {
                           method: "POST",
                         });
                         trackReport("refresh", {
-                          source: "RefreshData",
                           ...reportProps,
+                          source: "RefreshData",
                         });
                         mutate();
                         setRefreshError("");
@@ -454,7 +454,7 @@ export default function ReportPage() {
                     args,
                   }),
                 });
-                trackReport("update", {
+                trackReport("refresh", {
                   ...reportProps,
                   source: "VariationIdWarning",
                 });
