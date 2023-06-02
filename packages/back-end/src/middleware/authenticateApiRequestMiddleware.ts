@@ -6,7 +6,11 @@ import { getOrganizationById, getRole } from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
 import { EventAuditUserApiKey } from "../events/event-types";
 import { isApiKeyForUserInOrganization } from "../util/api-key.util";
-import { OrganizationInterface, Permission } from "../../types/organization";
+import {
+  MemberRole,
+  OrganizationInterface,
+  Permission,
+} from "../../types/organization";
 import { getPermissionsByRole } from "../util/organization.util";
 import { ApiKeyInterface } from "../../types/apikey";
 
@@ -187,11 +191,6 @@ export function verifyApiKeyPermission({
   environments,
   project,
 }: VerifyApiKeyPermissionOptions) {
-  if (apiKey.role === "readonly") {
-    // The `readonly` role is empty so it's not there
-    throw new Error("read-only keys do not have this level of access");
-  }
-
   if (apiKey.userId) {
     if (
       !doesUserHavePermission(
@@ -208,5 +207,20 @@ export function verifyApiKeyPermission({
     if (apiKey.secret !== true) {
       throw new Error("API key does not have this level of access");
     }
+  } else if (apiKey.secret && apiKey.role) {
+    // Because of the JIT migration, `role` will always be set here, even for old secret keys
+    // This will check a valid role is provided.
+    const rolePermissions = getPermissionsByRole(
+      apiKey.role as MemberRole,
+      organization
+    );
+
+    // No need to treat "readonly" differently, it will return an empty array permissions array and fail this check
+    if (!rolePermissions.includes(permission)) {
+      throw new Error("API key user does not have this level of access");
+    }
+  } else {
+    // This shouldn't happen (old SDK key with secret === false being used)
+    throw new Error("API key does not have this level of access");
   }
 }
