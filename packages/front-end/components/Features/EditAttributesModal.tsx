@@ -70,6 +70,10 @@ export default function EditAttributesModal({ close }: { close: () => void }) {
         The Attributes you define here can be used to create advanced targeting
         rules for features and to run experiments.
       </p>
+      <div className="alert alert-warning">
+        Version string attributes are only supported in the latest Javascript
+        and React SDK versions. Other languages are coming soon.
+      </div>
       {!settings?.attributeSchema?.length && (
         <p>
           We&apos;ve started you off with some common attributes, but feel free
