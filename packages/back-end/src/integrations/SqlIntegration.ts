@@ -1310,15 +1310,8 @@ export default abstract class SqlIntegration
 
   getSchemaFormatConfig(schemaFormat: SchemaFormat): SchemaFormatConfig {
     switch (schemaFormat) {
-      case "amplitude":
-        return {
-          trackedEventTableName: "tracks",
-          eventColumn: "event",
-          timestampColumn: "server_upload_time",
-          userIdColumn: "user_id",
-          anonymousIdColumn: "amplitude_id",
-        };
-      case "segment": {
+      // Segment & Rudderstack
+      default: {
         return {
           trackedEventTableName: "tracks",
           eventColumn: "event",
@@ -1326,17 +1319,10 @@ export default abstract class SqlIntegration
           userIdColumn: "user_id",
           anonymousIdColumn: "anonymous_id",
           displayNameColumn: "event_text",
+          includesPagesTable: true,
+          includesScreensTable: true,
         };
       }
-      // Rudderstack
-      default:
-        return {
-          trackedEventTableName: "tracks",
-          eventColumn: "event",
-          timestampColumn: "received_at",
-          userIdColumn: "user_id",
-          anonymousIdColumn: "anonymous_id",
-        };
     }
   }
 
@@ -1371,11 +1357,13 @@ export default abstract class SqlIntegration
       eventColumn,
       timestampColumn,
       displayNameColumn,
+      includesPagesTable,
+      includesScreensTable,
     } = this.getSchemaFormatConfig(schemaFormat);
 
     const currentDateTime = new Date();
     const SevenDaysAgo = new Date(
-      currentDateTime.valueOf() - 7 * 60 * 60 * 24 * 1000
+      currentDateTime.valueOf() - 35 * 60 * 60 * 24 * 1000
     );
 
     const sql = `
@@ -1398,7 +1386,7 @@ export default abstract class SqlIntegration
 
     const results = await this.runQuery(format(sql, this.getFormatDialect()));
 
-    if (schemaFormat === "segment") {
+    if (includesPagesTable) {
       const pageViewedSql = `
       SELECT
          'pages' as event,
@@ -1420,6 +1408,34 @@ export default abstract class SqlIntegration
       );
 
       pageViewedResults.forEach((result) => {
+        if (result.count > 0) {
+          results.push(result);
+        }
+      });
+    }
+
+    if (includesScreensTable) {
+      const screenViewedSql = `
+      SELECT
+         'screens' as event,
+         "Screen Viewed" as displayName,
+         (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
+         COUNT (*) as count,
+         MAX(${timestampColumn}) as lastTrackedAt
+      FROM
+         ${this.generateTableName("pages")}
+      WHERE received_at < '${currentDateTime
+        .toISOString()
+        .slice(0, 10)}' AND received_at > '${SevenDaysAgo.toISOString().slice(
+        0,
+        10
+      )}'`;
+
+      const screenViewedResults = await this.runQuery(
+        format(screenViewedSql, this.getFormatDialect())
+      );
+
+      screenViewedResults.forEach((result) => {
         if (result.count > 0) {
           results.push(result);
         }
