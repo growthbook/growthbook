@@ -184,9 +184,12 @@ async function createApiKey({
     throw new Error("SDK Endpoints must have an environment set");
   }
 
-  const prefix = secret
-    ? "secret_" + (role ? `${role}_` : "")
-    : `${getShortEnvName(environment)}_`;
+  const prefix = prefixForApiKey({
+    environment,
+    secret,
+    userId,
+    role,
+  });
   const key = generateSigningKey(prefix);
 
   const id = uniqid("key_");
@@ -208,6 +211,33 @@ async function createApiKey({
 
   return toInterface(doc);
 }
+
+const prefixForApiKey = ({
+  environment,
+  secret,
+  userId,
+  role,
+}: {
+  environment: string;
+  secret: boolean;
+  userId?: string;
+  role?: string;
+}): string => {
+  // Non-secret keys are SDK keys and use the environment prefix
+  if (!secret) {
+    return `${getShortEnvName(environment)}_`;
+  }
+
+  // Secret keys either have the user or role prefix
+  let prefix = "secret_";
+  if (userId) {
+    prefix += "user_";
+  } else if (role) {
+    prefix += `${role}_`;
+  }
+
+  return prefix;
+};
 
 export async function deleteApiKeyById(organization: string, id: string) {
   await ApiKeyModel.deleteOne({
