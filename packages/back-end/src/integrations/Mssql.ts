@@ -75,15 +75,14 @@ export default class Mssql extends SqlIntegration {
       throw new MissingDatasourceParamsError(
         "To view the information schema for a MS Sql dataset, you must define a default database. Please add a default database by editing the datasource's connection settings."
       );
-    if (tableName) {
-      //MK TODO: Validate if the defaultSchema is necessary here
-      if (!this.params.defaultSchema)
-        throw new Error(
-          "No default schema provided. To automatically generate metrics, you must provide a default schema. This should be the schema where your tracked events are stored."
-        );
-      return `${this.params.defaultSchema}.${tableName}`;
-    } else {
+
+    if (!tableName) {
       return `${this.params.database}.information_schema.columns`;
     }
+    if (!this.params.defaultSchema)
+      throw new Error(
+        "No default schema provided. To automatically generate metrics, you must provide a default schema. This should be the schema where your tracked events are stored."
+      );
+    return `${this.params.defaultSchema}.${tableName}`;
   }
 }

@@ -57,16 +57,16 @@ export default class Athena extends SqlIntegration {
       throw new MissingDatasourceParamsError(
         "To view the information schema for an Athena data source, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings."
       );
-    if (tableName) {
-      // MKTODO: Test if the database is necessary here
-      if (!this.params.database) {
-        throw new MissingDatasourceParamsError(
-          "To automatically generate metrics for an Athena data source, you must define a default database."
-        );
-      }
-      return `${this.params.database}.${this.params.catalog}.${tableName}`;
-    } else {
+
+    if (!tableName) {
       return `${this.params.catalog}.information_schema.columns`;
     }
+
+    if (!this.params.database) {
+      throw new MissingDatasourceParamsError(
+        "To automatically generate metrics for an Athena data source, you must define a default database."
+      );
+    }
+    return `${this.params.database}.${this.params.catalog}.${tableName}`;
   }
 }

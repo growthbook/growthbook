@@ -1363,42 +1363,42 @@ export default abstract class SqlIntegration
 
     const currentDateTime = new Date();
     const SevenDaysAgo = new Date(
-      currentDateTime.valueOf() - 35 * 60 * 60 * 24 * 1000
+      currentDateTime.valueOf() - 7 * 60 * 60 * 24 * 1000
     );
 
     const sql = `
-      SELECT
-        ${eventColumn} as event,
-        ${displayNameColumn ? displayNameColumn : eventColumn} as displayName,
-        (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
-        COUNT (*) as count,
-        MAX(${timestampColumn}) as lastTrackedAt
-      FROM
-        ${this.generateTableName(trackedEventTableName)}
-        WHERE received_at < '${currentDateTime
-          .toISOString()
-          .slice(0, 10)}' AND received_at > '${SevenDaysAgo.toISOString().slice(
-      0,
-      10
-    )}'
-        AND event NOT IN ('experiment_viewed', 'experiment_started')
-        GROUP BY event, ${timestampColumn}, displayName`;
+        SELECT
+          ${eventColumn} as event,
+          ${displayNameColumn ? displayNameColumn : eventColumn} as displayName,
+          (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
+          COUNT (*) as count,
+          MAX(${timestampColumn}) as lastTrackedAt
+        FROM
+          ${this.generateTableName(trackedEventTableName)}
+          WHERE received_at < '${currentDateTime
+            .toISOString()
+            .slice(
+              0,
+              10
+            )}' AND received_at > '${SevenDaysAgo.toISOString().slice(0, 10)}'
+          AND event NOT IN ('experiment_viewed', 'experiment_started')
+          GROUP BY event, ${timestampColumn}, displayName`;
 
     const results = await this.runQuery(format(sql, this.getFormatDialect()));
 
     if (includesPagesTable) {
       const pageViewedSql = `
-      SELECT
-         'pages' as event,
-         "Page Viewed" as displayName,
-         (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
-         COUNT (*) as count,
-         MAX(${timestampColumn}) as lastTrackedAt
-      FROM
-         ${this.generateTableName("pages")}
-      WHERE received_at < '${currentDateTime
-        .toISOString()
-        .slice(0, 10)}' AND received_at > '${SevenDaysAgo.toISOString().slice(
+        SELECT
+           'pages' as event,
+           "Page Viewed" as displayName,
+           (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
+           COUNT (*) as count,
+           MAX(${timestampColumn}) as lastTrackedAt
+        FROM
+           ${this.generateTableName("pages")}
+        WHERE received_at < '${currentDateTime
+          .toISOString()
+          .slice(0, 10)}' AND received_at > '${SevenDaysAgo.toISOString().slice(
         0,
         10
       )}'`;
@@ -1416,17 +1416,17 @@ export default abstract class SqlIntegration
 
     if (includesScreensTable) {
       const screenViewedSql = `
-      SELECT
-         'screens' as event,
-         "Screen Viewed" as displayName,
-         (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
-         COUNT (*) as count,
-         MAX(${timestampColumn}) as lastTrackedAt
-      FROM
-         ${this.generateTableName("pages")}
-      WHERE received_at < '${currentDateTime
-        .toISOString()
-        .slice(0, 10)}' AND received_at > '${SevenDaysAgo.toISOString().slice(
+        SELECT
+           'screens' as event,
+           "Screen Viewed" as displayName,
+           (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
+           COUNT (*) as count,
+           MAX(${timestampColumn}) as lastTrackedAt
+        FROM
+           ${this.generateTableName("pages")}
+        WHERE received_at < '${currentDateTime
+          .toISOString()
+          .slice(0, 10)}' AND received_at > '${SevenDaysAgo.toISOString().slice(
         0,
         10
       )}'`;
