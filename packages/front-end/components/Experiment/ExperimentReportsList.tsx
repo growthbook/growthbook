@@ -8,12 +8,12 @@ import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
+import { trackReport } from "@/services/track";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import Button from "../Button";
 import { GBAddCircle } from "../Icons";
 import { useSnapshot } from "./SnapshotProvider";
-import { trackReport } from "@/services/track";
-import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function ExperimentReportsList({
   experiment,
@@ -76,25 +76,26 @@ export default function ExperimentReportsList({
                 if (!res.report) {
                   throw new Error("Failed to create report");
                 }
-                trackReport(
-                  "create", 
-                  {
-                    source: "NewCustomReportButton",
-                    id: res.report.id,
-                    experiment: res.report.experimentId ?? "",
-                    engine: res.report.args.statsEngine || "bayesian",
-                    datasource_type: getDatasourceById(res.report.args.datasource)?.type || null,
-                    regression_adjustment_enabled: !!res.report.args.regressionAdjustmentEnabled,
-                    sequential_testing_enabled: !!res.report.args.sequentialTestingEnabled,
-                    sequential_testing_tuning_parameter:
-                      res.report.args.sequentialTestingTuningParameter,
-                    skip_partial_data: !!res.report.args.skipPartialData,
-                    activation_metric_selected: !!res.report.args.activationMetric,
-                    query_filter_selected: !!res.report.args.queryFilter,
-                    segment_selected: !!res.report.args.segment,
-                    dimension: res.report.args.dimension || "",
-                  }
-                )
+                trackReport("create", {
+                  source: "NewCustomReportButton",
+                  id: res.report.id,
+                  experiment: res.report.experimentId ?? "",
+                  engine: res.report.args.statsEngine || "bayesian",
+                  datasource_type:
+                    getDatasourceById(res.report.args.datasource)?.type || null,
+                  regression_adjustment_enabled: !!res.report.args
+                    .regressionAdjustmentEnabled,
+                  sequential_testing_enabled: !!res.report.args
+                    .sequentialTestingEnabled,
+                  sequential_testing_tuning_parameter:
+                    res.report.args.sequentialTestingTuningParameter,
+                  skip_partial_data: !!res.report.args.skipPartialData,
+                  activation_metric_selected: !!res.report.args
+                    .activationMetric,
+                  query_filter_selected: !!res.report.args.queryFilter,
+                  segment_selected: !!res.report.args.segment,
+                  dimension: res.report.args.dimension || "",
+                });
 
                 await router.push(`/report/${res.report.id}`);
               }}
@@ -171,25 +172,27 @@ export default function ExperimentReportsList({
                               //body: JSON.stringify({ id: report.id }),
                             }
                           );
-                          trackReport(
-                            "delete", 
-                            {
-                              source: "ExperimentReportsList", 
-                              id: report.id,
-                              experiment: report.experimentId ?? "",
-                              engine: report.args.statsEngine || "bayesian",
-                              datasource_type: getDatasourceById(report.args.datasource)?.type || null,
-                              regression_adjustment_enabled: !!report.args.regressionAdjustmentEnabled,
-                              sequential_testing_enabled: !!report.args.sequentialTestingEnabled,
-                              sequential_testing_tuning_parameter:
-                                report.args.sequentialTestingTuningParameter,
-                              skip_partial_data: !!report.args.skipPartialData,
-                              activation_metric_selected: !!report.args.activationMetric,
-                              query_filter_selected: !!report.args.queryFilter,
-                              segment_selected: !!report.args.segment,
-                              dimension: report.args.dimension || "",
-                              }
-                            );
+                          trackReport("delete", {
+                            source: "ExperimentReportsList",
+                            id: report.id,
+                            experiment: report.experimentId ?? "",
+                            engine: report.args.statsEngine || "bayesian",
+                            datasource_type:
+                              getDatasourceById(report.args.datasource)?.type ||
+                              null,
+                            regression_adjustment_enabled: !!report.args
+                              .regressionAdjustmentEnabled,
+                            sequential_testing_enabled: !!report.args
+                              .sequentialTestingEnabled,
+                            sequential_testing_tuning_parameter:
+                              report.args.sequentialTestingTuningParameter,
+                            skip_partial_data: !!report.args.skipPartialData,
+                            activation_metric_selected: !!report.args
+                              .activationMetric,
+                            query_filter_selected: !!report.args.queryFilter,
+                            segment_selected: !!report.args.segment,
+                            dimension: report.args.dimension || "",
+                          });
                           mutate();
                         }}
                       />

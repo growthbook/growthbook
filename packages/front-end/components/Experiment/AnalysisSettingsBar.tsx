@@ -20,7 +20,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { trackSnapshot } from "@/services/track";
+import { TrackSnapshotProps, trackSnapshot } from "@/services/track";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import DimensionChooser from "../Dimensions/DimensionChooser";
@@ -305,7 +305,8 @@ export default function AnalysisSettingsBar({
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      const snapshotProps = {
+                      const snapshotProps: TrackSnapshotProps = {
+                        id: "",
                         source: "RunQueriesButton",
                         experiment: experiment.id,
                         engine: statsEngine,
@@ -383,7 +384,8 @@ export default function AnalysisSettingsBar({
             <ResultMoreMenu
               id={snapshot?.id || ""}
               forceRefresh={async () => {
-                const snapshotProps = {
+                const snapshotProps: TrackSnapshotProps = {
+                  id: "",
                   source: "ForceRerunQueriesButton",
                   experiment: experiment.id,
                   engine: statsEngine,

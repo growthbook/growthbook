@@ -37,7 +37,7 @@ import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResults";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { trackReport } from "@/services/track";
+import { TrackSnapshotProps, trackReport } from "@/services/track";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -126,8 +126,9 @@ export default function ReportPage() {
   const sequentialTestingEnabled =
     hasSequentialTestingFeature && !!report.args.sequentialTestingEnabled;
 
-  const reportProps = {
+  const reportProps: TrackSnapshotProps = {
     id: report.id ?? "",
+    source: "",
     experiment: report.experimentId ?? "",
     engine: statsEngine,
     datasource_type: datasource?.type || null,
@@ -211,8 +212,8 @@ export default function ReportPage() {
                   }
                 );
                 trackReport("delete", {
-                  source: "DeleteButton",
                   ...reportProps,
+                  source: "DeleteButton",
                 });
                 router.push(`/experiment/${report.experimentId}#results`);
               }}
@@ -328,8 +329,8 @@ export default function ReportPage() {
                         method: "POST",
                       });
                       trackReport("refresh", {
-                        source: "ForceRefreshData",
                         ...reportProps,
+                        source: "ForceRefreshData",
                       });
                       mutate();
                     } catch (e) {

@@ -27,13 +27,13 @@ import { hasFileConfig } from "@/services/env";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import useApi from "@/hooks/useApi";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import { trackReport } from "@/services/track";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import SelectField from "../Forms/SelectField";
 import DimensionChooser from "../Dimensions/DimensionChooser";
 import { AttributionModelTooltip } from "../Experiment/AttributionModelTooltip";
-import { trackReport } from "@/services/track";
 
 export default function ConfigureReport({
   report,
@@ -192,25 +192,22 @@ export default function ConfigureReport({
             args,
           }),
         });
-        trackReport(
-          "update",
-          {
-            source: "SaveAndRunButton",
-            id: report.id,
-            experiment: experiment?.id ?? "",
-            engine: args.statsEngine,
-            datasource_type: datasource?.type || null,
-            regression_adjustment_enabled: args.regressionAdjustmentEnabled,
-            sequential_testing_enabled: args.sequentialTestingEnabled,
-            sequential_testing_tuning_parameter:
-              args.sequentialTestingTuningParameter,
-            skip_partial_data: args.skipPartialData,
-            activation_metric_selected: !!args.activationMetric,
-            query_filter_selected: !!args.queryFilter,
-            segment_selected: !!args.segment,
-            dimension: args.dimension || "",
-          }
-        )
+        trackReport("update", {
+          source: "SaveAndRunButton",
+          id: report.id,
+          experiment: experiment?.id ?? "",
+          engine: args.statsEngine,
+          datasource_type: datasource?.type || null,
+          regression_adjustment_enabled: args.regressionAdjustmentEnabled,
+          sequential_testing_enabled: args.sequentialTestingEnabled,
+          sequential_testing_tuning_parameter:
+            args.sequentialTestingTuningParameter,
+          skip_partial_data: args.skipPartialData,
+          activation_metric_selected: !!args.activationMetric,
+          query_filter_selected: !!args.queryFilter,
+          segment_selected: !!args.segment,
+          dimension: args.dimension || "",
+        });
         mutate();
         viewResults();
       })}
