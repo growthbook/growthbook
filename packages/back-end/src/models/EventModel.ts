@@ -94,9 +94,15 @@ type EventDocument<T> = mongoose.Document & EventInterface<T>;
  * @returns
  */
 const toInterface = <T>(doc: EventDocument<T>): EventInterface<T> =>
-  omit(doc.toJSON(), ["__v", "_id"]) as EventInterface<T>;
+  omit(
+    doc.toJSON<EventInterface<T>>({ flattenMaps: true }),
+    ["__v", "_id"]
+  ) as EventInterface<T>;
 
-const EventModel = mongoose.model<EventDocument<unknown>>("Event", eventSchema);
+const EventModel = mongoose.model<EventInterface<unknown>>(
+  "Event",
+  eventSchema
+);
 
 /**
  * Create an event under an organization.

@@ -95,7 +95,7 @@ const metricSchema = new mongoose.Schema({
 metricSchema.index({ id: 1, organization: 1 }, { unique: true });
 type MetricDocument = mongoose.Document & MetricInterface;
 
-const MetricModel = mongoose.model<MetricDocument>("Metric", metricSchema);
+const MetricModel = mongoose.model<MetricInterface>("Metric", metricSchema);
 
 function toInterface(doc: MetricDocument): MetricInterface {
   return upgradeMetricDoc(doc.toJSON());

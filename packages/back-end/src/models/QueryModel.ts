@@ -34,4 +34,4 @@ const querySchema = new mongoose.Schema({
 
 export type QueryDocument = mongoose.Document & QueryInterface;
 
-export const QueryModel = mongoose.model<QueryDocument>("Query", querySchema);
+export const QueryModel = mongoose.model<QueryInterface>("Query", querySchema);

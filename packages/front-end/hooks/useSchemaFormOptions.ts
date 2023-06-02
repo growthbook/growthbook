@@ -38,8 +38,7 @@ export default function useSchemaFormOptions(
         }
 
         schema?.tables?.forEach((table) => {
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          group.options.push({
+          group?.options?.push({
             label: table.tableName,
             value: table.path,
           });

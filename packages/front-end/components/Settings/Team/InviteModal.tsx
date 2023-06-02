@@ -84,7 +84,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const onSubmit = form.handleSubmit(async (value) => {
     const inviteArr = value.email.split(",");
 
-    if (canSubscribe && activeAndInvitedUsers + inviteArr.length >= freeSeats) {
+    if (canSubscribe && activeAndInvitedUsers + inviteArr.length > freeSeats) {
       setShowUpgradeModal("Whoops! You reached your free seat limit.");
       return;
     }

@@ -160,7 +160,7 @@ export default function SDKConnectionPage() {
 
   const projectId = connection.project;
   const projectName = getProjectById(projectId)?.name || null;
-  const projectIsOprhaned = projectId && !projectName;
+  const projectIsDeReferenced = projectId && !projectName;
 
   return (
     <div className="contents container pagecontents">
@@ -239,10 +239,10 @@ export default function SDKConnectionPage() {
           Environment: <strong>{connection.environment}</strong>
         </div>
 
-        {(projects.length > 0 || projectIsOprhaned) && (
+        {(projects.length > 0 || projectIsDeReferenced) && (
           <div className="col-auto">
             Project:{" "}
-            {projectIsOprhaned ? (
+            {projectIsDeReferenced ? (
               <Tooltip
                 body={
                   <>
@@ -280,7 +280,7 @@ export default function SDKConnectionPage() {
         )}
       </div>
 
-      {projectIsOprhaned && (
+      {projectIsDeReferenced && (
         <div className="alert alert-danger">
           This SDK connection is scoped to a project that no longer exists. This
           connection will no longer work until either a valid project or
