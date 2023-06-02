@@ -8,8 +8,10 @@ import InlineCode from "../SyntaxHighlighting/InlineCode";
 function operatorToText(operator: string): string {
   switch (operator) {
     case "$eq":
+    case "$veq":
       return `is equal to`;
     case "$ne":
+    case "$vne":
       return `is not equal to`;
     case "$includes":
       return `includes`;
@@ -20,12 +22,16 @@ function operatorToText(operator: string): string {
     case "$notEmpty":
       return `is not empty`;
     case "$lt":
+    case "$vlt":
       return `is less than`;
     case "$lte":
+    case "$vlte":
       return `is less than or equal to`;
     case "$gt":
+    case "$vgt":
       return `is greater than`;
     case "$gte":
+    case "$vgte":
       return `is greater than or equal to`;
     case "$exists":
       return `exists`;
@@ -47,18 +53,6 @@ function operatorToText(operator: string): string {
       return `matches the pattern`;
     case "$notRegex":
       return `does not match the pattern`;
-    case "$veq":
-      return "version is equal to";
-    case "$vne":
-      return "version is not equal to";
-    case "$vlt":
-      return "version is less than";
-    case "$vlte":
-      return "version is less than or equal to";
-    case "$vgt":
-      return "version is greater than";
-    case "$vgte":
-      return "version is greater than or equal to";
   }
   return operator;
 }
