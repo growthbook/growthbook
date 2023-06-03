@@ -227,7 +227,7 @@ export interface InformationSchemaInterface {
   organization: string;
   status: "PENDING" | "COMPLETE";
   refreshMS: number;
-  error?: InformationSchemaError;
+  error?: InformationSchemaError | null;
   dateCreated: Date;
   dateUpdated: Date;
 }
