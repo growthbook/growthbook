@@ -213,11 +213,13 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
             });
           },
           async (updates, results, error) => {
+            const status = error ? "error" : results ? "success" : "running";
+
             const analysis = getSnapshotAnalysis(currentSnapshot);
             if (analysis) {
               analysis.results = results?.dimensions || [];
               analysis.error = error;
-              analysis.status = error ? "error" : "success";
+              analysis.status = status;
             }
 
             await updateSnapshot(experiment.organization, currentSnapshot.id, {
@@ -225,8 +227,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
               unknownVariations: results?.unknownVariations || [],
               multipleExposures: results?.multipleExposures || 0,
               analyses: currentSnapshot.analyses,
-              error,
-              status: error ? "error" : "success",
+              error: error || "",
+              status: status,
             });
           },
           currentSnapshot.error

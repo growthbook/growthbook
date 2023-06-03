@@ -1542,10 +1542,12 @@ export async function getSnapshotStatus(
       });
     },
     async (updates, results, error) => {
+      const status = error ? "error" : results ? "success" : "running";
+
       const analysis = getSnapshotAnalysis(snapshot);
       if (analysis) {
         analysis.results = results?.dimensions || [];
-        analysis.status = error ? "error" : "success";
+        analysis.status = status;
         analysis.error = error;
       }
 
@@ -1556,8 +1558,8 @@ export async function getSnapshotStatus(
         multipleExposures:
           results?.multipleExposures ?? snapshot.multipleExposures ?? 0,
         analyses: snapshot.analyses,
-        status: error ? "error" : "success",
-        error,
+        status: status,
+        error: error || "",
       });
     },
     snapshot.error
