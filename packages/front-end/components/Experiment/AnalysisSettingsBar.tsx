@@ -391,7 +391,6 @@ export default function AnalysisSettingsBar({
               generateReport={true}
               queries={snapshot?.queries}
               queryError={snapshot?.error}
-              hasUserQuery={snapshot && !("skipPartialData" in snapshot)}
               supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
               hasData={hasData}
               metrics={experiment.metrics}
