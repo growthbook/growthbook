@@ -354,7 +354,7 @@ export async function getQueryData(
 export async function updateQueryStatuses(
   queries: Queries,
   organization: string,
-  onUpdate: (queries: Queries) => Promise<void>,
+  onUpdate: (queries: Queries, error?: string) => Promise<void>,
   onSuccess: (queries: Queries, data: QueryMap) => Promise<void>,
   currentError?: string
 ): Promise<QueryStatus> {
@@ -411,6 +411,15 @@ export async function updateQueryStatuses(
     await getQueryData(byStatus.succeeded, organization, queryMap);
     await onSuccess(queries, queryMap);
     return "succeeded";
+  }
+
+  // If one of the queries just failed for the first time
+  if (byStatus.running.some((q) => q.status === "failed")) {
+    await onUpdate(
+      queries,
+      "There was an error running one or more database queries."
+    );
+    return "failed";
   }
 
   // If the queries are still running, but the status needs to get updated
@@ -496,8 +505,8 @@ export async function getStatusEndpoint<T extends InterfaceWithQueries, R>(
   const status = await updateQueryStatuses(
     doc.queries,
     organization,
-    async (queries: Queries) => {
-      await onSave({ queries });
+    async (queries: Queries, error?: string) => {
+      await onSave({ queries }, undefined, error || undefined);
     },
     async (queries: Queries, data: QueryMap) => {
       let error = "";
