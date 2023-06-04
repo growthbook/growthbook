@@ -338,10 +338,6 @@ export async function runReport(
       useCache,
     });
 
-    if (results) {
-      results.hasCorrectedStats = true;
-    }
-
     updates.queries = queries;
     updates.results = results || report.results;
     updates.runStarted = new Date();

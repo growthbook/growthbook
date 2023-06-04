@@ -313,10 +313,10 @@ engines.forEach((engine) => {
         }
       }
 
-      const snapshotSettings = getSnapshotSettings(
+      const snapshotSettings = getSnapshotSettings({
         experiment,
-        0,
-        {
+        phaseIndex: 0,
+        settings: {
           dimensions: dimensionId ? [dimensionId] : [],
           statsEngine: "frequentist",
           pValueCorrection: null,
@@ -324,7 +324,7 @@ engines.forEach((engine) => {
           sequentialTesting: false,
           sequentialTestingTuningParameter: 0,
         },
-        [
+        metricRegressionAdjustmentStatuses: [
           {
             metric: metric.id,
             reason: "",
@@ -333,8 +333,8 @@ engines.forEach((engine) => {
             regressionAdjustmentDays: metric.regressionAdjustmentDays ?? 0,
           },
         ],
-        metricMap
-      );
+        metricMap,
+      });
 
       const sql = integration.getExperimentMetricQuery({
         settings: snapshotSettings,

@@ -306,26 +306,31 @@ export async function getManualSnapshotData(
   };
 }
 
-export function getSnapshotSettings(
-  experiment: ExperimentInterface,
-  phaseIndex: number,
-  settings: ExperimentSnapshotAnalysisSettings,
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[],
-  metricMap: Map<string, MetricInterface>
-): ExperimentSnapshotSettings {
+export function getSnapshotSettings({
+  experiment,
+  phaseIndex,
+  settings,
+  metricRegressionAdjustmentStatuses,
+  metricMap,
+}: {
+  experiment: ExperimentInterface;
+  phaseIndex: number;
+  settings: ExperimentSnapshotAnalysisSettings;
+  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
+  metricMap: Map<string, MetricInterface>;
+}): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
     throw new Error("Invalid snapshot phase");
   }
 
   const metricSettings = [
-    ...new Set(
-      experiment.metrics
-        .concat(experiment.guardrails || [])
-        .concat(
-          experiment.activationMetric ? [experiment.activationMetric] : []
-        )
-    ),
+    // Combine goals, guardrails, and activation metric and de-dupe the list
+    ...new Set([
+      ...experiment.metrics,
+      ...(experiment.guardrails || []),
+      ...(experiment.activationMetric ? [experiment.activationMetric] : []),
+    ]),
   ]
     .map((m) =>
       getMetricForSnapsot(
@@ -389,13 +394,13 @@ export async function createManualSnapshot(
     runStarted: new Date(),
     dateCreated: new Date(),
     status: "success",
-    settings: getSnapshotSettings(
+    settings: getSnapshotSettings({
       experiment,
       phaseIndex,
       settings,
-      [],
-      metricMap
-    ),
+      metricRegressionAdjustmentStatuses: [],
+      metricMap,
+    }),
     unknownVariations: [],
     multipleExposures: 0,
     analyses: [
@@ -506,13 +511,13 @@ export async function createSnapshot({
     phase: phaseIndex,
     queries: [],
     dimension: dimension || null,
-    settings: getSnapshotSettings(
+    settings: getSnapshotSettings({
       experiment,
       phaseIndex,
-      analysisSettings,
+      settings: analysisSettings,
       metricRegressionAdjustmentStatuses,
-      metricMap
-    ),
+      metricMap,
+    }),
     unknownVariations: [],
     multipleExposures: 0,
     analyses: [],
