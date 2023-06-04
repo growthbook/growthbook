@@ -1516,18 +1516,15 @@ export default abstract class SqlIntegration
     ignoreConversionEnd: boolean,
     cumulativeDate: boolean
   ): string {
-    let conversionWindowFilter = `
-      m.timestamp >= d.conversion_start
-      ${ignoreConversionEnd ? "" : `AND m.timestamp <= d.conversion_end`}`;
-    if (isRegressionAdjusted) {
-      conversionWindowFilter = `(${conversionWindowFilter}) OR (m.timestamp >= d.preexposure_start AND m.timestamp < d.preexposure_end)`;
+    return `
+      m.timestamp >= ${isRegressionAdjusted ? "d.preexposure_start" : "d.conversion_start"}
+      ${ignoreConversionEnd ? "" : `AND m.timestamp <= d.conversion_end`}
+      ${cumulativeDate ? `
+        AND ${this.castToDate("d.dimension")} <= dr.day
+        AND ${this.castToDate("m.timestamp")} <= dr.day`
+        : ""
     }
-    if (cumulativeDate) {
-      conversionWindowFilter = `(${conversionWindowFilter})
-      AND ${this.castToDate("d.dimension")} <= dr.day
-      AND ${this.castToDate("m.timestamp")} <= dr.day`;
-    }
-    return conversionWindowFilter;
+    `;
   }
 
   private getExperimentCTE({
