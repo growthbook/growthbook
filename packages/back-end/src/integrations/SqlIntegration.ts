@@ -20,7 +20,6 @@ import {
   ExperimentQueryResponses,
   Dimension,
   TestQueryResult,
-  MetricAggregationType,
   InformationSchema,
   RawInformationSchema,
 } from "../types/Integration";
@@ -377,7 +376,8 @@ export default abstract class SqlIntegration
     );
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
-    const aggregate = this.getAggregateMetricColumn(params.metric, "noWindow");
+    // TODO FIX THIS AGGREGATION
+    const aggregate = this.getAggregateMetricColumn(params.metric, false);
 
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
@@ -1106,29 +1106,22 @@ export default abstract class SqlIntegration
           ${userMetricDimensionCol} AS dimension,
           d.${baseIdType} AS ${baseIdType},
           ${this.getAggregateMetricColumn(
-            metric,
-            isRegressionAdjusted ? "post" : "noWindow"
+            metric, 
+            true, 
+            {ignoreConversionEnd: ignoreConversionEnd, cumulativeDate: cumulativeDate}
           )} as value
-          ${
-            isRegressionAdjusted
-              ? `, ${this.getAggregateMetricColumn(
-                  metric,
-                  "pre"
-                )} as covariate_value`
-              : ""
-          }
         FROM
           __distinctUsers d
-        JOIN __metric m ON (
+        LEFT JOIN __metric m ON (
           m.${baseIdType} = d.${baseIdType}
         )
-        ${cumulativeDate ? "CROSS JOIN __dateRange dr" : ""}
-        WHERE
-          ${this.getMetricWindowWhereClause(
-            isRegressionAdjusted,
-            ignoreConversionEnd,
-            cumulativeDate
-          )}
+        ${cumulativeDate 
+          ? `
+            CROSS JOIN __dateRange dr
+            WHERE ${this.castToDate("d.dimension")} <= dr.day
+          `
+          : ""
+        }
         GROUP BY
           d.variation,
           ${userMetricDimensionCol},
@@ -1144,7 +1137,8 @@ export default abstract class SqlIntegration
                 d.${baseIdType} AS ${baseIdType},
                 ${this.getAggregateMetricColumn(
                   denominator,
-                  "noWindow"
+                  true,
+                  {ignoreConversionEnd: ignoreConversionEnd, cumulativeDate: cumulativeDate}
                 )} as value
               FROM
                 __distinctUsers d
@@ -1175,129 +1169,85 @@ export default abstract class SqlIntegration
             )`
           : ""
       }
-      , __stats AS (
-        -- One row per variation/dimension with aggregations
-        SELECT
-          ${isRatio ? `d` : `m`}.variation,
-          ${isRatio ? `d` : `m`}.dimension,
-          COUNT(*) AS count,
-          SUM(COALESCE(m.value, 0)) AS main_sum,
-          SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
-          ${
-            isRatio
-              ? `,
-            SUM(COALESCE(d.value, 0)) AS denominator_sum,
-            SUM(POWER(COALESCE(d.value, 0), 2)) AS denominator_sum_squares,
-            SUM(COALESCE(d.value, 0) * COALESCE(m.value, 0)) AS main_denominator_sum_product
-          `
-              : ""
-          }
-          ${
-            isRegressionAdjusted
-              ? `,
-              SUM(COALESCE(m.covariate_value, 0)) AS covariate_sum,
-              SUM(POWER(COALESCE(m.covariate_value, 0), 2)) AS covariate_sum_squares,
-              SUM(COALESCE(m.value, 0) * COALESCE(m.covariate_value, 0)) AS main_covariate_sum_product
-              `
-              : ""
-          }
-        FROM
+      ${
+        isRegressionAdjusted 
+        ? `
+        , __userCovariateMetric as (
+          SELECT
+            d.variation AS variation,
+            d.dimension AS dimension,
+            d.${baseIdType} AS ${baseIdType},
+            ${this.getAggregateMetricColumn(metric, false)} as value
+          FROM
+            __distinctUsers d
+          JOIN __metric m ON (
+            m.${baseIdType} = d.${baseIdType}
+          )
+          WHERE 
+            m.timestamp >= d.preexposure_start
+            AND m.timestamp < d.preexposure_end
+          GROUP BY
+            d.variation,
+            d.dimension,
+            d.${baseIdType}
+        )
+        `
+        : ""
+      }
+      -- One row per variation/dimension with aggregations
+      SELECT
+        ${isRatio ? `d` : `m`}.variation,
+        ${isRatio ? `d` : `m`}.dimension,
+        COUNT(*) AS users,
+        SUM(COALESCE(m.value, 0)) AS main_sum,
+        SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
         ${
           isRatio
-            ? `__userDenominator d
-              LEFT JOIN __userMetric m ON (
-                d.${baseIdType} = m.${baseIdType}
-                ${cumulativeDate ? "AND d.dimension = m.dimension" : ""}
-              )`
-            : `__userMetric m`
+            ? `,
+          SUM(COALESCE(d.value, 0)) AS denominator_sum,
+          SUM(POWER(COALESCE(d.value, 0), 2)) AS denominator_sum_squares,
+          SUM(COALESCE(d.value, 0) * COALESCE(m.value, 0)) AS main_denominator_sum_product
+        `
+            : ""
         }
         ${
-          isRegressionAdjusted && metric.ignoreNulls ? `WHERE m.value != 0` : ""
-        }
-        GROUP BY
-          ${isRatio ? `d` : `m`}.variation,
-          ${isRatio ? `d` : `m`}.dimension
-      )
-      , __overallUsers as (
-        -- Number of users in each variation/dimension
-        SELECT
-          variation,
-          dimension,
-          COUNT(*) as users
-        FROM
-          __distinctUsers
-        GROUP BY
-          variation,
-          dimension
-      )
-      ${this.getUserStatSelectAndJoinStatement(
-        cumulativeDate,
-        this.getUserStatSelectStatement(
-          metric,
-          denominator,
-          isRatio,
           isRegressionAdjusted
-        )
-      )}
+            ? `,
+          SUM(COALESCE(c.value, 0)) AS covariate_sum,
+          SUM(POWER(COALESCE(c.value, 0), 2)) AS covariate_sum_squares,
+          SUM(COALESCE(m.value, 0) * COALESCE(c.value, 0)) AS main_covariate_sum_product
+          `
+          : ""
+        }
+      FROM
+      ${ //  TODO FIX isRATIO
+        isRatio
+          ? `__userDenominator d
+            LEFT JOIN __userMetric m ON (
+              d.${baseIdType} = m.${baseIdType}
+              ${cumulativeDate ? "AND d.dimension = m.dimension" : ""}
+            )`
+          : `
+          __userMetric m
+          ${
+            isRegressionAdjusted
+            ? `
+              LEFT JOIN __userCovariateMetric c
+              ON (c.user_id = m.user_id)
+              `
+            : ""
+          }
+          `
+      }
+      ${
+        !isRatio && metric.ignoreNulls ? `WHERE m.value != 0` : ""
+      }
+      GROUP BY
+        ${isRatio ? `d` : `m`}.variation,
+        ${isRatio ? `d` : `m`}.dimension
     `,
       this.getFormatDialect()
     );
-  }
-  getUserStatSelectStatement(
-    metric: MetricInterface,
-    denominator: MetricInterface | undefined,
-    isRatio: boolean,
-    isRegressionAdjusted: boolean
-  ): string {
-    return `
-      SELECT
-        COALESCE(u.variation, s.variation) AS variation,
-        COALESCE(u.dimension, s.dimension) AS dimension,
-      ${
-        metric.ignoreNulls ? "COALESCE(s.count, 0)" : "COALESCE(u.users, 0)"
-      } AS users,
-      '${this.getStatisticType(
-        isRatio,
-        isRegressionAdjusted
-      )}' as statistic_type,
-      '${metric.type}' as main_metric_type,
-      COALESCE(s.main_sum, 0) AS main_sum,
-      COALESCE(s.main_sum_squares, 0) AS main_sum_squares
-      ${
-        isRatio
-          ? `,
-          '${denominator?.type}' as denominator_metric_type,
-          COALESCE(s.denominator_sum, 0) AS denominator_sum,
-          COALESCE(s.denominator_sum_squares, 0) AS denominator_sum_squares,
-          COALESCE(s.main_denominator_sum_product, 0) AS main_denominator_sum_product
-      `
-          : ""
-      }
-      ${
-        isRegressionAdjusted
-          ? `,
-          '${metric.type}' as covariate_metric_type,
-          COALESCE(s.covariate_sum, 0) AS covariate_sum,
-          COALESCE(s.covariate_sum_squares, 0) AS covariate_sum_squares,
-          COALESCE(s.main_covariate_sum_product, 0) AS main_covariate_sum_product
-          `
-          : ""
-      }
-    FROM
-    __overallUsers u
-  `;
-  }
-  getUserStatSelectAndJoinStatement(
-    cumulativeDate: boolean,
-    selectStatement: string
-  ): string {
-    return `
-    ${selectStatement}
-    ${cumulativeDate ? "FULL OUTER" : "LEFT"} JOIN
-    __stats s ON (
-      u.variation = s.variation
-      AND u.dimension = s.dimension
-    )`;
   }
   getExperimentResultsQuery(): string {
     throw new Error("Not implemented");
@@ -1517,11 +1467,9 @@ export default abstract class SqlIntegration
     cumulativeDate: boolean
   ): string {
     return `
-      m.timestamp >= ${isRegressionAdjusted ? "d.preexposure_start" : "d.conversion_start"}
-      ${ignoreConversionEnd ? "" : `AND m.timestamp <= d.conversion_end`}
       ${cumulativeDate ? `
-        AND ${this.castToDate("d.dimension")} <= dr.day
-        AND ${this.castToDate("m.timestamp")} <= dr.day`
+        ${this.castToDate("d.dimension")} <= dr.day
+        AND m.metric_date <= dr.day`
         : ""
     }
     `;
@@ -1670,53 +1618,56 @@ export default abstract class SqlIntegration
     return `LEAST(${cap}, ${value})`;
   }
 
-  private addPrePostTimeFilter(
+  private addCaseWhenTimeFilter(
     col: string,
-    timePeriod: MetricAggregationType
+    useCaseWhen: boolean = false,
+    caseWhenArgs?: {ignoreConversionEnd: boolean, cumulativeDate: boolean}
   ): string {
-    const mcol = `m.timestamp`;
-    if (timePeriod === "pre") {
-      return `${this.ifElse(`${mcol} < d.preexposure_end`, `${col}`, `NULL`)}`;
-    }
-    if (timePeriod === "post") {
+    if (useCaseWhen){
       return `${this.ifElse(
-        `${mcol} >= d.conversion_start`,
+        `
+          m.timestamp >= d.conversion_start
+          ${caseWhenArgs?.ignoreConversionEnd ?? false ? "" : `AND m.timestamp <= d.conversion_end`}
+          ${caseWhenArgs?.cumulativeDate ?? false ? `AND m.metric_date <= dr.day` : ""}
+        `,
         `${col}`,
         `NULL`
       )}`;
     }
-    return `${col}`;
+    return col;
   }
 
   private getAggregateMetricColumn(
     metric: MetricInterface,
-    metricTimeWindow: MetricAggregationType = "post"
+    useCaseWhen: boolean,
+    caseWhenArgs?: {ignoreConversionEnd: boolean, cumulativeDate: boolean} 
   ) {
     // Binomial metrics don't have a value, so use hard-coded "1" as the value
     if (metric.type === "binomial") {
-      return `MAX(${this.addPrePostTimeFilter("1", metricTimeWindow)})`;
+      return `MAX(${this.addCaseWhenTimeFilter("1", useCaseWhen, caseWhenArgs)}`;
     }
 
     // SQL editor
     if (this.getMetricQueryFormat(metric) === "sql") {
       // Custom aggregation that's a hardcoded number (e.g. "1")
       if (metric.aggregation && Number(metric.aggregation)) {
-        return `MAX(${this.addPrePostTimeFilter(
+        return `MAX(${this.addCaseWhenTimeFilter(
           metric.aggregation,
-          metricTimeWindow
+          useCaseWhen, caseWhenArgs
         )})`;
       }
       // Other custom aggregation
       else if (metric.aggregation) {
         // prePostTimeFilter (and regression adjustment) not implemented for
         // custom aggregate metrics
+        // TODO cumulative date with custom agg
         return this.capValue(metric.cap, metric.aggregation);
       }
       // Standard aggregation (SUM)
       else {
         return this.capValue(
           metric.cap,
-          `SUM(${this.addPrePostTimeFilter(`m.value`, metricTimeWindow)})`
+          `SUM(${this.addCaseWhenTimeFilter(`m.value`, useCaseWhen, caseWhenArgs)})`
         );
       }
     }
@@ -1726,9 +1677,9 @@ export default abstract class SqlIntegration
       if (metric.type === "count" && metric.column) {
         return this.capValue(
           metric.cap,
-          `COUNT(DISTINCT (${this.addPrePostTimeFilter(
+          `COUNT(DISTINCT (${this.addCaseWhenTimeFilter(
             `m.value`,
-            metricTimeWindow
+            useCaseWhen, caseWhenArgs
           )}))`
         );
       }
@@ -1736,14 +1687,14 @@ export default abstract class SqlIntegration
       else if (metric.type === "count") {
         return this.capValue(
           metric.cap,
-          `SUM(${this.addPrePostTimeFilter("1", metricTimeWindow)})`
+          `SUM(${this.addCaseWhenTimeFilter("1", useCaseWhen, caseWhenArgs)})`
         );
       }
       // Revenue and duration metrics use MAX by default
       else {
         return this.capValue(
           metric.cap,
-          `MAX(${this.addPrePostTimeFilter(`m.value`, metricTimeWindow)})`
+          `MAX(${this.addCaseWhenTimeFilter(`m.value`, useCaseWhen, caseWhenArgs)})`
         );
       }
     }
