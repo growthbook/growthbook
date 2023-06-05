@@ -1652,6 +1652,7 @@ export async function postSnapshot(
 
   regressionAdjustmentEnabled =
     hasRegressionAdjustmentFeature &&
+    statsEngine === "frequentist" &&
     (regressionAdjustmentEnabled !== undefined
       ? regressionAdjustmentEnabled
       : orgSettings?.regressionAdjustmentEnabled ?? false);

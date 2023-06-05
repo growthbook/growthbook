@@ -799,6 +799,7 @@ export default abstract class SqlIntegration
     // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
     // where RA is actually possible
     const isRegressionAdjusted =
+      settings.regressionAdjustmentEnabled &&
       (metric.regressionAdjustmentDays ?? 0) > 0 &&
       !!metric.regressionAdjustmentEnabled &&
       !isRatio &&
