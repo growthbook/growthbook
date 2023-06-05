@@ -32,6 +32,19 @@
 export const getConnectionStringWithDeprecatedKeysMigratedForV3to4 = (
   uri: string
 ): ResultDeprecatedKeysMigrationV3to4 => {
+  const unsupportedV3FieldsInV4 = [
+    "autoReconnect",
+    "reconnectTries",
+    "reconnectInterval",
+    "ha",
+    "haInterval",
+    "secondaryAcceptableLatencyMS",
+    "acceptableLatencyMS",
+    "connectWithNoPrimary",
+    "j",
+    "domainsEnabled",
+    "bufferMaxEntries",
+  ];
   const v3to4Mappings: Record<string, string> = {
     poolSize: "maxPoolSize",
     tlsinsecure: "tlsInsecure",
@@ -48,6 +61,7 @@ export const getConnectionStringWithDeprecatedKeysMigratedForV3to4 = (
     const remapped: string[] = [];
     const parsedUrl = new URL(uri);
 
+    // Replacements
     const entries = Object.entries(v3to4Mappings);
     entries.forEach(([oldKey, newKey]) => {
       const value = parsedUrl.searchParams.get(oldKey);
@@ -58,16 +72,27 @@ export const getConnectionStringWithDeprecatedKeysMigratedForV3to4 = (
       }
     });
 
+    // Validation
+    const unsupported: string[] = [];
+    unsupportedV3FieldsInV4.forEach((oldKey) => {
+      const value = parsedUrl.searchParams.get(oldKey);
+      if (value) {
+        unsupported.push(oldKey);
+      }
+    });
+
     return {
       url: parsedUrl.toString(),
       success: true,
       remapped,
+      unsupported,
     };
   } catch (e) {
     return {
       url: uri,
       success: false,
       remapped: [],
+      unsupported: [],
     };
   }
 };
@@ -91,4 +116,9 @@ type ResultDeprecatedKeysMigrationV3to4 = {
    * Old keys that have been remapped
    */
   remapped: string[];
+
+  /**
+   * Old keys that do not have a suitable v4 equivalent and/or require manual remapping.
+   */
+  unsupported: string[];
 };

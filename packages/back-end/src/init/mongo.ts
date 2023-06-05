@@ -33,13 +33,22 @@ export default async (): Promise<void> => {
         url: modifiedUri,
         success,
         remapped,
+        unsupported,
       } = getConnectionStringWithDeprecatedKeysMigratedForV3to4(uri);
       if (!success) {
         throw new Error("mongodb connection string invalid");
       }
 
       await mongoose.connect(modifiedUri, mongooseOpts);
-      logger.warn(`mongodb deprecated fields remapped: ${remapped.join(", ")}`);
+      if (remapped.length) {
+        logger.warn(
+          `mongodb deprecated fields remapped: ${remapped.join(", ")}`
+        );
+      }
+
+      if (unsupported.length) {
+        logger.error(`mongodb unsupported fields: ${unsupported.join(", ")}`);
+      }
     } catch (e) {
       logger.error(
         e,

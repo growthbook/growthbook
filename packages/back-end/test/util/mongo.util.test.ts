@@ -12,11 +12,13 @@ describe("mongo utils", () => {
         url,
         success,
         remapped,
+        unsupported,
       } = getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
 
       expect(url).toEqual(expected);
       expect(success).toBe(true);
       expect(remapped).toEqual([]);
+      expect(unsupported).toEqual([]);
     });
 
     it("returns a modified URI when one of the properties needs to be migrated", () => {
@@ -29,11 +31,13 @@ describe("mongo utils", () => {
         url,
         success,
         remapped,
+        unsupported,
       } = getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
 
       expect(url).toEqual(expected);
       expect(success).toBe(true);
       expect(remapped).toEqual(["poolSize"]);
+      expect(unsupported).toEqual([]);
     });
 
     it("returns a modified URI when several properties need to be migrated", () => {
@@ -46,6 +50,7 @@ describe("mongo utils", () => {
         url,
         success,
         remapped,
+        unsupported,
       } = getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
 
       expect(url).toEqual(expected);
@@ -55,6 +60,43 @@ describe("mongo utils", () => {
         "tlsinsecure",
         "wtimeout",
         "appname",
+      ]);
+      expect(unsupported).toEqual([]);
+    });
+
+    it("reports unsupported keys when known v3 options without adequate v4 mappings are provided, leaving invalid keys in the connection string", () => {
+      const input =
+        "mongodb://root:password@localhost:27017/growthbook?authSource=admin&poolSize=50&wtimeout=123456&appname=foobar&tlsinsecure=true&autoReconnect=true&reconnectRetries=3&reconnectInterval=300&ha=true&haInterval=300&secondaryAcceptableLatencyMS=1000&acceptableLatencyMS=1000&j=true&connectWithNoPrimary=true&domainsEnabled=false&bufferMaxEntries=10&foo=1&bar=2&baz=3";
+      // includes original deprecated keys
+      const expected =
+        "mongodb://root:password@localhost:27017/growthbook?authSource=admin&autoReconnect=true&reconnectRetries=3&reconnectInterval=300&ha=true&haInterval=300&secondaryAcceptableLatencyMS=1000&acceptableLatencyMS=1000&j=true&connectWithNoPrimary=true&domainsEnabled=false&bufferMaxEntries=10&foo=1&bar=2&baz=3&maxPoolSize=50&tlsInsecure=true&wtimeoutMS=123456&appName=foobar";
+
+      const {
+        url,
+        success,
+        remapped,
+        unsupported,
+      } = getConnectionStringWithDeprecatedKeysMigratedForV3to4(input);
+
+      expect(url).toEqual(expected);
+      expect(success).toBe(true);
+      expect(remapped).toEqual([
+        "poolSize",
+        "tlsinsecure",
+        "wtimeout",
+        "appname",
+      ]);
+      expect(unsupported).toEqual([
+        "autoReconnect",
+        "reconnectInterval",
+        "ha",
+        "haInterval",
+        "secondaryAcceptableLatencyMS",
+        "acceptableLatencyMS",
+        "connectWithNoPrimary",
+        "j",
+        "domainsEnabled",
+        "bufferMaxEntries",
       ]);
     });
   });
