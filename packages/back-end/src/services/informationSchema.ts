@@ -249,7 +249,7 @@ export async function updateDatasourceInformationSchema(
   // Reset the informationSchema to remove any errors and change status to "PENDING"
   await updateInformationSchemaById(organization, informationSchema.id, {
     status: "PENDING",
-    error: undefined,
+    error: null,
   });
 
   const {
@@ -280,7 +280,7 @@ export async function updateDatasourceInformationSchema(
     ...informationSchema,
     databases: mergedInformationSchema,
     status: "COMPLETE",
-    error: undefined,
+    error: null,
     refreshMS,
     dateUpdated: new Date(),
   });

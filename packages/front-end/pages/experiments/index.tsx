@@ -3,6 +3,7 @@ import { RxDesktop } from "react-icons/rx";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { datetime, ago } from "shared/dates";
+import Link from "next/link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -308,7 +309,9 @@ const ExperimentsPage = (): React.ReactElement => {
                     >
                       <div className="d-flex flex-column">
                         <div className="d-flex">
-                          <span className="testname">{e.name}</span>
+                          <Link href={`/experiment/${e.id}`}>
+                            <a className="testname">{e.name}</a>
+                          </Link>
                           {e.hasVisualChangesets ? (
                             <Tooltip
                               className="d-flex align-items-center ml-2"
