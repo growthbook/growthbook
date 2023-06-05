@@ -1,5 +1,6 @@
 import repl from "node:repl";
 import * as Sentry from "@sentry/node";
+import * as ApiKey from "./src/models/ApiKeyModel";
 import * as Organization from "./src/models/OrganizationModel";
 import * as Event from "./src/models/EventModel";
 import * as EventWebHook from "./src/models/EventWebhookModel";
@@ -22,6 +23,7 @@ if (SENTRY_DSN) {
   await mongoInit();
 
   // Add globals you want available to the context
+  replServer.context.ApiKey = ApiKey;
   replServer.context.Organization = Organization;
   replServer.context.Event = Event;
   replServer.context.EventWebHook = EventWebHook;
