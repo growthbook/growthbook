@@ -242,9 +242,9 @@ async function fetchFeatures(
   instance: GrowthBook
 ): Promise<FeatureApiResponse> {
   const [key, apiHost, clientKey] = getKey(instance);
-  const serverSideEval = instance.getServerSideEval();
+  const remoteEval = instance.getremoteEval();
 
-  const endpoint = serverSideEval
+  const endpoint = remoteEval
     ? apiHost +
       "/eval/features/" +
       clientKey +
@@ -289,7 +289,7 @@ async function fetchFeatures(
 // Will prefer SSE if enabled, otherwise fall back to cron
 function startAutoRefresh(instance: GrowthBook): void {
   const [key, apiHost, clientKey] = getKey(instance);
-  const serverSideEval = instance.getServerSideEval();
+  const remoteEval = instance.getremoteEval();
 
   if (
     cacheSettings.backgroundSync &&
@@ -301,7 +301,7 @@ function startAutoRefresh(instance: GrowthBook): void {
       src: null,
       cb: (event: MessageEvent<string>) => {
         try {
-          if (serverSideEval) {
+          if (remoteEval) {
             const json: { update: boolean } = JSON.parse(event.data);
             if (json.update) fetchFeatures(instance);
           } else {

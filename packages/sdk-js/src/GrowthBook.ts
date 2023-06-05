@@ -108,7 +108,7 @@ export class GrowthBook<
       this._updateAllAutoExperiments();
     }
 
-    if (context.clientKey && !context.serverSideEval) {
+    if (context.clientKey && !context.remoteEval) {
       this._refresh({}, true, false);
     }
   }
@@ -133,8 +133,8 @@ export class GrowthBook<
     ];
   }
 
-  public getServerSideEval(): boolean {
-    return this._ctx.serverSideEval || false;
+  public getremoteEval(): boolean {
+    return this._ctx.remoteEval || false;
   }
 
   private async _refresh(
@@ -571,7 +571,7 @@ export class GrowthBook<
             });
 
           // If this was a remotely evaluated experiment, fire the tracking callbacks
-          if (rule.tracks && !this._ctx.serverSideEval) {
+          if (rule.tracks && !this._ctx.remoteEval) {
             rule.tracks.forEach((t) => {
               this._track(t.experiment, t.result);
             });
@@ -883,7 +883,7 @@ export class GrowthBook<
     const result = this._getResult(experiment, assigned, true, featureId, n);
 
     // 14. Fire the tracking callback
-    if (!this._ctx.serverSideEval) {
+    if (!this._ctx.remoteEval) {
       this._track(experiment, result);
     }
 

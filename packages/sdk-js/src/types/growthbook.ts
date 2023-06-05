@@ -169,7 +169,7 @@ export interface Context {
   apiHost?: string;
   clientKey?: string;
   decryptionKey?: string;
-  serverSideEval?: boolean;
+  remoteEval?: boolean;
   exportTrackEvents?: boolean;
 }
 
