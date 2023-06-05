@@ -45,7 +45,7 @@ export type CommercialFeature =
   | "visual-editor"
   | "cloud-proxy"
   | "hash-secure-attributes"
-  | "server-side-evaluation";
+  | "remote-evaluation";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {

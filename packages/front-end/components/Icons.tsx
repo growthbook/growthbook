@@ -604,7 +604,7 @@ export function GBHashLock({
   );
 }
 
-export function GBServerSideEvalIcon({
+export function GBRemoteEvalIcon({
   className = "",
   size = 18,
   ...otherProps

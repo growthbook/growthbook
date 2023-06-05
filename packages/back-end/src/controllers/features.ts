@@ -68,7 +68,7 @@ async function getPayloadParamsFromApiKey(
   encrypted: boolean;
   encryptionKey?: string;
   sseEnabled?: boolean;
-  ssEvalEnabled?: boolean;
+  remoteEvalEnabled?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
@@ -97,7 +97,7 @@ async function getPayloadParamsFromApiKey(
       encrypted: connection.encryptPayload,
       encryptionKey: connection.encryptionKey,
       sseEnabled: connection.sseEnabled,
-      ssEvalEnabled: connection.ssEvalEnabled,
+      remoteEvalEnabled: connection.remoteEvalEnabled,
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
@@ -145,7 +145,7 @@ async function getPayloadParamsFromApiKey(
 async function getFeaturesPayload(
   req: Request,
   res: Response,
-  mode: "ssEval" | "public"
+  mode: "remoteEval" | "public"
 ) {
   try {
     const { key } = req.params;
@@ -161,22 +161,20 @@ async function getFeaturesPayload(
       project,
       encryptionKey,
       sseEnabled,
-      ssEvalEnabled,
+      remoteEvalEnabled,
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
       hashSecureAttributes,
     } = await getPayloadParamsFromApiKey(key, req);
 
-    if (mode === "ssEval" && !ssEvalEnabled) {
+    if (mode === "remoteEval" && !remoteEvalEnabled) {
       throw new Error(
-        "Server-side evaluation is not enabled for this SDK Connection"
+        "Remote evaluation is not enabled for this SDK Connection"
       );
     }
-    if (mode === "public" && ssEvalEnabled) {
-      throw new Error(
-        "Server-side evaluation is enabled for this SDK Connection"
-      );
+    if (mode === "public" && remoteEvalEnabled) {
+      throw new Error("Remote evaluation is enabled for this SDK Connection");
     }
 
     const defs = await getFeatureDefinitions({
@@ -227,7 +225,7 @@ export function getFeaturesPublic(req: Request, res: Response) {
 }
 
 export function getFeaturesForEval(req: Request, res: Response) {
-  return getFeaturesPayload(req, res, "ssEval");
+  return getFeaturesPayload(req, res, "remoteEval");
 }
 
 export async function postFeatures(

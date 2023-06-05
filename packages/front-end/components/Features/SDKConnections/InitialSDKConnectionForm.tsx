@@ -101,7 +101,7 @@ export default function InitialSDKConnectionForm({
           languages: value.languages,
           encryptPayload: false,
           hashSecureAttributes: false,
-          ssEvalEnabled: false,
+          remoteEvalEnabled: false,
           includeVisualExperiments: false,
           includeDraftExperiments: false,
           includeExperimentNames: false,

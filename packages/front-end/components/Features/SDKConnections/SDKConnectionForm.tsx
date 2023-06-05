@@ -53,9 +53,7 @@ export default function SDKConnectionForm({
   const hasSecureAttributesFeature = hasCommercialFeature(
     "hash-secure-attributes"
   );
-  const hasServerSideEvaluationFeature = hasCommercialFeature(
-    "server-side-evaluation"
-  );
+  const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
 
   useEffect(() => {
     if (edit) return;
@@ -80,7 +78,7 @@ export default function SDKConnectionForm({
       proxyEnabled: initialValue.proxy?.enabled || false,
       proxyHost: initialValue.proxy?.host || "",
       sseEnabled: initialValue.sseEnabled || false,
-      ssEvalEnabled: initialValue.ssEvalEnabled || false,
+      remoteEvalEnabled: initialValue.remoteEvalEnabled || false,
     },
   });
 
@@ -165,7 +163,7 @@ export default function SDKConnectionForm({
             encryptPayload: value.encryptPayload,
             hashSecureAttributes: value.hashSecureAttributes,
             proxyEnabled: value.proxyEnabled,
-            ssEvalEnabled: value.ssEvalEnabled,
+            remoteEvalEnabled: value.remoteEvalEnabled,
           });
           const res = await apiCall<{ connection: SDKConnectionInterface }>(
             `/sdk-connections`,
@@ -463,28 +461,26 @@ export default function SDKConnectionForm({
         </>
       )}
 
-      {gb?.isOn("server-side-evaluation") && (
+      {gb?.isOn("remote-evaluation") && (
         <div className="form-group mt-4">
-          <label htmlFor="server-side-evaluation">
+          <label htmlFor="remote-evaluation">
             <PremiumTooltip
-              commercialFeature="server-side-evaluation"
+              commercialFeature="remote-evaluation"
               tipMinWidth="600px"
               body={
                 <>
                   <p>
-                    <strong>Server Side Evaluation</strong> fully secures your
-                    SDK by evaluating feature flags exclusively on a private
-                    server instead of within a front-end environment. This
-                    ensures that any sensitive information within targeting
-                    rules or unused feature variations are never seen by the
-                    client. When used in a front-end context, server side
-                    evaluation provides the same benefits as a backend SDK.
-                    However, this feature is not needed nor recommended for
-                    backend contexts.
+                    <strong>Remote Evaluation</strong> fully secures your SDK by
+                    evaluating feature flags exclusively on a private server
+                    instead of within a front-end environment. This ensures that
+                    any sensitive information within targeting rules or unused
+                    feature variations are never seen by the client. When used
+                    in a front-end context, server side evaluation provides the
+                    same benefits as a backend SDK. However, this feature is not
+                    needed nor recommended for backend contexts.
                   </p>
                   <p>
-                    Server side evaluation does come with a few cost
-                    considerations:
+                    Remote evaluation does come with a few cost considerations:
                     <ol className="pl-3 mt-2">
                       <li className="mb-2">
                         It will increase network traffic. Evaluated payloads
@@ -505,7 +501,7 @@ export default function SDKConnectionForm({
                   <p className="text-warning-orange">
                     <FaExclamationCircle /> Neither <strong>Encryption</strong>{" "}
                     nor <strong>Secure Attribute Hashing</strong> may be used in
-                    conjunction with <strong>Server Side Evaluation</strong>.
+                    conjunction with <strong>Remote Evaluation</strong>.
                     However, these features are not needed as the SDK will never
                     receive sensitive information.
                   </p>
@@ -522,7 +518,7 @@ export default function SDKConnectionForm({
                 </>
               }
             >
-              Use Server Side Evaluation? <FaInfoCircle />{" "}
+              Use Remote Evaluation? <FaInfoCircle />{" "}
               <span className="badge badge-purple text-uppercase mr-2">
                 Beta
               </span>
@@ -531,17 +527,17 @@ export default function SDKConnectionForm({
           <div className="row mb-4">
             <div className="col-md-3">
               <Toggle
-                id="server-side-evaluation"
-                value={form.watch("ssEvalEnabled")}
-                setValue={(val) => form.setValue("ssEvalEnabled", val)}
-                disabled={!hasServerSideEvaluationFeature}
+                id="remote-evaluation"
+                value={form.watch("remoteEvalEnabled")}
+                setValue={(val) => form.setValue("remoteEvalEnabled", val)}
+                disabled={!hasRemoteEvaluationFeature}
               />
             </div>
           </div>
         </div>
       )}
 
-      {!form.watch("ssEvalEnabled") && (
+      {!form.watch("remoteEvalEnabled") && (
         <div className="form-group mt-4">
           <label htmlFor="hash-secure-attributes">
             <PremiumTooltip
@@ -592,7 +588,7 @@ export default function SDKConnectionForm({
 
       {languages.length > 0 &&
         !hasSDKsWithoutEncryptionSupport &&
-        !form.watch("ssEvalEnabled") && (
+        !form.watch("remoteEvalEnabled") && (
           <EncryptionToggle
             showUpgradeModal={() => setUpgradeModal(true)}
             value={form.watch("encryptPayload")}

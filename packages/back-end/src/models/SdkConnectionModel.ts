@@ -45,7 +45,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeExperimentNames: Boolean,
   connected: Boolean,
   sseEnabled: Boolean,
-  ssEvalEnabled: Boolean,
+  remoteEvalEnabled: Boolean,
   key: {
     type: String,
     unique: true,
@@ -120,7 +120,7 @@ export const createSDKConnectionValidator = z
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     sseEnabled: z.boolean().optional(),
-    ssEvalEnabled: z.boolean().optional(),
+    remoteEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -187,7 +187,7 @@ export const editSDKConnectionValidator = z
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
     sseEnabled: z.boolean().optional(),
-    ssEvalEnabled: z.boolean().optional(),
+    remoteEvalEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -231,7 +231,7 @@ export async function editSDKConnection(
       "environment",
       "encryptPayload",
       "hashSecureAttributes",
-      "ssEvalEnabled",
+      "remoteEvalEnabled",
     ] as const;
     keysRequiringProxyUpdate.forEach((key) => {
       if (key in otherChanges && otherChanges[key] !== connection[key]) {
@@ -410,6 +410,6 @@ export function toApiSDKConnectionInterface(
     proxyHost: connection.proxy.host,
     proxySigningKey: connection.proxy.signingKey,
     sseEnabled: connection.sseEnabled,
-    ssEvalEnabled: connection.ssEvalEnabled,
+    remoteEvalEnabled: connection.remoteEvalEnabled,
   };
 }

@@ -61,14 +61,14 @@ export const postSDKConnection = async (
     sseEnabled = params.sseEnabled || false;
   }
 
-  let ssEvalEnabled = false;
-  if (orgHasPremiumFeature(org, "server-side-evaluation")) {
-    ssEvalEnabled = params.ssEvalEnabled || false;
+  let remoteEvalEnabled = false;
+  if (orgHasPremiumFeature(org, "remote-evaluation")) {
+    remoteEvalEnabled = params.remoteEvalEnabled || false;
   }
 
-  if (ssEvalEnabled) {
+  if (remoteEvalEnabled) {
     encryptPayload = false;
-    // hashSecureAttributes = false;
+    hashSecureAttributes = false;
   }
 
   const doc = await createSDKConnection({
@@ -76,7 +76,7 @@ export const postSDKConnection = async (
     encryptPayload,
     hashSecureAttributes,
     sseEnabled,
-    ssEvalEnabled,
+    remoteEvalEnabled,
     organization: org.id,
   });
 
@@ -125,14 +125,14 @@ export const putSDKConnection = async (
     sseEnabled = req.body.sseEnabled || false;
   }
 
-  let ssEvalEnabled = false;
-  if (orgHasPremiumFeature(org, "server-side-evaluation")) {
-    ssEvalEnabled = req.body.ssEvalEnabled || false;
+  let remoteEvalEnabled = false;
+  if (orgHasPremiumFeature(org, "remote-evaluation")) {
+    remoteEvalEnabled = req.body.remoteEvalEnabled || false;
   }
 
-  if (ssEvalEnabled) {
+  if (remoteEvalEnabled) {
     encryptPayload = false;
-    // hashSecureAttributes = false;
+    hashSecureAttributes = false;
   }
 
   await editSDKConnection(connection, {
@@ -140,7 +140,7 @@ export const putSDKConnection = async (
     encryptPayload,
     hashSecureAttributes,
     sseEnabled,
-    ssEvalEnabled,
+    remoteEvalEnabled,
   });
 
   res.status(200).json({

@@ -15,7 +15,7 @@ import {
   GBCircleArrowLeft,
   GBEdit,
   GBHashLock,
-  GBServerSideEvalIcon,
+  GBRemoteEvalIcon,
 } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
@@ -267,11 +267,11 @@ export default function SDKConnectionPage() {
           </div>
         )}
 
-        {connection.ssEvalEnabled && (
+        {connection.remoteEvalEnabled && (
           <div className="col-auto">
-            Server Side Evaluation:{" "}
+            Remote Evaluation:{" "}
             <strong>
-              <GBServerSideEvalIcon className="text-purple" /> yes
+              <GBRemoteEvalIcon className="text-purple" /> yes
             </strong>
           </div>
         )}

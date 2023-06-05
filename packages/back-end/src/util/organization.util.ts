@@ -30,7 +30,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "visual-editor",
     "cloud-proxy",
     "hash-secure-attributes",
-    "server-side-evaluation",
+    "remote-evaluation",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -43,7 +43,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "visual-editor",
     "cloud-proxy",
     "hash-secure-attributes",
-    "server-side-evaluation",
+    "remote-evaluation",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
@@ -57,7 +57,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "visual-editor",
     "cloud-proxy",
     "hash-secure-attributes",
-    "server-side-evaluation",
+    "remote-evaluation",
   ]),
 };
 export function getAccountPlan(org: OrganizationInterface): AccountPlan {
