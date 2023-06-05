@@ -167,7 +167,9 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       statsEngine,
       dimensions: [],
       regressionAdjusted:
-        hasRegressionAdjustmentFeature && regressionAdjustmentEnabled,
+        hasRegressionAdjustmentFeature &&
+        statsEngine === "frequentist" &&
+        regressionAdjustmentEnabled,
       sequentialTesting:
         hasSequentialTestingFeature &&
         statsEngine === "frequentist" &&
