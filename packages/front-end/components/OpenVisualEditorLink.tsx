@@ -50,7 +50,7 @@ const OpenVisualEditorLink: FC<{
             return false;
           }
 
-          let isExtensionInstalled = false;
+          let isExtensionInstalled = true;
           await fetch(
             "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo192.png",
             {
