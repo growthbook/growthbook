@@ -107,7 +107,7 @@ export interface Namespaces {
   status: "active" | "inactive";
 }
 
-export type SDKAttributeFormat = "none" | "version";
+export type SDKAttributeFormat = "" | "version";
 
 export type SDKAttributeType =
   | "string"

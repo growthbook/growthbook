@@ -749,7 +749,7 @@ export function useAttributeMap(): Map<string, AttributeData> {
             : [],
         identifier: !!schema.hashAttribute,
         archived: !!schema.archived,
-        format: schema.format || "none",
+        format: schema.format || "",
       });
     });
 

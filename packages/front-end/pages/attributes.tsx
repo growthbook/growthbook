@@ -2,19 +2,22 @@ import React, { useEffect, useMemo, useState } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { SDKAttribute } from "back-end/types/organization";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBEdit } from "@/components/Icons";
-import EditAttributesModal from "@/components/Features/EditAttributesModal";
+import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import { useAttributeSchema } from "@/services/features";
 import { useUser } from "@/services/UserContext";
+import AttributeModal from "@/components/Features/AttributeModal";
+import DeleteButton from "@/components/DeleteButton/DeleteButton";
 
 const FeatureAttributesPage = (): React.ReactElement => {
-  const [editOpen, setEditOpen] = useState(false);
   const permissions = usePermissions();
   const { apiCall } = useAuth();
   let attributeSchema = useAttributeSchema(true);
+
+  // null = modal closed, "" = new attribute, "my-attribute-name" = existing attribute
+  const [modalData, setModalData] = useState<null | string>(null);
 
   const orderedAttributes = useMemo(
     () => [
@@ -33,53 +36,86 @@ const FeatureAttributesPage = (): React.ReactElement => {
 
   const drawRow = (v: SDKAttribute, i: number) => (
     <tr className={v.archived ? "disabled" : ""} key={i}>
-      <td className="text-gray font-weight-bold">{v.property}</td>
+      <td className="text-gray font-weight-bold">
+        {v.property}{" "}
+        {v.archived && (
+          <span className="badge badge-secondary ml-2">archived</span>
+        )}
+      </td>
       <td className="text-gray">
         {v.datatype}
         {v.datatype === "enum" && <>: ({v.enum})</>}
-        {v.format && v.format !== "none" && (
+        {v.format && (
           <p className="my-0">
             <small>(format: {v.format})</small>
           </p>
         )}
       </td>
       <td className="text-gray">{v.hashAttribute && <>yes</>}</td>
-      <td className="text-gray">{v.archived && <>yes</>}</td>
       <td>
-        <MoreMenu>
-          <button
-            className="dropdown-item"
-            onClick={async (e) => {
-              e.preventDefault();
+        {permissions.manageTargetingAttributes && (
+          <MoreMenu>
+            {!v.archived && (
+              <button
+                className="dropdown-item"
+                onClick={() => {
+                  setModalData(v.property);
+                }}
+              >
+                Edit Attribute
+              </button>
+            )}
+            <button
+              className="dropdown-item"
+              onClick={async (e) => {
+                e.preventDefault();
 
-              // update attributes as they render in the view (do not reorder after changing archived state)
-              setAttributesForView(
-                attributesForView.map((attribute) =>
+                // update attributes as they render in the view (do not reorder after changing archived state)
+                setAttributesForView(
+                  attributesForView.map((attribute) =>
+                    attribute.property === v.property
+                      ? { ...attribute, archived: !v.archived }
+                      : attribute
+                  )
+                );
+
+                // update SDK attributes while preserving original order
+                attributeSchema = attributeSchema.map((attribute) =>
                   attribute.property === v.property
                     ? { ...attribute, archived: !v.archived }
                     : attribute
-                )
-              );
-
-              // update SDK attributes while preserving original order
-              attributeSchema = attributeSchema.map((attribute) =>
-                attribute.property === v.property
-                  ? { ...attribute, archived: !v.archived }
-                  : attribute
-              );
-              await apiCall(`/organization`, {
-                method: "PUT",
-                body: JSON.stringify({
-                  settings: { attributeSchema },
-                }),
-              });
-
-              await refreshOrganization();
-            }}
-          >
-            {v.archived ? "Unarchive" : "Archive"}
-          </button>
-        </MoreMenu>
+                );
+                await apiCall(`/organization`, {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    settings: { attributeSchema },
+                  }),
+                });
+                await refreshOrganization();
+              }}
+            >
+              {v.archived ? "Unarchive" : "Archive"}
+            </button>
+            <DeleteButton
+              displayName="Attribute"
+              onClick={async () => {
+                const newAttributeSchema = attributeSchema.filter(
+                  (attribute) => attribute.property !== v.property
+                );
+                await apiCall(`/organization`, {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    settings: { attributeSchema: newAttributeSchema },
+                  }),
+                });
+                await refreshOrganization();
+              }}
+              text="Delete Attribute"
+              className="dropdown-item"
+              useIcon={false}
+            />
+          </MoreMenu>
+        )}
       </td>
     </tr>
   );
@@ -89,31 +125,31 @@ const FeatureAttributesPage = (): React.ReactElement => {
       <div className="contents container-fluid pagecontents">
         <div className="mb-5">
           <div className="row mb-3 align-items-center">
-            <div className="col-auto">
-              <h3>Targeting Attributes</h3>
+            <div className="col">
+              <div className="d-flex">
+                <h3>Targeting Attributes</h3>
+                {permissions.manageTargetingAttributes && (
+                  <div className="ml-auto">
+                    <button
+                      className="btn btn-primary"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setModalData("");
+                      }}
+                    >
+                      <GBAddCircle /> Add Attribute
+                    </button>
+                  </div>
+                )}
+              </div>
               <p className="text-gray">
-                These attributes can be used when targeting feature flags.
-                Attributes set here must also be passed in through the SDK.
+                These attributes can be used when targeting feature flags and
+                experiments. Attributes set here must also be passed in through
+                the SDK.
               </p>
             </div>
-            <div style={{ flex: 1 }} />
-            {permissions.manageTargetingAttributes && (
-              <div className="col-auto">
-                <button
-                  className="btn btn-primary float-right"
-                  onClick={() => {
-                    setEditOpen(true);
-                  }}
-                >
-                  <span className="h4 pr-2 m-0 d-inline-block align-top">
-                    <GBEdit />
-                  </span>
-                  Edit Attributes
-                </button>
-              </div>
-            )}
           </div>
-          <table className="table gbtable appbox">
+          <table className="table gbtable appbox table-hover">
             <thead>
               <tr>
                 <th>Attribute</th>
@@ -126,7 +162,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     />
                   </Tooltip>
                 </th>
-                <th>Archived</th>
                 <th style={{ width: 30 }}></th>
               </tr>
             </thead>
@@ -137,18 +172,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 <>
                   <tr>
                     <td colSpan={3} className="text-center text-gray">
-                      <em>
-                        No attributes defined{" "}
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setEditOpen(true);
-                          }}
-                        >
-                          Add attributes now
-                        </a>
-                      </em>
+                      <em>No attributes defined.</em>
                     </td>
                   </tr>
                 </>
@@ -157,7 +181,12 @@ const FeatureAttributesPage = (): React.ReactElement => {
           </table>
         </div>
       </div>
-      {editOpen && <EditAttributesModal close={() => setEditOpen(false)} />}
+      {modalData !== null && (
+        <AttributeModal
+          close={() => setModalData(null)}
+          attribute={modalData}
+        />
+      )}
     </>
   );
 };
