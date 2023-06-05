@@ -1,9 +1,18 @@
 /**
  * Assists in migrating any field options that MongoDB has changed between major versions 3 and 4.
  * Replaces the query with an equivalent where keys that can be mapped 1-to-1 are replaced with their new values.
+ *
+ * Docs referenced:
+ *  - v3 fields: https://mongodb.github.io/node-mongodb-native/3.7/reference/connecting/connection-settings/
+ *  - v4 fields: https://mongodb.github.io/node-mongodb-native/4.16/interfaces/MongoClientOptions.html
+ *
  * @return ResultDeprecatedKeysMigrationV3to4
  *
- * Fields that are concerning and do not have 1-to-1 mappings:
+ * Unsupported deprecated fields that do not have 1-to-1 mappings.
+ * Some fields no longer exist, while others are marked as deprecated in v4, which means they *could* be removed in the future.
+ *
+ * Note: Some v3 options were marked as deprecated but were included in v4 and not marked as deprecated. These have been ignored.
+ *
  *  - autoReconnect: is no longer documented
  *  - reconnectTries: is no longer documented
  *  - reconnectInterval: is no longer documented
