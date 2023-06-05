@@ -206,7 +206,6 @@ app.get(
   featuresController.getFeaturesPublic
 );
 // For preflight requests
-// todo: do we actually need this?
 app.options(
   "/api/features/:key?",
   cors({
@@ -218,7 +217,7 @@ app.options(
   }
 );
 
-// API-key authenticated features for server side eval
+// API-key authenticated features for Remote Evaluation
 // to be used by infrastructure only (i.e. GB Proxy)
 app.get(
   "/api/eval/features/:key?",
@@ -228,6 +227,17 @@ app.get(
   }),
   authencateApiRequestMiddleware,
   featuresController.getFeaturesForEval
+);
+// For preflight requests
+app.options(
+  "/api/eval/features/:key?",
+  cors({
+    credentials: false,
+    origin: "*",
+  }),
+  function (req, res) {
+    res.send(200);
+  }
 );
 
 // Secret API routes (no JWT or CORS)

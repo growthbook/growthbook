@@ -1,3 +1,4 @@
+import { createHash } from "crypto";
 import { SDKLanguage } from "back-end/types/sdk-connection";
 import stringify from "json-stringify-pretty-compact";
 import { SDKAttributeSchema } from "back-end/types/organization";
@@ -20,7 +21,15 @@ function indentLines(code: string, indent: number | string = 2) {
   return code.split("\n").join("\n" + spaces);
 }
 
-function getExampleAttributes(attributeSchema?: SDKAttributeSchema) {
+function getExampleAttributes({
+  attributeSchema,
+  hashSecureAttributes = false,
+  secureAttributeSalt = "",
+}: {
+  attributeSchema?: SDKAttributeSchema;
+  hashSecureAttributes?: boolean;
+  secureAttributeSalt?: string;
+}) {
   if (!attributeSchema?.length) return {};
 
   // eslint-disable-next-line
@@ -42,10 +51,16 @@ function getExampleAttributes(attributeSchema?: SDKAttributeSchema) {
       value = 123;
     } else if (datatype === "string") {
       value = "foo";
+    } else if (datatype === "secureString") {
+      value = hashSecureAttributes ? sha256("foo", secureAttributeSalt) : "foo";
     } else if (datatype === "number[]") {
       value = [1, 2, 3];
     } else if (datatype === "string[]") {
       value = ["foo", "bar"];
+    } else if (datatype === "secureString[]") {
+      value = hashSecureAttributes
+        ? ["foo", "bar"].map((v) => sha256(v, secureAttributeSalt))
+        : ["foo", "bar"];
     } else if (datatype === "enum") {
       // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       value = enumList.split(",").map((v) => v.trim())[0] ?? null;
@@ -60,11 +75,19 @@ function getExampleAttributes(attributeSchema?: SDKAttributeSchema) {
 
 export default function TargetingAttributeCodeSnippet({
   language,
+  hashSecureAttributes = false,
+  secureAttributeSalt = "",
 }: {
   language: SDKLanguage;
+  hashSecureAttributes?: boolean;
+  secureAttributeSalt?: string;
 }) {
   const attributeSchema = useAttributeSchema();
-  const exampleAttributes = getExampleAttributes(attributeSchema);
+  const exampleAttributes = getExampleAttributes({
+    attributeSchema,
+    hashSecureAttributes,
+    secureAttributeSalt,
+  });
 
   if (language === "javascript") {
     return (
@@ -224,4 +247,10 @@ gb.SetAttributes(attrs);
   }
 
   return null;
+}
+
+function sha256(str: string, salt: string): string {
+  return createHash("sha256")
+    .update(salt + str)
+    .digest("hex");
 }

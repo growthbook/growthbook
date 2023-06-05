@@ -27,6 +27,7 @@ import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { DocLink } from "@/components/DocLink";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import SDKLanguageLogo, { languageMapping } from "./SDKLanguageLogo";
 
@@ -49,9 +50,10 @@ export default function SDKConnectionForm({
   const { hasCommercialFeature } = useUser();
 
   const hasCloudProxyFeature = hasCommercialFeature("cloud-proxy");
-  const hasServerSideEvaluationFeature = hasCommercialFeature(
-    "server-side-evaluation"
+  const hasSecureAttributesFeature = hasCommercialFeature(
+    "hash-secure-attributes"
   );
+  const hasRemoteEvaluationFeature = hasCommercialFeature("remote-evaluation");
 
   useEffect(() => {
     if (edit) return;
@@ -69,13 +71,14 @@ export default function SDKConnectionForm({
       environment: initialValue.environment || environments[0]?.id || "",
       project: "project" in initialValue ? initialValue.project : project || "",
       encryptPayload: initialValue.encryptPayload || false,
+      hashSecureAttributes: initialValue.hashSecureAttributes || false,
       includeVisualExperiments: initialValue.includeVisualExperiments || false,
       includeDraftExperiments: initialValue.includeDraftExperiments || false,
       includeExperimentNames: initialValue.includeExperimentNames || false,
       proxyEnabled: initialValue.proxy?.enabled || false,
       proxyHost: initialValue.proxy?.host || "",
       sseEnabled: initialValue.sseEnabled || false,
-      ssEvalEnabled: initialValue.ssEvalEnabled || false,
+      remoteEvalEnabled: initialValue.remoteEvalEnabled || false,
     },
   });
 
@@ -100,6 +103,9 @@ export default function SDKConnectionForm({
   const hasNoSDKsWithSSESupport = languages.every(
     (l) => !languageMapping[l].supportsSSE
   );
+  const hasSDKsWithoutRemoteEvalSupport = languages.some(
+    (l) => !languageMapping[l].supportsRemoteEval
+  );
 
   const languagesWithSSESupport = Object.entries(languageMapping).filter(
     ([_, v]) => v.supportsSSE
@@ -110,10 +116,11 @@ export default function SDKConnectionForm({
     value: p.id,
   }));
   const projectId = initialValue.project;
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const projectName = getProjectById(projectId)?.name || null;
-  const projectIsOprhaned = projectId && !projectName;
-  if (projectIsOprhaned) {
+  const projectName = projectId
+    ? getProjectById(projectId)?.name || null
+    : null;
+  const projectIsDeReferenced = projectId && !projectName;
+  if (projectIsDeReferenced) {
     projectsOptions.push({
       label: "Invalid project",
       value: projectId,
@@ -134,6 +141,11 @@ export default function SDKConnectionForm({
           value.encryptPayload = false;
         }
         if (
+          value.languages.some((l) => !languageMapping[l].supportsRemoteEval)
+        ) {
+          value.remoteEvalEnabled = false;
+        }
+        if (
           languages.every((l) => !languageMapping[l].supportsVisualExperiments)
         ) {
           value.includeVisualExperiments = false;
@@ -142,9 +154,9 @@ export default function SDKConnectionForm({
           value.includeDraftExperiments = false;
         }
 
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ name: string; languages: SDKLanguage[]; en... Remove this comment to see the full error message
         const body: Omit<CreateSDKConnectionParams, "organization"> = {
           ...value,
+          project: value.project || "",
         };
 
         if (edit) {
@@ -157,7 +169,9 @@ export default function SDKConnectionForm({
           track("Create SDK Connection", {
             languages: value.languages,
             encryptPayload: value.encryptPayload,
+            hashSecureAttributes: value.hashSecureAttributes,
             proxyEnabled: value.proxyEnabled,
+            remoteEvalEnabled: value.remoteEvalEnabled,
           });
           const res = await apiCall<{ connection: SDKConnectionInterface }>(
             `/sdk-connections`,
@@ -191,13 +205,12 @@ export default function SDKConnectionForm({
       </div>
 
       <div className="row">
-        {(projects.length > 0 || projectIsOprhaned) && (
+        {(projects.length > 0 || projectIsDeReferenced) && (
           <div className="col">
             <SelectField
               label="Project"
               initialOption="All Projects"
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-              value={form.watch("project")}
+              value={form.watch("project") || ""}
               onChange={(project) => form.setValue("project", project)}
               options={projectsOptions}
               sort={false}
@@ -205,7 +218,7 @@ export default function SDKConnectionForm({
                 if (value === "") {
                   return <em>{label}</em>;
                 }
-                if (value === projectId && projectIsOprhaned) {
+                if (value === projectId && projectIsDeReferenced) {
                   return (
                     <Tooltip
                       body={
@@ -349,9 +362,8 @@ export default function SDKConnectionForm({
       )}
 
       {(!hasNoSDKsWithSSESupport || initialValue.sseEnabled) &&
-        !isCloud() &&
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        gb.isOn("proxy-cloud-sse") && (
+        isCloud() &&
+        gb?.isOn("proxy-cloud-sse") && (
           <div className="mt-3 mb-3">
             <label htmlFor="sdk-connection-sseEnabled-toggle">
               <PremiumTooltip
@@ -457,79 +469,134 @@ export default function SDKConnectionForm({
         </>
       )}
 
-      {gb?.isOn("server-side-evaluation") && (
+      {gb?.isOn("remote-evaluation") &&
+        languages.length > 0 &&
+        !hasSDKsWithoutRemoteEvalSupport && (
+          <div className="form-group mt-4">
+            <label htmlFor="remote-evaluation">
+              <PremiumTooltip
+                commercialFeature="remote-evaluation"
+                tipMinWidth="600px"
+                body={
+                  <>
+                    <p>
+                      <strong>Remote Evaluation</strong> fully secures your SDK
+                      by evaluating feature flags exclusively on a private
+                      server instead of within a front-end environment. This
+                      ensures that any sensitive information within targeting
+                      rules or unused feature variations are never seen by the
+                      client. When used in a front-end context, server side
+                      evaluation provides the same benefits as a backend SDK.
+                      However, this feature is not needed nor recommended for
+                      backend contexts.
+                    </p>
+                    <p>
+                      Remote evaluation does come with a few cost
+                      considerations:
+                      <ol className="pl-3 mt-2">
+                        <li className="mb-2">
+                          It will increase network traffic. Evaluated payloads
+                          cannot be shared across different users; therefore CDN
+                          cache misses will increase.
+                        </li>
+                        <li>
+                          Connections using instant feature deployments through{" "}
+                          <strong>
+                            {isCloud()
+                              ? "Streaming Updates"
+                              : "GrowthBook Proxy"}
+                          </strong>{" "}
+                          will incur a slight delay. An additional network hop
+                          is required to retrieve the evaluated payload from the
+                          server.
+                        </li>
+                      </ol>
+                    </p>
+                    <p className="text-warning-orange">
+                      <FaExclamationCircle /> Neither{" "}
+                      <strong>Encryption</strong> nor{" "}
+                      <strong>Secure Attribute Hashing</strong> may be used in
+                      conjunction with <strong>Remote Evaluation</strong>.
+                      However, these features are not needed as the SDK will
+                      never receive sensitive information.
+                    </p>
+                    <div className="mt-4" style={{ lineHeight: 1.2 }}>
+                      <p className="mb-0">
+                        <span className="badge badge-purple text-uppercase mr-2">
+                          Beta
+                        </span>
+                        <span className="text-purple">
+                          This is an opt-in beta feature.
+                        </span>
+                      </p>
+                    </div>
+                  </>
+                }
+              >
+                Use Remote Evaluation? <FaInfoCircle />{" "}
+                <span className="badge badge-purple text-uppercase mr-2">
+                  Beta
+                </span>
+              </PremiumTooltip>
+            </label>
+            <div className="row mb-4">
+              <div className="col-md-3">
+                <Toggle
+                  id="remote-evaluation"
+                  value={form.watch("remoteEvalEnabled")}
+                  setValue={(val) => form.setValue("remoteEvalEnabled", val)}
+                  disabled={!hasRemoteEvaluationFeature}
+                />
+              </div>
+            </div>
+          </div>
+        )}
+
+      {(!form.watch("remoteEvalEnabled") ||
+        hasSDKsWithoutRemoteEvalSupport) && (
         <div className="form-group mt-4">
-          <label htmlFor="server-side-evaluation">
+          <label htmlFor="hash-secure-attributes">
             <PremiumTooltip
-              commercialFeature="server-side-evaluation"
-              tipMinWidth="600px"
+              commercialFeature="encrypt-features-endpoint"
               body={
                 <>
                   <p>
-                    <strong>Server Side Evaluation</strong> fully secures your
-                    SDK by evaluating feature flags exclusively on a private
-                    server instead of within a front-end environment. This
-                    ensures that any sensitive information within targeting
-                    rules or unused feature variations are never seen by the
-                    client. When used in a front-end context, server side
-                    evaluation provides the same benefits as a backend SDK.
-                    However, this feature is not needed nor recommended for
-                    backend contexts.
+                    Feature targeting conditions referencing{" "}
+                    <code>secureString</code> attributes will be anonymized via
+                    SHA-256 hashing. When evaluating feature flags in a public
+                    or insecure environment (such as a browser), hashing
+                    provides an additional layer of security through
+                    obfuscation. This allows you to target users based on
+                    sensitive attributes.
                   </p>
-                  <p>
-                    Server side evaluation does come with a few cost
-                    considerations:
-                    <ol className="pl-3 mt-2">
-                      <li className="mb-2">
-                        It will increase network traffic. Evaluated payloads
-                        cannot be shared across different users; therefore CDN
-                        cache misses will increase.
-                      </li>
-                      <li>
-                        Connections using instant feature deployments through{" "}
-                        <strong>
-                          {isCloud() ? "Streaming Updates" : "GrowthBook Proxy"}
-                        </strong>{" "}
-                        will incur a slight delay. An additional network hop is
-                        required to retrieve the evaluated payload from the
-                        server.
-                      </li>
-                    </ol>
+                  <p className="mb-0 text-warning-orange small">
+                    <FaExclamationCircle /> When using an insecure environment,
+                    do not rely exclusively on hashing as a means of securing
+                    highly sensitive data. Hashing is an obfuscation technique
+                    that makes it very difficult, but not impossible, to extract
+                    sensitive data.
                   </p>
-                  <p className="text-warning-orange">
-                    <FaExclamationCircle /> Neither <strong>Encryption</strong>{" "}
-                    nor <strong>Secure Attribute Hashing</strong> may be used in
-                    conjunction with <strong>Server Side Evaluation</strong>.
-                    However, these features are not needed as the SDK will never
-                    receive sensitive information.
-                  </p>
-                  <div className="mt-4" style={{ lineHeight: 1.2 }}>
-                    <p className="mb-0">
-                      <span className="badge badge-purple text-uppercase mr-2">
-                        Beta
-                      </span>
-                      <span className="text-purple">
-                        This is an opt-in beta feature.
-                      </span>
-                    </p>
-                  </div>
                 </>
               }
             >
-              Use Server Side Evaluation? <FaInfoCircle />{" "}
-              <span className="badge badge-purple text-uppercase mr-2">
-                Beta
-              </span>
+              Hash secure attributes? <FaInfoCircle />
             </PremiumTooltip>
           </label>
           <div className="row mb-4">
             <div className="col-md-3">
               <Toggle
-                id="server-side-evaluation"
-                value={form.watch("ssEvalEnabled")}
-                setValue={(val) => form.setValue("ssEvalEnabled", val)}
-                disabled={!hasServerSideEvaluationFeature}
+                id="hash-secure-attributes"
+                value={form.watch("hashSecureAttributes")}
+                setValue={(val) => form.setValue("hashSecureAttributes", val)}
+                disabled={!hasSecureAttributesFeature}
               />
+            </div>
+            <div
+              className="col-md-9 text-gray text-right pt-2"
+              style={{ fontSize: 11 }}
+            >
+              Requires changes to your implementation.{" "}
+              <DocLink docSection="hashSecureAttributes">View docs</DocLink>
             </div>
           </div>
         </div>
@@ -537,7 +604,8 @@ export default function SDKConnectionForm({
 
       {languages.length > 0 &&
         !hasSDKsWithoutEncryptionSupport &&
-        !form.watch("ssEvalEnabled") && (
+        (!form.watch("remoteEvalEnabled") ||
+          hasSDKsWithoutRemoteEvalSupport) && (
           <EncryptionToggle
             showUpgradeModal={() => setUpgradeModal(true)}
             value={form.watch("encryptPayload")}

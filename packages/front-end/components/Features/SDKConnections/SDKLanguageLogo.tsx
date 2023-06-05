@@ -21,6 +21,7 @@ export const languageMapping: Record<
     supportsEncryption: boolean;
     supportsVisualExperiments: boolean;
     supportsSSE: boolean;
+    supportsRemoteEval: boolean;
   }
 > = {
   react: {
@@ -31,6 +32,7 @@ export const languageMapping: Record<
     supportsEncryption: true,
     supportsVisualExperiments: true,
     supportsSSE: true,
+    supportsRemoteEval: true,
   },
   ruby: {
     Icon: DiRuby,
@@ -40,6 +42,7 @@ export const languageMapping: Record<
     supportsEncryption: false,
     supportsVisualExperiments: false,
     supportsSSE: false,
+    supportsRemoteEval: false,
   },
   python: {
     Icon: DiPython,
@@ -49,6 +52,7 @@ export const languageMapping: Record<
     supportsEncryption: true,
     supportsVisualExperiments: false,
     supportsSSE: false,
+    supportsRemoteEval: false,
   },
   android: {
     Icon: DiAndroid,
@@ -58,6 +62,7 @@ export const languageMapping: Record<
     supportsEncryption: false,
     supportsVisualExperiments: false,
     supportsSSE: false,
+    supportsRemoteEval: false,
   },
   csharp: {
     Icon: FaHashtag,
@@ -67,6 +72,7 @@ export const languageMapping: Record<
     supportsEncryption: false,
     supportsVisualExperiments: false,
     supportsSSE: false,
+    supportsRemoteEval: false,
   },
   flutter: {
     Icon: SiFlutter,
@@ -76,6 +82,7 @@ export const languageMapping: Record<
     supportsEncryption: false,
     supportsVisualExperiments: false,
     supportsSSE: false,
+    supportsRemoteEval: false,
   },
   go: {
     Icon: SiGo,
@@ -85,6 +92,7 @@ export const languageMapping: Record<
     supportsEncryption: false,
     supportsVisualExperiments: false,
     supportsSSE: false,
+    supportsRemoteEval: false,
   },
   ios: {
     Icon: FaApple,
@@ -94,6 +102,7 @@ export const languageMapping: Record<
     supportsEncryption: true,
     supportsVisualExperiments: false,
     supportsSSE: false,
+    supportsRemoteEval: false,
   },
   java: {
     Icon: FaJava,
@@ -103,6 +112,7 @@ export const languageMapping: Record<
     supportsEncryption: true,
     supportsVisualExperiments: false,
     supportsSSE: false,
+    supportsRemoteEval: false,
   },
   javascript: {
     Icon: SiJavascript,
@@ -112,6 +122,7 @@ export const languageMapping: Record<
     supportsEncryption: true,
     supportsVisualExperiments: true,
     supportsSSE: true,
+    supportsRemoteEval: true,
   },
   php: {
     Icon: SiPhp,
@@ -121,6 +132,7 @@ export const languageMapping: Record<
     supportsEncryption: true,
     supportsVisualExperiments: false,
     supportsSSE: false,
+    supportsRemoteEval: false,
   },
   nodejs: {
     Icon: SiNodedotjs,
@@ -130,6 +142,7 @@ export const languageMapping: Record<
     supportsEncryption: true,
     supportsVisualExperiments: false,
     supportsSSE: true,
+    supportsRemoteEval: true,
   },
   other: {
     Icon: FaCode,
@@ -139,6 +152,7 @@ export const languageMapping: Record<
     supportsEncryption: false,
     supportsVisualExperiments: false,
     supportsSSE: false,
+    supportsRemoteEval: false,
   },
 };
 

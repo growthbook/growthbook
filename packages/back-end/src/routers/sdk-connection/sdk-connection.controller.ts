@@ -51,26 +51,32 @@ export const postSDKConnection = async (
     encryptPayload = params.encryptPayload;
   }
 
+  let hashSecureAttributes = false;
+  if (orgHasPremiumFeature(org, "hash-secure-attributes")) {
+    hashSecureAttributes = params.hashSecureAttributes;
+  }
+
   let sseEnabled = false;
   if (orgHasPremiumFeature(org, "cloud-proxy")) {
     sseEnabled = params.sseEnabled || false;
   }
 
-  let ssEvalEnabled = false;
-  if (orgHasPremiumFeature(org, "server-side-evaluation")) {
-    ssEvalEnabled = params.ssEvalEnabled || false;
+  let remoteEvalEnabled = false;
+  if (orgHasPremiumFeature(org, "remote-evaluation")) {
+    remoteEvalEnabled = params.remoteEvalEnabled || false;
   }
 
-  if (ssEvalEnabled) {
+  if (remoteEvalEnabled) {
     encryptPayload = false;
-    // hashSecureAttributes = false;
+    hashSecureAttributes = false;
   }
 
   const doc = await createSDKConnection({
     ...params,
     encryptPayload,
+    hashSecureAttributes,
     sseEnabled,
-    ssEvalEnabled,
+    remoteEvalEnabled,
     organization: org.id,
   });
 
@@ -109,26 +115,32 @@ export const putSDKConnection = async (
     encryptPayload = false;
   }
 
+  let hashSecureAttributes = false;
+  if (orgHasPremiumFeature(org, "hash-secure-attributes")) {
+    hashSecureAttributes = req.body.hashSecureAttributes || false;
+  }
+
   let sseEnabled = false;
   if (orgHasPremiumFeature(org, "cloud-proxy")) {
     sseEnabled = req.body.sseEnabled || false;
   }
 
-  let ssEvalEnabled = false;
-  if (orgHasPremiumFeature(org, "server-side-evaluation")) {
-    ssEvalEnabled = req.body.ssEvalEnabled || false;
+  let remoteEvalEnabled = false;
+  if (orgHasPremiumFeature(org, "remote-evaluation")) {
+    remoteEvalEnabled = req.body.remoteEvalEnabled || false;
   }
 
-  if (ssEvalEnabled) {
+  if (remoteEvalEnabled) {
     encryptPayload = false;
-    // hashSecureAttributes = false;
+    hashSecureAttributes = false;
   }
 
   await editSDKConnection(connection, {
     ...req.body,
     encryptPayload,
+    hashSecureAttributes,
     sseEnabled,
-    ssEvalEnabled,
+    remoteEvalEnabled,
   });
 
   res.status(200).json({

@@ -72,7 +72,9 @@ import { ExperimentRule, NamespaceValue } from "../../../types/feature";
 import { usingOpenId } from "../../services/auth";
 import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
 import {
-  createApiKey,
+  createLegacySdkKey,
+  createOrganizationApiKey,
+  createUserPersonalAccessApiKey,
   deleteApiKeyById,
   deleteApiKeyByKey,
   getAllApiKeysByOrganization,
@@ -1183,9 +1185,11 @@ export async function putOrganization(
 export async function getApiKeys(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
   const keys = await getAllApiKeysByOrganization(org.id);
+  const filteredKeys = keys.filter((k) => !k.userId || k.userId === req.userId);
+
   res.status(200).json({
     status: 200,
-    keys,
+    keys: filteredKeys,
   });
 }
 
@@ -1194,13 +1198,21 @@ export async function postApiKey(
     description?: string;
     environment: string;
     project: string;
+    type: string;
     secret: boolean;
     encryptSDK: boolean;
   }>,
   res: Response
 ) {
-  const { org } = getOrgFromReq(req);
-  const { description, environment, project, secret, encryptSDK } = req.body;
+  const { org, userId } = getOrgFromReq(req);
+  const {
+    description = "",
+    environment = "",
+    project = "",
+    secret = false,
+    encryptSDK,
+    type,
+  } = req.body;
 
   const { preferExisting } = req.query as { preferExisting?: string };
   if (preferExisting) {
@@ -1218,17 +1230,58 @@ export async function postApiKey(
 
   // Only require permissions if we are creating a new API key
   if (secret) {
-    req.checkPermissions("manageApiKeys");
+    if (type !== "user") {
+      // All access token types except `user` require the permission
+      req.checkPermissions("manageApiKeys");
+    }
   } else {
     req.checkPermissions("manageEnvironments", "", [environment]);
   }
 
-  const key = await createApiKey({
-    organization: org.id,
-    description: description || "",
-    environment: environment || "",
-    project: project || "",
-    secret: !!secret,
+  // Handle user personal access tokens
+  if (type === "user") {
+    if (!userId) {
+      throw new Error(
+        "Cannot create user personal access token without a user ID"
+      );
+    }
+
+    const key = await createUserPersonalAccessApiKey({
+      description,
+      userId: userId,
+      organizationId: org.id,
+    });
+
+    return res.status(200).json({
+      status: 200,
+      key,
+    });
+  }
+
+  // Handle organization secret tokens
+  if (secret) {
+    if (type && !["readonly", "admin"].includes(type)) {
+      throw new Error("can only assign readonly or admin roles");
+    }
+
+    const key = await createOrganizationApiKey({
+      organizationId: org.id,
+      description,
+      role: type as "readonly" | "admin",
+    });
+
+    return res.status(200).json({
+      status: 200,
+      key,
+    });
+  }
+
+  // Handle legacy SDK connection
+  const key = await createLegacySdkKey({
+    description,
+    environment,
+    project,
+    organizationId: org.id,
     encryptSDK,
   });
 
@@ -1279,12 +1332,29 @@ export async function postApiKeyReveal(
   req: AuthRequest<{ id: string }>,
   res: Response
 ) {
-  req.checkPermissions("manageApiKeys");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.body;
 
   const key = await getUnredactedSecretKey(org.id, id);
+  if (!key) {
+    return res.status(403).json({
+      status: 403,
+    });
+  }
+
+  if (!key.userId) {
+    // Only admins can reveal non-user keys
+    req.checkPermissions("manageApiKeys");
+  } else {
+    // This is a user key
+    // The key must be owned by the user requesting to reveal it
+    const isMatchingUserKey = req.userId === key.userId;
+    if (!isMatchingUserKey) {
+      return res.status(403).json({
+        status: 403,
+      });
+    }
+  }
 
   res.status(200).json({
     status: 200,
