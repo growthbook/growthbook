@@ -29,6 +29,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sequential-testing",
     "visual-editor",
     "cloud-proxy",
+    "hash-secure-attributes",
     "server-side-evaluation",
   ]),
   pro_sso: new Set<CommercialFeature>([
@@ -41,6 +42,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sequential-testing",
     "visual-editor",
     "cloud-proxy",
+    "hash-secure-attributes",
     "server-side-evaluation",
   ]),
   enterprise: new Set<CommercialFeature>([
@@ -54,6 +56,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sequential-testing",
     "visual-editor",
     "cloud-proxy",
+    "hash-secure-attributes",
     "server-side-evaluation",
   ]),
 };

@@ -23,7 +23,7 @@ const NamespacesPage: FC = () => {
   const canEdit = permissions.manageNamespaces;
 
   const { refreshOrganization } = useUser();
-  const { namespaces } = useOrgSettings();
+  const { namespaces = [] } = useOrgSettings();
   const [modalOpen, setModalOpen] = useState(false);
   const [editNamespace, setEditNamespace] = useState<{
     namespace: Namespaces;
@@ -46,7 +46,6 @@ const NamespacesPage: FC = () => {
     <div className="container-fluid pagecontents">
       {modalOpen && (
         <NamespaceModal
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ namespace: Namespaces; experiments: number... Remove this comment to see the full error message
           existing={editNamespace}
           close={() => {
             setModalOpen(false);
@@ -61,12 +60,10 @@ const NamespacesPage: FC = () => {
       <h1>Experiment Namespaces</h1>
       <p>
         Namespaces allow you to run mutually exclusive experiments.{" "}
-        {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-        {namespaces?.length > 0 &&
+        {namespaces.length > 0 &&
           "Click a namespace below to see more details about it's current usage."}
       </p>
-      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-      {namespaces?.length > 0 && (
+      {namespaces.length > 0 && (
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>
@@ -78,7 +75,6 @@ const NamespacesPage: FC = () => {
             </tr>
           </thead>
           <tbody>
-            {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
             {namespaces.map((ns, i) => {
               const experiments = data?.namespaces[ns.name] ?? [];
               return (

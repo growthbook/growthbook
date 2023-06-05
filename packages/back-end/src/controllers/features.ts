@@ -72,6 +72,7 @@ async function getPayloadParamsFromApiKey(
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  hashSecureAttributes?: boolean;
 }> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
@@ -100,6 +101,7 @@ async function getPayloadParamsFromApiKey(
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
+      hashSecureAttributes: connection.hashSecureAttributes,
     };
   }
   // Old, legacy API Key
@@ -163,6 +165,7 @@ async function getFeaturesPayload(
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      hashSecureAttributes,
     } = await getPayloadParamsFromApiKey(key, req);
 
     if (mode === "ssEval" && !ssEvalEnabled) {
@@ -184,6 +187,7 @@ async function getFeaturesPayload(
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      hashSecureAttributes,
     });
 
     // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)

@@ -1,9 +1,6 @@
 import { Response } from "express";
 import uniqid from "uniqid";
-import {
-  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  DEFAULT_STATS_ENGINE,
-} from "shared/constants";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { AuthRequest } from "../types/AuthRequest";
 import { getOrgFromReq } from "../services/organizations";
 import {
@@ -40,6 +37,7 @@ import {
   insertMetric,
   getMetricsByDatasource,
   getSampleMetrics,
+  getMetricMap,
 } from "../models/MetricModel";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { deleteInformationSchemaById } from "../models/InformationSchemaModel";
@@ -185,6 +183,8 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
       user: res.locals.eventAudit,
     });
 
+    const metricMap = await getMetricMap(org.id);
+
     await createManualSnapshot(
       experiment,
       0,
@@ -221,11 +221,13 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
       },
       {
         statsEngine,
-        regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-        metricRegressionAdjustmentStatuses: [],
-        sequentialTestingEnabled: false,
+        dimensions: [],
+        pValueCorrection: null,
+        sequentialTesting: false,
         sequentialTestingTuningParameter: 0,
-      }
+        regressionAdjusted: false,
+      },
+      metricMap
     );
   }
 

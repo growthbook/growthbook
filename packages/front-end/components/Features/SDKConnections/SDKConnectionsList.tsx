@@ -6,7 +6,11 @@ import { BsLightningFill } from "react-icons/bs";
 import { RxDesktop } from "react-icons/rx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBAddCircle, GBServerSideEvalIcon } from "@/components/Icons";
+import {
+  GBAddCircle,
+  GBHashLock,
+  GBServerSideEvalIcon,
+} from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
@@ -68,7 +72,7 @@ export default function SDKConnectionsList() {
 
               const projectId = connection.project;
               const projectName = getProjectById(projectId)?.name || null;
-              const projectIsOprhaned = projectId && !projectName;
+              const projectIsDeReferenced = projectId && !projectName;
 
               return (
                 <tr
@@ -80,7 +84,7 @@ export default function SDKConnectionsList() {
                   }}
                 >
                   <td style={{ verticalAlign: "middle", width: 20 }}>
-                    {projectIsOprhaned ? (
+                    {projectIsDeReferenced ? (
                       <Tooltip body='This SDK connection is scoped to a project that no longer exists. This connection will no longer work until either a valid project or "All Projects" is selected.'>
                         <FaExclamationTriangle className="text-danger" />
                       </Tooltip>
@@ -107,7 +111,7 @@ export default function SDKConnectionsList() {
                   </td>
                   {projects.length > 0 && (
                     <td>
-                      {projectIsOprhaned ? (
+                      {projectIsDeReferenced ? (
                         <Tooltip
                           body={
                             <>
@@ -134,6 +138,18 @@ export default function SDKConnectionsList() {
                         }
                       >
                         <GBServerSideEvalIcon className="mx-1 text-purple" />
+                      </Tooltip>
+                    )}
+                    {connection.hashSecureAttributes && (
+                      <Tooltip
+                        body={
+                          <>
+                            <strong>Secure Attribute Hashing</strong> is enabled
+                            for this connection&apos;s SDK payload
+                          </>
+                        }
+                      >
+                        <GBHashLock className="mx-1 text-blue" />
                       </Tooltip>
                     )}
                     {connection.encryptPayload && (

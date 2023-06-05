@@ -587,8 +587,7 @@ export interface components {
       proxyEnabled: boolean;
       proxyHost: string;
       proxySigningKey: string;
-      sseEnabled?: boolean;
-      ssEvalEnabled?: boolean;
+      sseEnabled?: any;
     };
     Experiment: {
       id: string;
@@ -1519,8 +1518,7 @@ export interface operations {
                 proxyEnabled: boolean;
                 proxyHost: string;
                 proxySigningKey: string;
-                sseEnabled?: boolean;
-                ssEvalEnabled?: boolean;
+                sseEnabled?: any;
               })[];
           } & {
             limit: number;
@@ -1559,8 +1557,7 @@ export interface operations {
               proxyEnabled: boolean;
               proxyHost: string;
               proxySigningKey: string;
-              sseEnabled?: boolean;
-              ssEvalEnabled?: boolean;
+              sseEnabled?: any;
             };
           };
         };

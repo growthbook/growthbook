@@ -5,7 +5,7 @@ import { logger } from "../util/logger";
 
 mongoose.Promise = bluebird;
 
-export default async () => {
+export default async (): Promise<void> => {
   // Connect to MongoDB
   try {
     let uri = MONGODB_URI;
@@ -13,10 +13,11 @@ export default async () => {
       uri = process.env.MONGO_URL || "";
     }
 
-    return await mongoose.connect(uri, {
-      useNewUrlParser: true,
-      useCreateIndex: true,
-      useUnifiedTopology: true,
+    // in Mongoose 7.x, connect will no longer return a Mongoose client
+    await mongoose.connect(uri, {
+      bufferCommands: false,
+      autoCreate: true,
+      autoIndex: true,
     });
   } catch (e) {
     logger.error(e, "Failed to connect to MongoDB");

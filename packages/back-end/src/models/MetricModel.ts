@@ -95,7 +95,7 @@ const metricSchema = new mongoose.Schema({
 metricSchema.index({ id: 1, organization: 1 }, { unique: true });
 type MetricDocument = mongoose.Document & MetricInterface;
 
-const MetricModel = mongoose.model<MetricDocument>("Metric", metricSchema);
+const MetricModel = mongoose.model<MetricInterface>("Metric", metricSchema);
 
 function toInterface(doc: MetricDocument): MetricInterface {
   return upgradeMetricDoc(doc.toJSON());
@@ -116,6 +116,16 @@ export async function deleteMetricById(id: string, organization: string) {
     id,
     organization,
   });
+}
+
+export async function getMetricMap(organization: string) {
+  const metricMap = new Map<string, MetricInterface>();
+  const allMetrics = await getMetricsByOrganization(organization);
+  allMetrics.forEach((m) => {
+    metricMap.set(m.id, m);
+  });
+
+  return metricMap;
 }
 
 export async function getMetricsByOrganization(organization: string) {
