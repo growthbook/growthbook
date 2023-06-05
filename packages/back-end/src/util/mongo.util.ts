@@ -1,6 +1,7 @@
 /**
  * Assists in migrating any field options that MongoDB has changed between major versions 3 and 4.
  * Replaces the query with an equivalent where keys that can be mapped 1-to-1 are replaced with their new values.
+ * @return ResultDeprecatedKeysMigrationV3to4
  *
  * Fields that are concerning and do not have 1-to-1 mappings:
  *  - autoReconnect: is no longer documented
@@ -62,8 +63,23 @@ export const getConnectionStringWithDeprecatedKeysMigratedForV3to4 = (
   }
 };
 
+/**
+ * Result object for a MongoDB URI connection string migration attempt from v3 to v4.
+ * Includes the modified URI, the deprecated old keys list, and whether the connection string modification was successful.
+ */
 type ResultDeprecatedKeysMigrationV3to4 = {
+  /**
+   * false when the URL fails to parse
+   */
   success: boolean;
+
+  /**
+   * Modified URL
+   */
   url: string;
+
+  /**
+   * Old keys that have been remapped
+   */
   remapped: string[];
 };

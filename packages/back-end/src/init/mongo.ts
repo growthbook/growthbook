@@ -1,26 +1,51 @@
-import mongoose from "mongoose";
+import mongoose, { ConnectOptions } from "mongoose";
 import bluebird from "bluebird";
 import { MONGODB_URI } from "../util/secrets";
 import { logger } from "../util/logger";
+import { getConnectionStringWithDeprecatedKeysMigratedForV3to4 } from "../util/mongo.util";
 
 mongoose.Promise = bluebird;
 
 export default async (): Promise<void> => {
+  let uri = MONGODB_URI;
+  if (process.env.NODE_ENV === "test") {
+    uri = process.env.MONGO_URL || "";
+  }
+
+  const mongooseOpts: ConnectOptions = {
+    bufferCommands: false,
+    autoCreate: true,
+    autoIndex: true,
+  };
+
   // Connect to MongoDB
   try {
-    let uri = MONGODB_URI;
-    if (process.env.NODE_ENV === "test") {
-      uri = process.env.MONGO_URL || "";
-    }
-
     // in Mongoose 7.x, connect will no longer return a Mongoose client
-    await mongoose.connect(uri, {
-      bufferCommands: false,
-      autoCreate: true,
-      autoIndex: true,
-    });
+    await mongoose.connect(uri, mongooseOpts);
   } catch (e) {
-    logger.error(e, "Failed to connect to MongoDB");
-    throw new Error("MongoDB connection error.");
+    logger.warn(
+      e,
+      "Failed to connect to MongoDB. Retrying with field remapping for mongodb v3 to v4"
+    );
+
+    try {
+      const {
+        url: modifiedUri,
+        success,
+        remapped,
+      } = getConnectionStringWithDeprecatedKeysMigratedForV3to4(uri);
+      if (!success) {
+        throw new Error("mongodb connection string invalid");
+      }
+
+      await mongoose.connect(modifiedUri, mongooseOpts);
+      logger.warn(`mongodb deprecated fields remapped: ${remapped.join(", ")}`);
+    } catch (e) {
+      logger.error(
+        e,
+        "Failed to connect to MongoDB. Retrying with field remapping for mongodb v3 to v4"
+      );
+      throw new Error("MongoDB connection error.");
+    }
   }
 };
