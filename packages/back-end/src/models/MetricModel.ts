@@ -125,6 +125,16 @@ export async function deleteMetricById(id: string, organization: string) {
   });
 }
 
+export async function getMetricMap(organization: string) {
+  const metricMap = new Map<string, MetricInterface>();
+  const allMetrics = await getMetricsByOrganization(organization);
+  allMetrics.forEach((m) => {
+    metricMap.set(m.id, m);
+  });
+
+  return metricMap;
+}
+
 export async function getMetricsByOrganization(organization: string) {
   // If using config.yml, immediately return the list from there
   if (usingFileConfig()) {
