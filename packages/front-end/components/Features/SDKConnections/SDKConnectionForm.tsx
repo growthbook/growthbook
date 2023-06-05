@@ -103,6 +103,9 @@ export default function SDKConnectionForm({
   const hasNoSDKsWithSSESupport = languages.every(
     (l) => !languageMapping[l].supportsSSE
   );
+  const hasSDKsWithoutRemoteEvalSupport = languages.some(
+    (l) => !languageMapping[l].supportsRemoteEval
+  );
 
   const languagesWithSSESupport = Object.entries(languageMapping).filter(
     ([_, v]) => v.supportsSSE
@@ -136,6 +139,11 @@ export default function SDKConnectionForm({
           value.languages.some((l) => !languageMapping[l].supportsEncryption)
         ) {
           value.encryptPayload = false;
+        }
+        if (
+          value.languages.some((l) => !languageMapping[l].supportsRemoteEval)
+        ) {
+          value.remoteEvalEnabled = false;
         }
         if (
           languages.every((l) => !languageMapping[l].supportsVisualExperiments)
@@ -461,83 +469,91 @@ export default function SDKConnectionForm({
         </>
       )}
 
-      {gb?.isOn("remote-evaluation") && (
-        <div className="form-group mt-4">
-          <label htmlFor="remote-evaluation">
-            <PremiumTooltip
-              commercialFeature="remote-evaluation"
-              tipMinWidth="600px"
-              body={
-                <>
-                  <p>
-                    <strong>Remote Evaluation</strong> fully secures your SDK by
-                    evaluating feature flags exclusively on a private server
-                    instead of within a front-end environment. This ensures that
-                    any sensitive information within targeting rules or unused
-                    feature variations are never seen by the client. When used
-                    in a front-end context, server side evaluation provides the
-                    same benefits as a backend SDK. However, this feature is not
-                    needed nor recommended for backend contexts.
-                  </p>
-                  <p>
-                    Remote evaluation does come with a few cost considerations:
-                    <ol className="pl-3 mt-2">
-                      <li className="mb-2">
-                        It will increase network traffic. Evaluated payloads
-                        cannot be shared across different users; therefore CDN
-                        cache misses will increase.
-                      </li>
-                      <li>
-                        Connections using instant feature deployments through{" "}
-                        <strong>
-                          {isCloud() ? "Streaming Updates" : "GrowthBook Proxy"}
-                        </strong>{" "}
-                        will incur a slight delay. An additional network hop is
-                        required to retrieve the evaluated payload from the
-                        server.
-                      </li>
-                    </ol>
-                  </p>
-                  <p className="text-warning-orange">
-                    <FaExclamationCircle /> Neither <strong>Encryption</strong>{" "}
-                    nor <strong>Secure Attribute Hashing</strong> may be used in
-                    conjunction with <strong>Remote Evaluation</strong>.
-                    However, these features are not needed as the SDK will never
-                    receive sensitive information.
-                  </p>
-                  <div className="mt-4" style={{ lineHeight: 1.2 }}>
-                    <p className="mb-0">
-                      <span className="badge badge-purple text-uppercase mr-2">
-                        Beta
-                      </span>
-                      <span className="text-purple">
-                        This is an opt-in beta feature.
-                      </span>
+      {gb?.isOn("remote-evaluation") &&
+        languages.length > 0 &&
+        !hasSDKsWithoutRemoteEvalSupport && (
+          <div className="form-group mt-4">
+            <label htmlFor="remote-evaluation">
+              <PremiumTooltip
+                commercialFeature="remote-evaluation"
+                tipMinWidth="600px"
+                body={
+                  <>
+                    <p>
+                      <strong>Remote Evaluation</strong> fully secures your SDK
+                      by evaluating feature flags exclusively on a private
+                      server instead of within a front-end environment. This
+                      ensures that any sensitive information within targeting
+                      rules or unused feature variations are never seen by the
+                      client. When used in a front-end context, server side
+                      evaluation provides the same benefits as a backend SDK.
+                      However, this feature is not needed nor recommended for
+                      backend contexts.
                     </p>
-                  </div>
-                </>
-              }
-            >
-              Use Remote Evaluation? <FaInfoCircle />{" "}
-              <span className="badge badge-purple text-uppercase mr-2">
-                Beta
-              </span>
-            </PremiumTooltip>
-          </label>
-          <div className="row mb-4">
-            <div className="col-md-3">
-              <Toggle
-                id="remote-evaluation"
-                value={form.watch("remoteEvalEnabled")}
-                setValue={(val) => form.setValue("remoteEvalEnabled", val)}
-                disabled={!hasRemoteEvaluationFeature}
-              />
+                    <p>
+                      Remote evaluation does come with a few cost
+                      considerations:
+                      <ol className="pl-3 mt-2">
+                        <li className="mb-2">
+                          It will increase network traffic. Evaluated payloads
+                          cannot be shared across different users; therefore CDN
+                          cache misses will increase.
+                        </li>
+                        <li>
+                          Connections using instant feature deployments through{" "}
+                          <strong>
+                            {isCloud()
+                              ? "Streaming Updates"
+                              : "GrowthBook Proxy"}
+                          </strong>{" "}
+                          will incur a slight delay. An additional network hop
+                          is required to retrieve the evaluated payload from the
+                          server.
+                        </li>
+                      </ol>
+                    </p>
+                    <p className="text-warning-orange">
+                      <FaExclamationCircle /> Neither{" "}
+                      <strong>Encryption</strong> nor{" "}
+                      <strong>Secure Attribute Hashing</strong> may be used in
+                      conjunction with <strong>Remote Evaluation</strong>.
+                      However, these features are not needed as the SDK will
+                      never receive sensitive information.
+                    </p>
+                    <div className="mt-4" style={{ lineHeight: 1.2 }}>
+                      <p className="mb-0">
+                        <span className="badge badge-purple text-uppercase mr-2">
+                          Beta
+                        </span>
+                        <span className="text-purple">
+                          This is an opt-in beta feature.
+                        </span>
+                      </p>
+                    </div>
+                  </>
+                }
+              >
+                Use Remote Evaluation? <FaInfoCircle />{" "}
+                <span className="badge badge-purple text-uppercase mr-2">
+                  Beta
+                </span>
+              </PremiumTooltip>
+            </label>
+            <div className="row mb-4">
+              <div className="col-md-3">
+                <Toggle
+                  id="remote-evaluation"
+                  value={form.watch("remoteEvalEnabled")}
+                  setValue={(val) => form.setValue("remoteEvalEnabled", val)}
+                  disabled={!hasRemoteEvaluationFeature}
+                />
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {!form.watch("remoteEvalEnabled") && (
+      {(!form.watch("remoteEvalEnabled") ||
+        hasSDKsWithoutRemoteEvalSupport) && (
         <div className="form-group mt-4">
           <label htmlFor="hash-secure-attributes">
             <PremiumTooltip
@@ -588,7 +604,8 @@ export default function SDKConnectionForm({
 
       {languages.length > 0 &&
         !hasSDKsWithoutEncryptionSupport &&
-        !form.watch("remoteEvalEnabled") && (
+        (!form.watch("remoteEvalEnabled") ||
+          hasSDKsWithoutRemoteEvalSupport) && (
           <EncryptionToggle
             showUpgradeModal={() => setUpgradeModal(true)}
             value={form.watch("encryptPayload")}
