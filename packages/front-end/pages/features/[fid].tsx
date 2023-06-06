@@ -10,7 +10,7 @@ import {
   FaExclamationTriangle,
 } from "react-icons/fa";
 import { BsLightningFill } from "react-icons/bs";
-import { datetime } from "shared";
+import { datetime } from "shared/dates";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -117,7 +117,9 @@ export default function FeaturePage() {
     return <LoadingOverlay />;
   }
 
-  const { jsonSchema, validationEnabled } = getValidation(data.feature);
+  const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
+    data.feature
+  );
 
   const isDraft = !!data.feature.draft?.active;
   const isArchived = data.feature.archived;
@@ -127,15 +129,31 @@ export default function FeaturePage() {
   const projectId = data.feature.project;
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
-  const projectIsOprhaned = projectId && !projectName;
+  const projectIsDeReferenced = projectId && !projectName;
+
+  const schemaDescription = new Map();
+  if (jsonSchema && "properties" in jsonSchema) {
+    Object.keys(jsonSchema.properties).map((key) => {
+      schemaDescription.set(key, { required: false, describes: true });
+    });
+  }
+  if (jsonSchema && "required" in jsonSchema) {
+    Object.values(jsonSchema.required).map((key) => {
+      if (schemaDescription.has(key)) {
+        schemaDescription.set(key, { required: true, describes: true });
+      } else {
+        schemaDescription.set(key, { required: true, describes: false });
+      }
+    });
+  }
+  const schemaDescriptionItems = [...schemaDescription.keys()];
 
   const hasDraftPublishPermission =
     isDraft &&
     permissions.check(
       "publishFeatures",
       projectId,
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      "defaultValue" in data.feature.draft
+      "defaultValue" in (data?.feature?.draft || {})
         ? getEnabledEnvironments(data.feature)
         : getAffectedEnvs(
             data.feature,
@@ -269,8 +287,7 @@ export default function FeaturePage() {
       )}
       {editTagsModal && (
         <EditTagsForm
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
-          tags={data.feature?.tags}
+          tags={data.feature?.tags || []}
           save={async (tags) => {
             await apiCall(`/feature/${data.feature.id}`, {
               method: "PUT",
@@ -455,10 +472,10 @@ export default function FeaturePage() {
       </div>
 
       <div className="mb-2 row">
-        {(projects.length > 0 || projectIsOprhaned) && (
+        {(projects.length > 0 || projectIsDeReferenced) && (
           <div className="col-auto">
             Project:{" "}
-            {projectIsOprhaned ? (
+            {projectIsDeReferenced ? (
               <Tooltip
                 body={
                   <>
@@ -534,8 +551,7 @@ export default function FeaturePage() {
       <div className="mb-3">
         <div className={data.feature.description ? "appbox mb-4 p-3" : ""}>
           <MarkdownInlineEdit
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-            value={data.feature.description}
+            value={data.feature.description || ""}
             canEdit={permissions.check("manageFeatures", projectId)}
             canCreate={permissions.check("manageFeatures", projectId)}
             save={async (description) => {
@@ -582,28 +598,13 @@ export default function FeaturePage() {
         </div>
       </div>
 
-      <h3>
-        Default Value
-        {permissions.check("createFeatureDrafts", projectId) && (
-          <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
-            <GBEdit />
-          </a>
-        )}
-      </h3>
-      <div className="appbox mb-4 p-3">
-        <ForceSummary
-          value={getFeatureDefaultValue(data.feature)}
-          feature={data.feature}
-        />
-      </div>
-
       {data.feature.valueType === "json" && (
         <div>
           <h3>
             Json Schema{" "}
             <Tooltip
               body={
-                "Adding a json schema will allow you to validate json objects inputted here."
+                "Adding a json schema will allow you to validate json objects used in this feature."
               }
             />
             {permissions.check("createFeatureDrafts", projectId) && (
@@ -623,31 +624,48 @@ export default function FeaturePage() {
                 <div className="d-flex justify-content-between">
                   {/* region Title Bar */}
 
-                  <div className="d-flex align-items-center">
-                    {validationEnabled ? (
-                      <strong className="text-success">Enabled</strong>
-                    ) : (
-                      <>
-                        <strong className="text-warning">Disabled</strong>
-                      </>
+                  <div className="d-flex align-items-left flex-column">
+                    <div>
+                      {validationEnabled ? (
+                        <strong className="text-success">Enabled</strong>
+                      ) : (
+                        <>
+                          <strong className="text-warning">Disabled</strong>
+                        </>
+                      )}
+                      {schemaDescription && schemaDescriptionItems && (
+                        <>
+                          {" "}
+                          Describes:
+                          {schemaDescriptionItems.map((v, i) => {
+                            const required = schemaDescription.has(v)
+                              ? schemaDescription.get(v).required
+                              : false;
+                            return (
+                              <strong
+                                className="ml-1"
+                                key={i}
+                                title={required ? "This field is required" : ""}
+                              >
+                                {v}
+                                {required && (
+                                  <span className="text-danger text-su">*</span>
+                                )}
+                                {i < schemaDescriptionItems.length - 1 && (
+                                  <span>, </span>
+                                )}
+                              </strong>
+                            );
+                          })}
+                        </>
+                      )}
+                    </div>
+                    {schemaDateUpdated && (
+                      <div className="text-muted">
+                        Date updated:{" "}
+                        {schemaDateUpdated ? datetime(schemaDateUpdated) : ""}
+                      </div>
                     )}
-                    {jsonSchema && "properties" in jsonSchema && (
-                      <>
-                        , Describes:
-                        <strong className="ml-1">
-                          {Object.keys(jsonSchema.properties).join(", ")}
-                        </strong>
-                      </>
-                    )}
-                    {jsonSchema && "required" in jsonSchema && (
-                      <>
-                        , Requires:{" "}
-                        <strong className="ml-1">
-                          {jsonSchema.required.join(", ")}
-                        </strong>
-                      </>
-                    )}
-                    , Date updated: {datetime(jsonSchema.date)}
                   </div>
 
                   <div className="d-flex align-items-center">
@@ -680,6 +698,21 @@ export default function FeaturePage() {
         </div>
       )}
 
+      <h3>
+        Default Value
+        {permissions.check("createFeatureDrafts", projectId) && (
+          <a className="ml-2 cursor-pointer" onClick={() => setEdit(true)}>
+            <GBEdit />
+          </a>
+        )}
+      </h3>
+      <div className="appbox mb-4 p-3">
+        <ForceSummary
+          value={getFeatureDefaultValue(data.feature)}
+          feature={data.feature}
+        />
+      </div>
+
       <h3>Override Rules</h3>
       <p>
         Add powerful logic on top of your feature. The first matching rule
@@ -687,8 +720,9 @@ export default function FeaturePage() {
       </p>
 
       <ControlledTabs
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<string>>' is not ass... Remove this comment to see the full error message
-        setActive={setEnv}
+        setActive={(v) => {
+          setEnv(v || "");
+        }}
         active={env}
         showActiveCount={true}
         newStyle={false}

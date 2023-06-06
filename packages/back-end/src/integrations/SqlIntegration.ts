@@ -1,10 +1,12 @@
 import cloneDeep from "lodash/cloneDeep";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS, getValidDate } from "shared";
+import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
+import { getValidDate } from "shared/dates";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceSettings,
   DataSourceProperties,
   ExposureQuery,
+  DataSourceType,
 } from "../../types/datasource";
 import {
   MetricValueParams,
@@ -19,6 +21,8 @@ import {
   Dimension,
   TestQueryResult,
   MetricAggregationType,
+  InformationSchema,
+  RawInformationSchema,
 } from "../types/Integration";
 import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
@@ -34,21 +38,17 @@ import {
   FormatDialect,
 } from "../util/sql";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
+import { formatInformationSchema } from "../util/informationSchemas";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
   settings: DataSourceSettings;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  datasource: string;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  organization: string;
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-expect-error
-  decryptionError: boolean;
+  datasource!: string;
+  organization!: string;
+  decryptionError!: boolean;
   // eslint-disable-next-line
   params: any;
+  type!: DataSourceType;
   abstract setParams(encryptedParams: string): void;
   // eslint-disable-next-line
   abstract runQuery(sql: string): Promise<any[]>;
@@ -78,7 +78,7 @@ export default abstract class SqlIntegration
       experimentSegments: true,
       activationDimension: true,
       pastExperiments: true,
-      supportsInformationSchema: false,
+      supportsInformationSchema: true,
     };
   }
 
@@ -1230,6 +1230,63 @@ export default abstract class SqlIntegration
   }
   async getExperimentResults(): Promise<ExperimentQueryResponses> {
     throw new Error("Not implemented");
+  }
+  getInformationSchemaFromClause(): string {
+    return "information_schema.columns";
+  }
+  getInformationSchemaWhereClause(): string {
+    return "table_schema NOT IN ('information_schema')";
+  }
+  getInformationSchemaTableFromClause(
+    // eslint-disable-next-line
+    databaseName: string,
+    // eslint-disable-next-line
+    tableSchema: string
+  ): string {
+    return "information_schema.columns";
+  }
+  async getInformationSchema(): Promise<InformationSchema[]> {
+    const sql = `
+  SELECT 
+    table_name as table_name,
+    table_catalog as table_catalog,
+    table_schema as table_schema,
+    count(column_name) as column_count 
+  FROM
+    ${this.getInformationSchemaFromClause()}
+    WHERE ${this.getInformationSchemaWhereClause()}
+    GROUP BY table_name, table_schema, table_catalog`;
+
+    const results = await this.runQuery(format(sql, this.getFormatDialect()));
+
+    if (!results.length) {
+      throw new Error(`No tables found.`);
+    }
+
+    return formatInformationSchema(
+      results as RawInformationSchema[],
+      this.type
+    );
+  }
+  async getTableData(
+    databaseName: string,
+    tableSchema: string,
+    tableName: string
+  ): Promise<{ tableData: null | unknown[] }> {
+    const sql = `
+  SELECT 
+    data_type as data_type,
+    column_name as column_name 
+  FROM
+    ${this.getInformationSchemaTableFromClause(databaseName, tableSchema)}
+  WHERE 
+    table_name = '${tableName}'
+    AND table_schema = '${tableSchema}'
+    AND table_catalog = '${databaseName}'`;
+
+    const tableData = await this.runQuery(format(sql, this.getFormatDialect()));
+
+    return { tableData };
   }
 
   private getMetricQueryFormat(metric: MetricInterface) {

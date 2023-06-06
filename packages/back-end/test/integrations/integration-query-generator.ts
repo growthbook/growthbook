@@ -1,5 +1,5 @@
 import fs from "fs";
-import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared";
+import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared/constants";
 import { DataSourceInterface, DataSourceType } from "../../types/datasource";
 import {
   AttributionModel,

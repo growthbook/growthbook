@@ -163,7 +163,7 @@ export default function FeatureModal({
     : "Create Feature";
 
   let ctaEnabled = true;
-  let disabledMessage;
+  let disabledMessage: string | undefined;
 
   if (!permissions.check("createFeatureDrafts", project)) {
     ctaEnabled = false;

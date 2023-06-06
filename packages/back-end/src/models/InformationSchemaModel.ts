@@ -77,7 +77,7 @@ const informationSchema = new mongoose.Schema({
 
 type InformationSchemaDocument = mongoose.Document & InformationSchemaInterface;
 
-const InformationSchemaModel = mongoose.model<InformationSchemaDocument>(
+const InformationSchemaModel = mongoose.model<InformationSchemaInterface>(
   "InformationSchema",
   informationSchema
 );
@@ -88,7 +88,8 @@ const InformationSchemaModel = mongoose.model<InformationSchemaDocument>(
  */
 const toInterface = (
   doc: InformationSchemaDocument
-): InformationSchemaInterface => omit(doc.toJSON(), ["__v", "_id"]);
+): InformationSchemaInterface =>
+  omit(doc.toJSON<InformationSchemaDocument>(), ["__v", "_id"]);
 
 export async function createInformationSchema(
   informationSchema: InformationSchema[],
@@ -168,4 +169,14 @@ export async function getInformationSchemaById(
   });
 
   return result ? toInterface(result) : null;
+}
+
+export async function deleteInformationSchemaById(
+  organization: string,
+  informationSchemaId: string
+): Promise<void> {
+  await InformationSchemaModel.deleteOne({
+    organization,
+    id: informationSchemaId,
+  });
 }

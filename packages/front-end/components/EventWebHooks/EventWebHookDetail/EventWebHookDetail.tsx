@@ -7,7 +7,7 @@ import classNames from "classnames";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
-import { datetime } from "shared";
+import { datetime } from "shared/dates";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import Badge from "@/components/Badge";

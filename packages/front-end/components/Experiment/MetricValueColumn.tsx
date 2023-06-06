@@ -1,6 +1,7 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { formatConversionRate } from "@/services/metrics";
+import { useCurrency } from "@/hooks/useCurrency";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -15,12 +16,13 @@ export default function MetricValueColumn({
   users: number;
   className?: string;
 }) {
+  const displayCurrency = useCurrency();
   return (
     <td className={className}>
       {metric && stats.users ? (
         <>
           <div className="result-number">
-            {formatConversionRate(metric?.type, stats.cr)}
+            {formatConversionRate(metric?.type, stats.cr, displayCurrency)}
           </div>
           <div>
             <small className="text-muted">
@@ -38,7 +40,8 @@ export default function MetricValueColumn({
                 >
                   {formatConversionRate(
                     metric.type === "binomial" ? "count" : metric.type,
-                    stats.value
+                    stats.value,
+                    displayCurrency
                   )}
                 </span>{" "}
                 /&nbsp;

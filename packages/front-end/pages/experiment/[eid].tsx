@@ -3,6 +3,7 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { ReactElement, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
+import { getAffectedEnvsForExperiment } from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -55,22 +56,35 @@ const ExperimentPage = (): ReactElement => {
 
   const { experiment, idea, visualChangesets = [] } = data;
 
-  const canEdit =
+  const canEditExperiment =
     permissions.check("createAnalyses", experiment.project) &&
     !experiment.archived;
 
-  const canEditProject =
-    permissions.check("createAnalyses", "") && !experiment.archived;
+  let canRunExperiment = !experiment.archived;
+  const envs = getAffectedEnvsForExperiment({ experiment });
+  if (envs.length > 0) {
+    if (!permissions.check("runExperiments", experiment.project, envs)) {
+      canRunExperiment = false;
+    }
+  }
 
-  const editMetrics = canEdit ? () => setMetricsModalOpen(true) : null;
-  const editResult = canEdit ? () => setStopModalOpen(true) : null;
-  const editVariations = canEdit ? () => setVariationsModalOpen(true) : null;
-  const duplicate = canEdit ? () => setDuplicateModalOpen(true) : null;
-  const editTags = canEdit ? () => setTagsModalOpen(true) : null;
-  const editProject = canEditProject ? () => setProjectModalOpen(true) : null;
-  const newPhase = canEdit ? () => setPhaseModalOpen(true) : null;
-  const editPhases = canEdit ? () => setEditPhasesOpen(true) : null;
-  const editPhase = canEdit ? (i: number | null) => setEditPhaseId(i) : null;
+  const editMetrics = canEditExperiment
+    ? () => setMetricsModalOpen(true)
+    : null;
+  const editResult = canRunExperiment ? () => setStopModalOpen(true) : null;
+  const editVariations = canRunExperiment
+    ? () => setVariationsModalOpen(true)
+    : null;
+  const duplicate = canEditExperiment
+    ? () => setDuplicateModalOpen(true)
+    : null;
+  const editTags = canEditExperiment ? () => setTagsModalOpen(true) : null;
+  const editProject = canRunExperiment ? () => setProjectModalOpen(true) : null;
+  const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
+  const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
+  const editPhase = canRunExperiment
+    ? (i: number | null) => setEditPhaseId(i)
+    : null;
 
   return (
     <div>

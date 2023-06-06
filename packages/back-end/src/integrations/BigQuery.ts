@@ -1,15 +1,10 @@
 import * as bq from "@google-cloud/bigquery";
-import { getValidDate } from "shared";
+import { getValidDate } from "shared/dates";
 import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
-import { DataSourceProperties } from "../../types/datasource";
-import {
-  InformationSchema,
-  MissingDatasourceParamsError,
-} from "../types/Integration";
-import { formatInformationSchema } from "../util/informationSchemas";
+import { MissingDatasourceParamsError } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -20,12 +15,6 @@ export default class BigQuery extends SqlIntegration {
     this.params = decryptDataSourceParams<BigQueryConnectionParams>(
       encryptedParams
     );
-  }
-  getSourceProperties(): DataSourceProperties {
-    return {
-      ...super.getSourceProperties(),
-      supportsInformationSchema: true,
-    };
   }
   getFormatDialect(): FormatDialect {
     return "bigquery";
@@ -93,11 +82,8 @@ export default class BigQuery extends SqlIntegration {
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
-
-  async getInformationSchema(): Promise<InformationSchema[]> {
-    const projectId = this.params.projectId;
-
-    if (!projectId)
+  getInformationSchemaFromClause(): string {
+    if (!this.params.projectId)
       throw new Error(
         "No projectId provided. In order to get the information schema, you must provide a projectId."
       );
@@ -105,48 +91,12 @@ export default class BigQuery extends SqlIntegration {
       throw new MissingDatasourceParamsError(
         "To view the information schema for a BigQuery dataset, you must define a default dataset. Please add a default dataset by editing the datasource's connection settings."
       );
-
-    const queryString = `SELECT
-    table_name,
-    '${projectId}' as table_catalog,
-    table_schema,
-    COUNT(column_name) as column_count
-  FROM
-    \`${projectId}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\`
-    GROUP BY table_name, table_schema`;
-
-    const results = await this.runQuery(queryString);
-
-    if (!results.length) {
-      throw new Error(
-        `No tables found for projectId "${projectId}" and dataset "${this.params.defaultDataset}".`
-      );
-    }
-
-    return formatInformationSchema(results, "bigquery");
+    return `\`${this.params.projectId}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\``;
   }
-
-  async getTableData(
+  getInformationSchemaTableFromClause(
     databaseName: string,
-    tableSchema: string,
-    tableName: string
-  ): Promise<{ tableData: null | unknown[]; refreshMS: number }> {
-    const sql = `SELECT
-          data_type,
-          column_name
-        FROM
-          \`${databaseName}.${tableSchema}.INFORMATION_SCHEMA.COLUMNS\`
-        WHERE
-          table_name
-        IN ('${tableName}')
-        AND
-          table_schema
-        IN ('${tableSchema}')`;
-
-    const queryStartTime = Date.now();
-    const tableData = await this.runQuery(sql);
-    const queryEndTime = Date.now();
-
-    return { tableData, refreshMS: queryEndTime - queryStartTime };
+    tableSchema: string
+  ): string {
+    return `\`${databaseName}.${tableSchema}.INFORMATION_SCHEMA.COLUMNS\``;
   }
 }
