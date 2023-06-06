@@ -108,7 +108,7 @@ export class GrowthBook<
       this._updateAllAutoExperiments();
     }
 
-    if (context.clientKey && !context.remoteEval) {
+    if (context.clientKey) {
       this._refresh({}, true, false);
     }
   }
