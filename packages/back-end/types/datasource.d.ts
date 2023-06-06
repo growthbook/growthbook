@@ -88,6 +88,8 @@ export interface SchemaFormatConfig {
   eventColumn: string;
   timestampColumn: string;
   displayNameColumn?: string;
+  //TODO: The includesPagesTable & includesScreensTable are only used for Segment & Rudderstack. Other event trackers might have their own unique properties,
+  // so we'll probably want to build a method that maps unique properties to event tracker type in the future.
   includesPagesTable: boolean;
   includesScreensTable: boolean;
 }

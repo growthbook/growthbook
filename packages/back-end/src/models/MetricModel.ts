@@ -108,7 +108,19 @@ export async function insertMetric(metric: Partial<MetricInterface>) {
   return toInterface(await MetricModel.create(metric));
 }
 
-export async function insertMetrics(metrics: Partial<MetricInterface>[]) {
+export async function insertMetrics(
+  metrics: Pick<
+    MetricInterface,
+    | "name"
+    | "type"
+    | "sql"
+    | "id"
+    | "organization"
+    | "datasource"
+    | "dateCreated"
+    | "dateUpdated"
+  >[]
+) {
   if (usingFileConfig()) {
     throw new Error("Cannot add. Metrics managed by config.yml");
   }
