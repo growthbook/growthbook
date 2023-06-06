@@ -341,33 +341,32 @@ export default function SDKConnectionForm({
             </>
           )}
 
-        {/*/!*todo: deprecate this in favor of sseEnabled switch?*!/*/}
-        {/*{isCloud() && gb?.isOn("proxy-cloud") && (*/}
-        {/*  <>*/}
-        {/*    <div className="mb-3">*/}
-        {/*      <label htmlFor="sdk-connection-proxy-toggle">*/}
-        {/*        Use GrowthBook Proxy*/}
-        {/*      </label>*/}
-        {/*      <div>*/}
-        {/*        <Toggle*/}
-        {/*          id="sdk-connection-proxy-toggle"*/}
-        {/*          value={form.watch("proxyEnabled")}*/}
-        {/*          setValue={(val) => form.setValue("proxyEnabled", val)}*/}
-        {/*        />*/}
-        {/*      </div>*/}
-        {/*    </div>*/}
+        {isCloud() && gb?.isOn("proxy-cloud") && (
+          <>
+            <div className="mb-3">
+              <label htmlFor="sdk-connection-proxy-toggle">
+                Use GrowthBook Proxy
+              </label>
+              <div>
+                <Toggle
+                  id="sdk-connection-proxy-toggle"
+                  value={form.watch("proxyEnabled")}
+                  setValue={(val) => form.setValue("proxyEnabled", val)}
+                />
+              </div>
+            </div>
 
-        {/*    {form.watch("proxyEnabled") && (*/}
-        {/*      <Field*/}
-        {/*        label="GrowthBook Proxy Host"*/}
-        {/*        required*/}
-        {/*        placeholder="https://"*/}
-        {/*        type="url"*/}
-        {/*        {...form.register("proxyHost")}*/}
-        {/*      />*/}
-        {/*    )}*/}
-        {/*  </>*/}
-        {/*)}*/}
+            {form.watch("proxyEnabled") && (
+              <Field
+                label="GrowthBook Proxy Host"
+                required
+                placeholder="https://"
+                type="url"
+                {...form.register("proxyHost")}
+              />
+            )}
+          </>
+        )}
 
         {gb?.isOn("remote-evaluation") &&
           languages.length > 0 &&
