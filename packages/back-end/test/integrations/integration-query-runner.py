@@ -229,6 +229,27 @@ class redshiftRunner(sqlRunner):
         #return QueryResult(rows=cursor.fetch_dataframe().to_dict('records'))
 
 
+
+class mssqlRunner(sqlRunner):
+    def open_connection(self):
+        self.connection = pyodbc.connect(
+            'DRIVER=ODBC Driver 17 for SQL Server;SERVER={server};ENCRYPT=yes;UID={username};PWD={password};DATABASE={database};TrustServerCertificate=yes;'.format(
+                server=config['MSSQL_TEST_SERVER'],
+                username=config['MSSQL_TEST_USER'],
+                password=config['MSSQL_TEST_PASSWORD'],
+                database=config['MSSQL_TEST_DATABASE']
+            )
+        )
+
+    def run_query(self, sql: str) -> QueryResult:
+        cursor = self.connection.cursor()
+        cursor.execute(sql)
+        rows = cursor.fetchall()
+        colnames = [col[0] for col in cursor.description]
+        res = [dict(zip(colnames, row)) for row in rows]
+        return QueryResult(rows=res)
+
+
 class dummyRunner(sqlRunner):
     def __init__(self, error_message: str):
         super().__init__()

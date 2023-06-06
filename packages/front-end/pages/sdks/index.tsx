@@ -41,8 +41,7 @@ export default function SDKsPage() {
             These legacy tools will continue to work just as before if you are
             unable to migrate at this time.
           </div>
-          {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ApiKeyInterface[] | undefined' is not assign... Remove this comment to see the full error message */}
-          <SDKEndpoints keys={data?.keys} mutate={mutate} />
+          <SDKEndpoints keys={data?.keys || []} mutate={mutate} />
           <div className="mt-5">
             <h1>SDK Webhooks</h1>
             <Webhooks />

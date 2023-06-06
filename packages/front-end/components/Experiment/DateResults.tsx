@@ -7,6 +7,7 @@ import {
 import { getValidDate } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatConversionRate } from "@/services/metrics";
+import { useCurrency } from "@/hooks/useCurrency";
 import Toggle from "../Forms/Toggle";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
@@ -33,6 +34,7 @@ const DateResults: FC<{
   guardrails?: string[];
 }> = ({ results, variations, seriestype, metrics, guardrails }) => {
   const { getMetricById, ready } = useDefinitions();
+  const displayCurrency = useCurrency();
 
   const [cumulativeState, setCumulative] = useState(false);
   let cumulative = cumulativeState;
@@ -139,7 +141,8 @@ const DateResults: FC<{
                         ? totalUsers[i]
                           ? totalValue[i] / totalUsers[i]
                           : 0
-                        : stats?.cr || 0
+                        : stats?.cr || 0,
+                      displayCurrency
                     );
 
                 return {
