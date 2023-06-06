@@ -254,114 +254,6 @@ export default function SDKConnectionForm({
           </div>
         </div>
 
-        {!hasNoSDKsWithVisualExperimentSupport && (
-          <>
-            <label>Visual Experiments</label>
-            <div className="row border rounded mx-0 mb-3 px-1 pt-2 pb-3">
-              <div className="col-4">
-                <label htmlFor="sdk-connection-visual-experiments-toggle">
-                  <PremiumTooltip
-                    commercialFeature="visual-editor"
-                    body={
-                      <>
-                        <p>
-                          <strong>Visual Experiments</strong> allow you to make
-                          front-end changes to your site without deploying code
-                          by using the Visual Editor.
-                        </p>
-                        <p className="mb-0">
-                          Front-end SDK environments that support these visual
-                          experiments should enable this option.
-                        </p>
-                      </>
-                    }
-                  >
-                    Include visual experiments? <FaInfoCircle />
-                  </PremiumTooltip>
-                </label>
-                <div>
-                  <Toggle
-                    id="sdk-connection-visual-experiments-toggle"
-                    value={form.watch("includeVisualExperiments")}
-                    setValue={(val) =>
-                      form.setValue("includeVisualExperiments", val)
-                    }
-                  />
-                </div>
-              </div>
-
-              {form.watch("includeVisualExperiments") && (
-                <>
-                  <div className="col-4">
-                    <Tooltip
-                      body={
-                        <>
-                          <p>
-                            In-development visual experiments will be sent to
-                            the SDK. We recommend only enabling this for
-                            non-production environments.
-                          </p>
-                          <p className="mb-0">
-                            To force into a variation, use a URL query string
-                            such as{" "}
-                            <code className="d-block">?my-experiment-id=2</code>
-                          </p>
-                        </>
-                      }
-                    >
-                      <label htmlFor="sdk-connection-include-draft-experiments-toggle">
-                        Include draft experiments <FaInfoCircle />
-                      </label>
-                    </Tooltip>
-                    <div>
-                      <Toggle
-                        id="sdk-connection-include-draft-experiments-toggle"
-                        value={form.watch("includeDraftExperiments")}
-                        setValue={(val) =>
-                          form.setValue("includeDraftExperiments", val)
-                        }
-                      />
-                    </div>
-                  </div>
-
-                  <div className="col-4">
-                    <Tooltip
-                      body={
-                        <>
-                          <p>
-                            Normally, experiment and variation names will be
-                            removed from the payload. Enabling this keeps the
-                            names in the payload. This can help add context when
-                            debugging or tracking events.
-                          </p>
-                          <div>
-                            However, this could expose potentially sensitive
-                            information to your users if enabled for a
-                            client-side or mobile application.
-                          </div>
-                        </>
-                      }
-                    >
-                      <label htmlFor="sdk-connection-include-experiment-meta">
-                        Include experiment names? <FaInfoCircle />
-                      </label>
-                    </Tooltip>
-                    <div>
-                      <Toggle
-                        id="sdk-connection-include-experiment-meta"
-                        value={form.watch("includeExperimentNames")}
-                        setValue={(val) =>
-                          form.setValue("includeExperimentNames", val)
-                        }
-                      />
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </>
-        )}
-
         {(!hasNoSDKsWithSSESupport || initialValue.sseEnabled) &&
           isCloud() &&
           gb?.isOn("proxy-cloud-sse") && (
@@ -430,7 +322,7 @@ export default function SDKConnectionForm({
                         </>
                       }
                     >
-                      Enable Streaming Updates? <FaInfoCircle />{" "}
+                      Enable streaming updates <FaInfoCircle />{" "}
                       <span className="badge badge-purple text-uppercase mr-2">
                         Beta
                       </span>
@@ -538,7 +430,7 @@ export default function SDKConnectionForm({
                         </>
                       }
                     >
-                      Use Remote Evaluation? <FaInfoCircle />{" "}
+                      Use remote evaluation <FaInfoCircle />{" "}
                       <span className="badge badge-purple text-uppercase mr-2">
                         Beta
                       </span>
@@ -601,7 +493,7 @@ export default function SDKConnectionForm({
                     </>
                   }
                 >
-                  Hash secure attributes? <FaInfoCircle />
+                  Hash secure attributes <FaInfoCircle />
                 </PremiumTooltip>
               </label>
               <div>
@@ -644,7 +536,7 @@ export default function SDKConnectionForm({
                       </>
                     }
                   >
-                    Encrypt SDK payload? <FaInfoCircle />
+                    Encrypt SDK payload <FaInfoCircle />
                   </PremiumTooltip>
                 </label>
                 <div>
@@ -680,6 +572,114 @@ export default function SDKConnectionForm({
             </div>
           )}
         </div>
+
+        {!hasNoSDKsWithVisualExperimentSupport && (
+          <>
+            <label>Visual Experiments</label>
+            <div className="row border rounded mx-0 mb-3 px-1 pt-2 pb-3">
+              <div className="col-4">
+                <label htmlFor="sdk-connection-visual-experiments-toggle">
+                  <PremiumTooltip
+                    commercialFeature="visual-editor"
+                    body={
+                      <>
+                        <p>
+                          <strong>Visual Experiments</strong> allow you to make
+                          front-end changes to your site without deploying code
+                          by using the Visual Editor.
+                        </p>
+                        <p className="mb-0">
+                          Front-end SDK environments that support these visual
+                          experiments should enable this option.
+                        </p>
+                      </>
+                    }
+                  >
+                    Include visual experiments <FaInfoCircle />
+                  </PremiumTooltip>
+                </label>
+                <div>
+                  <Toggle
+                    id="sdk-connection-visual-experiments-toggle"
+                    value={form.watch("includeVisualExperiments")}
+                    setValue={(val) =>
+                      form.setValue("includeVisualExperiments", val)
+                    }
+                  />
+                </div>
+              </div>
+
+              {form.watch("includeVisualExperiments") && (
+                <>
+                  <div className="col-4">
+                    <Tooltip
+                      body={
+                        <>
+                          <p>
+                            In-development visual experiments will be sent to
+                            the SDK. We recommend only enabling this for
+                            non-production environments.
+                          </p>
+                          <p className="mb-0">
+                            To force into a variation, use a URL query string
+                            such as{" "}
+                            <code className="d-block">?my-experiment-id=2</code>
+                          </p>
+                        </>
+                      }
+                    >
+                      <label htmlFor="sdk-connection-include-draft-experiments-toggle">
+                        Include draft experiments <FaInfoCircle />
+                      </label>
+                    </Tooltip>
+                    <div>
+                      <Toggle
+                        id="sdk-connection-include-draft-experiments-toggle"
+                        value={form.watch("includeDraftExperiments")}
+                        setValue={(val) =>
+                          form.setValue("includeDraftExperiments", val)
+                        }
+                      />
+                    </div>
+                  </div>
+
+                  <div className="col-4">
+                    <Tooltip
+                      body={
+                        <>
+                          <p>
+                            Normally, experiment and variation names will be
+                            removed from the payload. Enabling this keeps the
+                            names in the payload. This can help add context when
+                            debugging or tracking events.
+                          </p>
+                          <div>
+                            However, this could expose potentially sensitive
+                            information to your users if enabled for a
+                            client-side or mobile application.
+                          </div>
+                        </>
+                      }
+                    >
+                      <label htmlFor="sdk-connection-include-experiment-meta">
+                        Include experiment names <FaInfoCircle />
+                      </label>
+                    </Tooltip>
+                    <div>
+                      <Toggle
+                        id="sdk-connection-include-experiment-meta"
+                        value={form.watch("includeExperimentNames")}
+                        setValue={(val) =>
+                          form.setValue("includeExperimentNames", val)
+                        }
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </Modal>
   );
