@@ -356,7 +356,8 @@ export function getSnapshotSettings({
     experimentId: experiment.trackingKey || experiment.id,
     goalMetrics: experiment.metrics,
     guardrailMetrics: experiment.guardrails || [],
-    regressionAdjustmentEnabled: !!settings.regressionAdjusted,
+    regressionAdjustmentEnabled:
+      settings.statsEngine === "frequentist" && !!settings.regressionAdjusted,
     exposureQueryId: experiment.exposureQueryId,
     metricSettings: metricSettings,
     variations: experiment.variations.map((v, i) => ({
