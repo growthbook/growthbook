@@ -48,7 +48,7 @@ export async function analyzeExperimentMetric(
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gbstats import (
-  accumulate_time_series_df,
+  diff_for_daily_time_series,
   detect_unknown_variations,
   analyze_metric_df,
   get_metric_df,
@@ -84,16 +84,8 @@ unknown_var_ids = detect_unknown_variations(
   var_id_map=var_id_map
 )
 
-accumulated = accumulate_time_series_df(
-  df=rows,
-  time_series=${
-    dimension === "pre:datecumulative"
-      ? "TimeSeries.CUMULATIVE"
-      : dimension === "pre:datedaily"
-      ? "TimeSeries.DAILY"
-      : "TimeSeries.NONE"
-  },
-)
+if (${dimension === "pre:datedaily" ? "daily" : "other"} == "daily"):
+  rows = diff_for_daily_time_series(rows)
 
 df = get_metric_df(
   rows=accumulated,
@@ -191,9 +183,9 @@ export async function analyzeExperimentResults({
           byMetric[metric] = byMetric[metric] || [];
           byMetric[metric].push({
             dimension: row.dimension,
+            day: null,
             variation: variations[v.variation].id,
             users: stats.count,
-            count: stats.count,
             statistic_type: "mean", // no ratio in mixpanel or GA
             main_metric_type: stats.metric_type,
             main_sum: stats.main_sum,

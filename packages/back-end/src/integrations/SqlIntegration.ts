@@ -35,6 +35,7 @@ import {
   replaceSQLVars,
   format,
   FormatDialect,
+  replaceCountStar,
 } from "../util/sql";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { formatInformationSchema } from "../util/informationSchemas";
@@ -376,8 +377,7 @@ export default abstract class SqlIntegration
     );
     const metricEnd = this.getMetricEnd([params.metric], params.to);
 
-    // TODO FIX THIS AGGREGATION
-    const aggregate = this.getAggregateMetricColumn(params.metric, false);
+    const aggregate = this.getAggregateMetricColumn(params.metric);
 
     return format(
       `-- ${params.name} - ${params.metric.name} Metric
@@ -496,8 +496,8 @@ export default abstract class SqlIntegration
       return {
         variation: row.variation ?? "",
         dimension: row.dimension || "",
+        day: row.day ?? null,
         users: parseInt(row.users) || 0,
-        count: parseInt(row.users) || 0,
         statistic_type: row.statistic_type ?? "",
         main_metric_type: row.main_metric_type ?? "",
         main_sum: parseFloat(row.main_sum) || 0,
@@ -656,7 +656,11 @@ export default abstract class SqlIntegration
 
   private getDimensionColumn(baseIdType: string, dimension: Dimension | null) {
     const missingDimString = "__NULL_DIMENSION";
-    if (!dimension) {
+    if (
+      !dimension ||
+      dimension.type === "datecumulative" ||
+      dimension.type === "datedaily"
+    ) {
       return this.castToString("'All'");
     } else if (dimension.type === "activation") {
       return `MAX(${this.ifElse(
@@ -668,11 +672,7 @@ export default abstract class SqlIntegration
       return `COALESCE(MAX(${this.castToString(
         "d.value"
       )}),'${missingDimString}')`;
-    } else if (
-      dimension.type === "date" ||
-      dimension.type === "datecumulative" ||
-      dimension.type === "datedaily"
-    ) {
+    } else if (dimension.type === "date") {
       return `MIN(${this.formatDate(this.dateTrunc("e.timestamp"))})`;
     } else if (dimension.type === "experiment") {
       return `SUBSTRING(
@@ -894,9 +894,6 @@ export default abstract class SqlIntegration
     );
 
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
-    const userMetricDimensionCol = cumulativeDate
-      ? `${this.formatDate("dr.day")}`
-      : "d.dimension";
 
     const intialMetric =
       activationMetrics.length > 0
@@ -1041,6 +1038,11 @@ export default abstract class SqlIntegration
                  MIN(e.preexposure_end) AS preexposure_end,`
               : ""
           }
+          ${
+            cumulativeDate
+              ? `MIN(${this.dateTrunc("e.timestamp")}) AS first_exposure_date,`
+              : ""
+          }
           ${this.ifElse(
             "count(distinct e.variation) > 1",
             "'__multiple__'",
@@ -1099,47 +1101,56 @@ export default abstract class SqlIntegration
       )`
           : ""
       }
-      , __userMetric as (
-        -- Add in the aggregate metric value for each user
+      , __userMetricJoin as (
         SELECT
           d.variation AS variation,
-          ${userMetricDimensionCol} AS dimension,
+          d.dimension AS dimension,
+          ${cumulativeDate ? `${this.dateTrunc("dr.day")} AS day,` : ""}
           d.${baseIdType} AS ${baseIdType},
-          ${this.getAggregateMetricColumn(
-            metric, 
-            true, 
-            {ignoreConversionEnd: ignoreConversionEnd, cumulativeDate: cumulativeDate}
+          ${this.addCaseWhenTimeFilter(
+            "m.value",
+            ignoreConversionEnd,
+            cumulativeDate
           )} as value
         FROM
           __distinctUsers d
         LEFT JOIN __metric m ON (
           m.${baseIdType} = d.${baseIdType}
         )
-        ${cumulativeDate 
-          ? `
+        ${
+          cumulativeDate
+            ? `
             CROSS JOIN __dateRange dr
-            WHERE ${this.castToDate("d.dimension")} <= dr.day
+            WHERE d.first_exposure_date <= dr.day
           `
-          : ""
+            : ""
         }
+      )
+      , __userMetricAgg as (
+        -- Add in the aggregate metric value for each user
+        SELECT
+          variation,
+          dimension,
+          ${cumulativeDate ? "day," : ""}
+          ${baseIdType},
+          ${this.getAggregateMetricColumn(metric)} as value
+        FROM
+          __userMetricJoin
         GROUP BY
-          d.variation,
-          ${userMetricDimensionCol},
-          d.${baseIdType}
+          variation,
+          dimension,
+          ${cumulativeDate ? "day," : ""}
+          ${baseIdType}
       )
       ${
         isRatio
-          ? `, __userDenominator as (
-              -- Add in the aggregate denominator value for each user
+          ? `, __userDenominatorAgg AS (
               SELECT
                 d.variation AS variation,
-                ${userMetricDimensionCol} AS dimension,
+                d.dimension AS dimension,
+                ${cumulativeDate ? `${this.dateTrunc("dr.day")} AS day,` : ""}
                 d.${baseIdType} AS ${baseIdType},
-                ${this.getAggregateMetricColumn(
-                  denominator,
-                  true,
-                  {ignoreConversionEnd: ignoreConversionEnd, cumulativeDate: cumulativeDate}
-                )} as value
+                ${this.getAggregateMetricColumn(denominator)} as value
               FROM
                 __distinctUsers d
                 JOIN __denominator${denominatorMetrics.length - 1} m ON (
@@ -1157,27 +1168,26 @@ export default abstract class SqlIntegration
                   cumulativeDate
                     ? `AND ${this.castToDate(
                         "m.timestamp"
-                      )} <= dr.day AND ${this.castToDate(
-                        "d.dimension"
-                      )} <= dr.day`
+                      )} <= dr.day AND d.first_exposure_date <= dr.day`
                     : ""
                 }
               GROUP BY
                 d.variation,
-                ${userMetricDimensionCol},
+                d.dimension,
+                ${cumulativeDate ? `${this.dateTrunc("dr.day")},` : ""}
                 d.${baseIdType}
             )`
           : ""
       }
       ${
-        isRegressionAdjusted 
-        ? `
+        isRegressionAdjusted
+          ? `
         , __userCovariateMetric as (
           SELECT
             d.variation AS variation,
             d.dimension AS dimension,
             d.${baseIdType} AS ${baseIdType},
-            ${this.getAggregateMetricColumn(metric, false)} as value
+            ${this.getAggregateMetricColumn(metric)} as value
           FROM
             __distinctUsers d
           JOIN __metric m ON (
@@ -1192,12 +1202,13 @@ export default abstract class SqlIntegration
             d.${baseIdType}
         )
         `
-        : ""
+          : ""
       }
       -- One row per variation/dimension with aggregations
       SELECT
-        ${isRatio ? `d` : `m`}.variation,
-        ${isRatio ? `d` : `m`}.dimension,
+        m.variation,
+        m.dimension,
+        ${cumulativeDate ? `${this.formatDate("m.day")} AS day,` : ""}
         COUNT(*) AS users,
         SUM(COALESCE(m.value, 0)) AS main_sum,
         SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
@@ -1217,34 +1228,32 @@ export default abstract class SqlIntegration
           SUM(POWER(COALESCE(c.value, 0), 2)) AS covariate_sum_squares,
           SUM(COALESCE(m.value, 0) * COALESCE(c.value, 0)) AS main_covariate_sum_product
           `
-          : ""
+            : ""
         }
       FROM
-      ${ //  TODO FIX isRATIO
+        __userMetricAgg m
+      ${
         isRatio
-          ? `__userDenominator d
-            LEFT JOIN __userMetric m ON (
+          ? `LEFT JOIN __userDenominatorAgg d ON (
               d.${baseIdType} = m.${baseIdType}
-              ${cumulativeDate ? "AND d.dimension = m.dimension" : ""}
+              ${cumulativeDate ? "AND d.day = m.day" : ""}
             )`
-          : `
-          __userMetric m
-          ${
-            isRegressionAdjusted
-            ? `
-              LEFT JOIN __userCovariateMetric c
-              ON (c.user_id = m.user_id)
-              `
-            : ""
-          }
-          `
+          : ""
       }
       ${
-        !isRatio && metric.ignoreNulls ? `WHERE m.value != 0` : ""
+        isRegressionAdjusted
+          ? `
+          LEFT JOIN __userCovariateMetric c
+          ON (c.user_id = m.user_id)
+          `
+          : ""
       }
+      ${!isRatio && metric.ignoreNulls ? `WHERE m.value != 0` : ""}
+      ${isRatio ? `WHERE d.value != 0` : ""}
       GROUP BY
-        ${isRatio ? `d` : `m`}.variation,
-        ${isRatio ? `d` : `m`}.dimension
+        m.variation,
+        ${cumulativeDate ? "m.day," : ""}
+        m.dimension
     `,
       this.getFormatDialect()
     );
@@ -1461,20 +1470,6 @@ export default abstract class SqlIntegration
     return null;
   }
 
-  private getMetricWindowWhereClause(
-    isRegressionAdjusted: boolean,
-    ignoreConversionEnd: boolean,
-    cumulativeDate: boolean
-  ): string {
-    return `
-      ${cumulativeDate ? `
-        ${this.castToDate("d.dimension")} <= dr.day
-        AND m.metric_date <= dr.day`
-        : ""
-    }
-    `;
-  }
-
   private getExperimentCTE({
     experiment,
     baseIdType,
@@ -1620,82 +1615,63 @@ export default abstract class SqlIntegration
 
   private addCaseWhenTimeFilter(
     col: string,
-    useCaseWhen: boolean = false,
-    caseWhenArgs?: {ignoreConversionEnd: boolean, cumulativeDate: boolean}
+    ignoreConversionEnd: boolean,
+    cumulativeDate: boolean
   ): string {
-    if (useCaseWhen){
-      return `${this.ifElse(
-        `
-          m.timestamp >= d.conversion_start
-          ${caseWhenArgs?.ignoreConversionEnd ?? false ? "" : `AND m.timestamp <= d.conversion_end`}
-          ${caseWhenArgs?.cumulativeDate ?? false ? `AND m.metric_date <= dr.day` : ""}
-        `,
-        `${col}`,
-        `NULL`
-      )}`;
-    }
-    return col;
+    return `${this.ifElse(
+      `
+        m.timestamp >= d.conversion_start
+        ${ignoreConversionEnd ? "" : `AND m.timestamp <= d.conversion_end`}
+        ${
+          cumulativeDate ? `AND ${this.dateTrunc("m.timestamp")} <= dr.day` : ""
+        }
+      `,
+      // The coalesce treats conversions that exist but have a NULL `value` as 0,
+      // reserving NULL for users with no matching metric rows in conversion window
+      `COALESCE(${col}, 0)`,
+      `NULL`
+    )}`;
   }
 
-  private getAggregateMetricColumn(
-    metric: MetricInterface,
-    useCaseWhen: boolean,
-    caseWhenArgs?: {ignoreConversionEnd: boolean, cumulativeDate: boolean} 
-  ) {
+  private getAggregateMetricColumn(metric: MetricInterface) {
     // Binomial metrics don't have a value, so use hard-coded "1" as the value
     if (metric.type === "binomial") {
-      return `MAX(${this.addCaseWhenTimeFilter("1", useCaseWhen, caseWhenArgs)}`;
+      return `MAX(COALESCE(value, 0))`;
     }
 
     // SQL editor
     if (this.getMetricQueryFormat(metric) === "sql") {
       // Custom aggregation that's a hardcoded number (e.g. "1")
       if (metric.aggregation && Number(metric.aggregation)) {
-        return `MAX(${this.addCaseWhenTimeFilter(
-          metric.aggregation,
-          useCaseWhen, caseWhenArgs
-        )})`;
+        return `GREATEST(${metric.aggregation}, COALESCE(value, -999999))`;
       }
       // Other custom aggregation
       else if (metric.aggregation) {
         // prePostTimeFilter (and regression adjustment) not implemented for
         // custom aggregate metrics
-        // TODO cumulative date with custom agg
-        return this.capValue(metric.cap, metric.aggregation);
+        return this.capValue(
+          metric.cap,
+          replaceCountStar(metric.aggregation, `value`)
+        );
       }
       // Standard aggregation (SUM)
       else {
-        return this.capValue(
-          metric.cap,
-          `SUM(${this.addCaseWhenTimeFilter(`m.value`, useCaseWhen, caseWhenArgs)})`
-        );
+        return this.capValue(metric.cap, `SUM(COALESCE(value, 0))`);
       }
     }
     // Query builder
     else {
       // Count metrics that specify a distinct column to count
       if (metric.type === "count" && metric.column) {
-        return this.capValue(
-          metric.cap,
-          `COUNT(DISTINCT (${this.addCaseWhenTimeFilter(
-            `m.value`,
-            useCaseWhen, caseWhenArgs
-          )}))`
-        );
+        return this.capValue(metric.cap, `COUNT(DISTINCT (value))`);
       }
       // Count metrics just do a simple count of rows by default
       else if (metric.type === "count") {
-        return this.capValue(
-          metric.cap,
-          `SUM(${this.addCaseWhenTimeFilter("1", useCaseWhen, caseWhenArgs)})`
-        );
+        return this.capValue(metric.cap, `COUNT(value)`);
       }
       // Revenue and duration metrics use MAX by default
       else {
-        return this.capValue(
-          metric.cap,
-          `MAX(${this.addCaseWhenTimeFilter(`m.value`, useCaseWhen, caseWhenArgs)})`
-        );
+        return this.capValue(metric.cap, `MAX(COALESCE(value, 0))`);
       }
     }
   }

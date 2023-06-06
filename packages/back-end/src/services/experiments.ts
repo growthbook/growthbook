@@ -271,6 +271,7 @@ export async function getManualSnapshotData(
         const rows: ExperimentMetricQueryResponse = stats.map((s, i) => {
           return {
             dimension: "All",
+            day: null,
             variation: experiment.variations[i].key || i + "",
             users: s.count,
             count: s.count,

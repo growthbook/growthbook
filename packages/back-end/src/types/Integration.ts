@@ -158,9 +158,9 @@ export type PastExperimentResponse = {
 }[];
 export type ExperimentMetricQueryResponse = {
   dimension: string;
+  day: string | null;
   variation: string;
   users: number;
-  count: number;
   statistic_type: "ratio" | "mean" | "mean_ra";
   main_metric_type: MetricType;
   main_sum: number;

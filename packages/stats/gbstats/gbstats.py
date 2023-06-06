@@ -16,7 +16,7 @@ from gbstats.frequentist.tests import (
     SequentialTwoSidedTTest,
     TwoSidedTTest,
 )
-from gbstats.shared.constants import StatsEngine, TimeSeries
+from gbstats.shared.constants import StatsEngine
 from gbstats.shared.models import (
     compute_theta,
     BayesianTestResult,
@@ -54,22 +54,9 @@ def detect_unknown_variations(rows, var_id_map, ignore_ids={"__multiple__"}):
     return set(unknown_var_ids)
 
 
-def accumulate_time_series_df(
-    df: pd.DataFrame, time_series: TimeSeries
-) -> pd.DataFrame:
-    if time_series == TimeSeries.NONE:
-        return df
+def diff_for_daily_time_series(df: pd.DataFrame) -> pd.DataFrame:
     dfc = df.copy()
-    cols_to_accum = ["users", "count"]
-    dfc.sort_values("dimension", inplace=True)
-    dfc[cols_to_accum] = dfc.groupby(["variation"])[cols_to_accum].cumsum()
-
-    # Because we do full outer join to get metrics joined on to
-    # stats, some days when there are users who have no covariate value
-    # pre or post-exposure, we will end up with 0 values in the metric sum
-    # columns when we should have any previous values. ffill
-    # will accomplish this for us.
-    cols_to_ffill = [
+    diff_cols = [
         x
         for x in [
             "main_sum",
@@ -77,31 +64,13 @@ def accumulate_time_series_df(
             "denominator_sum",
             "denominator_sum_squares",
             "main_denominator_sum_product",
-            "covariate_sum",
-            "covariate_sum_squares",
             "main_covariate_sum_product",
         ]
         if x in dfc.columns
     ]
-    dfc[cols_to_ffill] = dfc.groupby(["variation"], group_keys=False)[
-        cols_to_ffill
-    ].apply(lambda x: x.replace(to_replace=0, method="ffill"))
-    if time_series == TimeSeries.DAILY:
-        diff_cols = [
-            x
-            for x in [
-                "main_sum",
-                "main_sum_squares",
-                "denominator_sum",
-                "denominator_sum_squares",
-                "main_denominator_sum_product",
-                "main_covariate_sum_product",
-            ]
-            if x in dfc.columns
-        ]
-        dfc[diff_cols] = (
-            dfc.groupby(["variation"])[diff_cols].diff().fillna(dfc[diff_cols])
-        )
+    dfc[diff_cols] = (
+        dfc.groupby(["variation", "dimension"])[diff_cols].diff().fillna(dfc[diff_cols])
+    )
     return dfc
 
 
