@@ -1,5 +1,6 @@
 import { FC, useState, useEffect } from "react";
 import {
+  ExperimentSnapshotInterface,
   ExperimentSnapshotAnalysis,
   SnapshotVariation,
 } from "back-end/types/experiment-snapshot";
