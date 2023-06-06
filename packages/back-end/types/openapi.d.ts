@@ -580,6 +580,7 @@ export interface components {
       project: string;
       encryptPayload: boolean;
       encryptionKey: string;
+      hashSecureAttributes?: boolean;
       includeVisualExperiments?: boolean;
       includeDraftExperiments?: boolean;
       includeExperimentNames?: boolean;
@@ -587,7 +588,8 @@ export interface components {
       proxyEnabled: boolean;
       proxyHost: string;
       proxySigningKey: string;
-      sseEnabled?: any;
+      sseEnabled?: boolean;
+      remoteEvalEnabled?: boolean;
     };
     Experiment: {
       id: string;
@@ -1511,6 +1513,7 @@ export interface operations {
                 project: string;
                 encryptPayload: boolean;
                 encryptionKey: string;
+                hashSecureAttributes?: boolean;
                 includeVisualExperiments?: boolean;
                 includeDraftExperiments?: boolean;
                 includeExperimentNames?: boolean;
@@ -1518,7 +1521,8 @@ export interface operations {
                 proxyEnabled: boolean;
                 proxyHost: string;
                 proxySigningKey: string;
-                sseEnabled?: any;
+                sseEnabled?: boolean;
+                remoteEvalEnabled?: boolean;
               })[];
           } & {
             limit: number;
@@ -1550,6 +1554,7 @@ export interface operations {
               project: string;
               encryptPayload: boolean;
               encryptionKey: string;
+              hashSecureAttributes?: boolean;
               includeVisualExperiments?: boolean;
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
@@ -1557,7 +1562,8 @@ export interface operations {
               proxyEnabled: boolean;
               proxyHost: string;
               proxySigningKey: string;
-              sseEnabled?: any;
+              sseEnabled?: boolean;
+              remoteEvalEnabled?: boolean;
             };
           };
         };

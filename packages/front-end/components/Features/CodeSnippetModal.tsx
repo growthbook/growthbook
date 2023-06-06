@@ -141,16 +141,16 @@ export default function CodeSnippetModal({
   const apiHost = getApiBaseUrl(currentConnection);
   const clientKey = currentConnection.key;
   const featuresEndpoint = apiHost + "/api/features/" + clientKey;
-  const encryptionKey =
-    currentConnection &&
-    currentConnection.encryptPayload &&
-    currentConnection.encryptionKey;
+  const encryptionKey = currentConnection.encryptPayload
+    ? currentConnection.encryptionKey
+    : undefined;
   const hashSecureAttributes = !!currentConnection.hashSecureAttributes;
   const secureAttributes =
     attributeSchema?.filter((a) =>
       ["secureString", "secureString[]"].includes(a.datatype)
     ) || [];
   const secureAttributeSalt = settings.secureAttributeSalt ?? "";
+  const remoteEvalEnabled = !!currentConnection.remoteEvalEnabled;
 
   return (
     <>
@@ -337,7 +337,8 @@ export default function CodeSnippetModal({
                     language={language}
                     apiHost={apiHost}
                     apiKey={clientKey}
-                    encryptionKey={encryptionKey ? encryptionKey : undefined}
+                    encryptionKey={encryptionKey}
+                    remoteEvalEnabled={remoteEvalEnabled}
                   />
                 </div>
               )}
