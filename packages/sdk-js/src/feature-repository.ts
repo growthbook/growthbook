@@ -242,7 +242,7 @@ async function fetchFeatures(
   instance: GrowthBook
 ): Promise<FeatureApiResponse> {
   const [key, apiHost, clientKey] = getKey(instance);
-  const remoteEval = instance.getremoteEval();
+  const remoteEval = instance.getRemoteEval();
 
   const endpoint = remoteEval
     ? apiHost +
@@ -264,8 +264,7 @@ async function fetchFeatures(
       })
       .then((data: FeatureApiResponse) => {
         onNewFeatureData(key, data);
-        instance.enqueueTrackedExperiments(data.trackExperiments || []);
-        instance.trackEnqueuedExperiments();
+        instance.fireTrackingCalls(data.trackExperiments || []);
         startAutoRefresh(instance);
         activeFetches.delete(key);
         return data;
@@ -289,7 +288,7 @@ async function fetchFeatures(
 // Will prefer SSE if enabled, otherwise fall back to cron
 function startAutoRefresh(instance: GrowthBook): void {
   const [key, apiHost, clientKey] = getKey(instance);
-  const remoteEval = instance.getremoteEval();
+  const remoteEval = instance.getRemoteEval();
 
   if (
     cacheSettings.backgroundSync &&
@@ -302,6 +301,7 @@ function startAutoRefresh(instance: GrowthBook): void {
       cb: (event: MessageEvent<string>) => {
         try {
           if (remoteEval) {
+            // got an "update" SSE message, trigger a refetch
             const json: { update: boolean } = JSON.parse(event.data);
             if (json.update) fetchFeatures(instance);
           } else {

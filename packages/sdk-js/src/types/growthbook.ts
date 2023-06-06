@@ -170,7 +170,7 @@ export interface Context {
   clientKey?: string;
   decryptionKey?: string;
   remoteEval?: boolean;
-  exportTrackEvents?: boolean;
+  deferTracking?: boolean;
 }
 
 export type SubscriptionFunction = (
@@ -213,20 +213,20 @@ export type AutoExperimentVariation = {
 
 export type FeatureDefinitions = Record<string, FeatureDefinition>;
 
+export type TrackExperimentData = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  experiment: Experiment<any>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  result: Result<any>;
+};
+
 export type FeatureApiResponse = {
   features?: FeatureDefinitions;
   dateUpdated?: string;
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
-  trackExperiments?: { experiment: Experiment<any>; result: Result<any> }[];
-};
-
-export type TrackExperimentData = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  experiment: Experiment<any>;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  result: Result<any>;
+  trackExperiments?: TrackExperimentData[];
 };
 
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)

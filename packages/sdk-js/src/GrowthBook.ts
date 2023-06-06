@@ -74,7 +74,7 @@ export class GrowthBook<
     string,
     { valueHash: string; undo: () => void }
   >;
-  private _trackedExperimentQueue: TrackExperimentData[] = [];
+  private _trackingCallsQueue: TrackExperimentData[] = [];
 
   constructor(context?: Context) {
     context = context || {};
@@ -133,7 +133,7 @@ export class GrowthBook<
     ];
   }
 
-  public getremoteEval(): boolean {
+  public getRemoteEval(): boolean {
     return this._ctx.remoteEval || false;
   }
 
@@ -571,7 +571,7 @@ export class GrowthBook<
             });
 
           // If this was a remotely evaluated experiment, fire the tracking callbacks
-          if (rule.tracks && !this._ctx.remoteEval) {
+          if (rule.tracks) {
             rule.tracks.forEach((t) => {
               this._track(t.experiment, t.result);
             });
@@ -883,9 +883,7 @@ export class GrowthBook<
     const result = this._getResult(experiment, assigned, true, featureId, n);
 
     // 14. Fire the tracking callback
-    if (!this._ctx.remoteEval) {
-      this._track(experiment, result);
-    }
+    this._track(experiment, result);
 
     // 15. Return the result
     process.env.NODE_ENV !== "production" &&
@@ -902,30 +900,27 @@ export class GrowthBook<
     else console.log(msg, ctx);
   }
 
-  public enqueueTrackedExperiments(
+  public enqueueTrackingCalls(
     data: TrackExperimentData | TrackExperimentData[]
   ) {
-    if (!Array.isArray(data)) {
-      data = [data];
-    }
-    this._trackedExperimentQueue.push(...data);
+    data = Array.isArray(data) ? data : [data];
+    this._trackingCallsQueue.push(...data);
   }
 
-  public getTrackedExperiments(): TrackExperimentData[] {
-    return this._trackedExperimentQueue;
-  }
-
-  public trackEnqueuedExperiments() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this._trackedExperimentQueue.forEach(({ experiment, result }) => {
+  public fireTrackingCalls(data: TrackExperimentData | TrackExperimentData[]) {
+    data = Array.isArray(data) ? data : [data];
+    data.forEach(({ experiment, result }) => {
       this._track(experiment, result);
     });
-    this._trackedExperimentQueue = [];
+  }
+
+  public getTrackingCallsQueue(): TrackExperimentData[] {
+    return this._trackingCallsQueue;
   }
 
   private _track<T>(experiment: Experiment<T>, result: Result<T>) {
-    if (this._ctx.exportTrackEvents) {
-      this.enqueueTrackedExperiments({ experiment, result });
+    if (this._ctx.deferTracking) {
+      this.enqueueTrackingCalls({ experiment, result });
       return;
     }
     if (!this._ctx.trackingCallback) return;
