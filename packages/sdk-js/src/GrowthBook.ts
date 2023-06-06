@@ -137,10 +137,6 @@ export class GrowthBook<
     return this._ctx.remoteEval || false;
   }
 
-  public getDeferTracking(): boolean {
-    return this._ctx.deferTracking || false;
-  }
-
   private async _refresh(
     options?: RefreshFeaturesOptions,
     allowStale?: boolean,
