@@ -59,30 +59,38 @@ export const getConnectionStringWithDeprecatedKeysMigratedForV3to4 = (
 
   try {
     const remapped: string[] = [];
-    const parsedUrl = new URL(uri);
+    const [originalUrl, queryString] = uri.split("?");
+
+    const searchParams = new URLSearchParams(queryString);
 
     // Replacements
     const entries = Object.entries(v3to4Mappings);
     entries.forEach(([oldKey, newKey]) => {
-      const value = parsedUrl.searchParams.get(oldKey);
+      const value = searchParams.get(oldKey);
       if (value) {
         remapped.push(oldKey);
-        parsedUrl.searchParams.set(newKey, value);
-        parsedUrl.searchParams.delete(oldKey);
+        searchParams.set(newKey, value);
+        searchParams.delete(oldKey);
       }
     });
 
     // Validation
     const unsupported: string[] = [];
     unsupportedV3FieldsInV4.forEach((oldKey) => {
-      const value = parsedUrl.searchParams.get(oldKey);
+      const value = searchParams.get(oldKey);
       if (value) {
         unsupported.push(oldKey);
       }
     });
 
+    const modifiedParams = searchParams.toString();
+    let modifiedUrl = originalUrl;
+    if (modifiedParams) {
+      modifiedUrl += "?" + modifiedParams;
+    }
+
     return {
-      url: parsedUrl.toString(),
+      url: modifiedUrl,
       success: true,
       remapped,
       unsupported,
