@@ -32,7 +32,6 @@ from gbstats.messages import raise_error_if_bayesian_ra
 
 SUM_COLS = [
     "users",
-    "count",
     "main_sum",
     "main_sum_squares",
     "denominator_sum",
@@ -118,7 +117,7 @@ def get_metric_df(
             prefix = f"v{i}" if i > 0 else "baseline"
             for col in SUM_COLS:
                 dimensions[dim][f"{prefix}_{col}"] = getattr(row, col, 0)
-            # Special handling for count, if missing returnes a method, so override with user value
+            # Special handling for count, if missing returns a method, so override with user value
             if callable(getattr(row, "count")):
                 dimensions[dim][f"{prefix}_count"] = getattr(row, "users", 0)
 
@@ -281,7 +280,6 @@ def format_results(df):
             prefix = f"v{v}" if v > 0 else "baseline"
             stats = {
                 "users": row[f"{prefix}_users"],
-                "count": row[f"{prefix}_count"],
                 "stddev": row[f"{prefix}_stddev"],
                 "mean": row[f"{prefix}_mean"],
             }

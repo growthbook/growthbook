@@ -87,11 +87,11 @@ unknown_var_ids = detect_unknown_variations(
   var_id_map=var_id_map
 )
 
-if (${dimension === "pre:datedaily" ? "daily" : "other"} == "daily"):
+if (${dimension === "pre:datedaily" ? `"daily"` : `"other"`} == "daily"):
   rows = diff_for_daily_time_series(rows)
 
 df = get_metric_df(
-  rows=accumulated,
+  rows=rows,
   var_id_map=var_id_map,
   var_names=var_names,
 )

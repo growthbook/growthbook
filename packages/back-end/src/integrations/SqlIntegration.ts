@@ -471,7 +471,6 @@ export default abstract class SqlIntegration
       return {
         variation: row.variation ?? "",
         dimension: row.dimension || "",
-        day: row.day ?? null,
         users: parseInt(row.users) || 0,
         statistic_type: row.statistic_type ?? "",
         main_metric_type: row.main_metric_type ?? "",
@@ -1171,14 +1170,21 @@ export default abstract class SqlIntegration
       -- One row per variation/dimension with aggregations
       SELECT
         m.variation,
-        m.dimension,
-        ${cumulativeDate ? `${this.formatDate("m.day")} AS day,` : ""}
+        ${
+          cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
+        } AS dimension,
         COUNT(*) AS users,
+        '${this.getStatisticType(
+          isRatio,
+          isRegressionAdjusted
+        )}' as statistic_type,
+        '${metric.type}' as main_metric_type,
         SUM(COALESCE(m.value, 0)) AS main_sum,
         SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
         ${
           isRatio
             ? `,
+          '${denominator?.type}' as denominator_metric_type,
           SUM(COALESCE(d.value, 0)) AS denominator_sum,
           SUM(POWER(COALESCE(d.value, 0), 2)) AS denominator_sum_squares,
           SUM(COALESCE(d.value, 0) * COALESCE(m.value, 0)) AS main_denominator_sum_product
@@ -1188,6 +1194,7 @@ export default abstract class SqlIntegration
         ${
           isRegressionAdjusted
             ? `,
+          '${metric.type}' as covariate_metric_type,
           SUM(COALESCE(c.value, 0)) AS covariate_sum,
           SUM(POWER(COALESCE(c.value, 0), 2)) AS covariate_sum_squares,
           SUM(COALESCE(m.value, 0) * COALESCE(c.value, 0)) AS main_covariate_sum_product
@@ -1216,8 +1223,7 @@ export default abstract class SqlIntegration
       ${isRatio ? `WHERE d.value != 0` : ""}
       GROUP BY
         m.variation,
-        ${cumulativeDate ? "m.day," : ""}
-        m.dimension
+        ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
     `,
       this.getFormatDialect()
     );
