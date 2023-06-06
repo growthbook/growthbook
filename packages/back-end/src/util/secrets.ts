@@ -1,6 +1,7 @@
 import fs from "fs";
 import dotenv from "dotenv";
 import { IssuerMetadata } from "openid-client";
+import trimEnd from "lodash/trimEnd";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
@@ -23,11 +24,17 @@ export const UPLOAD_METHOD = (() => {
   return "local";
 })();
 
-export const MONGODB_URI =
+export let MONGODB_URI =
   process.env.MONGODB_URI ??
-  (prod ? "" : "mongodb://root:password@localhost:27017/");
+  (prod ? "" : "mongodb://root:password@localhost:27017/test?authSource=admin");
 if (!MONGODB_URI) {
   throw new Error("Missing MONGODB_URI environment variable");
+}
+
+// For backwards compatibility, if no dbname is explicitly set, use "test" and add the authSource db.
+// This matches the default behavior of the MongoDB driver 3.X, which changed when we updated to 4.X
+if (MONGODB_URI.match(/:27017(\/)?$/)) {
+  MONGODB_URI = trimEnd(MONGODB_URI, "/") + "/test?authSource=admin";
 }
 
 export const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
