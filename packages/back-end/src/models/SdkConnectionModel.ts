@@ -120,7 +120,7 @@ export const createSDKConnectionValidator = z
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
     sseEnabled: z.boolean().optional(),
-    remoteEnabled: z.boolean().optional(),
+    remoteEvalEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -146,6 +146,7 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
     dateCreated: new Date(),
     dateUpdated: new Date(),
     encryptionKey: await generateEncryptionKey(),
+    hashSecureAttributes: false,
     connected: false,
     // This is not for cryptography, it just needs to be long enough to be unique
     key: generateSDKConnectionKey(),
@@ -160,6 +161,7 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
       error: "",
     }),
     sseEnabled: false,
+    remoteEvalEnabled: false,
   };
 
   if (connection.proxy.enabled && connection.proxy.host) {
