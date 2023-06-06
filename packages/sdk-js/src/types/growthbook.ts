@@ -226,7 +226,6 @@ export type FeatureApiResponse = {
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
-  trackExperiments?: TrackExperimentData[];
 };
 
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
