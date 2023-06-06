@@ -56,7 +56,7 @@ describe("bigquery integration", () => {
         " "
       )
     ).toEqual(
-      "(CASE WHEN m.timestamp >= d.conversion_start AND m.timestamp <= d.conversion_end THEN val ELSE NULL END)"
+      "(CASE WHEN m.timestamp >= d.conversion_start AND m.timestamp <= d.conversion_end THEN COALESCE(val, 0) ELSE NULL END)"
     );
 
     expect(
@@ -65,7 +65,7 @@ describe("bigquery integration", () => {
         " "
       )
     ).toEqual(
-      "(CASE WHEN m.timestamp >= d.conversion_start THEN val ELSE NULL END)"
+      "(CASE WHEN m.timestamp >= d.conversion_start THEN COALESCE(val, 0) ELSE NULL END)"
     );
 
     expect(
@@ -74,7 +74,7 @@ describe("bigquery integration", () => {
         " "
       )
     ).toEqual(
-      "(CASE WHEN m.timestamp >= d.conversion_start AND date_trunc(m.timestamp, DAY) <= dr.day THEN val ELSE NULL END)"
+      "(CASE WHEN m.timestamp >= d.conversion_start AND date_trunc(m.timestamp, DAY) <= dr.day THEN COALESCE(val, 0) ELSE NULL END)"
     );
 
     expect(
