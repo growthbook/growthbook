@@ -39,21 +39,19 @@ export default async (): Promise<void> => {
         throw new Error("mongodb connection string invalid");
       }
 
-      await mongoose.connect(modifiedUri, mongooseOpts);
+      // Log problematic fields before attempting to reconnect
+      if (unsupported.length) {
+        logger.error(`mongodb unsupported fields: ${unsupported.join(", ")}`);
+      }
       if (remapped.length) {
         logger.warn(
           `mongodb deprecated fields remapped: ${remapped.join(", ")}`
         );
       }
 
-      if (unsupported.length) {
-        logger.error(`mongodb unsupported fields: ${unsupported.join(", ")}`);
-      }
+      await mongoose.connect(modifiedUri, mongooseOpts);
     } catch (e) {
-      logger.error(
-        e,
-        "Failed to connect to MongoDB. Retrying with field remapping for mongodb v3 to v4"
-      );
+      logger.error(e, "Failed to connect to MongoDB after retrying");
       throw new Error("MongoDB connection error.");
     }
   }
