@@ -137,6 +137,10 @@ export class GrowthBook<
     return this._ctx.remoteEval || false;
   }
 
+  public getDeferTracking(): boolean {
+    return this._ctx.deferTracking || false;
+  }
+
   private async _refresh(
     options?: RefreshFeaturesOptions,
     allowStale?: boolean,
@@ -250,6 +254,43 @@ export class GrowthBook<
 
   public getAllResults() {
     return new Map(this._assigned);
+  }
+
+  public exportState({
+    features = true,
+    experiments = true,
+    attributes = true,
+    forcedVariations = true,
+    apiHost = false,
+    clientKey = false,
+    decryptionKey = false,
+  }: {
+    features?: boolean;
+    experiments?: boolean;
+    attributes?: boolean;
+    forcedVariations?: boolean;
+    apiHost?: boolean;
+    clientKey?: boolean;
+    decryptionKey?: boolean;
+  }): Partial<Context> {
+    return {
+      ...(features && { features: this._ctx.features }),
+      ...(experiments && { experiments: this._ctx.experiments }),
+      ...(attributes && { attributes: this._ctx.attributes }),
+      ...(forcedVariations && { forcedVariations: this._ctx.forcedVariations }),
+      ...(apiHost && { apiHost: this._ctx.apiHost }),
+      ...(clientKey && { clientKey: this._ctx.clientKey }),
+      ...(decryptionKey && { decryptionKey: this._ctx.decryptionKey }),
+    };
+  }
+
+  public importState(state: Partial<Context>) {
+    this._ctx = {
+      ...this._ctx,
+      ...state,
+    };
+    this._render();
+    this._updateAllAutoExperiments();
   }
 
   public destroy() {

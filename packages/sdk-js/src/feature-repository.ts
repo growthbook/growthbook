@@ -264,7 +264,11 @@ async function fetchFeatures(
       })
       .then((data: FeatureApiResponse) => {
         onNewFeatureData(key, data);
-        instance.fireTrackingCalls(data.trackExperiments || []);
+        if (instance.getDeferTracking()) {
+          instance.enqueueTrackingCalls(data.trackExperiments || []);
+        } else {
+          instance.fireTrackingCalls(data.trackExperiments || []);
+        }
         startAutoRefresh(instance);
         activeFetches.delete(key);
         return data;
