@@ -25,7 +25,12 @@ const OUTPUT_DIR = "/tmp/json";
 
 // import experimentConfigs
 import experimentConfigData from "./experiments.json";
-type DimensionType = "user" | "experiment" | "date" | "activation";
+type DimensionType =
+  | "user"
+  | "experiment"
+  | "date"
+  | "datecumulative"
+  | "activation";
 type TestExperimentConfig = {
   id: string;
   dimensionType?: DimensionType;
@@ -218,6 +223,8 @@ function buildDimension(
     return { type: "activation" };
   } else if (exp.dimensionType == "date") {
     return { type: "date" };
+  } else if (exp.dimensionType == "datecumulative") {
+    return { type: "datecumulative" };
   } else {
     throw "invalid dimensionType and or dimensionMetric specified";
   }
