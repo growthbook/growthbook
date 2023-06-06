@@ -32,6 +32,7 @@ type Props = {
   className?: string;
   setCursorData?: (data: CursorData) => void;
   showTestButton?: boolean;
+  showHeadline?: boolean;
 };
 
 export default function SQLInputField({
@@ -47,6 +48,7 @@ export default function SQLInputField({
   className,
   setCursorData,
   showTestButton = true,
+  showHeadline = true,
 }: Props) {
   const [
     testQueryResults,
@@ -169,7 +171,9 @@ export default function SQLInputField({
 
   return (
     <div className={className}>
-      <label className="font-weight-bold mb-1">SQL Query</label>
+      {showHeadline && (
+        <label className="font-weight-bold mb-1">SQL Query</label>
+      )}
       <div className="row flex-column-reverse flex-md-row">
         <div
           className={

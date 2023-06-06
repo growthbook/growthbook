@@ -95,7 +95,12 @@ export default function AutoMetricCard({
         </td>
       </tr>
       {sqlPreview && (
-        <tr>
+        <tr
+          className="bg-light"
+          style={{
+            boxShadow: "rgba(0, 0, 0, 0.06) 0px 2px 4px 0px inset",
+          }}
+        >
           <td colSpan={4}>
             <SQLInputField
               showPreview
@@ -105,6 +110,7 @@ export default function AutoMetricCard({
               requiredColumns={new Set()}
               queryType="metric"
               showTestButton={false}
+              showHeadline={false}
             />
           </td>
         </tr>
