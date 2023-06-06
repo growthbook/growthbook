@@ -6,8 +6,10 @@ export interface ApiKeyInterface {
   description?: string;
   organization: string;
   dateCreated: Date;
+  userId?: string;
+  role?: string;
   encryptSDK?: boolean;
-  encryptionKey: string;
+  encryptionKey?: string;
   secret?: boolean;
 }
 
