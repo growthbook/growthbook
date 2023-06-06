@@ -35,21 +35,28 @@ export default class Redshift extends SqlIntegration {
   ensureFloat(col: string): string {
     return `${col}::float`;
   }
-  getInformationSchemaTableFromClause(): string {
-    return "SVV_COLUMNS";
-  }
-  generateTableName(tableName?: string): string {
-    if (!tableName) return "SVV_COLUMNS";
+  generateTableName(
+    tableName: string,
+    schemaName?: string,
+    databaseName?: string
+  ): string {
+    if (tableName === "columns" && schemaName === "information_schema")
+      return "SVV_COLUMNS";
 
-    if (!this.params.database) {
+    const database = databaseName || this.params.database;
+    const schema = schemaName || this.params.defaultSchema;
+
+    if (!database) {
       throw new MissingDatasourceParamsError(
-        "To automatically generate metrics for an Athena data source, you must define a default database."
+        "No database provided. Please edit the connection settings and try again."
       );
     }
-    if (!this.params.defaultSchema)
+
+    if (!schema)
       throw new MissingDatasourceParamsError(
-        "To automatically generate metrics for an Athena data source, you must define a default catalog."
+        "No default schema provided. Please edit the connection settings and try again."
       );
-    return `${this.params.database}.${this.params.defaultSchema}.${tableName}`;
+
+    return `${database}.${schema}.${tableName}`;
   }
 }

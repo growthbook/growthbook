@@ -38,22 +38,25 @@ export default class Snowflake extends SqlIntegration {
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('INFORMATION_SCHEMA')";
   }
-  getInformationSchemaTableFromClause(databaseName: string): string {
-    return `${databaseName}.information_schema.columns`;
-  }
-  generateTableName(tableName?: string): string {
-    if (!this.params.database)
+  generateTableName(
+    tableName: string,
+    schemaName?: string,
+    databaseName?: string
+  ): string {
+    const database = databaseName || this.params.database;
+    const schema = schemaName || this.params.schema;
+
+    if (!database) {
       throw new MissingDatasourceParamsError(
-        "No database provided. In order to get the information schema, you must provide a database."
+        "No database provided. Please edit the connection settings and try again."
+      );
+    }
+
+    if (!schema)
+      throw new MissingDatasourceParamsError(
+        "No schema provided. Please edit the connection settings and try again."
       );
 
-    if (!tableName) return `${this.params.database}.information_schema.columns`;
-
-    if (!this.params.schema)
-      throw new MissingDatasourceParamsError(
-        "No schema provided. To automatically generate metrics, you must provide a schema."
-      );
-
-    return `${this.params.database}.${this.params.schema}.${tableName}`;
+    return `${database}.${schema}.${tableName}`;
   }
 }

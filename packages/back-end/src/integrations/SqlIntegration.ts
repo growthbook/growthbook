@@ -1210,21 +1210,20 @@ export default abstract class SqlIntegration
     throw new Error("Not implemented");
   }
 
-  generateTableName(tableName?: string): string {
-    return tableName || "information_schema.columns";
+  generateTableName(
+    tableName: string,
+    schemaName?: string,
+    databaseName?: string
+  ): string {
+    return `${databaseName ? `${databaseName}.` : ""}${
+      schemaName ? `${schemaName}.` : ""
+    }${tableName}`;
   }
 
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('information_schema')";
   }
-  getInformationSchemaTableFromClause(
-    // eslint-disable-next-line
-    databaseName: string,
-    // eslint-disable-next-line
-    tableSchema: string
-  ): string {
-    return "information_schema.columns";
-  }
+
   async getInformationSchema(): Promise<InformationSchema[]> {
     const sql = `
   SELECT 
@@ -1233,7 +1232,7 @@ export default abstract class SqlIntegration
     table_schema as table_schema,
     count(column_name) as column_count 
   FROM
-    ${this.generateTableName()}
+    ${this.generateTableName("columns", "information_schema")}
     WHERE ${this.getInformationSchemaWhereClause()}
     GROUP BY table_name, table_schema, table_catalog`;
 
@@ -1258,7 +1257,7 @@ export default abstract class SqlIntegration
     data_type as data_type,
     column_name as column_name 
   FROM
-    ${this.getInformationSchemaTableFromClause(databaseName, tableSchema)}
+    ${this.generateTableName("columns", "information_schema", databaseName)}
   WHERE 
     table_name = '${tableName}'
     AND table_schema = '${tableSchema}'

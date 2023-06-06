@@ -49,24 +49,25 @@ export default class Athena extends SqlIntegration {
   ensureFloat(col: string): string {
     return `1.0*${col}`;
   }
-  getInformationSchemaTableFromClause(databaseName: string): string {
-    return `${databaseName}.information_schema.columns`;
-  }
-  generateTableName(tableName?: string): string {
-    if (!this.params.catalog)
-      throw new MissingDatasourceParamsError(
-        "To view the information schema for an Athena data source, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings."
-      );
+  generateTableName(
+    tableName: string,
+    schemaName?: string,
+    databaseName?: string
+  ): string {
+    const database = databaseName || this.params.database;
+    const schema = schemaName || this.params.catalog;
 
-    if (!tableName) {
-      return `${this.params.catalog}.information_schema.columns`;
-    }
-
-    if (!this.params.database) {
+    if (!database) {
       throw new MissingDatasourceParamsError(
-        "To automatically generate metrics for an Athena data source, you must define a default database."
+        "No default database provided. Please edit the connection settings and try again."
       );
     }
-    return `${this.params.database}.${this.params.catalog}.${tableName}`;
+
+    if (!schema)
+      throw new MissingDatasourceParamsError(
+        "No default catalog provided. Please edit the connection settings and try again."
+      );
+
+    return `${database}.${schema}.${tableName}`;
   }
 }

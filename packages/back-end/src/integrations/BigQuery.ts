@@ -82,23 +82,26 @@ export default class BigQuery extends SqlIntegration {
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
-  getInformationSchemaTableFromClause(
-    databaseName: string,
-    tableSchema: string
+  generateTableName(
+    tableName: string,
+    schemaName?: string,
+    databaseName?: string
   ): string {
-    return `\`${databaseName}.${tableSchema}.INFORMATION_SCHEMA.COLUMNS\``;
-  }
-  generateTableName(event?: string): string {
-    if (!this.params.projectId)
-      throw new Error(
-        "No projectId provided. To automatically generate metrics you must provide a projectId."
-      );
-    if (!this.params.defaultDataset)
+    const database = databaseName || this.params.projectId;
+    const schema = schemaName || this.params.defaultDataset;
+
+    if (!database) {
+      throw new MissingDatasourceParamsError("No project ID provided.");
+    }
+
+    if (!schema)
       throw new MissingDatasourceParamsError(
-        "To automatically generate metrics for a BigQuery dataset, you must define a default dataset."
+        "No default dataset provided. Please edit the connection settings and try again."
       );
-    return `\`${this.params.projectId}.${this.params.defaultDataset}.${
-      event || "INFORMATION_SCHEMA.COLUMNS"
-    }\``;
+
+    if (schemaName === "information_schema" && tableName === "columns") {
+      return `\`${database}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\``;
+    }
+    return `\`${database}.${schema}.${tableName}\``;
   }
 }

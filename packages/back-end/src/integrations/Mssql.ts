@@ -67,22 +67,26 @@ export default class Mssql extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
-  getInformationSchemaTableFromClause(databaseName: string): string {
-    return `${databaseName}.information_schema.columns`;
-  }
-  generateTableName(tableName?: string): string {
-    if (!this.params.database)
+
+  generateTableName(
+    tableName: string,
+    schemaName?: string,
+    databaseName?: string
+  ): string {
+    const database = databaseName || this.params.database;
+    const schema = schemaName || this.params.defaultSchema;
+
+    if (!database) {
       throw new MissingDatasourceParamsError(
-        "To view the information schema for a MS Sql dataset, you must define a default database. Please add a default database by editing the datasource's connection settings."
+        "No database provided. Please edit the connection settings and try again."
+      );
+    }
+
+    if (!schema)
+      throw new MissingDatasourceParamsError(
+        "No default schema provided. Please edit the connection settings and try again."
       );
 
-    if (!tableName) {
-      return `${this.params.database}.information_schema.columns`;
-    }
-    if (!this.params.defaultSchema)
-      throw new Error(
-        "No default schema provided. To automatically generate metrics, you must provide a default schema. This should be the schema where your tracked events are stored."
-      );
-    return `${this.params.defaultSchema}.${tableName}`;
+    return `${database}.${schema}.${tableName}`;
   }
 }

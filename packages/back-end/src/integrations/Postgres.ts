@@ -38,14 +38,16 @@ export default class Postgres extends SqlIntegration {
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')";
   }
-  generateTableName(tableName?: string): string {
-    if (!tableName) {
-      return "information_schema.columns";
-    }
-    if (!this.params.defaultSchema)
+  generateTableName(tableName: string, schemaName?: string): string {
+    if (tableName === "columns" && schemaName === "information_schema")
+      return `${schemaName}.${tableName}`;
+
+    const schema = schemaName || this.params.defaultSchema;
+
+    if (!schema)
       throw new Error(
-        "No default schema provided. To automatically generate metrics, you must provide a default schema. This should be the schema where your tracked events are stored."
+        "No default schema provided. Please edit the connection settings and try again."
       );
-    return `${this.params.defaultSchema}.${tableName}`;
+    return `${schema}.${tableName}`;
   }
 }
