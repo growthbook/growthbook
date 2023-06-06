@@ -68,7 +68,7 @@ const CompactResults: FC<{
     return metrics
       .map((metricId) => {
         const metric = getMetricById(metricId);
-        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MetricInterface | null' is not a... Remove this comment to see the full error message
+        if (!metric) return null;
         const { newMetric } = applyMetricOverrides(metric, metricOverrides);
         let regressionAdjustmentStatus:
           | MetricRegressionAdjustmentStatus
@@ -89,7 +89,7 @@ const CompactResults: FC<{
           regressionAdjustmentStatus,
         };
       })
-      .filter((row) => row.metric);
+      .filter((row) => row?.metric) as ExperimentTableRow[];
   }, [
     results,
     metrics,
@@ -110,11 +110,12 @@ const CompactResults: FC<{
     <>
       <div className="px-3">
         <DataQualityWarning results={results} variations={variations} />
-        <MultipleExposureWarning
-          users={users}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
-          multipleExposures={multipleExposures}
-        />
+        {multipleExposures !== undefined && (
+          <MultipleExposureWarning
+            users={users}
+            multipleExposures={multipleExposures}
+          />
+        )}
         <h3 className="mb-3">
           Metrics
           {editMetrics && (

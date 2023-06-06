@@ -21,8 +21,8 @@ import {
   DataSourceProperties,
   DataSourceSettings,
 } from "../../types/datasource";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface } from "../../types/metric";
+import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 
 export function getOauth2Client() {
   return new google.auth.OAuth2(
@@ -214,8 +214,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
   }
 
   getExperimentResultsQuery(
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
+    snapshotSettings: ExperimentSnapshotSettings,
     metrics: MetricInterface[]
   ): string {
     const metricExpressions = metrics.map((m) => ({
@@ -226,8 +225,8 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       viewId: this.params.viewId,
       dateRanges: [
         {
-          startDate: phase.dateStarted.toISOString().substr(0, 10),
-          endDate: (phase.dateEnded || new Date()).toISOString().substr(0, 10),
+          startDate: snapshotSettings.startDate.toISOString().substr(0, 10),
+          endDate: snapshotSettings.endDate.toISOString().substr(0, 10),
         },
       ],
       metrics: [
@@ -247,7 +246,9 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
             {
               dimensionName: `ga:dimension${this.params.customDimension}`,
               operator: "BEGINS_WITH",
-              expressions: [experiment.trackingKey + this.getDelimiter()],
+              expressions: [
+                snapshotSettings.experimentId + this.getDelimiter(),
+              ],
             },
           ],
         },
@@ -262,11 +263,10 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
   }
 
   async getExperimentResults(
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
+    snapshotSettings: ExperimentSnapshotSettings,
     metrics: MetricInterface[]
   ): Promise<ExperimentQueryResponses> {
-    const query = this.getExperimentResultsQuery(experiment, phase, metrics);
+    const query = this.getExperimentResultsQuery(snapshotSettings, metrics);
 
     const result = await google.analyticsreporting("v4").reports.batchGet({
       auth: this.getAuth(),

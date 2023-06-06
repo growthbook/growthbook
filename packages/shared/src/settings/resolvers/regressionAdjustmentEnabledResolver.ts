@@ -1,5 +1,5 @@
 import { Settings, SettingsContext, SettingsResolver } from "../types";
-import { DEFAULT_STATS_ENGINE } from "../../stats";
+import { DEFAULT_STATS_ENGINE } from "../../constants";
 
 const regressionAdjustmentResolver = (
   field: "enabled" | "days"

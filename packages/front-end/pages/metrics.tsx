@@ -3,7 +3,7 @@ import { FaArchive, FaPlus, FaRegCopy } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { ago, datetime } from "shared";
+import { ago, datetime } from "shared/dates";
 import SortedTags from "@/components/Tags/SortedTags";
 import { GBAddCircle } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -308,12 +308,12 @@ const MetricsPage = (): React.ReactElement => {
               <td>{metric.type}</td>
 
               <td className="nowrap">
-                {/* @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call. */}
-                <SortedTags tags={Object.values(metric.tags)} />
+                <SortedTags
+                  tags={metric.tags ? Object.values(metric.tags) : []}
+                />
               </td>
               <td className="col-2">
-                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                {metric?.projects?.length > 0 ? (
+                {metric && (metric.projects || []).length > 0 ? (
                   <ProjectBadges
                     projectIds={metric.projects}
                     className="badge-ellipsis short align-middle"
@@ -336,12 +336,10 @@ const MetricsPage = (): React.ReactElement => {
               </td>
               {!hasFileConfig() && (
                 <td
-                  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message
-                  title={datetime(metric.dateUpdated)}
+                  title={datetime(metric.dateUpdated || "")}
                   className="d-none d-md-table-cell"
                 >
-                  {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message */}
-                  {ago(metric.dateUpdated)}
+                  {ago(metric.dateUpdated || "")}
                 </td>
               )}
               <td className="text-muted">

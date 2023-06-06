@@ -6,7 +6,7 @@ import { SortableExperimentVariationCard } from "./SortableVariationData";
 
 export interface Props {
   variations: Variation[];
-  setVariations?: (variations: Variation[]) => void;
+  setVariations: (variations: Variation[]) => void;
   className?: string;
 }
 
@@ -21,7 +21,6 @@ export default function ExperimentVariationsInput({
       <div className="row">
         <SortableVariationsList
           variations={variations}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((variations: Variation[]) => void) | undefi... Remove this comment to see the full error message
           setVariations={setVariations}
           sortingStrategy="rect"
         >
@@ -58,7 +57,6 @@ export default function ExperimentVariationsInput({
                   screenshots: [],
                   id: generateVariationId(),
                 });
-                // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
                 setVariations(newVariations);
               }}
             >

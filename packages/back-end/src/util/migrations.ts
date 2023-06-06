@@ -3,7 +3,7 @@ import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
-} from "shared";
+} from "shared/constants";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
@@ -23,6 +23,11 @@ import {
   ExperimentInterface,
   LegacyExperimentInterface,
 } from "../../types/experiment";
+import {
+  LegacyExperimentSnapshotInterface,
+  ExperimentSnapshotInterface,
+  MetricForSnapshot,
+} from "../../types/experiment-snapshot";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "./secrets";
 
 function roundVariationWeight(num: number): number {
@@ -435,4 +440,159 @@ export function upgradeExperimentDoc(
   }
 
   return experiment as ExperimentInterface;
+}
+
+export function migrateSnapshot(
+  orig: LegacyExperimentSnapshotInterface
+): ExperimentSnapshotInterface {
+  const {
+    activationMetric,
+    statsEngine,
+    // eslint-disable-next-line
+    hasRawQueries,
+    // eslint-disable-next-line
+    hasCorrectedStats,
+    // eslint-disable-next-line
+    query,
+    // eslint-disable-next-line
+    queryLanguage,
+    results,
+    regressionAdjustmentEnabled,
+    metricRegressionAdjustmentStatuses,
+    sequentialTestingEnabled,
+    sequentialTestingTuningParameter,
+    queryFilter,
+    segment,
+    skipPartialData,
+    manual,
+    ...snapshot
+  } = orig;
+
+  // Convert old results to new array of analyses
+  if (!snapshot.analyses) {
+    if (results) {
+      const regressionAdjusted =
+        regressionAdjustmentEnabled &&
+        metricRegressionAdjustmentStatuses?.some(
+          (s) => s.regressionAdjustmentEnabled
+        )
+          ? true
+          : false;
+
+      snapshot.analyses = [
+        {
+          dateCreated: snapshot.dateCreated,
+          status: snapshot.error ? "error" : "success",
+          settings: {
+            statsEngine: statsEngine || "bayesian",
+            dimensions: snapshot.dimension ? [snapshot.dimension] : [],
+            pValueCorrection: null,
+            regressionAdjusted,
+            sequentialTesting: !!sequentialTestingEnabled,
+            sequentialTestingTuningParameter:
+              sequentialTestingTuningParameter ||
+              DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+          },
+          results,
+        },
+      ];
+      if (snapshot.error) {
+        snapshot.analyses[0].error = snapshot.error;
+      }
+    } else {
+      snapshot.analyses = [];
+    }
+  }
+
+  // Figure out status from old fields
+  if (!snapshot.status) {
+    snapshot.status = snapshot.error
+      ? "error"
+      : snapshot.analyses.length > 0
+      ? "success"
+      : "running";
+  }
+
+  // Migrate settings
+  // We weren't tracking all of these before, so just pick good defaults
+  if (!snapshot.settings) {
+    // Try to figure out metric ids from results
+    const metricIds = Object.keys(results?.[0]?.variations?.[0]?.metrics || {});
+    if (activationMetric && !metricIds.includes(activationMetric)) {
+      metricIds.push(activationMetric);
+    }
+
+    const variations = (results?.[0]?.variations || []).map((v, i) => ({
+      id: i + "",
+      weight: 0,
+    }));
+
+    const metricSettings: MetricForSnapshot[] = metricIds.map((id) => {
+      const regressionSettings = metricRegressionAdjustmentStatuses?.find(
+        (s) => s.metric === id
+      );
+
+      return {
+        id,
+        computedSettings: {
+          conversionDelayHours: 0,
+          conversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS,
+          regressionAdjustmentDays:
+            regressionSettings?.regressionAdjustmentDays || 0,
+          regressionAdjustmentEnabled: !!(
+            regressionAdjustmentEnabled &&
+            regressionSettings?.regressionAdjustmentEnabled
+          ),
+          regressionAdjustmentReason: regressionSettings?.reason || "",
+        },
+      };
+    });
+
+    snapshot.settings = {
+      manual: !!manual,
+      dimensions: snapshot.dimension
+        ? [
+            {
+              id: snapshot.dimension,
+            },
+          ]
+        : [],
+      metricSettings,
+      // We know the metric ids included, but don't know if they were goals or guardrails
+      // Just add them all as goals (doesn't really change much)
+      goalMetrics: metricIds.filter((m) => m !== activationMetric),
+      guardrailMetrics: [],
+      activationMetric: activationMetric || null,
+      regressionAdjustmentEnabled: !!regressionAdjustmentEnabled,
+      startDate: snapshot.dateCreated,
+      endDate: snapshot.dateCreated,
+      experimentId: "",
+      datasourceId: "",
+      exposureQueryId: "",
+      queryFilter: queryFilter || "",
+      segment: segment || "",
+      skipPartialData: !!skipPartialData,
+      attributionModel: "firstExposure",
+      variations,
+    };
+  }
+
+  // Some fields used to be optional, but are now required
+  if (!snapshot.queries) {
+    snapshot.queries = [];
+  }
+  if (!snapshot.multipleExposures) {
+    snapshot.multipleExposures = 0;
+  }
+  if (!snapshot.unknownVariations) {
+    snapshot.unknownVariations = [];
+  }
+  if (!snapshot.dimension) {
+    snapshot.dimension = "";
+  }
+  if (!snapshot.runStarted) {
+    snapshot.runStarted = null;
+  }
+
+  return snapshot;
 }

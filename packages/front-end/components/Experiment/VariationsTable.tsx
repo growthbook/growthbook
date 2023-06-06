@@ -44,10 +44,9 @@ const ScreenshotCarousel: FC<{
 
   return (
     <Carousel
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((j: number) => Promise<void>) | null' is no... Remove this comment to see the full error message
       deleteImage={
         !canEditExperiment
-          ? null
+          ? undefined
           : async (j) => {
               const { status, message } = await apiCall<{
                 status: number;
@@ -87,8 +86,7 @@ const ScreenshotCarousel: FC<{
 };
 
 const isLegacyVariation = (v: Partial<LegacyVariation>): v is LegacyVariation =>
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  !!v.css || v.dom?.length > 0;
+  !!v.css || (v?.dom?.length ?? 0) > 0;
 
 const drawUrlPattern = (
   p: VisualChangesetURLPattern,
@@ -97,7 +95,7 @@ const drawUrlPattern = (
 ) => (
   <span key={j}>
     <code>{p.pattern}</code>
-    {p.include === false && (
+    {!p.include && (
       <Tooltip body="Exclude this pattern" style={{ marginLeft: 2 }}>
         <FaTimesCircle className="mt-1" color={"#e53"} />
       </Tooltip>
@@ -156,8 +154,8 @@ const VariationsTable: FC<Props> = ({
                       : "pb-2"
                   }`}
                   style={{
-                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | null' is not assignable to type 'Bo... Remove this comment to see the full error message
-                    borderBottom: hasDescriptions || hasUniqueIDs ? 0 : null,
+                    borderBottom:
+                      hasDescriptions || hasUniqueIDs ? 0 : undefined,
                   }}
                 >
                   <span className="label">{i}</span>
@@ -370,6 +368,7 @@ const VariationsTable: FC<Props> = ({
                             const changes = vc.visualChanges[j];
                             const numChanges =
                               (changes?.css ? 1 : 0) +
+                              (changes?.js ? 1 : 0) +
                               (changes?.domMutations?.length || 0);
                             return (
                               <td key={j} className="px-4 py-1">

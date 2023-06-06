@@ -1,5 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
-import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS, getValidDate } from "shared";
+import { getValidDate } from "shared/dates";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceSettings,
@@ -23,7 +23,6 @@ import {
   InformationSchema,
   RawInformationSchema,
 } from "../types/Integration";
-import { ExperimentPhase, ExperimentInterface } from "../../types/experiment";
 import { DimensionInterface } from "../../types/dimension";
 import {
   DEFAULT_CONVERSION_WINDOW_HOURS,
@@ -36,8 +35,8 @@ import {
   format,
   FormatDialect,
 } from "../util/sql";
-import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { formatInformationSchema } from "../util/informationSchemas";
+import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -169,49 +168,26 @@ export default abstract class SqlIntegration
 
   applyMetricOverrides(
     metric: MetricInterface,
-    experiment: ExperimentInterface,
-    experimentRegressionAdjustmentEnabled?: boolean,
-    metricRegressionAdjustmentStatus?: MetricRegressionAdjustmentStatus
+    settings: ExperimentSnapshotSettings
   ) {
     if (!metric) return;
-    const metricOverride = experiment?.metricOverrides?.find(
-      (mo) => mo.id === metric.id
-    );
-    if (metricOverride) {
-      if ("conversionDelayHours" in metricOverride) {
-        metric.conversionDelayHours = metricOverride.conversionDelayHours;
-      }
-      if ("conversionWindowHours" in metricOverride) {
-        metric.conversionWindowHours = metricOverride.conversionWindowHours;
-      }
-      if ("winRisk" in metricOverride) {
-        metric.winRisk = metricOverride.winRisk;
-      }
-      if ("loseRisk" in metricOverride) {
-        metric.loseRisk = metricOverride.loseRisk;
-      }
+
+    const computed = settings.metricSettings.find((s) => s.id === metric.id)
+      ?.computedSettings;
+    if (!computed) return;
+
+    metric.conversionDelayHours = computed.conversionDelayHours;
+    metric.conversionWindowHours = computed.conversionWindowHours;
+    metric.regressionAdjustmentEnabled = computed.regressionAdjustmentEnabled;
+    metric.regressionAdjustmentDays = computed.regressionAdjustmentDays;
+
+    // TODO: move this to the form validation when saving this settings
+    if (metric.regressionAdjustmentDays < 0) {
+      metric.regressionAdjustmentDays = 0;
     }
-    // Apply regression adjustments specifically, not from metric overrides
-    if (experimentRegressionAdjustmentEnabled !== undefined) {
-      metric.regressionAdjustmentEnabled = experimentRegressionAdjustmentEnabled;
+    if (metric.regressionAdjustmentDays > 100) {
+      metric.regressionAdjustmentDays = 100;
     }
-    if (metricRegressionAdjustmentStatus !== undefined) {
-      metric.regressionAdjustmentEnabled =
-        experimentRegressionAdjustmentEnabled &&
-        metricRegressionAdjustmentStatus.regressionAdjustmentEnabled;
-      metric.regressionAdjustmentDays =
-        metricRegressionAdjustmentStatus.regressionAdjustmentDays ??
-        DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
-      metric.regressionAdjustmentDays = Math.max(
-        metric.regressionAdjustmentDays,
-        0
-      );
-      metric.regressionAdjustmentDays = Math.min(
-        metric.regressionAdjustmentDays,
-        100
-      );
-    }
-    return;
   }
 
   private getExposureQuery(
@@ -767,11 +743,8 @@ export default abstract class SqlIntegration
       metric: metricDoc,
       activationMetrics: activationMetricsDocs,
       denominatorMetrics: denominatorMetricsDocs,
-      experiment,
-      phase,
+      settings,
       segment,
-      regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatus,
     } = params;
 
     // clone the metrics before we mutate them
@@ -783,14 +756,9 @@ export default abstract class SqlIntegration
       denominatorMetricsDocs
     );
 
-    this.applyMetricOverrides(
-      metric,
-      experiment,
-      regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatus
-    );
-    activationMetrics.forEach((m) => this.applyMetricOverrides(m, experiment));
-    denominatorMetrics.forEach((m) => this.applyMetricOverrides(m, experiment));
+    this.applyMetricOverrides(metric, settings);
+    activationMetrics.forEach((m) => this.applyMetricOverrides(m, settings));
+    denominatorMetrics.forEach((m) => this.applyMetricOverrides(m, settings));
 
     let dimension = params.dimension;
     if (dimension?.type === "activation" && !activationMetrics.length) {
@@ -799,24 +767,21 @@ export default abstract class SqlIntegration
     // Replace any placeholders in the user defined dimension SQL
     if (dimension?.type === "user") {
       dimension.dimension.sql = replaceSQLVars(dimension.dimension.sql, {
-        startDate: phase.dateStarted,
-        endDate: phase.dateEnded,
-        experimentId: experiment.trackingKey,
+        startDate: settings.startDate,
+        endDate: settings.endDate,
+        experimentId: settings.experimentId,
       });
     }
     // Replace any placeholders in the segment SQL
     if (segment?.sql) {
       segment.sql = replaceSQLVars(segment.sql, {
-        startDate: phase.dateStarted,
-        endDate: phase.dateEnded,
-        experimentId: experiment.trackingKey,
+        startDate: settings.startDate,
+        endDate: settings.endDate,
+        experimentId: settings.experimentId,
       });
     }
 
-    const exposureQuery = this.getExposureQuery(
-      experiment.exposureQueryId || "",
-      experiment.userIdType
-    );
+    const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
     const denominator = denominatorMetrics[denominatorMetrics.length - 1];
     // If the denominator is a binomial, it's just acting as a filter
@@ -834,6 +799,7 @@ export default abstract class SqlIntegration
     // redundant checks to make sure configuration makes sense and we only build expensive queries for the cases
     // where RA is actually possible
     const isRegressionAdjusted =
+      settings.regressionAdjustmentEnabled &&
       (metric.regressionAdjustmentDays ?? 0) > 0 &&
       !!metric.regressionAdjustmentEnabled &&
       !isRatio &&
@@ -844,7 +810,7 @@ export default abstract class SqlIntegration
       : 0;
 
     const ignoreConversionEnd =
-      experiment.attributionModel === "experimentDuration";
+      settings.attributionModel === "experimentDuration";
 
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = activationMetrics
@@ -852,13 +818,13 @@ export default abstract class SqlIntegration
       .concat([metric]);
     const minMetricDelay = this.getMetricMinDelay(orderedMetrics);
     const metricStart = this.getMetricStart(
-      phase.dateStarted,
+      settings.startDate,
       minMetricDelay,
       regressionAdjustmentHours
     );
     const metricEnd = this.getMetricEnd(
       orderedMetrics,
-      phase.dateEnded,
+      settings.endDate,
       ignoreConversionEnd
     );
 
@@ -874,10 +840,10 @@ export default abstract class SqlIntegration
         ...activationMetrics.map((m) => m.userIdTypes || []),
         ...denominatorMetrics.map((m) => m.userIdTypes || []),
       ],
-      phase.dateStarted,
-      phase.dateEnded,
+      settings.startDate,
+      settings.endDate,
       exposureQuery.userIdType,
-      experiment.trackingKey
+      settings.experimentId
     );
 
     const dimensionCol = this.getDimensionColumn(baseIdType, dimension);
@@ -895,14 +861,13 @@ export default abstract class SqlIntegration
       ${idJoinSQL}
       __rawExperiment as (
         ${replaceSQLVars(exposureQuery.query, {
-          startDate: phase.dateStarted,
-          endDate: phase.dateEnded,
-          experimentId: experiment.trackingKey,
+          startDate: settings.startDate,
+          endDate: settings.endDate,
+          experimentId: settings.experimentId,
         })}
       ),
       __experiment as (${this.getExperimentCTE({
-        experiment,
-        phase,
+        settings,
         baseIdType,
         conversionWindowHours: intialMetric.conversionWindowHours || 0,
         conversionDelayHours: intialMetric.conversionDelayHours || 0,
@@ -920,7 +885,7 @@ export default abstract class SqlIntegration
         ignoreConversionEnd: ignoreConversionEnd,
         startDate: metricStart,
         endDate: metricEnd,
-        experimentId: experiment.trackingKey,
+        experimentId: settings.experimentId,
       })})
       ${
         segment
@@ -955,7 +920,7 @@ export default abstract class SqlIntegration
             idJoinMap,
             startDate: metricStart,
             endDate: metricEnd,
-            experimentId: experiment.trackingKey,
+            experimentId: settings.experimentId,
           })})`;
         })
         .join("\n")}
@@ -983,7 +948,7 @@ export default abstract class SqlIntegration
             idJoinMap,
             startDate: metricStart,
             endDate: metricEnd,
-            experimentId: experiment.trackingKey,
+            experimentId: settings.experimentId,
           })})`;
         })
         .join("\n")}
@@ -1388,12 +1353,11 @@ export default abstract class SqlIntegration
 
   // Only include users who entered the experiment before this timestamp
   private getExperimentEndDate(
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
+    settings: ExperimentSnapshotSettings,
     conversionWindowHours: number
   ): Date | null {
-    // If we need to wait until users have had a chance to full convert
-    if (experiment.skipPartialData) {
+    // If we need to wait until users have had a chance to fully convert
+    if (settings.skipPartialData) {
       // The last date allowed to give enough time for users to convert
       const conversionWindowEndDate = new Date();
       conversionWindowEndDate.setHours(
@@ -1402,19 +1366,12 @@ export default abstract class SqlIntegration
 
       // Use the earliest of either the conversion end date or the phase end date
       return new Date(
-        Math.min(
-          phase?.dateEnded?.getTime() ?? Date.now(),
-          conversionWindowEndDate.getTime()
-        )
+        Math.min(settings.endDate.getTime(), conversionWindowEndDate.getTime())
       );
     }
-    // If the phase is ended, use that as the end date
-    else if (phase.dateEnded) {
-      return phase.dateEnded;
-    }
 
-    // Otherwise, there is no end date for analysis
-    return null;
+    // Otherwise, use the actual end date
+    return settings.endDate;
   }
 
   private getMetricWindowWhereClause(
@@ -1436,9 +1393,8 @@ export default abstract class SqlIntegration
   }
 
   private getExperimentCTE({
-    experiment,
+    settings,
     baseIdType,
-    phase,
     conversionWindowHours = 0,
     conversionDelayHours = 0,
     experimentDimension = null,
@@ -1447,9 +1403,8 @@ export default abstract class SqlIntegration
     minMetricDelay = 0,
     ignoreConversionEnd = false,
   }: {
-    experiment: ExperimentInterface;
+    settings: ExperimentSnapshotSettings;
     baseIdType: string;
-    phase: ExperimentPhase;
     conversionWindowHours: number;
     conversionDelayHours: number;
     experimentDimension: string | null;
@@ -1462,8 +1417,7 @@ export default abstract class SqlIntegration
       conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;
 
     const endDate = this.getExperimentEndDate(
-      experiment,
-      phase,
+      settings,
       conversionWindowHours + conversionDelayHours
     );
 
@@ -1502,14 +1456,14 @@ export default abstract class SqlIntegration
     FROM
         __rawExperiment e
     WHERE
-        e.experiment_id = '${experiment.trackingKey}'
-        AND ${timestampColumn} >= ${this.toTimestamp(phase.dateStarted)}
+        e.experiment_id = '${settings.experimentId}'
+        AND ${timestampColumn} >= ${this.toTimestamp(settings.startDate)}
         ${
           endDate
             ? `AND ${timestampColumn} <= ${this.toTimestamp(endDate)}`
             : ""
         }
-        ${experiment.queryFilter ? `AND (\n${experiment.queryFilter}\n)` : ""}
+        ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
     `;
   }
   private getSegmentCTE(
