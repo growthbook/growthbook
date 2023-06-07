@@ -85,8 +85,8 @@ export default class Presto extends SqlIntegration {
   }
   addTime(
     col: string,
-    unit: "day" | "hour" | "minute",
-    sign: "+" | "-" | "",
+    unit: "hour" | "minute",
+    sign: "+" | "-",
     amount: number
   ): string {
     return `${col} ${sign} INTERVAL '${amount}' ${unit}`;

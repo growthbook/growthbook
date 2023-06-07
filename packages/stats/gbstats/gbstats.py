@@ -32,6 +32,7 @@ from gbstats.messages import raise_error_if_bayesian_ra
 
 SUM_COLS = [
     "users",
+    "count",
     "main_sum",
     "main_sum_squares",
     "denominator_sum",
@@ -67,9 +68,8 @@ def diff_for_daily_time_series(df: pd.DataFrame) -> pd.DataFrame:
         ]
         if x in dfc.columns
     ]
-    dfc[diff_cols] = (
-        dfc.groupby(["variation", "dimension"])[diff_cols].diff().fillna(dfc[diff_cols])
-    )
+    dfc.sort_values("dimension", inplace=True)
+    dfc[diff_cols] = dfc.groupby(["variation"])[diff_cols].diff().fillna(dfc[diff_cols])
     return dfc
 
 
@@ -280,6 +280,7 @@ def format_results(df):
             prefix = f"v{v}" if v > 0 else "baseline"
             stats = {
                 "users": row[f"{prefix}_users"],
+                "count": row[f"{prefix}_count"],
                 "stddev": row[f"{prefix}_stddev"],
                 "mean": row[f"{prefix}_mean"],
             }

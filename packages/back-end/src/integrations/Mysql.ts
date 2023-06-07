@@ -48,8 +48,8 @@ export default class Mysql extends SqlIntegration {
   }
   addTime(
     col: string,
-    unit: "day" | "hour" | "minute",
-    sign: "+" | "-" | "",
+    unit: "hour" | "minute",
+    sign: "+" | "-",
     amount: number
   ): string {
     return `DATE_${
@@ -70,29 +70,6 @@ export default class Mysql extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
-  }
-  getUserStatSelectAndJoinStatement(
-    cumulativeDate: boolean,
-    selectStatement: string
-  ): string {
-    return `
-    ${selectStatement}
-    LEFT JOIN
-      __stats s ON (
-        u.variation = s.variation
-        AND u.dimension = s.dimension
-      )
-    ${
-      cumulativeDate
-        ? `UNION
-      ${selectStatement}
-      RIGHT JOIN
-      __stats s ON (
-        u.variation = s.variation
-        AND u.dimension = s.dimension
-      )`
-        : ""
-    }`;
   }
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)

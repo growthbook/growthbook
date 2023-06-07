@@ -87,8 +87,9 @@ unknown_var_ids = detect_unknown_variations(
   var_id_map=var_id_map
 )
 
-if (${dimension === "pre:datedaily" ? `"daily"` : `"other"`} == "daily"):
-  rows = diff_for_daily_time_series(rows)
+${
+  dimension === "pre:datedaily" ? `rows = diff_for_daily_time_series(rows)` : ``
+}
 
 df = get_metric_df(
   rows=rows,
@@ -179,6 +180,7 @@ export async function analyzeExperimentResults({
             variation:
               snapshotSettings.variations[v.variation]?.id || v.variation + "",
             users: stats.count,
+            count: stats.count,
             statistic_type: "mean", // no ratio in mixpanel or GA
             main_metric_type: stats.metric_type,
             main_sum: stats.main_sum,

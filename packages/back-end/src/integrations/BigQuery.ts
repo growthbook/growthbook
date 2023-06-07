@@ -53,7 +53,7 @@ export default class BigQuery extends SqlIntegration {
   }
   addTime(
     col: string,
-    unit: "day" | "hour" | "minute",
+    unit: "hour" | "minute",
     sign: "+" | "-",
     amount: number
   ): string {

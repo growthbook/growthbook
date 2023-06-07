@@ -119,8 +119,8 @@ export default abstract class SqlIntegration
   }
   addTime(
     col: string,
-    unit: "day" | "hour" | "minute",
-    sign: "+" | "-" | "",
+    unit: "hour" | "minute",
+    sign: "+" | "-",
     amount: number
   ): string {
     return `${col} ${sign} INTERVAL '${amount} ${unit}s'`;
@@ -472,6 +472,7 @@ export default abstract class SqlIntegration
         variation: row.variation ?? "",
         dimension: row.dimension || "",
         users: parseInt(row.users) || 0,
+        count: parseInt(row.users) || 0,
         statistic_type: row.statistic_type ?? "",
         main_metric_type: row.main_metric_type ?? "",
         main_sum: parseFloat(row.main_sum) || 0,

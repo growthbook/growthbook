@@ -27,8 +27,8 @@ export default class Databricks extends SqlIntegration {
   }
   addTime(
     col: string,
-    unit: "day" | "hour" | "minute",
-    sign: "+" | "-" | "",
+    unit: "hour" | "minute",
+    sign: "+" | "-",
     amount: number
   ): string {
     return `timestampadd(${unit},${sign === "-" ? "-" : ""}${amount},${col})`;
