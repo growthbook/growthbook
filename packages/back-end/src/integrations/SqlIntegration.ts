@@ -1,5 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
-import { getValidDate } from "shared/dates";
+import { dateStringArrayBetweenDates, getValidDate } from "shared/dates";
 import { MetricInterface } from "../../types/metric";
 import {
   DataSourceSettings,
@@ -1060,7 +1060,9 @@ export default abstract class SqlIntegration
       ${
         cumulativeDate
           ? `, __dateRange AS (
-        ${this.getDateTable(startDate, endDate)}
+        ${this.getDateTable(
+          dateStringArrayBetweenDates(startDate, endDate || new Date())
+        )}
       )`
           : ""
       }
@@ -1296,21 +1298,13 @@ export default abstract class SqlIntegration
     return metric.queryFormat || (metric.sql ? "sql" : "builder");
   }
 
-  getDateTable(startDate: Date, endDate: Date | null): string {
+  getDateTable(dateArray: string[]): string {
+    const dateString = dateArray.join(" AS day UNION ALL SELECT ");
     return `
       SELECT ${this.castToDate("t.day")} AS day
       FROM
         (
-          SELECT 
-            GENERATE_SERIES(
-              ${this.castToDate(this.toTimestamp(startDate))},
-              ${
-                endDate
-                  ? this.castToDate(this.toTimestamp(endDate))
-                  : this.currentDate()
-              },
-              ${this.addTime("", "day", "", 1)}
-            ) AS day
+          SELECT ${dateString} AS day
         ) t
      `;
   }

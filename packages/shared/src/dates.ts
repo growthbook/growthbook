@@ -28,6 +28,23 @@ export function daysBetween(start: string | Date, end: string | Date): number {
   return differenceInDays(getValidDate(end), getValidDate(start));
 }
 
+export function dateStringArrayBetweenDates(
+  start: Date,
+  end: Date,
+  truncate: boolean = true,
+  dayInterval: number = 1
+): string[] {
+  const dateArray: string[] = [];
+  let startTruncate = new Date(start);
+  if (truncate) {
+    startTruncate = new Date(format(start, "yyyy-MM-dd"));
+  }
+  for (let d = startTruncate; d <= end; d.setDate(d.getDate() + dayInterval)) {
+    dateArray.push(`'${format(d, "yyyy-MM-dd")}'`);
+  }
+  return dateArray;
+}
+
 export function getValidDate(
   dateStr: string | Date | null | number,
   fallback?: Date

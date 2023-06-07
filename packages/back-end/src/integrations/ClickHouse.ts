@@ -86,21 +86,6 @@ export default class ClickHouse extends SqlIntegration {
   currentDate(): string {
     return this.castToDate("NOW()");
   }
-  getDateTable(startDate: Date, endDate: Date | null): string {
-    const startDateStr = this.castToDate(this.toTimestamp(startDate));
-    return `
-    SELECT
-      ${startDateStr} + INTERVAL i DAY AS day
-    FROM
-    (
-        SELECT arrayJoin(range(${
-          endDate
-            ? this.castToDate(this.toTimestamp(endDate))
-            : this.currentDate()
-        } - ${startDateStr} + 1)) AS i
-    )
-  `;
-  }
   getUserStatSelectAndJoinStatement(
     cumulativeDate: boolean,
     selectStatement: string

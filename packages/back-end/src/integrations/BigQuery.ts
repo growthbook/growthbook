@@ -82,17 +82,6 @@ export default class BigQuery extends SqlIntegration {
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
-  getDateTable(startDate: Date, endDate: Date | null) {
-    return `
-    SELECT day
-    FROM UNNEST(
-        GENERATE_DATE_ARRAY(
-          DATE(${this.toTimestamp(startDate)}), 
-          ${endDate ? `DATE(${this.toTimestamp(endDate)})` : `CURRENT_DATE()`},
-          INTERVAL 1 DAY
-        )
-    ) AS day`;
-  }
   getInformationSchemaFromClause(): string {
     if (!this.params.projectId)
       throw new Error(

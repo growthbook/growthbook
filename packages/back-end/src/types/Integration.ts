@@ -154,7 +154,6 @@ export type PastExperimentResponse = {
 }[];
 export type ExperimentMetricQueryResponse = {
   dimension: string;
-  day: string | null;
   variation: string;
   users: number;
   statistic_type: "ratio" | "mean" | "mean_ra";
