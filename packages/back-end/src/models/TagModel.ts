@@ -12,14 +12,14 @@ const tagSchema = new mongoose.Schema({
 
 type TagDocument = mongoose.Document & TagDBInterface;
 
-const TagModel = mongoose.model<TagDocument>("Tag", tagSchema);
+const TagModel = mongoose.model<TagDBInterface>("Tag", tagSchema);
 
 const MIN_TAG_LENGTH = 2;
 const MAX_TAG_LENGTH = 64;
 
 function toTagInterface(doc: TagDocument | null): TagInterface[] {
   if (!doc) return [];
-  const json = doc.toJSON();
+  const json = doc.toJSON<TagDBInterface>();
   if (!json.tags) return [];
   const settings = json.settings || {};
   return json.tags.map((t) => {

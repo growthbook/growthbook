@@ -97,6 +97,7 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
 
   obj.organization = datasource.organization;
   obj.datasource = datasource.id;
+  obj.type = datasource.type;
 
   return obj;
 }

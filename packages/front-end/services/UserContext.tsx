@@ -64,7 +64,6 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   manageBilling: false,
   manageNamespaces: false,
   manageNorthStarMetric: false,
-  manageProjects: false,
   manageSavedGroups: false,
   manageTags: false,
   manageTargetingAttributes: false,
@@ -160,7 +159,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const {
     data: currentOrg,
     mutate: refreshOrganization,
-  } = useApi<OrgSettingsResponse>(`/organization`);
+  } = useApi<OrgSettingsResponse>(isAuthenticated ? `/organization` : null);
 
   const updateUser = useCallback(async () => {
     try {

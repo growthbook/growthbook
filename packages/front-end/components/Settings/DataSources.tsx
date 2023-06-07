@@ -2,7 +2,7 @@ import React, { FC, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { ago } from "shared";
+import { ago } from "shared/dates";
 import ProjectBadges from "@/components/ProjectBadges";
 import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";

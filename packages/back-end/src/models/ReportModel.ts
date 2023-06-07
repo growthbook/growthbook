@@ -25,10 +25,10 @@ const reportSchema = new mongoose.Schema({
 
 type ReportDocument = mongoose.Document & ReportInterface;
 
-const ReportModel = mongoose.model<ReportDocument>("Report", reportSchema);
+const ReportModel = mongoose.model<ReportInterface>("Report", reportSchema);
 
 const toInterface = (doc: ReportDocument): ReportInterface => {
-  const json: ReportInterface = omit(doc.toJSON(), ["__v", "_id"]);
+  const json = omit(doc.toJSON<ReportDocument>(), ["__v", "_id"]);
   if ((json.args.attributionModel as string) === "allExposures") {
     json.args.attributionModel = "experimentDuration";
   }

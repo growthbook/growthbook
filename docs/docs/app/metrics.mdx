@@ -22,6 +22,10 @@ Metrics can have different units and statistical distributions. Below are the on
 
 For experiment analysis, each of these metric types uses some aggregation (often defaulting to `SUM`) per user and then takes an average with respect to the total number of users. In the case of SQL metrics, the only meaningful difference between count, duration, and revenue is how we render the units in the metric and experiment results pages.
 
+:::note
+Revenue Metrics are displayed in USD by default. You can change your display currency under **Settings** > **General** > **Metric Settings**
+:::
+
 ## Query settings
 
 For metrics to work, you need to tell GrowthBook how to query the data from your data source. There are a few ways to do this depending on your data source.
@@ -240,7 +244,9 @@ Setting this to "decrease" basically inverts the "Chance to Beat Control" value 
 
 Large outliers can have an outsized effect on experiment results. For example, if your normal order size is $10 and someone happens to make a $5000 order, whatever variation that person is in will automatically "win" any experiment even if it had no effect on their behavior.
 
-If set above zero, all values will be capped at this value. So in the above example, if you set the cap to $100, the $5000 purchase will still be counted, but only as $100 and will have a much smaller effect on the results. It will still give a boost to whatever variation the person is in, but it won't completely dominate all of the other orders and is unlikely to make a winner just on its own.
+If set above zero, all aggregated user values will be capped at this value. So in the above example, if you set the cap to $100, the $5000 purchase will still be counted, but the aggregated value for that user will be capped at $100 and will have a much smaller effect on the results. It will still give a boost to whatever variation the person is in, but it won't completely dominate all of the other orders and is unlikely to make a winner just on its own.
+
+Another way to think about this is that you are slightly biasing your results by truncating large values, but you are reducing variance to prevent the outsized effect of outliers.
 
 ### Conversion Delay
 

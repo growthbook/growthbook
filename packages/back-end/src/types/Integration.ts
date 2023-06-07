@@ -3,10 +3,10 @@ import {
   DataSourceSettings,
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
+import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { MetricInterface, MetricType } from "../../types/metric";
-import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { SegmentInterface } from "../../types/segment";
+import { FormatDialect } from "../util/sql";
 
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
@@ -78,15 +78,12 @@ export type Dimension =
   | ActivationDimension;
 
 export type ExperimentMetricQueryParams = {
-  experiment: ExperimentInterface;
-  phase: ExperimentPhase;
+  settings: ExperimentSnapshotSettings;
   metric: MetricInterface;
   activationMetrics: MetricInterface[];
   denominatorMetrics: MetricInterface[];
   dimension: Dimension | null;
   segment: SegmentInterface | null;
-  regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatus?: MetricRegressionAdjustmentStatus;
 };
 
 export type PastExperimentParams = {
@@ -230,7 +227,7 @@ export interface InformationSchemaInterface {
   organization: string;
   status: "PENDING" | "COMPLETE";
   refreshMS: number;
-  error?: InformationSchemaError;
+  error?: InformationSchemaError | null;
   dateCreated: Date;
   dateUpdated: Date;
 }
@@ -252,21 +249,21 @@ export interface InformationSchemaTablesInterface {
 export interface SourceIntegrationInterface {
   datasource: string;
   organization: string;
+  type: string;
   settings: DataSourceSettings;
   decryptionError: boolean;
   // eslint-disable-next-line
   params: any;
   getSensitiveParamKeys(): string[];
   getExperimentResultsQuery(
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
+    snapshotSettings: ExperimentSnapshotSettings,
     metrics: MetricInterface[],
     activationMetric: MetricInterface | null,
     dimension: DimensionInterface | null
   ): string;
+  getFormatDialect?(): FormatDialect;
   getExperimentResults(
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
+    snapshotSettings: ExperimentSnapshotSettings,
     metrics: MetricInterface[],
     activationMetric: MetricInterface | null,
     dimension: DimensionInterface | null
@@ -277,7 +274,7 @@ export interface SourceIntegrationInterface {
     databaseName: string,
     tableSchema: string,
     tableName: string
-  ): Promise<{ tableData: null | unknown[]; refreshMS: number }>;
+  ): Promise<{ tableData: null | unknown[] }>;
   getInformationSchema?(): Promise<InformationSchema[]>;
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;

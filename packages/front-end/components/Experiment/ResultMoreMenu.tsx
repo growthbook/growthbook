@@ -27,7 +27,6 @@ export default function ResultMoreMenu({
   generateReport,
   notebookUrl,
   notebookFilename,
-  hasUserQuery,
   forceRefresh,
   results,
   metrics,
@@ -44,9 +43,8 @@ export default function ResultMoreMenu({
   supportsNotebooks?: boolean;
   id: string;
   generateReport?: boolean;
-  notebookUrl?: string;
-  notebookFilename?: string;
-  hasUserQuery?: boolean;
+  notebookUrl: string;
+  notebookFilename: string;
   forceRefresh?: () => Promise<void>;
   results?: ExperimentReportResultDimension[];
   metrics?: string[];
@@ -62,11 +60,7 @@ export default function ResultMoreMenu({
   const canEdit = permissions.check("createAnalyses", project);
 
   const canDownloadJupyterNotebook =
-    hasData &&
-    !hasUserQuery &&
-    supportsNotebooks &&
-    notebookUrl &&
-    notebookFilename;
+    hasData && supportsNotebooks && notebookUrl && notebookFilename;
 
   return (
     <MoreMenu>
@@ -81,11 +75,9 @@ export default function ResultMoreMenu({
           <FaCog className="mr-2" /> Configure Analysis
         </button>
       )}
-      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-      {queries?.length > 0 && (
+      {(queries?.length ?? 0) > 0 && (
         <ViewAsyncQueriesButton
-          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-          queries={queries.map((q) => q.query)}
+          queries={queries?.map((q) => q.query) ?? []}
           error={queryError}
           className="dropdown-item py-2"
         />
@@ -101,7 +93,7 @@ export default function ResultMoreMenu({
           <BsArrowRepeat className="mr-2" /> Re-run All Queries
         </button>
       )}
-      {hasData && queries && !hasUserQuery && generateReport && canEdit && (
+      {hasData && queries && generateReport && canEdit && (
         <Button
           className="dropdown-item py-2"
           color="outline-info"
@@ -133,7 +125,6 @@ export default function ResultMoreMenu({
           className="dropdown-item py-2"
           disabled={!canDownloadJupyterNotebook}
           onClick={async () => {
-            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
             const res = await apiCall<{ notebook: string }>(notebookUrl, {
               method: "POST",
             });
@@ -144,7 +135,6 @@ export default function ResultMoreMenu({
               })
             );
 
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             const name = notebookFilename
               .replace(/[^a-zA-Z0-9_-]+/g, "")
               .replace(/[-]+/g, "_")
@@ -176,14 +166,10 @@ export default function ResultMoreMenu({
       {results && (
         <ResultsDownloadButton
           results={results}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string[] | undefined' is not assignable to t... Remove this comment to see the full error message
           metrics={metrics}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentReportVariation[] | undefined' is ... Remove this comment to see the full error message
           variations={variations}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-          trackingKey={trackingKey}
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-          dimension={dimension}
+          trackingKey={trackingKey || ""}
+          dimension={dimension || ""}
         />
       )}
     </MoreMenu>

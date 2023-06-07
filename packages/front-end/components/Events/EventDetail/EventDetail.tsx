@@ -6,7 +6,7 @@ import {
   NotificationEventPayload,
   NotificationEventResource,
 } from "back-end/types/event";
-import { datetime } from "shared";
+import { datetime } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Code from "@/components/SyntaxHighlighting/Code";

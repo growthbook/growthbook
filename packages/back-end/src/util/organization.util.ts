@@ -29,6 +29,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sequential-testing",
     "visual-editor",
     "cloud-proxy",
+    "hash-secure-attributes",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -40,6 +41,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sequential-testing",
     "visual-editor",
     "cloud-proxy",
+    "hash-secure-attributes",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
@@ -52,6 +54,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sequential-testing",
     "visual-editor",
     "cloud-proxy",
+    "hash-secure-attributes",
   ]),
 };
 export function getAccountPlan(org: OrganizationInterface): AccountPlan {
@@ -81,6 +84,7 @@ export function orgHasPremiumFeature(
 export const ENV_SCOPED_PERMISSIONS = [
   "publishFeatures",
   "manageEnvironments",
+  "runExperiments",
 ] as const;
 
 export const PROJECT_SCOPED_PERMISSIONS = [
@@ -102,7 +106,6 @@ export const GLOBAL_PERMISSIONS = [
   "createSegments",
   "organizationSettings",
   "superDelete",
-  "manageProjects",
   "manageTeam",
   "manageTags",
   "manageApiKeys",
@@ -159,6 +162,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageEnvironments",
         "manageNamespaces",
         "manageSavedGroups",
+        "runExperiments",
       ],
     },
     {
@@ -189,6 +193,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageEnvironments",
         "manageNamespaces",
         "manageSavedGroups",
+        "runExperiments",
         "createAnalyses",
         "createDimensions",
         "createSegments",

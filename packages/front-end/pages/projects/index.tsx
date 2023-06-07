@@ -7,7 +7,7 @@ import {
 import { ProjectInterface } from "back-end/types/project";
 import { useRouter } from "next/router";
 import Link from "next/link";
-import { date } from "shared";
+import { date } from "shared/dates";
 import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import ProjectModal from "@/components/Projects/ProjectModal";
@@ -88,17 +88,15 @@ const ProjectsPage: FC = () => {
               return (
                 <tr
                   key={p.id}
-                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((e: MouseEvent<HTMLTableRowElement, MouseEv... Remove this comment to see the full error message
                   onClick={
                     canManage
                       ? (e) => {
                           e.preventDefault();
                           router.push(`/project/${p.id}`);
                         }
-                      : null
+                      : undefined
                   }
-                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ cursor: "pointer"; } | null' is not assign... Remove this comment to see the full error message
-                  style={canManage ? { cursor: "pointer" } : null}
+                  style={canManage ? { cursor: "pointer" } : {}}
                 >
                   <td>
                     {canManage ? (

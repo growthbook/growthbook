@@ -40,7 +40,7 @@ export const postProject = async (
     EventAuditUserForResponseLocals
   >
 ) => {
-  req.checkPermissions("manageProjects");
+  req.checkPermissions("manageProjects", "");
 
   const { name, description } = req.body;
   const { org } = getOrgFromReq(req);

@@ -71,8 +71,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       close={onClose}
       open={isOpen}
       submit={handleSubmit}
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null' is not assignable to type 'st... Remove this comment to see the full error message
-      error={error}
+      error={error ?? undefined}
       ctaEnabled={ctaEnabled}
     >
       <div className="form-group">

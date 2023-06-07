@@ -57,7 +57,7 @@ informationSchemaTablesSchema.index(
 type InformationSchemaTablesDocument = mongoose.Document &
   InformationSchemaTablesInterface;
 
-const InformationSchemaTablesModel = mongoose.model<InformationSchemaTablesDocument>(
+const InformationSchemaTablesModel = mongoose.model<InformationSchemaTablesInterface>(
   "InformationSchemaTables",
   informationSchemaTablesSchema
 );
@@ -68,7 +68,8 @@ const InformationSchemaTablesModel = mongoose.model<InformationSchemaTablesDocum
  */
 const toInterface = (
   doc: InformationSchemaTablesDocument
-): InformationSchemaTablesInterface => omit(doc.toJSON(), ["__v", "_id"]);
+): InformationSchemaTablesInterface =>
+  omit(doc.toJSON<InformationSchemaTablesDocument>(), ["__v", "_id"]);
 
 export async function createInformationSchemaTable(
   tableData: Omit<
@@ -127,5 +128,15 @@ export async function removeDeletedInformationSchemaTables(
     organization,
     informationSchemaId,
     id: { $in: tableIds },
+  });
+}
+
+export async function deleteInformationSchemaTablesByInformationSchemaId(
+  organization: string,
+  informationSchemaId: string
+): Promise<void> {
+  await InformationSchemaTablesModel.deleteMany({
+    organization,
+    informationSchemaId,
   });
 }

@@ -3,7 +3,7 @@
 import { EventWebHookInterface } from "back-end/types/event-webhook";
 import { NotificationEventName } from "back-end/src/events/base-types";
 import { action } from "@storybook/addon-actions";
-import { getValidDate } from "shared";
+import { getValidDate } from "shared/dates";
 import { EventWebHookDetail } from "./EventWebHookDetail";
 
 export default {
@@ -51,7 +51,6 @@ const eventWebHookNoState: EventWebHookInterface = {
   enabled: false,
   url: "http://192.168.0.15:1115/events/webhooks?v=4",
   signingKey: "ewhk_6220c5592f03244c43a929850816d644",
-  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'Date'.
   lastRunAt: null,
   lastState: "none",
   lastResponseBody: null,
@@ -120,12 +119,6 @@ export const LotsOfEvents = () => {
     "experiment.created",
     "experiment.updated",
     "experiment.deleted",
-    // @ts-expect-error
-    "another_resource.created",
-    // @ts-expect-error
-    "another_resource.updated",
-    // @ts-expect-error
-    "another_resource.deleted",
   ];
 
   return (

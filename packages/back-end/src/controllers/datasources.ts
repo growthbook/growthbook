@@ -1,9 +1,6 @@
 import { Response } from "express";
 import uniqid from "uniqid";
-import {
-  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  DEFAULT_STATS_ENGINE,
-} from "shared";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { AuthRequest } from "../types/AuthRequest";
 import { getOrgFromReq } from "../services/organizations";
 import {
@@ -40,8 +37,11 @@ import {
   insertMetric,
   getMetricsByDatasource,
   getSampleMetrics,
+  getMetricMap,
 } from "../models/MetricModel";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { deleteInformationSchemaById } from "../models/InformationSchemaModel";
+import { deleteInformationSchemaTablesByInformationSchemaId } from "../models/InformationSchemaTablesModel";
 
 export async function postSampleData(
   req: AuthRequest,
@@ -183,6 +183,8 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
       user: res.locals.eventAudit,
     });
 
+    const metricMap = await getMetricMap(org.id);
+
     await createManualSnapshot(
       experiment,
       0,
@@ -219,11 +221,13 @@ Revenue did not reach 95% significance, but the risk is so low it doesn't seem w
       },
       {
         statsEngine,
-        regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-        metricRegressionAdjustmentStatuses: [],
-        sequentialTestingEnabled: false,
+        dimensions: [],
+        pValueCorrection: null,
+        sequentialTesting: false,
         sequentialTestingTuningParameter: 0,
-      }
+        regressionAdjusted: false,
+      },
+      metricMap
     );
   }
 
@@ -283,6 +287,17 @@ export async function deleteDataSource(
   }
 
   await deleteDatasourceById(datasource.id, org.id);
+
+  if (datasource.settings?.informationSchemaId) {
+    const informationSchemaId = datasource.settings.informationSchemaId;
+
+    await deleteInformationSchemaById(org.id, informationSchemaId);
+
+    await deleteInformationSchemaTablesByInformationSchemaId(
+      org.id,
+      informationSchemaId
+    );
+  }
 
   res.status(200).json({
     status: 200,

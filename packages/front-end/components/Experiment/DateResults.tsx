@@ -4,9 +4,10 @@ import {
   ExperimentReportResultDimension,
   ExperimentReportVariation,
 } from "back-end/types/report";
-import { getValidDate } from "shared";
+import { getValidDate } from "shared/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { formatConversionRate } from "@/services/metrics";
+import { useCurrency } from "@/hooks/useCurrency";
 import Toggle from "../Forms/Toggle";
 import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
@@ -32,6 +33,7 @@ const DateResults: FC<{
   guardrails?: string[];
 }> = ({ results, variations, metrics, guardrails }) => {
   const { getMetricById, ready } = useDefinitions();
+  const displayCurrency = useCurrency();
 
   const [cumulative, setCumulative] = useState(false);
 
@@ -62,7 +64,6 @@ const DateResults: FC<{
   }, [results, cumulative]);
 
   // Data for the metric graphs
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '() => { metric: MetricInterface ... Remove this comment to see the full error message
   const metricSections = useMemo<Metric[]>(() => {
     if (!ready) return [];
 
@@ -76,6 +77,7 @@ const DateResults: FC<{
       Array.from(new Set(metrics.concat(guardrails || [])))
         .map((metricId) => {
           const metric = getMetricById(metricId);
+          if (!metric) return;
           // Keep track of cumulative users and value for each variation
           const totalUsers: number[] = [];
           const totalValue: number[] = [];
@@ -130,13 +132,13 @@ const DateResults: FC<{
                 const label = i
                   ? (value > 0 ? "+" : "") + percentFormatter.format(value)
                   : formatConversionRate(
-                      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MetricType | undefined' is not a... Remove this comment to see the full error message
                       metric?.type,
                       cumulative
                         ? totalUsers[i]
                           ? totalValue[i] / totalUsers[i]
                           : 0
-                        : stats?.cr || 0
+                        : stats?.cr || 0,
+                      displayCurrency
                     );
 
                 return {
@@ -155,7 +157,7 @@ const DateResults: FC<{
           };
         })
         // Filter out any edge cases when the metric is undefined
-        .filter((table) => table.metric)
+        .filter((table) => table?.metric) as Metric[]
     );
   }, [results, cumulative, ready]);
 

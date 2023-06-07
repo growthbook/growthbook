@@ -170,13 +170,21 @@ export async function fetchTableData(
     });
   });
 
-  const { tableData, refreshMS } = await integration.getTableData(
+  const queryStartTime = Date.now();
+  const { tableData } = await integration.getTableData(
     databaseName,
     tableSchema,
     tableName
   );
+  const queryEndTime = Date.now();
 
-  return { tableData, refreshMS, databaseName, tableSchema, tableName };
+  return {
+    tableData,
+    refreshMS: queryEndTime - queryStartTime,
+    databaseName,
+    tableSchema,
+    tableName,
+  };
 }
 
 export async function generateInformationSchema(
@@ -241,7 +249,7 @@ export async function updateDatasourceInformationSchema(
   // Reset the informationSchema to remove any errors and change status to "PENDING"
   await updateInformationSchemaById(organization, informationSchema.id, {
     status: "PENDING",
-    error: undefined,
+    error: null,
   });
 
   const {
@@ -272,7 +280,7 @@ export async function updateDatasourceInformationSchema(
     ...informationSchema,
     databases: mergedInformationSchema,
     status: "COMPLETE",
-    error: undefined,
+    error: null,
     refreshMS,
     dateUpdated: new Date(),
   });

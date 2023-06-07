@@ -16,10 +16,9 @@ import { MetricInterface } from "back-end/types/metric";
 import uniq from "lodash/uniq";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import {
-  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  getScopedSettings,
-} from "shared";
+import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared/constants";
+import { getAffectedEnvsForExperiment } from "shared/util";
+import { getScopedSettings } from "shared/settings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -71,10 +70,11 @@ import VisualChangesetModal from "./VisualChangesetModal";
 
 function drawMetricRow(
   m: string,
-  metric: MetricInterface,
+  metric: MetricInterface | null,
   experiment: ExperimentInterfaceStringDates,
   ignoreConversionEnd: boolean
 ) {
+  if (!metric) return null;
   const { newMetric, overrideFields } = applyMetricOverrides(
     metric,
     experiment.metricOverrides
@@ -205,7 +205,7 @@ export default function SinglePage({
   const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
-  const projectIsOprhaned = projectId && !projectName;
+  const projectIsDeReferenced = projectId && !projectName;
 
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -235,11 +235,12 @@ export default function SinglePage({
   const allExperimentMetrics = allExperimentMetricIds.map((m) =>
     getMetricById(m)
   );
-  const denominatorMetricIds = uniq(
-    allExperimentMetrics.map((m) => m?.denominator).filter((m) => m)
+  const denominatorMetricIds = uniq<string>(
+    allExperimentMetrics.map((m) => m?.denominator).filter(Boolean) as string[]
   );
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
+  const denominatorMetrics = denominatorMetricIds
+    .map((m) => getMetricById(m as string))
+    .filter(Boolean) as MetricInterface[];
 
   const [
     regressionAdjustmentAvailable,
@@ -257,7 +258,6 @@ export default function SinglePage({
         metricRegressionAdjustmentStatus,
       } = getRegressionAdjustmentsForMetric({
         metric: metric,
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(MetricInterface | null)[]' is not assignabl... Remove this comment to see the full error message
         denominatorMetrics: denominatorMetrics,
         experimentRegressionAdjustmentEnabled:
           experiment.regressionAdjustmentEnabled ??
@@ -317,11 +317,23 @@ export default function SinglePage({
     mutate();
   };
 
-  const hasPermission = permissions.check("createAnalyses", experiment.project);
+  const canEditExperiment =
+    !experiment.archived &&
+    permissions.check("createAnalyses", experiment.project);
 
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
+  const hasVisualEditorPermission =
+    canEditExperiment &&
+    permissions.check("runExperiments", experiment.project, []);
 
-  const canEdit = hasPermission && !experiment.archived;
+  let hasRunExperimentsPermission = true;
+  const envs = getAffectedEnvsForExperiment({ experiment });
+  if (envs.length > 0) {
+    if (!permissions.check("runExperiments", experiment.project, envs)) {
+      hasRunExperimentsPermission = false;
+    }
+  }
+  const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
 
   const ignoreConversionEnd =
     experiment.attributionModel === "experimentDuration";
@@ -330,8 +342,7 @@ export default function SinglePage({
   const usersWatching = (watcherIds?.data?.userIds || [])
     .map((id) => users.get(id))
     .filter(Boolean)
-    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-    .map((u) => u.name || u.email);
+    .map((u) => u?.name || u?.email);
 
   const hasSDKWithVisualExperimentsEnabled = sdkConnectionsData?.connections.some(
     (connection) => connection.includeVisualExperiments
@@ -443,7 +454,7 @@ export default function SinglePage({
         </div>
         <div className="col-auto">
           <MoreMenu>
-            {canEdit && (
+            {canRunExperiment && (
               <button
                 className="dropdown-item"
                 onClick={() => setEditNameOpen(true)}
@@ -451,7 +462,7 @@ export default function SinglePage({
                 Edit name
               </button>
             )}
-            {canEdit && (
+            {canRunExperiment && (
               <button
                 className="dropdown-item"
                 onClick={() => setStatusModal(true)}
@@ -479,7 +490,7 @@ export default function SinglePage({
                 Duplicate
               </button>
             )}
-            {!experiment.archived && hasPermission && (
+            {canRunExperiment && (
               <button
                 className="dropdown-item"
                 onClick={async (e) => {
@@ -497,7 +508,7 @@ export default function SinglePage({
                 Archive
               </button>
             )}
-            {experiment.archived && hasPermission && (
+            {canRunExperiment && (
               <button
                 className="dropdown-item"
                 onClick={async (e) => {
@@ -515,7 +526,7 @@ export default function SinglePage({
                 Unarchive
               </button>
             )}
-            {hasPermission && (
+            {canRunExperiment && (
               <DeleteButton
                 className="dropdown-item text-danger"
                 useIcon={false}
@@ -537,10 +548,10 @@ export default function SinglePage({
         </div>
       </div>
       <div className="row align-items-center mb-4">
-        {(projects.length > 0 || projectIsOprhaned) && (
+        {(projects.length > 0 || projectIsDeReferenced) && (
           <div className="col-auto">
             Project:{" "}
-            {projectIsOprhaned ? (
+            {projectIsDeReferenced ? (
               <Tooltip
                 body={
                   <>
@@ -653,8 +664,7 @@ export default function SinglePage({
           <div className="appbox h-100">
             <div className="p-3">
               <MarkdownInlineEdit
-                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-                value={experiment.description}
+                value={experiment.description ?? ""}
                 save={async (description) => {
                   await apiCall(`/experiment/${experiment.id}`, {
                     method: "POST",
@@ -662,14 +672,13 @@ export default function SinglePage({
                   });
                   mutate();
                 }}
-                canCreate={canEdit}
-                canEdit={canEdit}
+                canCreate={canEditExperiment}
+                canEdit={canEditExperiment}
                 className="mb-4"
                 header="Description"
               />
               <MarkdownInlineEdit
-                // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-                value={experiment.hypothesis}
+                value={experiment.hypothesis ?? ""}
                 save={async (hypothesis) => {
                   await apiCall(`/experiment/${experiment.id}`, {
                     method: "POST",
@@ -677,8 +686,8 @@ export default function SinglePage({
                   });
                   mutate();
                 }}
-                canCreate={canEdit}
-                canEdit={canEdit}
+                canCreate={canEditExperiment}
+                canEdit={canEditExperiment}
                 className="mb-4"
                 label="hypothesis"
                 header="Hypothesis"
@@ -695,7 +704,8 @@ export default function SinglePage({
               experiment={experiment}
               visualChangesets={visualChangesets}
               mutate={mutate}
-              canEdit={canEdit}
+              canEditExperiment={canEditExperiment}
+              canEditVisualChangesets={hasVisualEditorPermission}
               setVisualEditorModal={setVisualEditorModal}
             />
           </div>
@@ -704,7 +714,7 @@ export default function SinglePage({
           <RightRailSection
             title="Experiment Settings"
             open={() => setReportSettingsOpen(true)}
-            canOpen={canEdit}
+            canOpen={canEditExperiment}
           >
             <div className="appbox px-3 pt-3 pb-2">
               <RightRailSectionGroup
@@ -761,8 +771,7 @@ export default function SinglePage({
               {experiment.queryFilter && (
                 <RightRailSectionGroup title="Custom Filter" type="custom">
                   <Code
-                    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'QueryLanguage | undefined' is not assignable... Remove this comment to see the full error message
-                    language={datasource?.properties?.queryLanguage}
+                    language={datasource?.properties?.queryLanguage ?? "none"}
                     code={experiment.queryFilter}
                     expandable={true}
                   />
@@ -836,14 +845,12 @@ export default function SinglePage({
                   const metric = getMetricById(m);
                   return drawMetricRow(
                     m,
-                    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MetricInterface | null' is not a... Remove this comment to see the full error message
                     metric,
                     experiment,
                     ignoreConversionEnd
                   );
                 })}
-                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                {experiment.guardrails?.length > 0 && (
+                {(experiment.guardrails?.length ?? 0) > 0 && (
                   <>
                     <div className="row mb-1 mt-3 text-muted">
                       <div className="col-5">Guardrails</div>
@@ -852,12 +859,10 @@ export default function SinglePage({
                       </div>
                       <div className="col-sm-2">Behavior</div>
                     </div>
-                    {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                    {experiment.guardrails.map((m) => {
+                    {experiment.guardrails?.map((m) => {
                       const metric = getMetricById(m);
                       return drawMetricRow(
                         m,
-                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MetricInterface | null' is not a... Remove this comment to see the full error message
                         metric,
                         experiment,
                         ignoreConversionEnd
@@ -876,7 +881,6 @@ export default function SinglePage({
                     </div>
                     {drawMetricRow(
                       experiment.activationMetric,
-                      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MetricInterface | null' is not a... Remove this comment to see the full error message
                       getMetricById(experiment.activationMetric),
                       experiment,
                       ignoreConversionEnd
@@ -924,10 +928,10 @@ export default function SinglePage({
         </div>
       </div>
 
-      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-      {growthbook.isOn("visual-editor-ui") &&
+      {growthbook?.isOn("visual-editor-ui") &&
       experiment.status === "draft" &&
-      experiment.phases.length > 0 ? (
+      experiment.phases.length > 0 &&
+      hasVisualEditorPermission ? (
         <div>
           {visualChangesets.length > 0 ? (
             <div className="mb-4">
@@ -962,8 +966,7 @@ export default function SinglePage({
                     className="ml-2"
                     color="link"
                     onClick={async () => {
-                      // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
-                      editPhase(experiment.phases.length - 1);
+                      if (editPhase) editPhase(experiment.phases.length - 1);
                       track("Edit phase", { source: "visual-editor-ui" });
                     }}
                   >
@@ -990,7 +993,7 @@ export default function SinglePage({
                 deploying code
               </p>
 
-              {hasVisualEditorFeature && canEdit ? (
+              {hasVisualEditorFeature ? (
                 <button
                   className="btn btn-primary btn-lg"
                   onClick={() => {

@@ -5,7 +5,7 @@ import {
   Comment,
 } from "back-end/types/discussion";
 import { FaPencilAlt } from "react-icons/fa";
-import { date } from "shared";
+import { date } from "shared/dates";
 import { useAuth } from "../services/auth";
 import useApi from "../hooks/useApi";
 import { useUser } from "../services/UserContext";
@@ -33,7 +33,7 @@ const DiscussionThread: FC<{
 }) => {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
-  const [edit, setEdit] = useState(null);
+  const [edit, setEdit] = useState<number | null>(null);
 
   const permissions = usePermissions();
 
@@ -95,7 +95,6 @@ const DiscussionThread: FC<{
                               href="#"
                               onClick={(e) => {
                                 e.preventDefault();
-                                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number' is not assignable to par... Remove this comment to see the full error message
                                 setEdit(i);
                               }}
                             >

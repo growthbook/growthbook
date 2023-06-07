@@ -18,6 +18,7 @@ export type EditSDKConnectionParams = {
   environment?: string;
   project?: string;
   encryptPayload?: boolean;
+  hashSecureAttributes?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
@@ -32,6 +33,7 @@ export type CreateSDKConnectionParams = {
   environment: string;
   project: string;
   encryptPayload: boolean;
+  hashSecureAttributes: boolean;
   includeVisualExperiments: boolean;
   includeDraftExperiments: boolean;
   includeExperimentNames: boolean;
@@ -68,6 +70,7 @@ export interface SDKConnectionInterface {
   project: string;
   encryptPayload: boolean;
   encryptionKey: string;
+  hashSecureAttributes?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;

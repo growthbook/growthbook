@@ -3,7 +3,8 @@ import { PythonShell } from "python-shell";
 import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
-} from "shared";
+} from "shared/constants";
+import { getSnapshotAnalysis } from "shared/util";
 import { APP_ORIGIN } from "../util/secrets";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
 import { getExperimentById } from "../models/ExperimentModel";
@@ -48,7 +49,8 @@ export async function generateExperimentNotebook(
   if (!snapshot.queries?.length) {
     throw new Error("Snapshot does not have queries");
   }
-  if (!snapshot.results?.[0]?.variations?.[0]) {
+  const analysis = getSnapshotAnalysis(snapshot);
+  if (!analysis || !analysis.results?.[0]?.variations?.[0]) {
     throw new Error("Snapshot does not have data");
   }
 
@@ -64,7 +66,7 @@ export async function generateExperimentNotebook(
   return generateNotebook(
     organization,
     snapshot.queries,
-    reportArgsFromSnapshot(experiment, snapshot),
+    reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
     `/experiment/${experiment.id}`,
     experiment.name,
     experiment.hypothesis || ""
