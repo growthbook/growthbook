@@ -49,13 +49,13 @@ info:
 
     - **message** - Information about the error
 servers:
-  - url: 'https://api.growthbook.io/api/v1'
+  - url: "https://api.growthbook.io/api/v1"
     description: GrowthBook Cloud
-  - url: '{domain}/api/v1'
+  - url: "{domain}/api/v1"
     description: Self-hosted GrowthBook
     variables:
       domain:
-        default: 'http://localhost:3100'
+        default: "http://localhost:3100"
 tags:
   - name: projects
     x-displayName: Projects
@@ -157,9 +157,9 @@ paths:
       tags:
         - features
       parameters:
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
-        - $ref: '#/components/parameters/projectId'
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/projectId"
       operationId: listFeatures
       x-codeSamples:
         - lang: cURL
@@ -167,7 +167,7 @@ paths:
             curl https://api.growthbook.io/api/v1/features \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -179,11 +179,11 @@ paths:
                       features:
                         type: array
                         items:
-                          $ref: '#/components/schemas/Feature'
-                  - $ref: '#/components/schemas/PaginationFields'
-  '/features/{id}':
+                          $ref: "#/components/schemas/Feature"
+                  - $ref: "#/components/schemas/PaginationFields"
+  "/features/{id}":
     parameters:
-      - $ref: '#/components/parameters/id'
+      - $ref: "#/components/parameters/id"
     get:
       summary: Get a single feature
       tags:
@@ -195,7 +195,7 @@ paths:
             curl https://api.growthbook.io/api/v1/features/my_feature \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -204,10 +204,10 @@ paths:
                   - feature
                 properties:
                   feature:
-                    $ref: '#/components/schemas/Feature'
-  '/features/{id}/toggle':
+                    $ref: "#/components/schemas/Feature"
+  "/features/{id}/toggle":
     parameters:
-      - $ref: '#/components/parameters/id'
+      - $ref: "#/components/parameters/id"
     post:
       summary: Toggle a feature in one or more environments
       tags:
@@ -237,15 +237,15 @@ paths:
                     enum:
                       - true
                       - false
-                      - 'true'
-                      - 'false'
-                      - '1'
-                      - '0'
+                      - "true"
+                      - "false"
+                      - "1"
+                      - "0"
                       - 1
                       - 0
-                      - ''
+                      - ""
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -254,15 +254,15 @@ paths:
                   - feature
                 properties:
                   feature:
-                    $ref: '#/components/schemas/Feature'
+                    $ref: "#/components/schemas/Feature"
   /projects:
     get:
       summary: Get all projects
       tags:
         - projects
       parameters:
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
       operationId: listProjects
       x-codeSamples:
         - lang: cURL
@@ -270,7 +270,7 @@ paths:
             curl https://api.growthbook.io/api/v1/projects \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -282,11 +282,11 @@ paths:
                       projects:
                         type: array
                         items:
-                          $ref: '#/components/schemas/Project'
-                  - $ref: '#/components/schemas/PaginationFields'
-  '/projects/{id}':
+                          $ref: "#/components/schemas/Project"
+                  - $ref: "#/components/schemas/PaginationFields"
+  "/projects/{id}":
     parameters:
-      - $ref: '#/components/parameters/id'
+      - $ref: "#/components/parameters/id"
     get:
       summary: Get a single project
       tags:
@@ -298,7 +298,7 @@ paths:
             curl https://api.growthbook.io/api/v1/projects/prj_123abc \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -307,16 +307,16 @@ paths:
                   - project
                 properties:
                   project:
-                    $ref: '#/components/schemas/Project'
+                    $ref: "#/components/schemas/Project"
   /dimensions:
     get:
       summary: Get all dimensions
       tags:
         - dimensions
       parameters:
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
-        - $ref: '#/components/parameters/datasourceId'
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/datasourceId"
       operationId: listDimensions
       x-codeSamples:
         - lang: cURL
@@ -324,7 +324,7 @@ paths:
             curl https://api.growthbook.io/api/v1/dimensions \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -336,11 +336,11 @@ paths:
                       dimensions:
                         type: array
                         items:
-                          $ref: '#/components/schemas/Dimension'
-                  - $ref: '#/components/schemas/PaginationFields'
-  '/dimensions/{id}':
+                          $ref: "#/components/schemas/Dimension"
+                  - $ref: "#/components/schemas/PaginationFields"
+  "/dimensions/{id}":
     parameters:
-      - $ref: '#/components/parameters/id'
+      - $ref: "#/components/parameters/id"
     get:
       summary: Get a single dimension
       tags:
@@ -352,7 +352,7 @@ paths:
             curl https://api.growthbook.io/api/v1/dimensions/dim_123abc \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -361,16 +361,16 @@ paths:
                   - dimension
                 properties:
                   dimension:
-                    $ref: '#/components/schemas/Dimension'
+                    $ref: "#/components/schemas/Dimension"
   /segments:
     get:
       summary: Get all segments
       tags:
         - segments
       parameters:
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
-        - $ref: '#/components/parameters/datasourceId'
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/datasourceId"
       operationId: listSegments
       x-codeSamples:
         - lang: cURL
@@ -378,7 +378,7 @@ paths:
             curl https://api.growthbook.io/api/v1/segments \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -390,11 +390,11 @@ paths:
                       segments:
                         type: array
                         items:
-                          $ref: '#/components/schemas/Segment'
-                  - $ref: '#/components/schemas/PaginationFields'
-  '/segments/{id}':
+                          $ref: "#/components/schemas/Segment"
+                  - $ref: "#/components/schemas/PaginationFields"
+  "/segments/{id}":
     parameters:
-      - $ref: '#/components/parameters/id'
+      - $ref: "#/components/parameters/id"
     get:
       summary: Get a single segment
       tags:
@@ -406,7 +406,7 @@ paths:
             curl https://api.growthbook.io/api/v1/segments/seg_123abc \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -415,16 +415,16 @@ paths:
                   - segment
                 properties:
                   segment:
-                    $ref: '#/components/schemas/Segment'
+                    $ref: "#/components/schemas/Segment"
   /sdk-connections:
     get:
       summary: Get all sdk connections
       tags:
         - sdk-connections
       parameters:
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
-        - $ref: '#/components/parameters/projectId'
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/projectId"
         - name: withProxy
           in: query
           schema:
@@ -436,7 +436,7 @@ paths:
             curl https://api.growthbook.io/api/v1/sdk-connections \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -448,11 +448,11 @@ paths:
                       connections:
                         type: array
                         items:
-                          $ref: '#/components/schemas/SdkConnection'
-                  - $ref: '#/components/schemas/PaginationFields'
-  '/sdk-connections/{id}':
+                          $ref: "#/components/schemas/SdkConnection"
+                  - $ref: "#/components/schemas/PaginationFields"
+  "/sdk-connections/{id}":
     parameters:
-      - $ref: '#/components/parameters/id'
+      - $ref: "#/components/parameters/id"
     get:
       summary: Get a single sdk connection
       tags:
@@ -464,7 +464,7 @@ paths:
             curl https://api.growthbook.io/api/v1/sdk-connections/sdk_123abc \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -473,16 +473,16 @@ paths:
                   - sdkConnection
                 properties:
                   sdkConnection:
-                    $ref: '#/components/schemas/SdkConnection'
+                    $ref: "#/components/schemas/SdkConnection"
   /data-sources:
     get:
       summary: Get all data sources
       tags:
         - data-sources
       parameters:
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
-        - $ref: '#/components/parameters/projectId'
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/projectId"
       operationId: listDataSources
       x-codeSamples:
         - lang: cURL
@@ -490,7 +490,7 @@ paths:
             curl https://api.growthbook.io/api/v1/data-sources \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -502,11 +502,11 @@ paths:
                       dataSources:
                         type: array
                         items:
-                          $ref: '#/components/schemas/DataSource'
-                  - $ref: '#/components/schemas/PaginationFields'
-  '/data-sources/{id}':
+                          $ref: "#/components/schemas/DataSource"
+                  - $ref: "#/components/schemas/PaginationFields"
+  "/data-sources/{id}":
     parameters:
-      - $ref: '#/components/parameters/id'
+      - $ref: "#/components/parameters/id"
     get:
       tags:
         - data-sources
@@ -518,7 +518,7 @@ paths:
             curl https://api.growthbook.io/api/v1/data-sources/ds_123abc \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -527,17 +527,17 @@ paths:
                   - dataSource
                 properties:
                   dataSource:
-                    $ref: '#/components/schemas/DataSource'
+                    $ref: "#/components/schemas/DataSource"
   /experiments:
     get:
       summary: Get all experiments
       tags:
         - experiments
       parameters:
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
-        - $ref: '#/components/parameters/projectId'
-        - $ref: '#/components/parameters/datasourceId'
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/projectId"
+        - $ref: "#/components/parameters/datasourceId"
         - name: experimentId
           in: query
           description: Filter the returned list by the experiment tracking key (id)
@@ -550,7 +550,7 @@ paths:
             curl https://api.growthbook.io/api/v1/experiments \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -562,11 +562,11 @@ paths:
                       experiments:
                         type: array
                         items:
-                          $ref: '#/components/schemas/Experiment'
-                  - $ref: '#/components/schemas/PaginationFields'
-  '/experiments/{id}':
+                          $ref: "#/components/schemas/Experiment"
+                  - $ref: "#/components/schemas/PaginationFields"
+  "/experiments/{id}":
     parameters:
-      - $ref: '#/components/parameters/id'
+      - $ref: "#/components/parameters/id"
     get:
       summary: Get a single experiment
       tags:
@@ -578,7 +578,7 @@ paths:
             curl https://api.growthbook.io/api/v1/experiments/exp_123abc \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -587,10 +587,10 @@ paths:
                   - experiment
                 properties:
                   experiment:
-                    $ref: '#/components/schemas/Experiment'
-  '/experiments/{id}/results':
+                    $ref: "#/components/schemas/Experiment"
+  "/experiments/{id}/results":
     parameters:
-      - $ref: '#/components/parameters/id'
+      - $ref: "#/components/parameters/id"
     get:
       summary: Get results for an experiment
       tags:
@@ -611,7 +611,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -620,17 +620,17 @@ paths:
                   - experiment
                 properties:
                   result:
-                    $ref: '#/components/schemas/ExperimentResults'
+                    $ref: "#/components/schemas/ExperimentResults"
   /metrics:
     get:
       summary: Get all metrics
       tags:
         - metrics
       parameters:
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
-        - $ref: '#/components/parameters/projectId'
-        - $ref: '#/components/parameters/datasourceId'
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
+        - $ref: "#/components/parameters/projectId"
+        - $ref: "#/components/parameters/datasourceId"
       operationId: listMetrics
       x-codeSamples:
         - lang: cURL
@@ -638,7 +638,7 @@ paths:
             curl https://api.growthbook.io/api/v1/metrics \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -650,8 +650,8 @@ paths:
                       metrics:
                         type: array
                         items:
-                          $ref: '#/components/schemas/Metric'
-                  - $ref: '#/components/schemas/PaginationFields'
+                          $ref: "#/components/schemas/Metric"
+                  - $ref: "#/components/schemas/PaginationFields"
     post:
       parameters: []
       tags:
@@ -677,7 +677,7 @@ paths:
               properties:
                 datasourceId:
                   type: string
-                  description: 'ID for the [DataSource](#tag/DataSource_model)'
+                  description: "ID for the [DataSource](#tag/DataSource_model)"
                 owner:
                   type: string
                   description: Name of the person who owns this metric
@@ -689,7 +689,7 @@ paths:
                   description: Description of the metric
                 type:
                   type: string
-                  description: 'Type of metric. See [Metrics documentation](/app/metrics)'
+                  description: "Type of metric. See [Metrics documentation](/app/metrics)"
                   enum:
                     - binomial
                     - count
@@ -722,32 +722,32 @@ paths:
                       minimum: 0
                     conversionWindowStart:
                       type: number
-                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                      description: "The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither."
                     conversionWindowEnd:
                       type: number
-                      description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                      description: "The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither."
                     riskThresholdSuccess:
                       type: number
-                      description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                      description: "Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`."
                       minimum: 0
                     riskThresholdDanger:
                       type: number
-                      description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                      description: "Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number."
                       minimum: 0
                     minPercentChange:
                       type: number
-                      description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
+                      description: "Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)"
                       minimum: 0
                     maxPercentChange:
                       type: number
-                      description: 'Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)'
+                      description: "Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)"
                       minimum: 0
                     minSampleSize:
                       type: number
                       minimum: 0
                 sql:
                   type: object
-                  description: 'Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified.'
+                  description: "Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified."
                   required:
                     - identifierTypes
                     - conversionSQL
@@ -760,13 +760,13 @@ paths:
                       type: string
                     userAggregationSQL:
                       type: string
-                      description: 'Custom user level aggregation for your metric (default: `SUM(value)`)'
+                      description: "Custom user level aggregation for your metric (default: `SUM(value)`)"
                     denominatorMetricId:
                       type: string
-                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)'
+                      description: "The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)"
                 sqlBuilder:
                   type: object
-                  description: 'An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified.'
+                  description: "An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified."
                   required:
                     - identifierTypeColumns
                     - tableName
@@ -807,7 +807,7 @@ paths:
                             type: string
                 mixpanel:
                   type: object
-                  description: 'Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified.'
+                  description: "Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified."
                   required:
                     - eventName
                     - userAggregation
@@ -834,7 +834,7 @@ paths:
                           value:
                             type: string
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -843,11 +843,11 @@ paths:
                   - metric
                 properties:
                   metric:
-                    $ref: '#/components/schemas/Metric'
-  '/metrics/{id}':
+                    $ref: "#/components/schemas/Metric"
+  "/metrics/{id}":
     get:
       parameters:
-        - $ref: '#/components/parameters/id'
+        - $ref: "#/components/parameters/id"
       summary: Get a single metric
       tags:
         - metrics
@@ -858,7 +858,7 @@ paths:
             curl https://api.growthbook.io/api/v1/metrics/met_123abc \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -867,8 +867,8 @@ paths:
                   - metric
                 properties:
                   metric:
-                    $ref: '#/components/schemas/Metric'
-  '/experiments/{id}/visual-changesets':
+                    $ref: "#/components/schemas/Metric"
+  "/experiments/{id}/visual-changesets":
     get:
       summary: Get all visual changesets
       tags:
@@ -888,7 +888,7 @@ paths:
             curl https://api.growthbook.io/api/v1/experiments/exp_123abc/visual-changesets \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -900,11 +900,11 @@ paths:
                       visualChangesets:
                         type: array
                         items:
-                          $ref: '#/components/schemas/VisualChangeset'
-  '/visual-changesets/{id}':
+                          $ref: "#/components/schemas/VisualChangeset"
+  "/visual-changesets/{id}":
     get:
       parameters:
-        - $ref: '#/components/parameters/id'
+        - $ref: "#/components/parameters/id"
         - in: query
           name: includeExperiment
           schema:
@@ -920,7 +920,7 @@ paths:
             curl https://api.growthbook.io/api/v1/visual-changesets/ds_123abc \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -929,12 +929,12 @@ paths:
                   - visualChangeset
                 properties:
                   visualChangeset:
-                    $ref: '#/components/schemas/VisualChangeset'
+                    $ref: "#/components/schemas/VisualChangeset"
                   experiment:
-                    $ref: '#/components/schemas/Experiment'
+                    $ref: "#/components/schemas/Experiment"
     put:
       parameters:
-        - $ref: '#/components/parameters/id'
+        - $ref: "#/components/parameters/id"
       tags:
         - visual-changesets
       summary: Update a visual changeset
@@ -947,7 +947,7 @@ paths:
               -H "Content-Type: application/json" \
                                                  -d '{"editorUrl": "https://docs.growthbook.io", "urlPatterns":"[{ ... }]"}'
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -957,9 +957,9 @@ paths:
                 properties:
                   nModified:
                     type: number
-  '/visual-changesets/{id}/visual-change':
+  "/visual-changesets/{id}/visual-change":
     parameters:
-      - $ref: '#/components/parameters/id'
+      - $ref: "#/components/parameters/id"
     post:
       tags:
         - visual-changesets
@@ -973,7 +973,7 @@ paths:
               -H "Content-Type: application/json" \
               -d '{"variation": "v_123abc", "domMutations":"[]"}'
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -983,10 +983,10 @@ paths:
                 properties:
                   nModified:
                     type: number
-  '/visual-changesets/{id}/visual-change/{visualChangeId}':
+  "/visual-changesets/{id}/visual-change/{visualChangeId}":
     parameters:
-      - $ref: '#/components/parameters/id'
-      - $ref: '#/components/parameters/visualChangeId'
+      - $ref: "#/components/parameters/id"
+      - $ref: "#/components/parameters/visualChangeId"
     put:
       tags:
         - visual-changesets
@@ -1000,7 +1000,7 @@ paths:
               -H "Content-Type: application/json" \
               -d '{"variation": "v_123abc", "domMutations":"[]"}'
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -1016,8 +1016,8 @@ paths:
       tags:
         - saved-groups
       parameters:
-        - $ref: '#/components/parameters/limit'
-        - $ref: '#/components/parameters/offset'
+        - $ref: "#/components/parameters/limit"
+        - $ref: "#/components/parameters/offset"
       operationId: listSavedGroups
       x-codeSamples:
         - lang: cURL
@@ -1025,7 +1025,7 @@ paths:
             curl https://api.growthbook.io/api/v1/saved-groups \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -1037,8 +1037,8 @@ paths:
                       savedGroups:
                         type: array
                         items:
-                          $ref: '#/components/schemas/SavedGroup'
-                  - $ref: '#/components/schemas/PaginationFields'
+                          $ref: "#/components/schemas/SavedGroup"
+                  - $ref: "#/components/schemas/PaginationFields"
     post:
       parameters: []
       tags:
@@ -1070,15 +1070,15 @@ paths:
                   type: array
                   items:
                     type: string
-                  description: 'An array of values to target (Ex: a list of userIds).'
+                  description: "An array of values to target (Ex: a list of userIds)."
                 attributeKey:
                   type: string
-                  description: 'The parameter you want to target users with. Ex: userId, orgId, ...'
+                  description: "The parameter you want to target users with. Ex: userId, orgId, ..."
                 owner:
                   type: string
-                  description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
+                  description: "The person or team that owns this Saved Group. If no owner, you can pass an empty string."
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -1087,11 +1087,11 @@ paths:
                   - savedGroup
                 properties:
                   savedGroup:
-                    $ref: '#/components/schemas/SavedGroup'
-  '/saved-groups/{id}':
+                    $ref: "#/components/schemas/SavedGroup"
+  "/saved-groups/{id}":
     get:
       parameters:
-        - $ref: '#/components/parameters/id'
+        - $ref: "#/components/parameters/id"
       tags:
         - saved-groups
       summary: Get a single saved group
@@ -1102,7 +1102,7 @@ paths:
             curl https://api.growthbook.io/api/v1/saved-groups/ds_123abc \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -1111,11 +1111,11 @@ paths:
                   - savedGroup
                 properties:
                   savedGroup:
-                    $ref: '#/components/schemas/SavedGroup'
+                    $ref: "#/components/schemas/SavedGroup"
     post:
       summary: Partially update a single saved group
       parameters:
-        - $ref: '#/components/parameters/id'
+        - $ref: "#/components/parameters/id"
       tags:
         - saved-groups
       operationId: updateSavedGroup
@@ -1141,12 +1141,12 @@ paths:
                   type: array
                   items:
                     type: string
-                  description: 'An array of values to target (Ex: a list of userIds).'
+                  description: "An array of values to target (Ex: a list of userIds)."
                 owner:
                   type: string
-                  description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
+                  description: "The person or team that owns this Saved Group. If no owner, you can pass an empty string."
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -1155,11 +1155,11 @@ paths:
                   - savedGroup
                 properties:
                   savedGroup:
-                    $ref: '#/components/schemas/SavedGroup'
+                    $ref: "#/components/schemas/SavedGroup"
     delete:
       summary: Deletes a single saved group
       parameters:
-        - $ref: '#/components/parameters/id'
+        - $ref: "#/components/parameters/id"
       tags:
         - saved-groups
       operationId: deleteSavedGroup
@@ -1169,7 +1169,7 @@ paths:
             curl -X DELETE https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
               -u secret_abc123DEF456:
       responses:
-        '200':
+        "200":
           content:
             application/json:
               schema:
@@ -1247,7 +1247,7 @@ components:
         nextOffset:
           type:
             - integer
-            - 'null'
+            - "null"
     Dimension:
       type: object
       required:
@@ -1547,7 +1547,7 @@ components:
         environments:
           type: object
           additionalProperties:
-            $ref: '#/components/schemas/FeatureEnvironment'
+            $ref: "#/components/schemas/FeatureEnvironment"
         revision:
           type: object
           required:
@@ -1579,10 +1579,10 @@ components:
         rules:
           type: array
           items:
-            $ref: '#/components/schemas/FeatureRule'
+            $ref: "#/components/schemas/FeatureRule"
         definition:
           type: string
-          description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+          description: "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)"
         draft:
           type: object
           required:
@@ -1597,15 +1597,15 @@ components:
             rules:
               type: array
               items:
-                $ref: '#/components/schemas/FeatureRule'
+                $ref: "#/components/schemas/FeatureRule"
             definition:
               type: string
-              description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+              description: "A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)"
     FeatureRule:
       anyOf:
-        - $ref: '#/components/schemas/FeatureForceRule'
-        - $ref: '#/components/schemas/FeatureRolloutRule'
-        - $ref: '#/components/schemas/FeatureExperimentRule'
+        - $ref: "#/components/schemas/FeatureForceRule"
+        - $ref: "#/components/schemas/FeatureRolloutRule"
+        - $ref: "#/components/schemas/FeatureExperimentRule"
     FeatureDefinition:
       type: object
       required:
@@ -1617,7 +1617,7 @@ components:
             - number
             - array
             - object
-            - 'null'
+            - "null"
         rules:
           type: array
           items:
@@ -1629,7 +1629,7 @@ components:
                   - number
                   - array
                   - object
-                  - 'null'
+                  - "null"
               weights:
                 type: array
                 items: number
@@ -1641,7 +1641,7 @@ components:
                     - number
                     - array
                     - object
-                    - 'null'
+                    - "null"
               hashAttribute:
                 type: string
               namespace:
@@ -1819,9 +1819,9 @@ components:
         proxySigningKey:
           type: string
         sseEnabled:
-          type: boolean;
+          type: boolean
         hashSecureAttributes:
-          type: boolean;
+          type: boolean
     Experiment:
       type: object
       required:
@@ -1948,7 +1948,7 @@ components:
               targetingCondition:
                 type: string
         settings:
-          $ref: '#/components/schemas/ExperimentAnalysisSettings'
+          $ref: "#/components/schemas/ExperimentAnalysisSettings"
         resultSummary:
           type: object
           required:
@@ -2023,13 +2023,13 @@ components:
         goals:
           type: array
           items:
-            $ref: '#/components/schemas/ExperimentMetric'
+            $ref: "#/components/schemas/ExperimentMetric"
         guardrails:
           type: array
           items:
-            $ref: '#/components/schemas/ExperimentMetric'
+            $ref: "#/components/schemas/ExperimentMetric"
         activationMetric:
-          $ref: '#/components/schemas/ExperimentMetric'
+          $ref: "#/components/schemas/ExperimentMetric"
     ExperimentResults:
       type: object
       required:
@@ -2066,7 +2066,7 @@ components:
             id:
               type: string
         settings:
-          $ref: '#/components/schemas/ExperimentAnalysisSettings'
+          $ref: "#/components/schemas/ExperimentAnalysisSettings"
         queryIds:
           type: array
           items:
