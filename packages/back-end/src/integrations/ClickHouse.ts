@@ -91,22 +91,4 @@ export default class ClickHouse extends SqlIntegration {
       );
     return `table_schema IN ('${this.params.database}')`;
   }
-  generateTableName(
-    tableName: string,
-    schemaName?: string,
-    databaseName?: string
-  ): string {
-    if (tableName === "columns" && schemaName === "information_schema")
-      return `${schemaName}.${tableName}`;
-
-    const database = databaseName || this.params.database;
-
-    if (!database) {
-      throw new MissingDatasourceParamsError(
-        "No database provided. Please edit the connection settings and try again."
-      );
-    }
-
-    return `${database}.${tableName}`;
-  }
 }

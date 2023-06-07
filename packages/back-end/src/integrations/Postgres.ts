@@ -39,9 +39,6 @@ export default class Postgres extends SqlIntegration {
     return "table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')";
   }
   generateTableName(tableName: string, schemaName?: string): string {
-    if (tableName === "columns" && schemaName === "information_schema")
-      return `${schemaName}.${tableName}`;
-
     const schema = schemaName || this.params.defaultSchema;
 
     if (!schema)
