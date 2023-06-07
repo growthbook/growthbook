@@ -62,6 +62,11 @@ jobs:
         env:
           CI: true
 
+      - name: Check api types
+        run: |
+          yarn generate-api-types
+          [[ -n $(git status --porcelain) ]] && exit 1 || true
+
       - name: Type-check
         run: |
           yarn type-check
