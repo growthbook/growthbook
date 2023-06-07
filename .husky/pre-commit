@@ -24,11 +24,5 @@ if [ -n "$openapi" ] | [ -n "$modelschanged" ]
     git add packages/back-end/src/validators/openapi.ts
 fi
 
-if [ -n "$modelschanged" ]
-  then
-    echo "#### Type checking model changes"
-    yarn --cwd packages/back-end type-check
-fi
-
 echo "#### Linting typescript, scss, and markdown files"
 yarn lint-staged
