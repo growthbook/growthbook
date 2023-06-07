@@ -33,7 +33,7 @@ const ControlledTabs: FC<{
   orientation?: "vertical" | "horizontal";
   className?: string;
   navClassName?: string;
-  tabButtonsCLassName?: string;
+  buttonsWrapperClassName?: string;
   tabContentsClassName?: string;
   defaultTab?: string;
   newStyle?: boolean;
@@ -51,7 +51,7 @@ const ControlledTabs: FC<{
   className,
   tabContentsClassName,
   navClassName,
-  tabButtonsCLassName,
+  buttonsWrapperClassName,
   defaultTab,
   newStyle = false,
   navExtra,
@@ -189,7 +189,11 @@ const ControlledTabs: FC<{
           "col-md-3": orientation === "vertical",
         })}
       >
-        <TabButtons newStyle={newStyle} vertical={orientation === "vertical"} className={tabButtonsCLassName}>
+        <TabButtons
+          newStyle={newStyle}
+          vertical={orientation === "vertical"}
+          className={buttonsWrapperClassName}
+        >
           {tabs}
           {navExtra && navExtra}
         </TabButtons>
