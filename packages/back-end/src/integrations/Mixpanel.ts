@@ -4,7 +4,6 @@ import {
   DataSourceType,
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MixpanelConnectionParams } from "../../types/integrations/mixpanel";
 import { MetricInterface, MetricType } from "../../types/metric";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -25,6 +24,7 @@ import {
   getMixpanelPropertyColumn,
 } from "../util/mixpanel";
 import { replaceSQLVars } from "../util/sql";
+import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 
 export default class Mixpanel implements SourceIntegrationInterface {
   type!: DataSourceType;
@@ -85,8 +85,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   }
 
   getExperimentResultsQuery(
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
+    snapshotSettings: ExperimentSnapshotSettings,
     metrics: MetricInterface[],
     activationMetric: MetricInterface,
     dimension: DimensionInterface
@@ -123,9 +122,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
         // Experiment exposure event
         function isExposureEvent(event) {
           return ${this.getValidExperimentCondition(
-            experiment.trackingKey,
-            phase.dateStarted,
-            phase.dateEnded
+            snapshotSettings.experimentId,
+            snapshotSettings.startDate,
+            snapshotSettings.endDate
           )};
         }
         ${
@@ -138,8 +137,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
           .join("")}
 
         return ${this.getEvents(
-          phase.dateStarted,
-          phase.dateEnded || new Date(),
+          snapshotSettings.startDate,
+          snapshotSettings.endDate,
           [
             ...metrics.map((m) => m.table),
             activationMetric?.table,
@@ -190,9 +189,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
                   dimension
                     ? `state.dimension = (${this.getDimensionColumn(
                         dimension.sql,
-                        phase.dateStarted,
-                        phase.dateEnded,
-                        experiment.trackingKey
+                        snapshotSettings.startDate,
+                        snapshotSettings.endDate,
+                        snapshotSettings.experimentId
                       )}) || null;`
                     : ""
                 }
@@ -327,15 +326,13 @@ export default class Mixpanel implements SourceIntegrationInterface {
     return query;
   }
   async getExperimentResults(
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
+    snapshotSettings: ExperimentSnapshotSettings,
     metrics: MetricInterface[],
     activationMetric: MetricInterface,
     dimension: DimensionInterface
   ): Promise<ExperimentQueryResponses> {
     const query = this.getExperimentResultsQuery(
-      experiment,
-      phase,
+      snapshotSettings,
       metrics,
       activationMetric,
       dimension

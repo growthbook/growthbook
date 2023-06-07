@@ -582,6 +582,7 @@ export interface components {
       project: string;
       encryptPayload: boolean;
       encryptionKey: string;
+      hashSecureAttributes?: boolean;
       includeVisualExperiments?: boolean;
       includeDraftExperiments?: boolean;
       includeExperimentNames?: boolean;
@@ -1663,6 +1664,7 @@ export interface operations {
                 project: string;
                 encryptPayload: boolean;
                 encryptionKey: string;
+                hashSecureAttributes?: boolean;
                 includeVisualExperiments?: boolean;
                 includeDraftExperiments?: boolean;
                 includeExperimentNames?: boolean;
@@ -1702,6 +1704,7 @@ export interface operations {
               project: string;
               encryptPayload: boolean;
               encryptionKey: string;
+              hashSecureAttributes?: boolean;
               includeVisualExperiments?: boolean;
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;

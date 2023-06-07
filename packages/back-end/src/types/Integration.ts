@@ -3,9 +3,8 @@ import {
   DataSourceSettings,
 } from "../../types/datasource";
 import { DimensionInterface } from "../../types/dimension";
-import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
+import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { MetricInterface, MetricType } from "../../types/metric";
-import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { SegmentInterface } from "../../types/segment";
 import { FormatDialect } from "../util/sql";
 
@@ -79,15 +78,12 @@ export type Dimension =
   | ActivationDimension;
 
 export type ExperimentMetricQueryParams = {
-  experiment: ExperimentInterface;
-  phase: ExperimentPhase;
+  settings: ExperimentSnapshotSettings;
   metric: MetricInterface;
   activationMetrics: MetricInterface[];
   denominatorMetrics: MetricInterface[];
   dimension: Dimension | null;
   segment: SegmentInterface | null;
-  regressionAdjustmentEnabled?: boolean;
-  metricRegressionAdjustmentStatus?: MetricRegressionAdjustmentStatus;
 };
 
 export type PastExperimentParams = {
@@ -231,7 +227,7 @@ export interface InformationSchemaInterface {
   organization: string;
   status: "PENDING" | "COMPLETE";
   refreshMS: number;
-  error?: InformationSchemaError;
+  error?: InformationSchemaError | null;
   dateCreated: Date;
   dateUpdated: Date;
 }
@@ -260,16 +256,14 @@ export interface SourceIntegrationInterface {
   params: any;
   getSensitiveParamKeys(): string[];
   getExperimentResultsQuery(
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
+    snapshotSettings: ExperimentSnapshotSettings,
     metrics: MetricInterface[],
     activationMetric: MetricInterface | null,
     dimension: DimensionInterface | null
   ): string;
   getFormatDialect?(): FormatDialect;
   getExperimentResults(
-    experiment: ExperimentInterface,
-    phase: ExperimentPhase,
+    snapshotSettings: ExperimentSnapshotSettings,
     metrics: MetricInterface[],
     activationMetric: MetricInterface | null,
     dimension: DimensionInterface | null

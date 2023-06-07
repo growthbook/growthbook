@@ -30,7 +30,7 @@ const authRefreshSchema = new mongoose.Schema({
 
 export type AuthRefreshDocument = mongoose.Document & AuthRefreshInterface;
 
-export const AuthRefreshModel = mongoose.model<AuthRefreshDocument>(
+export const AuthRefreshModel = mongoose.model<AuthRefreshInterface>(
   "AuthRefresh",
   authRefreshSchema
 );
