@@ -120,7 +120,7 @@ async function fetchFeaturesWithCache(
   await initializeCache();
   const existing = cache.get(key);
   if (existing && !skipCache && (allowStale || existing.staleAt > now)) {
-    // Reload features in the backgroud if stale
+    // Reload features in the background if stale
     if (existing.staleAt < now) {
       fetchFeatures(instance);
     }

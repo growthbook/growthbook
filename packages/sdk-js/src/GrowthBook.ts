@@ -205,12 +205,18 @@ export class GrowthBook<
     this._ctx.attributes = attributes;
     this._render();
     this._updateAllAutoExperiments();
+    if (this._ctx.remoteEval) {
+      this._refresh({}, false, true);
+    }
   }
 
   public setAttributeOverrides(overrides: Attributes) {
     this._attributeOverrides = overrides;
     this._render();
     this._updateAllAutoExperiments();
+    if (this._ctx.remoteEval) {
+      this._refresh({}, false, true);
+    }
   }
   public setForcedVariations(vars: Record<string, number>) {
     this._ctx.forcedVariations = vars || {};
