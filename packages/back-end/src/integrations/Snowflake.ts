@@ -1,7 +1,6 @@
 import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runSnowflakeQuery } from "../services/snowflake";
-import { MissingDatasourceParamsError } from "../types/Integration";
 import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
@@ -9,6 +8,7 @@ export default class Snowflake extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   params: SnowflakeConnectionParams;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<SnowflakeConnectionParams>(
       encryptedParams
@@ -38,25 +38,7 @@ export default class Snowflake extends SqlIntegration {
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('INFORMATION_SCHEMA')";
   }
-  generateTableName(
-    tableName: string,
-    schemaName?: string,
-    databaseName?: string
-  ): string {
-    const database = databaseName || this.params.database;
-    const schema = schemaName || this.params.schema;
-
-    if (!database) {
-      throw new MissingDatasourceParamsError(
-        "No database provided. Please edit the connection settings and try again."
-      );
-    }
-
-    if (!schema)
-      throw new MissingDatasourceParamsError(
-        "No schema provided. Please edit the connection settings and try again."
-      );
-
-    return `${database}.${schema}.${tableName}`;
+  getDefaultDatabase() {
+    return this.params.database || "";
   }
 }

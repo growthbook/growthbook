@@ -1,7 +1,6 @@
 import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
-import { MissingDatasourceParamsError } from "../types/Integration";
 import { findOrCreateConnection } from "../util/mssqlPoolManager";
 import SqlIntegration from "./SqlIntegration";
 
@@ -9,6 +8,7 @@ export default class Mssql extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   params: MssqlConnectionParams;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<MssqlConnectionParams>(
       encryptedParams
@@ -67,26 +67,7 @@ export default class Mssql extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
-
-  generateTableName(
-    tableName: string,
-    schemaName?: string,
-    databaseName?: string
-  ): string {
-    const database = databaseName || this.params.database;
-    const schema = schemaName || this.params.defaultSchema;
-
-    if (!database) {
-      throw new MissingDatasourceParamsError(
-        "No database provided. Please edit the connection settings and try again."
-      );
-    }
-
-    if (!schema)
-      throw new MissingDatasourceParamsError(
-        "No default schema provided. Please edit the connection settings and try again."
-      );
-
-    return `${database}.${schema}.${tableName}`;
+  getDefaultDatabase() {
+    return this.params.database;
   }
 }

@@ -6,6 +6,8 @@ import SqlIntegration from "./SqlIntegration";
 
 export default class Postgres extends SqlIntegration {
   params!: PostgresConnectionParams;
+  requiresDatabase = false;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PostgresConnectionParams>(
       encryptedParams
@@ -38,13 +40,7 @@ export default class Postgres extends SqlIntegration {
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')";
   }
-  generateTableName(tableName: string, schemaName?: string): string {
-    const schema = schemaName || this.params.defaultSchema;
-
-    if (!schema)
-      throw new Error(
-        "No default schema provided. Please edit the connection settings and try again."
-      );
-    return `${schema}.${tableName}`;
+  getDefaultSchema() {
+    return this.params.defaultSchema;
   }
 }

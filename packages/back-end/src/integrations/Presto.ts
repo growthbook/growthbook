@@ -3,7 +3,6 @@ import { Client, IPrestoClientOptions } from "presto-client";
 import { decryptDataSourceParams } from "../services/datasource";
 import { PrestoConnectionParams } from "../../types/integrations/presto";
 import { FormatDialect } from "../util/sql";
-import { MissingDatasourceParamsError } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
@@ -13,6 +12,7 @@ export default class Presto extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   params: PrestoConnectionParams;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PrestoConnectionParams>(
       encryptedParams
@@ -106,25 +106,7 @@ export default class Presto extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
-  generateTableName(
-    tableName: string,
-    schemaName?: string,
-    databaseName?: string
-  ): string {
-    const database = databaseName || this.params.catalog;
-    const schema = schemaName || this.params.schema;
-
-    if (!database) {
-      throw new MissingDatasourceParamsError(
-        "No default catalog provided. Please edit the connection settings and try again."
-      );
-    }
-
-    if (!schema)
-      throw new MissingDatasourceParamsError(
-        "No default schema provided. Please edit the connection settings and try again."
-      );
-
-    return `${database}.${schema}.${tableName}`;
+  getDefaultDatabase() {
+    return this.params.catalog || "";
   }
 }

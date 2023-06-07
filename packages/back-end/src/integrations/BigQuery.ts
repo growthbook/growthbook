@@ -4,13 +4,13 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
-import { MissingDatasourceParamsError } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   params: BigQueryConnectionParams;
+  requiresEscapingPath = true;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<BigQueryConnectionParams>(
       encryptedParams
@@ -82,26 +82,17 @@ export default class BigQuery extends SqlIntegration {
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
-  generateTableName(
-    tableName: string,
-    schemaName?: string,
-    databaseName?: string
-  ): string {
-    const database = databaseName || this.params.projectId;
-    const schema = schemaName || this.params.defaultDataset;
-
-    if (!database) {
-      throw new MissingDatasourceParamsError("No project ID provided.");
-    }
-
-    if (!schema)
-      throw new MissingDatasourceParamsError(
-        "No default dataset provided. Please edit the connection settings and try again."
-      );
-
-    if (schemaName === "information_schema" && tableName === "columns") {
-      return `\`${database}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\``;
-    }
-    return `\`${database}.${schema}.${tableName}\``;
+  getDefaultDatabase() {
+    return this.params.projectId || "";
+  }
+  getDefaultSchema() {
+    return this.params.defaultDataset;
+  }
+  getInformationSchemaTable(schema?: string, database?: string): string {
+    return this.generateTablePath(
+      "INFORMATION_SCHEMA.COLUMNS",
+      schema,
+      database
+    );
   }
 }

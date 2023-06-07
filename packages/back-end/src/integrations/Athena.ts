@@ -2,13 +2,13 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { runAthenaQuery } from "../services/athena";
 import { AthenaConnectionParams } from "../../types/integrations/athena";
 import { FormatDialect } from "../util/sql";
-import { MissingDatasourceParamsError } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   params: AthenaConnectionParams;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<AthenaConnectionParams>(
       encryptedParams
@@ -49,25 +49,7 @@ export default class Athena extends SqlIntegration {
   ensureFloat(col: string): string {
     return `1.0*${col}`;
   }
-  generateTableName(
-    tableName: string,
-    schemaName?: string,
-    databaseName?: string
-  ): string {
-    const database = databaseName || this.params.database;
-    const schema = schemaName || this.params.catalog;
-
-    if (!database) {
-      throw new MissingDatasourceParamsError(
-        "No default database provided. Please edit the connection settings and try again."
-      );
-    }
-
-    if (!schema)
-      throw new MissingDatasourceParamsError(
-        "No default catalog provided. Please edit the connection settings and try again."
-      );
-
-    return `${database}.${schema}.${tableName}`;
+  getDefaultDatabase() {
+    return this.params.catalog || "";
   }
 }

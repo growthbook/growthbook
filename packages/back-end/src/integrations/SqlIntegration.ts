@@ -24,6 +24,7 @@ import {
   MetricAggregationType,
   InformationSchema,
   RawInformationSchema,
+  MissingDatasourceParamsError,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import {
@@ -99,6 +100,9 @@ export default abstract class SqlIntegration
     }
     return false;
   }
+  requiresDatabase = true;
+  requiresSchema = true;
+  requiresEscapingPath = false;
 
   getSchema(): string {
     return "";
@@ -1210,14 +1214,49 @@ export default abstract class SqlIntegration
   async getExperimentResults(): Promise<ExperimentQueryResponses> {
     throw new Error("Not implemented");
   }
-  generateTableName(
-    tableName: string,
-    schemaName?: string,
-    databaseName?: string
-  ): string {
-    return `${databaseName ? `${databaseName}.` : ""}${
-      schemaName ? `${schemaName}.` : ""
-    }${tableName}`;
+
+  getDefaultDatabase() {
+    return "";
+  }
+  getDefaultSchema() {
+    return "";
+  }
+
+  generateTablePath(tableName: string, schema?: string, database?: string) {
+    let path = "";
+    // Add database if required
+    if (this.requiresDatabase) {
+      database = database || this.getDefaultDatabase();
+      if (!database) {
+        throw new MissingDatasourceParamsError(
+          "No database provided. Please edit the connection settings and try again."
+        );
+      }
+      path += database + ".";
+    }
+
+    // Add schema if required
+    if (this.requiresSchema) {
+      schema = schema || this.getDefaultSchema();
+      if (!schema) {
+        throw new MissingDatasourceParamsError(
+          "No schema provided. Please edit the connection settings and try again."
+        );
+      }
+      path += schema + ".";
+    }
+
+    // Add table name
+    path += tableName;
+    return this.requiresEscapingPath ? `\`${path}\`` : path;
+  }
+
+  getInformationSchemaTable(schema?: string, database?: string): string {
+    return this.generateTablePath(
+      "information_schema.columns",
+      schema,
+      database
+    );
   }
 
   getInformationSchemaWhereClause(): string {
@@ -1231,7 +1270,7 @@ export default abstract class SqlIntegration
     table_schema as table_schema,
     count(column_name) as column_count 
   FROM
-    ${this.generateTableName("columns", "information_schema")}
+    ${this.getInformationSchemaTable()}
     WHERE ${this.getInformationSchemaWhereClause()}
     GROUP BY table_name, table_schema, table_catalog`;
 
@@ -1256,7 +1295,7 @@ export default abstract class SqlIntegration
     data_type as data_type,
     column_name as column_name 
   FROM
-    ${this.generateTableName("columns", "information_schema", databaseName)}
+    ${this.getInformationSchemaTable(tableSchema, databaseName)}
   WHERE 
     table_name = '${tableName}'
     AND table_schema = '${tableSchema}'
@@ -1301,7 +1340,7 @@ export default abstract class SqlIntegration
       hasUserId ? `${userIdColumn}, ` : ""
     }${anonymousIdColumn} as anonymous_id, ${timestampColumn} as timestamp
     ${type === "count" ? `, 1 as value` : ""}
-     FROM ${this.generateTableName(event)}
+     FROM ${this.generateTablePath(event)}
   `;
 
     return format(sqlQuery, this.getFormatDialect());
@@ -1374,7 +1413,7 @@ export default abstract class SqlIntegration
 
     const currentDateTime = new Date();
     const SevenDaysAgo = new Date(
-      currentDateTime.valueOf() - 7 * 60 * 60 * 24 * 1000
+      currentDateTime.valueOf() - 35 * 60 * 60 * 24 * 1000
     );
 
     const sql = `
@@ -1385,7 +1424,7 @@ export default abstract class SqlIntegration
           COUNT (*) as count,
           MAX(${timestampColumn}) as lastTrackedAt
         FROM
-          ${this.generateTableName(trackedEventTableName)}
+          ${this.generateTablePath(trackedEventTableName)}
           WHERE received_at < '${currentDateTime
             .toISOString()
             .slice(
@@ -1406,7 +1445,7 @@ export default abstract class SqlIntegration
            COUNT (*) as count,
            MAX(${timestampColumn}) as lastTrackedAt
         FROM
-           ${this.generateTableName("pages")}
+           ${this.generateTablePath("pages")}
         WHERE received_at < '${currentDateTime
           .toISOString()
           .slice(0, 10)}' AND received_at > '${SevenDaysAgo.toISOString().slice(
@@ -1438,7 +1477,7 @@ export default abstract class SqlIntegration
            COUNT (*) as count,
            MAX(${timestampColumn}) as lastTrackedAt
         FROM
-           ${this.generateTableName("screens")}
+           ${this.generateTablePath("screens")}
         WHERE received_at < '${currentDateTime
           .toISOString()
           .slice(0, 10)}' AND received_at > '${SevenDaysAgo.toISOString().slice(
