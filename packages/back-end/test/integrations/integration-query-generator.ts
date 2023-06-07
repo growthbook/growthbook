@@ -315,6 +315,10 @@ engines.forEach((engine) => {
           dimensionId = "pre:activation";
         } else if (dimension.type === "date") {
           dimensionId = "pre:date";
+        } else if (dimension.type === "datecumulative") {
+          dimensionId = "pre:datecumulative";
+        } else if (dimension.type === "datedaily") {
+          dimensionId = "pre:datedaily";
         } else {
           dimensionId = dimension.dimension.id;
         }
