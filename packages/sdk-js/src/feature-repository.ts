@@ -297,11 +297,9 @@ function startAutoRefresh(instance: GrowthBook): void {
       src: null,
       cb: (event: MessageEvent<string>) => {
         try {
-          if (instance.getRemoteEval()) {
-            // got an "update" SSE message, trigger a refetch
-            const json: { update: boolean } = JSON.parse(event.data);
-            if (json.update) fetchFeatures(instance);
-          } else {
+          if (event.type === "features-updated") {
+            fetchFeatures(instance);
+          } else if (event.type === "features") {
             const json: FeatureApiResponse = JSON.parse(event.data);
             onNewFeatureData(key, json);
           }
@@ -358,6 +356,7 @@ function enableChannel(
     `${apiHost}/sub/${clientKey}`
   ) as EventSource;
   channel.src.addEventListener("features", channel.cb);
+  channel.src.addEventListener("features-updated", channel.cb);
   channel.src.onerror = () => {
     onSSEError(channel, apiHost, clientKey);
   };
