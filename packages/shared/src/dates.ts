@@ -37,10 +37,10 @@ export function dateStringArrayBetweenDates(
   const dateArray: string[] = [];
   let startTruncate = new Date(start);
   if (truncate) {
-    startTruncate = new Date(format(start, "yyyy-MM-dd"));
+    startTruncate = new Date(start.toISOString().substring(0, 10));
   }
   for (let d = startTruncate; d <= end; d.setDate(d.getDate() + dayInterval)) {
-    dateArray.push(`'${format(d, "yyyy-MM-dd")}'`);
+    dateArray.push(`'${d.toISOString().substring(0, 10)}'`);
   }
   return dateArray;
 }
