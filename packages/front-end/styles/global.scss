@@ -2345,4 +2345,24 @@ input:disabled {
   }
 }
 
+.sdk-security-button-wrapper {
+  justify-content: space-between;
+  gap: 1rem;
+
+  .sdk-security-button {
+    position: relative;
+    box-sizing: border-box;
+    flex: 1;
+    padding: 15px 20px 8px;
+
+    .subtitle {
+      font-size: 12px;
+      line-height: 1rem;
+      color: var(--text-color-muted);
+      font-weight: normal;
+      margin: 10px 15px 0;
+    }
+  }
+}
+
 @import "./components/react-select.scss";
