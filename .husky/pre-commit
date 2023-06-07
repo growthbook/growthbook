@@ -1,14 +1,14 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
-openapi=$(git status --porcelain | grep "back-end/src/api/openapi" || true )
+openapi=$(git status --porcelain | grep '^[MADRC]' | grep "back-end/src/api/openapi" || true )
 
 if [ -n "$openapi" ]
   then
     echo "#### OpenAPI spec changed"
 fi
 
-modelschanged=$(git status --porcelain | grep "back-end/src/models" || true)
+modelschanged=$(git status --porcelain | grep '^[MADRC]' | grep "back-end/src/models" || true)
 
 if [ -n "$modelschanged" ]
   then
