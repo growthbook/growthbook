@@ -176,7 +176,6 @@ export async function analyzeExperimentResults({
           byMetric[metric] = byMetric[metric] || [];
           byMetric[metric].push({
             dimension: row.dimension,
-            day: null,
             variation:
               snapshotSettings.variations[v.variation]?.id || v.variation + "",
             users: stats.count,
