@@ -11,6 +11,8 @@ Track anonymous usage statistics
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
 import { StatsEngine } from "@/../back-end/types/stats";
+import { ExperimentSnapshotInterface } from "@/../back-end/types/experiment-snapshot";
+import { ExperimentReportInterface } from "@/../back-end/types/report";
 import { getCurrentUser } from "./UserContext";
 import {
   getGrowthBookBuild,
@@ -35,7 +37,8 @@ export interface TrackSnapshotProps {
   activation_metric_selected: boolean;
   query_filter_selected: boolean;
   segment_selected: boolean;
-  dimension: string;
+  dimension_type: string;
+  dimension_id: string;
   error?: string;
 }
 
@@ -99,32 +102,79 @@ export default function track(
 }
 
 export function trackSnapshot(
-  event: "create" | "update" | "delete" | "error",
-  props: TrackSnapshotProps
+  event: "create" | "update" | "delete",
+  source: string,
+  datasourceType: string | null,
+  snapshot: ExperimentSnapshotInterface
 ): void {
-  track("Experiment Snapshot: " + event, cleanSnapshotProps(props));
+  track("Experiment Snapshot: " + event, {
+    ...getTrackingPropsFromSnapshot(snapshot, source, datasourceType),
+  });
 }
 
 export function trackReport(
-  event: "create" | "update" | "refresh" | "error" | "delete",
-  props?: TrackSnapshotProps
+  event: "create" | "update" | "delete",
+  source: string,
+  datasourceType: string | null,
+  report: ExperimentReportInterface
 ): void {
-  track("Experiment Report: " + event, props ? cleanSnapshotProps(props) : {});
+  track("Experiment Report: " + event, {
+    ...getTrackingPropsFromReport(report, source, datasourceType),
+  });
 }
 
-function cleanSnapshotProps(props: TrackSnapshotProps): TrackEventProps {
-  const parsedDim = parseSnapshotDimension(props.dimension);
-
-  const trackEventProps: TrackEventProps = {
-    ...props,
+function getTrackingPropsFromSnapshot(
+  snapshot: ExperimentSnapshotInterface,
+  source: string,
+  datasourceType: string | null
+): TrackSnapshotProps {
+  const parsedDim = parseSnapshotDimension(
+    snapshot.settings.dimensions.map((d) => d.id).join(", ") || ""
+  );
+  return {
+    id: snapshot.id ? md5(snapshot.id) : "",
+    source: source,
+    experiment: snapshot.experiment ? md5(snapshot.experiment) : "",
+    engine: snapshot.analyses[0].settings.statsEngine,
+    datasource_type: datasourceType,
+    regression_adjustment_enabled: !!snapshot.settings
+      .regressionAdjustmentEnabled,
+    sequential_testing_enabled: !!snapshot.analyses[0].settings
+      .sequentialTesting,
+    sequential_testing_tuning_parameter:
+      snapshot.analyses[0].settings.sequentialTestingTuningParameter,
+    skip_partial_data: !!snapshot.settings.skipPartialData,
+    activation_metric_selected: !!snapshot.settings.activationMetric,
+    query_filter_selected: !!snapshot.settings.queryFilter,
+    segment_selected: !!snapshot.settings.segment,
     dimension_type: parsedDim.type,
     dimension_id: parsedDim.id,
-    // Overwrite `id` and `experiment`
-    id: props.id ? md5(props.id) : "",
-    experiment: props.experiment ? md5(props.experiment) : "",
   };
-  delete trackEventProps.dimension;
-  return trackEventProps;
+}
+
+function getTrackingPropsFromReport(
+  report: ExperimentReportInterface,
+  source: string,
+  datasourceType: string | null
+): TrackSnapshotProps {
+  const parsedDim = parseSnapshotDimension(report.args.dimension ?? "");
+  return {
+    id: report.id ? md5(report.id) : "",
+    source: source,
+    experiment: report.experimentId ? md5(report.experimentId) : "",
+    engine: report.args.statsEngine ?? "bayesian",
+    datasource_type: datasourceType,
+    regression_adjustment_enabled: !!report.args.regressionAdjustmentEnabled,
+    sequential_testing_enabled: !!report.args.sequentialTestingEnabled,
+    sequential_testing_tuning_parameter:
+      report.args.sequentialTestingTuningParameter,
+    skip_partial_data: !!report.args.skipPartialData,
+    activation_metric_selected: !!report.args.activationMetric,
+    query_filter_selected: !!report.args.queryFilter,
+    segment_selected: !!report.args.segment,
+    dimension_type: parsedDim.type,
+    dimension_id: parsedDim.id,
+  };
 }
 
 export function parseSnapshotDimension(

@@ -72,26 +72,12 @@ export default function ExperimentReportsList({
                 if (!res.report) {
                   throw new Error("Failed to create report");
                 }
-                trackReport("create", {
-                  source: "NewCustomReportButton",
-                  id: res.report.id,
-                  experiment: res.report.experimentId ?? "",
-                  engine: res.report.args.statsEngine || "bayesian",
-                  datasource_type:
-                    getDatasourceById(res.report.args.datasource)?.type || null,
-                  regression_adjustment_enabled: !!res.report.args
-                    .regressionAdjustmentEnabled,
-                  sequential_testing_enabled: !!res.report.args
-                    .sequentialTestingEnabled,
-                  sequential_testing_tuning_parameter:
-                    res.report.args.sequentialTestingTuningParameter,
-                  skip_partial_data: !!res.report.args.skipPartialData,
-                  activation_metric_selected: !!res.report.args
-                    .activationMetric,
-                  query_filter_selected: !!res.report.args.queryFilter,
-                  segment_selected: !!res.report.args.segment,
-                  dimension: res.report.args.dimension || "",
-                });
+                trackReport(
+                  "create",
+                  "NewCustomReportButton",
+                  getDatasourceById(res.report.args.datasource)?.type || null,
+                  res.report
+                );
 
                 await router.push(`/report/${res.report.id}`);
               }}
@@ -168,27 +154,13 @@ export default function ExperimentReportsList({
                               //body: JSON.stringify({ id: report.id }),
                             }
                           );
-                          trackReport("delete", {
-                            source: "ExperimentReportsList",
-                            id: report.id,
-                            experiment: report.experimentId ?? "",
-                            engine: report.args.statsEngine || "bayesian",
-                            datasource_type:
-                              getDatasourceById(report.args.datasource)?.type ||
+                          trackReport(
+                            "delete",
+                            "ExperimentReportsList",
+                            getDatasourceById(report.args.datasource)?.type ||
                               null,
-                            regression_adjustment_enabled: !!report.args
-                              .regressionAdjustmentEnabled,
-                            sequential_testing_enabled: !!report.args
-                              .sequentialTestingEnabled,
-                            sequential_testing_tuning_parameter:
-                              report.args.sequentialTestingTuningParameter,
-                            skip_partial_data: !!report.args.skipPartialData,
-                            activation_metric_selected: !!report.args
-                              .activationMetric,
-                            query_filter_selected: !!report.args.queryFilter,
-                            segment_selected: !!report.args.segment,
-                            dimension: report.args.dimension || "",
-                          });
+                            report
+                          );
                           mutate();
                         }}
                       />

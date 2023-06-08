@@ -213,22 +213,12 @@ const ManualSnapshotForm: FC<{
         metrics: getStats(),
       }),
     });
-    trackSnapshot("create", {
-      source: "ManualSnapshotForm",
-      id: res.snapshot?.id || "",
-      experiment: experiment.id,
-      engine: "bayesian",
-      datasource_type: getDatasourceById(experiment.datasource)?.type || null,
-      regression_adjustment_enabled: false,
-      sequential_testing_enabled: !!experiment.sequentialTestingEnabled,
-      sequential_testing_tuning_parameter:
-        experiment.sequentialTestingTuningParameter,
-      skip_partial_data: !!experiment.skipPartialData,
-      activation_metric_selected: !!experiment.activationMetric,
-      query_filter_selected: !!experiment.queryFilter,
-      segment_selected: !!experiment.segment,
-      dimension: "",
-    });
+    trackSnapshot(
+      "create",
+      "ManualSnapshotForm",
+      getDatasourceById(experiment.datasource)?.type || null,
+      res.snapshot
+    );
 
     success();
   });

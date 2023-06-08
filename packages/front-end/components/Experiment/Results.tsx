@@ -210,24 +210,12 @@ const Results: FC<{
                 dimension,
               }),
             });
-
-            trackSnapshot("create", {
-              source: "VariationIdWarning",
-              id: res.snapshot?.id || "",
-              experiment: experiment.id,
-              engine: statsEngine,
-              datasource_type:
-                getDatasourceById(experiment.datasource)?.type || null,
-              regression_adjustment_enabled: !!regressionAdjustmentEnabled,
-              sequential_testing_enabled: !!experiment.sequentialTestingEnabled,
-              sequential_testing_tuning_parameter:
-                experiment.sequentialTestingTuningParameter,
-              skip_partial_data: !!experiment.skipPartialData,
-              activation_metric_selected: !!experiment.activationMetric,
-              query_filter_selected: !!experiment.queryFilter,
-              segment_selected: !!experiment.segment,
-              dimension: dimension || "",
-            });
+            trackSnapshot(
+              "create",
+              "VariationIdWarning",
+              getDatasourceById(experiment.datasource)?.type || null,
+              res.snapshot
+            );
 
             mutateExperiment();
             mutate();

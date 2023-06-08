@@ -111,25 +111,12 @@ export default function ResultMoreMenu({
             if (!res.report) {
               throw new Error("Failed to create report");
             }
-            trackReport("create", {
-              source: "AdhocReportButton",
-              id: res.report.id,
-              experiment: res.report.experimentId ?? "",
-              engine: res.report.args.statsEngine || "bayesian",
-              datasource_type:
-                getDatasourceById(res.report.args.datasource)?.type || null,
-              regression_adjustment_enabled: !!res.report.args
-                .regressionAdjustmentEnabled,
-              sequential_testing_enabled: !!res.report.args
-                .sequentialTestingEnabled,
-              sequential_testing_tuning_parameter:
-                res.report.args.sequentialTestingTuningParameter,
-              skip_partial_data: !!res.report.args.skipPartialData,
-              activation_metric_selected: !!res.report.args.activationMetric,
-              query_filter_selected: !!res.report.args.queryFilter,
-              segment_selected: !!res.report.args.segment,
-              dimension: res.report.args.dimension || "",
-            });
+            trackReport(
+              "create",
+              "AdhocReportButton",
+              getDatasourceById(res.report.args.datasource)?.type || null,
+              res.report
+            );
 
             await router.push(`/report/${res.report.id}`);
           }}
