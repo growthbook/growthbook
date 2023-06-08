@@ -80,30 +80,30 @@ export default function SDKConnectionForm({
   const [selectedSecurityTab, setSelectedSecurityTab] = useState<string | null>(
     getSecurityTabState(initialValue)
   );
-  console.log({ selectedSecurityTab });
   const [upgradeModal, setUpgradeModal] = useState(false);
 
   const form = useForm({
     defaultValues: {
-      name: initialValue.name || "",
-      languages: initialValue.languages || [],
-      environment: initialValue.environment || environments[0]?.id || "",
-      project: "project" in initialValue ? initialValue.project : project || "",
-      encryptPayload: initialValue.encryptPayload || false,
-      hashSecureAttributes: initialValue.hashSecureAttributes || false,
-      includeVisualExperiments: initialValue.includeVisualExperiments || false,
-      includeDraftExperiments: initialValue.includeDraftExperiments || false,
-      includeExperimentNames: initialValue.includeExperimentNames || false,
-      proxyEnabled: initialValue.proxy?.enabled || false,
-      proxyHost: initialValue.proxy?.host || "",
-      sseEnabled: initialValue.sseEnabled || false,
-      remoteEvalEnabled: initialValue.remoteEvalEnabled || false,
+      name: initialValue.name ?? "",
+      languages: initialValue.languages ?? [],
+      environment: initialValue.environment ?? environments[0]?.id ?? "",
+      project: "project" in initialValue ? initialValue.project : project ?? "",
+      encryptPayload: initialValue.encryptPayload ?? false,
+      hashSecureAttributes:
+        initialValue.hashSecureAttributes ?? hasSecureAttributesFeature,
+      includeVisualExperiments: initialValue.includeVisualExperiments ?? false,
+      includeDraftExperiments: initialValue.includeDraftExperiments ?? false,
+      includeExperimentNames: initialValue.includeExperimentNames ?? false,
+      proxyEnabled: initialValue.proxy?.enabled ?? false,
+      proxyHost: initialValue.proxy?.host ?? "",
+      sseEnabled: initialValue.sseEnabled ?? false,
+      remoteEvalEnabled: initialValue.remoteEvalEnabled ?? false,
     },
   });
 
   const languages = form.watch("languages");
 
-  const hasSDKsWithoutEncryptionSupport = languages.some(
+  const selectedLanguagesWithoutEncryptionSupport = languages.filter(
     (l) => !languageMapping[l].supportsEncryption
   );
   const hasNoSDKsWithVisualExperimentSupport = languages.every(
@@ -139,10 +139,7 @@ export default function SDKConnectionForm({
       form.setValue("encryptPayload", false);
       form.setValue("hashSecureAttributes", false);
     } else if (selectedSecurityTab === "client") {
-      const enableEncryption =
-        hasEncryptionFeature &&
-        languages.length > 0 &&
-        !hasSDKsWithoutEncryptionSupport;
+      const enableEncryption = hasEncryptionFeature;
       const enableSecureAttributes = hasSecureAttributesFeature;
       if (!enableEncryption && !enableSecureAttributes) return;
       form.setValue("remoteEvalEnabled", false);
@@ -162,8 +159,6 @@ export default function SDKConnectionForm({
     selectedSecurityTab,
     initialValue,
     form,
-    languages,
-    hasSDKsWithoutEncryptionSupport,
     gb,
     hasEncryptionFeature,
     hasSecureAttributesFeature,
@@ -185,19 +180,7 @@ export default function SDKConnectionForm({
       header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}
       submit={form.handleSubmit(async (value) => {
-        // Make sure encryption is disabled if they selected at least 1 language that's not supported
-        // This is already be enforced in the UI, but there are some edge cases that might otherwise get through
-        // For example, toggling encryption ON and then selecting an unsupported language
-        if (
-          value.languages.some((l) => !languageMapping[l].supportsEncryption)
-        ) {
-          value.encryptPayload = false;
-        }
-        if (
-          value.languages.some((l) => !languageMapping[l].supportsRemoteEval)
-        ) {
-          value.remoteEvalEnabled = false;
-        }
+        // filter for visual experiments
         if (
           languages.every((l) => !languageMapping[l].supportsVisualExperiments)
         ) {
@@ -205,6 +188,14 @@ export default function SDKConnectionForm({
         }
         if (!value.includeVisualExperiments) {
           value.includeDraftExperiments = false;
+          value.includeExperimentNames = false;
+        }
+
+        // filter for remote eval
+        if (
+          value.languages.some((l) => !languageMapping[l].supportsRemoteEval)
+        ) {
+          value.remoteEvalEnabled = false;
         }
 
         const body: Omit<CreateSDKConnectionParams, "organization"> = {
@@ -497,45 +488,43 @@ export default function SDKConnectionForm({
             }
           >
             <div className="d-flex">
-              {languages.length > 0 && !hasSDKsWithoutEncryptionSupport && (
-                <div className="col-4">
-                  <label htmlFor="encryptSDK">
-                    <PremiumTooltip
-                      commercialFeature="encrypt-features-endpoint"
-                      body={
-                        <>
-                          <p>
-                            SDK payloads will be encrypted via the AES
-                            encryption algorithm. When evaluating feature flags
-                            in a public or insecure environment (such as a
-                            browser), encryption provides an additional layer of
-                            security through obfuscation. This allows you to
-                            target users based on sensitive attributes.
-                          </p>
-                          <p className="mb-0 text-warning-orange small">
-                            <FaExclamationCircle /> When using an insecure
-                            environment, do not rely exclusively on payload
-                            encryption as a means of securing highly sensitive
-                            data. Because the client performs the decryption,
-                            the unencrypted payload may be extracted with
-                            sufficient effort.
-                          </p>
-                        </>
-                      }
-                    >
-                      Encrypt SDK payload <FaInfoCircle />
-                    </PremiumTooltip>
-                  </label>
-                  <div>
-                    <Toggle
-                      id="encryptSDK"
-                      value={form.watch("encryptPayload")}
-                      setValue={(val) => form.setValue("encryptPayload", val)}
-                      disabled={!hasEncryptionFeature}
-                    />
-                  </div>
+              <div className="col-4">
+                <label htmlFor="encryptSDK">
+                  <PremiumTooltip
+                    commercialFeature="encrypt-features-endpoint"
+                    body={
+                      <>
+                        <p>
+                          SDK payloads will be encrypted via the AES encryption
+                          algorithm. When evaluating feature flags in a public
+                          or insecure environment (such as a browser),
+                          encryption provides an additional layer of security
+                          through obfuscation. This allows you to target users
+                          based on sensitive attributes.
+                        </p>
+                        <p className="mb-0 text-warning-orange small">
+                          <FaExclamationCircle /> When using an insecure
+                          environment, do not rely exclusively on payload
+                          encryption as a means of securing highly sensitive
+                          data. Because the client performs the decryption, the
+                          unencrypted payload may be extracted with sufficient
+                          effort.
+                        </p>
+                      </>
+                    }
+                  >
+                    Encrypt SDK payload <FaInfoCircle />
+                  </PremiumTooltip>
+                </label>
+                <div>
+                  <Toggle
+                    id="encryptSDK"
+                    value={form.watch("encryptPayload")}
+                    setValue={(val) => form.setValue("encryptPayload", val)}
+                    disabled={!hasEncryptionFeature}
+                  />
                 </div>
-              )}
+              </div>
 
               <div className="col-4">
                 <label htmlFor="hash-secure-attributes">
@@ -577,6 +566,34 @@ export default function SDKConnectionForm({
                 </div>
               </div>
             </div>
+
+            {form.watch("encryptPayload") &&
+              selectedLanguagesWithoutEncryptionSupport.length > 0 && (
+                <p className="mt-2 mb-0 text-warning-orange small">
+                  <FaExclamationCircle /> Payload decryption is not natively
+                  supported in the selected SDK
+                  {selectedLanguagesWithoutEncryptionSupport.length === 1
+                    ? ""
+                    : "s"}
+                  :
+                  <div className="ml-2 mt-1">
+                    {selectedLanguagesWithoutEncryptionSupport.map((id, i) => (
+                      <span className="nowrap" key={id}>
+                        <SDKLanguageLogo language={id} size={14} />
+                        <span
+                          className="text-muted font-weight-bold"
+                          style={{ marginLeft: 2, verticalAlign: 3 }}
+                        >
+                          {languageMapping[id].label}
+                        </span>
+                        {i <
+                          selectedLanguagesWithoutEncryptionSupport.length -
+                            1 && ", "}
+                      </span>
+                    ))}
+                  </div>
+                </p>
+              )}
           </Tab>
 
           <Tab

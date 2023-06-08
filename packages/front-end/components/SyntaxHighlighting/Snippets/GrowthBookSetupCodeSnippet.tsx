@@ -294,13 +294,19 @@ func main() {
         <Code
           language="ruby"
           code={`
-require 'uri'
-require 'net/http'
-require 'json'
+require 'growthbook'
 
-uri = URI('${featuresEndpoint}')
-res = Net::HTTP.get_response(uri)
-features = res.is_a?(Net::HTTPSuccess) ? JSON.parse(res.body)['features'] : nil
+# Fetch features from a GrowthBook instance
+# You should cache this in Redis or similar in production
+features_repository = Growthbook::FeatureRepository.new(
+  endpoint: '${featuresEndpoint}'${
+            encryptionKey
+              ? `,
+  decryption_key: '${encryptionKey}'`
+              : ""
+          }
+)
+features = features_repository.fetch
             `.trim()}
         />
         Tracking callback when users are put into an experiment
@@ -321,8 +327,6 @@ end
         <Code
           language="ruby"
           code={`
-require 'growthbook'
-
 # Create a context for the current user/request
 gb = Growthbook::Context.new(
   features: features,

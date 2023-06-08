@@ -74,7 +74,7 @@ const GuardrailResults: FC<{
           tipPosition="right"
         >
           <Link href={`/metric/${metric.id}`}>
-            <a className="text-dark font-weight-bold">{metric.name}</a>
+            <a className="text-black-50 font-weight-bold">{metric.name}</a>
           </Link>
         </Tooltip>
       </div>
