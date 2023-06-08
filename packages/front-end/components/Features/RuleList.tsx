@@ -67,13 +67,12 @@ export default function RuleList({
   }
 
   // detect unreachable rules, and get the first rule that is at 100%.
-  let unreachableIndex = null;
+  let unreachableIndex = 0;
   items.forEach((item, i) => {
     if (unreachableIndex) return;
 
     // if this rule covers 100% of traffic, no additional rules are reachable.
     if (isRuleFullyCovered(item)) {
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number' is not assignable to type 'null'.
       unreachableIndex = i + 1;
     }
   });
