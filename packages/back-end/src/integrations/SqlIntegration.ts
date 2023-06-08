@@ -1413,7 +1413,7 @@ export default abstract class SqlIntegration
 
     const currentDateTime = new Date();
     const SevenDaysAgo = new Date(
-      currentDateTime.valueOf() - 35 * 60 * 60 * 24 * 1000
+      currentDateTime.valueOf() - 7 * 60 * 60 * 24 * 1000
     );
 
     const sql = `

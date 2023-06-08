@@ -35,6 +35,9 @@ export default function AutoMetricCard({
     }
   };
 
+  const selected =
+    sqlPreview && event.metricsToCreate.findIndex((s) => s.sql === sqlPreview);
+
   return (
     <>
       <tr key={`${event}-${i}`}>
@@ -47,7 +50,7 @@ export default function AutoMetricCard({
             {event.count}
           </Tooltip>
         </td>
-        <td>
+        <td className={selected === 0 ? "bg-light" : ""}>
           <div className="d-flex flex-column justify-content-center align-items-center">
             <Toggle
               value={event.metricsToCreate[0].shouldCreate || false}
@@ -64,13 +67,11 @@ export default function AutoMetricCard({
                 handleSqlPreview(event.metricsToCreate[0].sql)
               }
             >
-              {sqlPreview && sqlPreview === event.metricsToCreate[0].sql
-                ? "Hide SQL"
-                : "Preview SQL"}
+              {selected === 0 ? "Hide SQL" : "Preview SQL"}
             </Button>
           </div>
         </td>
-        <td>
+        <td className={selected === 1 ? "bg-light" : ""}>
           <div className="d-flex flex-column justify-content-center align-items-center">
             <Toggle
               value={event.metricsToCreate[1].shouldCreate || false}
@@ -87,9 +88,7 @@ export default function AutoMetricCard({
                 handleSqlPreview(event.metricsToCreate[1].sql)
               }
             >
-              {sqlPreview && sqlPreview === event.metricsToCreate[1].sql
-                ? "Hide SQL"
-                : "Preview SQL"}
+              {selected === 1 ? "Hide SQL" : "Preview SQL"}
             </Button>
           </div>
         </td>

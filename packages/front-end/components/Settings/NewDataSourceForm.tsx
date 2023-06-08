@@ -722,19 +722,21 @@ const NewDataSourceForm: FC<{
                             </th>
                           </tr>
                         </thead>
-                        {trackedEvents.map((event, i) => {
-                          return (
-                            <AutoMetricCard
-                              key={`${event}-${i}`}
-                              event={event}
-                              trackedEvents={trackedEvents}
-                              setTrackedEvents={setTrackedEvents}
-                              form={form}
-                              i={i}
-                              dataSourceId={dataSourceId || ""}
-                            />
-                          );
-                        })}
+                        <tbody>
+                          {trackedEvents.map((event, i) => {
+                            return (
+                              <AutoMetricCard
+                                key={`${event}-${i}`}
+                                event={event}
+                                trackedEvents={trackedEvents}
+                                setTrackedEvents={setTrackedEvents}
+                                form={form}
+                                i={i}
+                                dataSourceId={dataSourceId || ""}
+                              />
+                            );
+                          })}
+                        </tbody>
                       </table>
                     </>
                   )}
