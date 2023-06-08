@@ -92,7 +92,7 @@ export default function SDKConnectionForm({
 
   const languages = form.watch("languages");
 
-  const hasSDKsWithoutEncryptionSupport = languages.some(
+  const selectedLanguagesWithoutEncryptionSupport = languages.filter(
     (l) => !languageMapping[l].supportsEncryption
   );
   const hasNoSDKsWithVisualExperimentSupport = languages.every(
@@ -127,21 +127,9 @@ export default function SDKConnectionForm({
       header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}
       submit={form.handleSubmit(async (value) => {
-        // Make sure encryption is disabled if they selected at least 1 language that's not supported
-        // This is already be enforced in the UI, but there are some edge cases that might otherwise get through
-        // For example, toggling encryption ON and then selecting an unsupported language
-        if (
-          value.languages.some((l) => !languageMapping[l].supportsEncryption)
-        ) {
-          value.encryptPayload = false;
-        }
-        if (
-          languages.every((l) => !languageMapping[l].supportsVisualExperiments)
-        ) {
-          value.includeVisualExperiments = false;
-        }
         if (!value.includeVisualExperiments) {
           value.includeDraftExperiments = false;
+          value.includeExperimentNames = false;
         }
 
         const body: Omit<CreateSDKConnectionParams, "organization"> = {
@@ -234,93 +222,93 @@ export default function SDKConnectionForm({
         options={environments.map((e) => ({ label: e.id, value: e.id }))}
       />
 
-      {!hasNoSDKsWithVisualExperimentSupport && (
-        <>
-          <label>Visual experiments</label>
-          <div className="border rounded pt-2 pb-3 px-3">
-            <div>
-              <label htmlFor="sdk-connection-visual-experiments-toggle">
-                Include visual experiments in endpoint&apos;s response?
-              </label>
-              <div className="form-inline">
+      <label>Visual experiments</label>
+      <div className="border rounded pt-2 pb-3 px-3">
+        <div>
+          <label htmlFor="sdk-connection-visual-experiments-toggle">
+            Include visual experiments in endpoint&apos;s response?
+          </label>
+          <div className="form-inline">
+            <Toggle
+              id="sdk-connection-visual-experiments-toggle"
+              value={form.watch("includeVisualExperiments")}
+              setValue={(val) => form.setValue("includeVisualExperiments", val)}
+            />
+          </div>
+          {form.watch("includeVisualExperiments") &&
+            hasNoSDKsWithVisualExperimentSupport && (
+              <p className="mt-1 mb-0 text-warning-orange small">
+                <FaExclamationCircle /> Visual experiments are only supported in
+                Javascript and React frontend environments.
+              </p>
+            )}
+        </div>
+        {form.watch("includeVisualExperiments") && (
+          <>
+            <div className="mt-3">
+              <Tooltip
+                body={
+                  <>
+                    <p>
+                      In-development visual experiments will be sent to the SDK.
+                      We recommend only enabling this for non-production
+                      environments.
+                    </p>
+                    <p className="mb-0">
+                      To force into a variation, use a URL query string such as{" "}
+                      <code className="d-block">?my-experiment-id=2</code>
+                    </p>
+                  </>
+                }
+              >
+                <label htmlFor="sdk-connection-include-draft-experiments-toggle">
+                  Include draft experiments <FaInfoCircle />
+                </label>
+              </Tooltip>
+              <div>
                 <Toggle
-                  id="sdk-connection-visual-experiments-toggle"
-                  value={form.watch("includeVisualExperiments")}
+                  id="sdk-connection-include-draft-experiments-toggle"
+                  value={form.watch("includeDraftExperiments")}
                   setValue={(val) =>
-                    form.setValue("includeVisualExperiments", val)
+                    form.setValue("includeDraftExperiments", val)
                   }
                 />
               </div>
             </div>
-            {form.watch("includeVisualExperiments") && (
-              <>
-                <div className="mt-3">
-                  <Tooltip
-                    body={
-                      <>
-                        <p>
-                          In-development visual experiments will be sent to the
-                          SDK. We recommend only enabling this for
-                          non-production environments.
-                        </p>
-                        <p className="mb-0">
-                          To force into a variation, use a URL query string such
-                          as{" "}
-                          <code className="d-block">?my-experiment-id=2</code>
-                        </p>
-                      </>
-                    }
-                  >
-                    <label htmlFor="sdk-connection-include-draft-experiments-toggle">
-                      Include draft experiments <FaInfoCircle />
-                    </label>
-                  </Tooltip>
-                  <div>
-                    <Toggle
-                      id="sdk-connection-include-draft-experiments-toggle"
-                      value={form.watch("includeDraftExperiments")}
-                      setValue={(val) =>
-                        form.setValue("includeDraftExperiments", val)
-                      }
-                    />
-                  </div>
-                </div>
 
-                <div className="mt-3">
-                  <Tooltip
-                    body={
-                      <>
-                        <p>
-                          This can help add context when debugging or tracking
-                          events.
-                        </p>
-                        <div>
-                          However, this could expose potentially sensitive
-                          information to your users if enabled for a client-side
-                          or mobile application.
-                        </div>
-                      </>
-                    }
-                  >
-                    <label htmlFor="sdk-connection-include-experiment-meta">
-                      Include experiment/variation names? <FaInfoCircle />
-                    </label>
-                  </Tooltip>
-                  <div>
-                    <Toggle
-                      id="sdk-connection-include-experiment-meta"
-                      value={form.watch("includeExperimentNames")}
-                      setValue={(val) =>
-                        form.setValue("includeExperimentNames", val)
-                      }
-                    />
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </>
-      )}
+            <div className="mt-3">
+              <Tooltip
+                body={
+                  <>
+                    <p>
+                      This can help add context when debugging or tracking
+                      events.
+                    </p>
+                    <div>
+                      However, this could expose potentially sensitive
+                      information to your users if enabled for a client-side or
+                      mobile application.
+                    </div>
+                  </>
+                }
+              >
+                <label htmlFor="sdk-connection-include-experiment-meta">
+                  Include experiment/variation names? <FaInfoCircle />
+                </label>
+              </Tooltip>
+              <div>
+                <Toggle
+                  id="sdk-connection-include-experiment-meta"
+                  value={form.watch("includeExperimentNames")}
+                  setValue={(val) =>
+                    form.setValue("includeExperimentNames", val)
+                  }
+                />
+              </div>
+            </div>
+          </>
+        )}
+      </div>
 
       {(!hasNoSDKsWithSSESupport || initialValue.sseEnabled) &&
         isCloud() &&
@@ -476,15 +464,39 @@ export default function SDKConnectionForm({
         </div>
       </div>
 
-      {languages.length > 0 && !hasSDKsWithoutEncryptionSupport && (
-        <EncryptionToggle
-          showUpgradeModal={() => setUpgradeModal(true)}
-          value={form.watch("encryptPayload")}
-          setValue={(value) => form.setValue("encryptPayload", value)}
-          showRequiresChangesWarning={edit}
-          showUpgradeMessage={false}
-        />
-      )}
+      <EncryptionToggle
+        showUpgradeModal={() => setUpgradeModal(true)}
+        value={form.watch("encryptPayload")}
+        setValue={(value) => form.setValue("encryptPayload", value)}
+        showRequiresChangesWarning={true}
+        showUpgradeMessage={false}
+      />
+      {form.watch("encryptPayload") &&
+        selectedLanguagesWithoutEncryptionSupport.length > 0 && (
+          <p
+            className="mb-0 text-warning-orange small"
+            style={{ marginTop: -15 }}
+          >
+            <FaExclamationCircle /> Payload decryption is not natively supported
+            in the selected SDK
+            {selectedLanguagesWithoutEncryptionSupport.length === 1 ? "" : "s"}:
+            <div className="ml-2 mt-1">
+              {selectedLanguagesWithoutEncryptionSupport.map((id, i) => (
+                <span className="nowrap" key={id}>
+                  <SDKLanguageLogo language={id} size={14} />
+                  <span
+                    className="text-muted font-weight-bold"
+                    style={{ marginLeft: 2, verticalAlign: 3 }}
+                  >
+                    {languageMapping[id].label}
+                  </span>
+                  {i < selectedLanguagesWithoutEncryptionSupport.length - 1 &&
+                    ", "}
+                </span>
+              ))}
+            </div>
+          </p>
+        )}
     </Modal>
   );
 }
