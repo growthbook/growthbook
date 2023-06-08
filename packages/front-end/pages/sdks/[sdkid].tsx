@@ -311,7 +311,10 @@ export default function SDKConnectionPage() {
           }}
         />
         <ConnectionNode first title="Your App">
-          <div className="d-flex flex-wrap justify-content-center">
+          <div
+            className="d-flex flex-wrap justify-content-center"
+            style={{ maxWidth: 325 }}
+          >
             {connection.languages.map((language) => (
               <div className="mx-1" key={language}>
                 <SDKLanguageLogo showLabel={true} language={language} />
