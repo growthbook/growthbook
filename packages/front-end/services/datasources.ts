@@ -463,7 +463,9 @@ const FullStorySchema: SchemaInterface = {
   getExperimentSQL: (tablePrefix, userId) => {
     // const exposureTableName =
     //   camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
-    return `SELECT
+    return `
+-- Modify the below query to match your exported data
+SELECT
   ${userId},
   TIMESTAMP_MICROS(event_time) as timestamp,
   experiment_id_param.value.string_value AS experiment_id,
