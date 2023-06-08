@@ -38,6 +38,14 @@ export default function AutoMetricCard({
   const selected =
     sqlPreview && event.metricsToCreate.findIndex((s) => s.sql === sqlPreview);
 
+  const binmomialIndex = event.metricsToCreate.findIndex(
+    (metric) => metric.type === "binomial"
+  );
+
+  const countIndex = event.metricsToCreate.findIndex(
+    (metric) => metric.type === "count"
+  );
+
   return (
     <>
       <tr key={`${event}-${i}`}>
@@ -50,34 +58,66 @@ export default function AutoMetricCard({
             {event.count}
           </Tooltip>
         </td>
-        {event.metricsToCreate.map((metric, j) => {
-          return (
-            <td
-              className={selected === j ? "bg-light" : ""}
-              key={`${metric}-${metric.type}`}
-            >
-              <div className="d-flex flex-column justify-content-center align-items-center">
-                <Toggle
-                  value={metric.shouldCreate || false}
-                  id={`${event}-${metric.name}`}
-                  setValue={(value) => {
-                    const updatedTrackedEvents = cloneDeep(trackedEvents);
-                    updatedTrackedEvents[i].metricsToCreate[
-                      j
-                    ].shouldCreate = value;
-                    setTrackedEvents(updatedTrackedEvents);
-                  }}
-                />
-                <Button
-                  color="link"
-                  onClick={async () => handleSqlPreview(metric.sql)}
-                >
-                  {selected === j ? "Hide SQL" : "Preview SQL"}
-                </Button>
-              </div>
-            </td>
-          );
-        })}
+        {event.metricsToCreate[binmomialIndex]?.sql ? (
+          <td className={selected === binmomialIndex ? "bg-light" : ""}>
+            <div className="d-flex flex-column justify-content-center align-items-center">
+              <Toggle
+                value={
+                  event.metricsToCreate[binmomialIndex].shouldCreate || false
+                }
+                id={`${event}-${event.metricsToCreate[binmomialIndex].name}`}
+                setValue={(value) => {
+                  const updatedTrackedEvents = cloneDeep(trackedEvents);
+                  updatedTrackedEvents[i].metricsToCreate[
+                    binmomialIndex
+                  ].shouldCreate = value;
+                  setTrackedEvents(updatedTrackedEvents);
+                }}
+              />
+              <Button
+                color="link"
+                onClick={async () =>
+                  handleSqlPreview(event.metricsToCreate[binmomialIndex].sql)
+                }
+              >
+                {selected === binmomialIndex ? "Hide SQL" : "Preview SQL"}
+              </Button>
+            </div>
+          </td>
+        ) : (
+          <td>
+            <div className="text-center">-</div>
+          </td>
+        )}
+        {event.metricsToCreate[countIndex]?.sql ? (
+          <td className={selected === countIndex ? "bg-light" : ""}>
+            <div className="d-flex flex-column justify-content-center align-items-center">
+              <Toggle
+                value={event.metricsToCreate[countIndex].shouldCreate || false}
+                id={`${event}-${event.metricsToCreate[countIndex].name}`}
+                setValue={(value) => {
+                  const updatedTrackedEvents = cloneDeep(trackedEvents);
+                  updatedTrackedEvents[i].metricsToCreate[
+                    countIndex
+                  ].shouldCreate = value;
+                  setTrackedEvents(updatedTrackedEvents);
+                }}
+              />
+              <Button
+                color="link"
+                onClick={async () =>
+                  handleSqlPreview(event.metricsToCreate[countIndex].sql)
+                }
+              >
+                {selected === countIndex ? "Hide SQL" : "Preview SQL"}
+              </Button>
+            </div>
+          </td>
+        ) : (
+          <td>
+            <div className="text-center">-</div>
+          </td>
+        )}
       </tr>
       {sqlPreview && (
         <tr
