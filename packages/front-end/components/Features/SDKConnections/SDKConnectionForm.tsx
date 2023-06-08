@@ -467,7 +467,7 @@ export default function SDKConnectionForm({
                     <FaCheck className="check text-success" />{" "}
                   </>
                 )}
-                Encrypted
+                Ciphered
                 <Tooltip
                   popperClassName="text-left"
                   body={
@@ -569,7 +569,10 @@ export default function SDKConnectionForm({
 
             {form.watch("encryptPayload") &&
               selectedLanguagesWithoutEncryptionSupport.length > 0 && (
-                <p className="mt-2 mb-0 text-warning-orange small">
+                <div
+                  className="ml-2 mt-3 text-warning-orange small"
+                  style={{ marginBottom: -5 }}
+                >
                   <FaExclamationCircle /> Payload decryption is not natively
                   supported in the selected SDK
                   {selectedLanguagesWithoutEncryptionSupport.length === 1
@@ -592,7 +595,7 @@ export default function SDKConnectionForm({
                       </span>
                     ))}
                   </div>
-                </p>
+                </div>
               )}
           </Tab>
 
