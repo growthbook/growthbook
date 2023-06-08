@@ -2361,6 +2361,10 @@ input:disabled {
     flex: 1;
     padding: 22px 20px 8px;
 
+    &.selected {
+      box-shadow: 0 0 0 3px var(--text-color-primary);
+    }
+
     .subtitle {
       font-size: 12px;
       line-height: 1rem;

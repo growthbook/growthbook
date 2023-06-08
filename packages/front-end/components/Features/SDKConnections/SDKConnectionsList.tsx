@@ -196,8 +196,8 @@ export default function SDKConnectionsList() {
                       </Tooltip>
                     )}
                   </td>
-                  <td>
-                    <div className="d-flex">
+                  <td style={{ maxWidth: 200 }}>
+                    <div className="d-flex flex-wrap">
                       {connection.languages.map((language) => (
                         <span className="mx-1" key={language}>
                           <SDKLanguageLogo language={language} />

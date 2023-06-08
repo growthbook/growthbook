@@ -46,7 +46,7 @@ export type SchemaFormat =
   | "jitsu"
   | "freshpaint"
   | "ga4"
-  | "gaua"
+  | "fullstory"
   | "matomo"
   | "heap"
   | "rudderstack"
