@@ -143,7 +143,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
       {experimentExposureQueries.map((query, idx) => {
         const isOpen = openIndexes[idx] || false;
-
+        console.log(query);
         return (
           <div key={query.id} className="card p-3 mb-3">
             <div className="d-flex justify-content-between">
