@@ -2349,18 +2349,24 @@ input:disabled {
   justify-content: space-between;
   gap: 1rem;
 
+  .check {
+    position: relative;
+    top: -2px;
+    font-size: 18px;
+  }
+
   .sdk-security-button {
     position: relative;
     box-sizing: border-box;
     flex: 1;
-    padding: 15px 20px 8px;
+    padding: 22px 20px 8px;
 
     .subtitle {
       font-size: 12px;
       line-height: 1rem;
       color: var(--text-color-muted);
       font-weight: normal;
-      margin: 10px 15px 0;
+      margin: 12px 15px 0;
     }
   }
 }

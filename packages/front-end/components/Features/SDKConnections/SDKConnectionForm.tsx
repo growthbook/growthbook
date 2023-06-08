@@ -132,6 +132,7 @@ export default function SDKConnectionForm({
     });
   }
 
+  // complex setter for clicking a "SDK Payload Security" button
   useEffect(() => {
     if (selectedSecurityTab === "none") {
       form.setValue("remoteEvalEnabled", false);
@@ -143,13 +144,17 @@ export default function SDKConnectionForm({
         languages.length > 0 &&
         !hasSDKsWithoutEncryptionSupport;
       const enableSecureAttributes = hasSecureAttributesFeature;
+      if (!enableEncryption && !enableSecureAttributes) return;
       form.setValue("remoteEvalEnabled", false);
       form.setValue("encryptPayload", enableEncryption);
       form.setValue("hashSecureAttributes", enableSecureAttributes);
     } else if (selectedSecurityTab === "server") {
       const enableRemoteEval =
-        hasRemoteEvaluationFeature && !!gb?.isOn("remote-evaluation");
-      form.setValue("remoteEvalEnabled", enableRemoteEval);
+        !isCloud() &&
+        hasRemoteEvaluationFeature &&
+        !!gb?.isOn("remote-evaluation");
+      if (!enableRemoteEval) return;
+      form.setValue("remoteEvalEnabled", true);
       form.setValue("encryptPayload", false);
       form.setValue("hashSecureAttributes", false);
     }
@@ -432,7 +437,7 @@ export default function SDKConnectionForm({
               <>
                 {getSecurityTabState(form.getValues()) === "none" && (
                   <>
-                    <FaCheck className="text-success" />{" "}
+                    <FaCheck className="check text-success" />{" "}
                   </>
                 )}
                 Plain Text
@@ -442,7 +447,7 @@ export default function SDKConnectionForm({
                     <p className="mb-0">
                       Full feature definitions, including targeting conditions
                       and experiment variations, are viewable by anyone with the
-                      SDK Key. Best for server-side SDKs.
+                      Client Key. Best for server-side SDKs.
                     </p>
                   }
                 >
@@ -468,7 +473,7 @@ export default function SDKConnectionForm({
               <>
                 {getSecurityTabState(form.getValues()) === "client" && (
                   <>
-                    <FaCheck className="text-success" />{" "}
+                    <FaCheck className="check text-success" />{" "}
                   </>
                 )}
                 Encrypted
@@ -582,10 +587,16 @@ export default function SDKConnectionForm({
               <>
                 {getSecurityTabState(form.getValues()) === "server" && (
                   <>
-                    <FaCheck className="text-success" />{" "}
+                    <FaCheck className="check text-success" />{" "}
                   </>
                 )}
                 Remote Evaluated
+                <div
+                  className="position-absolute badge badge-purple text-uppercase"
+                  style={{ right: 5, top: 5 }}
+                >
+                  Beta
+                </div>
                 <Tooltip
                   popperClassName="text-left"
                   body={
@@ -597,7 +608,7 @@ export default function SDKConnectionForm({
                           : "your GrowthBook Proxy server"}{" "}
                         and only the final assigned values are exposed to users.
                       </p>
-                      {!hasProxy && (
+                      {!isCloud() && !hasProxy && (
                         <div className="mt-2 text-warning-orange">
                           <FaExclamationCircle /> Requires a GrowthBook Proxy
                           server to be configured for self-hosted users
@@ -701,7 +712,9 @@ export default function SDKConnectionForm({
                             return;
                           }}
                         />
-                        <span className="text-muted ml-2">Coming soon...</span>
+                        <span className="text-muted ml-2">
+                          Coming soon for Cloud customers
+                        </span>
                       </>
                     )}
                   </div>
