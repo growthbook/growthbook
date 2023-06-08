@@ -93,13 +93,22 @@ Each attribute has 3 parts:
 
 - The **attribute name** itself. This is how the attribute will be referenced in the SDK.
 - The **data type** of the attribute
-  - String - freeform text
-  - Number - Floats or integers
   - Boolean - true or false
-  - Array of strings - useful for things like "tags"
-  - Array of numbers - useful anytime you have multiple numeric values
+  - Number - Floats or integers
+  - String - freeform text
   - Enum - When there are only a small list of pre-defined values it could take
+  - Secure String - Like a string, but the values will be hashed before passing to the SDK
+  - Array of Strings - useful for things like "tags"
+  - Array of Numbers - useful anytime you have multiple numeric values
+  - Array of Secure Strings - an array of secure strings useful for passing multiple values that you want to keep secure
 - Whether or not it's an **identifier**. Identifiers are attributes which uniquely identify something - typically either a person, account, company, or device.
+
+### Saved Groups
+
+Availalbe via API or under *Features -> Saved Groups*, **Saved Groups** allows you to define that list once easily reference it from multiple places. Saved Group values are passed by reference, so updates will affect all references of this group used in your feature flag targeting rules. Saved groups are useful to avoid having to copy and paste lists of user attribute values between feature targeting conditions. 
+
+For example, you could make a Saved Group called *“Enterprise Customer Ids”* that is an array of secure strings, and use it to release all of your new enterprise features. If you later add or remove a customer from the group, it will automatically update all of the features.
+
 
 ## Override Rules
 
