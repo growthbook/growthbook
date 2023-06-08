@@ -209,138 +209,105 @@ We showed here how to do a targeted rule, and how to do a rollout rule. It's als
 
 You can look at the [GrowthBook React SDK](/lib/react) docs for more ways to use feature flags in your code besides the `<IfFeatureEnabled>` component. Once you do the initial integration work, it only takes a few seconds to wrap your code in feature flags. Once you realize how easy and stress-free deploys and experimentation can be, there's no going back.
 
-## GrowthBook on Next.js 13 (Beta)
+## GrowthBook on Next.js App Router
 
 Next.js 13 introduces a new paradigm in Next.js apps that delineate between **server-side** and **client-side** components. Among these changes include a new folder layout for the default Next.js app.
 
-The following examples illustrate how to use Growthbook using their new app folder layout:
+The following examples illustrate how to use Growthbook using both **server** and **client** components on a brand new Next app created using `create-next-app`:
 
-`app/GrowthBookProvider.tsx`
+### Server components
 
-```ts
-"use client";
-
-import { useEffect } from "react";
-import { usePathname } from "next/navigation";
-import {
-  GrowthBook,
-  GrowthBookProvider as Provider,
-  useFeature,
-} from "@growthbook/growthbook-react";
-import path from "path";
-
-const FEATURES_ENDPOINT = "http://localhost:3100/api/features/key_abc123";
-
-const growthbook = new GrowthBook({
-  trackingCallback: (experiment, result) => {
-    console.log("Viewed Experiment", experiment, result);
-  },
-});
-
-export default function GrowthBookProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  const pathname = usePathname();
-
-  // Refresh features and targeting attributes on navigation
-  useEffect(() => {
-    fetch(FEATURES_ENDPOINT)
-      .then((res) => res.json())
-      .then((json) => {
-        growthbook.setFeatures(json.features);
-      });
-
-    growthbook.setAttributes({
-      id: "123",
-      loggedIn: true,
-      deviceId: "abcdef123456",
-      employee: true,
-      company: "acme",
-      country: "US",
-      browser: navigator.userAgent,
-      url: pathname,
-    });
-  }, [pathname]);
-
-  return <Provider growthbook={growthbook}>{children}</Provider>;
-}
-```
-
-Changes to `app/layout.tsx`
-
-```ts
-import GrowthBookProvider from "./GrowthBookProvider";
-import "./globals.css";
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
-  return (
-    <html lang="en">
-      {/*
-        <head /> will contain the components returned by the nearest parent
-        head.tsx. Find out more at https://beta.nextjs.org/docs/api-reference/file-conventions/head
-      */}
-      <head />
-      <body>
-        <GrowthBookProvider>{children}</GrowthBookProvider>
-      </body>
-    </html>
-  );
-}
-```
-
-`app/WelcomeBanner.tsx`
-
-```ts
-"use client";
-
-import { useFeature, IfFeatureEnabled } from "@growthbook/growthbook-react";
-
-export default function WelcomeBanner() {
-  return (
-    <IfFeatureEnabled feature="welcome-message">
-      <h1>Welcome to the Growthbook demo!</h1>
-    </IfFeatureEnabled>
-  );
-}
-```
+For Server components, you'll need to use the [Growthbook JS SDK](/lib/js).
 
 Changes to `app/page.tsx`:
 
 ```ts
-import WelcomeBanner from "./WelcomeBanner";
+import { GrowthBook } from "@growthbook/growthbook";
+
+const growthbook = new GrowthBook({
+  apiHost: "...",
+  clientKey: "...",
+  enableDevMode: true,
+  trackingCallback: (experiment, result) => {
+    // TODO: Use your real analytics tracking system
+    console.log("Viewed Experiment", {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  },
+});
+
+export default async function Home() {
+  await growthbook.loadFeatures();
+
+  const isWelcomeBannerOn = growthbook.isOn("welcome-banner-01");
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+      {isWelcomeBannerOn && <h1 className="text-4xl">Welcome!</h1>}
 ```
 
-Insert into the JSX (above the Next.js Logo):
+Note: The above approach can be swapped out with the `fetch`-based method illustrated in some other parts of our documentation.
+
+### Client components
+
+New client component: `WelcomeBanner.tsx`
 
 ```ts
-+     <WelcomeBanner />
-+
-      <div className={styles.center}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-        <div className={styles.thirteen}>
-          <Image src="/thirteen.svg" alt="13" width={40} height={31} priority />
-        </div>
-      </div>
+"use client";
+
+import {
+  GrowthBook,
+  GrowthBookProvider,
+  useFeatureIsOn,
+} from "@growthbook/growthbook-react";
+import { useEffect } from "react";
+
+const growthbook = new GrowthBook({
+  apiHost: "http://localhost:3100",
+  clientKey: "sdk-DxCjpOJmwJaWck",
+  enableDevMode: true,
+  trackingCallback: (experiment, result) => {
+    // TODO: Use your real analytics tracking system
+    console.log("Viewed Experiment", {
+      experimentId: experiment.key,
+      variationId: result.key,
+    });
+  },
+});
+
+const WelcomeBanner = () => {
+  const enabled = useFeatureIsOn("welcome-banner");
+  if (!enabled) return null;
+  return <h1 className="text-4xl">Welcome!</h1>;
+};
+
+const WelcomeBannerWithGB = () => {
+  useEffect(() => {
+    // Load features asynchronously when the app renders
+    growthbook.loadFeatures();
+  }, []);
+
+  return (
+    <GrowthBookProvider growthbook={growthbook}>
+      <WelcomeBanner />
+    </GrowthBookProvider>
+  );
+};
+
+export default WelcomeBannerWithGB;
 ```
 
-Following the same steps as outlined earlier in the article, you should be able to toggle the WelcomeBanner component on and see the following:
+Changes to `app/pages.tsx`
 
-<img
-  src="/images/guides/next-13-title.png"
-  alt="Next.js app with feature"
-  style={{ width: 500, margin: "0 auto" }}
-/>
+```ts
+import WelcomeBanner from "./WelcomeBanner";
 
-Good luck!
+export default async function Home() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-between p-24">
+      <WelcomeBanner />
+      {/* ... */}
+  );
+}
+```
