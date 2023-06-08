@@ -1285,14 +1285,22 @@ export default abstract class SqlIntegration
     // Determine the identifier column to select from
     let userIdCol = cols.userIds[baseIdType] || "user_id";
     let join = "";
+
+    // query builder does not use a sub-query to get a the userId column to
+    // equal the userIdType, so when using the query builder, continue to
+    // use the actual input column name rather than the id type
     if (metric.userIdTypes?.includes(baseIdType)) {
-      userIdCol = baseIdType;
+      userIdCol = queryFormat === "builder" ? userIdCol : baseIdType;
     } else if (metric.userIdTypes) {
       for (let i = 0; i < metric.userIdTypes.length; i++) {
         const userIdType: string = metric.userIdTypes[i];
         if (userIdType in idJoinMap) {
+          const metricUserIdCol =
+            queryFormat === "builder"
+              ? cols.userIds[userIdType]
+              : `m.${userIdType}`;
+          join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = ${metricUserIdCol})`;
           userIdCol = `i.${baseIdType}`;
-          join = `JOIN ${idJoinMap[userIdType]} i ON (i.${userIdType} = m.${userIdType})`;
           break;
         }
       }
