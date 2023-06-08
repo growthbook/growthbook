@@ -145,7 +145,7 @@ describe("async queue", () => {
         },
         {
           retryCount: 2,
-          intervalDelayMs: 100,
+          delayMs: 100,
         }
       );
 
@@ -217,7 +217,7 @@ describe("async queue", () => {
         },
         {
           retryCount: 3,
-          intervalDelayMs: 100,
+          delayMs: 100,
         }
       );
 

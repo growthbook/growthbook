@@ -60,10 +60,13 @@ export type EnqueueFns<DataType, ResultData> = {
 };
 
 /**
- * Options for enqueuing
+ * Options for enqueuing.
+ * Delay each call to stagger API calls. Useful to avoid being rate limited.
+ * Provide a retry count for retrying failed requests when a task result indicates
+ * to retry, or it throws an uncaught exception
  */
 export type EnqueueOptions = {
-  intervalDelayMs?: number;
+  delayMs?: number;
   retryCount?: number;
 };
 
@@ -74,7 +77,7 @@ const DEFAULT_RETRY_COUNT = 2;
  * default options when enqueuing new tasks.
  */
 const newDefaultEnqueueOptions = (): EnqueueOptions => ({
-  intervalDelayMs: DEFAULT_INTERVAL_DELAY,
+  delayMs: DEFAULT_INTERVAL_DELAY,
   retryCount: DEFAULT_RETRY_COUNT,
 });
 
@@ -95,7 +98,7 @@ export async function enqueueTasks<DataType, ResultData>(
   tasks: QueueTask<DataType>[],
   { perform, onProgress }: EnqueueFns<DataType, ResultData>,
   {
-    intervalDelayMs = DEFAULT_INTERVAL_DELAY,
+    delayMs = DEFAULT_INTERVAL_DELAY,
     retryCount = DEFAULT_RETRY_COUNT,
   }: EnqueueOptions = newDefaultEnqueueOptions()
 ): Promise<QueueResult> {
@@ -112,9 +115,6 @@ export async function enqueueTasks<DataType, ResultData>(
 
   // Make a copy of the task list since it will be mutated
   const taskQueue = cloneDeep<QueueTask<DataType>[]>(tasks);
-
-  let currentIndex = 0;
-  let currentDelay = 0;
 
   const completed: string[] = [];
   const failed: string[] = [];
@@ -144,14 +144,14 @@ export async function enqueueTasks<DataType, ResultData>(
   };
 
   while (taskQueue.length) {
-    currentDelay = currentDelay + currentIndex * intervalDelayMs;
-
     const task = taskQueue.shift();
     if (!task) {
       break;
     }
 
     try {
+      await wait(delayMs);
+
       const result = await perform(task.data);
       switch (result.status) {
         case "fail":
@@ -168,8 +168,6 @@ export async function enqueueTasks<DataType, ResultData>(
       }
     } catch (e) {
       handleFailure(task, { status: "fail" }, { retry: true });
-    } finally {
-      currentIndex++;
     }
   }
 
@@ -177,4 +175,12 @@ export async function enqueueTasks<DataType, ResultData>(
     completed,
     failed,
   };
+}
+
+async function wait(timeMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, timeMs);
+  });
 }
