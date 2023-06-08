@@ -177,6 +177,10 @@ if ((prod || !isLocalhost) && secretAPIKey === "dev") {
   );
 }
 export const SECRET_API_KEY = secretAPIKey;
+// The SECRET_API_KEY option is typically only used for the Proxy Server and requires readonly access
+// This is technically a breaking change, but this env variable is undocumented so it should be ok
+export const SECRET_API_KEY_ROLE =
+  process.env.SECRET_API_KEY_ROLE || "readonly";
 export const PROXY_ENABLED = !!process.env.PROXY_ENABLED;
 export const PROXY_HOST_INTERNAL = process.env.PROXY_HOST_INTERNAL || "";
 export const PROXY_HOST_PUBLIC = process.env.PROXY_HOST_PUBLIC || "";
