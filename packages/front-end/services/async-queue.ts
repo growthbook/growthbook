@@ -1,4 +1,5 @@
 import cloneDeep from "lodash/cloneDeep";
+import uniq from "lodash/uniq";
 
 /**
  * Each task must have an identifier and some optional data that gets passed
@@ -88,7 +89,7 @@ export type QueueResult = {
  * @param performFunc
  * @param onProgress
  * @param options
- * @throws Error when the provided task list is empty
+ * @throws Error when the provided task list is empty or task identifiers are not unique
  */
 export async function enqueueTasks<DataType, ResultData>(
   tasks: QueueTask<DataType>[],
@@ -100,6 +101,13 @@ export async function enqueueTasks<DataType, ResultData>(
 ): Promise<QueueResult> {
   if (!tasks.length) {
     throw new Error("cannot enqueue empty task list");
+  }
+
+  const taskIds = tasks.map((t) => t.id);
+  if (tasks.length !== uniq(taskIds).length) {
+    throw new Error(
+      `all task identifiers must be unique: ${taskIds.join(", ")}`
+    );
   }
 
   // Make a copy of the task list since it will be mutated

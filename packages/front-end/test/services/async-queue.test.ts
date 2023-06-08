@@ -251,4 +251,53 @@ describe("async queue", () => {
       expect(mockPerformAsync.mock.calls[5][0]).toEqual({ n: 2 });
     });
   });
+
+  describe("when no tasks provided", () => {
+    it("should throw an error indicating no tasks are provided", async () => {
+      const badTasks: QueueTask<boolean>[] = [];
+      const mockPerform = jest.fn().mockResolvedValue({
+        status: "success",
+        data: { echo: "the number is -1" },
+      });
+      const onProgress = () => undefined;
+
+      await expect(async () => {
+        await enqueueTasks<boolean, MyMockResultType>(badTasks, {
+          perform: mockPerform,
+          onProgress: onProgress,
+        });
+      }).rejects.toThrow("cannot enqueue empty task list");
+    });
+  });
+
+  describe("when IDs are not unique", () => {
+    it("should throw an error indicating the id's are not unique", async () => {
+      const badTasks: QueueTask<boolean>[] = [
+        {
+          id: "1",
+          data: true,
+        },
+        {
+          id: "2",
+          data: true,
+        },
+        {
+          id: "1",
+          data: true,
+        },
+      ];
+      const mockPerform = jest.fn().mockResolvedValue({
+        status: "success",
+        data: { echo: "the number is -1" },
+      });
+      const onProgress = () => undefined;
+
+      await expect(async () => {
+        await enqueueTasks<boolean, MyMockResultType>(badTasks, {
+          perform: mockPerform,
+          onProgress: onProgress,
+        });
+      }).rejects.toThrow("all task identifiers must be unique: 1, 2, 1");
+    });
+  });
 });
