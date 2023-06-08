@@ -321,7 +321,7 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and won
             experimentChanges.push(
               "The metric " +
-                (await getMetricById(m, experiment.organization)) +
+                (await getMetricById(m, experiment.organization))?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has reached a " +
@@ -335,7 +335,7 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and lost
             experimentChanges.push(
               "The metric " +
-                (await getMetricById(m, experiment.organization)) +
+                (await getMetricById(m, experiment.organization))?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has dropped to a " +
