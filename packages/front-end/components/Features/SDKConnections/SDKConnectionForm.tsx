@@ -14,6 +14,7 @@ import {
   FaInfoCircle,
 } from "react-icons/fa";
 import { BsLightningFill } from "react-icons/bs";
+import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -415,8 +416,12 @@ export default function SDKConnectionForm({
           newStyle={true}
           className="mb-3"
           buttonsWrapperClassName="sdk-security-button-wrapper mb-3"
-          buttonsClassName="sdk-security-button text-center border rounded"
-          tabContentsClassName="border"
+          buttonsClassName={(tab) =>
+            clsx("sdk-security-button text-center border rounded", {
+              selected: tab === getSecurityTabState(form.getValues()),
+            })
+          }
+          tabContentsClassName={(tab) => (tab === "none" ? "d-none" : "border")}
           setActive={setSelectedSecurityTab}
           active={selectedSecurityTab}
         >
@@ -449,12 +454,7 @@ export default function SDKConnectionForm({
                 </Tooltip>
               </>
             }
-          >
-            <div className="text-muted mx-2 mt-2 mb-0">
-              <FaExclamationCircle /> No additional security features enabled
-              for this SDK connection.
-            </div>
-          </Tab>
+          />
 
           <Tab
             id="client"
