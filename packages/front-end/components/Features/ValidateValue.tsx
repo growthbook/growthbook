@@ -2,6 +2,7 @@ import { FeatureInterface } from "back-end/types/feature";
 import React, { useMemo } from "react";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import { validateJSONFeatureValue } from "@/services/features";
+import { useUser } from "@/services/UserContext";
 
 export default function ValidateValue({
   value,
@@ -14,12 +15,19 @@ export default function ValidateValue({
   className?: string;
   showIfValid?: boolean;
 }) {
+  const { hasCommercialFeature } = useUser();
+  const hasJsonValidator = hasCommercialFeature("json-validation");
   const { valid, enabled, errors } = useMemo(() => {
     const type = feature?.valueType;
-    if (type === "boolean" || type === "number" || type === "string")
+    if (
+      type === "boolean" ||
+      type === "number" ||
+      type === "string" ||
+      !hasJsonValidator
+    )
       return { valid: true, enabled: false, errors: [] };
     return validateJSONFeatureValue(value, feature);
-  }, [value, feature]);
+  }, [value, feature, hasJsonValidator]);
   if (!enabled) return null;
   if (valid) {
     if (!showIfValid) return null;

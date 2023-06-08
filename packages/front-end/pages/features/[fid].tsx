@@ -56,6 +56,8 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import EditSchemaModal from "@/components/Features/EditSchemaModal";
 import Code from "@/components/SyntaxHighlighting/Code";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -94,6 +96,7 @@ export default function FeaturePage() {
   const { getProjectById, projects } = useDefinitions();
 
   const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
 
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
@@ -125,6 +128,7 @@ export default function FeaturePage() {
   const isArchived = data.feature.archived;
 
   const enabledEnvs = getEnabledEnvironments(data.feature);
+  const hasJsonValidator = hasCommercialFeature("json-validation");
 
   const projectId = data.feature.project;
   const project = getProjectById(projectId || "");
@@ -600,101 +604,113 @@ export default function FeaturePage() {
 
       {data.feature.valueType === "json" && (
         <div>
-          <h3>
-            Json Schema{" "}
+          <h3 className={hasJsonValidator ? "" : "mb-4"}>
+            <PremiumTooltip commercialFeature="json-validation">
+              {" "}
+              Json Schema{" "}
+            </PremiumTooltip>
             <Tooltip
               body={
                 "Adding a json schema will allow you to validate json objects used in this feature."
               }
             />
-            {permissions.check("createFeatureDrafts", projectId) && (
-              <>
-                <a
-                  className="ml-2 cursor-pointer"
-                  onClick={() => setEditValidator(true)}
-                >
-                  <GBEdit />
-                </a>
-              </>
-            )}
+            {hasJsonValidator &&
+              permissions.check("createFeatureDrafts", projectId) && (
+                <>
+                  <a
+                    className="ml-2 cursor-pointer"
+                    onClick={() => setEditValidator(true)}
+                  >
+                    <GBEdit />
+                  </a>
+                </>
+              )}
           </h3>
-          <div className="appbox mb-4 p-3 card">
-            {jsonSchema ? (
-              <>
-                <div className="d-flex justify-content-between">
-                  {/* region Title Bar */}
+          {hasJsonValidator && (
+            <div className="appbox mb-4 p-3 card">
+              {jsonSchema ? (
+                <>
+                  <div className="d-flex justify-content-between">
+                    {/* region Title Bar */}
 
-                  <div className="d-flex align-items-left flex-column">
-                    <div>
-                      {validationEnabled ? (
-                        <strong className="text-success">Enabled</strong>
-                      ) : (
-                        <>
-                          <strong className="text-warning">Disabled</strong>
-                        </>
-                      )}
-                      {schemaDescription && schemaDescriptionItems && (
-                        <>
-                          {" "}
-                          Describes:
-                          {schemaDescriptionItems.map((v, i) => {
-                            const required = schemaDescription.has(v)
-                              ? schemaDescription.get(v).required
-                              : false;
-                            return (
-                              <strong
-                                className="ml-1"
-                                key={i}
-                                title={required ? "This field is required" : ""}
-                              >
-                                {v}
-                                {required && (
-                                  <span className="text-danger text-su">*</span>
-                                )}
-                                {i < schemaDescriptionItems.length - 1 && (
-                                  <span>, </span>
-                                )}
-                              </strong>
-                            );
-                          })}
-                        </>
+                    <div className="d-flex align-items-left flex-column">
+                      <div>
+                        {validationEnabled ? (
+                          <strong className="text-success">Enabled</strong>
+                        ) : (
+                          <>
+                            <strong className="text-warning">Disabled</strong>
+                          </>
+                        )}
+                        {schemaDescription && schemaDescriptionItems && (
+                          <>
+                            {" "}
+                            Describes:
+                            {schemaDescriptionItems.map((v, i) => {
+                              const required = schemaDescription.has(v)
+                                ? schemaDescription.get(v).required
+                                : false;
+                              return (
+                                <strong
+                                  className="ml-1"
+                                  key={i}
+                                  title={
+                                    required ? "This field is required" : ""
+                                  }
+                                >
+                                  {v}
+                                  {required && (
+                                    <span className="text-danger text-su">
+                                      *
+                                    </span>
+                                  )}
+                                  {i < schemaDescriptionItems.length - 1 && (
+                                    <span>, </span>
+                                  )}
+                                </strong>
+                              );
+                            })}
+                          </>
+                        )}
+                      </div>
+                      {schemaDateUpdated && (
+                        <div className="text-muted">
+                          Date updated:{" "}
+                          {schemaDateUpdated ? datetime(schemaDateUpdated) : ""}
+                        </div>
                       )}
                     </div>
-                    {schemaDateUpdated && (
-                      <div className="text-muted">
-                        Date updated:{" "}
-                        {schemaDateUpdated ? datetime(schemaDateUpdated) : ""}
-                      </div>
-                    )}
-                  </div>
 
-                  <div className="d-flex align-items-center">
-                    <button
-                      className="btn ml-3 text-dark"
-                      onClick={() => setShowSchema(!showSchema)}
-                    >
-                      <FaChevronRight
-                        style={{
-                          transform: `rotate(${showSchema ? "90deg" : "0deg"})`,
-                        }}
-                      />
-                    </button>
+                    <div className="d-flex align-items-center">
+                      <button
+                        className="btn ml-3 text-dark"
+                        onClick={() => setShowSchema(!showSchema)}
+                      >
+                        <FaChevronRight
+                          style={{
+                            transform: `rotate(${
+                              showSchema ? "90deg" : "0deg"
+                            })`,
+                          }}
+                        />
+                      </button>
+                    </div>
                   </div>
-                </div>
-                {showSchema && (
-                  <>
-                    <Code
-                      language="json"
-                      code={data.feature?.jsonSchema?.schema || "{}"}
-                      className="disabled"
-                    />
-                  </>
-                )}
-              </>
-            ) : (
-              "No schema defined"
-            )}
-          </div>
+                  {showSchema && (
+                    <>
+                      <Code
+                        language="json"
+                        code={data.feature?.jsonSchema?.schema || "{}"}
+                        className="disabled"
+                      />
+                    </>
+                  )}
+                </>
+              ) : (
+                "No schema defined"
+              )}
+            </div>
+          )}
         </div>
       )}
 
