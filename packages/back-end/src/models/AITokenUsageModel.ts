@@ -20,7 +20,7 @@ const AITokenUsageModel = mongoose.model<AITokenUsageDocument>(
 );
 
 const toInterface = (doc: AITokenUsageDocument): AITokenUsageInterface =>
-  omit(doc.toJSON(), ["__v", "_id"]);
+  omit(doc.toJSON<AITokenUsageDocument>(), ["__v", "_id"]);
 
 export const updateTokenUsage = async ({
   organization,
