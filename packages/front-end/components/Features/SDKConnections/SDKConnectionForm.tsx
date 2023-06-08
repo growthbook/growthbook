@@ -65,18 +65,19 @@ export default function SDKConnectionForm({
 
   const form = useForm({
     defaultValues: {
-      name: initialValue.name || "",
-      languages: initialValue.languages || [],
-      environment: initialValue.environment || environments[0]?.id || "",
-      project: "project" in initialValue ? initialValue.project : project || "",
-      encryptPayload: initialValue.encryptPayload || false,
-      hashSecureAttributes: initialValue.hashSecureAttributes || false,
-      includeVisualExperiments: initialValue.includeVisualExperiments || false,
-      includeDraftExperiments: initialValue.includeDraftExperiments || false,
-      includeExperimentNames: initialValue.includeExperimentNames || false,
-      proxyEnabled: initialValue.proxy?.enabled || false,
-      proxyHost: initialValue.proxy?.host || "",
-      sseEnabled: initialValue.sseEnabled || false,
+      name: initialValue.name ?? "",
+      languages: initialValue.languages ?? [],
+      environment: initialValue.environment ?? environments[0]?.id ?? "",
+      project: "project" in initialValue ? initialValue.project : project ?? "",
+      encryptPayload: initialValue.encryptPayload ?? false,
+      hashSecureAttributes:
+        initialValue.hashSecureAttributes ?? hasSecureAttributesFeature,
+      includeVisualExperiments: initialValue.includeVisualExperiments ?? false,
+      includeDraftExperiments: initialValue.includeDraftExperiments ?? false,
+      includeExperimentNames: initialValue.includeExperimentNames ?? false,
+      proxyEnabled: initialValue.proxy?.enabled ?? false,
+      proxyHost: initialValue.proxy?.host ?? "",
+      sseEnabled: initialValue.sseEnabled ?? false,
     },
   });
 
