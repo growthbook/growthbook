@@ -1,21 +1,25 @@
-import { FeatureValueType } from "back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
+import ValidateValue from "@/components/Features/ValidateValue";
 import ValueDisplay from "./ValueDisplay";
 
 export default function ForceSummary({
   value,
-  type,
+  feature,
 }: {
   value: string;
-  type: FeatureValueType;
+  feature: FeatureInterface;
 }) {
   return (
-    <div className="row align-items-top">
-      <div className="col-auto">
-        <strong>SERVE</strong>
+    <>
+      <div className="row align-items-top">
+        <div className="col-auto">
+          <strong>SERVE</strong>
+        </div>
+        <div className="col">
+          <ValueDisplay value={value} type={feature.valueType} />
+        </div>
       </div>
-      <div className="col">
-        <ValueDisplay value={value} type={type} />
-      </div>
-    </div>
+      <ValidateValue value={value} feature={feature} />
+    </>
   );
 }
