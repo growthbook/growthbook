@@ -276,9 +276,10 @@ mixpanel.init('YOUR PROJECT TOKEN', {
               {d.dateUpdated === d.dateCreated &&
                 d?.settings?.schemaFormat !== "custom" && (
                   <div className="alert alert-info">
-                    <FaExclamationTriangle /> We have prefilled the identifiers
-                    and assignment queries below. These queries may require
-                    editing to fit your data structure.
+                    <FaExclamationTriangle style={{ marginTop: "-2px" }} /> We
+                    have prefilled the identifiers and assignment queries below.
+                    These queries may require editing to fit your data
+                    structure.
                   </div>
                 )}
 
