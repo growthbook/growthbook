@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
-import { FaDatabase, FaExternalLinkAlt, FaKey } from "react-icons/fa";
+import {
+  FaDatabase,
+  FaExclamationTriangle,
+  FaExternalLinkAlt,
+  FaKey,
+} from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -268,6 +273,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           )}
           {supportsSQL && (
             <>
+              {d.dateUpdated === d.dateCreated &&
+                d?.settings?.schemaFormat !== "custom" && (
+                  <div className="alert alert-info">
+                    <FaExclamationTriangle style={{ marginTop: "-2px" }} /> We
+                    have prefilled the identifiers and assignment queries below.
+                    These queries may require editing to fit your data
+                    structure.
+                  </div>
+                )}
+
               <h2 className="mt-4">Identifiers</h2>
               <p>
                 The different units you use to split traffic in an experiment.
