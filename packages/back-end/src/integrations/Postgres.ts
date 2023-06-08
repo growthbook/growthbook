@@ -40,7 +40,4 @@ export default class Postgres extends SqlIntegration {
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')";
   }
-  getDefaultSchema() {
-    return this.params.defaultSchema;
-  }
 }

@@ -50,48 +50,34 @@ export default function AutoMetricCard({
             {event.count}
           </Tooltip>
         </td>
-        <td className={selected === 0 ? "bg-light" : ""}>
-          <div className="d-flex flex-column justify-content-center align-items-center">
-            <Toggle
-              value={event.metricsToCreate[0].shouldCreate || false}
-              id={`${event}-${i}-${event.metricsToCreate[0].type}`}
-              setValue={(value) => {
-                const updatedTrackedEvents = cloneDeep(trackedEvents);
-                updatedTrackedEvents[i].metricsToCreate[0].shouldCreate = value;
-                setTrackedEvents(updatedTrackedEvents);
-              }}
-            />
-            <Button
-              color="link"
-              onClick={async () =>
-                handleSqlPreview(event.metricsToCreate[0].sql)
-              }
+        {event.metricsToCreate.map((metric, j) => {
+          return (
+            <td
+              className={selected === j ? "bg-light" : ""}
+              key={`${metric}-${metric.type}`}
             >
-              {selected === 0 ? "Hide SQL" : "Preview SQL"}
-            </Button>
-          </div>
-        </td>
-        <td className={selected === 1 ? "bg-light" : ""}>
-          <div className="d-flex flex-column justify-content-center align-items-center">
-            <Toggle
-              value={event.metricsToCreate[1].shouldCreate || false}
-              id={`${event}-${i}-${event.metricsToCreate[1].type}`}
-              setValue={(value) => {
-                const updatedTrackedEvents = cloneDeep(trackedEvents);
-                updatedTrackedEvents[i].metricsToCreate[1].shouldCreate = value;
-                setTrackedEvents(updatedTrackedEvents);
-              }}
-            />
-            <Button
-              color="link"
-              onClick={async () =>
-                handleSqlPreview(event.metricsToCreate[1].sql)
-              }
-            >
-              {selected === 1 ? "Hide SQL" : "Preview SQL"}
-            </Button>
-          </div>
-        </td>
+              <div className="d-flex flex-column justify-content-center align-items-center">
+                <Toggle
+                  value={metric.shouldCreate || false}
+                  id={`${event}-${metric.name}`}
+                  setValue={(value) => {
+                    const updatedTrackedEvents = cloneDeep(trackedEvents);
+                    updatedTrackedEvents[i].metricsToCreate[
+                      j
+                    ].shouldCreate = value;
+                    setTrackedEvents(updatedTrackedEvents);
+                  }}
+                />
+                <Button
+                  color="link"
+                  onClick={async () => handleSqlPreview(metric.sql)}
+                >
+                  {selected === j ? "Hide SQL" : "Preview SQL"}
+                </Button>
+              </div>
+            </td>
+          );
+        })}
       </tr>
       {sqlPreview && (
         <tr
