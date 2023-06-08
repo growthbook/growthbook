@@ -239,7 +239,7 @@ export default function SDKConnectionForm({
             hasNoSDKsWithVisualExperimentSupport && (
               <p className="mt-1 mb-0 text-warning-orange small">
                 <FaExclamationCircle /> Visual experiments are only supported in
-                Javascript and React frontend environments.
+                Javascript and React frontend environments
               </p>
             )}
         </div>
