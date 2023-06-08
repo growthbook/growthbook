@@ -1,0 +1,254 @@
+import { enqueueTasks, QueueTask, TaskResult } from "@/services/async-queue";
+import { deepFreeze } from "@/test/test-helpers";
+
+describe("async queue", () => {
+  type MyMockDataType = { n: number };
+  type MyMockResultType = { echo: string };
+
+  const tasks: QueueTask<MyMockDataType>[] = [
+    {
+      id: "one",
+      data: { n: 1 },
+    },
+    {
+      id: "two",
+      data: { n: 2 },
+    },
+    {
+      id: "three",
+      data: { n: 3 },
+    },
+    {
+      id: "four",
+      data: { n: 4 },
+    },
+  ];
+
+  it("should not mutate the task list", async () => {
+    deepFreeze(tasks);
+
+    const mockPerform = jest.fn().mockResolvedValue({
+      status: "success",
+      data: { echo: "the number is -1" },
+    });
+
+    const result = await enqueueTasks<MyMockDataType, MyMockResultType>(tasks, {
+      perform: mockPerform,
+      onProgress: () => undefined,
+    });
+
+    expect(result.completed).toEqual(["one", "two", "three", "four"]);
+    expect(result.failed).toEqual([]);
+    expect(mockPerform.mock.calls).toHaveLength(4);
+  });
+
+  it("should enqueue provided tasks and call them with the provided delay", async () => {
+    const mockPerformAsync = jest.fn<
+      Promise<TaskResult<MyMockResultType>>,
+      [data: MyMockDataType]
+    >((data: MyMockDataType) => {
+      return new Promise<TaskResult<MyMockResultType>>((resolve) => {
+        setTimeout(() => {
+          resolve({
+            status: "success",
+            data: {
+              echo: `the number is ${data.n}`,
+            },
+          });
+        }, 200);
+      });
+    });
+
+    const mockOnProgress = jest.fn<
+      void,
+      [string, TaskResult<MyMockResultType>]
+    >((taskId, result) => {
+      console.log(
+        `task '${taskId}' completed with result: '${JSON.stringify(result)}'`
+      );
+    });
+
+    const result = await enqueueTasks<MyMockDataType, MyMockResultType>(tasks, {
+      perform: mockPerformAsync,
+      onProgress: mockOnProgress,
+    });
+
+    expect(result.completed).toEqual(["one", "two", "three", "four"]);
+    expect(result.failed).toEqual([]);
+    // perform function is called
+    expect(mockPerformAsync.mock.calls).toHaveLength(4);
+    // Progress is called
+    expect(mockOnProgress.mock.calls).toHaveLength(4);
+    expect(mockOnProgress.mock.calls[0][0]).toEqual("one");
+    expect(mockOnProgress.mock.calls[0][1]).toEqual({
+      status: "success",
+      data: { echo: "the number is 1" },
+    });
+    expect(mockOnProgress.mock.calls[1][0]).toEqual("two");
+    expect(mockOnProgress.mock.calls[1][1]).toEqual({
+      status: "success",
+      data: { echo: "the number is 2" },
+    });
+    expect(mockOnProgress.mock.calls[2][0]).toEqual("three");
+    expect(mockOnProgress.mock.calls[2][1]).toEqual({
+      status: "success",
+      data: { echo: "the number is 3" },
+    });
+    expect(mockOnProgress.mock.calls[3][0]).toEqual("four");
+    expect(mockOnProgress.mock.calls[3][1]).toEqual({
+      status: "success",
+      data: { echo: "the number is 4" },
+    });
+  });
+
+  describe("when tasks fail", () => {
+    it("should record the failures and retry relevant tasks", async () => {
+      const mockPerformAsync = jest.fn<
+        Promise<TaskResult<MyMockResultType>>,
+        [data: MyMockDataType]
+      >((data: MyMockDataType) => {
+        return new Promise<TaskResult<MyMockResultType>>((resolve) => {
+          setTimeout(() => {
+            // All tasks where `n` is even will succeed, those where `n` is false will fail
+            const result: TaskResult<MyMockResultType> =
+              data.n % 2 === 0
+                ? {
+                    status: "success",
+                    data: {
+                      echo: `the number is ${data.n}`,
+                    },
+                  }
+                : {
+                    // task 'one' will exhaust the retries while all other odd tasks will immediately fail ('three')
+                    status: data.n === 1 ? "retry" : "fail",
+                  };
+
+            resolve(result);
+          }, 200);
+        });
+      });
+
+      const mockOnProgress = jest.fn<
+        void,
+        [string, TaskResult<MyMockResultType>]
+      >((taskId, result) => {
+        console.log(
+          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`
+        );
+      });
+
+      const result = await enqueueTasks<MyMockDataType, MyMockResultType>(
+        tasks,
+        {
+          perform: mockPerformAsync,
+          onProgress: mockOnProgress,
+        },
+        {
+          retryCount: 2,
+          intervalDelayMs: 100,
+        }
+      );
+
+      // correct results
+      expect(result.completed).toEqual(["two", "four"]);
+      expect(result.failed).toEqual(["three", "one"]);
+      expect(mockOnProgress.mock.calls).toHaveLength(4);
+      // the first call to onProgress is the successful task 'two' since 'one' needs to be retried
+      expect(mockOnProgress.mock.calls[0][0]).toEqual("two");
+      expect(mockOnProgress.mock.calls[0][1]).toEqual({
+        status: "success",
+        data: { echo: "the number is 2" },
+      });
+      // the first task to immediately fail ('one') will progress next
+      expect(mockOnProgress.mock.calls[1][0]).toEqual("three");
+      expect(mockOnProgress.mock.calls[1][1]).toEqual({ status: "fail" });
+      // the next one to succeed is the other even task 'four' since 'three' is odd and fails
+      expect(mockOnProgress.mock.calls[2][0]).toEqual("four");
+      expect(mockOnProgress.mock.calls[2][1]).toEqual({
+        status: "success",
+        data: { echo: "the number is 4" },
+      });
+      // task 'one' always retries and eventually fails
+      expect(mockOnProgress.mock.calls[3][0]).toEqual("one");
+      expect(mockOnProgress.mock.calls[3][1]).toEqual({ status: "retry" });
+      // perform is called 6 times:
+      //  1. one - this task retries
+      //  2. two - this task succeeds
+      //  3. three - this task fails permanently
+      //  4. four - this task succeeds
+      //  5. one - this task retries (attempt 2)
+      //  6. one - this task retries (attempt 3)
+      expect(mockPerformAsync.mock.calls).toHaveLength(6);
+    });
+  });
+
+  describe("when tasks fail with an uncaught exception", () => {
+    it("should retry tasks with failed exceptions", async () => {
+      const mockPerformAsync = jest.fn<
+        Promise<TaskResult<MyMockResultType>>,
+        [data: MyMockDataType]
+      >(async (data) => {
+        if (data.n === 2) {
+          throw new Error("cannot perform two (2)");
+        }
+
+        return {
+          status: "success",
+          data: {
+            echo: `the number is ${data.n}`,
+          },
+        };
+      });
+
+      const mockOnProgress = jest.fn<
+        void,
+        [string, TaskResult<MyMockResultType>]
+      >((taskId, result) => {
+        console.log(
+          `task '${taskId}' completed with result: '${JSON.stringify(result)}'`
+        );
+      });
+
+      const result = await enqueueTasks<MyMockDataType, MyMockResultType>(
+        tasks,
+        {
+          perform: mockPerformAsync,
+          onProgress: mockOnProgress,
+        },
+        {
+          retryCount: 3,
+          intervalDelayMs: 100,
+        }
+      );
+
+      expect(result.completed).toEqual(["one", "three", "four"]);
+      expect(result.failed).toEqual(["two"]);
+      // perform function is called
+      // Progress is called
+      expect(mockOnProgress.mock.calls).toHaveLength(4);
+      expect(mockOnProgress.mock.calls[0][0]).toEqual("one");
+      expect(mockOnProgress.mock.calls[0][1]).toEqual({
+        status: "success",
+        data: { echo: "the number is 1" },
+      });
+      expect(mockOnProgress.mock.calls[1][0]).toEqual("three");
+      expect(mockOnProgress.mock.calls[1][1]).toEqual({
+        status: "success",
+        data: { echo: "the number is 3" },
+      });
+      expect(mockOnProgress.mock.calls[2][0]).toEqual("four");
+      expect(mockOnProgress.mock.calls[2][1]).toEqual({
+        status: "success",
+        data: { echo: "the number is 4" },
+      });
+      // failed task
+      expect(mockOnProgress.mock.calls[3][0]).toEqual("two");
+      expect(mockOnProgress.mock.calls[3][1]).toEqual({ status: "fail" });
+      // called 7 times: one, two, three, four, two, two, two
+      expect(mockPerformAsync.mock.calls).toHaveLength(7);
+      // retries for task 'two'
+      expect(mockPerformAsync.mock.calls[4][0]).toEqual({ n: 2 });
+      expect(mockPerformAsync.mock.calls[5][0]).toEqual({ n: 2 });
+    });
+  });
+});
