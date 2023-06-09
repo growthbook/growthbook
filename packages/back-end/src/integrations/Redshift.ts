@@ -34,10 +34,7 @@ export default class Redshift extends SqlIntegration {
   ensureFloat(col: string): string {
     return `${col}::float`;
   }
-  getInformationSchemaFromClause(): string {
-    return "SVV_COLUMNS";
-  }
-  getInformationSchemaTableFromClause(): string {
+  getInformationSchemaTable(): string {
     return "SVV_COLUMNS";
   }
 }

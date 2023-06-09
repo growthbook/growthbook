@@ -1,7 +1,6 @@
 import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
-import { MissingDatasourceParamsError } from "../types/Integration";
 import { findOrCreateConnection } from "../util/mssqlPoolManager";
 import SqlIntegration from "./SqlIntegration";
 
@@ -9,6 +8,7 @@ export default class Mssql extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   params: MssqlConnectionParams;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<MssqlConnectionParams>(
       encryptedParams
@@ -67,14 +67,7 @@ export default class Mssql extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
-  getInformationSchemaFromClause(): string {
-    if (!this.params.database)
-      throw new MissingDatasourceParamsError(
-        "To view the information schema for a MS Sql dataset, you must define a default database. Please add a default database by editing the datasource's connection settings."
-      );
-    return `${this.params.database}.information_schema.columns`;
-  }
-  getInformationSchemaTableFromClause(databaseName: string): string {
-    return `${databaseName}.information_schema.columns`;
+  getDefaultDatabase() {
+    return this.params.database;
   }
 }
