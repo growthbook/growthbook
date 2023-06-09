@@ -317,9 +317,8 @@ export default function SinglePage({
     mutate();
   };
 
-  const canEditExperiment =
-    !experiment.archived &&
-    permissions.check("createAnalyses", experiment.project);
+  const canCreateAnalyses = permissions.check("createAnalyses", project);
+  const canEditExperiment = !experiment.archived && canCreateAnalyses;
 
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
   const hasVisualEditorPermission =
@@ -508,7 +507,7 @@ export default function SinglePage({
                 Archive
               </button>
             )}
-            {canRunExperiment && (
+            {canCreateAnalyses && experiment.archived && (
               <button
                 className="dropdown-item"
                 onClick={async (e) => {
@@ -526,7 +525,7 @@ export default function SinglePage({
                 Unarchive
               </button>
             )}
-            {canRunExperiment && (
+            {canCreateAnalyses && (
               <DeleteButton
                 className="dropdown-item text-danger"
                 useIcon={false}
