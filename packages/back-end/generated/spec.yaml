@@ -1820,6 +1820,8 @@ components:
           type: string
         sseEnabled:
           type: boolean;
+        hashSecureAttributes:
+          type: boolean;
     Experiment:
       type: object
       required:

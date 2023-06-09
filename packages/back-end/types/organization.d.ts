@@ -45,6 +45,7 @@ export type CommercialFeature =
   | "visual-editor"
   | "cloud-proxy"
   | "hash-secure-attributes"
+  | "json-validation"
   | "remote-evaluation";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 

@@ -580,7 +580,6 @@ export interface components {
       project: string;
       encryptPayload: boolean;
       encryptionKey: string;
-      hashSecureAttributes?: boolean;
       includeVisualExperiments?: boolean;
       includeDraftExperiments?: boolean;
       includeExperimentNames?: boolean;
@@ -588,8 +587,8 @@ export interface components {
       proxyEnabled: boolean;
       proxyHost: string;
       proxySigningKey: string;
-      sseEnabled?: boolean;
-      remoteEvalEnabled?: boolean;
+      sseEnabled?: any;
+      hashSecureAttributes?: any;
     };
     Experiment: {
       id: string;
@@ -1513,7 +1512,6 @@ export interface operations {
                 project: string;
                 encryptPayload: boolean;
                 encryptionKey: string;
-                hashSecureAttributes?: boolean;
                 includeVisualExperiments?: boolean;
                 includeDraftExperiments?: boolean;
                 includeExperimentNames?: boolean;
@@ -1521,8 +1519,8 @@ export interface operations {
                 proxyEnabled: boolean;
                 proxyHost: string;
                 proxySigningKey: string;
-                sseEnabled?: boolean;
-                remoteEvalEnabled?: boolean;
+                sseEnabled?: any;
+                hashSecureAttributes?: any;
               })[];
           } & {
             limit: number;
@@ -1554,7 +1552,6 @@ export interface operations {
               project: string;
               encryptPayload: boolean;
               encryptionKey: string;
-              hashSecureAttributes?: boolean;
               includeVisualExperiments?: boolean;
               includeDraftExperiments?: boolean;
               includeExperimentNames?: boolean;
@@ -1562,8 +1559,8 @@ export interface operations {
               proxyEnabled: boolean;
               proxyHost: string;
               proxySigningKey: string;
-              sseEnabled?: boolean;
-              remoteEvalEnabled?: boolean;
+              sseEnabled?: any;
+              hashSecureAttributes?: any;
             };
           };
         };

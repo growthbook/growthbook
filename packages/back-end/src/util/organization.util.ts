@@ -57,6 +57,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "visual-editor",
     "cloud-proxy",
     "hash-secure-attributes",
+    "json-validation",
     "remote-evaluation",
   ]),
 };

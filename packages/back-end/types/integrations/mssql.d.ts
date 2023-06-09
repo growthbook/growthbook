@@ -4,6 +4,7 @@ export interface MssqlConnectionParams {
   database: string;
   password: string;
   port: number;
+  defaultSchema?: string;
   options?: {
     encrypt?: boolean; // for azure
     trustServerCertificate?: boolean; // change to true for local dev / self-signed certs
