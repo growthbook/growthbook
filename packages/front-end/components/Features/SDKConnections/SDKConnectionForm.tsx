@@ -454,7 +454,9 @@ export default function SDKConnectionForm({
                 </Tooltip>
               </>
             }
-          />
+          >
+            <></>
+          </Tab>
 
           <Tab
             id="client"
