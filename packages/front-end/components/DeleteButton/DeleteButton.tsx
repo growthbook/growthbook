@@ -1,4 +1,11 @@
-import { FC, useState, useEffect, CSSProperties, ReactElement, isValidElement } from "react";
+import {
+  FC,
+  useState,
+  useEffect,
+  CSSProperties,
+  ReactElement,
+  isValidElement,
+} from "react";
 import { FaTrash } from "react-icons/fa";
 import clsx from "clsx";
 import Modal from "../Modal";
@@ -70,7 +77,6 @@ const DeleteButton: FC<{
               additionalMessage
             ) : (
               <p>{additionalMessage}</p>
-
             ))}
         </Modal>
       ) : (
