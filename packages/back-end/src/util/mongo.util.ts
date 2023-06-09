@@ -45,6 +45,7 @@ export const getConnectionStringWithDeprecatedKeysMigratedForV3to4 = (
     "bufferMaxEntries",
   ];
   const v3to4Mappings: Record<string, string> = {
+    minSize: "minPoolSize",
     poolSize: "maxPoolSize",
     tlsinsecure: "tlsInsecure",
 
