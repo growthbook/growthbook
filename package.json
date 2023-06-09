@@ -14,7 +14,7 @@
     "build:deps": "wsrun -p '@growthbook/growthbook' -p '@growthbook/growthbook-react' -p 'shared' -t -c build",
     "build:app": "wsrun -p 'back-end' -p 'front-end' -c build",
     "build": "yarn build:deps && yarn build:app",
-    "start": "wsrun -p 'back-end' -p 'front-end' -c start",
+    "start": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start",
     "setup": "yarn build:deps && wsrun -p 'stats' -c setup",
     "prepare": "husky install",
     "plop": "plop",
