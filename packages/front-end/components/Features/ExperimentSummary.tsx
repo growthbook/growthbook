@@ -7,6 +7,7 @@ import {
   getExperimentDefinitionFromFeature,
   getVariationColor,
 } from "@/services/features";
+import ValidateValue from "@/components/Features/ValidateValue";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
 import Modal from "../Modal";
 import ValueDisplay from "./ValueDisplay";
@@ -160,6 +161,7 @@ export default function ExperimentSummary({
               </td>
               <td>
                 <ValueDisplay value={r.value} type={type} />
+                <ValidateValue value={r.value} feature={feature} />
               </td>
               <td>{r?.name}</td>
               <td>

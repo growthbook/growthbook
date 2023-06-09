@@ -78,6 +78,7 @@ const featureSchema = new mongoose.Schema({
   environmentSettings: {},
   draft: {},
   revision: {},
+  jsonSchema: {},
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -496,6 +497,18 @@ export async function setDefaultValue(
   draft.defaultValue = defaultValue;
 
   return updateDraft(org, user, feature, draft);
+}
+
+export async function setJsonSchema(
+  org: OrganizationInterface,
+  user: EventAuditUser,
+  feature: FeatureInterface,
+  schema: string,
+  enabled?: boolean
+) {
+  return await updateFeature(org, user, feature, {
+    jsonSchema: { schema, enabled: enabled ?? true, date: new Date() },
+  });
 }
 
 export async function updateDraft(
