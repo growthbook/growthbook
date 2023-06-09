@@ -434,7 +434,7 @@ export default function SDKConnectionForm({
                   Feature targeting conditions referencing{" "}
                   <code>secureString</code> attributes will be anonymized via
                   SHA-256 hashing. When evaluating feature flags in a public or
-                  insecure environment (such as a browser) hashing provides an
+                  insecure environment (such as a browser), hashing provides an
                   additional layer of security through obfuscation. This allows
                   you to target users based on sensitive attributes.
                 </p>
