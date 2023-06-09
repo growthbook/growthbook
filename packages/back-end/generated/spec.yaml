@@ -868,6 +868,54 @@ paths:
                 properties:
                   metric:
                     $ref: '#/components/schemas/Metric'
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - metrics
+      summary: Update a metric
+      operationId: putMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -XPUT https://api.growthbook.io/api/v1/metrics/met_123abc \
+              -u secret_abc123DEF456 \
+              -H "Content-Type: application/json" \
+              -d '{"name": "net revenue", "description":"revenue minus lacroix spend"}'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - updatedId
+                properties:
+                  updatedId:
+                    type: string
+    delete:
+      summary: Deletes a metric
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - metrics
+      operationId: deleteMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/metrics/met_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
   '/experiments/{id}/visual-changesets':
     get:
       summary: Get all visual changesets
@@ -995,7 +1043,7 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -XPOST https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change/vch_abc123 \
+            curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change/vch_abc123 \
               -u secret_abc123DEF456 \
               -H "Content-Type: application/json" \
               -d '{"variation": "v_123abc", "domMutations":"[]"}'
