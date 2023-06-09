@@ -41,7 +41,6 @@ export const getConnectionStringWithDeprecatedKeysMigratedForV3to4 = (
     "secondaryAcceptableLatencyMS",
     "acceptableLatencyMS",
     "connectWithNoPrimary",
-    "j",
     "domainsEnabled",
     "bufferMaxEntries",
   ];
@@ -50,9 +49,14 @@ export const getConnectionStringWithDeprecatedKeysMigratedForV3to4 = (
     tlsinsecure: "tlsInsecure",
 
     /**
-     * @deprecated
+     * @deprecated use WriteConcern
      */
     wtimeout: "wtimeoutMS",
+
+    /**
+     * @deprecated use WriteConcern
+     */
+    j: "journal",
 
     appname: "appName",
   };
