@@ -242,18 +242,25 @@ async function fetchFeatures(
   instance: GrowthBook
 ): Promise<FeatureApiResponse> {
   const [key, apiHost, clientKey] = getKey(instance);
+  const remoteEval = instance.getRemoteEval();
 
-  const endpoint = instance.getRemoteEval()
-    ? apiHost +
-      "/eval/features/" +
-      clientKey +
-      "?attributes=" +
-      encodeURIComponent(JSON.stringify(instance.getAttributes()))
-    : apiHost + "/api/features/" + clientKey;
+  const endpoint = `${apiHost}/${
+    remoteEval ? "eval" : "api"
+  }/features/${clientKey}`;
+  let options: RequestInit = {};
+  if (remoteEval) {
+    options = {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        attributes: instance.getAttributes(),
+      }),
+    };
+  }
 
   let promise = activeFetches.get(key);
   if (!promise) {
-    promise = (polyfills.fetch as typeof globalThis.fetch)(endpoint)
+    promise = (polyfills.fetch as typeof globalThis.fetch)(endpoint, options)
       // TODO: auto-retry if status code indicates a temporary error
       .then((res) => {
         if (res.headers.get("x-sse-support") === "enabled") {
