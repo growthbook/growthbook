@@ -4,8 +4,13 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useState } from "react";
-import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
+import {
+  FaCheckCircle,
+  FaChevronRight,
+  FaExclamationTriangle,
+} from "react-icons/fa";
 import { BsLightningFill } from "react-icons/bs";
+import { datetime } from "shared/dates";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -31,6 +36,7 @@ import {
   useEnvironments,
   getEnabledEnvironments,
   getAffectedEnvs,
+  getValidation,
 } from "@/services/features";
 import Tab from "@/components/Tabs/Tab";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
@@ -48,12 +54,18 @@ import { isCloud } from "@/services/env";
 import TempMessage from "@/components/TempMessage";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import EditSchemaModal from "@/components/Features/EditSchemaModal";
+import Code from "@/components/SyntaxHighlighting/Code";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
 
 export default function FeaturePage() {
   const router = useRouter();
   const { fid } = router.query;
 
   const [edit, setEdit] = useState(false);
+  const [editValidator, setEditValidator] = useState(false);
+  const [showSchema, setShowSchema] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
@@ -84,6 +96,7 @@ export default function FeaturePage() {
   const { getProjectById, projects } = useDefinitions();
 
   const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
 
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
@@ -107,17 +120,37 @@ export default function FeaturePage() {
     return <LoadingOverlay />;
   }
 
-  const type = data.feature.valueType;
+  const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
+    data.feature
+  );
 
   const isDraft = !!data.feature.draft?.active;
   const isArchived = data.feature.archived;
 
   const enabledEnvs = getEnabledEnvironments(data.feature);
+  const hasJsonValidator = hasCommercialFeature("json-validation");
 
   const projectId = data.feature.project;
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
+
+  const schemaDescription = new Map();
+  if (jsonSchema && "properties" in jsonSchema) {
+    Object.keys(jsonSchema.properties).map((key) => {
+      schemaDescription.set(key, { required: false, describes: true });
+    });
+  }
+  if (jsonSchema && "required" in jsonSchema) {
+    Object.values(jsonSchema.required).map((key) => {
+      if (schemaDescription.has(key)) {
+        schemaDescription.set(key, { required: true, describes: true });
+      } else {
+        schemaDescription.set(key, { required: true, describes: false });
+      }
+    });
+  }
+  const schemaDescriptionItems = [...schemaDescription.keys()];
 
   const hasDraftPublishPermission =
     isDraft &&
@@ -217,6 +250,13 @@ export default function FeaturePage() {
             });
             mutate();
           }}
+        />
+      )}
+      {editValidator && (
+        <EditSchemaModal
+          close={() => setEditValidator(false)}
+          feature={data.feature}
+          mutate={mutate}
         />
       )}
       {ruleModal !== null && (
@@ -562,6 +602,118 @@ export default function FeaturePage() {
         </div>
       </div>
 
+      {data.feature.valueType === "json" && (
+        <div>
+          <h3 className={hasJsonValidator ? "" : "mb-4"}>
+            <PremiumTooltip commercialFeature="json-validation">
+              {" "}
+              Json Schema{" "}
+            </PremiumTooltip>
+            <Tooltip
+              body={
+                "Adding a json schema will allow you to validate json objects used in this feature."
+              }
+            />
+            {hasJsonValidator &&
+              permissions.check("createFeatureDrafts", projectId) && (
+                <>
+                  <a
+                    className="ml-2 cursor-pointer"
+                    onClick={() => setEditValidator(true)}
+                  >
+                    <GBEdit />
+                  </a>
+                </>
+              )}
+          </h3>
+          {hasJsonValidator && (
+            <div className="appbox mb-4 p-3 card">
+              {jsonSchema ? (
+                <>
+                  <div className="d-flex justify-content-between">
+                    {/* region Title Bar */}
+
+                    <div className="d-flex align-items-left flex-column">
+                      <div>
+                        {validationEnabled ? (
+                          <strong className="text-success">Enabled</strong>
+                        ) : (
+                          <>
+                            <strong className="text-warning">Disabled</strong>
+                          </>
+                        )}
+                        {schemaDescription && schemaDescriptionItems && (
+                          <>
+                            {" "}
+                            Describes:
+                            {schemaDescriptionItems.map((v, i) => {
+                              const required = schemaDescription.has(v)
+                                ? schemaDescription.get(v).required
+                                : false;
+                              return (
+                                <strong
+                                  className="ml-1"
+                                  key={i}
+                                  title={
+                                    required ? "This field is required" : ""
+                                  }
+                                >
+                                  {v}
+                                  {required && (
+                                    <span className="text-danger text-su">
+                                      *
+                                    </span>
+                                  )}
+                                  {i < schemaDescriptionItems.length - 1 && (
+                                    <span>, </span>
+                                  )}
+                                </strong>
+                              );
+                            })}
+                          </>
+                        )}
+                      </div>
+                      {schemaDateUpdated && (
+                        <div className="text-muted">
+                          Date updated:{" "}
+                          {schemaDateUpdated ? datetime(schemaDateUpdated) : ""}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="d-flex align-items-center">
+                      <button
+                        className="btn ml-3 text-dark"
+                        onClick={() => setShowSchema(!showSchema)}
+                      >
+                        <FaChevronRight
+                          style={{
+                            transform: `rotate(${
+                              showSchema ? "90deg" : "0deg"
+                            })`,
+                          }}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                  {showSchema && (
+                    <>
+                      <Code
+                        language="json"
+                        code={data.feature?.jsonSchema?.schema || "{}"}
+                        className="disabled"
+                      />
+                    </>
+                  )}
+                </>
+              ) : (
+                "No schema defined"
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <h3>
         Default Value
         {permissions.check("createFeatureDrafts", projectId) && (
@@ -572,8 +724,8 @@ export default function FeaturePage() {
       </h3>
       <div className="appbox mb-4 p-3">
         <ForceSummary
-          type={type}
-          value={getFeatureDefaultValue(data.feature) || ""}
+          value={getFeatureDefaultValue(data.feature)}
+          feature={data.feature}
         />
       </div>
 

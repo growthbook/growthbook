@@ -44,7 +44,8 @@ export type CommercialFeature =
   | "audit-logging"
   | "visual-editor"
   | "cloud-proxy"
-  | "hash-secure-attributes";
+  | "hash-secure-attributes"
+  | "json-validation";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {
