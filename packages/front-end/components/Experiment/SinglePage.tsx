@@ -317,7 +317,10 @@ export default function SinglePage({
     mutate();
   };
 
-  const canCreateAnalyses = permissions.check("createAnalyses", project);
+  const canCreateAnalyses = permissions.check(
+    "createAnalyses",
+    experiment.project
+  );
   const canEditExperiment = !experiment.archived && canCreateAnalyses;
 
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
