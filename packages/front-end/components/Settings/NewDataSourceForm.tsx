@@ -200,20 +200,21 @@ const NewDataSourceForm: FC<{
       }
       // Create
       else {
+        const updatedDatasource = {
+          ...datasource,
+          settings: {
+            ...getInitialSettings(
+              selectedSchema.value,
+              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'PostgresConnectionParams | Athen... Remove this comment to see the full error message
+              datasource.params,
+              form.watch("settings.schemaOptions")
+            ),
+            ...(datasource.settings || {}),
+          },
+        };
         const res = await apiCall<{ id: string }>(`/datasources`, {
           method: "POST",
-          body: JSON.stringify({
-            ...datasource,
-            settings: {
-              ...getInitialSettings(
-                selectedSchema.value,
-                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'PostgresConnectionParams | Athen... Remove this comment to see the full error message
-                datasource.params,
-                form.watch("settings.schemaOptions")
-              ),
-              ...(datasource.settings || {}),
-            },
-          }),
+          body: JSON.stringify(updatedDatasource),
         });
         track("Submit Datasource Form", {
           source,
@@ -222,6 +223,9 @@ const NewDataSourceForm: FC<{
           newDatasourceForm: true,
         });
         setDataSourceId(res.id);
+        setDatasource(
+          updatedDatasource as Partial<DataSourceInterfaceWithParams>
+        );
         return res.id;
       }
     } catch (e) {
