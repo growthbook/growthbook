@@ -35,7 +35,7 @@ const pastExperimentsSchema = new mongoose.Schema({
 export type PastExperimentsDocument = mongoose.Document &
   PastExperimentsInterface;
 
-export const PastExperimentsModel = mongoose.model<PastExperimentsDocument>(
+export const PastExperimentsModel = mongoose.model<PastExperimentsInterface>(
   "PastExperiments",
   pastExperimentsSchema
 );

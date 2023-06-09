@@ -27,7 +27,7 @@ const forgotPasswordSchema = new mongoose.Schema({
 export type ForgotPasswordDocument = mongoose.Document &
   ForgotPasswordInterface;
 
-export const ForgotPasswordModel = mongoose.model<ForgotPasswordDocument>(
+export const ForgotPasswordModel = mongoose.model<ForgotPasswordInterface>(
   "ForgotPassword",
   forgotPasswordSchema
 );

@@ -465,6 +465,7 @@ app.post(
   "/feature/:id/defaultvalue",
   featuresController.postFeatureDefaultValue
 );
+app.post("/feature/:id/schema", featuresController.postFeatureSchema);
 app.post("/feature/:id/discard", featuresController.postFeatureDiscard);
 app.post("/feature/:id/publish", featuresController.postFeaturePublish);
 app.post("/feature/:id/archive", featuresController.postFeatureArchive);

@@ -54,7 +54,6 @@ export default function RuleModal({
   const rule = rules[i];
 
   const defaultRuleValues = getDefaultRuleValue({
-    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
     defaultValue: getFeatureDefaultValue(feature),
     ruleType: defaultType,
     attributeSchema,
@@ -131,7 +130,7 @@ export default function RuleModal({
         const rule = values as FeatureRule;
 
         try {
-          const newRule = validateFeatureRule(rule, feature.valueType);
+          const newRule = validateFeatureRule(rule, feature);
           if (newRule) {
             // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'FeatureRule' is not assignable t... Remove this comment to see the full error message
             form.reset(newRule);
@@ -190,7 +189,6 @@ export default function RuleModal({
           const existingCondition = form.watch("condition");
           const newVal = {
             ...getDefaultRuleValue({
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
               defaultValue: getFeatureDefaultValue(feature),
               ruleType: v,
               attributeSchema,

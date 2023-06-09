@@ -3,6 +3,7 @@ import { RxDesktop } from "react-icons/rx";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { datetime, ago } from "shared/dates";
+import Link from "next/link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -54,9 +55,8 @@ const ExperimentsPage = (): React.ReactElement => {
     allExperiments,
     (exp) => {
       const projectId = exp.project;
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-      const projectName = getProjectById(projectId)?.name || "";
-      const projectIsOprhaned = projectId && !projectName;
+      const projectName = projectId ? getProjectById(projectId)?.name : "";
+      const projectIsDeReferenced = projectId && !projectName;
 
       return {
         ownerName: getUserDisplay(exp.owner, false) || "",
@@ -65,7 +65,7 @@ const ExperimentsPage = (): React.ReactElement => {
           .filter(Boolean),
         projectId,
         projectName,
-        projectIsOprhaned,
+        projectIsDeReferenced,
         tab: exp.archived
           ? "archived"
           : exp.status === "draft"
@@ -309,7 +309,9 @@ const ExperimentsPage = (): React.ReactElement => {
                     >
                       <div className="d-flex flex-column">
                         <div className="d-flex">
-                          <span className="testname">{e.name}</span>
+                          <Link href={`/experiment/${e.id}`}>
+                            <a className="testname">{e.name}</a>
+                          </Link>
                           {e.hasVisualChangesets ? (
                             <Tooltip
                               className="d-flex align-items-center ml-2"
@@ -331,7 +333,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     </td>
                     {showProjectColumn && (
                       <td className="nowrap" data-title="Project:">
-                        {e.projectIsOprhaned ? (
+                        {e.projectIsDeReferenced ? (
                           <Tooltip
                             body={
                               <>
@@ -364,8 +366,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     </td>
                     {tab === "stopped" && (
                       <td className="nowrap" data-title="Results:">
-                        {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentResultsType | undefined' is not as... Remove this comment to see the full error message */}
-                        <ResultsIndicator results={e.results} />
+                        {e.results && <ResultsIndicator results={e.results} />}
                       </td>
                     )}
                     {tab === "archived" && (
@@ -387,8 +388,7 @@ const ExperimentsPage = (): React.ReactElement => {
         </div>
       </div>
       {openNewExperimentModal &&
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        (growthbook.isOn("new-experiment-modal") ? (
+        (growthbook?.isOn("new-experiment-modal") ? (
           <AddExperimentModal
             onClose={() => setOpenNewExperimentModal(false)}
             source="experiment-list"

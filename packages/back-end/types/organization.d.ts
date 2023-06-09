@@ -44,7 +44,8 @@ export type CommercialFeature =
   | "audit-logging"
   | "visual-editor"
   | "cloud-proxy"
-  | "hash-secure-attributes";
+  | "hash-secure-attributes"
+  | "json-validation";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
 export interface MemberRoleInfo {
@@ -107,6 +108,8 @@ export interface Namespaces {
   status: "active" | "inactive";
 }
 
+export type SDKAttributeFormat = "" | "version";
+
 export type SDKAttributeType =
   | "string"
   | "number"
@@ -123,7 +126,9 @@ export type SDKAttribute = {
   hashAttribute?: boolean;
   enum?: string;
   archived?: boolean;
+  format?: SDKAttributeFormat;
 };
+
 export type SDKAttributeSchema = SDKAttribute[];
 
 export type ExperimentUpdateSchedule = {
@@ -170,6 +175,7 @@ export interface OrganizationSettings {
   attributionModel?: AttributionModel;
   sequentialTestingEnabled?: boolean;
   sequentialTestingTuningParameter?: number;
+  displayCurrency?: string;
   secureAttributeSalt?: string;
 }
 

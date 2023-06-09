@@ -67,10 +67,12 @@ const Admin: FC = () => {
                   href="#"
                   onClick={(e) => {
                     e.preventDefault();
-                    // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
-                    setOrgId(o.id);
-                    // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
-                    setSpecialOrg(o);
+                    if (setOrgId) {
+                      setOrgId(o.id);
+                    }
+                    if (setSpecialOrg) {
+                      setSpecialOrg(o);
+                    }
                   }}
                 >
                   {o.name}

@@ -5,7 +5,7 @@ import DataSourceForm from "@/components/Settings/DataSourceForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 const Google: FC = () => {
-  const [code, setCode] = useState(null);
+  const [code, setCode] = useState<string | null>(null);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -14,7 +14,6 @@ const Google: FC = () => {
     if (!c) {
       setError(new Error("Authentication failed"));
     } else {
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string' is not assignable to par... Remove this comment to see the full error message
       setCode(c);
     }
   }, []);

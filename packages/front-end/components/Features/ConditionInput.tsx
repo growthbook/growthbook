@@ -31,15 +31,14 @@ export default function ConditionInput(props: Props) {
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
   const [value, setValue] = useState(props.defaultValue);
-  const [conds, setConds] = useState(() =>
-    jsonToConds(props.defaultValue, attributes)
+  const [conds, setConds] = useState(
+    () => jsonToConds(props.defaultValue, attributes) || []
   );
 
   const attributeSchema = useAttributeSchema();
 
   useEffect(() => {
     if (advanced) return;
-    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Condition[] | null' is not assig... Remove this comment to see the full error message
     setValue(condToJson(conds, attributes));
   }, [advanced, conds]);
 
@@ -108,7 +107,6 @@ export default function ConditionInput(props: Props) {
     );
   }
 
-  // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
   if (!conds.length) {
     return (
       <div className="form-group">
@@ -143,7 +141,6 @@ export default function ConditionInput(props: Props) {
       <label className={props.labelClassName || ""}>Targeting Conditions</label>
       <div className={`mb-3 bg-light px-3 pb-3 ${styles.conditionbox}`}>
         <ul className={styles.conditionslist}>
-          {/* @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'. */}
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
 
@@ -159,7 +156,6 @@ export default function ConditionInput(props: Props) {
               const name = e.target.name;
               const value: string | number = e.target.value;
 
-              // @ts-expect-error TS(2488) If you come across this, please fix it!: Type 'Condition[] | null' must have a '[Symbol.ite... Remove this comment to see the full error message
               const newConds = [...conds];
               newConds[i] = { ...newConds[i] };
               newConds[i][name] = value;
@@ -174,16 +170,14 @@ export default function ConditionInput(props: Props) {
             };
 
             const operatorOptions =
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-              attribute.datatype === "boolean"
+              attribute?.datatype === "boolean"
                 ? [
                     { label: "is true", value: "$true" },
                     { label: "is false", value: "$false" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                attribute.array
+                : attribute?.array
                 ? [
                     { label: "includes", value: "$includes" },
                     { label: "does not include", value: "$notIncludes" },
@@ -192,8 +186,7 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                attribute.enum?.length > 0
+                : attribute?.enum?.length || 0 > 0
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -202,17 +195,34 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                attribute.datatype === "string"
+                : attribute?.datatype === "string"
                 ? [
-                    { label: "is equal to", value: "$eq" },
-                    { label: "is not equal to", value: "$ne" },
+                    {
+                      label: "is equal to",
+                      value: attribute?.format === "version" ? "$veq" : "$eq",
+                    },
+                    {
+                      label: "is not equal to",
+                      value: attribute?.format === "version" ? "$vne" : "$ne",
+                    },
                     { label: "matches regex", value: "$regex" },
                     { label: "does not match regex", value: "$notRegex" },
-                    { label: "is greater than", value: "$gt" },
-                    { label: "is greater than or equal to", value: "$gte" },
-                    { label: "is less than", value: "$lt" },
-                    { label: "is less than or equal to", value: "$lte" },
+                    {
+                      label: "is greater than",
+                      value: attribute?.format === "version" ? "$vgt" : "$gt",
+                    },
+                    {
+                      label: "is greater than or equal to",
+                      value: attribute?.format === "version" ? "$vgte" : "$gte",
+                    },
+                    {
+                      label: "is less than",
+                      value: attribute?.format === "version" ? "$vlt" : "$lt",
+                    },
+                    {
+                      label: "is less than or equal to",
+                      value: attribute?.format === "version" ? "$vlte" : "$lte",
+                    },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
@@ -221,8 +231,7 @@ export default function ConditionInput(props: Props) {
                       ? savedGroupOperators
                       : []),
                   ]
-                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                attribute.datatype === "secureString"
+                : attribute?.datatype === "secureString"
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -234,8 +243,7 @@ export default function ConditionInput(props: Props) {
                       ? savedGroupOperators
                       : []),
                   ]
-                : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                attribute.datatype === "number"
+                : attribute?.datatype === "number"
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },

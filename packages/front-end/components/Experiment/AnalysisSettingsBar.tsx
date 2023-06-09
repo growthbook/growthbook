@@ -11,6 +11,7 @@ import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import { OrganizationSettings } from "back-end/types/organization";
 import { ago, datetime } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { getSnapshotAnalysis } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
@@ -29,7 +30,10 @@ import ResultMoreMenu from "./ResultMoreMenu";
 import PhaseSelector from "./PhaseSelector";
 import { useSnapshot } from "./SnapshotProvider";
 
-function isDifferent(val1?: string | boolean, val2?: string | boolean) {
+function isDifferent(
+  val1?: string | boolean | null,
+  val2?: string | boolean | null
+) {
   if (!val1 && !val2) return false;
   return val1 !== val2;
 }
@@ -42,27 +46,31 @@ function isOutdated(
   hasRegressionAdjustmentFeature: boolean,
   hasSequentialFeature: boolean
 ): { outdated: boolean; reason: string } {
-  if (!experiment) return { outdated: false, reason: "" };
-  if (!snapshot) return { outdated: false, reason: "" };
-  if (snapshot.statsEngine && isDifferent(snapshot.statsEngine, statsEngine)) {
-    return { outdated: true, reason: "stats engine changed" };
+  const snapshotSettings = snapshot?.settings;
+  const analysisSettings = snapshot
+    ? getSnapshotAnalysis(snapshot)?.settings
+    : null;
+
+  if (!experiment || !snapshotSettings || !analysisSettings) {
+    return { outdated: false, reason: "" };
   }
-  if (isDifferent(snapshot.statsEngine, statsEngine)) {
+  if (isDifferent(analysisSettings.statsEngine, statsEngine)) {
     return { outdated: true, reason: "Stats engine changed" };
   }
-  if (isDifferent(experiment.activationMetric, snapshot.activationMetric)) {
+  if (
+    isDifferent(experiment.activationMetric, snapshotSettings.activationMetric)
+  ) {
     return { outdated: true, reason: "Activation metric changed" };
   }
-  if (isDifferent(experiment.segment, snapshot.segment)) {
+  if (isDifferent(experiment.segment, snapshotSettings.segment)) {
     return { outdated: true, reason: "Segment changed" };
   }
-  if (isDifferent(experiment.queryFilter, snapshot.queryFilter)) {
+  if (isDifferent(experiment.queryFilter, snapshotSettings.queryFilter)) {
     return { outdated: true, reason: "Query filter changed" };
   }
-  if (experiment.datasource && !("skipPartialData" in snapshot)) {
-    return { outdated: true, reason: "Datasource changed" };
-  }
-  if (isDifferent(experiment.skipPartialData, snapshot.skipPartialData)) {
+  if (
+    isDifferent(experiment.skipPartialData, snapshotSettings.skipPartialData)
+  ) {
     return {
       outdated: true,
       reason: "In-progress conversion behavior changed",
@@ -77,7 +85,7 @@ function isOutdated(
   if (
     isDifferent(
       experimentRegressionAdjustmentEnabled,
-      !!snapshot.regressionAdjustmentEnabled
+      !!analysisSettings?.regressionAdjusted
     ) &&
     statsEngine === "frequentist"
   ) {
@@ -96,11 +104,11 @@ function isOutdated(
   if (
     (isDifferent(
       experimentSequentialEnabled,
-      !!snapshot.sequentialTestingEnabled
+      !!analysisSettings?.sequentialTesting
     ) ||
       (experimentSequentialEnabled &&
         experimentSequentialTuningParameter !==
-          snapshot.sequentialTestingTuningParameter)) &&
+          analysisSettings?.sequentialTestingTuningParameter)) &&
     statsEngine === "frequentist"
   ) {
     return { outdated: true, reason: "Sequential testing settings changed" };
@@ -137,6 +145,7 @@ export default function AnalysisSettingsBar({
     experiment,
     snapshot,
     latest,
+    analysis,
     dimension,
     mutateSnapshot: mutate,
     phase,
@@ -171,7 +180,7 @@ export default function AnalysisSettingsBar({
 
   const status = getQueryStatus(latest?.queries || [], latest?.error);
 
-  const hasData = (snapshot?.results?.[0]?.variations?.length ?? 0) > 0;
+  const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
   const [refreshError, setRefreshError] = useState("");
 
@@ -340,7 +349,7 @@ export default function AnalysisSettingsBar({
                     mutate={mutate}
                     phase={phase}
                     experiment={experiment}
-                    lastSnapshot={snapshot}
+                    lastAnalysis={analysis}
                     dimension={dimension}
                     statsEngine={statsEngine}
                     regressionAdjustmentEnabled={regressionAdjustmentEnabled}
@@ -382,11 +391,10 @@ export default function AnalysisSettingsBar({
               generateReport={true}
               queries={snapshot?.queries}
               queryError={snapshot?.error}
-              hasUserQuery={snapshot && !("skipPartialData" in snapshot)}
               supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
               hasData={hasData}
               metrics={experiment.metrics}
-              results={snapshot?.results}
+              results={analysis?.results}
               variations={variations}
               trackingKey={experiment.trackingKey}
               dimension={dimension}

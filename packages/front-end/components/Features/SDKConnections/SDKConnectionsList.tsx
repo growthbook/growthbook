@@ -68,7 +68,7 @@ export default function SDKConnectionsList() {
 
               const projectId = connection.project;
               const projectName = getProjectById(projectId)?.name || null;
-              const projectIsOprhaned = projectId && !projectName;
+              const projectIsDeReferenced = projectId && !projectName;
 
               return (
                 <tr
@@ -80,7 +80,7 @@ export default function SDKConnectionsList() {
                   }}
                 >
                   <td style={{ verticalAlign: "middle", width: 20 }}>
-                    {projectIsOprhaned ? (
+                    {projectIsDeReferenced ? (
                       <Tooltip body='This SDK connection is scoped to a project that no longer exists. This connection will no longer work until either a valid project or "All Projects" is selected.'>
                         <FaExclamationTriangle className="text-danger" />
                       </Tooltip>
@@ -107,7 +107,7 @@ export default function SDKConnectionsList() {
                   </td>
                   {projects.length > 0 && (
                     <td>
-                      {projectIsOprhaned ? (
+                      {projectIsDeReferenced ? (
                         <Tooltip
                           body={
                             <>
@@ -185,8 +185,8 @@ export default function SDKConnectionsList() {
                       </Tooltip>
                     )}
                   </td>
-                  <td>
-                    <div className="d-flex">
+                  <td style={{ maxWidth: 200 }}>
+                    <div className="d-flex flex-wrap">
                       {connection.languages.map((language) => (
                         <span className="mx-1" key={language}>
                           <SDKLanguageLogo language={language} />
