@@ -281,7 +281,10 @@ async function getFeatureDefinitionsResponse({
     });
   }
 
-  if (attributes && secureAttributeSalt !== undefined) {
+  const hasSecureAttributes = attributes?.some((a) =>
+    ["secureString", "secureString[]"].includes(a.datatype)
+  );
+  if (attributes && hasSecureAttributes && secureAttributeSalt !== undefined) {
     features = applyFeatureHashing(features, attributes, secureAttributeSalt);
 
     if (experiments) {

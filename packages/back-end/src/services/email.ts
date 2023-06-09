@@ -104,7 +104,12 @@ export async function sendExperimentChangesEmail(
   experimentName: string,
   experimentChanges: string[]
 ) {
-  const experimentUrl = APP_ORIGIN + "experiment/" + experimentId + "#results";
+  const experimentUrl =
+    APP_ORIGIN +
+    (APP_ORIGIN.endsWith("/") ? "" : "/") +
+    "experiment/" +
+    experimentId +
+    "#results";
   const html = nunjucks.render("experiment-changes.jinja", {
     experimentChanges,
     experimentUrl,
