@@ -4,7 +4,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
-import { MetricInterface } from "../../types/metric";
+import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import {
   DataSourceInterface,
   DataSourceSettings,
@@ -50,7 +50,7 @@ function adjustWeights(weights: number[]): number[] {
   });
 }
 
-export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
+export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
   const newDoc = { ...doc };
 
   if (doc.conversionDelayHours == null && doc.earlyStart) {
@@ -80,6 +80,13 @@ export function upgradeMetricDoc(doc: MetricInterface): MetricInterface {
       newDoc.userIdColumns = newDoc.userIdColumns || {};
       newDoc.userIdColumns[type] = val;
     });
+  }
+
+  if (doc.cap !== undefined) {
+    newDoc.capValue = doc.cap;
+    newDoc.capping = "absolute";
+  } else if (doc.capping === undefined) {
+    newDoc.capping = "";
   }
 
   return newDoc;

@@ -73,7 +73,7 @@ import { EventAuditUser } from "../events/event-types";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
 import {
-  getMetricForSnapsot,
+  getMetricForSnapshot,
   getReportVariations,
   startExperimentAnalysis,
 } from "./reports";
@@ -333,7 +333,7 @@ export function getSnapshotSettings({
     ]),
   ]
     .map((m) =>
-      getMetricForSnapsot(
+      getMetricForSnapshot(
         m,
         metricMap,
         metricRegressionAdjustmentStatuses,
@@ -1115,6 +1115,7 @@ export function postMetricApiPayloadToMetricInterface(
     ignoreNulls: false,
     queries: [],
     runStarted: null,
+    capping: "",
     type,
     userIdColumns: (sqlBuilder?.identifierTypeColumns || []).reduce<
       Record<string, string>
@@ -1126,8 +1127,14 @@ export function postMetricApiPayloadToMetricInterface(
 
   // Assign all undefined behavior fields to the metric
   if (behavior) {
-    if (typeof behavior.cap !== "undefined") {
-      metric.cap = behavior.cap;
+    if (typeof behavior.capping !== "undefined") {
+      metric.capping = behavior.capping;
+      metric.capValue = behavior.capValue;
+    }
+    // handle old post requests
+    else if (typeof behavior.cap !== "undefined") {
+      metric.capping = "absolute";
+      metric.capValue = behavior.cap;
     }
 
     if (typeof behavior.conversionWindowStart !== "undefined") {
@@ -1238,7 +1245,8 @@ export function toMetricApiInterface(
     type: metric.type,
     behavior: {
       goal: metric.inverse ? "decrease" : "increase",
-      cap: metric.cap || 0,
+      capping: metric.capping,
+      capValue: metric.capValue || 0,
       minPercentChange:
         metric.minPercentChange ?? metricDefaults?.minPercentageChange ?? 0.005,
       maxPercentChange:
@@ -1265,9 +1273,7 @@ export function toMetricApiInterface(
         })),
       };
     } else if (datasource.type !== "google_analytics") {
-      const identifierTypes = metric.userIdTypes ?? [
-        metric.userIdType ?? "user_id",
-      ];
+      const identifierTypes = metric.userIdTypes ?? ["user_id"];
       obj.sql = {
         identifierTypes,
         // TODO: if builder mode is selected, use that to generate the SQL here
@@ -1280,14 +1286,7 @@ export function toMetricApiInterface(
         obj.sqlBuilder = {
           identifierTypeColumns: identifierTypes.map((t) => ({
             identifierType: t,
-            columnName:
-              metric.userIdColumns?.[t] ||
-              (t === "user_id"
-                ? metric.userIdColumn
-                : t === "anonymous_id"
-                ? metric.anonymousIdColumn
-                : t) ||
-              t,
+            columnName: metric.userIdColumns?.[t] || t,
           })),
           tableName: metric.table || "",
           valueColumnName: metric.column || "",

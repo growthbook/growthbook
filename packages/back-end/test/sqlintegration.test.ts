@@ -10,6 +10,7 @@ describe("bigquery integration", () => {
       dateUpdated: new Date(),
       description: "",
       id: "",
+      capping: "",
       ignoreNulls: false,
       inverse: false,
       name: "",

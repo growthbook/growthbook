@@ -3,7 +3,7 @@ import { Queries } from "./query";
 export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=" | "=>";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";
 export type MetricStatus = "active" | "archived";
-
+export type MetricCappingType = "" | "absolute" | "percentile";
 export interface MetricStats {
   users: number;
   count: number;
@@ -37,7 +37,8 @@ export interface MetricInterface {
   earlyStart?: boolean;
   inverse: boolean;
   ignoreNulls: boolean;
-  cap?: number;
+  capping: MetricCappingType;
+  capValue?: number;
   denominator?: string;
   conversionWindowHours?: number;
   conversionDelayHours?: number;
@@ -54,8 +55,6 @@ export interface MetricInterface {
   segment?: string;
   dateCreated: Date | null;
   dateUpdated: Date | null;
-  /** @deprecated */
-  userIdType?: "anonymous" | "user" | "either";
   userIdTypes?: string[];
   userIdColumns?: Record<string, string>;
   queries: Queries;
@@ -68,11 +67,17 @@ export interface MetricInterface {
   // Query Builder Props (alternative to sql)
   table?: string;
   column?: string;
-  /** @deprecated */
-  userIdColumn?: string;
-  /** @deprecated */
-  anonymousIdColumn?: string;
   timestampColumn?: string;
   conditions?: Condition[];
   queryFormat?: "sql" | "builder";
 }
+
+export type LegacyMetricInterface = MetricInterface & {
+  cap?: number;
+  /** @deprecated */
+  userIdType?: "anonymous" | "user" | "either";
+  /** @deprecated */
+  userIdColumn?: string;
+  /** @deprecated */
+  anonymousIdColumn?: string;
+};

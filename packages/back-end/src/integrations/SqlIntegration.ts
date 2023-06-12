@@ -855,8 +855,6 @@ export default abstract class SqlIntegration
         ? denominatorMetrics[0]
         : metric;
 
-    const capPercentile = 0.99;
-
     return format(
       `-- ${metric.name} (${metric.type})
     WITH
@@ -1065,11 +1063,11 @@ export default abstract class SqlIntegration
           d.${baseIdType}
       )
       ${
-        capPercentile
+        metric.capping === "percentile" && metric.capValue
           ? `
         , __capValue AS (
           SELECT
-            ${this.percentileCapSelectClause(capPercentile)}
+            ${this.percentileCapSelectClause(metric.capValue)}
           FROM 
             __userMetric
         )
@@ -1104,7 +1102,19 @@ export default abstract class SqlIntegration
                 d.variation,
                 d.dimension,
                 d.${baseIdType}
-            )`
+            )
+            ${
+              denominator.capping === "percentile" && denominator.capValue
+                ? `
+              , __capValueDenominator AS (
+                SELECT
+                  ${this.percentileCapSelectClause(denominator.capValue)}
+                FROM 
+                  __userDenominator
+              )
+              `
+                : ""
+            }`
           : ""
       }
       , __stats AS (
@@ -1113,40 +1123,52 @@ export default abstract class SqlIntegration
           ${isRatio ? `d` : `m`}.variation,
           ${isRatio ? `d` : `m`}.dimension,
           COUNT(*) AS count,
-          SUM(${this.getValueForStats("m.value", !!capPercentile)}) AS main_sum,
-          SUM(POWER(${this.getValueForStats(
+          SUM(${this.capCoalesceValue("m.value", metric)}) AS main_sum,
+          SUM(POWER(${this.capCoalesceValue(
             "m.value",
-            !!capPercentile
+            metric
           )}, 2)) AS main_sum_squares
           ${
             isRatio
               ? `,
-            SUM(COALESCE(d.value, 0)) AS denominator_sum,
-            SUM(POWER(COALESCE(d.value, 0), 2)) AS denominator_sum_squares,
-            SUM(COALESCE(d.value, 0) * ${this.getValueForStats(
-              "m.value",
-              !!capPercentile
-            )}) AS main_denominator_sum_product
+              SUM(${this.capCoalesceValue(
+                "d.value",
+                denominator,
+                "cd"
+              )}) AS denominator_sum,
+            SUM(POWER(${this.capCoalesceValue(
+              "d.value",
+              denominator,
+              "cd"
+            )}, 2)) AS denominator_sum_squares,
+            SUM(${this.capCoalesceValue(
+              "d.value",
+              denominator,
+              "cd"
+            )} * ${this.capCoalesceValue(
+                  "m.value",
+                  metric
+                )}) AS main_denominator_sum_product
           `
               : ""
           }
           ${
             isRegressionAdjusted
               ? `,
-              SUM(${this.getValueForStats(
+              SUM(${this.capCoalesceValue(
                 "m.covariate_value",
-                !!capPercentile
+                metric
               )}) AS covariate_sum,
-              SUM(POWER(${this.getValueForStats(
+              SUM(POWER(${this.capCoalesceValue(
                 "m.covariate_value",
-                !!capPercentile
+                metric
               )}, 2)) AS covariate_sum_squares,
-              SUM(${this.getValueForStats(
+              SUM(${this.capCoalesceValue(
                 "m.value",
-                !!capPercentile
-              )} * ${this.getValueForStats(
+                metric
+              )} * ${this.capCoalesceValue(
                   "m.covariate_value",
-                  !!capPercentile
+                  metric
                 )}) AS main_covariate_sum_product
               `
               : ""
@@ -1157,10 +1179,19 @@ export default abstract class SqlIntegration
             ? `__userDenominator d
               LEFT JOIN __userMetric m ON (
                 d.${baseIdType} = m.${baseIdType}
-              )`
+              )
+              ${
+                denominator.capping === "percentile" && denominator.capValue
+                  ? "CROSS JOIN __capValueDenominator cd"
+                  : ""
+              }`
             : `__userMetric m`
         }
-        ${capPercentile ? `CROSS JOIN __capValue c` : ""}
+        ${
+          metric.capping === "percentile" && metric.capValue
+            ? `CROSS JOIN __capValue c`
+            : ""
+        }
         ${
           isRegressionAdjusted && metric.ignoreNulls ? `WHERE m.value != 0` : ""
         }
@@ -1225,9 +1256,16 @@ export default abstract class SqlIntegration
   percentileCapSelectClause(capPercentile: number) {
     return `PERCENTILE_CONT(${capPercentile}) WITHIN GROUP (ORDER BY value) AS cap_value`;
   }
-  private getValueForStats(valueCol: string, pctileCapping: boolean): string {
-    if (pctileCapping) {
-      return `LEAST(COALESCE(${valueCol}, 0), c.cap_value)`;
+  private capCoalesceValue(
+    valueCol: string,
+    metric: MetricInterface,
+    prefix: string = "c"
+  ): string {
+    if (metric.capping === "absolute" && metric.capValue) {
+      return `LEAST(COALESCE(${valueCol}, 0), ${metric.capValue})`;
+    }
+    if (metric.capping === "percentile" && metric.capValue) {
+      return `LEAST(COALESCE(${valueCol}, 0), ${prefix}.cap_value)`;
     }
     return `COALESCE(${valueCol}, 0)`;
   }
@@ -1581,14 +1619,6 @@ export default abstract class SqlIntegration
     `;
   }
 
-  private capValue(cap: number | undefined, value: string) {
-    if (!cap) {
-      return value;
-    }
-
-    return `LEAST(${cap}, ${value})`;
-  }
-
   private addPrePostTimeFilter(
     col: string,
     timePeriod: MetricAggregationType
@@ -1629,41 +1659,29 @@ export default abstract class SqlIntegration
       else if (metric.aggregation) {
         // prePostTimeFilter (and regression adjustment) not implemented for
         // custom aggregate metrics
-        return this.capValue(metric.cap, metric.aggregation);
+        return metric.aggregation;
       }
       // Standard aggregation (SUM)
       else {
-        return this.capValue(
-          metric.cap,
-          `SUM(${this.addPrePostTimeFilter(`m.value`, metricTimeWindow)})`
-        );
+        return `SUM(${this.addPrePostTimeFilter(`m.value`, metricTimeWindow)})`;
       }
     }
     // Query builder
     else {
       // Count metrics that specify a distinct column to count
       if (metric.type === "count" && metric.column) {
-        return this.capValue(
-          metric.cap,
-          `COUNT(DISTINCT (${this.addPrePostTimeFilter(
-            `m.value`,
-            metricTimeWindow
-          )}))`
-        );
+        return `COUNT(DISTINCT (${this.addPrePostTimeFilter(
+          `m.value`,
+          metricTimeWindow
+        )}))`;
       }
       // Count metrics just do a simple count of rows by default
       else if (metric.type === "count") {
-        return this.capValue(
-          metric.cap,
-          `SUM(${this.addPrePostTimeFilter("1", metricTimeWindow)})`
-        );
+        return `SUM(${this.addPrePostTimeFilter("1", metricTimeWindow)})`;
       }
       // Revenue and duration metrics use MAX by default
       else {
-        return this.capValue(
-          metric.cap,
-          `MAX(${this.addPrePostTimeFilter(`m.value`, metricTimeWindow)})`
-        );
+        return `MAX(${this.addPrePostTimeFilter(`m.value`, metricTimeWindow)})`;
       }
     }
   }

@@ -718,7 +718,17 @@ paths:
                         - decrease
                     cap:
                       type: number
-                      description: This should be non-negative
+                      description: '(deprecated, use capping and capValue fields instead) This should be non-negative'
+                      minimum: 0
+                    capping:
+                      type: string
+                      description: 'Used in conjunction with `capValue` to set the capping (winsorization). Do not specify for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0.'
+                      enum:
+                        - absolute
+                        - percentile
+                    capValue:
+                      type: number
+                      description: This should be non-negative.
                       minimum: 0
                     conversionWindowStart:
                       type: number
@@ -1327,7 +1337,6 @@ components:
           type: object
           required:
             - goal
-            - cap
             - conversionWindowStart
             - conversionWindowEnd
             - riskThresholdSuccess
@@ -1342,6 +1351,14 @@ components:
                 - increase
                 - decrease
             cap:
+              type: number
+            capping:
+              type: string
+              enum:
+                - null
+                - absolute
+                - percentile
+            capValue:
               type: number
             conversionWindowStart:
               type: number

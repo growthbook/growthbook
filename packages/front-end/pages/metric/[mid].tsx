@@ -1088,11 +1088,15 @@ const MetricPage: FC = () => {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                  {metric.cap > 0 && (
+                  {metric.capping && (
                     <li className="mb-2">
-                      <span className="text-gray">Capped value:</span>{" "}
-                      <span className="font-weight-bold">{metric.cap}</span>
+                      <span className="text-gray">
+                        Cap value ({metric.capping}):{" "}
+                      </span>
+                      <span className="font-weight-bold">
+                        {metric.capValue}{" "}
+                        {metric.capping === "percentile" ? "pctile" : ""}{" "}
+                      </span>
                     </li>
                   )}
                   {metric.ignoreNulls && (

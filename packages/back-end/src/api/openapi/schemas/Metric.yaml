@@ -48,7 +48,6 @@ properties:
     type: object
     required:
       - goal
-      - cap
       - conversionWindowStart
       - conversionWindowEnd
       - riskThresholdSuccess
@@ -63,6 +62,14 @@ properties:
           - increase
           - decrease
       cap:
+        type: number
+      capping:
+        type: string
+        enum:
+          - 
+          - absolute
+          - percentile
+      capValue:
         type: number
       conversionWindowStart:
         type: number

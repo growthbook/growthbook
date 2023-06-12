@@ -117,7 +117,10 @@ const baseExperiment: ExperimentInterface = {
 };
 
 // Pseudo-MetricInterface, missing the fields in TestMetricConfig
-const baseMetric = {
+const baseMetric: Omit<
+  MetricInterface,
+  "id" | "type" | "ignoreNulls" | "sql"
+> = {
   organization: "",
   owner: "",
   datasource: "",
@@ -125,6 +128,7 @@ const baseMetric = {
   conversionWindowHours: 72,
   conversionDelayHours: 0,
   description: "",
+  capping: "",
   inverse: false,
   dateCreated: null,
   dateUpdated: null,

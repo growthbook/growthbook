@@ -4,6 +4,7 @@ import {
   Condition,
   MetricType,
   Operator,
+  MetricCappingType,
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
 import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
@@ -238,7 +239,8 @@ const MetricForm: FC<MetricFormProps> = ({
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       queryFormat: current.queryFormat || (current.sql ? "sql" : "builder"),
-      cap: current.cap || 0,
+      capping: current.capping || ("" as MetricCappingType),
+      capValue: current.capValue || 0,
       conversionWindowHours:
         current.conversionWindowHours || getDefaultConversionWindowHours(),
       conversionDelayHours: current.conversionDelayHours || 0,
@@ -246,10 +248,7 @@ const MetricForm: FC<MetricFormProps> = ({
       aggregation: current.aggregation || "",
       conditions: current.conditions || [],
       userIdTypes: current.userIdTypes || [],
-      userIdColumns: current.userIdColumns || {
-        user_id: current.userIdColumn || "user_id",
-        anonymous_id: current.anonymousIdColumn || "anonymous_id",
-      },
+      userIdColumns: current.userIdColumns || {},
       timestampColumn: current.timestampColumn || "",
       tags: current.tags || [],
       projects:
@@ -943,16 +942,51 @@ const MetricForm: FC<MetricFormProps> = ({
           {capSupported &&
             ["count", "duration", "revenue"].includes(value.type) && (
               <div className="form-group">
-                <label>Capped Value</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  {...form.register("cap", { valueAsNumber: true })}
+                <label>Cap User Values?</label>
+                <SelectField
+                  value={form.watch("capping")}
+                  onChange={(v: MetricCappingType) => {
+                    form.setValue("capping", v);
+                  }}
+                  sort={false}
+                  options={[
+                    {
+                      value: "",
+                      label: `No`,
+                    },
+                    {
+                      value: "absolute",
+                      label: `Absolute capping`,
+                    },
+                    {
+                      value: "percentile",
+                      label: `Percentile capping`,
+                    },
+                  ]}
                 />
                 <small className="text-muted">
-                  If greater than zero, any user who has more than this count
-                  will be capped at this value.
+                  Capping (winsorization) can reduce variance by capping
+                  aggregated user values.
                 </small>
+                <div
+                  style={{
+                    display: form.watch("capping") ? "block" : "none",
+                  }}
+                  className="px-3 py-2 pb-0 mb-4 border rounded"
+                >
+                  <label>Capped Value</label>
+                  <input
+                    type="number"
+                    className="form-control"
+                    {...form.register("capValue", { valueAsNumber: true })}
+                  />
+                  <small className="text-muted">
+                    {form.watch("capping") === "absolute"
+                      ? `
+                Absolute capping: if greater than zero, aggregated user values will be capped at this value.`
+                      : `Percentile capping: if greater than zero, we use all metric data in the experiment to compute the percentiles of the user aggregated values. Then, we get the value at the percentile provided and cap all users at this value. Enter a number between 0 and 99.999`}
+                  </small>
+                </div>
               </div>
             )}
 
