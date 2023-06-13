@@ -8,6 +8,7 @@ export default class Snowflake extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   params: SnowflakeConnectionParams;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<SnowflakeConnectionParams>(
       encryptedParams
@@ -34,17 +35,10 @@ export default class Snowflake extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
-  getInformationSchemaFromClause(): string {
-    if (!this.params.database)
-      throw new Error(
-        "No database provided. In order to get the information schema, you must provide a database."
-      );
-    return `${this.params.database}.information_schema.columns`;
-  }
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('INFORMATION_SCHEMA')";
   }
-  getInformationSchemaTableFromClause(databaseName: string): string {
-    return `${databaseName}.information_schema.columns`;
+  getDefaultDatabase() {
+    return this.params.database || "";
   }
 }

@@ -13,7 +13,7 @@ services:
     depends_on:
       - mongo
     environment:
-      - MONGODB_URI=mongodb://root:password@mongo:27017/
+      - MONGODB_URI=mongodb://root:password@mongo:27017/growthbook?authSource=admin
       - APP_ORIGIN=https://growthbook-3000-${OKTETO_NAMESPACE}.growthbook.okteto.dev
       - API_HOST=https://growthbook-3100-${OKTETO_NAMESPACE}.growthbook.okteto.dev
       - JWT_SECRET=${JWT_SECRET}

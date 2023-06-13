@@ -88,17 +88,14 @@ const ProjectsPage: FC = () => {
               return (
                 <tr
                   key={p.id}
-                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((e: MouseEvent<HTMLTableRowElement, MouseEv... Remove this comment to see the full error message
                   onClick={
                     canManage
-                      ? (e) => {
-                          e.preventDefault();
+                      ? () => {
                           router.push(`/project/${p.id}`);
                         }
-                      : null
+                      : undefined
                   }
-                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ cursor: "pointer"; } | null' is not assign... Remove this comment to see the full error message
-                  style={canManage ? { cursor: "pointer" } : null}
+                  style={canManage ? { cursor: "pointer" } : {}}
                 >
                   <td>
                     {canManage ? (
@@ -119,16 +116,13 @@ const ProjectsPage: FC = () => {
                     style={{ cursor: "initial" }}
                     onClick={(e) => {
                       e.stopPropagation();
-                      e.preventDefault();
                     }}
                   >
                     {canManage && (
                       <MoreMenu>
                         <button
                           className="btn dropdown-item py-2"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
+                          onClick={() => {
                             setModalOpen(p);
                           }}
                         >
@@ -144,7 +138,6 @@ const ProjectsPage: FC = () => {
                             });
                             mutateDefinitions();
                           }}
-                          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Element | null' is not assignable to type 's... Remove this comment to see the full error message
                           additionalMessage={
                             sdkConnectionsData?.connections?.find(
                               (c) => c.project === p.id

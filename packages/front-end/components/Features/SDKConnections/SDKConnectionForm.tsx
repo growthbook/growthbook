@@ -4,10 +4,14 @@ import {
   SDKLanguage,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import { FaExclamationTriangle, FaInfoCircle } from "react-icons/fa";
+import {
+  FaExclamationCircle,
+  FaExclamationTriangle,
+  FaInfoCircle,
+} from "react-icons/fa";
 import { BsLightningFill } from "react-icons/bs";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
@@ -23,6 +27,7 @@ import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { DocLink } from "@/components/DocLink";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 import SDKLanguageLogo, { languageMapping } from "./SDKLanguageLogo";
 
@@ -45,6 +50,9 @@ export default function SDKConnectionForm({
   const { hasCommercialFeature } = useUser();
 
   const hasCloudProxyFeature = hasCommercialFeature("cloud-proxy");
+  const hasSecureAttributesFeature = hasCommercialFeature(
+    "hash-secure-attributes"
+  );
 
   useEffect(() => {
     if (edit) return;
@@ -57,17 +65,19 @@ export default function SDKConnectionForm({
 
   const form = useForm({
     defaultValues: {
-      name: initialValue.name || "",
-      languages: initialValue.languages || [],
-      environment: initialValue.environment || environments[0]?.id || "",
-      project: "project" in initialValue ? initialValue.project : project || "",
-      encryptPayload: initialValue.encryptPayload || false,
-      includeVisualExperiments: initialValue.includeVisualExperiments || false,
-      includeDraftExperiments: initialValue.includeDraftExperiments || false,
-      includeExperimentNames: initialValue.includeExperimentNames || false,
-      proxyEnabled: initialValue.proxy?.enabled || false,
-      proxyHost: initialValue.proxy?.host || "",
-      sseEnabled: initialValue.sseEnabled || false,
+      name: initialValue.name ?? "",
+      languages: initialValue.languages ?? [],
+      environment: initialValue.environment ?? environments[0]?.id ?? "",
+      project: "project" in initialValue ? initialValue.project : project ?? "",
+      encryptPayload: initialValue.encryptPayload ?? false,
+      hashSecureAttributes:
+        initialValue.hashSecureAttributes ?? hasSecureAttributesFeature,
+      includeVisualExperiments: initialValue.includeVisualExperiments ?? false,
+      includeDraftExperiments: initialValue.includeDraftExperiments ?? false,
+      includeExperimentNames: initialValue.includeExperimentNames ?? false,
+      proxyEnabled: initialValue.proxy?.enabled ?? false,
+      proxyHost: initialValue.proxy?.host ?? "",
+      sseEnabled: initialValue.sseEnabled ?? false,
     },
   });
 
@@ -83,7 +93,7 @@ export default function SDKConnectionForm({
 
   const languages = form.watch("languages");
 
-  const hasSDKsWithoutEncryptionSupport = languages.some(
+  const selectedLanguagesWithoutEncryptionSupport = languages.filter(
     (l) => !languageMapping[l].supportsEncryption
   );
   const hasNoSDKsWithVisualExperimentSupport = languages.every(
@@ -102,10 +112,11 @@ export default function SDKConnectionForm({
     value: p.id,
   }));
   const projectId = initialValue.project;
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const projectName = getProjectById(projectId)?.name || null;
-  const projectIsOprhaned = projectId && !projectName;
-  if (projectIsOprhaned) {
+  const projectName = projectId
+    ? getProjectById(projectId)?.name || null
+    : null;
+  const projectIsDeReferenced = projectId && !projectName;
+  if (projectIsDeReferenced) {
     projectsOptions.push({
       label: "Invalid project",
       value: projectId,
@@ -117,14 +128,6 @@ export default function SDKConnectionForm({
       header={edit ? "Edit SDK Connection" : "New SDK Connection"}
       size={"lg"}
       submit={form.handleSubmit(async (value) => {
-        // Make sure encryption is disabled if they selected at least 1 language that's not supported
-        // This is already be enforced in the UI, but there are some edge cases that might otherwise get through
-        // For example, toggling encryption ON and then selecting an unsupported language
-        if (
-          value.languages.some((l) => !languageMapping[l].supportsEncryption)
-        ) {
-          value.encryptPayload = false;
-        }
         if (
           languages.every((l) => !languageMapping[l].supportsVisualExperiments)
         ) {
@@ -132,11 +135,12 @@ export default function SDKConnectionForm({
         }
         if (!value.includeVisualExperiments) {
           value.includeDraftExperiments = false;
+          value.includeExperimentNames = false;
         }
 
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ name: string; languages: SDKLanguage[]; en... Remove this comment to see the full error message
         const body: Omit<CreateSDKConnectionParams, "organization"> = {
           ...value,
+          project: value.project || "",
         };
 
         if (edit) {
@@ -149,6 +153,7 @@ export default function SDKConnectionForm({
           track("Create SDK Connection", {
             languages: value.languages,
             encryptPayload: value.encryptPayload,
+            hashSecureAttributes: value.hashSecureAttributes,
             proxyEnabled: value.proxyEnabled,
           });
           const res = await apiCall<{ connection: SDKConnectionInterface }>(
@@ -182,12 +187,11 @@ export default function SDKConnectionForm({
         </small>
       </div>
 
-      {(projects.length > 0 || projectIsOprhaned) && (
+      {(projects.length > 0 || projectIsDeReferenced) && (
         <SelectField
           label="Project"
           initialOption="All Projects"
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-          value={form.watch("project")}
+          value={form.watch("project") || ""}
           onChange={(project) => form.setValue("project", project)}
           options={projectsOptions}
           sort={false}
@@ -195,7 +199,7 @@ export default function SDKConnectionForm({
             if (value === "") {
               return <em>{label}</em>;
             }
-            if (value === projectId && projectIsOprhaned) {
+            if (value === projectId && projectIsDeReferenced) {
               return (
                 <Tooltip
                   body={
@@ -314,8 +318,7 @@ export default function SDKConnectionForm({
 
       {(!hasNoSDKsWithSSESupport || initialValue.sseEnabled) &&
         isCloud() &&
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-        gb.isOn("proxy-cloud-sse") && (
+        gb?.isOn("proxy-cloud-sse") && (
           <div className="mt-3 mb-3">
             <label htmlFor="sdk-connection-sseEnabled-toggle">
               <PremiumTooltip
@@ -394,8 +397,7 @@ export default function SDKConnectionForm({
         )}
 
       {/*todo: deprecate this in favor of sseEnabled switch?*/}
-      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-      {isCloud() && gb.isOn("proxy-cloud") && (
+      {isCloud() && gb?.isOn("proxy-cloud") && (
         <>
           <div className="mb-3">
             <label htmlFor="sdk-connection-proxy-toggle">
@@ -422,15 +424,85 @@ export default function SDKConnectionForm({
         </>
       )}
 
-      {languages.length > 0 && !hasSDKsWithoutEncryptionSupport && (
-        <EncryptionToggle
-          showUpgradeModal={() => setUpgradeModal(true)}
-          value={form.watch("encryptPayload")}
-          setValue={(value) => form.setValue("encryptPayload", value)}
-          showRequiresChangesWarning={edit}
-          showUpgradeMessage={false}
-        />
-      )}
+      <div className="form-group mt-4">
+        <label htmlFor="hash-secure-attributes">
+          <PremiumTooltip
+            commercialFeature="encrypt-features-endpoint"
+            body={
+              <>
+                <p>
+                  Feature targeting conditions referencing{" "}
+                  <code>secureString</code> attributes will be anonymized via
+                  SHA-256 hashing. When evaluating feature flags in a public or
+                  insecure environment (such as a browser), hashing provides an
+                  additional layer of security through obfuscation. This allows
+                  you to target users based on sensitive attributes.
+                </p>
+                <p className="mb-0 text-warning-orange small">
+                  <FaExclamationCircle /> When using an insecure environment, do
+                  not rely exclusively on hashing as a means of securing highly
+                  sensitive data. Hashing is an obfuscation technique that makes
+                  it very difficult, but not impossible, to extract sensitive
+                  data.
+                </p>
+              </>
+            }
+          >
+            Hash secure attributes? <FaInfoCircle />
+          </PremiumTooltip>
+        </label>
+        <div className="row mb-4">
+          <div className="col-md-3">
+            <Toggle
+              id="hash-secure-attributes"
+              value={form.watch("hashSecureAttributes")}
+              setValue={(val) => form.setValue("hashSecureAttributes", val)}
+              disabled={!hasSecureAttributesFeature}
+            />
+          </div>
+          <div
+            className="col-md-9 text-gray text-right pt-2"
+            style={{ fontSize: 11 }}
+          >
+            Requires changes to your implementation.{" "}
+            <DocLink docSection="hashSecureAttributes">View docs</DocLink>
+          </div>
+        </div>
+      </div>
+
+      <EncryptionToggle
+        showUpgradeModal={() => setUpgradeModal(true)}
+        value={form.watch("encryptPayload")}
+        setValue={(value) => form.setValue("encryptPayload", value)}
+        showRequiresChangesWarning={true}
+        showUpgradeMessage={false}
+      />
+      {form.watch("encryptPayload") &&
+        selectedLanguagesWithoutEncryptionSupport.length > 0 && (
+          <p
+            className="mb-0 text-warning-orange small"
+            style={{ marginTop: -15 }}
+          >
+            <FaExclamationCircle /> Payload decryption is not natively supported
+            in the selected SDK
+            {selectedLanguagesWithoutEncryptionSupport.length === 1 ? "" : "s"}:
+            <div className="ml-2 mt-1">
+              {selectedLanguagesWithoutEncryptionSupport.map((id, i) => (
+                <span className="nowrap" key={id}>
+                  <SDKLanguageLogo language={id} size={14} />
+                  <span
+                    className="text-muted font-weight-bold"
+                    style={{ marginLeft: 2, verticalAlign: 3 }}
+                  >
+                    {languageMapping[id].label}
+                  </span>
+                  {i < selectedLanguagesWithoutEncryptionSupport.length - 1 &&
+                    ", "}
+                </span>
+              ))}
+            </div>
+          </p>
+        )}
     </Modal>
   );
 }

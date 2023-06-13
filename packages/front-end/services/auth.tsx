@@ -30,7 +30,7 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   loading: boolean;
   logout: () => Promise<void>;
-  apiCall: <T>(url: string, options?: RequestInit) => Promise<T>;
+  apiCall: <T>(url: string | null, options?: RequestInit) => Promise<T>;
   orgId?: string;
   setOrgId?: (orgId: string) => void;
   organizations?: UserOrganizations;
@@ -261,7 +261,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({
   );
 
   const apiCall = useCallback(
-    async (url: string, options: RequestInit = {}) => {
+    async (url: string | null, options: RequestInit = {}) => {
+      if (typeof url !== "string") return;
+
       let responseData = await _makeApiCall(url, token, options);
 
       if (responseData.status && responseData.status >= 400) {

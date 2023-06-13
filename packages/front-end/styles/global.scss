@@ -1552,6 +1552,10 @@ li.metrics a span img {
   .testname {
     font-weight: 400;
     color: var(--text-color-main);
+
+    &:hover {
+      text-decoration: none;
+    }
   }
   .hypothesis {
     font-size: 1em;

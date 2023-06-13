@@ -46,6 +46,11 @@ export interface FeatureInterface {
     date: Date;
     publishedBy: UserRef;
   };
+  jsonSchema?: {
+    schema: string;
+    date: Date;
+    enabled: boolean;
+  };
 }
 type ScheduleRule = {
   timestamp: string | null;
