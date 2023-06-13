@@ -1,10 +1,6 @@
 import mongoose, { FilterQuery } from "mongoose";
 import omit from "lodash/omit";
-import {
-  ExperimentSnapshotInterface,
-  LegacyExperimentSnapshotInterface,
-} from "../../types/experiment-snapshot";
-import { migrateSnapshot } from "../util/migrations";
+import { ExperimentSnapshotInterface } from "../../types/experiment-snapshot";
 import { queriesSchema } from "./QueryModel";
 
 const experimentSnapshotSchema = new mongoose.Schema({
@@ -27,9 +23,6 @@ const experimentSnapshotSchema = new mongoose.Schema({
   unknownVariations: [String],
   multipleExposures: Number,
   hasCorrectedStats: Boolean,
-  status: String,
-  settings: {},
-  analyses: {},
   results: [
     {
       _id: false,
@@ -101,19 +94,16 @@ experimentSnapshotSchema.index({
 });
 
 type ExperimentSnapshotDocument = mongoose.Document &
-  LegacyExperimentSnapshotInterface;
+  ExperimentSnapshotInterface;
 
-const ExperimentSnapshotModel = mongoose.model<LegacyExperimentSnapshotInterface>(
+const ExperimentSnapshotModel = mongoose.model<ExperimentSnapshotDocument>(
   "ExperimentSnapshot",
   experimentSnapshotSchema
 );
 
 const toInterface = (
   doc: ExperimentSnapshotDocument
-): ExperimentSnapshotInterface =>
-  migrateSnapshot(
-    omit(doc.toJSON<ExperimentSnapshotDocument>(), ["__v", "_id"])
-  );
+): ExperimentSnapshotInterface => omit(doc.toJSON(), ["__v", "_id"]);
 
 export async function updateSnapshotsOnPhaseDelete(
   organization: string,
@@ -184,29 +174,11 @@ export async function getLatestSnapshot(
     dimension: dimension || null,
   };
 
-  // First try getting new snapshots that have a `status` field
-  let all = await ExperimentSnapshotModel.find(
-    {
-      ...query,
-      status: {
-        $in: withResults ? ["success"] : ["success", "running", "error"],
-      },
-    },
-    null,
-    {
-      sort: { dateCreated: -1 },
-      limit: 1,
-    }
-  ).exec();
-  if (all[0]) {
-    return toInterface(all[0]);
-  }
-
-  // Otherwise, try getting old snapshot records
   if (withResults) {
     query.results = { $exists: true, $type: "array", $ne: [] };
   }
-  all = await ExperimentSnapshotModel.find(query, null, {
+
+  const all = await ExperimentSnapshotModel.find(query, null, {
     sort: { dateCreated: -1 },
     limit: 1,
   }).exec();

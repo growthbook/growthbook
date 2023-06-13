@@ -22,7 +22,7 @@ featureRevisionSchema.index(
 
 type FeatureRevisionDocument = mongoose.Document & FeatureRevisionInterface;
 
-const FeatureRevisionModel = mongoose.model<FeatureRevisionInterface>(
+const FeatureRevisionModel = mongoose.model<FeatureRevisionDocument>(
   "FeatureRevision",
   featureRevisionSchema
 );
@@ -31,11 +31,11 @@ export async function getRevisions(
   organization: string,
   featureId: string
 ): Promise<FeatureRevisionInterface[]> {
-  const docs: FeatureRevisionDocument[] = await FeatureRevisionModel.find({
+  const docs = await FeatureRevisionModel.find({
     organization,
     featureId,
   });
-  return docs.map((d) => d.toJSON<FeatureRevisionDocument>());
+  return docs.map((d) => d.toJSON());
 }
 
 export async function saveRevision(feature: FeatureInterface) {

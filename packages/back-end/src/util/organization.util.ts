@@ -29,7 +29,6 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sequential-testing",
     "visual-editor",
     "cloud-proxy",
-    "hash-secure-attributes",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -41,7 +40,6 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sequential-testing",
     "visual-editor",
     "cloud-proxy",
-    "hash-secure-attributes",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
@@ -54,8 +52,6 @@ export const accountFeatures: CommercialFeaturesMap = {
     "sequential-testing",
     "visual-editor",
     "cloud-proxy",
-    "hash-secure-attributes",
-    "json-validation",
   ]),
 };
 export function getAccountPlan(org: OrganizationInterface): AccountPlan {

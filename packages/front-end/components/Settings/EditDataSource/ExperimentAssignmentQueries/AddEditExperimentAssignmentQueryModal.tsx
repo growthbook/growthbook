@@ -34,29 +34,30 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   const modalTitle =
     mode === "add"
       ? "Add an Experiment Assignment query"
-      : `Edit ${exposureQuery ? exposureQuery.name : ""} query`;
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+        `Edit ${exposureQuery.name}`;
 
-  const userIdTypeOptions = dataSource?.settings?.userIdTypes?.map(
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+  const userIdTypeOptions = dataSource.settings.userIdTypes.map(
     ({ userIdType }) => ({
       display: userIdType,
       value: userIdType,
     })
   );
-  const defaultUserId = userIdTypeOptions
-    ? userIdTypeOptions[0]?.value
-    : "user_id";
+  const defaultUserId = userIdTypeOptions[0]?.value || "user_id";
 
   const form = useForm<ExposureQuery>({
     defaultValues:
-      mode === "edit" && exposureQuery
-        ? cloneDeep<ExposureQuery>(exposureQuery)
+      mode === "edit"
+        ? // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'ExposureQuery | undefined' is no... Remove this comment to see the full error message
+          cloneDeep<ExposureQuery>(exposureQuery)
         : {
             description: "",
             id: uniqId("tbl_"),
             name: "",
             dimensions: [],
             query: `SELECT\n  ${defaultUserId} as ${defaultUserId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`,
-            userIdType: userIdTypeOptions ? userIdTypeOptions[0]?.value : "",
+            userIdType: userIdTypeOptions[0]?.value || "",
           },
   });
 
@@ -74,13 +75,15 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     await onSave(value);
 
     form.reset({
-      id: undefined,
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string | un... Remove this comment to see the full error message
+      id: null,
       query: "",
       name: "",
       dimensions: [],
       description: "",
       hasNameCol: false,
-      userIdType: undefined,
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string | un... Remove this comment to see the full error message
+      userIdType: null,
     });
   });
 
@@ -114,6 +117,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
         <EditSqlModal
           close={() => setSqlOpen(false)}
           datasourceId={dataSource.id || ""}
+          placeholder={`SELECT\n      ${userEnteredUserIdType}, date\nFROM\n      mytable`}
           requiredColumns={requiredColumns}
           value={userEnteredQuery}
           save={async (userEnteredQuery) =>

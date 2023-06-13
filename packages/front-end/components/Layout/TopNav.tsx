@@ -166,9 +166,8 @@ const TopNav: FC<{
                     href="#"
                     onClick={(e) => {
                       e.preventDefault();
-                      if (setOrgId) {
-                        setOrgId(o.id);
-                      }
+                      // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
+                      setOrgId(o.id);
 
                       try {
                         localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
@@ -196,7 +195,8 @@ const TopNav: FC<{
               }}
               style={{ cursor: "pointer" }}
             >
-              <Avatar email={email || ""} size={26} />{" "}
+              {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message */}
+              <Avatar email={email} size={26} />{" "}
               <span className="d-none d-lg-inline">{email}</span>
             </div>
             <div
@@ -226,17 +226,6 @@ const TopNav: FC<{
                   </Link>
                 </>
               )}
-              <div className="dropdown-divider"></div>
-              <Link href={"/account/personal-access-tokens"}>
-                <a
-                  className="dropdown-item"
-                  onClick={() => {
-                    setUserDropdownOpen(false);
-                  }}
-                >
-                  My Personal Access Tokens
-                </a>
-              </Link>
               <div className="dropdown-divider"></div>
               <button
                 className="dropdown-item"

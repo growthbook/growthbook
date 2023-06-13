@@ -8,7 +8,7 @@ const CopyToClipboard: FC<{
 }> = ({ text, label, action = "Copy to Clipboard", className }) => {
   const [supported, setSupported] = useState(false);
   const [success, setSuccess] = useState(false);
-  const ref = useRef<HTMLInputElement>(null);
+  const ref = useRef(null);
 
   useEffect(() => {
     if (document.queryCommandSupported("copy")) {
@@ -65,7 +65,8 @@ const CopyToClipboard: FC<{
             <button
               className="btn btn-secondary"
               onClick={(e) => {
-                ref.current?.select();
+                // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
+                ref.current.select();
                 document.execCommand("copy");
                 (e.target as HTMLButtonElement).focus();
                 setSuccess(true);

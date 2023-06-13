@@ -22,7 +22,7 @@ const discussionSchema = new mongoose.Schema({
 
 export type DiscussionDocument = mongoose.Document & DiscussionInterface;
 
-export const DiscussionModel = mongoose.model<DiscussionInterface>(
+export const DiscussionModel = mongoose.model<DiscussionDocument>(
   "Discussion",
   discussionSchema
 );

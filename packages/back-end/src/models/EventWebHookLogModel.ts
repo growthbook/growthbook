@@ -47,7 +47,7 @@ type EventWebHookLogDocument = mongoose.Document & EventWebHookLogInterface;
 const toInterface = (doc: EventWebHookLogDocument): EventWebHookLogDocument =>
   omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookLogDocument;
 
-const EventWebHookLogModel = mongoose.model<EventWebHookLogInterface>(
+const EventWebHookLogModel = mongoose.model<EventWebHookLogDocument>(
   "EventWebHookLog",
   eventWebHookLogSchema
 );

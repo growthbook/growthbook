@@ -32,7 +32,7 @@ const Button: FC<Props> = ({
   ...otherProps
 }) => {
   const [_internalLoading, setLoading] = useState(false);
-  const [error, setError] = useState<boolean | null>(false);
+  const [error, setError] = useState(false);
   const loading = _externalLoading || _internalLoading;
 
   return (
@@ -48,6 +48,7 @@ const Button: FC<Props> = ({
           e.preventDefault();
           if (loading) return;
           setLoading(true);
+          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
           setError(null);
 
           try {

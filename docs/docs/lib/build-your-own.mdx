@@ -7,7 +7,7 @@ slug: build-your-own
 
 # Build Your Own SDK
 
-**Latest spec version: 0.5.0 [View Changelog](#changelog)**
+**Latest spec version: 0.4.2 [View Changelog](#changelog)**
 
 This guide is meant for library authors looking to build a GrowthBook SDK in a currently unsupported language.
 
@@ -515,72 +515,16 @@ It should return:
    2. Return true
 2. Else, do a deep comparison between `attributeValue` and `conditionValue`. Return true if equal, false if not.
 
-### private elemMatch(conditionValue, attributeValue): boolean
+### private elemMatch(condition, attributeValue): boolean
 
 This checks if `attributeValue` is an array, and if so at least one of the array items must match the condition
 
 1. If `attributeValue` is not an array, return false
 2. Loop through items in `attributeValue`
-   1. If `isOperatorObject(conditionValue)`
-      1. If `evalConditionValue(conditionValue, item)`, break out of loop and return true
-   2. Else if `evalCondition(item, conditionValue)`, break out of loop and return true
+   1. If `isOperatorObject(condition)`
+      1. If `evalConditionValue(condition, item)`, break out of loop and return true
+   2. Else if `evalCondition(item, condition)`, break out of loop and return true
 3. Return false
-
-### private paddedVersionString(input): string
-
-This function can be used to help with the evaluation of the version string comparsion.
-
-There are 6 operators that are used for comparing version strings, e.g. `v1.2.3` or `1.2.3`:
-
-| Condition | Comparison | Description                                                      |
-| --------- | ---------- | ---------------------------------------------------------------- |
-| `$veq`    | `==`       | Versions are equal                                               |
-| `$vne`    | `!=`       | Versions are not equal                                           |
-| `$vlt`    | `<`        | The first version is lesser than the second version              |
-| `$vlte`   | `<=`       | The first version is lesser than or equal to the second version  |
-| `$vgt`    | `>`        | The first version is greater than the second version             |
-| `$vgte`   | `>=`       | The first version is greater than or equal to the second version |
-
-Rules:
-
-- Segments are separated by `.` and `-` characters
-- Segments should be compared alphanumerically from the left-most segment
-  - Digit-only segments should be left-padded with a space so that they have the same number of characters.
-- A leading `v` in a version string should be ignored
-- Semantic version syntax used to denote build information (as denoted by a `+`, e.g. `+mybuild`) should be ignored for comparisons.
-
-Here's an example:
-
-```ts
-export function paddedVersionString(input: string): string {
-  // Remove build info and leading `v` if any
-  // Split version into parts (both core version numbers and pre-release tags)
-  // "v1.2.3-rc.1+build123" -> ["1","2","3","rc","1"]
-  const parts = input.replace(/(^v|\+.*$)/g, "").split(/[-.]/);
-
-  // If it's SemVer without a pre-release, add `~` to the end
-  // ["1","0","0"] -> ["1","0","0","~"]
-  // "~" is the largest ASCII character, so this will make "1.0.0" greater than "1.0.0-beta" for example
-  if (parts.length === 3) {
-    parts.push("~");
-  }
-
-  // Left pad each numeric part with spaces so string comparisons will work ("9">"10", but " 9"<"10")
-  // Then, join back together into a single string
-  return parts
-    .map((v) => (v.match(/^[0-9]+$/) ? v.padStart(5, " ") : v))
-    .join("-");
-}
-```
-
-### private isIn(conditionValue, actualValue): boolean
-
-Checks to see if `actualValue` is in the `conditionValue` array. This implements the `$in` and `$nin` operators.
-
-1. If `actualValue` is an array
-   1. Return `true` if the intersection between `actualValue` and `conditionValue` has at least 1 element. Otherwise, return `false`.
-2. Else
-   1. Return `true` if `conditionValue` contains `actualValue`. Otherwise, return `false`.
 
 ### private evalOperatorCondition(operator, attributeValue, conditionValue)
 
@@ -596,17 +540,12 @@ There are basic comparison operators in the form `attributeValue {op} conditionV
 - `$gte` &gt;=
 - `$regex` ~ (regex match)
 
-There are 3 operators where conditionValue is an array. All of these should return `false` if `conditionValue` is not an array for whatever reason.
+There are 2 operators where conditionValue is an array:
 
 - `$in`
-  1. Return `isIn(conditionValue, attributeValue)`
+  1. Return true if attributeValue in the conditionValue array, false otherwise
 - `$nin`
-  1. Return `not isIn(conditionValue, attributeValue)`
-- `$all`
-  1. If attributeValue is not an array, return `false`
-  2. Loop through conditionValue array
-     1. If none of the elements in the attributeValue array pass `evalConditionValue(conditionValue[i], attributeValue[j])`, return false
-  3. Return true
+  1. Return false if attributeValue in the conditionValue array, true otherwise
 
 There are 2 operators where attributeValue is an array:
 
@@ -615,6 +554,14 @@ There are 2 operators where attributeValue is an array:
 - `$size`
   1.  If attributeValue is not an array, return false
   2.  Return `evalConditionValue(conditionValue, attributeValue.length)`
+
+There is 1 operator where both attributeValue and conditionValue are arrays:
+
+- `$all`
+  1. If attributeValue is not an array, return false
+  2. Loop through conditionValue array
+     1. If none of the elements in the attributeValue array pass `evalConditionValue(conditionValue[i], attributeValue[j])`, return false
+  3. Return true
 
 There are 3 other operators:
 
@@ -626,8 +573,6 @@ There are 3 other operators:
   1. Return `getType(attributeValue) == conditionValue`
 - `$not`
   1. Return `!evalConditionValue(conditionValue, attributeValue)`
-
-There are 6 operators that are used for comparing version strings, e.g. `v1.2.3` or `1.2.3`. See [paddedVersionString(input)](#private-paddedversionstringinput-string) for details.
 
 If operator doesn't match any of these, return false and potentially log the error for debug purposes.
 
@@ -1089,10 +1034,6 @@ The cases.json file is an object. The keys are the function being tested, and th
   - encrypted text (string)
   - decryption key (string)
   - expected result (string or `null` if the decryption should fail)
-- **versionCompare** is an object with comparison type properties `lt`, `gt`, `eq`, each with an array of test cases
-  - version (string)
-  - other version (string)
-  - expected to match for comparison type (boolean)
 
 In addition to the above, you should write custom test cases for things like event subscriptions, tracking callbacks, getters/setters, etc. that are more language-specific.
 
@@ -1133,6 +1074,3 @@ Open a [GitHub issue](https://github.com/growthbook/growthbook/issues) with a li
   - Fixed broken feature test case (was using `[0.99]` instead of `0.99` for coverage)
 - **v0.4.2** 2023-04-30
   - Add test cases when targeting condition value is `null`
-- **v0.5.0** 2023-05-17
-  - Add support for new version string comparison operators (`$veq`, `$vne`, `$vgt`, `$vgte`, `$vlt`, `$vlte`) and new `paddedVersionString` helper function
-  - New `isIn` helper function for conditions, plus new evalCondition test cases for `$in` and `$nin` operators when attribute is an array

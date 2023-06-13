@@ -23,7 +23,7 @@ const webhookSchema = new mongoose.Schema({
 
 export type WebhookDocument = mongoose.Document & WebhookInterface;
 
-export const WebhookModel = mongoose.model<WebhookInterface>(
+export const WebhookModel = mongoose.model<WebhookDocument>(
   "Webhook",
   webhookSchema
 );

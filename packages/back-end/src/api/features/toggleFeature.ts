@@ -20,13 +20,6 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
       getEnvironments(req.organization).map((e) => e.id)
     );
 
-    req.checkPermissions("manageFeatures", feature.project);
-    req.checkPermissions(
-      "publishFeatures",
-      feature.project,
-      Object.keys(req.body.environments)
-    );
-
     const toggles: Record<string, boolean> = {};
     Object.keys(req.body.environments).forEach((env) => {
       if (!environmentIds.has(env)) {

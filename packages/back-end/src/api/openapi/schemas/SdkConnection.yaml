@@ -52,5 +52,3 @@ properties:
     type: string
   sseEnabled:
     type: boolean;
-  hashSecureAttributes:
-    type: boolean;

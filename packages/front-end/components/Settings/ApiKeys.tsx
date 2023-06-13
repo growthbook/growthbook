@@ -1,4 +1,4 @@
-import React, { FC } from "react";
+import { FC } from "react";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import Link from "next/link";
 import { FaAngleRight } from "react-icons/fa";
@@ -19,14 +19,6 @@ const ApiKeys: FC = () => {
   return (
     <>
       <SecretApiKeys keys={data.keys} mutate={mutate} />
-
-      <div className="alert alert-info mb-3">
-        You can also create{" "}
-        <Link href="/account/personal-access-tokens">
-          Personal Access Tokens
-        </Link>{" "}
-        for your user account
-      </div>
 
       <div className="alert alert-info">
         Looking for SDK Endpoints? They have moved to the new{" "}

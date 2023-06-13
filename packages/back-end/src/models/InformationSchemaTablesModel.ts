@@ -57,7 +57,7 @@ informationSchemaTablesSchema.index(
 type InformationSchemaTablesDocument = mongoose.Document &
   InformationSchemaTablesInterface;
 
-const InformationSchemaTablesModel = mongoose.model<InformationSchemaTablesInterface>(
+const InformationSchemaTablesModel = mongoose.model<InformationSchemaTablesDocument>(
   "InformationSchemaTables",
   informationSchemaTablesSchema
 );
@@ -68,8 +68,7 @@ const InformationSchemaTablesModel = mongoose.model<InformationSchemaTablesInter
  */
 const toInterface = (
   doc: InformationSchemaTablesDocument
-): InformationSchemaTablesInterface =>
-  omit(doc.toJSON<InformationSchemaTablesDocument>(), ["__v", "_id"]);
+): InformationSchemaTablesInterface => omit(doc.toJSON(), ["__v", "_id"]);
 
 export async function createInformationSchemaTable(
   tableData: Omit<

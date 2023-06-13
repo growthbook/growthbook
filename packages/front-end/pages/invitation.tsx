@@ -10,7 +10,8 @@ const InvitationPage = (): React.ReactElement => {
 
   // Extract the invitation key from the querystring
   const key = useMemo(
-    () => (window.location.search.match(/(^|&|\?)key=([a-zA-Z0-9]+)/) || [])[2],
+    // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
+    () => window?.location.search.match(/(^|&|\?)key=([a-zA-Z0-9]+)/)[2],
     []
   );
 

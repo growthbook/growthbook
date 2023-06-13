@@ -13,7 +13,7 @@ services:
     depends_on:
       - mongo
     environment:
-      - MONGODB_URI=mongodb://root:password@mongo:27017/growthbook?authSource=admin
+      - MONGODB_URI=mongodb://root:password@mongo:27017/
     volumes:
       - uploads:/usr/local/src/app/packages/back-end/uploads
 volumes:

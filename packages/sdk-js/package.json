@@ -1,6 +1,6 @@
 {
   "name": "@growthbook/growthbook",
-  "version": "0.27.0",
+  "version": "0.26.0",
   "license": "MIT",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -8,8 +8,7 @@
   "typings": "dist/index.d.ts",
   "exports": {
     "require": "./dist/cjs/index.js",
-    "import": "./dist/esm/index.js",
-    "types": "./dist/index.d.ts"
+    "import": "./dist/esm/index.js"
   },
   "files": [
     "dist",
@@ -32,7 +31,6 @@
     "build:types": "tsc --emitDeclarationOnly",
     "build": "yarn build:clean && npm-run-all --parallel build:types build:esm build:cjs build:bundles",
     "test": "jest",
-    "type-safe-tests": "node scripts/type-safe-tests.js",
     "type-check": "tsc --pretty --noEmit",
     "size": "gzip-size ./dist/bundles/index.min.js --include-original"
   },

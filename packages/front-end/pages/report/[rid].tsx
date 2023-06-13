@@ -316,6 +316,7 @@ export default function ReportPage() {
                       : null
                   }
                   generateReport={false}
+                  hasUserQuery={false}
                   notebookUrl={`/report/${report.id}/notebook`}
                   notebookFilename={report.title}
                   queries={report.queries}

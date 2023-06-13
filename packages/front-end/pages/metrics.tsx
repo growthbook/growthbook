@@ -308,12 +308,12 @@ const MetricsPage = (): React.ReactElement => {
               <td>{metric.type}</td>
 
               <td className="nowrap">
-                <SortedTags
-                  tags={metric.tags ? Object.values(metric.tags) : []}
-                />
+                {/* @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call. */}
+                <SortedTags tags={Object.values(metric.tags)} />
               </td>
               <td className="col-2">
-                {metric && (metric.projects || []).length > 0 ? (
+                {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
+                {metric?.projects?.length > 0 ? (
                   <ProjectBadges
                     projectIds={metric.projects}
                     className="badge-ellipsis short align-middle"
@@ -336,10 +336,12 @@ const MetricsPage = (): React.ReactElement => {
               </td>
               {!hasFileConfig() && (
                 <td
-                  title={datetime(metric.dateUpdated || "")}
+                  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message
+                  title={datetime(metric.dateUpdated)}
                   className="d-none d-md-table-cell"
                 >
-                  {ago(metric.dateUpdated || "")}
+                  {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message */}
+                  {ago(metric.dateUpdated)}
                 </td>
               )}
               <td className="text-muted">

@@ -22,7 +22,7 @@ const impactEstimateSchema = new mongoose.Schema({
 export type ImpactEstimateDocument = mongoose.Document &
   ImpactEstimateInterface;
 
-export const ImpactEstimateModel = mongoose.model<ImpactEstimateInterface>(
+export const ImpactEstimateModel = mongoose.model<ImpactEstimateDocument>(
   "ImpactEstimate",
   impactEstimateSchema
 );

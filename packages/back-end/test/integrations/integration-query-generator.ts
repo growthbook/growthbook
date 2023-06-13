@@ -1,4 +1,5 @@
 import fs from "fs";
+import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared/constants";
 import { DataSourceInterface, DataSourceType } from "../../types/datasource";
 import {
   AttributionModel,
@@ -11,7 +12,6 @@ import { SegmentInterface } from "../../types/segment";
 import { Dimension } from "../../src/types/Integration";
 import { MetricInterface, MetricType } from "../../types/metric";
 import { getSourceIntegrationObject } from "../../src/services/datasource";
-import { getSnapshotSettings } from "../../src/services/experiments";
 import metricConfigData from "./metrics.json";
 
 const currentDate = new Date();
@@ -253,10 +253,6 @@ function addDatabaseToMetric(metric: MetricInterface): MetricInterface {
   return newMetric;
 }
 
-const metricMap = new Map<string, MetricInterface>();
-analysisMetrics.forEach((m) => metricMap.set(m.id, m));
-allActivationMetrics.forEach((m) => metricMap.set(m.id, m));
-
 engines.forEach((engine) => {
   // TODO: get integration object
   const engineInterface = buildInterface(engine);
@@ -300,49 +296,17 @@ engines.forEach((engine) => {
         engine
       );
 
-      let dimensionId = "";
-      if (dimension) {
-        if (dimension.type === "experiment") {
-          dimensionId = "exp:" + dimension.id;
-        } else if (dimension.type === "activation") {
-          dimensionId = "pre:activation";
-        } else if (dimension.type === "date") {
-          dimensionId = "pre:date";
-        } else {
-          dimensionId = dimension.dimension.id;
-        }
-      }
-
-      const snapshotSettings = getSnapshotSettings({
-        experiment,
-        phaseIndex: 0,
-        settings: {
-          dimensions: dimensionId ? [dimensionId] : [],
-          statsEngine: "frequentist",
-          pValueCorrection: null,
-          regressionAdjusted: metric.regressionAdjustmentEnabled ?? false,
-          sequentialTesting: false,
-          sequentialTestingTuningParameter: 0,
-        },
-        metricRegressionAdjustmentStatuses: [
-          {
-            metric: metric.id,
-            reason: "",
-            regressionAdjustmentEnabled:
-              metric.regressionAdjustmentEnabled ?? false,
-            regressionAdjustmentDays: metric.regressionAdjustmentDays ?? 0,
-          },
-        ],
-        metricMap,
-      });
-
       const sql = integration.getExperimentMetricQuery({
-        settings: snapshotSettings,
+        experiment: experiment,
+        phase: baseExperimentPhase,
         metric: metric,
         activationMetrics: activationMetrics,
         denominatorMetrics: denominatorMetrics,
         dimension: dimension,
         segment: segment,
+        regressionAdjustmentEnabled:
+          metric.regressionAdjustmentEnabled ??
+          DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       });
 
       testCases.push({

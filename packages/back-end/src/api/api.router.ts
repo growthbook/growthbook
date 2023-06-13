@@ -3,7 +3,7 @@ import path from "path";
 import { Router, Request } from "express";
 import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
-import authenticateApiRequestMiddleware from "../middleware/authenticateApiRequestMiddleware";
+import authencateApiRequestMiddleware from "../middleware/authenticateApiRequestMiddleware";
 import { getBuild } from "../util/handler";
 import { ApiRequestLocals } from "../../types/api";
 import featuresRouter from "./features/features.router";
@@ -41,7 +41,7 @@ router.get("/openapi.yaml", (req, res) => {
 router.use(bodyParser.json({ limit: "1mb" }));
 router.use(bodyParser.urlencoded({ limit: "1mb", extended: true }));
 
-router.use(authenticateApiRequestMiddleware);
+router.use(authencateApiRequestMiddleware);
 
 // Rate limit API keys to 60 requests per minute
 router.use(

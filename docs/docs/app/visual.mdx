@@ -172,31 +172,3 @@ Now, just join these together with an equals sign (e.g. `my-experiment-id=1`). T
 `https://www.example.com/pricing?my-experiment-id=1`
 
 Until an experiment is moved out of the "draft" phase and started, this is the only way to view it on your site.
-
-## Security Requirements
-
-If your website uses a Content Security Policy (CSP) in its HTTP headers or in a `<meta>` tag you must include your GrowthBook API Host domain in order to use the Visual Editor.
-
-### CSP Requirements for Visual Editor
-
-If you have the `connect-src` directive defined in your website's CSP, you'll need to include the URL of your GrowthBook API Host in order to allow the Visual Editor to work correctly:
-
-```
-Content-Security-Policy: connect-src <GROWTHBOOK_API_HOST>;
-```
-
-Here is an example of a CSP definition that includes the GrowthBook Cloud API host:
-
-```
-Content-Security-Policy: connect-src https://api.growthbook.io;
-```
-
-### CSP Requirements for Global JavaScript
-
-If you have the `script-src` directive defined in your website's CSP, you'll need to enable `'unsafe-inline'` and `'unsafe-eval'` in order to leverage the Global JavaScript injection feature of the Visual Editor:
-
-```
-Content-Security-Policy: script-src 'self' 'unsafe-inline' 'unsafe-eval';
-```
-
-Read more about Content Security Policy [here](https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP).

@@ -19,9 +19,7 @@ const FilterSummary: FC<{
 }> = ({ experiment, phase, snapshot }) => {
   const [showExpandedFilter, setShowExpandedFilter] = useState(false);
   const hasFilter =
-    snapshot.settings.segment ||
-    snapshot.settings.queryFilter ||
-    snapshot.settings.activationMetric;
+    snapshot.segment || snapshot.queryFilter || snapshot.activationMetric;
   const { getSegmentById, getMetricById, getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
 
@@ -97,8 +95,8 @@ const FilterSummary: FC<{
                 </small>
               </div>
               <div className="col">
-                {snapshot.settings.segment ? (
-                  getSegmentById(snapshot.settings.segment)?.name ?? "(unknown)"
+                {snapshot.segment ? (
+                  getSegmentById(snapshot.segment)?.name ?? "(unknown)"
                 ) : (
                   <>
                     <em>none</em> (all users included)
@@ -115,9 +113,8 @@ const FilterSummary: FC<{
               </small>
             </div>
             <div className="col">
-              {snapshot.settings.activationMetric ? (
-                getMetricById(snapshot.settings.activationMetric)?.name ??
-                "(unknown)"
+              {snapshot.activationMetric ? (
+                getMetricById(snapshot.activationMetric)?.name ?? "(unknown)"
               ) : (
                 <em>none</em>
               )}
@@ -128,7 +125,7 @@ const FilterSummary: FC<{
               <strong className="text-gray">Metric Conversions:</strong>
             </div>
             <div className="col">
-              {snapshot.settings.skipPartialData
+              {snapshot.skipPartialData
                 ? "Excluding In-Progress Conversions"
                 : "Including In-Progress Conversions"}
             </div>
@@ -153,10 +150,10 @@ const FilterSummary: FC<{
                 <strong className="text-gray">Custom SQL Filter:</strong>
               </div>
               <div className="col">
-                {snapshot.settings.queryFilter ? (
+                {snapshot.queryFilter ? (
                   <Code
                     language="sql"
-                    code={snapshot.settings.queryFilter}
+                    code={snapshot.queryFilter}
                     expandable={true}
                   />
                 ) : (

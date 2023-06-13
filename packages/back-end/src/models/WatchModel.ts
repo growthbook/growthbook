@@ -11,4 +11,4 @@ watchSchema.index({ userId: 1, organization: 1 }, { unique: true });
 
 export type WatchDocument = mongoose.Document & WatchInterface;
 
-export const WatchModel = mongoose.model<WatchInterface>("Watch", watchSchema);
+export const WatchModel = mongoose.model<WatchDocument>("Watch", watchSchema);

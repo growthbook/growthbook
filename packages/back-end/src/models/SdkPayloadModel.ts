@@ -25,13 +25,13 @@ sdkPayloadSchema.index(
 );
 type SDKPayloadDocument = mongoose.Document & SDKStringifiedPayloadInterface;
 
-const SDKPayloadModel = mongoose.model<SDKStringifiedPayloadInterface>(
+const SDKPayloadModel = mongoose.model<SDKPayloadDocument>(
   "SdkPayload",
   sdkPayloadSchema
 );
 
 function toInterface(doc: SDKPayloadDocument): SDKPayloadInterface | null {
-  const json = doc.toJSON<SDKPayloadDocument>();
+  const json = doc.toJSON();
   try {
     const contents = JSON.parse(json.contents);
 

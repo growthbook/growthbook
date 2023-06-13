@@ -77,7 +77,7 @@ const informationSchema = new mongoose.Schema({
 
 type InformationSchemaDocument = mongoose.Document & InformationSchemaInterface;
 
-const InformationSchemaModel = mongoose.model<InformationSchemaInterface>(
+const InformationSchemaModel = mongoose.model<InformationSchemaDocument>(
   "InformationSchema",
   informationSchema
 );
@@ -88,8 +88,7 @@ const InformationSchemaModel = mongoose.model<InformationSchemaInterface>(
  */
 const toInterface = (
   doc: InformationSchemaDocument
-): InformationSchemaInterface =>
-  omit(doc.toJSON<InformationSchemaDocument>(), ["__v", "_id"]);
+): InformationSchemaInterface => omit(doc.toJSON(), ["__v", "_id"]);
 
 export async function createInformationSchema(
   informationSchema: InformationSchema[],

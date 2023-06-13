@@ -19,29 +19,11 @@ import {
   updateExperiment,
 } from "./ExperimentModel";
 
-const visualChangesetURLPatternSchema = new mongoose.Schema<VisualChangesetURLPattern>(
-  {
-    include: Boolean,
-    type: {
-      type: String,
-      enum: ["simple", "regex"],
-      required: true,
-    },
-    pattern: {
-      type: String,
-      required: true,
-    },
-  },
-  {
-    _id: false,
-  }
-);
-
 /**
  * VisualChangeset is a collection of visual changes that are grouped together
  * by a single url target. They are many-to-one with Experiments.
  */
-const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
+const visualChangesetSchema = new mongoose.Schema({
   id: {
     type: String,
     unique: true,
@@ -53,7 +35,21 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
     required: true,
   },
   urlPatterns: {
-    type: [visualChangesetURLPatternSchema],
+    type: [
+      {
+        _id: false,
+        include: Boolean,
+        type: {
+          type: String,
+          enum: ["simple", "regex"],
+          required: true,
+        },
+        pattern: {
+          type: String,
+          required: true,
+        },
+      },
+    ],
     required: true,
   },
   editorUrl: {
@@ -107,16 +103,13 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
 export type VisualChangesetDocument = mongoose.Document &
   VisualChangesetInterface;
 
-export const VisualChangesetModel = mongoose.model<VisualChangesetInterface>(
+export const VisualChangesetModel = mongoose.model<VisualChangesetDocument>(
   "VisualChangeset",
   visualChangesetSchema
 );
 
 const toInterface = (doc: VisualChangesetDocument): VisualChangesetInterface =>
-  omit(
-    doc.toJSON<VisualChangesetDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
+  omit(doc.toJSON(), ["__v", "_id"]);
 
 export function toVisualChangesetApiInterface(
   visualChangeset: VisualChangesetInterface
@@ -130,7 +123,6 @@ export function toVisualChangesetApiInterface(
       id: c.id,
       description: c.description,
       css: c.css,
-      js: c.js,
       variation: c.variation,
       domMutations: c.domMutations,
     })),
@@ -195,7 +187,7 @@ export async function createVisualChange(
     }
   );
 
-  return { nModified: res.modifiedCount };
+  return { nModified: res.nModified };
 }
 
 export async function updateVisualChange({
@@ -238,7 +230,7 @@ export async function updateVisualChange({
     }
   );
 
-  return { nModified: res.modifiedCount };
+  return { nModified: res.nModified };
 }
 
 const genNewVisualChange = (variation: Variation): VisualChange => ({
@@ -361,7 +353,7 @@ export const updateVisualChangeset = async ({
     bypassWebhooks,
   });
 
-  return { nModified: res.modifiedCount, visualChanges };
+  return { nModified: res.nModified, visualChanges };
 };
 
 const hasVisualChanges = ({ visualChanges }: VisualChangesetInterface) =>

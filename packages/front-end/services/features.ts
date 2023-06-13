@@ -1,7 +1,6 @@
 import { useEffect, useMemo } from "react";
 import {
   NamespaceUsage,
-  SDKAttributeFormat,
   SDKAttributeSchema,
   SDKAttributeType,
 } from "back-end/types/organization";
@@ -20,9 +19,8 @@ import { FeatureUsageRecords } from "back-end/types/realtime";
 import dJSON from "dirty-json";
 import cloneDeep from "lodash/cloneDeep";
 import uniqid from "uniqid";
-import Ajv from "ajv";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useLocalStorage } from "../hooks/useLocalStorage";
 import useOrgSettings from "../hooks/useOrgSettings";
 import useApi from "../hooks/useApi";
 import { useDefinitions } from "./DefinitionsContext";
@@ -35,20 +33,18 @@ export interface Condition {
 
 export interface AttributeData {
   attribute: string;
-  datatype: "boolean" | "number" | "string" | "secureString";
+  datatype: "boolean" | "number" | "string";
   array: boolean;
   identifier: boolean;
   enum: string[];
   archived: boolean;
-  format?: SDKAttributeFormat;
 }
 
 export function validateFeatureValue(
-  feature: FeatureInterface,
+  type: FeatureValueType,
   value: string,
   label: string
 ): string {
-  const type = feature.valueType;
   const prefix = label ? label + ": " : "";
   if (type === "boolean") {
     if (!["true", "false"].includes(value)) {
@@ -59,23 +55,16 @@ export function validateFeatureValue(
       throw new Error(prefix + "Must be a valid number");
     }
   } else if (type === "json") {
-    let parsedValue;
     try {
-      parsedValue = JSON.parse(value);
+      JSON.parse(value);
     } catch (e) {
       // If the JSON is invalid, try to parse it with 'dirty-json' instead
       try {
-        parsedValue = dJSON.parse(value);
+        return stringify(dJSON.parse(value));
       } catch (e) {
         throw new Error(prefix + e.message);
       }
     }
-    // validate with JSON schema if set and enabled
-    const { valid, errors } = validateJSONFeatureValue(parsedValue, feature);
-    if (!valid) {
-      throw new Error(prefix + errors.join(", "));
-    }
-    return stringify(parsedValue);
   }
 
   return value;
@@ -121,83 +110,10 @@ export function getRules(feature: FeatureInterface, environment: string) {
 }
 export function getFeatureDefaultValue(feature: FeatureInterface) {
   if (feature.draft?.active && "defaultValue" in feature.draft) {
-    return feature.draft.defaultValue ?? "";
+    return feature.draft.defaultValue;
   }
-  return feature.defaultValue ?? "";
+  return feature.defaultValue;
 }
-
-export function getValidation(feature: FeatureInterface) {
-  try {
-    const jsonSchema = feature?.jsonSchema?.schema
-      ? JSON.parse(feature?.jsonSchema?.schema)
-      : null;
-    const validationEnabled = jsonSchema ? feature?.jsonSchema?.enabled : false;
-    const schemaDateUpdated = feature?.jsonSchema?.date;
-    return { jsonSchema, validationEnabled, schemaDateUpdated };
-  } catch (e) {
-    // log an error?
-    return {
-      jsonSchema: null,
-      validationEnabled: false,
-      schemaDateUpdated: null,
-    };
-  }
-}
-
-export function validateJSONFeatureValue(value, feature) {
-  const { jsonSchema, validationEnabled } = getValidation(feature);
-  if (!validationEnabled) {
-    return { valid: true, enabled: validationEnabled, errors: [] };
-  }
-  try {
-    const ajv = new Ajv();
-    const validate = ajv.compile(jsonSchema);
-    let parsedValue;
-    if (typeof value === "string") {
-      try {
-        parsedValue = JSON.parse(value);
-      } catch (e) {
-        // If the JSON is invalid, try to parse it with 'dirty-json' instead
-        try {
-          parsedValue = dJSON.parse(value);
-        } catch (e) {
-          return {
-            valid: false,
-            enabled: validationEnabled,
-            errors: [e.message],
-          };
-        }
-      }
-    } else {
-      parsedValue = value;
-    }
-
-    return {
-      valid: validate(parsedValue),
-      enabled: validationEnabled,
-      errors:
-        validate?.errors?.map((v) => {
-          let prefix = "";
-          if (v.schemaPath) {
-            console.log(v.schemaPath);
-            const matched = v.schemaPath.match(/^#\/([^/]*)\/?(.*)/);
-            console.log(matched);
-            if (matched && matched.length > 2) {
-              if (matched[1] === "required") {
-                prefix = "Missing required field: ";
-              } else if (matched[1] === "properties" && matched[2]) {
-                prefix = "Invalid value for field: " + matched[2] + " ";
-              }
-            }
-          }
-          return prefix + v.message;
-        }) ?? [],
-    };
-  } catch (e) {
-    return { valid: false, enabled: validationEnabled, errors: [e.message] };
-  }
-}
-
 export function roundVariationWeight(num: number): number {
   return Math.round(num * 1000) / 1000;
 }
@@ -307,7 +223,7 @@ export function useAttributeSchema(showArchived = false) {
 
 export function validateFeatureRule(
   rule: FeatureRule,
-  feature: FeatureInterface
+  valueType: FeatureValueType
 ): null | FeatureRule {
   let hasChanges = false;
   const ruleCopy = cloneDeep(rule);
@@ -323,7 +239,7 @@ export function validateFeatureRule(
   }
   if (rule.type === "force") {
     const newValue = validateFeatureValue(
-      feature,
+      valueType,
       rule.value,
       "Value to Force"
     );
@@ -342,7 +258,7 @@ export function validateFeatureRule(
         throw new Error("Variation weights cannot be negative");
       totalWeight += val.weight;
       const newValue = validateFeatureValue(
-        feature,
+        valueType,
         val.value,
         "Variation #" + i
       );
@@ -361,7 +277,7 @@ export function validateFeatureRule(
     }
   } else {
     const newValue = validateFeatureValue(
-      feature,
+      valueType,
       rule.value,
       "Value to Rollout"
     );
@@ -696,21 +612,9 @@ export function jsonToConds(
         }
 
         if (
-          [
-            "$eq",
-            "$ne",
-            "$gt",
-            "$gte",
-            "$lt",
-            "$lte",
-            "$regex",
-            "$veq",
-            "$vne",
-            "$vgt",
-            "$vgte",
-            "$vlt",
-            "$vlte",
-          ].includes(operator) &&
+          ["$eq", "$ne", "$gt", "$gte", "$lt", "$lte", "$regex"].includes(
+            operator
+          ) &&
           typeof v !== "object"
         ) {
           return conds.push({
@@ -740,10 +644,7 @@ export function jsonToConds(
   }
 }
 
-function parseValue(
-  value: string,
-  type?: "string" | "number" | "boolean" | "secureString"
-) {
+function parseValue(value: string, type?: "string" | "number" | "boolean") {
   if (type === "number") return parseFloat(value) || 0;
   if (type === "boolean") return value === "false" ? false : true;
   return value;
@@ -805,9 +706,6 @@ function getAttributeDataType(type: SDKAttributeType) {
 
   if (type === "enum" || type === "string[]") return "string";
 
-  if (type === "secureString" || type === "secureString[]")
-    return "secureString";
-
   return "number";
 }
 
@@ -826,12 +724,12 @@ export function useAttributeMap(): Map<string, AttributeData> {
         datatype: getAttributeDataType(schema.datatype),
         array: !!schema.datatype.match(/\[\]$/),
         enum:
-          schema.datatype === "enum" && schema.enum
-            ? schema.enum.split(",").map((x) => x.trim())
+          schema.datatype === "enum"
+            ? // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+              schema.enum.split(",").map((x) => x.trim())
             : [],
         identifier: !!schema.hashAttribute,
         archived: !!schema.archived,
-        format: schema.format || "",
       });
     });
 

@@ -11,7 +11,7 @@ import {
 } from "react-icons/fa";
 import { BsArrowRepeat, BsLightningFill } from "react-icons/bs";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { GBCircleArrowLeft, GBEdit, GBHashLock } from "@/components/Icons";
+import { GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
@@ -160,7 +160,7 @@ export default function SDKConnectionPage() {
 
   const projectId = connection.project;
   const projectName = getProjectById(projectId)?.name || null;
-  const projectIsDeReferenced = projectId && !projectName;
+  const projectIsOprhaned = projectId && !projectName;
 
   return (
     <div className="contents container pagecontents">
@@ -239,10 +239,10 @@ export default function SDKConnectionPage() {
           Environment: <strong>{connection.environment}</strong>
         </div>
 
-        {(projects.length > 0 || projectIsDeReferenced) && (
+        {(projects.length > 0 || projectIsOprhaned) && (
           <div className="col-auto">
             Project:{" "}
-            {projectIsDeReferenced ? (
+            {projectIsOprhaned ? (
               <Tooltip
                 body={
                   <>
@@ -262,14 +262,6 @@ export default function SDKConnectionPage() {
           </div>
         )}
 
-        {connection.hashSecureAttributes && (
-          <div className="col-auto">
-            Secure Attribute Hashing:{" "}
-            <strong>
-              <GBHashLock className="text-blue" /> yes
-            </strong>
-          </div>
-        )}
         {connection.encryptPayload && (
           <div className="col-auto">
             Encrypted:{" "}
@@ -280,7 +272,7 @@ export default function SDKConnectionPage() {
         )}
       </div>
 
-      {projectIsDeReferenced && (
+      {projectIsOprhaned && (
         <div className="alert alert-danger">
           This SDK connection is scoped to a project that no longer exists. This
           connection will no longer work until either a valid project or
@@ -311,10 +303,7 @@ export default function SDKConnectionPage() {
           }}
         />
         <ConnectionNode first title="Your App">
-          <div
-            className="d-flex flex-wrap justify-content-center"
-            style={{ maxWidth: 325 }}
-          >
+          <div className="d-flex flex-wrap justify-content-center">
             {connection.languages.map((language) => (
               <div className="mx-1" key={language}>
                 <SDKLanguageLogo showLabel={true} language={language} />

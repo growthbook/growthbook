@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import { ago, datetime } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle } from "@/components/Icons";
@@ -142,7 +142,8 @@ export default function FeaturesPage() {
               features: [...features, feature],
             });
           }}
-          featureToDuplicate={featureToDuplicate || undefined}
+          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'FeatureInterface | null' is not assignable t... Remove this comment to see the full error message
+          featureToDuplicate={featureToDuplicate}
         />
       )}
       <div className="row mb-3">
@@ -261,15 +262,19 @@ export default function FeaturesPage() {
             </thead>
             <tbody>
               {items.slice(start, end).map((feature) => {
-                let rules: FeatureRule[] = [];
+                let rules = [];
                 environments.forEach(
+                  // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
                   (e) => (rules = rules.concat(getRules(feature, e.id)))
                 );
 
                 // When showing a summary of rules, prefer experiments to rollouts to force rules
                 const orderedRules = [
+                  // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'type' does not exist on type 'never'.
                   ...rules.filter((r) => r.type === "experiment"),
+                  // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'type' does not exist on type 'never'.
                   ...rules.filter((r) => r.type === "rollout"),
+                  // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'type' does not exist on type 'never'.
                   ...rules.filter((r) => r.type === "force"),
                 ];
 
@@ -281,10 +286,9 @@ export default function FeaturesPage() {
                 if (isDraft) version++;
 
                 const projectId = feature.project;
-                const projectName = projectId
-                  ? getProjectById(projectId)?.name || null
-                  : null;
-                const projectIsDeReferenced = projectId && !projectName;
+                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
+                const projectName = getProjectById(projectId)?.name || null;
+                const projectIsOprhaned = projectId && !projectName;
 
                 return (
                   <tr
@@ -300,14 +304,15 @@ export default function FeaturesPage() {
                     </td>
                     <td>
                       <Link href={`/features/${feature.id}`}>
-                        <a className={feature.archived ? "text-muted" : ""}>
+                        {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null' is not assignable to type 'st... Remove this comment to see the full error message */}
+                        <a className={feature.archived ? "text-muted" : null}>
                           {feature.id}
                         </a>
                       </Link>
                     </td>
                     {showProjectColumn && (
                       <td>
-                        {projectIsDeReferenced ? (
+                        {projectIsOprhaned ? (
                           <Tooltip
                             body={
                               <>
@@ -336,13 +341,15 @@ export default function FeaturesPage() {
                     ))}
                     <td>
                       <ValueDisplay
-                        value={getFeatureDefaultValue(feature) || ""}
+                        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
+                        value={getFeatureDefaultValue(feature)}
                         type={feature.valueType}
                         full={false}
                       />
                     </td>
                     <td>
                       {firstRule && (
+                        // @ts-expect-error TS(2339) If you come across this, please fix it!: Property 'type' does not exist on type 'never'.
                         <span className="text-dark">{firstRule.type}</span>
                       )}
                       {totalRules > 1 && (

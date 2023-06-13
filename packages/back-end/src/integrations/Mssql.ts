@@ -1,14 +1,14 @@
+import mssql from "mssql";
 import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
-import { findOrCreateConnection } from "../util/mssqlPoolManager";
+import { MissingDatasourceParamsError } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class Mssql extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   params: MssqlConnectionParams;
-  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<MssqlConnectionParams>(
       encryptedParams
@@ -21,7 +21,7 @@ export default class Mssql extends SqlIntegration {
     return ["password"];
   }
   async runQuery(sqlStr: string) {
-    const conn = await findOrCreateConnection(this.datasource, {
+    const conn = await mssql.connect({
       server: this.params.server,
       port: parseInt(this.params.port + "", 10),
       user: this.params.user,
@@ -59,7 +59,7 @@ export default class Mssql extends SqlIntegration {
     return `CAST(${col} as FLOAT)`;
   }
   formatDate(col: string): string {
-    return `FORMAT(${col}, 'yyyy-MM-dd')`;
+    return `FORMAT(${col}, "yyyy-MM-dd")`;
   }
   castToString(col: string): string {
     return `cast(${col} as varchar(256))`;
@@ -67,7 +67,14 @@ export default class Mssql extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
-  getDefaultDatabase() {
-    return this.params.database;
+  getInformationSchemaFromClause(): string {
+    if (!this.params.database)
+      throw new MissingDatasourceParamsError(
+        "To view the information schema for a MS Sql dataset, you must define a default database. Please add a default database by editing the datasource's connection settings."
+      );
+    return `${this.params.database}.information_schema.columns`;
+  }
+  getInformationSchemaTableFromClause(databaseName: string): string {
+    return `${databaseName}.information_schema.columns`;
   }
 }

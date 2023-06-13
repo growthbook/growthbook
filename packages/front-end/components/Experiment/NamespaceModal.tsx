@@ -11,10 +11,10 @@ export default function NamespaceModal({
 }: {
   close: () => void;
   onSuccess: () => Promise<void> | void;
-  existing: {
+  existing?: {
     namespace: Namespaces;
     experiments: number;
-  } | null;
+  };
 }) {
   const existingNamespace = existing?.namespace;
   const form = useForm<Partial<Namespaces>>({

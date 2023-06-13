@@ -6,6 +6,7 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissions from "@/hooks/usePermissions";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import EditAttributesModal from "../Features/EditAttributesModal";
 import FeatureModal from "../Features/FeatureModal";
 import { DocLink } from "../DocLink";
 import InitialSDKConnectionForm from "../Features/SDKConnections/InitialSDKConnectionForm";
@@ -29,6 +30,7 @@ export default function FeaturesGetStarted({ features }: Props) {
   }
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [attributeModalOpen, setAttributeModalOpen] = useState(false);
   const [codeModalOpen, setCodeModalOpen] = useState(false);
 
   const { project } = useDefinitions();
@@ -45,6 +47,9 @@ export default function FeaturesGetStarted({ features }: Props) {
             await router.push(url);
           }}
         />
+      )}
+      {attributeModalOpen && (
+        <EditAttributesModal close={() => setAttributeModalOpen(false)} />
       )}
       {codeModalOpen && (
         <InitialSDKConnectionForm

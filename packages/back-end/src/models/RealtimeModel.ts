@@ -10,7 +10,7 @@ realtimeUsageSchema.index({ organization: 1, hour: 1 }, { unique: true });
 
 export type RealtimeUsageDocument = mongoose.Document & RealtimeUsageInterface;
 
-export const RealtimeUsageModel = mongoose.model<RealtimeUsageInterface>(
+export const RealtimeUsageModel = mongoose.model<RealtimeUsageDocument>(
   "RealtimeUsage",
   realtimeUsageSchema
 );
@@ -19,8 +19,6 @@ export async function getRealtimeUsageByHour(
   organization: string,
   hour: string
 ): Promise<RealtimeUsageInterface | null> {
-  const realtimeDoc: RealtimeUsageDocument | null = await RealtimeUsageModel.findOne(
-    { organization, hour }
-  );
-  return realtimeDoc ? realtimeDoc.toJSON<RealtimeUsageDocument>() : null;
+  const realtimeDoc = await RealtimeUsageModel.findOne({ organization, hour });
+  return realtimeDoc ? realtimeDoc.toJSON() : null;
 }

@@ -22,7 +22,7 @@ export default function ExperimentReportsList({
   const { apiCall } = useAuth();
   const permissions = usePermissions();
   const { userId, users } = useUser();
-  const { snapshot, analysis } = useSnapshot();
+  const { snapshot } = useSnapshot();
 
   const { data, error, mutate } = useApi<{
     reports: ReportInterface[];
@@ -43,9 +43,13 @@ export default function ExperimentReportsList({
     return null;
   }
 
-  const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
+  const hasData = (snapshot?.results?.[0]?.variations?.length ?? 0) > 0;
+  const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
   const canCreateReports =
-    hasData && snapshot?.queries && permissions.check("createAnalyses", "");
+    hasData &&
+    snapshot?.queries &&
+    !hasUserQuery &&
+    permissions.check("createAnalyses", "");
 
   return (
     <div>

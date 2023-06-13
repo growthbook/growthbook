@@ -261,35 +261,17 @@ describe("feature-repo", () => {
     expect(f.mock.calls.length).toEqual(0);
 
     // Wait for localStorage entry to expire and refresh features
-    await sleep(120);
+    await sleep(100);
     await growthbook.refreshFeatures();
     expect(f.mock.calls.length).toEqual(1);
     expect(growthbook.evalFeature("foo").value).toEqual("api");
-    const staleAt = new Date(
-      JSON.parse(
-        localStorage.getItem(localStorageCacheKey) || "[]"
-      )[0][1].staleAt
-    ).getTime();
-
-    // Wait for localStorage entry to expire again
-    // Since the payload didn't change, make sure it updates localStorage staleAt flag
-    await sleep(120);
-    await growthbook.refreshFeatures();
-    expect(f.mock.calls.length).toEqual(2);
-    expect(growthbook.evalFeature("foo").value).toEqual("api");
-    const newStaleAt = new Date(
-      JSON.parse(
-        localStorage.getItem(localStorageCacheKey) || "[]"
-      )[0][1].staleAt
-    ).getTime();
-    expect(newStaleAt).toBeGreaterThan(staleAt);
 
     // If api has a new version, refreshFeatures should pick it up
     data.features.foo.defaultValue = "new";
     data.dateUpdated = "2020-02-01T00:00:00Z";
-    await sleep(120);
+    await sleep(150);
     await growthbook.refreshFeatures();
-    expect(f.mock.calls.length).toEqual(3);
+    expect(f.mock.calls.length).toEqual(2);
     expect(growthbook.evalFeature("foo").value).toEqual("new");
 
     const lsValue = JSON.parse(

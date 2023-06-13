@@ -1,7 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { omit } from "lodash";
 import { ApiProject } from "../../types/openapi";
 import { ProjectInterface, ProjectSettings } from "../../types/project";
 
@@ -23,12 +22,12 @@ const projectSchema = new mongoose.Schema({
 
 type ProjectDocument = mongoose.Document & ProjectInterface;
 
-const ProjectModel = mongoose.model<ProjectInterface>("Project", projectSchema);
+const ProjectModel = mongoose.model<ProjectDocument>("Project", projectSchema);
 
 function toInterface(doc: ProjectDocument): ProjectInterface {
-  const ret = doc.toJSON<ProjectDocument>();
+  const ret = doc.toJSON();
   ret.settings = ret.settings || {};
-  return omit(ret, ["__v", "_id"]);
+  return ret;
 }
 
 export async function createProject(

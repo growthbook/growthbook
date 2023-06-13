@@ -1,7 +1,7 @@
 import { FC, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentSnapshotAnalysis } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import { StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useAuth } from "@/services/auth";
@@ -11,7 +11,7 @@ import ManualSnapshotForm from "./ManualSnapshotForm";
 const RefreshSnapshotButton: FC<{
   mutate: () => void;
   experiment: ExperimentInterfaceStringDates;
-  lastAnalysis?: ExperimentSnapshotAnalysis;
+  lastSnapshot?: ExperimentSnapshotInterface;
   phase: number;
   dimension?: string;
   statsEngine?: StatsEngine;
@@ -20,7 +20,7 @@ const RefreshSnapshotButton: FC<{
 }> = ({
   mutate,
   experiment,
-  lastAnalysis,
+  lastSnapshot,
   phase,
   dimension,
   statsEngine,
@@ -66,7 +66,7 @@ const RefreshSnapshotButton: FC<{
           close={() => setOpen(false)}
           experiment={experiment}
           success={mutate}
-          lastAnalysis={lastAnalysis}
+          lastSnapshot={lastSnapshot}
         />
       )}
       {loading && longResult && (

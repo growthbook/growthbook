@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { useFieldArray, useForm } from "react-hook-form";
+import { useFieldArray, useForm, UseFormReturn } from "react-hook-form";
 import {
   MetricRegressionAdjustmentStatus,
   ReportInterface,
@@ -16,7 +16,6 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
-import { MetricInterface } from "back-end/types/metric";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -62,7 +61,8 @@ export default function ConfigureReport({
   }>(`/experiment/${eid}`);
   const experiment = experimentData?.experiment;
   const pid = experiment?.project;
-  const project = pid ? getProjectById(pid) : null;
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
+  const project = getProjectById(pid);
 
   const { settings: parentSettings } = getScopedSettings({
     organization,
@@ -86,20 +86,8 @@ export default function ConfigureReport({
   const denominatorMetricIds = uniq(
     allExperimentMetrics.map((m) => m?.denominator).filter((m) => m)
   );
-  const denominatorMetrics: MetricInterface[] = useMemo(() => {
-    const metrics: MetricInterface[] = [];
-
-    denominatorMetricIds.forEach((id) => {
-      if (id) {
-        const metric = getMetricById(id);
-        if (metric) {
-          metrics.push(metric);
-        }
-      }
-    });
-
-    return metrics;
-  }, [denominatorMetricIds, getMetricById]);
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
+  const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
 
   // todo: type this form
   const form = useForm({
@@ -144,6 +132,7 @@ export default function ConfigureReport({
         metricRegressionAdjustmentStatus,
       } = getRegressionAdjustmentsForMetric({
         metric: metric,
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(MetricInterface | null)[]' is not assignabl... Remove this comment to see the full error message
         denominatorMetrics: denominatorMetrics,
         experimentRegressionAdjustmentEnabled: !!form.watch(
           `regressionAdjustmentEnabled`
@@ -415,10 +404,10 @@ export default function ConfigureReport({
       )}
 
       <StatsEngineSelect
-        value={form.watch("statsEngine")}
-        onChange={(v) => {
-          form.setValue("statsEngine", v);
-        }}
+        form={
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          form as UseFormReturn<any>
+        }
         parentSettings={parentSettings}
         allowUndefined={false}
       />

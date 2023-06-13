@@ -38,7 +38,6 @@ interface SDKExperiment {
 
 interface VisualExperimentVariation {
   css: string;
-  js: string;
   domMutations: DOMMutation[];
 }
 

@@ -25,13 +25,7 @@ export type Operator =
   | "$all"
   | "$not"
   | "$type"
-  | "$exists"
-  | "$vgt"
-  | "$vgte"
-  | "$vlt"
-  | "$vlte"
-  | "$vne"
-  | "$veq";
+  | "$exists";
 export type VarType =
   | "string"
   | "number"

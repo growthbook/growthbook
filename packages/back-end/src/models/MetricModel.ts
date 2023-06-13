@@ -95,7 +95,7 @@ const metricSchema = new mongoose.Schema({
 metricSchema.index({ id: 1, organization: 1 }, { unique: true });
 type MetricDocument = mongoose.Document & MetricInterface;
 
-const MetricModel = mongoose.model<MetricInterface>("Metric", metricSchema);
+const MetricModel = mongoose.model<MetricDocument>("Metric", metricSchema);
 
 function toInterface(doc: MetricDocument): MetricInterface {
   return upgradeMetricDoc(doc.toJSON());
@@ -108,25 +108,6 @@ export async function insertMetric(metric: Partial<MetricInterface>) {
   return toInterface(await MetricModel.create(metric));
 }
 
-export async function insertMetrics(
-  metrics: Pick<
-    MetricInterface,
-    | "name"
-    | "type"
-    | "sql"
-    | "id"
-    | "organization"
-    | "datasource"
-    | "dateCreated"
-    | "dateUpdated"
-  >[]
-) {
-  if (usingFileConfig()) {
-    throw new Error("Cannot add. Metrics managed by config.yml");
-  }
-  return (await MetricModel.insertMany(metrics)).map(toInterface);
-}
-
 export async function deleteMetricById(id: string, organization: string) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Metrics managed by config.yml");
@@ -135,16 +116,6 @@ export async function deleteMetricById(id: string, organization: string) {
     id,
     organization,
   });
-}
-
-export async function getMetricMap(organization: string) {
-  const metricMap = new Map<string, MetricInterface>();
-  const allMetrics = await getMetricsByOrganization(organization);
-  allMetrics.forEach((m) => {
-    metricMap.set(m.id, m);
-  });
-
-  return metricMap;
 }
 
 export async function getMetricsByOrganization(organization: string) {

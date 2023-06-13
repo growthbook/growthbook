@@ -22,10 +22,6 @@ Metrics can have different units and statistical distributions. Below are the on
 
 For experiment analysis, each of these metric types uses some aggregation (often defaulting to `SUM`) per user and then takes an average with respect to the total number of users. In the case of SQL metrics, the only meaningful difference between count, duration, and revenue is how we render the units in the metric and experiment results pages.
 
-:::note
-Revenue Metrics are displayed in USD by default. You can change your display currency under **Settings** > **General** > **Metric Settings**
-:::
-
 ## Query settings
 
 For metrics to work, you need to tell GrowthBook how to query the data from your data source. There are a few ways to do this depending on your data source.

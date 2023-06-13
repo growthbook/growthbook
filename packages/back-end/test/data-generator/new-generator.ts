@@ -40,7 +40,7 @@ type EventTableData = TableData & {
 const userRetention: Record<string, number> = {};
 
 // use fixed startDate so that integration tests can filter reliably
-const startDate = new Date();
+const startDate = new Date("2022-02-01T00:00:00");
 startDate.setDate(startDate.getDate() - 90);
 function getDateRangeCondition(start: number, end: number) {
   const s = new Date(startDate);

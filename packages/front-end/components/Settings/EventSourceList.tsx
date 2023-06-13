@@ -1,5 +1,5 @@
 import { SchemaFormat } from "back-end/types/datasource";
-import React, { useState } from "react";
+import { useState } from "react";
 import { MdKeyboardArrowDown } from "react-icons/md";
 import { eventSchema, eventSchemas } from "@/services/eventSchema";
 import styles from "./EventSourceList.module.scss";
@@ -24,15 +24,7 @@ export default function EventSourceList({ onSelect, selected }: Props) {
         }}
       >
         {eventSchemas.map((s, i) => (
-          <div className={`col-4 relative`} key={i + s.value}>
-            {s?.beta && (
-              <span
-                className={`badge badge-purple text-uppercase mr-2 position-absolute`}
-                style={{ top: 1, right: 1 }}
-              >
-                Beta
-              </span>
-            )}
+          <div className={`col-4`} key={i + s.value}>
             <a
               href="#"
               title={s.label}

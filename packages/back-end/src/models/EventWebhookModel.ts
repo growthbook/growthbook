@@ -94,9 +94,9 @@ type EventWebHookDocument = mongoose.Document & EventWebHookInterface;
  * @returns
  */
 const toInterface = (doc: EventWebHookDocument): EventWebHookInterface =>
-  omit(doc.toJSON<EventWebHookDocument>(), ["__v", "_id"]);
+  omit(doc.toJSON(), ["__v", "_id"]) as EventWebHookInterface;
 
-const EventWebHookModel = mongoose.model<EventWebHookInterface>(
+const EventWebHookModel = mongoose.model<EventWebHookDocument>(
   "EventWebHook",
   eventWebHookSchema
 );
@@ -212,7 +212,7 @@ export const updateEventWebHook = async (
     }
   );
 
-  return result.modifiedCount === 1;
+  return result.nModified === 1;
 };
 
 type EventWebHookStatusUpdate =

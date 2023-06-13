@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from "react";
-import { OrganizationSettings } from "back-end/types/organization";
+import { MetricDefaults } from "back-end/types/organization";
 import { MetricInterface } from "back-end/types/metric";
 import useOrgSettings from "./useOrgSettings";
 
@@ -24,11 +24,7 @@ type OrganizationMetricDefaults = {
    *  - organization defaults
    *  - hardcoded defaults
    */
-  metricDefaults: {
-    minimumSampleSize: number;
-    maxPercentageChange: number;
-    minPercentageChange: number;
-  };
+  metricDefaults: MetricDefaults;
 
   /**
    * Returns the max percentage change for the provided metric,
@@ -57,17 +53,6 @@ type OrganizationMetricDefaults = {
    * @return number
    */
   getMinSampleSizeForMetric: (metric: Partial<MetricInterface>) => number;
-};
-
-export type OrganizationSettingsWithMetricDefaults = Omit<
-  OrganizationSettings,
-  "metricDefaults"
-> & {
-  metricDefaults: {
-    minimumSampleSize: number;
-    maxPercentageChange: number;
-    minPercentageChange: number;
-  };
 };
 
 export const useOrganizationMetricDefaults = (): OrganizationMetricDefaults => {

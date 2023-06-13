@@ -18,7 +18,7 @@ const userSchema = new mongoose.Schema({
 
 export type UserDocument = mongoose.Document & UserInterface;
 
-export const UserModel = mongoose.model<UserInterface>("User", userSchema);
+export const UserModel = mongoose.model<UserDocument>("User", userSchema);
 
 export async function markUserAsVerified(id: string) {
   await UserModel.updateOne(
@@ -32,13 +32,13 @@ export async function markUserAsVerified(id: string) {
 }
 
 export async function getAllUsers(): Promise<UserInterface[]> {
-  const users: UserDocument[] = await UserModel.find();
-  return users.map((u) => u.toJSON<UserDocument>());
+  const users = await UserModel.find();
+  return users.map((u) => u.toJSON());
 }
 
 export async function findUserById(id: string): Promise<UserInterface | null> {
   const user = await UserModel.findOne({ id });
-  return user ? user.toJSON<UserDocument>() : null;
+  return user ? user.toJSON() : null;
 }
 
 export async function deleteUser(id: string): Promise<void> {
@@ -48,7 +48,7 @@ export async function deleteUser(id: string): Promise<void> {
 export async function findVerifiedEmails(
   emails: string[] | undefined
 ): Promise<string[]> {
-  let users: UserDocument[] = [];
+  let users;
   if (emails) {
     users = await UserModel.find({
       email: { $in: emails },

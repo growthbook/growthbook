@@ -15,13 +15,10 @@ import {
   ExperimentReportResults,
   ExperimentReportVariation,
 } from "../../types/report";
+import { getMetricsByOrganization } from "../models/MetricModel";
 import { promiseAllChunks } from "../util/promise";
 import { checkSrm } from "../util/stats";
 import { logger } from "../util/logger";
-import {
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotSettings,
-} from "../../types/experiment-snapshot";
 import { QueryMap } from "./queries";
 
 export const MAX_DIMENSIONS = 20;
@@ -135,18 +132,28 @@ print(json.dumps({
 }
 
 export async function analyzeExperimentResults({
+  organization,
+  variations,
+  dimension = null,
   queryData,
-  analysisSettings,
-  snapshotSettings,
-  variationNames,
-  metricMap,
+  statsEngine = DEFAULT_STATS_ENGINE,
+  sequentialTestingEnabled = false,
+  sequentialTestingTuningParameter = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 }: {
+  organization: string;
+  variations: ExperimentReportVariation[];
+  dimension?: string | null;
   queryData: QueryMap;
-  analysisSettings: ExperimentSnapshotAnalysisSettings;
-  snapshotSettings: ExperimentSnapshotSettings;
-  variationNames?: string[];
-  metricMap: Map<string, MetricInterface>;
+  statsEngine?: StatsEngine;
+  sequentialTestingEnabled?: boolean;
+  sequentialTestingTuningParameter?: number;
 }): Promise<ExperimentReportResults> {
+  const metrics = await getMetricsByOrganization(organization);
+  const metricMap = new Map<string, MetricInterface>();
+  metrics.forEach((m) => {
+    metricMap.set(m.id, m);
+  });
+
   const metricRows: {
     metric: string;
     rows: ExperimentMetricQueryResponse;
@@ -171,8 +178,7 @@ export async function analyzeExperimentResults({
           byMetric[metric] = byMetric[metric] || [];
           byMetric[metric].push({
             dimension: row.dimension,
-            variation:
-              snapshotSettings.variations[v.variation]?.id || v.variation + "",
+            variation: variations[v.variation].id,
             users: stats.count,
             count: stats.count,
             statistic_type: "mean", // no ratio in mixpanel or GA
@@ -211,16 +217,13 @@ export async function analyzeExperimentResults({
       return async () => {
         if (!metric) return;
         const result = await analyzeExperimentMetric(
-          snapshotSettings.variations.map((v, i) => ({
-            ...v,
-            name: variationNames?.[i] || v.id,
-          })),
+          variations,
           metric,
           data.rows,
-          analysisSettings.dimensions[0] === "pre:date" ? 100 : MAX_DIMENSIONS,
-          analysisSettings.statsEngine,
-          analysisSettings.sequentialTesting,
-          analysisSettings.sequentialTestingTuningParameter
+          dimension === "pre:date" ? 100 : MAX_DIMENSIONS,
+          statsEngine,
+          sequentialTestingEnabled,
+          sequentialTestingTuningParameter
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(
@@ -267,7 +270,7 @@ export async function analyzeExperimentResults({
       // Calculate SRM
       dimension.srm = checkSrm(
         dimension.variations.map((v) => v.users),
-        snapshotSettings.variations.map((v) => v.weight)
+        variations.map((v) => v.weight)
       );
     });
   }

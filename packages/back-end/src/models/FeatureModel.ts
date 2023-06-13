@@ -1,4 +1,5 @@
-import mongoose, { FilterQuery } from "mongoose";
+import { FilterQuery } from "mongodb";
+import mongoose from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import {
@@ -78,24 +79,20 @@ const featureSchema = new mongoose.Schema({
   environmentSettings: {},
   draft: {},
   revision: {},
-  jsonSchema: {},
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
 
 type FeatureDocument = mongoose.Document & LegacyFeatureInterface;
 
-const FeatureModel = mongoose.model<LegacyFeatureInterface>(
-  "Feature",
-  featureSchema
-);
+const FeatureModel = mongoose.model<FeatureDocument>("Feature", featureSchema);
 
 /**
  * Convert the Mongo document to an FeatureInterface, omitting Mongo default fields __v, _id
  * @param doc
  */
 const toInterface = (doc: FeatureDocument): FeatureInterface =>
-  omit(doc.toJSON<FeatureDocument>(), ["__v", "_id"]);
+  omit(doc.toJSON(), ["__v", "_id"]);
 
 export async function getAllFeatures(
   organization: string,
@@ -497,18 +494,6 @@ export async function setDefaultValue(
   draft.defaultValue = defaultValue;
 
   return updateDraft(org, user, feature, draft);
-}
-
-export async function setJsonSchema(
-  org: OrganizationInterface,
-  user: EventAuditUser,
-  feature: FeatureInterface,
-  schema: string,
-  enabled?: boolean
-) {
-  return await updateFeature(org, user, feature, {
-    jsonSchema: { schema, enabled: enabled ?? true, date: new Date() },
-  });
 }
 
 export async function updateDraft(

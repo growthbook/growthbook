@@ -73,7 +73,7 @@ const HeaderResult: FC<{
       {status === "secondary" && <FaQuestionCircle className="mr-1" />}
       <Tooltip body={<MetricTooltipBody metric={metric} />} tipPosition="right">
         <Link href={`/metric/${metric.id}`}>
-          <a className="text-black-50 font-weight-bold">{metric.name}</a>
+          <a className="text-dark font-weight-bold">{metric.name}</a>
         </Link>
       </Tooltip>
     </div>

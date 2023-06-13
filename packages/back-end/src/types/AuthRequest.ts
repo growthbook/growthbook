@@ -8,7 +8,7 @@ import {
 import { AuditInterface } from "../../types/audit";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 
-export type PermissionFunctions = {
+interface PermissionFunctions {
   checkPermissions(permission: GlobalPermission): void;
   checkPermissions(
     permission: ProjectScopedPermission,
@@ -19,7 +19,7 @@ export type PermissionFunctions = {
     project: string | (string | undefined)[] | undefined,
     envs: string[] | Set<string>
   ): void;
-};
+}
 
 // eslint-disable-next-line
 export type AuthRequest<

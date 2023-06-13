@@ -43,7 +43,7 @@ const presentationSchema = new mongoose.Schema({
 
 export type PresentationDocument = mongoose.Document & PresentationInterface;
 
-export const PresentationModel = mongoose.model<PresentationInterface>(
+export const PresentationModel = mongoose.model<PresentationDocument>(
   "Presentation",
   presentationSchema
 );

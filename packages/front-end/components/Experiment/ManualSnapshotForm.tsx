@@ -1,6 +1,6 @@
 import { FC, useState, useEffect } from "react";
 import {
-  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotInterface,
   SnapshotVariation,
 } from "back-end/types/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -25,9 +25,9 @@ const ManualSnapshotForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   close: () => void;
   success: () => void;
-  lastAnalysis?: ExperimentSnapshotAnalysis;
+  lastSnapshot?: ExperimentSnapshotInterface;
   phase: number;
-}> = ({ experiment, close, success, lastAnalysis, phase }) => {
+}> = ({ experiment, close, success, lastSnapshot, phase }) => {
   const { metrics, getMetricById } = useDefinitions();
   const { apiCall } = useAuth();
 
@@ -55,8 +55,8 @@ const ManualSnapshotForm: FC<{
       [key: string]: Omit<MetricStats, "users">[];
     };
   } = { users: Array(experiment.variations.length).fill(0), metrics: {} };
-  if (lastAnalysis?.results?.[0]) {
-    initialValue.users = lastAnalysis.results[0].variations.map((v) => v.users);
+  if (lastSnapshot?.results?.[0]) {
+    initialValue.users = lastSnapshot.results[0].variations.map((v) => v.users);
   }
   filteredMetrics.forEach(({ id, type }) => {
     initialValue.metrics[id] = Array(experiment.variations.length).fill({
@@ -64,9 +64,9 @@ const ManualSnapshotForm: FC<{
       mean: 0,
       stddev: 0,
     });
-    if (lastAnalysis?.results?.[0]) {
+    if (lastSnapshot?.results?.[0]) {
       for (let i = 0; i < experiment.variations.length; i++) {
-        const variation = lastAnalysis.results[0].variations[i];
+        const variation = lastSnapshot.results[0].variations[i];
         if (variation?.metrics[id]) {
           let count =
             variation.metrics[id].stats?.count || variation.metrics[id].value;

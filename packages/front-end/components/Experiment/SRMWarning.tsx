@@ -1,5 +1,5 @@
 import { FC, useState } from "react";
-import { formatTrafficSplit, getSRMNeededPrecisionP1 } from "@/services/utils";
+import { formatTrafficSplit } from "@/services/utils";
 import Modal from "../Modal";
 
 export const SRM_THRESHOLD = 0.001;
@@ -98,15 +98,8 @@ const SRMWarning: FC<{
       <div className="alert alert-danger">
         <strong>Warning: Sample Ratio Mismatch (SRM) detected</strong>. We
         expected a <code>{formatTrafficSplit(expected, 1)}</code> split, but
-        observed a{" "}
-        <code>
-          {formatTrafficSplit(
-            observed,
-            getSRMNeededPrecisionP1(observed, expected)
-          )}
-        </code>{" "}
-        split (p-value = <code>{srm}</code>). There is likely a bug in the
-        implementation.{" "}
+        observed a <code>{formatTrafficSplit(observed, 1)}</code> split (p-value
+        = <code>{srm}</code>). There is likely a bug in the implementation.{" "}
         <a
           href="#"
           onClick={(e) => {

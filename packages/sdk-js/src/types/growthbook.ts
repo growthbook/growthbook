@@ -206,7 +206,6 @@ export type DOMMutation = {
 export type AutoExperimentVariation = {
   domMutations?: DOMMutation[];
   css?: string;
-  js?: string;
 };
 
 export type FeatureDefinitions = Record<string, FeatureDefinition>;

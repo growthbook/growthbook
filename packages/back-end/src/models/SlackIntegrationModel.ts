@@ -98,9 +98,9 @@ type SlackIntegrationDocument = mongoose.Document & SlackIntegrationInterface;
 const toInterface = (
   doc: SlackIntegrationDocument
 ): SlackIntegrationInterface =>
-  omit(doc.toJSON<SlackIntegrationDocument>(), ["__v", "_id"]);
+  omit(doc.toJSON(), ["__v", "_id"]) as SlackIntegrationInterface;
 
-const SlackIntegrationModel = mongoose.model<SlackIntegrationInterface>(
+const SlackIntegrationModel = mongoose.model<SlackIntegrationDocument>(
   "SlackIntegration",
   slackIntegrationSchema
 );
@@ -306,7 +306,7 @@ export const updateSlackIntegration = async (
     }
   );
 
-  return result.modifiedCount === 1;
+  return result.nModified === 1;
 };
 
 // endregion Update

@@ -8,7 +8,6 @@ import {
   OperatorConditionValue,
   VarType,
 } from "./types/mongrule";
-import { paddedVersionString } from "./util";
 
 const _regexCache: { [key: string]: RegExp } = {};
 
@@ -129,14 +128,6 @@ function elemMatch(actual: any, expected: any) {
   return false;
 }
 
-function isIn(actual: any, expected: Array<any>): boolean {
-  // Do an intersection is attribute is an array
-  if (Array.isArray(actual)) {
-    return actual.some((el) => expected.includes(el));
-  }
-  return expected.includes(actual);
-}
-
 // Evaluate a single operator condition
 function evalOperatorCondition(
   operator: Operator,
@@ -144,18 +135,6 @@ function evalOperatorCondition(
   expected: any
 ): boolean {
   switch (operator) {
-    case "$veq":
-      return paddedVersionString(actual) === paddedVersionString(expected);
-    case "$vne":
-      return paddedVersionString(actual) !== paddedVersionString(expected);
-    case "$vgt":
-      return paddedVersionString(actual) > paddedVersionString(expected);
-    case "$vgte":
-      return paddedVersionString(actual) >= paddedVersionString(expected);
-    case "$vlt":
-      return paddedVersionString(actual) < paddedVersionString(expected);
-    case "$vlte":
-      return paddedVersionString(actual) <= paddedVersionString(expected);
     case "$eq":
       return actual === expected;
     case "$ne":
@@ -171,11 +150,9 @@ function evalOperatorCondition(
     case "$exists":
       return expected ? actual !== null : actual === null;
     case "$in":
-      if (!Array.isArray(expected)) return false;
-      return isIn(actual, expected);
+      return expected.includes(actual);
     case "$nin":
-      if (!Array.isArray(expected)) return false;
-      return !isIn(actual, expected);
+      return !expected.includes(actual);
     case "$not":
       return !evalConditionValue(expected, actual);
     case "$size":

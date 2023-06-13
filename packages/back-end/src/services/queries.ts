@@ -19,11 +19,11 @@ import {
   QueryPointer,
   QueryStatus,
 } from "../../types/query";
+import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
 import { QUERY_CACHE_TTL_MINS } from "../util/secrets";
 import { meanVarianceFromSums } from "../util/stats";
-import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 export type QueryMap = Map<string, QueryInterface>;
 
 export type InterfaceWithQueries = {
@@ -163,21 +163,17 @@ export async function getMetricValue(
   );
 }
 
-export async function getExperimentResults({
-  integration,
-  metrics,
-  activationMetric,
-  snapshotSettings,
-  dimension,
-}: {
-  integration: SourceIntegrationInterface;
-  snapshotSettings: ExperimentSnapshotSettings;
-  metrics: MetricInterface[];
-  activationMetric: MetricInterface | null;
-  dimension: DimensionInterface | null;
-}): Promise<QueryDocument> {
+export async function getExperimentResults(
+  integration: SourceIntegrationInterface,
+  experiment: ExperimentInterface,
+  phase: ExperimentPhase,
+  metrics: MetricInterface[],
+  activationMetric: MetricInterface | null,
+  dimension: DimensionInterface | null
+): Promise<QueryDocument> {
   const query = integration.getExperimentResultsQuery(
-    snapshotSettings,
+    experiment,
+    phase,
     metrics,
     activationMetric,
     dimension
@@ -188,12 +184,13 @@ export async function getExperimentResults({
     query,
     () =>
       integration.getExperimentResults(
-        snapshotSettings,
+        experiment,
+        phase,
         metrics,
         activationMetric,
         dimension
       ),
-    (rows) => processExperimentResultsResponse(snapshotSettings, rows),
+    (rows) => processExperimentResultsResponse(experiment, rows),
     false
   );
 }
@@ -231,8 +228,16 @@ export function processPastExperimentQueryResponse(
   };
 }
 
+function getVariationMap(experiment: ExperimentInterface) {
+  const variationMap = new Map<string, number>();
+  experiment.variations.forEach((v, i) => {
+    variationMap.set(v.key || i + "", i);
+  });
+  return variationMap;
+}
+
 export function processExperimentResultsResponse(
-  snapshotSettings: ExperimentSnapshotSettings,
+  experiment: ExperimentInterface,
   rows: ExperimentQueryResponses
 ): ExperimentResults {
   const ret: ExperimentResults = {
@@ -240,8 +245,7 @@ export function processExperimentResultsResponse(
     unknownVariations: [],
   };
 
-  const variationMap = new Map<string, number>();
-  snapshotSettings.variations.forEach((v, i) => variationMap.set(v.id, i));
+  const variationMap = getVariationMap(experiment);
 
   const unknownVariations: Map<string, number> = new Map();
   let totalUsers = 0;
@@ -268,7 +272,7 @@ export function processExperimentResultsResponse(
     if (
       typeof varIndex === "undefined" ||
       varIndex < 0 ||
-      varIndex >= snapshotSettings.variations.length
+      varIndex >= experiment.variations.length
     ) {
       unknownVariations.set(variation, numUsers);
       return;
@@ -354,7 +358,7 @@ export async function getQueryData(
 export async function updateQueryStatuses(
   queries: Queries,
   organization: string,
-  onUpdate: (queries: Queries, error?: string) => Promise<void>,
+  onUpdate: (queries: Queries) => Promise<void>,
   onSuccess: (queries: Queries, data: QueryMap) => Promise<void>,
   currentError?: string
 ): Promise<QueryStatus> {
@@ -411,15 +415,6 @@ export async function updateQueryStatuses(
     await getQueryData(byStatus.succeeded, organization, queryMap);
     await onSuccess(queries, queryMap);
     return "succeeded";
-  }
-
-  // If one of the queries just failed for the first time
-  if (byStatus.running.some((q) => q.status === "failed")) {
-    await onUpdate(
-      queries,
-      "There was an error running one or more database queries."
-    );
-    return "failed";
   }
 
   // If the queries are still running, but the status needs to get updated
@@ -505,8 +500,8 @@ export async function getStatusEndpoint<T extends InterfaceWithQueries, R>(
   const status = await updateQueryStatuses(
     doc.queries,
     organization,
-    async (queries: Queries, error?: string) => {
-      await onSave({ queries }, undefined, error || undefined);
+    async (queries: Queries) => {
+      await onSave({ queries });
     },
     async (queries: Queries, data: QueryMap) => {
       let error = "";

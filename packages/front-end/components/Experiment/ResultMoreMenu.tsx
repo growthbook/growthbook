@@ -27,6 +27,7 @@ export default function ResultMoreMenu({
   generateReport,
   notebookUrl,
   notebookFilename,
+  hasUserQuery,
   forceRefresh,
   results,
   metrics,
@@ -45,6 +46,7 @@ export default function ResultMoreMenu({
   generateReport?: boolean;
   notebookUrl: string;
   notebookFilename: string;
+  hasUserQuery?: boolean;
   forceRefresh?: () => Promise<void>;
   results?: ExperimentReportResultDimension[];
   metrics?: string[];
@@ -60,7 +62,11 @@ export default function ResultMoreMenu({
   const canEdit = permissions.check("createAnalyses", project);
 
   const canDownloadJupyterNotebook =
-    hasData && supportsNotebooks && notebookUrl && notebookFilename;
+    hasData &&
+    !hasUserQuery &&
+    supportsNotebooks &&
+    notebookUrl &&
+    notebookFilename;
 
   return (
     <MoreMenu>
@@ -93,7 +99,7 @@ export default function ResultMoreMenu({
           <BsArrowRepeat className="mr-2" /> Re-run All Queries
         </button>
       )}
-      {hasData && queries && generateReport && canEdit && (
+      {hasData && queries && !hasUserQuery && generateReport && canEdit && (
         <Button
           className="dropdown-item py-2"
           color="outline-info"

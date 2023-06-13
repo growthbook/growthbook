@@ -32,13 +32,11 @@ export default function ProjectBadges({
   );
   if (!filteredProjects.length) return null;
   if (sort) {
-    filteredProjects = filteredProjects.sort((a, b) => {
-      if (!a) return -1;
-      if (!b) return 1;
-      return (
+    filteredProjects = filteredProjects.sort(
+      (a, b) =>
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime()
-      );
-    });
+    );
   }
 
   return (

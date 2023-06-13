@@ -284,23 +284,3 @@ export async function decrypt(
     throw new Error("Failed to decrypt");
   }
 }
-
-export function paddedVersionString(input: string): string {
-  // Remove build info and leading `v` if any
-  // Split version into parts (both core version numbers and pre-release tags)
-  // "v1.2.3-rc.1+build123" -> ["1","2","3","rc","1"]
-  const parts = input.replace(/(^v|\+.*$)/g, "").split(/[-.]/);
-
-  // If it's SemVer without a pre-release, add `~` to the end
-  // ["1","0","0"] -> ["1","0","0","~"]
-  // "~" is the largest ASCII character, so this will make "1.0.0" greater than "1.0.0-beta" for example
-  if (parts.length === 3) {
-    parts.push("~");
-  }
-
-  // Left pad each numeric part with spaces so string comparisons will work ("9">"10", but " 9"<"10")
-  // Then, join back together into a single string
-  return parts
-    .map((v) => (v.match(/^[0-9]+$/) ? v.padStart(5, " ") : v))
-    .join("-");
-}

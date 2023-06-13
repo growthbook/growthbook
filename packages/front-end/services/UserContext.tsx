@@ -159,7 +159,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const {
     data: currentOrg,
     mutate: refreshOrganization,
-  } = useApi<OrgSettingsResponse>(isAuthenticated ? `/organization` : null);
+  } = useApi<OrgSettingsResponse>(`/organization`);
 
   const updateUser = useCallback(async () => {
     try {

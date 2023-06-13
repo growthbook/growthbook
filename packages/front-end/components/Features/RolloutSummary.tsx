@@ -1,5 +1,4 @@
-import { FeatureInterface } from "back-end/types/feature";
-import ValidateValue from "@/components/Features/ValidateValue";
+import { FeatureValueType } from "back-end/types/feature";
 import ValueDisplay from "./ValueDisplay";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -10,15 +9,14 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 export default function RolloutSummary({
   value,
   coverage,
-  feature,
+  type,
   hashAttribute,
 }: {
   value: string;
   coverage: number;
-  feature: FeatureInterface;
+  type: FeatureValueType;
   hashAttribute: string;
 }) {
-  const type = feature.valueType;
   return (
     <div>
       <div className="mb-3">
@@ -58,7 +56,6 @@ export default function RolloutSummary({
           <ValueDisplay value={value} type={type} />
         </div>
       </div>
-      <ValidateValue value={value} feature={feature} />
     </div>
   );
 }

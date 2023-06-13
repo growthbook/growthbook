@@ -63,6 +63,7 @@ export interface ExperimentReportResultDimension {
 export interface ExperimentReportResults {
   unknownVariations: string[];
   multipleExposures: number;
+  hasCorrectedStats?: boolean;
   dimensions: ExperimentReportResultDimension[];
 }
 export interface ExperimentReportInterface extends ReportInterfaceBase {

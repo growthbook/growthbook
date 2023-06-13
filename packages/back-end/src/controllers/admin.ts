@@ -1,6 +1,5 @@
 import { Response } from "express";
 import uniqid from "uniqid";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { AuthRequest } from "../types/AuthRequest";
 import {
   findAllOrganizations,
@@ -21,7 +20,6 @@ import { processPastExperimentQueryResponse } from "../services/queries";
 import { createExperiment } from "../models/ExperimentModel";
 import { createSegment } from "../models/SegmentModel";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
-import { getMetricMap } from "../models/MetricModel";
 
 export async function getOrganizations(req: AuthRequest, res: Response) {
   if (!req.admin) {
@@ -368,7 +366,6 @@ export async function addSampleData(
     }
   });
   const evidence: string[] = [];
-  const metricMap = await getMetricMap(org.id);
   await Promise.all(
     Object.keys(experiments).map(async (key) => {
       const data = experiments[key];
@@ -396,12 +393,6 @@ export async function addSampleData(
         organization: org,
         user: res.locals.eventAudit,
         phaseIndex: 0,
-        analysisSettings: {
-          statsEngine: DEFAULT_STATS_ENGINE,
-          dimensions: [],
-        },
-        metricRegressionAdjustmentStatuses: [],
-        metricMap,
       });
     })
   );

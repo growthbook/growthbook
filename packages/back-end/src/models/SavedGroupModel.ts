@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { omit } from "lodash";
 import { ApiSavedGroup } from "../../types/openapi";
 import { SavedGroupInterface } from "../../types/saved-group";
 import { usingFileConfig } from "../init/config";
@@ -24,7 +23,7 @@ const savedGroupSchema = new mongoose.Schema({
 
 type SavedGroupDocument = mongoose.Document & SavedGroupInterface;
 
-const SavedGroupModel = mongoose.model<SavedGroupInterface>(
+const SavedGroupModel = mongoose.model<SavedGroupDocument>(
   "savedGroup",
   savedGroupSchema
 );
@@ -38,12 +37,6 @@ type UpdateSavedGroupProps = Omit<
   SavedGroupInterface,
   "dateCreated" | "dateUpdated" | "id" | "organization" | "attributeKey"
 >;
-
-const toInterface = (doc: SavedGroupDocument): SavedGroupInterface =>
-  omit(
-    doc.toJSON<SavedGroupDocument>({ flattenMaps: true }),
-    ["__v", "_id"]
-  );
 
 export function parseSavedGroupString(list: string) {
   const values = list
@@ -63,15 +56,13 @@ export async function createSavedGroup(
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
-  return toInterface(newGroup);
+  return newGroup.toJSON();
 }
 
 export async function getAllSavedGroups(
   organization: string
 ): Promise<SavedGroupInterface[]> {
-  const savedGroups: SavedGroupDocument[] = await SavedGroupModel.find({
-    organization,
-  });
+  const savedGroups = await SavedGroupModel.find({ organization });
   return savedGroups.map((value) => value.toJSON()) || [];
 }
 
@@ -84,7 +75,7 @@ export async function getSavedGroupById(
     organization: organization,
   });
 
-  return savedGroup ? toInterface(savedGroup) : null;
+  return savedGroup?.toJSON() || null;
 }
 
 export async function updateSavedGroupById(
@@ -97,7 +88,7 @@ export async function updateSavedGroupById(
     dateUpdated: new Date(),
   };
 
-  await SavedGroupModel.updateOne(
+  await SavedGroupModel.update(
     {
       id: savedGroupId,
       organization: organization,

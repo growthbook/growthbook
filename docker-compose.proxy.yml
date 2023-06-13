@@ -14,7 +14,7 @@ services:
     depends_on:
       - mongo
     environment:
-      - MONGODB_URI=mongodb://root:password@mongo:27017/growthbook?authSource=admin
+      - MONGODB_URI=mongodb://root:password@mongo:27017/
       # Proxy settings
       - PROXY_ENABLED=1
       - PROXY_HOST_INTERNAL=http://proxy:3300

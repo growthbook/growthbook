@@ -22,7 +22,6 @@ import {
   getDraftRules,
   discardDraft,
   updateDraft,
-  setJsonSchema,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
@@ -72,7 +71,6 @@ async function getPayloadParamsFromApiKey(
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
-  hashSecureAttributes?: boolean;
 }> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
@@ -100,7 +98,6 @@ async function getPayloadParamsFromApiKey(
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
-      hashSecureAttributes: connection.hashSecureAttributes,
     };
   }
   // Old, legacy API Key
@@ -159,7 +156,6 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
-      hashSecureAttributes,
     } = await getPayloadParamsFromApiKey(key, req);
 
     const defs = await getFeatureDefinitions({
@@ -170,7 +166,6 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
-      hashSecureAttributes,
     });
 
     // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
@@ -260,11 +255,6 @@ export async function postFeatures(
         email,
         name: userName,
       },
-    },
-    jsonSchema: {
-      schema: "",
-      date: new Date(),
-      enabled: false,
     },
   };
 
@@ -468,44 +458,6 @@ export async function postFeatureDefaultValue(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   await setDefaultValue(org, res.locals.eventAudit, feature, defaultValue);
-
-  res.status(200).json({
-    status: 200,
-  });
-}
-
-export async function postFeatureSchema(
-  req: AuthRequest<{ schema: string; enabled: boolean }, { id: string }>,
-  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
-) {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-  const { schema, enabled } = req.body;
-  const feature = await getFeature(org.id, id);
-
-  if (!feature) {
-    throw new Error("Could not find feature");
-  }
-
-  req.checkPermissions("manageFeatures", feature.project);
-  req.checkPermissions("createFeatureDrafts", feature.project);
-
-  const updatedFeature = await setJsonSchema(
-    org,
-    res.locals.eventAudit,
-    feature,
-    schema,
-    enabled
-  );
-
-  await req.audit({
-    event: "feature.update",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsUpdate(feature, updatedFeature),
-  });
 
   res.status(200).json({
     status: 200,

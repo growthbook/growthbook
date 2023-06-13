@@ -6,8 +6,6 @@ import SqlIntegration from "./SqlIntegration";
 
 export default class Databricks extends SqlIntegration {
   params!: DatabricksConnectionParams;
-  requiresDatabase = false;
-  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<DatabricksConnectionParams>(
       encryptedParams

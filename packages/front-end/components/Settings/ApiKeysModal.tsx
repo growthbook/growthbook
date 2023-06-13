@@ -1,11 +1,11 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useAuth } from "@/services/auth";
-import { useEnvironments } from "@/services/features";
+import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
 import track from "../../services/track";
 import Field from "../Forms/Field";
+import { useEnvironments } from "../../services/features";
 import SelectField from "../Forms/SelectField";
 import EncryptionToggle from "./EncryptionToggle";
 import UpgradeModal from "./UpgradeModal";
@@ -15,25 +15,17 @@ const ApiKeysModal: FC<{
   onCreate: () => void;
   defaultDescription?: string;
   secret?: boolean;
-  type?: "admin" | "readonly" | "user";
-}> = ({ close, type, onCreate, defaultDescription = "", secret = false }) => {
+}> = ({ close, onCreate, defaultDescription = "", secret = false }) => {
   const { apiCall } = useAuth();
   const environments = useEnvironments();
   const [upgradeModal, setUpgradeModal] = useState(false);
   const { projects, project } = useDefinitions();
 
-  const form = useForm<{
-    description: string;
-    environment: string;
-    project: string;
-    type: string;
-    encryptSDK: boolean;
-  }>({
+  const form = useForm({
     defaultValues: {
       description: defaultDescription,
       environment: environments[0]?.id || "dev",
       project: project || "",
-      type,
       encryptSDK: false,
     },
   });
@@ -53,10 +45,6 @@ const ApiKeysModal: FC<{
     onCreate();
   });
 
-  const modalTitle = useMemo(() => {
-    return secret ? "Create Key" : "Create SDK Endpoint";
-  }, [secret]);
-
   if (upgradeModal) {
     return (
       <UpgradeModal
@@ -70,7 +58,7 @@ const ApiKeysModal: FC<{
   return (
     <Modal
       close={close}
-      header={modalTitle}
+      header={secret ? "Create Secret Key" : "Create SDK Endpoint"}
       open={true}
       submit={onSubmit}
       cta="Create"
@@ -110,23 +98,6 @@ const ApiKeysModal: FC<{
           showUpgradeModal={() => setUpgradeModal(true)}
           value={form.watch("encryptSDK")}
           setValue={(value) => form.setValue("encryptSDK", value)}
-        />
-      )}
-      {secret && type !== "user" && (
-        <SelectField
-          label="Role"
-          value={form.watch("type")}
-          onChange={(v) => form.setValue("type", v)}
-          options={[
-            {
-              label: "Admin",
-              value: "admin",
-            },
-            {
-              label: "Read-only",
-              value: "readonly",
-            },
-          ]}
         />
       )}
     </Modal>

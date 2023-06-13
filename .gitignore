@@ -13,7 +13,6 @@ yarn-error.log*
 uploads
 packages/back-end/globalConfig.json
 packages/back-end/dummy
-packages/sdk-js/scripts/test-cases--typed.json
 config.yml
 .vscode/*
 !.vscode/launch.json
