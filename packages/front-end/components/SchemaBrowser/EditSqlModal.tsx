@@ -21,7 +21,7 @@ export interface Props {
   save: (sql: string) => Promise<void>;
   close: () => void;
   requiredColumns: Set<string>;
-  placeholder: string;
+  placeholder?: string;
   queryType?: "segment" | "dimension" | "metric" | "experiment-assignment";
   setDimensions?: (dimensions: string[]) => void;
   setHasNameCols?: (hasNameCols: boolean) => void;
@@ -42,7 +42,7 @@ export default function EditSqlModal({
   save,
   close,
   requiredColumns,
-  placeholder,
+  placeholder = "",
   datasourceId,
   queryType,
   identityTypes,
@@ -81,15 +81,14 @@ export default function EditSqlModal({
       const suggestions: ReactElement[] = [];
 
       const namedCols = ["experiment_name", "variation_name"];
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      const userIdTypes = identityTypes.map((type) => type.userIdType || []);
+      const userIdTypes = identityTypes?.map((type) => type.userIdType || []);
 
       const returnedColumns = new Set<string>(Object.keys(result));
       const optionalColumns = [...returnedColumns].filter(
         (col) =>
           !requiredColumns.has(col) &&
           !namedCols.includes(col) &&
-          !userIdTypes.includes(col)
+          !userIdTypes?.includes(col)
       );
 
       // Check if `hasNameCol` should be enabled
@@ -165,7 +164,7 @@ export default function EditSqlModal({
     const sql = form.getValues("sql");
     setTestQueryResults(null);
     try {
-      validateSQL(sql, [...requiredColumns]);
+      validateSQL(sql, []);
       setTestingQuery(true);
       const res: TestQueryResults = await apiCall("/query/test", {
         method: "POST",
@@ -182,8 +181,8 @@ export default function EditSqlModal({
     setTestingQuery(false);
   };
   const datasource = getDatasourceById(datasourceId);
-  // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
-  const supportsSchemaBrowser = datasource.properties.supportsInformationSchema;
+  const supportsSchemaBrowser =
+    datasource?.properties?.supportsInformationSchema;
 
   return (
     <Modal
@@ -256,11 +255,9 @@ export default function EditSqlModal({
                 <DisplayTestQueryResults
                   duration={parseInt(testQueryResults.duration || "0")}
                   requiredColumns={[...requiredColumns]}
-                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'TestQueryRow[] | undefined' is not assignabl... Remove this comment to see the full error message
-                  results={testQueryResults.results}
+                  results={testQueryResults.results || []}
                   error={testQueryResults.error}
-                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
-                  sql={testQueryResults.sql}
+                  sql={testQueryResults.sql || ""}
                   suggestions={suggestions}
                 />
               </div>
@@ -273,10 +270,8 @@ export default function EditSqlModal({
               updateSqlInput={(sql: string) => {
                 form.setValue("sql", sql);
               }}
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'DataSourceInterfaceWithParams | null' is not... Remove this comment to see the full error message
               datasource={datasource}
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'CursorData | null' is not assignable to type... Remove this comment to see the full error message
-              cursorData={cursorData}
+              cursorData={cursorData || undefined}
             />
           </div>
         )}
