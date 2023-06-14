@@ -1262,10 +1262,14 @@ export default abstract class SqlIntegration
     prefix: string = "c"
   ): string {
     if (metric.capping === "absolute" && metric.capValue) {
-      return `LEAST(COALESCE(${valueCol}, 0), ${metric.capValue})`;
+      return `LEAST(${this.ensureFloat(`COALESCE(${valueCol}, 0)`)}, ${
+        metric.capValue
+      })`;
     }
     if (metric.capping === "percentile" && metric.capValue) {
-      return `LEAST(COALESCE(${valueCol}, 0), ${prefix}.cap_value)`;
+      return `LEAST(${this.ensureFloat(
+        `COALESCE(${valueCol}, 0)`
+      )}, ${prefix}.cap_value)`;
     }
     return `COALESCE(${valueCol}, 0)`;
   }

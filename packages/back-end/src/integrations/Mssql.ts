@@ -67,6 +67,9 @@ export default class Mssql extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
+  percentileCapSelectClause(capPercentile: number) {
+    return `APPROX_PERCENTILE_CONT(${capPercentile}) WITHIN GROUP (ORDER BY value) AS cap_value`;
+  }
   getInformationSchemaFromClause(): string {
     if (!this.params.database)
       throw new MissingDatasourceParamsError(

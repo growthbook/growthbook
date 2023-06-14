@@ -49,6 +49,9 @@ export default class Athena extends SqlIntegration {
   ensureFloat(col: string): string {
     return `1.0*${col}`;
   }
+  percentileCapSelectClause(capPercentile: number) {
+    return `APPROX_PERCENTILE(value, ${capPercentile}) AS cap_value`;
+  }
   getInformationSchemaFromClause(): string {
     if (!this.params.catalog)
       throw new MissingDatasourceParamsError(

@@ -106,6 +106,9 @@ export default class Presto extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
+  percentileCapSelectClause(capPercentile: number) {
+    return `APPROX_PERCENTILE(value, ${capPercentile}) AS cap_value`;
+  }
   getInformationSchemaFromClause(): string {
     if (!this.params.catalog)
       throw new MissingDatasourceParamsError(
