@@ -3,7 +3,6 @@ import { Client, IPrestoClientOptions } from "presto-client";
 import { decryptDataSourceParams } from "../services/datasource";
 import { PrestoConnectionParams } from "../../types/integrations/presto";
 import { FormatDialect } from "../util/sql";
-import { MissingDatasourceParamsError } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
@@ -13,6 +12,7 @@ export default class Presto extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   params: PrestoConnectionParams;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PrestoConnectionParams>(
       encryptedParams
@@ -109,14 +109,7 @@ export default class Presto extends SqlIntegration {
   percentileCapSelectClause(capPercentile: number) {
     return `APPROX_PERCENTILE(value, ${capPercentile}) AS cap_value`;
   }
-  getInformationSchemaFromClause(): string {
-    if (!this.params.catalog)
-      throw new MissingDatasourceParamsError(
-        "To view the information schema for a Presto data source, you must define a default catalog. Please add a default catalog by editing the datasource's connection settings."
-      );
-    return `${this.params.catalog}.information_schema.columns`;
-  }
-  getInformationSchemaTableFromClause(databaseName: string): string {
-    return `${databaseName}.information_schema.columns`;
+  getDefaultDatabase() {
+    return this.params.catalog || "";
   }
 }

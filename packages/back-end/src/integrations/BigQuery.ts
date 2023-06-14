@@ -4,13 +4,13 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
-import { MissingDatasourceParamsError } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   params: BigQueryConnectionParams;
+  requiresEscapingPath = true;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<BigQueryConnectionParams>(
       encryptedParams
@@ -87,21 +87,17 @@ export default class BigQuery extends SqlIntegration {
       100000 * capPercentile
     )})] AS cap_value`;
   }
-  getInformationSchemaFromClause(): string {
-    if (!this.params.projectId)
-      throw new Error(
-        "No projectId provided. In order to get the information schema, you must provide a projectId."
-      );
-    if (!this.params.defaultDataset)
-      throw new MissingDatasourceParamsError(
-        "To view the information schema for a BigQuery dataset, you must define a default dataset. Please add a default dataset by editing the datasource's connection settings."
-      );
-    return `\`${this.params.projectId}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\``;
+  getDefaultDatabase() {
+    return this.params.projectId || "";
   }
-  getInformationSchemaTableFromClause(
-    databaseName: string,
-    tableSchema: string
-  ): string {
-    return `\`${databaseName}.${tableSchema}.INFORMATION_SCHEMA.COLUMNS\``;
+  getDefaultSchema() {
+    return this.params.defaultDataset;
+  }
+  getInformationSchemaTable(schema?: string, database?: string): string {
+    return this.generateTablePath(
+      "INFORMATION_SCHEMA.COLUMNS",
+      schema,
+      database
+    );
   }
 }

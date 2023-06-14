@@ -22,7 +22,6 @@
  *  - acceptableLatencyMS: is no longer documented. Possibly related: maxStalenessSeconds
  *  - connectWithNoPrimary: is no longer documented
  *  - w: still exists but is marked as deprecated -> writeConcern (incompatible types)
- *  - j: is no longer documented (journal write concern). -> writeConcern (incompatible types)
  *  - domainsEnabled: is no longer documented
  *  - bufferMaxEntries: is no longer documented
  *  - promiseLibrary: still exists but is marked as deprecated.
@@ -41,18 +40,23 @@ export const getConnectionStringWithDeprecatedKeysMigratedForV3to4 = (
     "secondaryAcceptableLatencyMS",
     "acceptableLatencyMS",
     "connectWithNoPrimary",
-    "j",
     "domainsEnabled",
     "bufferMaxEntries",
   ];
   const v3to4Mappings: Record<string, string> = {
+    minSize: "minPoolSize",
     poolSize: "maxPoolSize",
     tlsinsecure: "tlsInsecure",
 
     /**
-     * @deprecated
+     * @deprecated use WriteConcern
      */
     wtimeout: "wtimeoutMS",
+
+    /**
+     * @deprecated use WriteConcern
+     */
+    j: "journal",
 
     appname: "appName",
   };
