@@ -8,7 +8,7 @@ import {
   PublishableApiKey,
   SecretApiKey,
 } from "../../types/apikey";
-import { IS_CLOUD, SECRET_API_KEY } from "../util/secrets";
+import { IS_CLOUD, SECRET_API_KEY, SECRET_API_KEY_ROLE } from "../util/secrets";
 import { roleForApiKey } from "../util/api-key.util";
 import { findAllOrganizations } from "./OrganizationModel";
 
@@ -274,6 +274,7 @@ export async function lookupOrganizationByApiKey(
         key: SECRET_API_KEY,
         secret: true,
         organization: orgs[0].id,
+        role: SECRET_API_KEY_ROLE,
       };
     }
   }
