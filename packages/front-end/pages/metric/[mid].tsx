@@ -1095,7 +1095,9 @@ const MetricPage: FC = () => {
                       </span>
                       <span className="font-weight-bold">
                         {metric.capValue}{" "}
-                        {metric.capping === "percentile" ? "pctile" : ""}{" "}
+                        {metric.capping === "percentile"
+                          ? `(${100 * metric.capValue || 0} pctile)`
+                          : ""}{" "}
                       </span>
                     </li>
                   )}

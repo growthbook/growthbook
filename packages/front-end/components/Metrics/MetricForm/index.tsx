@@ -977,14 +977,16 @@ const MetricForm: FC<MetricFormProps> = ({
                   <label>Capped Value</label>
                   <input
                     type="number"
+                    step="any"
+                    min="0"
                     className="form-control"
-                    {...form.register("capValue", { valueAsNumber: true })}
+                    {...form.register("capValue")}
                   />
                   <small className="text-muted">
                     {form.watch("capping") === "absolute"
                       ? `
                 Absolute capping: if greater than zero, aggregated user values will be capped at this value.`
-                      : `Percentile capping: if greater than zero, we use all metric data in the experiment to compute the percentiles of the user aggregated values. Then, we get the value at the percentile provided and cap all users at this value. Enter a number between 0 and 99.999`}
+                      : `Percentile capping: if greater than zero, we use all metric data in the experiment to compute the percentiles of the user aggregated values. Then, we get the value at the percentile provided and cap all users at this value. Enter a number between 0 and 0.99999`}
                   </small>
                 </div>
               </div>
