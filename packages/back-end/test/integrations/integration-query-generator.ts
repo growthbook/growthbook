@@ -128,7 +128,6 @@ const baseMetric: Omit<
   conversionWindowHours: 72,
   conversionDelayHours: 0,
   description: "",
-  capping: "",
   inverse: false,
   dateCreated: null,
   dateUpdated: null,

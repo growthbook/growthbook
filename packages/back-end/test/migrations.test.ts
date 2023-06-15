@@ -41,7 +41,6 @@ describe("Metric Migration", () => {
       dateUpdated: new Date(),
       description: "",
       id: "",
-      capping: "",
       ignoreNulls: false,
       inverse: false,
       name: "",
@@ -89,6 +88,49 @@ describe("Metric Migration", () => {
     });
   });
 
+  it("updates old metric objects - cap", () => {
+    const baseMetric: LegacyMetricInterface = {
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description: "",
+      id: "",
+      ignoreNulls: false,
+      inverse: false,
+      name: "",
+      organization: "",
+      owner: "",
+      queries: [],
+      runStarted: null,
+      type: "binomial",
+      userIdColumns: {
+        user_id: "user_id",
+        anonymous_id: "anonymous_id",
+      },
+      userIdTypes: ["anonymous_id", "user_id"],
+    };
+
+    const capMetric: LegacyMetricInterface = {
+      ...baseMetric,
+      cap: 35,
+    };
+
+    expect(upgradeMetricDoc(capMetric)).toEqual({
+      ...baseMetric,
+      capping: "absolute",
+      capValue: 35,
+    });
+
+    const capZeroMetric: LegacyMetricInterface = {
+      ...baseMetric,
+      cap: 0,
+    };
+
+    expect(upgradeMetricDoc(capZeroMetric)).toEqual({
+      ...baseMetric,
+    });
+  });
+
   it("updates old metric objects - userIdType", () => {
     const baseMetric: LegacyMetricInterface = {
       datasource: "",
@@ -96,7 +138,6 @@ describe("Metric Migration", () => {
       dateUpdated: new Date(),
       description: "",
       id: "",
-      capping: "",
       ignoreNulls: false,
       inverse: false,
       name: "",
@@ -164,7 +205,6 @@ describe("Metric Migration", () => {
       dateUpdated: new Date(),
       description: "",
       id: "",
-      capping: "",
       ignoreNulls: false,
       inverse: false,
       name: "",

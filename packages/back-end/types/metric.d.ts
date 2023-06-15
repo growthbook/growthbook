@@ -37,7 +37,7 @@ export interface MetricInterface {
   earlyStart?: boolean;
   inverse: boolean;
   ignoreNulls: boolean;
-  capping: MetricCappingType;
+  capping?: MetricCappingType;
   capValue?: number;
   denominator?: string;
   conversionWindowHours?: number;

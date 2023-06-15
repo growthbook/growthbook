@@ -1115,7 +1115,6 @@ export function postMetricApiPayloadToMetricInterface(
     ignoreNulls: false,
     queries: [],
     runStarted: null,
-    capping: "",
     type,
     userIdColumns: (sqlBuilder?.identifierTypeColumns || []).reduce<
       Record<string, string>
@@ -1132,7 +1131,7 @@ export function postMetricApiPayloadToMetricInterface(
       metric.capValue = behavior.capValue;
     }
     // handle old post requests
-    else if (typeof behavior.cap !== "undefined") {
+    else if (typeof behavior.cap !== "undefined" && behavior.capValue) {
       metric.capping = "absolute";
       metric.capValue = behavior.cap;
     }
