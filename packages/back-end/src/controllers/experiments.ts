@@ -4,7 +4,7 @@ import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { getAffectedEnvsForExperiment, getSnapshotAnalysis } from "shared/util";
+import { getAffectedEnvsForExperiment } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
@@ -37,7 +37,6 @@ import {
   deleteSnapshotById,
   findSnapshotById,
   getLatestSnapshot,
-  updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "../models/ExperimentSnapshotModel";
 import { getSourceIntegrationObject } from "../services/datasource";
@@ -46,8 +45,11 @@ import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import {
   cancelRun,
+  getOverallQueryStatus,
   getPastExperiments,
   getStatusEndpoint,
+  QueryStatusEndpointResponse,
+  refreshSnapshotStatus,
   startRun,
 } from "../services/queries";
 import { PastExperimentsModel } from "../models/PastExperimentsModel";
@@ -64,7 +66,6 @@ import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
-import { analyzeExperimentResults } from "../services/stats";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, FeatureInterface } from "../../types/feature";
@@ -1521,50 +1522,19 @@ export async function getSnapshotStatus(
 
   if (!experiment) throw new Error("Invalid experiment id");
 
-  const analysis = getSnapshotAnalysis(snapshot);
+  const newSnapshot = await refreshSnapshotStatus(snapshot, experiment);
 
-  if (!analysis) {
-    throw new Error("Missing snapshot analysis");
-  }
-
-  const result = await getStatusEndpoint(
-    snapshot,
-    org.id,
-    async (queryData) => {
-      const metricMap = await getMetricMap(experiment.organization);
-
-      return analyzeExperimentResults({
-        queryData,
-        snapshotSettings: snapshot.settings,
-        analysisSettings: analysis.settings,
-        variationNames: experiment.variations.map((v) => v.name),
-        metricMap,
-      });
-    },
-    async (updates, results, error) => {
-      const status = error ? "error" : results ? "success" : "running";
-
-      const analysis = getSnapshotAnalysis(snapshot);
-      if (analysis) {
-        analysis.results = results?.dimensions || [];
-        analysis.status = status;
-        analysis.error = error;
-      }
-
-      await updateSnapshot(org.id, id, {
-        ...updates,
-        unknownVariations:
-          results?.unknownVariations || snapshot.unknownVariations || [],
-        multipleExposures:
-          results?.multipleExposures ?? snapshot.multipleExposures ?? 0,
-        analyses: snapshot.analyses,
-        status: status,
-        error: error || "",
-      });
-    },
-    snapshot.error
-  );
-  return res.status(200).json(result);
+  const data: QueryStatusEndpointResponse = {
+    status: 200,
+    queryStatus: getOverallQueryStatus(newSnapshot.queries),
+    elapsed: Math.floor(
+      (Date.now() - (newSnapshot.runStarted?.getTime() || 0)) / 1000
+    ),
+    finished: newSnapshot.queries.filter((q) => q.status === "succeeded")
+      .length,
+    total: newSnapshot.queries.length,
+  };
+  res.json(data);
 }
 export async function cancelSnapshot(
   req: AuthRequest<null, { id: string }>,

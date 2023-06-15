@@ -1,6 +1,11 @@
 import uniqid from "uniqid";
 import { getValidDate } from "shared/dates";
-import { QueryDocument, QueryModel } from "../models/QueryModel";
+import {
+  getQueriesByIds,
+  QueryDocument,
+  QueryModel,
+  updateQuery,
+} from "../models/QueryModel";
 import {
   ExperimentMetricStats,
   MetricValueParams,
@@ -23,13 +28,28 @@ import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
 import { QUERY_CACHE_TTL_MINS } from "../util/secrets";
 import { meanVarianceFromSums } from "../util/stats";
-import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
+import {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+} from "../../types/experiment-snapshot";
+import { updateSnapshot } from "../models/ExperimentSnapshotModel";
+import { getMetricMap } from "../models/MetricModel";
+import { ExperimentInterface } from "../../types/experiment";
+import { analyzeExperimentResults } from "./stats";
 export type QueryMap = Map<string, QueryInterface>;
 
 export type InterfaceWithQueries = {
   runStarted: Date | null;
   queries: Queries;
   organization: string;
+};
+
+export type QueryStatusEndpointResponse = {
+  status: number;
+  queryStatus: QueryStatus;
+  elapsed: number;
+  finished: number;
+  total: number;
 };
 
 async function getExistingQuery(
@@ -349,6 +369,148 @@ export async function getQueryData(
   });
 
   return res;
+}
+
+export function getOverallQueryStatus(pointers: Queries): QueryStatus {
+  const hasFailedQueries = pointers.some((q) => q.status === "failed");
+  const hasRunningQueries = pointers.some((q) => q.status === "running");
+  return hasFailedQueries
+    ? "failed"
+    : hasRunningQueries
+    ? "running"
+    : "succeeded";
+}
+
+export async function updateQueryPointers(
+  organization: string,
+  pointers: QueryPointer[]
+): Promise<{
+  pointers: QueryPointer[];
+  overallStatus: QueryStatus;
+  hasChanges: boolean;
+  queryMap: QueryMap;
+}> {
+  const queries = await getQueriesByIds(
+    organization,
+    pointers.map((p) => p.query)
+  );
+
+  const updateQueryPromises: Promise<void>[] = [];
+
+  let hasChanges = false;
+  const queryMap: QueryMap = new Map();
+  queries.forEach((query) => {
+    // Running with no recent heartbeat, update to mark as failed
+    if (
+      query.status === "running" &&
+      Date.now() - query.heartbeat.getTime() > 150000
+    ) {
+      query.status = "failed";
+      updateQueryPromises.push(
+        updateQuery(organization, query.id, { status: "failed" })
+      );
+    }
+
+    // Update pointer status to match query status
+    const pointer = pointers.find((p) => p.query === query.id);
+    if (!pointer) return;
+
+    // Build a query map based on the pointer name
+    queryMap.set(pointer.name, query);
+
+    if (pointer.status !== query.status) {
+      hasChanges = true;
+      pointer.status = query.status;
+    }
+  });
+
+  if (updateQueryPromises.length > 0) {
+    await Promise.all(updateQueryPromises);
+  }
+
+  return {
+    pointers,
+    overallStatus: getOverallQueryStatus(pointers),
+    hasChanges,
+    queryMap,
+  };
+}
+
+export async function refreshSnapshotStatus(
+  snapshot: ExperimentSnapshotInterface,
+  experiment: ExperimentInterface
+): Promise<ExperimentSnapshotInterface> {
+  const {
+    pointers: queries,
+    hasChanges,
+    overallStatus,
+    queryMap,
+  } = await updateQueryPointers(snapshot.organization, snapshot.queries);
+
+  if (!hasChanges) return snapshot;
+
+  const changes: Partial<ExperimentSnapshotInterface> = {
+    status:
+      overallStatus === "failed"
+        ? "error"
+        : overallStatus === "running"
+        ? "running"
+        : overallStatus === "succeeded"
+        ? "success"
+        : undefined,
+    queries: queries,
+  };
+
+  // If it's going from "running" to "failed", update the error field
+  if (snapshot.status === "running" && overallStatus === "failed") {
+    changes.error = "There was an error running one or more database queries.";
+  }
+
+  // If it's going from "running" to "succeeded", run each analyses
+  if (snapshot.status === "running" && overallStatus === "succeeded") {
+    const metricMap = await getMetricMap(snapshot.organization);
+
+    const analysisPromises: Promise<void>[] = [];
+    const newAnalyses = snapshot.analyses;
+    newAnalyses.forEach((analysis) => {
+      analysisPromises.push(
+        (async () => {
+          try {
+            const results = await analyzeExperimentResults({
+              queryData: queryMap,
+              snapshotSettings: snapshot.settings,
+              analysisSettings: analysis.settings,
+              variationNames: experiment.variations.map((v) => v.name),
+              metricMap,
+            });
+
+            analysis.results = results.dimensions || [];
+            analysis.status = "success";
+            analysis.error = "";
+
+            // TODO: do this once, not per analysis
+            changes.unknownVariations = results.unknownVariations || [];
+            changes.multipleExposures = results.multipleExposures ?? 0;
+          } catch (e) {
+            analysis.error = e?.message || "An error occurred";
+            analysis.status = "error";
+          }
+        })()
+      );
+    });
+
+    if (analysisPromises.length > 0) {
+      await Promise.all(analysisPromises);
+      changes.analyses = newAnalyses;
+    }
+  }
+
+  await updateSnapshot(snapshot.organization, snapshot.id, changes);
+
+  return {
+    ...snapshot,
+    ...changes,
+  };
 }
 
 export async function updateQueryStatuses(

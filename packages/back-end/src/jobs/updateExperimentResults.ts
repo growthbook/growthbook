@@ -16,15 +16,11 @@ import {
   getRegressionAdjustmentInfo,
 } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
-import {
-  getLatestSnapshot,
-  updateSnapshot,
-} from "../models/ExperimentSnapshotModel";
+import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
-import { getStatusEndpoint } from "../services/queries";
+import { refreshSnapshotStatus } from "../services/queries";
 import { getMetricById, getMetricMap } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
-import { analyzeExperimentResults } from "../services/stats";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
 import {
@@ -183,7 +179,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     const metricMap = await getMetricMap(organization.id);
 
-    const currentSnapshot = await createSnapshot({
+    let currentSnapshot = await createSnapshot({
       experiment,
       organization,
       phaseIndex: experiment.phases.length - 1,
@@ -200,47 +196,16 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
           reject("Invalid phase");
           return;
         }
-        const res = await getStatusEndpoint(
+        currentSnapshot = await refreshSnapshotStatus(
           currentSnapshot,
-          currentSnapshot.organization,
-          async (queryData) => {
-            const metricMap = await getMetricMap(experiment.organization);
-
-            return analyzeExperimentResults({
-              queryData,
-              snapshotSettings: currentSnapshot.settings,
-              analysisSettings,
-              metricMap,
-              variationNames: experiment.variations.map((v) => v.name),
-            });
-          },
-          async (updates, results, error) => {
-            const status = error ? "error" : results ? "success" : "running";
-
-            const analysis = getSnapshotAnalysis(currentSnapshot);
-            if (analysis) {
-              analysis.results = results?.dimensions || [];
-              analysis.error = error;
-              analysis.status = status;
-            }
-
-            await updateSnapshot(experiment.organization, currentSnapshot.id, {
-              ...updates,
-              unknownVariations: results?.unknownVariations || [],
-              multipleExposures: results?.multipleExposures || 0,
-              analyses: currentSnapshot.analyses,
-              error: error || "",
-              status: status,
-            });
-          },
-          currentSnapshot.error
+          experiment
         );
-        if (res.queryStatus === "succeeded") {
+        if (currentSnapshot.status === "success") {
           resolve();
           return;
         }
-        if (res.queryStatus === "failed") {
-          reject("Queries failed to run");
+        if (currentSnapshot.status === "error") {
+          reject(currentSnapshot.error || "Queries failed to run");
           return;
         }
         // Check every 10 seconds
