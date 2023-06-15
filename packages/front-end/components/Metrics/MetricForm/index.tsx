@@ -979,6 +979,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     type="number"
                     step="any"
                     min="0"
+                    max={form.watch("capping") === "percentile" ? "1" : ""}
                     className="form-control"
                     {...form.register("capValue")}
                   />

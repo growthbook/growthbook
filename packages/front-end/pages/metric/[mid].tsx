@@ -1088,7 +1088,7 @@ const MetricPage: FC = () => {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {metric.capping && (
+                  {metric.capping && metric.capValue && (
                     <li className="mb-2">
                       <span className="text-gray">
                         Cap value ({metric.capping}):{" "}
@@ -1096,7 +1096,7 @@ const MetricPage: FC = () => {
                       <span className="font-weight-bold">
                         {metric.capValue}{" "}
                         {metric.capping === "percentile"
-                          ? `(${100 * metric.capValue || 0} pctile)`
+                          ? `(${100 * metric.capValue} pctile)`
                           : ""}{" "}
                       </span>
                     </li>

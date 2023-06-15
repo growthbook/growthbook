@@ -74,10 +74,7 @@ export interface MetricInterface {
 
 export type LegacyMetricInterface = MetricInterface & {
   cap?: number;
-  /** @deprecated */
   userIdType?: "anonymous" | "user" | "either";
-  /** @deprecated */
   userIdColumn?: string;
-  /** @deprecated */
   anonymousIdColumn?: string;
 };
