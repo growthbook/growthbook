@@ -1085,10 +1085,7 @@ export default abstract class SqlIntegration
         metric.capping === "percentile" && metric.capValue
           ? `
         , __capValue AS (
-          SELECT
-            ${this.percentileCapSelectClause(metric.capValue)}
-          FROM 
-            __userMetric
+            ${this.percentileCapSelectClause(metric.capValue, "__userMetric")}
         )
         `
           : ""
@@ -1126,10 +1123,10 @@ export default abstract class SqlIntegration
               denominator.capping === "percentile" && denominator.capValue
                 ? `
               , __capValueDenominator AS (
-                SELECT
-                  ${this.percentileCapSelectClause(denominator.capValue)}
-                FROM 
-                  __userDenominator
+                ${this.percentileCapSelectClause(
+                  denominator.capValue,
+                  "__userDenominator"
+                )}
               )
               `
                 : ""
@@ -1272,8 +1269,13 @@ export default abstract class SqlIntegration
       this.getFormatDialect()
     );
   }
-  percentileCapSelectClause(capPercentile: number) {
-    return `PERCENTILE_CONT(${capPercentile}) WITHIN GROUP (ORDER BY value) AS cap_value`;
+  percentileCapSelectClause(capPercentile: number, metricTable: string) {
+    return `
+      SELECT
+        PERCENTILE_CONT(${capPercentile}) WITHIN GROUP (ORDER BY value) AS cap_value
+      FROM ${metricTable}
+      WHERE value IS NOT NULL
+      `;
   }
   private capCoalesceValue(
     valueCol: string,

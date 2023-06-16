@@ -76,17 +76,21 @@ export default class Mysql extends SqlIntegration {
   // From https://rpbouman.blogspot.com/2008/07/calculating-nth-percentile-in-mysql.html
   // One pass, but builds a long string of all values and then cuts it at the right
   // percentile
-  percentileCapSelectClause(capPercentile: number) {
+  percentileCapSelectClause(
+    capPercentile: number,
+    metricTable: string
+  ): string {
     return `
-      SUBSTRING_INDEX(
-        SUBSTRING_INDEX(
-          GROUP_CONCAT(
-              value
-              ORDER BY value
-          ), ',', ${capPercentile} * COUNT(*) + 1
-        ), ',', -1
-      ) AS cap_value
-    `;
+    SELECT DISTINCT FIRST_VALUE(value) OVER (
+      ORDER BY CASE WHEN p <= ${capPercentile} THEN p END DESC
+    ) AS cap_value
+    FROM (
+      SELECT
+        value,
+        PERCENT_RANK() OVER (ORDER BY value) p
+      FROM ${metricTable}
+      WHERE value IS NOT NULL
+    ) t`;
   }
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)

@@ -1131,7 +1131,7 @@ export function postMetricApiPayloadToMetricInterface(
       metric.capValue = behavior.capValue;
     }
     // handle old post requests
-    else if (typeof behavior.cap !== "undefined" && behavior.capValue) {
+    else if (typeof behavior.cap !== "undefined" && behavior.cap) {
       metric.capping = "absolute";
       metric.capValue = behavior.cap;
     }

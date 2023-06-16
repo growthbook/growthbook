@@ -88,8 +88,15 @@ export default class ClickHouse extends SqlIntegration {
   ensureFloat(col: string): string {
     return `toFloat64(${col})`;
   }
-  percentileCapSelectClause(capPercentile: number) {
-    return `quantileDeterministic(${capPercentile})(value, 1234) AS cap_value`;
+  percentileCapSelectClause(
+    capPercentile: number,
+    metricTable: string
+  ): string {
+    return `
+      SELECT quantileDeterministic(${capPercentile})(value, 1234) AS cap_value
+      FROM ${metricTable}
+      WHERE value IS NOT NULL
+    `;
   }
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)
