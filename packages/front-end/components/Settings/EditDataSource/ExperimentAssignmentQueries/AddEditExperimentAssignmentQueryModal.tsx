@@ -30,6 +30,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onSave,
   onCancel,
 }) => {
+  const [showAdvancedMode, setShowAdvancedMode] = useState(false);
   const [sqlOpen, setSqlOpen] = useState(false);
   const modalTitle =
     mode === "add"
@@ -48,6 +49,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     ? userIdTypeOptions[0]?.value
     : "user_id";
 
+  const defaultQuery = `SELECT\n  ${defaultUserId} as ${defaultUserId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`;
+
   const form = useForm<ExposureQuery>({
     defaultValues:
       mode === "edit" && exposureQuery
@@ -57,7 +60,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
             id: uniqId("tbl_"),
             name: "",
             dimensions: [],
-            query: `SELECT\n  ${defaultUserId} as ${defaultUserId},\n  timestamp as timestamp,\n  experiment_id as experiment_id,\n  variation_id as variation_id\nFROM my_table`,
+            query: defaultQuery,
             userIdType: userIdTypeOptions ? userIdTypeOptions[0]?.value : "",
           },
   });
@@ -67,10 +70,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   const userEnteredQuery = form.watch("query");
   const userEnteredDimensions = form.watch("dimensions");
   const userEnteredHasNameCol = form.watch("hasNameCol");
-
-  const [showAdvancedMode, setShowAdvancedMode] = useState(
-    !!userEnteredDimensions || !!userEnteredHasNameCol
-  );
 
   const handleSubmit = form.handleSubmit(async (value) => {
     await onSave(value);
@@ -169,16 +168,24 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                   />
                 )}
                 <div>
+                  {userEnteredQuery === defaultQuery && (
+                    <div className="alert alert-warning">
+                      The query above is just a starting point and will need to
+                      be customized.
+                    </div>
+                  )}
                   <button
-                    className="btn btn-outline-primary"
+                    className="btn btn-primary"
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
                       setSqlOpen(true);
                     }}
                   >
-                    {userEnteredQuery ? "Edit" : "Add"} SQL{" "}
-                    <FaExternalLinkAlt />
+                    <div className="d-flex align-items-center">
+                      Customize SQL
+                      <FaExternalLinkAlt className="ml-2" />
+                    </div>
                   </button>
                 </div>
               </div>
