@@ -189,9 +189,6 @@ export default function EditSqlModal({
       open
       header="Edit SQL"
       submit={form.handleSubmit(async (value) => {
-        if (queryType === "experiment-assignment") {
-          await handleTestQuery();
-        }
         await save(value.sql);
       })}
       close={close}

@@ -175,7 +175,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                     </div>
                   )}
                   <button
-                    className="btn btn-primary"
+                    className="btn btn-primary mt-2"
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
