@@ -328,6 +328,22 @@ const MetricForm: FC<MetricFormProps> = ({
     selectedDataSource?.properties?.hasSettings || false;
 
   const capSupported = selectedDataSource?.properties?.metricCaps || false;
+  const cappingOptions = [
+    {
+      value: "",
+      label: `No`,
+    },
+    {
+      value: "absolute",
+      label: `Absolute capping`,
+    },
+  ];
+  if (datasourceType !== "mixpanel") {
+    cappingOptions.push({
+      value: "percentile",
+      label: `Percentile capping`,
+    });
+  }
   // TODO: eventually make each of these their own independent properties
   const conditionsSupported = capSupported;
   const ignoreNullsSupported = capSupported;
@@ -949,20 +965,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     form.setValue("capping", v);
                   }}
                   sort={false}
-                  options={[
-                    {
-                      value: "",
-                      label: `No`,
-                    },
-                    {
-                      value: "absolute",
-                      label: `Absolute capping`,
-                    },
-                    {
-                      value: "percentile",
-                      label: `Percentile capping`,
-                    },
-                  ]}
+                  options={cappingOptions}
                 />
                 <small className="text-muted">
                   Capping (winsorization) can reduce variance by capping
