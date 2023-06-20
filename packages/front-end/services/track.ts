@@ -107,8 +107,12 @@ export function trackSnapshot(
   datasourceType: string | null,
   snapshot: ExperimentSnapshotInterface
 ): void {
+  const trackingProps = snapshot
+    ? getTrackingPropsFromSnapshot(snapshot, source, datasourceType)
+    : { error: "no snapshot object returned by API" };
+
   track("Experiment Snapshot: " + event, {
-    ...getTrackingPropsFromSnapshot(snapshot, source, datasourceType),
+    ...trackingProps,
   });
 }
 
@@ -118,8 +122,12 @@ export function trackReport(
   datasourceType: string | null,
   report: ExperimentReportInterface
 ): void {
+  const trackingProps = report
+    ? getTrackingPropsFromReport(report, source, datasourceType)
+    : { error: "no report object returned by API" };
+
   track("Experiment Report: " + event, {
-    ...getTrackingPropsFromReport(report, source, datasourceType),
+    ...trackingProps,
   });
 }
 
@@ -135,14 +143,14 @@ function getTrackingPropsFromSnapshot(
     id: snapshot.id ? md5(snapshot.id) : "",
     source: source,
     experiment: snapshot.experiment ? md5(snapshot.experiment) : "",
-    engine: snapshot.analyses[0].settings.statsEngine,
+    engine: snapshot.analyses?.[0].settings.statsEngine ?? "bayesian",
     datasource_type: datasourceType,
     regression_adjustment_enabled: !!snapshot.settings
       .regressionAdjustmentEnabled,
     sequential_testing_enabled: !!snapshot.analyses[0].settings
       .sequentialTesting,
     sequential_testing_tuning_parameter:
-      snapshot.analyses[0].settings.sequentialTestingTuningParameter,
+      snapshot.analyses?.[0].settings.sequentialTestingTuningParameter ?? -99,
     skip_partial_data: !!snapshot.settings.skipPartialData,
     activation_metric_selected: !!snapshot.settings.activationMetric,
     query_filter_selected: !!snapshot.settings.queryFilter,
