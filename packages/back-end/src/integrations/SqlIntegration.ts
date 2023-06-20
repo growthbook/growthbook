@@ -1071,7 +1071,7 @@ export default abstract class SqlIntegration
         SELECT
           d.variation AS variation,
           d.dimension AS dimension,
-          ${cumulativeDate ? `${this.dateTrunc("dr.day")} AS day,` : ""}
+          ${cumulativeDate ? `dr.day AS day,` : ""}
           d.${baseIdType} AS ${baseIdType},
           ${this.addCaseWhenTimeFilter(
             "m.value",
@@ -1114,7 +1114,7 @@ export default abstract class SqlIntegration
               SELECT
                 d.variation AS variation,
                 d.dimension AS dimension,
-                ${cumulativeDate ? `${this.dateTrunc("dr.day")} AS day,` : ""}
+                ${cumulativeDate ? `dr.day AS day,` : ""}
                 d.${baseIdType} AS ${baseIdType},
                 ${this.getAggregateMetricColumn(denominator)} as value
               FROM
@@ -1140,7 +1140,7 @@ export default abstract class SqlIntegration
               GROUP BY
                 d.variation,
                 d.dimension,
-                ${cumulativeDate ? `${this.dateTrunc("dr.day")},` : ""}
+                ${cumulativeDate ? `dr.day,` : ""}
                 d.${baseIdType}
             )`
           : ""
@@ -1300,12 +1300,14 @@ export default abstract class SqlIntegration
   }
 
   getDateTable(dateArray: string[]): string {
-    const dateString = dateArray.join(" AS day UNION ALL SELECT ");
+    const dateString = dateArray
+      .map((d) => `SELECT ${d} AS day`)
+      .join("\nUNION ALL\n");
     return `
-      SELECT ${this.castToDate("t.day")} AS day
+      SELECT ${this.dateTrunc(this.castToDate("t.day"))} AS day
       FROM
         (
-          SELECT ${dateString} AS day
+          ${dateString}
         ) t
      `;
   }
@@ -1600,7 +1602,8 @@ export default abstract class SqlIntegration
     if (this.getMetricQueryFormat(metric) === "sql") {
       // Custom aggregation that's a hardcoded number (e.g. "1")
       if (metric.aggregation && Number(metric.aggregation)) {
-        return `GREATEST(${metric.aggregation}, COALESCE(value, -999999))`;
+        // If value is NULL than user reliably has no conversion rows in the window
+        return this.ifElse("value IS NOT NULL", metric.aggregation, "0");
       }
       // Other custom aggregation
       else if (metric.aggregation) {
