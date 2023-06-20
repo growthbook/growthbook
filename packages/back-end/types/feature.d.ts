@@ -95,6 +95,7 @@ export interface ExperimentRule extends BaseRule {
   namespace?: NamespaceValue;
   coverage?: number;
   values: ExperimentValue[];
+  hashVersion?: number;
 }
 
 export type FeatureRule = ForceRule | RolloutRule | ExperimentRule;

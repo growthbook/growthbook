@@ -20,10 +20,28 @@ We offer official SDKs in a few popular languages:
 - [Swift](/lib/swift)
 - [Flutter](/lib/flutter)
 
-We also have community created SDKs:
-
-- [C#](https://github.com/growthbook/growthbook-c-sharp)
-
 There is also a guide if you want to [build your own](/lib/build-your-own).
 
 It's not required to use any of these libraries. The only requirement is that you track in your datasource when users are put into an experiment and which variation they received.
+
+## Feature Support Matrix
+
+GrowthBook is constantly releasing new functionality. The table below can help figure out which SDK versions are required for the features you are utilizing in GrowthBook.
+
+| Feature                       | JS     | React  | PHP   | Ruby  | Python | Go    | Java  | C#    | Kotlin | Swift  | Flutter |
+| ----------------------------- | ------ | ------ | ----- | ----- | ------ | ----- | ----- | ----- | ------ | ------ | ------- |
+| Feature flags and experiments | 0.15.0 | 0.6.0  | 1.0.0 | 0.2.0 | 0.2.0  | 0.1.0 | 0.1.0 | 0.0.6 | 1.1.0  | 1.0.1  | 1.1.0   |
+| Built-in fetching and caching | 0.21.0 | 0.11.0 | 1.2.0 | 1.1.0 | 1.0.0  | -     | 0.4.0 | -     | 1.1.0  | 1.0.1  | -       |
+| Encrypted features            | 0.20.0 | 0.10.1 | 1.2.0 | 1.1.0 | 1.0.0  | -     | 0.3.0 | -     | 1.1.26 | 1.0.35 | -       |
+| Unbiased hashing (hash v2)    | 0.23.0 | 0.12.0 | 1.2.0 | 1.0.0 | 1.0.0  | -     | 0.6.0 | -     | -      | -      | -       |
+| Variation names               | 0.23.0 | 0.12.0 | 1.2.0 | 1.0.0 | 1.0.0  | -     | 0.6.0 | -     | -      | -      | -       |
+| Version string comparisons    | 0.27.0 | 0.17.0 | -     | -     | -      | -     | 0.7.0 | -     | 1.1.31 | 1.0.38 | -       |
+
+Below is a more detailed description of each feature:
+
+- **Feature flags and experiments** - Basic support for feature flags and experiments - evaluating targeting conditions against supplied user attributes, assigning experiment variations, firing a tracking callback, etc.
+- **Built-in fetching and caching** - The ability to pass in an `apiHost` and `clientKey` to the SDK and features/experiments will be fetched and cached automatically using best practices.
+- **Encrypted features** - The ability to provide a `decryptionKey` to decrypt SDK payloads when encrpytion is enabled within GrowthBook
+- **Unbiased hashing (hash v2)** - An improved hashing algorithm to eliminate bias when assigning experiment variations (e.g. being in variation A in one test will not influence which variation you get in another test)
+- **Variation names** - Making variation names (as well as ids) available in your `trackingCallback` function
+- **Version string comparisons** - Ability to use version string targeting attributes with proper comparison logic (e.g. greater than / less than)

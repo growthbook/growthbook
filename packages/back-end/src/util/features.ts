@@ -252,6 +252,16 @@ export function getFeatureDefinition({
                 parseFloat(r.namespace.range[1] as any) || 0,
             ];
           }
+
+          if (r.hashVersion) {
+            rule.hashVersion = r.hashVersion;
+          }
+
+          rule.meta = r.values.map((v, i) => {
+            const key = i + "";
+            if (v.name) return { name: v.name, key };
+            return { key };
+          });
         } else if (r.type === "rollout") {
           rule.force = getJSONValue(feature.valueType, r.value);
           rule.coverage = r.coverage > 1 ? 1 : r.coverage < 0 ? 0 : r.coverage;

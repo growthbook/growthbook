@@ -279,6 +279,17 @@ async function getFeatureDefinitionsResponse({
         meta: exp.meta ? exp.meta.map((m) => omit(m, ["name"])) : undefined,
       };
     });
+
+    // Remove variation name from every feature rule
+    for (const k in features) {
+      if (features[k]?.rules) {
+        features[k]?.rules?.forEach((rule) => {
+          if (rule.meta) {
+            rule.meta = rule.meta.map((m) => omit(m, ["name"]));
+          }
+        });
+      }
+    }
   }
 
   const hasSecureAttributes = attributes?.some((a) =>

@@ -471,6 +471,7 @@ export function getDefaultRuleValue({
       enabled: true,
       hashAttribute,
       trackingKey: "",
+      hashVersion: 2,
       values: [
         {
           value: defaultValue,

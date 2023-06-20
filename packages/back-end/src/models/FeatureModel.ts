@@ -59,6 +59,7 @@ const featureSchema = new mongoose.Schema({
       enabled: Boolean,
       condition: String,
       description: String,
+      hashVersion: Number,
       values: [
         {
           _id: false,

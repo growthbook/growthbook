@@ -249,6 +249,10 @@ export function upgradeFeatureRule(rule: FeatureRule): FeatureRule {
     });
   }
 
+  if (rule.type === "experiment" && !rule.hashVersion) {
+    rule.hashVersion = 1;
+  }
+
   return rule;
 }
 

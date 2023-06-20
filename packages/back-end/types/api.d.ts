@@ -13,6 +13,12 @@ export interface ExperimentOverride {
   url?: string;
 }
 
+export type VariationMeta = {
+  passthrough?: boolean;
+  key?: string;
+  name?: string;
+};
+
 export interface FeatureDefinitionRule {
   // eslint-disable-next-line
   force?: any;
@@ -25,6 +31,8 @@ export interface FeatureDefinitionRule {
   coverage?: number;
   // eslint-disable-next-line
   condition?: any;
+  hashVersion?: number;
+  meta?: VariationMeta[];
 }
 
 export interface FeatureDefinition {
