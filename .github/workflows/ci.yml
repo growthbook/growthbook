@@ -1,6 +1,6 @@
 name: CI
 on:
-  pull_request:
+  push:
     paths:
       - "packages/**"
       - "yarn.lock"
@@ -57,10 +57,15 @@ jobs:
 
       - name: Lint
         run: |
-          yarn lint
+          yarn lint:ci
           yarn workspace stats lint
         env:
           CI: true
+
+      - name: Check api types
+        run: |
+          yarn generate-api-types
+          [[ -n $(git status --porcelain) ]] && echo "You need to run yarn generate-api-types" && exit 1 || true
 
       - name: Type-check
         run: |
