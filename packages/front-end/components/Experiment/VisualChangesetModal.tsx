@@ -13,6 +13,12 @@ import Modal from "../Modal";
 
 const defaultType = "simple";
 
+/**
+ * To validate URLs. Fairly lenient regex syntax to allow for both http and
+ * https, and hostname:port entries like 'localhost:3100'.
+ */
+const URL_REGEX = /^http[s]*:\/\/\w+(\.\w+)*(:[0-9]+)?\/?(\/[.\w]*)*$/;
+
 const VisualChangesetModal: FC<{
   mode: "add" | "edit";
   experiment: ExperimentInterfaceStringDates;
@@ -52,31 +58,47 @@ const VisualChangesetModal: FC<{
     name: "urlPatterns",
   });
 
-  const onSubmit = form.handleSubmit(async (value) => {
-    const payload = {
-      editorUrl: value.editorUrl,
-      urlPatterns: value.urlPatterns,
-    };
-    if (!showAdvanced) {
-      payload.urlPatterns = [
-        { pattern: value.editorUrl, type: defaultType, include: true },
-      ];
-    }
-    if (mode === "add") {
-      await apiCall(`/experiments/${experiment.id}/visual-changeset`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-    } else {
-      await apiCall(`/visual-changesets/${visualChangeset?.id}`, {
-        method: "PUT",
-        body: JSON.stringify(payload),
-      });
-    }
-    mutate();
-    close();
-  });
+  const onSubmit = form.handleSubmit(
+    async (value) => {
+      const payload = {
+        editorUrl: value.editorUrl,
+        urlPatterns: value.urlPatterns,
+      };
+      if (!showAdvanced) {
+        payload.urlPatterns = [
+          { pattern: value.editorUrl, type: defaultType, include: true },
+        ];
+      }
+      if (mode === "add") {
+        await apiCall(`/experiments/${experiment.id}/visual-changeset`, {
+          method: "POST",
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await apiCall(`/visual-changesets/${visualChangeset?.id}`, {
+          method: "PUT",
+          body: JSON.stringify(payload),
+        });
+      }
+      mutate();
+      close();
+    },
+    (e) => {
+      const areURLsInvalid =
+        e.editorUrl?.type === "validate" ||
+        e.urlPatterns?.some?.((f) => f?.pattern?.type === "validate");
 
+      if (areURLsInvalid) {
+        throw new Error(
+          "Please enter a valid URL starting with 'http' or 'https' and try again."
+        );
+      }
+
+      console.error("VisualChangesetModal - Unknown error", e);
+
+      throw new Error("An unknown error occurred. Please contact support.");
+    }
+  );
   const editorUrlLabel = !showAdvanced
     ? "Target URL"
     : "URL to edit with Visual Editor";
@@ -110,6 +132,7 @@ const VisualChangesetModal: FC<{
         helpText={editorUrlHelpText}
         {...form.register("editorUrl", {
           required: true,
+          validate: (v: string) => URL_REGEX.test(v),
           onChange: () => {
             if (!showAdvanced) {
               form.setValue("urlPatterns.0.pattern", form.watch("editorUrl"));
@@ -153,7 +176,11 @@ const VisualChangesetModal: FC<{
                 />
               </div>
               <div className="col">
-                <Field {...form.register(`urlPatterns.${i}.pattern`)} />
+                <Field
+                  {...form.register(`urlPatterns.${i}.pattern`, {
+                    validate: (v: string) => URL_REGEX.test(v),
+                  })}
+                />
               </div>
               <div className="col-2">
                 <SelectField
