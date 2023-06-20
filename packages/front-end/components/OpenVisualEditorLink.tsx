@@ -27,21 +27,33 @@ const OpenVisualEditorLink: FC<{
   const url = useMemo(() => {
     if (!visualEditorUrl) return "";
 
-    return appendQueryParamsToURL(visualEditorUrl, {
+    let url = visualEditorUrl;
+
+    // Force all URLs to be absolute
+    if (!url.match(/^http(s)?:/)) {
+      // We could use https here, but then it would break for people testing on localhost
+      // Most sites redirect http to https, so this should work almost everywhere
+      url = "http://" + url;
+    }
+
+    url = appendQueryParamsToURL(url, {
       "vc-id": id,
       "v-idx": changeIndex,
       "exp-url": encodeURIComponent(window.location.href),
       "api-host": encodeURIComponent(apiHost),
     });
+
+    return url;
   }, [visualEditorUrl, id, changeIndex, apiHost]);
 
   return (
     <>
-      <span
+      <a
+        href={url}
         className="btn btn-sm btn-primary"
         onClick={async (e) => {
+          e.preventDefault();
           if (!visualEditorUrl) {
-            e.preventDefault();
             setShowEditorUrlDialog(true);
             track("Open visual editor", {
               source: "visual-editor-ui",
@@ -86,7 +98,7 @@ const OpenVisualEditorLink: FC<{
         }}
       >
         Open Visual Editor <FaExternalLinkAlt />
-      </span>
+      </a>
 
       {showEditorUrlDialog && openSettings && (
         <Modal
