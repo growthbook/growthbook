@@ -1819,9 +1819,11 @@ components:
         proxySigningKey:
           type: string
         sseEnabled:
-          type: boolean;
+          type: boolean
         hashSecureAttributes:
-          type: boolean;
+          type: boolean
+        remoteEvalEnabled:
+          type: boolean
     Experiment:
       type: object
       required:

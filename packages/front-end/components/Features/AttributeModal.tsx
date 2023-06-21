@@ -132,6 +132,44 @@ export default function AttributeModal({ close, attribute }: Props) {
             label: "Array of Secure Strings",
           },
         ]}
+        helpText={
+          <>
+            {["secureString", "secureString[]"].includes(datatype) && (
+              <div className="text-muted">
+                <PremiumTooltip
+                  commercialFeature="hash-secure-attributes"
+                  tipPosition="bottom"
+                  body={
+                    <>
+                      <p>
+                        Feature targeting conditions referencing{" "}
+                        <code>secureString</code> attributes will be anonymized
+                        via SHA-256 hashing. When evaluating feature flags in a
+                        public or insecure environment (such as a browser),
+                        hashing provides an additional layer of security through
+                        obfuscation. This allows you to target users based on
+                        sensitive attributes.
+                      </p>
+                      <p>
+                        You must enable this feature in your SDK Connection for
+                        it to take effect.
+                      </p>
+                      <p className="mb-0 text-warning-orange small">
+                        <FaExclamationCircle /> When using an insecure
+                        environment, do not rely exclusively on hashing as a
+                        means of securing highly sensitive data. Hashing is an
+                        obfuscation technique that makes it very difficult, but
+                        not impossible, to extract sensitive data.
+                      </p>
+                    </>
+                  }
+                >
+                  How do secure attributes work? <FaInfoCircle />
+                </PremiumTooltip>
+              </div>
+            )}
+          </>
+        }
       />
       {datatype === "string" && (
         <>
@@ -163,57 +201,25 @@ export default function AttributeModal({ close, attribute }: Props) {
           helpText="Comma-separated list of all possible values"
         />
       )}
-      {["secureString", "secureString[]"].includes(datatype) && (
-        <div className="text-muted">
-          <PremiumTooltip
-            commercialFeature="hash-secure-attributes"
-            tipPosition="bottom"
-            body={
-              <>
-                <p>
-                  Feature targeting conditions referencing{" "}
-                  <code>secureString</code> attributes will be anonymized via
-                  SHA-256 hashing. When evaluating feature flags in a public or
-                  insecure environment (such as a browser), hashing provides an
-                  additional layer of security through obfuscation. This allows
-                  you to target users based on sensitive attributes.
-                </p>
-                <p>
-                  You must enable this feature in your SDK Connection for it to
-                  take effect.
-                </p>
-                <p className="mb-0 text-warning-orange small">
-                  <FaExclamationCircle /> When using an insecure environment, do
-                  not rely exclusively on hashing as a means of securing highly
-                  sensitive data. Hashing is an obfuscation technique that makes
-                  it very difficult, but not impossible, to extract sensitive
-                  data.
-                </p>
-              </>
-            }
-          >
-            How do secure attributes work? <FaInfoCircle />
-          </PremiumTooltip>
-        </div>
-      )}
       {hashAttributeDataTypes.includes(datatype) && (
         <div className="form-group">
-          <label>User Identifier</label>
-          <div>
-            <Toggle
-              id={"hashAttributeToggle"}
-              label="User Identifier"
-              value={!!form.watch(`hashAttribute`)}
-              setValue={(value) => {
-                form.setValue(`hashAttribute`, value);
-              }}
-            />{" "}
-            Attribute Identifies a Specific User
-          </div>
-          <div>
-            <small className="text-muted">
-              For example, <code>email</code> or <code>id</code>
-            </small>
+          <label>Unique Identifier</label>
+          <div className="row align-items-center">
+            <div className="col-auto">
+              <Toggle
+                id={"hashAttributeToggle"}
+                value={!!form.watch(`hashAttribute`)}
+                setValue={(value) => {
+                  form.setValue(`hashAttribute`, value);
+                }}
+              />
+            </div>
+            <div className="col px-0 text-muted" style={{ lineHeight: "1rem" }}>
+              <div>Attribute can be used for user assignment</div>
+              <small>
+                For example, <code>email</code> or <code>id</code>
+              </small>
+            </div>
           </div>
         </div>
       )}
