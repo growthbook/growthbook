@@ -20,4 +20,6 @@ export type AppFeatures = {
   "visual-editor-ui": boolean;
   "proxy-cloud-sse": boolean;
   "organization-message-list": Record<string, unknown>;
+  "remote-evaluation": boolean;
+  "import-from-x": boolean;
 };
