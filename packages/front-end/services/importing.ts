@@ -112,9 +112,17 @@ export const transformLDFeatureFlagToGBFeature = (
 
       const defaultValue = environments[envKeys[0]].on;
 
+      const gbEnvironments: FeatureInterface["environmentSettings"] = {};
+      envKeys.forEach((envKey) => {
+        gbEnvironments[envKey] = {
+          enabled: environments[envKey].on,
+          // Note: Rules do not map 1-to-1 between GB and LD
+          rules: [],
+        };
+      });
+
       return {
-        // todo:
-        environmentSettings: {},
+        environmentSettings: gbEnvironments,
         defaultValue:
           kind === "boolean"
             ? `${defaultValue}`
