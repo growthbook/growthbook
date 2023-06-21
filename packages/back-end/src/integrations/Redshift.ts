@@ -37,10 +37,7 @@ export default class Redshift extends SqlIntegration {
   currentDate(): string {
     return `CURRENT_DATE`;
   }
-  getInformationSchemaFromClause(): string {
-    return "SVV_COLUMNS";
-  }
-  getInformationSchemaTableFromClause(): string {
+  getInformationSchemaTable(): string {
     return "SVV_COLUMNS";
   }
 }

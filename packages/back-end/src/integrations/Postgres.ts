@@ -6,6 +6,8 @@ import SqlIntegration from "./SqlIntegration";
 
 export default class Postgres extends SqlIntegration {
   params!: PostgresConnectionParams;
+  requiresDatabase = false;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PostgresConnectionParams>(
       encryptedParams

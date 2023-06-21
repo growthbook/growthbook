@@ -88,7 +88,7 @@ describe("mongo utils", () => {
         "mongodb://root:password@localhost:27017/growthbook?authSource=admin&poolSize=50&wtimeout=123456&appname=foobar&tlsinsecure=true&autoReconnect=true&reconnectRetries=3&reconnectInterval=300&ha=true&haInterval=300&secondaryAcceptableLatencyMS=1000&acceptableLatencyMS=1000&j=true&connectWithNoPrimary=true&domainsEnabled=false&bufferMaxEntries=10&foo=1&bar=2&baz=3";
       // includes original deprecated keys
       const expected =
-        "mongodb://root:password@localhost:27017/growthbook?authSource=admin&autoReconnect=true&reconnectRetries=3&reconnectInterval=300&ha=true&haInterval=300&secondaryAcceptableLatencyMS=1000&acceptableLatencyMS=1000&j=true&connectWithNoPrimary=true&domainsEnabled=false&bufferMaxEntries=10&foo=1&bar=2&baz=3&maxPoolSize=50&tlsInsecure=true&wtimeoutMS=123456&appName=foobar";
+        "mongodb://root:password@localhost:27017/growthbook?authSource=admin&autoReconnect=true&reconnectRetries=3&reconnectInterval=300&ha=true&haInterval=300&secondaryAcceptableLatencyMS=1000&acceptableLatencyMS=1000&connectWithNoPrimary=true&domainsEnabled=false&bufferMaxEntries=10&foo=1&bar=2&baz=3&maxPoolSize=50&tlsInsecure=true&wtimeoutMS=123456&journal=true&appName=foobar";
 
       const {
         url,
@@ -103,6 +103,7 @@ describe("mongo utils", () => {
         "poolSize",
         "tlsinsecure",
         "wtimeout",
+        "j",
         "appname",
       ]);
       expect(unsupported).toEqual([
@@ -113,7 +114,6 @@ describe("mongo utils", () => {
         "secondaryAcceptableLatencyMS",
         "acceptableLatencyMS",
         "connectWithNoPrimary",
-        "j",
         "domainsEnabled",
         "bufferMaxEntries",
       ]);
