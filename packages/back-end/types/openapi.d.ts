@@ -589,6 +589,7 @@ export interface components {
       proxySigningKey: string;
       sseEnabled?: boolean;
       hashSecureAttributes?: boolean;
+      remoteEvalEnabled?: boolean;
     };
     Experiment: {
       id: string;
@@ -1521,6 +1522,7 @@ export interface operations {
                 proxySigningKey: string;
                 sseEnabled?: boolean;
                 hashSecureAttributes?: boolean;
+                remoteEvalEnabled?: boolean;
               })[];
           } & {
             limit: number;
@@ -1561,6 +1563,7 @@ export interface operations {
               proxySigningKey: string;
               sseEnabled?: boolean;
               hashSecureAttributes?: boolean;
+              remoteEvalEnabled?: boolean;
             };
           };
         };
