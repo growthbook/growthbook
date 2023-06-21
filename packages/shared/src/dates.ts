@@ -28,6 +28,8 @@ export function daysBetween(start: string | Date, end: string | Date): number {
   return differenceInDays(getValidDate(end), getValidDate(start));
 }
 
+// returns of the format ["'2022-01-05'", "'2022-01-06'"] for
+// ease of use with SQL
 export function dateStringArrayBetweenDates(
   start: Date,
   end: Date,
