@@ -25,9 +25,11 @@ describe("dateStringArrayBetweenDates", () => {
     const start = new Date(Date.UTC(2020, 0, 5, 10, 0, 0));
     const end = new Date(Date.UTC(2020, 0, 7, 10, 0, 0));
 
-    expect(
-      dateStringArrayBetweenDates(start, end)
-    ).toEqual(["'2020-01-05'", "'2020-01-06'", "'2020-01-07'"]);
+    expect(dateStringArrayBetweenDates(start, end)).toEqual([
+      "'2020-01-05'",
+      "'2020-01-06'",
+      "'2020-01-07'",
+    ]);
   });
   it("truncates correctly", () => {
     // start date is < 48 hours before end date, but we still
@@ -35,22 +37,25 @@ describe("dateStringArrayBetweenDates", () => {
     const start = new Date(Date.UTC(2020, 0, 5, 16, 0, 0));
     const end = new Date(Date.UTC(2020, 0, 7, 10, 0, 0));
 
-    expect(
-      dateStringArrayBetweenDates(start, end, false)
-    ).toEqual(["'2020-01-05'", "'2020-01-06'"]);
+    expect(dateStringArrayBetweenDates(start, end, false)).toEqual([
+      "'2020-01-05'",
+      "'2020-01-06'",
+    ]);
 
-    expect(
-      dateStringArrayBetweenDates(start, end, true)
-    ).toEqual(["'2020-01-05'", "'2020-01-06'", "'2020-01-07'"]);
+    expect(dateStringArrayBetweenDates(start, end, true)).toEqual([
+      "'2020-01-05'",
+      "'2020-01-06'",
+      "'2020-01-07'",
+    ]);
   });
 
   it("Interval jumps correctly, starting with start date", () => {
     const start = new Date(Date.UTC(2020, 0, 5, 10, 0, 0));
     const end = new Date(Date.UTC(2020, 0, 7, 10, 0, 0));
 
-    expect(
-      dateStringArrayBetweenDates(start, end, true, 2)
-    ).toEqual(["'2020-01-05'", "'2020-01-07'"]);
+    expect(dateStringArrayBetweenDates(start, end, true, 2)).toEqual([
+      "'2020-01-05'",
+      "'2020-01-07'",
+    ]);
   });
 });
-
