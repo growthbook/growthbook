@@ -242,8 +242,7 @@ function buildSegment(
       datasource: "",
       userIdType: USER_ID_TYPE,
       name: exp.segment,
-      // TODO: fake date trunc just to avoid exporting dateTrunc from SqlIntegration
-      sql: `SELECT DISTINCT\nuserId as user_id,DATE('2022-01-01') as date\nFROM ${
+      sql: `SELECT DISTINCT\nuserId as user_id,CAST('2022-01-01' AS DATE) as date\nFROM ${
         engine === "bigquery" ? "sample." : ""
       }experiment_viewed\nWHERE browser = 'Chrome'`,
       dateCreated: currentDate,

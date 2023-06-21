@@ -194,8 +194,7 @@ class clickhouseRunner(sqlRunner):
         with self.connection.query_df_stream(sql) as df_stream:
             for df in df_stream:
                 dfs.append(df)
-        return QueryResult(rows=[])
-        #return QueryResult(rows=pd.concat(dfs).to_dict('records'))
+        return QueryResult(rows=pd.concat(dfs).to_dict('records'))
 
 
 class mssqlRunner(sqlRunner):
@@ -396,7 +395,6 @@ def main():
             runners[engine] = get_sql_runner(engine)
         key = engine + "::" + test_case["sql"]
         if key in cache:
-            print("using cache")
             update_fields = ['engine', 'name']
             results.append({
                 # prevent drawing wrong test case from cache when different
@@ -405,7 +403,6 @@ def main():
                 **{k: v for k, v in test_case.items() if k in update_fields}
             })
         else:
-            print("executing")
             if engine not in nonlinted_engines:
                 validate(test_case)
             result = execute_query(test_case["sql"], runners[engine])
