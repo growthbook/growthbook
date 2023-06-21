@@ -1,7 +1,7 @@
 import { FeatureInterface } from "back-end/types/feature";
 import {
   transformLDEnvironmentsToGBEnvironment,
-  transformLDFeatureFlagToGBEnvironment,
+  transformLDFeatureFlagToGBFeature,
   transformLDProjectsToGBProject,
 } from "@/services/importing";
 
@@ -347,7 +347,7 @@ describe("importing utils", () => {
         },
       ];
 
-      const result = transformLDFeatureFlagToGBEnvironment(
+      const result = transformLDFeatureFlagToGBFeature(
         booleanTypeInput,
         "prj_abc1234"
       );
@@ -556,7 +556,7 @@ describe("importing utils", () => {
         },
       ];
 
-      const result = transformLDFeatureFlagToGBEnvironment(
+      const result = transformLDFeatureFlagToGBFeature(
         stringTypeInput,
         "prj_xyz987"
       );

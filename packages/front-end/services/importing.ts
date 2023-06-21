@@ -90,7 +90,7 @@ type LDListFeatureFlagsResponse = {
   }[];
 };
 
-export const transformLDFeatureFlagToGBEnvironment = (
+export const transformLDFeatureFlagToGBFeature = (
   data: LDListFeatureFlagsResponse,
   project: string
 ): Omit<
