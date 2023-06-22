@@ -58,7 +58,7 @@ jobs:
       - name: Lint
         run: |
           yarn lint:ci
-          yarn workspace stats lint
+          yarn workspace stats lint:ci
         env:
           CI: true
 
