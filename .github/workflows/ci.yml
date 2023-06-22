@@ -59,6 +59,7 @@ jobs:
         run: |
           yarn lint:ci
           yarn workspace stats lint
+          [[ -n $(git status --porcelain) ]] && echo "You have unlinted changes in the following files:" && git status --porcelain && exit 1 || true
         env:
           CI: true
 

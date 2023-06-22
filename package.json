@@ -55,10 +55,8 @@
     "./**/*.{ts,tsx}": [
       "yarn lint"
     ],
-    "./packages/stats/gbstats/**/*.py": [
-      "black",
-      "flake8 --config=packages/stats/.flake8",
-      "mypy --check-untyped-defs"
+    "./packages/stats/{gbstats,tests}/**/*.py": [
+      "yarn workspace stats lint :"
     ]
   },
   "prettier": {
