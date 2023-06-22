@@ -156,6 +156,7 @@ export interface Context {
   onFeatureUsage?: (key: string, result: FeatureResult<any>) => void;
   realtimeKey?: string;
   realtimeInterval?: number;
+  userId?: string;
   /* @deprecated */
   user?: {
     id?: string;
@@ -253,7 +254,8 @@ export type CacheSettings = {
 
 export type ApiHost = string;
 export type ClientKey = string;
-export type RepositoryKey = `${ApiHost}||${ClientKey}`;
+// Local eval: `${apiHost}||${clientKey}`. Remote eval: context.userId
+export type RepositoryKey = `${ApiHost}||${ClientKey}` | string;
 
 export type LoadFeaturesOptions = {
   autoRefresh?: boolean;

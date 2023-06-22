@@ -111,6 +111,10 @@ export class GrowthBook<
     if (context.clientKey) {
       this._refresh({}, true, false);
     }
+
+    if (context.remoteEval && !context.userId) {
+      throw new Error("Remote eval: missing userId");
+    }
   }
 
   public async loadFeatures(options?: LoadFeaturesOptions): Promise<void> {
@@ -135,6 +139,14 @@ export class GrowthBook<
 
   public getRemoteEval(): boolean {
     return this._ctx.remoteEval || false;
+  }
+
+  public getUserId(): string {
+    return this._ctx.userId || "";
+  }
+
+  public setUserId(userId: string): void {
+    this._ctx.userId = userId;
   }
 
   private async _refresh(

@@ -137,7 +137,11 @@ async function fetchFeaturesWithCache(
 
 function getKey(instance: GrowthBook): [RepositoryKey, ApiHost, ClientKey] {
   const [apiHost, clientKey] = instance.getApiInfo();
-  return [`${apiHost}||${clientKey}`, apiHost, clientKey];
+  let repositoryKey = `${apiHost}||${clientKey}`;
+  if (instance.getRemoteEval()) {
+    repositoryKey = instance.getUserId();
+  }
+  return [repositoryKey, apiHost, clientKey];
 }
 
 // Guarantee the promise always resolves within {timeout} ms
