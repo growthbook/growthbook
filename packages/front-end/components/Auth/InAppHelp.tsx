@@ -13,29 +13,33 @@ export default function InAppHelp() {
   const [upgradeModal, setUpgradeModal] = useState(false);
   const { accountPlan } = useUser();
   const { name, email, userId } = useUser();
+  const isPaidUser = ["pro", "enterprise"].includes(accountPlan || "");
+
   useEffect(() => {
-    if (accountPlan == ("oss" || "starter") || !isCloud() || !config) return;
-    if (window["Papercups"]) return;
-    window["Papercups"] = {
-      config: {
-        ...config,
-        customer: {
-          name,
-          email,
-          external_id: userId,
+    if (window["Papercups"] || !config) return;
+
+    if (isCloud() && isPaidUser) {
+      window["Papercups"] = {
+        config: {
+          ...config,
+          customer: {
+            name,
+            email,
+            external_id: userId,
+          },
         },
-      },
-    };
-    const s = document.createElement("script");
-    s.async = true;
-    s.src = config.baseUrl + "/widget.js";
-    document.head.appendChild(s);
+      };
+      const s = document.createElement("script");
+      s.async = true;
+      s.src = config.baseUrl + "/widget.js";
+      document.head.appendChild(s);
+    }
   }, [config]);
 
   // If the Papercup key exists on the window, we're showing the Papercups widget, so don't show the freeHelpModal
   if (window["Papercups"]) return null;
 
-  if ((isCloud() && accountPlan === "starter") || !isCloud()) {
+  if ((isCloud() && !isPaidUser) || !isCloud()) {
     return (
       <>
         {upgradeModal && (
