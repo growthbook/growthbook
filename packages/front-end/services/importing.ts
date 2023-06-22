@@ -6,7 +6,7 @@ import { FeatureInterface } from "back-end/types/feature";
 
 // region LD
 
-type LDListProjectsResponse = {
+export type LDListProjectsResponse = {
   items: {
     key: string;
     name: string;
@@ -26,7 +26,7 @@ export const transformLDProjectsToGBProject = (
   }));
 };
 
-type LDListEnvironmentsResponse = {
+export type LDListEnvironmentsResponse = {
   items: {
     key: string;
     name: string;
@@ -46,7 +46,7 @@ export const transformLDEnvironmentsToGBEnvironment = (
   }));
 };
 
-type LDListFeatureFlagsResponse = {
+export type LDListFeatureFlagsResponse = {
   _links: {
     self: {
       href: string; // "/api/v2/flags/default?summary=true"
@@ -138,5 +138,46 @@ export const transformLDFeatureFlagToGBFeature = (
     }
   );
 };
+
+/**
+ * Make a get request to LD with the provided API token
+ * @param url
+ * @param apiToken
+ */
+async function getFromLD<ResType>(
+  url: string,
+  apiToken: string
+): Promise<ResType> {
+  const response = await fetch(url, {
+    headers: {
+      Authorization: apiToken,
+    },
+  });
+  if (!response.ok) {
+    throw new Error(response.statusText);
+  }
+
+  return await response.json();
+}
+
+export const getLDProjects = async (
+  apiToken: string
+): Promise<LDListProjectsResponse> =>
+  getFromLD("https://app.launchdarkly.com/api/v2/projects", apiToken);
+
+export const getLDEnvironments = async (
+  apiToken: string,
+  project: string
+): Promise<LDListEnvironmentsResponse> =>
+  getFromLD(
+    `https://app.launchdarkly.com/api/v2/projects/${project}/environments`,
+    apiToken
+  );
+
+export const getLDFeatureFlags = async (
+  apiToken: string,
+  project: string
+): Promise<LDListFeatureFlagsResponse> =>
+  getFromLD(`https://app.launchdarkly.com/api/v2/flags/${project}`, apiToken);
 
 // endregion LD
