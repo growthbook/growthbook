@@ -1,0 +1,28 @@
+parameters: []
+tags:
+  - experiments
+summary: Create or update a single experiment
+operationId: putExperiment
+x-codeSamples:
+  - lang: 'cURL'
+    source: |
+      curl -X PUT https://api.growthbook.io/api/v1/experiments \
+        -d '{ id: "test_experiment", name: "test_experiment", "owner": "weijie.ou@discordapp.com" ... }'
+        -u secret_abc123DEF456:
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "../payload-schemas/PutExperimentPayload.yaml"
+responses:
+  "200":
+    content:
+      application/json:
+        schema:
+          type: object
+          required:
+            - experiment
+          properties:
+            experiment:
+              $ref: "../schemas/Experiment.yaml"

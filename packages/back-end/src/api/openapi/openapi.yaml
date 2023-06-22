@@ -115,7 +115,10 @@ paths:
   /data-sources/{id}:
     $ref: "./paths/getDataSource.yaml"
   /experiments:
-    $ref: "./paths/listExperiments.yaml"
+    get:
+      $ref: "./paths/listExperiments.yaml"
+    put:
+      $ref: "./paths/putExperiment.yaml"
   /experiments/{id}:
     $ref: "./paths/getExperiment.yaml"
   /experiments/{id}/results:
