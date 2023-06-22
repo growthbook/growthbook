@@ -5,9 +5,10 @@ import { isCloud } from "@/services/env";
 
 export default function InAppHelp() {
   const config = useFeature("papercups-config").value;
+  const { accountPlan } = useUser();
   const { name, email, userId } = useUser();
   useEffect(() => {
-    if (!isCloud() || !config) return;
+    if (accountPlan == ("oss" || "starter") || !isCloud() || !config) return;
     if (window["Papercups"]) return;
     window["Papercups"] = {
       config: {
