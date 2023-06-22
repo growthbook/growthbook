@@ -10,36 +10,39 @@ export type QueueTask<DataType> = {
   data: DataType;
 };
 
+type FailedTaskResult = {
+  status: "fail";
+  error: string;
+};
+
+type RetryTaskResult = {
+  status: "retry";
+  error: string;
+};
+
+type SuccessTaskResult<ResultData> = {
+  status: "success";
+  data: ResultData;
+};
+
 /**
  * A task result has a status, and in the case where status == success,
  * data that matches the generic argument ResultData
  */
 export type TaskResult<ResultData> =
-  | {
-      status: "success";
-      data: ResultData;
-    }
-  | {
-      status: "fail";
-      error: string;
-    }
-  | {
-      status: "retry";
-      error: string;
-    };
+  | SuccessTaskResult<ResultData>
+  | FailedTaskResult
+  | RetryTaskResult;
 
 /**
  * The function that performs the task with the provided task data.
  * Use the provided data and return a task result.
  *
- * If the task succeeds, return:
- *    { status: "success", data: <ResultData> }
+ * If the task succeeds, return {@link SuccessTaskResult}
  *
- * If the task fails and you'd like to retry, return:
- *    { status: "retry" }
+ * If the task fails and you'd like to retry, return {@link RetryTaskResult}
  *
- * If the task fails and you do not want to retry, return:
- *    { status: "fail" }
+ * If the task fails and you do not want to retry, return {@link FailedTaskResult}
  */
 export type PerformTaskFunc<DataType, ResultData> = (
   data: DataType

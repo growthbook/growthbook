@@ -19,7 +19,7 @@ const ImportingFromExternalServicesPage: NextPage = () => {
   }
 
   return (
-    <div className="pagecontents">
+    <div className="contents container pagecontents">
       <ImportFromLaunchDarklyContainer />
     </div>
   );

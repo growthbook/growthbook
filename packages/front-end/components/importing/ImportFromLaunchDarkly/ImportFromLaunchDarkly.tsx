@@ -33,7 +33,7 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
   );
 
   return (
-    <div className="container">
+    <div className="">
       <h1>Import from LaunchDarkly</h1>
       <p>
         Import your data from LaunchDarkly. Just provide a LaunchDarkly API key
@@ -89,7 +89,7 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
       {/* region Project Results */}
       {!pending && results.projects.taskResults.length > 0 && (
         <div className="card p-4 my-4">
-          <h2>Results</h2>
+          <h2>Results &rarr; Projects</h2>
           <p className="text-muted">
             {results.projects.remainingProjects} out of{" "}
             {results.projects.totalProjects} remaining
