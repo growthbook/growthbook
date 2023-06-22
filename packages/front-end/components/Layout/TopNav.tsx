@@ -262,12 +262,6 @@ const TopNav: FC<{
                   <div className="dropdown-divider"></div>
                 </>
               )}
-              <Link href={"https://slack.growthbook.io/?ref=app-top-nav"}>
-                <a className="dropdown-item" target="blank">
-                  Join our Slack Community
-                </a>
-              </Link>
-              <div className="dropdown-divider"></div>
               <button
                 className="dropdown-item"
                 onClick={(e) => {
