@@ -79,7 +79,7 @@ describe("bigquery integration", () => {
 
     expect(
       bqIntegration["getAggregateMetricColumn"](customNumberAggMetric)
-    ).toEqual("GREATEST(33, COALESCE(value, -999999))");
+    ).toEqual("(CASE WHEN value IS NOT NULL THEN 33 ELSE 0 END)");
     expect(bqIntegration["getAggregateMetricColumn"](customCountAgg)).toEqual(
       "COUNT(value) / (5 + COUNT(value))"
     );

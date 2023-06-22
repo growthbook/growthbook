@@ -78,16 +78,8 @@ export default function DimensionChooser({
   // Date is always available
   const builtInDimensions = [
     {
-      label: "Time Series (Date Exposed Cohort)",
+      label: "Date first exposed",
       value: "pre:date",
-    },
-    {
-      label: "Time Series (Cumulative)",
-      value: "pre:datecumulative",
-    },
-    {
-      label: "Time Series (Daily)",
-      value: "pre:datedaily",
     },
   ];
   // Activation status is only available when an activation metric is chosen

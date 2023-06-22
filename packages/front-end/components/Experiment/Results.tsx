@@ -221,7 +221,9 @@ const Results: FC<{
             results={analysis?.results ?? []}
             seriestype={snapshot.dimension}
             variations={variations}
-            statsEngine={snapshot.statsEngine}
+            statsEngine={
+              analysis?.settings?.statsEngine ?? DEFAULT_STATS_ENGINE
+            }
           />
         ) : (
           <BreakDownResults
