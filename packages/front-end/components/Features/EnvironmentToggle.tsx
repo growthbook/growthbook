@@ -98,7 +98,6 @@ export default function EnvironmentToggle({
             setConfirming(true);
           } else {
             await submit(feature, environment, on);
-            mutate();
           }
         }}
         type="environment"
