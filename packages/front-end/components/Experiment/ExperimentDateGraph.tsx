@@ -38,6 +38,7 @@ export interface ExperimentDateGraphProps {
   datapoints: ExperimentDateGraphDataPoint[];
   tickFormat: (v: number) => string;
   statsEngine?: StatsEngine;
+  hasStats?: boolean;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -61,7 +62,8 @@ const margin = [15, 15, 30, 80];
 const getTooltipContents = (
   data: TooltipData,
   variationNames: string[],
-  statsEngine: StatsEngine
+  statsEngine: StatsEngine,
+  hasStats: boolean = true
 ) => {
   const { d, yaxis } = data;
   return (
@@ -77,10 +79,14 @@ const getTooltipContents = (
               <td></td>
               <td>Value</td>
               <td>Uplift</td>
-              <td>CI</td>
-              <td>
-                {statsEngine === "frequentist" ? "P-val" : "Chance to Win"}
-              </td>
+              {hasStats && (
+                <>
+                  <td>CI</td>
+                  <td>
+                    {statsEngine === "frequentist" ? "P-val" : "Chance to Win"}
+                  </td>
+                </>
+              )}
             </tr>
           </thead>
         )}
@@ -106,25 +112,32 @@ const getTooltipContents = (
                         </>
                       )}
                     </td>
-                    <td className="small">
-                      {i > 0 && (
-                        <>
-                          [{percentFormatter.format(variation?.ci?.[0] ?? 0)},{" "}
-                          {percentFormatter.format(variation?.ci?.[1] ?? 0)}]
-                        </>
-                      )}
-                    </td>
-                    <td className={variation.className}>
-                      {i > 0 && (
-                        <>
-                          {statsEngine === "frequentist"
-                            ? typeof variation.p === "number" &&
-                              pValueFormatter(variation.p)
-                            : typeof variation.ctw === "number" &&
-                              percentFormatter.format(variation.ctw)}
-                        </>
-                      )}
-                    </td>
+                    {hasStats && (
+                      <>
+                        <td className="small">
+                          {i > 0 && (
+                            <>
+                              [
+                              {percentFormatter.format(variation?.ci?.[0] ?? 0)}
+                              ,{" "}
+                              {percentFormatter.format(variation?.ci?.[1] ?? 0)}
+                              ]
+                            </>
+                          )}
+                        </td>
+                        <td className={variation.className}>
+                          {i > 0 && (
+                            <>
+                              {statsEngine === "frequentist"
+                                ? typeof variation.p === "number" &&
+                                  pValueFormatter(variation.p)
+                                : typeof variation.ctw === "number" &&
+                                  percentFormatter.format(variation.ctw)}
+                            </>
+                          )}
+                        </td>
+                      </>
+                    )}
                   </>
                 )}
               </tr>
@@ -179,6 +192,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   label,
   tickFormat,
   statsEngine = "bayesian",
+  hasStats = true,
 }) => {
   // yaxis = "users";
   const { containerRef, containerBounds } = useTooltipInPortal({
@@ -298,7 +312,12 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                 className={`tooltip-experimentDateGraph ${styles.tooltip}`}
                 unstyled={true}
               >
-                {getTooltipContents(tooltipData, variationNames, statsEngine)}
+                {getTooltipContents(
+                  tooltipData,
+                  variationNames,
+                  statsEngine,
+                  hasStats
+                )}
               </TooltipWithBounds>
             )}
             <div className="d-flex">

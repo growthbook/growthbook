@@ -166,14 +166,16 @@ const DateResults: FC<{
 
                   const statSig = isStatSig(p, pValueThreshold);
 
-                  const highlight = shouldHighlight({
-                    metric,
-                    baseline,
-                    stats,
-                    hasEnoughData: true,
-                    suspiciousChange: false,
-                    belowMinChange: false,
-                  });
+                  const highlight =
+                    !cumulative &&
+                    shouldHighlight({
+                      metric,
+                      baseline,
+                      stats,
+                      hasEnoughData: true,
+                      suspiciousChange: false,
+                      belowMinChange: false,
+                    });
 
                   let className = "";
                   if (i && highlight) {
@@ -266,6 +268,7 @@ const DateResults: FC<{
             tickFormat={(v) => percentFormatter.format(v)}
             variationNames={variations.map((v) => v.name)}
             statsEngine={statsEngine}
+            hasStats={!cumulative}
           />
         </div>
       ))}
