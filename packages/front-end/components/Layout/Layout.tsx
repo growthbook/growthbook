@@ -195,6 +195,12 @@ const navlinks: SidebarLinkProps[] = [
         permissions: ["viewEvents"],
       },
       {
+        name: "Import your data",
+        href: "/importing",
+        path: /^importing/,
+        permissions: ["manageFeatures", "manageEnvironments", "manageProjects"],
+      },
+      {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
