@@ -56,7 +56,7 @@
       "yarn lint"
     ],
     "./packages/stats/{gbstats,tests}/**/*.py": [
-      "yarn workspace stats lint :"
+      "bash -c \"yarn workspace stats lint\" && :"
     ]
   },
   "prettier": {
