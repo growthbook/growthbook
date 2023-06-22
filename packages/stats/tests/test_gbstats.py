@@ -194,12 +194,15 @@ RA_STATISTICS_DF = pd.DataFrame(
     statistic_type="mean_ra", main_metric_type="count", covariate_metric_type="count"
 )
 
+
 class TestDiffDailyTS(TestCase):
     def test_diff_works_as_expected(self):
         dfc = MULTI_DIMENSION_STATISTICS_DF.copy()
-        dfc["dimension"].replace(["one", "two"], ["2022-01-01", "2022-01-02"], inplace=True)
+        dfc["dimension"].replace(
+            ["one", "two"], ["2022-01-01", "2022-01-02"], inplace=True
+        )
         dfc = diff_for_daily_time_series(dfc)
-        
+
         target_df = pd.DataFrame(
             [
                 {
@@ -235,10 +238,10 @@ class TestDiffDailyTS(TestCase):
                     "count": 200,
                 },
             ]
-            ).assign(statistic_type="mean", main_metric_type="count")
+        ).assign(statistic_type="mean", main_metric_type="count")
         pd.testing.assert_frame_equal(
-            dfc.sort_values(['variation', 'dimension']).reset_index(drop=True), 
-            target_df.sort_values(['variation', 'dimension']).reset_index(drop=True)
+            dfc.sort_values(["variation", "dimension"]).reset_index(drop=True),
+            target_df.sort_values(["variation", "dimension"]).reset_index(drop=True),
         )
 
 
