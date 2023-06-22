@@ -53,7 +53,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     ref
   ) => {
     const { apiCall } = useAuth();
-    const type = feature.valueType;
     const title =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
@@ -253,13 +252,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               </div>
             )}
             {rule.type === "force" && (
-              <ForceSummary value={rule.value} type={type} />
+              <ForceSummary value={rule.value} feature={feature} />
             )}
             {rule.type === "rollout" && (
               <RolloutSummary
                 value={rule.value ?? ""}
                 coverage={rule.coverage ?? 1}
-                type={type}
+                feature={feature}
                 hashAttribute={rule.hashAttribute || ""}
               />
             )}
