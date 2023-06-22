@@ -121,6 +121,9 @@ describe("async queue", () => {
                 : {
                     // task 'one' will exhaust the retries while all other odd tasks will immediately fail ('three')
                     status: data.n === 1 ? "retry" : "fail",
+                    error:
+                      "This task was programmed to: " +
+                      (data.n === 1 ? "retry" : "fail"),
                   };
 
             resolve(result);
@@ -161,7 +164,10 @@ describe("async queue", () => {
       });
       // the first task to immediately fail ('one') will progress next
       expect(mockOnProgress.mock.calls[1][0]).toEqual("three");
-      expect(mockOnProgress.mock.calls[1][1]).toEqual({ status: "fail" });
+      expect(mockOnProgress.mock.calls[1][1]).toEqual({
+        status: "fail",
+        error: "This task was programmed to: fail",
+      });
       // the next one to succeed is the other even task 'four' since 'three' is odd and fails
       expect(mockOnProgress.mock.calls[2][0]).toEqual("four");
       expect(mockOnProgress.mock.calls[2][1]).toEqual({
@@ -170,7 +176,10 @@ describe("async queue", () => {
       });
       // task 'one' always retries and eventually fails
       expect(mockOnProgress.mock.calls[3][0]).toEqual("one");
-      expect(mockOnProgress.mock.calls[3][1]).toEqual({ status: "retry" });
+      expect(mockOnProgress.mock.calls[3][1]).toEqual({
+        error: "This task was programmed to: retry",
+        status: "retry",
+      });
       // perform is called 6 times:
       //  1. one - this task retries
       //  2. two - this task succeeds
@@ -243,7 +252,10 @@ describe("async queue", () => {
       });
       // failed task
       expect(mockOnProgress.mock.calls[3][0]).toEqual("two");
-      expect(mockOnProgress.mock.calls[3][1]).toEqual({ status: "fail" });
+      expect(mockOnProgress.mock.calls[3][1]).toEqual({
+        status: "fail",
+        error: "cannot perform two (2)",
+      });
       // called 7 times: one, two, three, four, two, two, two
       expect(mockPerformAsync.mock.calls).toHaveLength(7);
       // retries for task 'two'

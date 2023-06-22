@@ -19,8 +19,14 @@ export type TaskResult<ResultData> =
       status: "success";
       data: ResultData;
     }
-  | { status: "fail" }
-  | { status: "retry" };
+  | {
+      status: "fail";
+      error: string;
+    }
+  | {
+      status: "retry";
+      error: string;
+    };
 
 /**
  * The function that performs the task with the provided task data.
@@ -167,7 +173,11 @@ export async function enqueueTasks<DataType, ResultData>(
           break;
       }
     } catch (e) {
-      handleFailure(task, { status: "fail" }, { retry: true });
+      handleFailure(
+        task,
+        { status: "fail", error: e.message },
+        { retry: true }
+      );
     }
   }
 
