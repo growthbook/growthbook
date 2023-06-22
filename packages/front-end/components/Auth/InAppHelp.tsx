@@ -1,6 +1,7 @@
 import { useFeature } from "@growthbook/growthbook-react";
 import { useEffect, useState } from "react";
-import { BsArrowRight, BsQuestionLg, BsXLg } from "react-icons/bs";
+import { BsQuestionLg, BsXLg } from "react-icons/bs";
+import { FaArrowRight } from "react-icons/fa";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import { GBPremiumBadge } from "../Icons";
@@ -8,7 +9,7 @@ import UpgradeModal from "../Settings/UpgradeModal";
 
 export default function InAppHelp() {
   const config = useFeature("papercups-config").value;
-  const [showFreeHelpModal, setShowFreeHelpModal] = useState(false);
+  const [showFreeHelpWidget, setShowFreeHelpWidget] = useState(false);
   const [upgradeModal, setUpgradeModal] = useState(false);
   const { accountPlan } = useUser();
   const { name, email, userId } = useUser();
@@ -31,7 +32,10 @@ export default function InAppHelp() {
     document.head.appendChild(s);
   }, [config]);
 
-  if (accountPlan === "oss" || accountPlan === "starter") {
+  // If the Papercup key exists on the window, we're showing the Papercups widget, so don't show the freeHelpModal
+  if (window["Papercups"]) return null;
+
+  if ((isCloud() && accountPlan === "starter") || !isCloud()) {
     return (
       <>
         {upgradeModal && (
@@ -42,23 +46,33 @@ export default function InAppHelp() {
           />
         )}
 
-        {showFreeHelpModal && (
+        {showFreeHelpWidget && (
           <div
-            className="bg-white shadow border rounded"
+            className="bg-light shadow border rounded position-fixed"
             style={{
-              position: "fixed",
               right: "50px",
               bottom: "80px",
-              maxWidth: "300px",
-              zIndex: 99999,
+              maxWidth: "310px",
+              zIndex: 10,
             }}
           >
-            <div className="bg-purple rounded-top p-4">
-              <h2 className="text-white m-0">Welcome to GrowthBook</h2>
-              <p className="text-white m-0">How can we help?</p>
+            <div className="bg-purple rounded-top p-3 pb-4 d-flex align-items-center">
+              <img
+                alt="GrowthBook"
+                src="/logo/growth-book-logomark-white.svg"
+                className="mb-1 pr-1"
+                style={{ height: 30 }}
+              />
+              <h2 className="text-white m-0">How can we help?</h2>
             </div>
-            <div>
-              <div className="bg-light border rounded p-3 m-3 shadow">
+            <div
+              style={{
+                position: "relative",
+                top: "-30px",
+                marginBottom: "-30px",
+              }}
+            >
+              <div className="bg-white border rounded p-3 m-3 shadow">
                 <p className="mb-2">
                   <strong>Have a question?</strong>
                 </p>
@@ -66,58 +80,51 @@ export default function InAppHelp() {
                   href="https://slack.growthbook.io/?ref=app-top-nav"
                   target="blank"
                 >
-                  <button className="btn btn-outline-primary font-weight-normal my-2">
-                    Ask The Community <BsArrowRight />
+                  <button className="btn btn-primary font-weight-normal my-2 w-100">
+                    Join The Slack Community <FaArrowRight className="ml-2" />
                   </button>
                 </a>
                 <a href="https://docs.growthbook.io/" target="blank">
-                  <button className="btn btn-outline-primary font-weight-normal my-2">
-                    View The Docs <BsArrowRight />
+                  <button className="btn btn-outline-primary font-weight-normal my-2 w-100">
+                    View Docs <FaArrowRight className="ml-2" />
                   </button>
                 </a>
               </div>
-            </div>
-            <div>
-              <div className="bg-light border rounded p-3 m-3 shadow">
-                <p className="mb-2">
-                  <strong>Upgrade your account for live chat support.</strong>
-                </p>
-                <button
-                  className="btn btn-premium font-weight-normal my-2"
-                  onClick={() => setUpgradeModal(true)}
-                >
-                  {accountPlan === "oss" ? (
-                    <>
-                      Try Enterprise <GBPremiumBadge />
-                    </>
-                  ) : (
-                    <>
-                      Try Pro <GBPremiumBadge />
-                    </>
-                  )}
-                </button>
-              </div>
+              {accountPlan !== "enterprise" && (
+                <div className="bg-white border rounded p-3 m-3 shadow">
+                  <p className="mb-2">
+                    <strong>
+                      Upgrade your account to unlock live chat support and
+                      access to premium features.
+                    </strong>
+                  </p>
+                  <button
+                    className="btn btn-premium font-weight-normal my-2 w-100"
+                    onClick={() => setUpgradeModal(true)}
+                  >
+                    Start {accountPlan === "oss" ? "Enterprise" : "Free"} Trial{" "}
+                    <GBPremiumBadge />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
         <button
-          className="btn btn-primary d-flex align-items-center justify-content-center"
+          className="btn btn-primary d-flex align-items-center justify-content-center position-fixed rounded-circle"
           onClick={() => {
-            console.log("showFreeHelpModal", showFreeHelpModal);
-            setShowFreeHelpModal(!showFreeHelpModal);
+            setShowFreeHelpWidget(!showFreeHelpWidget);
           }}
           style={{
-            position: "fixed",
             right: "20px",
             bottom: "20px",
-            zIndex: 99999,
+            zIndex: 10,
             height: "50px",
             width: "50px",
-            borderRadius: "50%",
-            fontSize: "20px",
+            fontSize: "30px",
           }}
         >
-          {showFreeHelpModal ? <BsXLg /> : <BsQuestionLg />}
+          {showFreeHelpWidget ? <BsXLg /> : <BsQuestionLg />}
         </button>
       </>
     );
