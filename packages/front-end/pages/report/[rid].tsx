@@ -369,6 +369,7 @@ export default function ReportPage() {
                 results={report.results.dimensions}
                 seriestype={report.args.dimension}
                 variations={variations}
+                statsEngine={report.args.statsEngine}
               />
             ) : (
               <BreakDownResults
