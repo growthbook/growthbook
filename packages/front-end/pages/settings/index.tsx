@@ -1358,7 +1358,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     className="mr-1"
                     htmlFor="toggle-killswitchConfirmation"
                   >
-                    Require confirmation when changing an environment kill switch
+                    Require confirmation when changing an environment kill
+                    switch
                   </label>
                 </div>
                 <div>
@@ -1366,10 +1367,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     id={"toggle-killswitchConfirmation"}
                     value={!!form.watch("killswitchConfirmation")}
                     setValue={(value) => {
-                      form.setValue(
-                        "killswitchConfirmation",
-                        value
-                      );
+                      form.setValue("killswitchConfirmation", value);
                     }}
                   />
                 </div>
