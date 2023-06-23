@@ -13,7 +13,9 @@ export default function InAppHelp() {
   const [upgradeModal, setUpgradeModal] = useState(false);
   const { accountPlan } = useUser();
   const { name, email, userId } = useUser();
-  const isPaidUser = ["pro", "enterprise"].includes(accountPlan || "");
+  const isPaidUser = ["pro", "pro_sso", "enterprise"].includes(
+    accountPlan || ""
+  );
 
   useEffect(() => {
     if (window["Papercups"] || !config) return;
