@@ -177,6 +177,7 @@ export interface OrganizationSettings {
   sequentialTestingTuningParameter?: number;
   displayCurrency?: string;
   secureAttributeSalt?: string;
+  killswitchConfirmation?: boolean;
 }
 
 export interface SubscriptionQuote {
