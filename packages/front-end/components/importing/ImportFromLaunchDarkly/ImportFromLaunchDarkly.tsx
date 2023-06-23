@@ -63,8 +63,7 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
           />
         </div>
         <button className="btn btn-primary" type="submit">
-          <FaUpload />
-          Start Import
+          <FaUpload /> Start Import
         </button>
       </form>
 
@@ -90,12 +89,31 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
       {!pending && results.projects.taskResults.length > 0 && (
         <div className="card p-4 my-4">
           <h2>Results &rarr; Projects</h2>
-          <p className="text-muted">
-            {results.projects.remainingProjects} out of{" "}
-            {results.projects.totalProjects} remaining
-          </p>
+          {/*<p className="text-muted">*/}
+          {/*  {results.projects.remainingProjects} out of{" "}*/}
+          {/*  {results.projects.totalProjects} remaining*/}
+          {/*</p>*/}
 
           {results.projects.taskResults.map((result) => (
+            <p key={result.message} className="d-sm-flex align-items-center">
+              {getIconForTaskResultState(result.status)}{" "}
+              <span className="ml-2">{result.message}</span>
+            </p>
+          ))}
+        </div>
+      )}
+      {/* endregion Project Results */}
+
+      {/* region Project Results */}
+      {!pending && results.environments.taskResults.length > 0 && (
+        <div className="card p-4 my-4">
+          <h2>Results &rarr; Environments</h2>
+          {/*<p className="text-muted">*/}
+          {/*  {results.projects.remainingProjects} out of{" "}*/}
+          {/*  {results.projects.totalProjects} remaining*/}
+          {/*</p>*/}
+
+          {results.environments.taskResults.map((result) => (
             <p key={result.message} className="d-sm-flex align-items-center">
               {getIconForTaskResultState(result.status)}{" "}
               <span className="ml-2">{result.message}</span>
