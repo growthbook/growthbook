@@ -436,7 +436,7 @@ export default function CodeSnippetModal({
                             </div>
                           )}
                           <Code
-                            filename="psuedocode"
+                            filename="pseudocode"
                             language="javascript"
                             code={`const salt = "${secureAttributeSalt}";
 
