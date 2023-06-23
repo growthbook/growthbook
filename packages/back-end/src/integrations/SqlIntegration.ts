@@ -1226,6 +1226,7 @@ export default abstract class SqlIntegration
         isRatio
           ? `LEFT JOIN __userDenominatorAgg d ON (
               d.${baseIdType} = m.${baseIdType}
+              ${ratioIsFunnel ? "AND d.value != 0" : ""}
               ${cumulativeDate ? "AND d.day = m.day" : ""}
             )`
           : ""
@@ -1238,8 +1239,7 @@ export default abstract class SqlIntegration
           `
           : ""
       }
-      ${!isRatio && metric.ignoreNulls ? `WHERE m.value != 0` : ""}
-      ${isRatio ? `WHERE d.value != 0` : ""}
+      ${metric.ignoreNulls ? `WHERE m.value != 0` : ""}
       GROUP BY
         m.variation,
         ${cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"}
