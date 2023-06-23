@@ -203,7 +203,7 @@ const DateResults: FC<{
                   return {
                     v,
                     v_formatted,
-                    users, 
+                    users,
                     up,
                     ci,
                     p,
@@ -256,17 +256,19 @@ const DateResults: FC<{
       </div>
       {metricSections && (
         <>
-        <h2>Metrics</h2>
-        <div className="mb-5">
-          <small>
-            The following results are "cohort" effects. In other words, units are first
-            grouped by the first date they are exposed to the experiment (x-axis) and then
-            the total uplift for all of those users is computed (y-axis).
-            <br></br>
-            This is not the same as a standard time series, because 
-            the impact on units first exposed on day X could include conversions on future days.
-          </small>
-        </div>
+          <h2>Metrics</h2>
+          <div className="mb-5">
+            <small>
+              The following results are cohort effects. In other words, units
+              are first grouped by the first date they are exposed to the
+              experiment (x-axis) and then the total uplift for all of those
+              users is computed (y-axis).
+              <br></br>
+              This is not the same as a standard time series, because the impact
+              on units first exposed on day X could include conversions on
+              future days.
+            </small>
+          </div>
         </>
       )}
 

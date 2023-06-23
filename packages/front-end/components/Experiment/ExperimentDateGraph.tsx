@@ -74,27 +74,29 @@ const getTooltipContents = (
           yaxis !== "uplift" && "mt-1"
         }`}
       >
-          <thead>
-            <tr>
-              <td></td>
-              <td>Users</td>
+        <thead>
+          <tr>
+            <td></td>
+            <td>Users</td>
 
-        {yaxis === "uplift" && (
-          <>
-              <td>Value</td>
-              <td>Uplift</td>
-              {hasStats && (
-                <>
-                  <td>CI</td>
-                  <td>
-                    {statsEngine === "frequentist" ? "P-val" : "Chance to Win"}
-                  </td>
-                </>
-              )}
-          </>
-        )}
-        </tr>
-      </thead>
+            {yaxis === "uplift" && (
+              <>
+                <td>Value</td>
+                <td>Uplift</td>
+                {hasStats && (
+                  <>
+                    <td>CI</td>
+                    <td>
+                      {statsEngine === "frequentist"
+                        ? "P-val"
+                        : "Chance to Win"}
+                    </td>
+                  </>
+                )}
+              </>
+            )}
+          </tr>
+        </thead>
         <tbody>
           {variationNames.map((v, i) => {
             const variation = d.variations[i];
@@ -106,9 +108,7 @@ const getTooltipContents = (
                 >
                   {v}
                 </td>
-                {yaxis === "users" && (
-                <td>{d.variations[i].v_formatted}</td>
-                )}
+                {yaxis === "users" && <td>{d.variations[i].v_formatted}</td>}
                 {yaxis === "uplift" && (
                   <>
                     <td>{d.variations[i].users}</td>
