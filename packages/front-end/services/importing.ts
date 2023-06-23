@@ -1,6 +1,7 @@
 import { ProjectInterface } from "back-end/types/project";
 import { Environment } from "back-end/types/organization";
 import { FeatureInterface } from "back-end/types/feature";
+import cloneDeep from "lodash/cloneDeep";
 
 // Various utilities to help migrate from another service to GrowthBook
 
@@ -181,3 +182,32 @@ export const getLDFeatureFlags = async (
   getFromLD(`https://app.launchdarkly.com/api/v2/flags/${project}`, apiToken);
 
 // endregion LD
+
+/**
+ * util for adding an environment to the existing organization environments.
+ * does not mutate the existing environments object.
+ * @param env
+ * @param orgEnvironments
+ * @param shouldReplace
+ */
+export const addEnvironmentToOrganizationEnvironments = (
+  env: Environment,
+  orgEnvironments: Environment[],
+  shouldReplace: boolean = false
+): Environment[] => {
+  const existingMatchingEnvIndex = orgEnvironments.findIndex(
+    (e) => e.id === env.id
+  );
+
+  if (existingMatchingEnvIndex === -1) {
+    return [...orgEnvironments, env];
+  }
+
+  if (shouldReplace) {
+    const updatedEnvironments = cloneDeep(orgEnvironments);
+    updatedEnvironments[existingMatchingEnvIndex] = env;
+    return updatedEnvironments;
+  }
+
+  return orgEnvironments;
+};
