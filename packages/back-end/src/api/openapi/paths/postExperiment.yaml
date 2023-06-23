@@ -2,7 +2,7 @@ parameters: []
 tags:
   - experiments
 summary: Create or update a single experiment
-operationId: putExperiment
+operationId: postExperiment
 x-codeSamples:
   - lang: 'cURL'
     source: |
@@ -14,7 +14,7 @@ requestBody:
   content:
     application/json:
       schema:
-        $ref: "../payload-schemas/PutExperimentPayload.yaml"
+        $ref: "../payload-schemas/PostExperimentPayload.yaml"
 responses:
   "200":
     content:

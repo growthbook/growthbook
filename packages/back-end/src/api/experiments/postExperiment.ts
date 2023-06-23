@@ -1,12 +1,12 @@
 import { ExperimentInterface } from "../../../types/experiment";
-import { PutExperimentResponse } from "../../../types/openapi";
+import { PostExperimentResponse } from "../../../types/openapi";
 import { createExperiment } from "../../models/ExperimentModel";
 import { toExperimentApiInterface } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
-import { putExperimentValidator } from "../../validators/openapi";
+import { postExperimentValidator } from "../../validators/openapi";
 
-export const putExperiment = createApiRequestHandler(putExperimentValidator)(
-  async (req): Promise<PutExperimentResponse> => {
+export const putExperiment = createApiRequestHandler(postExperimentValidator)(
+  async (req): Promise<PostExperimentResponse> => {
     const newExperiment: Partial<ExperimentInterface> = {
       phases: [],
       ...req.body,

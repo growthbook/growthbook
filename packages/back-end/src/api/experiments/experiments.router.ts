@@ -10,7 +10,7 @@ const router = Router();
 // Experiment Endpoints
 // Mounted at /api/v1/experiments
 router.get("/", listExperiments);
-router.put("/", putExperiment);
+router.put("/", postExperiment);
 router.get("/:id", getExperiment);
 router.get("/:id/results", getExperimentResults);
 router.get("/:id", putExperiment);

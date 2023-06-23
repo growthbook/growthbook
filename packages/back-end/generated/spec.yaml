@@ -564,17 +564,17 @@ paths:
                         items:
                           $ref: '#/components/schemas/Experiment'
                   - $ref: '#/components/schemas/PaginationFields'
-    put:
+    post:
       parameters: []
       tags:
         - experiments
       summary: Create or update a single experiment
-      operationId: putExperiment
+      operationId: postExperiment
       x-codeSamples:
         - lang: cURL
           source: |
             curl -X PUT https://api.growthbook.io/api/v1/experiments \
-              -d '{ id: "test_experiment", name: "test_experiment", "owner": "weijie.ou@discordapp.com" ... }'
+              -d '{ id: "test_experiment", name: "test_experiment", "owner": "weijie.ou@example.com" ... }'
               -u secret_abc123DEF456:
       requestBody:
         required: true
@@ -601,12 +601,6 @@ paths:
                 id:
                   type: string
                   description: ID for the experiment
-                dateCreated:
-                  type: string
-                  format: date-time
-                dateUpdated:
-                  type: string
-                  format: date-time
                 name:
                   type: string
                   description: Name of the experiment
@@ -644,6 +638,189 @@ paths:
                   type: string
                 variations:
                   type: array
+                  minItems: 2
+                  items:
+                    type: object
+                    required:
+                      - id
+                      - key
+                      - name
+                      - description
+                      - screenshots
+                    properties:
+                      id:
+                        type: string
+                      key:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      screenshots:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - path
+                          properties:
+                            path:
+                              type: string
+                            width:
+                              type: number
+                            height:
+                              type: number
+                            description:
+                              type: string
+                phases:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - dateStarted
+                      - reasonForStopping
+                      - seed
+                      - coverage
+                      - trafficSplit
+                      - targetingCondition
+                      - namespace
+                      - condition
+                      - reason
+                    properties:
+                      name:
+                        type: string
+                      dateStarted:
+                        type: string
+                        format: date
+                      dateEnded:
+                        type: string
+                        format: date
+                      reasonForStopping:
+                        type: string
+                      seed:
+                        type: string
+                      coverage:
+                        type: number
+                      trafficSplit:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - variationId
+                            - weight
+                          properties:
+                            variationId:
+                              type: string
+                            weight:
+                              type: number
+                      namespace:
+                        type: object
+                        required:
+                          - namespaceId
+                          - range
+                        properties:
+                          namespaceId:
+                            type: string
+                          range:
+                            type: array
+                            rangeStart: number
+                            rangeEnd: number
+                      targetingCondition:
+                        type: string
+                      reason:
+                        type: string
+                      condition:
+                        type: string
+                      variationWeights:
+                        type: array
+                        items:
+                          type: number
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experiment
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/Experiment'
+    put:
+      parameters: []
+      tags:
+        - experiments
+      summary: Create or update a single experiment
+      operationId: putExperiment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X PUT https://api.growthbook.io/api/v1/experiments \
+              -d '{ id: "test_experiment", name: "test_experiment", "owner": "weijie.ou@example.com" ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - name
+                - variations
+                - owner
+                - datasourceId
+                - trackingKey
+                - exposureQueryId
+              properties:
+                datasourceId:
+                  type: string
+                  description: 'ID for the [DataSource](#tag/DataSource_model)'
+                exposureQueryId:
+                  type: string
+                trackingKey:
+                  type: string
+                id:
+                  type: string
+                  description: ID for the experiment
+                name:
+                  type: string
+                  description: Name of the experiment
+                project:
+                  type: string
+                  description: Project ID which the experiment belongs to
+                hypothesis:
+                  type: string
+                  description: Hypothesis of the experiment
+                description:
+                  type: string
+                  description: Description of the experiment
+                tags:
+                  type: array
+                  items:
+                    type: string
+                metrics:
+                  type: array
+                  items:
+                    type: string
+                owner:
+                  type: string
+                  description: Email of the person who owns this experiment
+                archived:
+                  type: boolean
+                status:
+                  type: string
+                  enum:
+                    - draft
+                    - running
+                    - stopped
+                autoRefresh:
+                  type: boolean
+                hashAttribute:
+                  type: string
+                variations:
+                  type: array
+                  minItems: 2
                   items:
                     type: object
                     required:

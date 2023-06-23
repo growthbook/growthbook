@@ -117,6 +117,8 @@ paths:
   /experiments:
     get:
       $ref: "./paths/listExperiments.yaml"
+    post:
+      $ref: "./paths/postExperiment.yaml"
     put:
       $ref: "./paths/putExperiment.yaml"
   /experiments/{id}:
