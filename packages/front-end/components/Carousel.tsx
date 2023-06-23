@@ -14,11 +14,22 @@ import DeleteButton from "./DeleteButton/DeleteButton";
 const Carousel: FC<{
   deleteImage?: (i: number) => Promise<void>;
   children: ReactNode;
-}> = ({ children, deleteImage }) => {
+  maxChildHeight?: number;
+}> = ({ children, deleteImage, maxChildHeight }) => {
   const [active, setActive] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
 
   const num = Children.count(children);
+  if (!modalOpen && maxChildHeight) {
+    children = Children.map(children, (child, i) => {
+      return cloneElement(child as ReactElement, {
+        style: {
+          ...(child as ReactElement).props.style,
+          maxHeight: maxChildHeight,
+        }
+      });
+    });
+  }
 
   const current = active >= num ? num - 1 : active;
 

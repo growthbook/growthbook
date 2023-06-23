@@ -154,7 +154,7 @@ export interface Props {
   editPhase?: ((i: number | null) => void) | null;
 }
 
-export default function SinglePage({
+export default function SinglePage_old({
   experiment,
   idea,
   visualChangesets,
@@ -662,8 +662,8 @@ export default function SinglePage({
         </div>
       )}
       <div className="row mb-4">
-        {/*<div className="col-md-8">*/}
-          <div className="">
+        <div className="col-md-8">
+          <div className="appbox h-100">
             <div className="p-3">
               <MarkdownInlineEdit
                 value={experiment.description ?? ""}
@@ -711,8 +711,8 @@ export default function SinglePage({
               setVisualEditorModal={setVisualEditorModal}
             />
           </div>
-        {/*</div>*/}
-       {/* <div className="col-md-4">
+        </div>
+        <div className="col-md-4">
           <RightRailSection
             title="Experiment Settings"
             open={() => setReportSettingsOpen(true)}
@@ -927,7 +927,7 @@ export default function SinglePage({
               )}
             </div>
           </RightRailSection>
-        </div>*/}
+        </div>
       </div>
 
       {growthbook?.isOn("visual-editor-ui") &&
