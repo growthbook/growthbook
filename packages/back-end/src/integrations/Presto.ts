@@ -106,9 +106,6 @@ export default class Presto extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
-  currentDate(): string {
-    return `CURRENT_DATE`;
-  }
   getDefaultDatabase() {
     return this.params.catalog || "";
   }

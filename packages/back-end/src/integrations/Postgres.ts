@@ -37,9 +37,6 @@ export default class Postgres extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `to_char(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`;
   }
-  currentDate(): string {
-    return `CURRENT_DATE`;
-  }
   getInformationSchemaWhereClause(): string {
     return "table_schema NOT IN ('pg_catalog', 'information_schema', 'pg_toast')";
   }
