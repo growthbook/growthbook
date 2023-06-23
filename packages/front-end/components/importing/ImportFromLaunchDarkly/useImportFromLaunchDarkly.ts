@@ -1,8 +1,18 @@
-import { Reducer, useCallback, useEffect, useReducer, useState } from "react";
+import {
+  Reducer,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useState,
+} from "react";
 import { ProjectInterface } from "back-end/types/project";
 import { Environment } from "back-end/types/organization";
 import { FeatureInterface } from "back-end/types/feature";
+import cloneDeep from "lodash/cloneDeep";
 import {
+  addEnvironmentToOrganizationEnvironments,
+  getLDEnvironments,
   getLDProjects,
   LDListEnvironmentsResponse,
   LDListFeatureFlagsResponse,
@@ -13,6 +23,7 @@ import {
 } from "@/services/importing";
 import { enqueueTasks, QueueTask, TaskResult } from "@/services/async-queue";
 import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
 /**
  * User-friendly result message with status
@@ -25,8 +36,13 @@ export type LDOperationResult = {
 export type ImportTaskResults = {
   projects: {
     taskResults: LDOperationResult[];
-    totalProjects: number;
-    remainingProjects: number;
+    // totalProjects: number;
+    // remainingProjects: number;
+  };
+  environments: {
+    taskResults: LDOperationResult[];
+    // totalEnvironments: number;
+    // remainingEnvironments: number;
   };
 };
 
@@ -90,9 +106,19 @@ type LDReducerState = {
   >[];
 
   /**
+   * the features that we created
+   */
+  gbFeaturesCreated: FeatureInterface[];
+
+  /**
    * the environments we plan on creating
    */
   gbEnvironments: Environment[];
+
+  /**
+   * environments that have been successfully created in GrowthBook
+   */
+  gbEnvironmentsCreated: Environment[];
 
   /**
    * when projects are ready, we can create the dependent resources
@@ -108,6 +134,8 @@ type LDReducerState = {
    * some UI-friendly results
    */
   importProjectsResults: LDOperationResult[];
+  importEnvironmentsResults: LDOperationResult[];
+  importFeaturesResults: LDOperationResult[];
 };
 
 type AddErrorAction = {
@@ -120,8 +148,18 @@ type AddGBImportedProject = {
   data: ProjectInterface;
 };
 
-type AddImportResult = {
-  type: "add-import-result";
+type AddGBCreatedEnvironment = {
+  type: "add-gb-created-environment";
+  data: Environment;
+};
+
+type AddImportProjectResult = {
+  type: "add-import-project-result";
+  data: LDOperationResult;
+};
+
+type AddImportEnvironmentResult = {
+  type: "add-import-environment-result";
   data: LDOperationResult;
 };
 
@@ -153,7 +191,9 @@ type LDReducerAction =
   | SetLDEnvironmentsResponse
   | SetLDFeatureFlagsResponse
   | SetGBProjectsReady
-  | AddImportResult;
+  | AddImportProjectResult
+  | AddGBCreatedEnvironment
+  | AddImportEnvironmentResult;
 
 const handleSetLDProjects: Reducer<LDReducerState, SetLDProjectsResponse> = (
   state,
@@ -205,18 +245,33 @@ const importFromLDReducer: Reducer<LDReducerState, LDReducerAction> = (
   state,
   action
 ) => {
-  // console.log(">>>> State", state);
+  console.log(">>>> State", state);
   switch (action.type) {
+    case "add-gb-created-environment":
+      return {
+        ...state,
+        gbEnvironmentsCreated: [...state.gbEnvironmentsCreated, action.data],
+      };
+
     case "set-gb-projects-ready":
       return {
         ...state,
         projectsReady: true,
       };
 
-    case "add-import-result":
+    case "add-import-project-result":
       return {
         ...state,
         importProjectsResults: [...state.importProjectsResults, action.data],
+      };
+
+    case "add-import-environment-result":
+      return {
+        ...state,
+        importEnvironmentsResults: [
+          ...state.importEnvironmentsResults,
+          action.data,
+        ],
       };
 
     case "set-ld-projects":
@@ -246,24 +301,66 @@ const importFromLDReducer: Reducer<LDReducerState, LDReducerAction> = (
 };
 
 const initialState: LDReducerState = {
-  importProjectsResults: [],
+  importProjectsResults: [], // todo: add & use
+  importFeaturesResults: [], // todo: add & use
+  importEnvironmentsResults: [], // todo: add & use
   projectsReady: false,
   errors: [],
-  downloadedProjects: [],
-  downloadedEnvironments: [],
-  downloadedFeatureFlags: [],
+  downloadedProjects: [], // todo: use or delete
+  downloadedEnvironments: [], // todo: add & use
+  downloadedFeatureFlags: [], // todo: add & use
   ldProjectsResponse: null,
   ldEnvironmentsResponse: null,
   ldFeatureFlagsResponse: null,
   gbProjects: [],
   gbProjectsCreated: [],
   gbEnvironments: [],
+  gbEnvironmentsCreated: [],
   gbFeatures: [],
+  gbFeaturesCreated: [], // todo: add & use
 };
 
 export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
   const [apiToken, setApiToken] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
+
+  // Environments don't have their own endpoint and are nested in the OrganizationInterface["settings"]
+  // and are replaced by PUT /organization/:id so we need to add to the existing environments.
+  // We are adding the environments one at a time, so
+  // the orgSettings.environments will change after every add, but we don't want to create an infinite loop
+  // of updating.
+  // TODO: Redo data modelling for Organization environments: https://github.com/growthbook/growthbook/issues/1391
+  const orgSettings = useOrgSettings();
+  const existingEnvironments = orgSettings?.environments || [];
+  // const [existingEnvironments, setExistingEnvironments] = useState<
+  //   null | Environment[]
+  // >(null);
+  // // const [ignoreExistingEnvs, setIgnoreExistingEnvs] = useState(false);
+  // useEffect(
+  //   function initExistingEnvironments() {
+  //     // if (ignoreExistingEnvs) return;
+  //
+  //     if (!orgSettings?.environments) {
+  //       return;
+  //     }
+  //
+  //     setExistingEnvironments(cloneDeep(orgSettings.environments));
+  //     // setIgnoreExistingEnvs(true);
+  //   },
+  //   [orgSettings]
+  //   // [ignoreExistingEnvs, orgSettings]
+  // );
+
+  // const existingEnvironments: Environment[] | null = useMemo(() => {
+  //   if (ignoreExistingEnvs) return existingEnvironments;
+  //
+  //   if (!orgSettings?.environments) {
+  //     return null;
+  //   }
+  //
+  //   setIgnoreExistingEnvs(true);
+  //   return cloneDeep(orgSettings.environments);
+  // }, [ignoreExistingEnvs, orgSettings]);
 
   const [state, dispatch] = useReducer(importFromLDReducer, initialState);
 
@@ -304,13 +401,161 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
         return;
       }
 
-      // todo:
-      console.log(
-        "todo: time to create other things from the created projects",
-        state.gbProjectsCreated
-      );
+      const createEnvironments = async () => {
+        if (!apiToken) {
+          console.warn("cannot fetch LD resources without API token");
+          return;
+        }
+
+        if (!existingEnvironments) {
+          console.warn(
+            "no existing environments. cannot add to environments safely."
+          );
+          return;
+        }
+
+        // const existingEnvironments = existingEnvironmentsString.split(",");
+        const environmentsToCreate = new Map<string, Environment>();
+        // const environmentsToCreate: Environment[] = [];
+
+        // Enqueue fetching of LD Environments and creation of GB Environments
+        for (const project of state.gbProjectsCreated) {
+          try {
+            const ldProjectEnvironments = await getLDEnvironments(
+              apiToken,
+              project.name
+            );
+            const gbEnvironments = transformLDEnvironmentsToGBEnvironment(
+              ldProjectEnvironments
+            );
+
+            for (const e of gbEnvironments) {
+              environmentsToCreate.set(e.id, {
+                ...e,
+                toggleOnList: false,
+                defaultState: true,
+              });
+            }
+
+            dispatch({
+              type: "add-import-environment-result",
+              data: {
+                status: "completed",
+                message: `Fetched environments for project ${project.name} from LaunchDarkly`,
+              },
+            });
+          } catch (e) {
+            dispatch({
+              type: "add-import-environment-result",
+              data: {
+                status: "failed",
+                message: `Failed to fetch environments for project ${
+                  project.name
+                }: ${e.message || "unknown error"}`,
+              },
+            });
+          }
+
+          await wait(500);
+        }
+
+        // Enqueue each environment creation individually
+        const createEnvironmentTasks: QueueTask<Environment>[] = [];
+        environmentsToCreate.forEach((env) => {
+          createEnvironmentTasks.push({
+            id: env.id,
+            data: env,
+          });
+        });
+
+        await enqueueTasks<Environment, Environment>(
+          createEnvironmentTasks,
+          {
+            onProgress(id, result) {
+              switch (result.status) {
+                case "success":
+                  dispatch({
+                    type: "add-gb-created-environment",
+                    data: result.data,
+                  });
+                  dispatch({
+                    type: "add-import-environment-result",
+                    data: {
+                      status: "completed",
+                      message: `Imported environment ${id}`,
+                    },
+                  });
+                  break;
+
+                case "retry":
+                case "fail":
+                  dispatch({
+                    type: "add-import-environment-result",
+                    data: {
+                      status: "failed",
+                      message: `Failed to import environment ${id} with error: ${result.error}`,
+                    },
+                  });
+                  break;
+              }
+            },
+            async perform(data: Environment): Promise<TaskResult<Environment>> {
+              try {
+                const updatedEnvironments = addEnvironmentToOrganizationEnvironments(
+                  data,
+                  existingEnvironments,
+                  false
+                );
+
+                const response = await apiCall<{
+                  status: number;
+                  message?: string;
+                }>("/organization", {
+                  method: "PUT",
+                  body: JSON.stringify({
+                    settings: {
+                      environments: updatedEnvironments,
+                    },
+                  }),
+                });
+
+                if (response.status !== 200) {
+                  return {
+                    status: "fail",
+                    error: response.message || "unknown error",
+                  };
+                }
+
+                return {
+                  status: "success",
+                  data,
+                };
+              } catch (e) {
+                return {
+                  status: "fail",
+                  error: e.message || "unknown error",
+                };
+              }
+            },
+          },
+          {
+            delayMs: 2000,
+          }
+        );
+
+        // todo: feature flags
+      };
+
+      createEnvironments();
     },
-    [state.projectsReady, state.gbProjectsCreated]
+    [
+      apiToken,
+      state.projectsReady,
+      state.gbProjectsCreated,
+      state.gbEnvironments,
+      existingEnvironments,
+      apiCall,
+    ]
   );
 
   useEffect(
@@ -351,7 +596,7 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
                   data: result.data,
                 });
                 dispatch({
-                  type: "add-import-result",
+                  type: "add-import-project-result",
                   data: {
                     status: "completed",
                     message: `Imported project ${id} as ${result.data.name} (${result.data.id})`,
@@ -362,7 +607,7 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
               case "retry":
               case "fail":
                 dispatch({
-                  type: "add-import-result",
+                  type: "add-import-project-result",
                   data: {
                     status: "failed",
                     message: `Failed to import project ${id} with error: ${result.error}`,
@@ -411,9 +656,11 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
     [state.gbProjects, apiToken, apiCall]
   );
 
-  const totalProjects = state.gbProjects.length;
-  const remainingProjects =
-    state.gbProjects.length - state.importProjectsResults.length;
+  // const totalProjects = state.gbProjects.length;
+  // const remainingProjects =
+  //   state.gbProjects.length - state.importProjectsResults.length;
+
+  // const totalEnvironments = state.g
 
   return {
     pending,
@@ -422,9 +669,24 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
     results: {
       projects: {
         taskResults: state.importProjectsResults,
-        totalProjects,
-        remainingProjects,
+        // totalProjects,
+        // remainingProjects,
+      },
+      environments: {
+        taskResults: state.importEnvironmentsResults,
+        // totalEnvironments,
+        // remainingEnvironments,
       },
     },
   };
 };
+
+function wait(timeMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve();
+    }, timeMs);
+  });
+}
+
+// TODO: Util -> add environment to existing org environment settings
