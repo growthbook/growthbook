@@ -122,7 +122,7 @@ const DateResults: FC<{
                   totalValue[i] = totalValue[i] || 0;
 
                   totalUsers[i] += stats?.users || 0;
-                  totalValue[i] += stats?.value || 0;
+                  totalValue[i] += value || 0;
 
                   const v = value || 0;
                   let ci: [number, number] | undefined = undefined;
@@ -198,9 +198,12 @@ const DateResults: FC<{
                     }
                   }
 
+                  const users = cumulative ? totalUsers[i] : stats?.users || 0;
+
                   return {
                     v,
                     v_formatted,
+                    users, 
                     up,
                     ci,
                     p,
@@ -225,7 +228,7 @@ const DateResults: FC<{
 
   return (
     <div className="mb-4 mx-3 pb-4">
-      {seriestype === "pre:date" ? (
+      {seriestype === "pre:date" && (
         <div className="mb-3 d-flex align-items-center">
           <div className="mr-3">
             <strong>Graph Controls: </strong>
@@ -240,11 +243,9 @@ const DateResults: FC<{
             Cumulative
           </div>
         </div>
-      ) : (
-        <></>
       )}
       <div className="mb-5">
-        <h3>Users</h3>
+        <h2>Users</h2>
         <ExperimentDateGraph
           yaxis="users"
           variationNames={variations.map((v) => v.name)}
@@ -253,6 +254,22 @@ const DateResults: FC<{
           tickFormat={(v) => numberFormatter.format(v)}
         />
       </div>
+      {metricSections && (
+        <>
+        <h2>Metrics</h2>
+        <div className="mb-5">
+          <small>
+            The following results are "cohort" effects. In other words, units are first
+            grouped by the first date they are exposed to the experiment (x-axis) and then
+            the total uplift for all of those users is computed (y-axis).
+            <br></br>
+            This is not the same as a standard time series, because 
+            the impact on units first exposed on day X could include conversions on future days.
+          </small>
+        </div>
+        </>
+      )}
+
       {metricSections.map(({ metric, isGuardrail, datapoints }) => (
         <div className="mb-5" key={metric.id}>
           <h3>

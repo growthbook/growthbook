@@ -21,6 +21,7 @@ import styles from "./ExperimentDateGraph.module.scss";
 interface DataPointVariation {
   v: number;
   v_formatted: string;
+  users?: number; // used for uplift plot tooltips
   up?: number; // uplift
   p?: number; // p-value
   ctw?: number; // chance to win
@@ -73,10 +74,13 @@ const getTooltipContents = (
           yaxis !== "uplift" && "mt-1"
         }`}
       >
-        {yaxis === "uplift" && (
           <thead>
             <tr>
               <td></td>
+              <td>Users</td>
+
+        {yaxis === "uplift" && (
+          <>
               <td>Value</td>
               <td>Uplift</td>
               {hasStats && (
@@ -87,9 +91,10 @@ const getTooltipContents = (
                   </td>
                 </>
               )}
-            </tr>
-          </thead>
+          </>
         )}
+        </tr>
+      </thead>
         <tbody>
           {variationNames.map((v, i) => {
             const variation = d.variations[i];
@@ -101,9 +106,13 @@ const getTooltipContents = (
                 >
                   {v}
                 </td>
+                {yaxis === "users" && (
                 <td>{d.variations[i].v_formatted}</td>
+                )}
                 {yaxis === "uplift" && (
                   <>
+                    <td>{d.variations[i].users}</td>
+                    <td>{d.variations[i].v_formatted}</td>
                     <td>
                       {i > 0 && (
                         <>
