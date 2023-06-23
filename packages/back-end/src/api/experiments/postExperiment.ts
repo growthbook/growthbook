@@ -5,7 +5,7 @@ import { toExperimentApiInterface } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
 import { postExperimentValidator } from "../../validators/openapi";
 
-export const putExperiment = createApiRequestHandler(postExperimentValidator)(
+export const postExperiment = createApiRequestHandler(postExperimentValidator)(
   async (req): Promise<PostExperimentResponse> => {
     const newExperiment: Partial<ExperimentInterface> = {
       phases: [],
