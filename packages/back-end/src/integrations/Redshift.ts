@@ -34,9 +34,6 @@ export default class Redshift extends SqlIntegration {
   ensureFloat(col: string): string {
     return `${col}::float`;
   }
-  currentDate(): string {
-    return `CURRENT_DATE`;
-  }
   getInformationSchemaTable(): string {
     return "SVV_COLUMNS";
   }

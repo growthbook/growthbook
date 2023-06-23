@@ -67,9 +67,6 @@ export default class Mssql extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
-  currentDate(): string {
-    return this.castToDate("GETDATE()");
-  }
   getDefaultDatabase() {
     return this.params.database;
   }

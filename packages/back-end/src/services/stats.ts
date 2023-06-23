@@ -58,7 +58,7 @@ from gbstats.gbstats import (
   reduce_dimensionality,
   format_results
 )
-from gbstats.shared.constants import *
+from gbstats.shared.constants import StatsEngine
 import pandas as pd
 import json
 

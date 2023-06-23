@@ -49,9 +49,6 @@ export default class Athena extends SqlIntegration {
   ensureFloat(col: string): string {
     return `1.0*${col}`;
   }
-  currentDate(): string {
-    return `CURRENT_DATE`;
-  }
   getDefaultDatabase() {
     return this.params.catalog || "";
   }

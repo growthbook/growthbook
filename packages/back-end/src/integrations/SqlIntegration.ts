@@ -181,9 +181,6 @@ export default abstract class SqlIntegration
   useAliasInGroupBy(): boolean {
     return true;
   }
-  currentDate(): string {
-    return this.castToDate("CURRENT_DATE()");
-  }
   formatDateTimeString(col: string): string {
     return this.castToString(col);
   }
