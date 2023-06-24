@@ -930,8 +930,7 @@ export default function SinglePage_old({
         </div>
       </div>
 
-      {growthbook?.isOn("visual-editor-ui") &&
-      experiment.status === "draft" &&
+      {experiment.status === "draft" &&
       experiment.phases.length > 0 &&
       hasVisualEditorPermission ? (
         <div>

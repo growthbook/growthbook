@@ -611,6 +611,22 @@ pre {
   opacity: 0.5;
 }
 
+.Collapsible__trigger {
+  &:hover {
+    cursor: pointer;
+    color: colors.$primary-blue;
+  }
+  .chevron {
+    transition: transform 0.1s;
+    transform: rotate(0deg);
+  }
+  &.is-open {
+    .chevron {
+      transform: rotate(90deg);
+    }
+  }
+}
+
 .code-holder {
   margin: 0.5em 0;
 

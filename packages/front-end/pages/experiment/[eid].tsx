@@ -93,7 +93,7 @@ const ExperimentPage = (): ReactElement => {
   return (
     <div>
       <div className="alert alert-warning p-2 mb-2 text-center">
-        You are viewing the {newUi ? "new" : "old"} experiment page.{" "}
+        This is the {newUi ? "new" : "old"} experiment page.{" "}
         <a role="button" className="a" onClick={() => setNewUi(!newUi)}>
           {newUi ? "Switch back to the old page?" : "Try the new experiment page?"}
         </a>

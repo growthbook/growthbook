@@ -4,17 +4,19 @@ import React, { useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import {
+  FaAngleDown,
+  FaAngleRight,
   FaArrowDown,
   FaExclamationTriangle,
   FaExternalLinkAlt,
   FaLink,
-  FaQuestionCircle,
+  FaQuestionCircle, FaRegLightbulb
 } from "react-icons/fa";
 import { MdRocketLaunch } from "react-icons/md";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import uniq from "lodash/uniq";
-import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
+import { MetricRegressionAdjustmentStatus, ReportInterface } from "back-end/types/report";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared/constants";
 import { getAffectedEnvsForExperiment } from "shared/util";
@@ -67,6 +69,9 @@ import StatusIndicator from "./StatusIndicator";
 import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
 import VariationsTable from "./VariationsTable";
 import VisualChangesetModal from "./VisualChangesetModal";
+import Collapsible from "react-collapsible";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { DiscussionInterface } from "back-end/types/discussion";
 
 function drawMetricRow(
   m: string,
@@ -169,6 +174,10 @@ export default function SinglePage({
   editPhases,
   editPhase,
 }: Props) {
+  const [variationsOpen, setVariationsOpen] = useLocalStorage<boolean>("experiment-page__variations-open", true);
+  const [customReportsOpen, setCustomReportsOpen] = useLocalStorage<boolean>("experiment-page__custom-reports-open", false);
+  const [discussionOpen, setDiscussionOpen] = useLocalStorage<boolean>("experiment-page__discussion-open", true);
+
   const {
     getProjectById,
     getDatasourceById,
@@ -180,7 +189,13 @@ export default function SinglePage({
 
   const router = useRouter();
 
-  const { phase: phaseIndex } = useSnapshot();
+  const { phase: phaseIndex, snapshot } = useSnapshot();
+  const { data: reportsData } = useApi<{
+    reports: ReportInterface[];
+  }>(`/experiment/${experiment.id}/reports`);
+  const { data: discussionData } = useApi<{ discussion: DiscussionInterface }>(
+    `/discussion/experiment/${experiment.id}`
+  );
 
   const [reportSettingsOpen, setReportSettingsOpen] = useState(false);
   const [editNameOpen, setEditNameOpen] = useState(false);
@@ -358,7 +373,7 @@ export default function SinglePage({
   );
 
   return (
-    <div className="container-fluid experiment-details pagecontents">
+    <div className="container-fluid experiment-details pagecontents pb-3">
       <div className="mb-2 mt-1">
         <Link
           href={`/experiments${
@@ -431,7 +446,7 @@ export default function SinglePage({
           mutate={mutate}
         />
       )}
-      <div className="row align-items-center mb-1">
+      <div className="row align-items-center mb-0">
         <div className="col-auto">
           <h1 className="mb-0">{experiment.name}</h1>
         </div>
@@ -446,11 +461,11 @@ export default function SinglePage({
             <ResultsIndicator results={experiment.results} />
           </div>
         )}
-        {experiment.status !== "draft" && (
-          <a href="#results">
-            <FaArrowDown /> Jump to results
-          </a>
-        )}
+        {/*{experiment.status !== "draft" && (*/}
+        {/*  <a href="#results">*/}
+        {/*    <FaArrowDown /> Jump to results*/}
+        {/*  </a>*/}
+        {/*)}*/}
         <div className="col-auto ml-auto">
           <WatchButton itemType="experiment" item={experiment.id} />
         </div>
@@ -549,6 +564,22 @@ export default function SinglePage({
           </MoreMenu>
         </div>
       </div>
+
+      <div className="mb-3">
+        <MarkdownInlineEdit
+          value={experiment.description ?? ""}
+          save={async (description) => {
+            await apiCall(`/experiment/${experiment.id}`, {
+              method: "POST",
+              body: JSON.stringify({ description }),
+            });
+            mutate();
+          }}
+          canCreate={canEditExperiment}
+          canEdit={canEditExperiment}
+        />
+      </div>
+
       <div className="row align-items-center mb-4">
         {(projects.length > 0 || projectIsDeReferenced) && (
           <div className="col-auto">
@@ -661,47 +692,62 @@ export default function SinglePage({
           </a>
         </div>
       )}
-      <div className="row mb-4">
-        {/*<div className="col-md-8">*/}
-          <div className="">
-            <div className="p-3">
-              <MarkdownInlineEdit
-                value={experiment.description ?? ""}
-                save={async (description) => {
-                  await apiCall(`/experiment/${experiment.id}`, {
-                    method: "POST",
-                    body: JSON.stringify({ description }),
-                  });
-                  mutate();
-                }}
-                canCreate={canEditExperiment}
-                canEdit={canEditExperiment}
-                className="mb-4"
-                header="Description"
-              />
-              <MarkdownInlineEdit
-                value={experiment.hypothesis ?? ""}
-                save={async (hypothesis) => {
-                  await apiCall(`/experiment/${experiment.id}`, {
-                    method: "POST",
-                    body: JSON.stringify({ hypothesis }),
-                  });
-                  mutate();
-                }}
-                canCreate={canEditExperiment}
-                canEdit={canEditExperiment}
-                className="mb-4"
-                label="hypothesis"
-                header="Hypothesis"
-              />{" "}
+
+      <div className="appbox mb-4 pt-3 px-3">
+        <MarkdownInlineEdit
+          value={experiment.hypothesis ?? ""}
+          save={async (hypothesis) => {
+            await apiCall(`/experiment/${experiment.id}`, {
+              method: "POST",
+              body: JSON.stringify({ hypothesis }),
+            });
+            mutate();
+          }}
+          canCreate={canEditExperiment}
+          canEdit={canEditExperiment}
+          className="mb-3"
+          label="hypothesis"
+          header={<>
+            <FaRegLightbulb />{" "}
+            Hypothesis
+          </>}
+          editElement={
+            <div className="btn-link">
+              Edit Hypothesis
             </div>
-            <div className="px-3">
-              <HeaderWithEdit edit={editVariations ?? undefined}>
+          }
+          containerClassName="justify-content-between"
+        />
+      </div>
+
+      <div className="mb-4 pt-3 appbox">
+        <Collapsible
+          trigger={
+            <div className="px-3 pb-2">
+              <HeaderWithEdit
+                edit={editVariations ?? undefined}
+                editElement={
+                  <div className="btn-link">
+                    Edit Variations
+                  </div>
+                }
+                stopPropagation={true}
+                containerClassName="justify-content-between"
+              >
                 <>
+                  <FaAngleRight className="chevron" />{" "}
                   Variations <small>({experiment.variations.length})</small>
                 </>
               </HeaderWithEdit>
             </div>
+          }
+          open={variationsOpen}
+          onTriggerOpening={() => setVariationsOpen(true)}
+          onTriggerClosing={() => setVariationsOpen(false)}
+          transitionTime={150}
+        >
+          <div className="">
+
             <VariationsTable
               experiment={experiment}
               visualChangesets={visualChangesets}
@@ -709,9 +755,10 @@ export default function SinglePage({
               canEditExperiment={canEditExperiment}
               canEditVisualChangesets={hasVisualEditorPermission}
               setVisualEditorModal={setVisualEditorModal}
+              newUi={true}
             />
           </div>
-        {/*</div>*/}
+        </Collapsible>
        {/* <div className="col-md-4">
           <RightRailSection
             title="Experiment Settings"
@@ -930,8 +977,7 @@ export default function SinglePage({
         </div>*/}
       </div>
 
-      {growthbook?.isOn("visual-editor-ui") &&
-      experiment.status === "draft" &&
+      {experiment.status === "draft" &&
       experiment.phases.length > 0 &&
       hasVisualEditorPermission ? (
         <div>
@@ -1088,21 +1134,80 @@ export default function SinglePage({
               )}
             </div>
           </div>
-          <div className="mb-4">
-            <ExperimentReportsList experiment={experiment} />
+
+          <div className="mb-4 pt-3 appbox">
+            <Collapsible
+              trigger={
+                <div className="row px-3 pb-2">
+                  <div className="col h3">
+                    <FaAngleRight className="chevron" />{" "}
+                    Custom Reports <small>({reportsData?.reports?.length || 0})</small>
+                  </div>
+                  {snapshot && (
+                    <div className="col-auto mb-2 mr-2">
+                      <Button
+                        className="btn btn-outline-primary float-right"
+                        color="outline-info"
+                        stopPropagation={true}
+                        onClick={async () => {
+                          const res = await apiCall<{ report: ReportInterface }>(
+                            `/experiments/report/${snapshot.id}`,
+                            {
+                              method: "POST",
+                            }
+                          );
+                          if (!res.report) {
+                            throw new Error("Failed to create report");
+                          }
+                          await router.push(`/report/${res.report.id}`);
+                        }}
+                      >
+                      <span className="h4 pr-2 m-0 d-inline-block align-top">
+                        <GBAddCircle />
+                      </span>
+                      Add Custom Report
+                    </Button>
+                  </div>
+                )}
+                </div>
+              }
+              open={customReportsOpen}
+              onTriggerOpening={() => setCustomReportsOpen(true)}
+              onTriggerClosing={() => setCustomReportsOpen(false)}
+              transitionTime={150}
+            >
+              <div className="px-4 mb-4">
+                <ExperimentReportsList experiment={experiment} newUi={true} />
+              </div>
+            </Collapsible>
           </div>
         </>
       )}
 
-      <div className="pb-3">
-        <h2>Discussion</h2>
-        <DiscussionThread
-          type="experiment"
-          id={experiment.id}
-          allowNewComments={!experiment.archived}
-          project={experiment.project}
-        />
+      <div className="mb-4 pt-3 appbox">
+        <Collapsible
+          trigger={
+            <div className="h3 px-3 pb-2">
+              <FaAngleRight className="chevron" />{" "}
+              Discussion <small>({discussionData?.discussion?.comments?.length || 0})</small>
+            </div>
+          }
+          open={discussionOpen}
+          onTriggerOpening={() => setDiscussionOpen(true)}
+          onTriggerClosing={() => setDiscussionOpen(false)}
+          transitionTime={150}
+        >
+          <div className="px-4 mb-4">
+            <DiscussionThread
+              type="experiment"
+              id={experiment.id}
+              allowNewComments={!experiment.archived}
+              project={experiment.project}
+            />
+          </div>
+        </Collapsible>
       </div>
+
     </div>
   );
 }

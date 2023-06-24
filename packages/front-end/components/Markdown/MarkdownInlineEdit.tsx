@@ -1,27 +1,35 @@
-import { FC, useState } from "react";
+import { ReactElement, useState } from "react";
 import { GBEdit } from "../Icons";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import LoadingOverlay from "../LoadingOverlay";
 import Markdown from "./Markdown";
 import MarkdownInput from "./MarkdownInput";
 
-const MarkdownInlineEdit: FC<{
+type Props = {
+  value: string;
   save: (text: string) => Promise<void>;
   canEdit?: boolean;
   canCreate?: boolean;
-  value: string;
   label?: string;
   className?: string;
-  header?: string;
-}> = ({
+  containerClassName?: string;
+  header?: string | JSX.Element;
+  editElement?: ReactElement;
+  editClassName?: string;
+};
+
+export default function MarkdownInlineEdit({
   value,
   save,
   canEdit = true,
   canCreate = true,
   label = "description",
   className = "",
+  containerClassName = "",
   header = "",
-}) => {
+  editElement,
+  editClassName = "a",
+}: Props) {
   const [edit, setEdit] = useState(false);
   const [val, setVal] = useState("");
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
@@ -47,7 +55,7 @@ const MarkdownInlineEdit: FC<{
           setLoading(false);
         }}
       >
-        {header && <h4>{header}</h4>}
+        {header && <div className="h3">{header}</div>}
         {loading && <LoadingOverlay />}
         <MarkdownInput
           value={val}
@@ -74,12 +82,15 @@ const MarkdownInlineEdit: FC<{
               setEdit(true);
             })
           }
+          containerClassName={containerClassName}
+          editElement={editElement}
+          editClassName={editClassName}
         >
           {header}
         </HeaderWithEdit>
       )}
       <div className="row">
-        <div className="col">
+        <div className="col-auto">
           {value ? (
             <Markdown className="card-text">{value}</Markdown>
           ) : (
@@ -119,4 +130,3 @@ const MarkdownInlineEdit: FC<{
     </div>
   );
 };
-export default MarkdownInlineEdit;

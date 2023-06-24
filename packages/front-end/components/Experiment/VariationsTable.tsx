@@ -31,6 +31,7 @@ interface Props {
   canEditVisualChangesets: boolean;
   className?: string;
   setVisualEditorModal: (v: boolean) => void;
+  newUi?: boolean;
 }
 
 const ScreenshotCarousel: FC<{
@@ -113,6 +114,7 @@ const VariationsTable: FC<Props> = ({
   mutate,
   visualChangesets: _visualChangesets,
   setVisualEditorModal,
+  newUi
 }) => {
   const { variations } = experiment;
   const { apiCall } = useAuth();
@@ -144,7 +146,7 @@ const VariationsTable: FC<Props> = ({
           overflowX: "auto",
         }}
       >
-        <table className="table table-bordered mx-3 w100-1rem">
+        <table className="table table-bordered mx-3 w100-1rem bg-light">
           <thead>
             <tr>
               {variations.map((v, i) => (
@@ -192,7 +194,8 @@ const VariationsTable: FC<Props> = ({
                   style={{
                     // minWidth: "17.5rem",
                     width: `${100/(variations.length || 1)}%`,
-                    maxWidth: "25rem",
+                    minWidth: "25%",
+                    maxWidth: "50%",
                     height: "inherit",
                     borderBottom: canEditExperiment ? 0 : undefined,
                   }}
@@ -206,7 +209,7 @@ const VariationsTable: FC<Props> = ({
                         canEditExperiment={canEditExperiment}
                         experiment={experiment}
                         mutate={mutate}
-                        maxChildHeight={250}
+                        maxChildHeight={newUi ? 200 : undefined}
                       />
                     ) : null}
                   </div>
