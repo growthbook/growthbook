@@ -30,6 +30,7 @@ import {
   addIdsToRules,
   arrayMove,
   getFeatureDefinitions,
+  getSurrogateKey,
   verifyDraftsAreEqual,
 } from "../services/features";
 import { ensureWatching } from "../services/experiments";
@@ -49,7 +50,7 @@ import {
 } from "../models/SdkConnectionModel";
 import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
-import { IS_CLOUD } from "../util/secrets";
+import { FASTLY_SERVICE_ID, IS_CLOUD } from "../util/secrets";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 
 class ApiKeyError extends Error {
@@ -183,6 +184,17 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     if (setSseHeaders) {
       res.set("x-sse-support", "enabled");
       res.set("Access-Control-Expose-Headers", "x-sse-support");
+    }
+
+    // If using Fastly, add surrogate key header for cache purging
+    if (FASTLY_SERVICE_ID) {
+      // Purge by org, API Key, or payload contents
+      const surrogateKeys = [
+        organization,
+        key,
+        getSurrogateKey(organization, project, environment),
+      ];
+      res.set("Surrogate-Key", surrogateKeys.join(" "));
     }
 
     res.status(200).json({

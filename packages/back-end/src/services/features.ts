@@ -1,6 +1,7 @@
 import { webcrypto as crypto } from "node:crypto";
 import { createHash } from "crypto";
 import uniqid from "uniqid";
+import fetch from "node-fetch";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import { FeatureDefinition, FeatureDefinitionRule } from "../../types/api";
@@ -33,6 +34,7 @@ import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { orgHasPremiumFeature } from "../util/organization.util";
+import { FASTLY_API_KEY, FASTLY_SERVICE_ID } from "../util/secrets";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -238,11 +240,50 @@ export async function refreshSDKPayloadCache(
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
 
+  // Purge CDN if used
+  // Do this before firing webhooks in case a webhook tries fetching the latest payload from the CDN
+  await purgeCDNCache(organization.id, payloadKeys);
+
   // After the SDK payloads are updated, fire any webhooks on the organization
   await queueWebhook(organization.id, payloadKeys, true);
 
   // Update any Proxy servers that are affected by this change
   await queueProxyUpdate(organization.id, payloadKeys);
+}
+
+export function getSurrogateKey(
+  orgId: string,
+  project: string,
+  environment: string
+) {
+  return `${orgId}_${project || "AllProjects"}_${environment || "production"}`;
+}
+
+export async function purgeCDNCache(
+  orgId: string,
+  payloadKeys: SDKPayloadKey[]
+): Promise<void> {
+  // Only purge when Fastly is used as the CDN (e.g. GrowthBook Cloud)
+  if (!FASTLY_SERVICE_ID || !FASTLY_API_KEY) return;
+
+  // Only purge the specific payloads that are affected
+  const surrogateKeys = payloadKeys.map((k) =>
+    getSurrogateKey(orgId, k.project, k.environment)
+  );
+  if (!surrogateKeys.length) return;
+
+  try {
+    await fetch(`https://api.fastly.com/service/${FASTLY_SERVICE_ID}/purge`, {
+      method: "POST",
+      headers: {
+        "Fastly-Key": FASTLY_API_KEY,
+        "surrogate-key": surrogateKeys.join(" "),
+        Accept: "application/json",
+      },
+    });
+  } catch (e) {
+    logger.error("Failed to purge cache for " + orgId);
+  }
 }
 
 export type FeatureDefinitionsResponseArgs = {
