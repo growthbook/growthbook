@@ -76,6 +76,7 @@ interface BaseSettings {
   regressionAdjustmentDays: number;
   attributionModel: AttributionModel;
   secureAttributeSalt: string;
+  killswitchConfirmation: boolean;
 }
 
 // todo: encapsulate all settings, including experiment
