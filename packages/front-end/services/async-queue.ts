@@ -112,7 +112,10 @@ export async function enqueueTasks<DataType, ResultData>(
   }: EnqueueOptions = newDefaultEnqueueOptions()
 ): Promise<QueueResult> {
   if (!tasks.length) {
-    throw new Error("cannot enqueue empty task list");
+    return {
+      completed: [],
+      failed: [],
+    };
   }
 
   const taskIds = tasks.map((t) => t.id);

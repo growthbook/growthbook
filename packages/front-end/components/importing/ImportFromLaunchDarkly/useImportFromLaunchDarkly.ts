@@ -4,6 +4,7 @@ import { Environment } from "back-end/types/organization";
 import { FeatureInterface } from "back-end/types/feature";
 import {
   getLDEnvironments,
+  getLDFeatureFlags,
   getLDProjects,
   LDListEnvironmentsResponse,
   LDListFeatureFlagsResponse,
@@ -14,7 +15,6 @@ import {
 } from "@/services/importing";
 import { enqueueTasks, QueueTask, TaskResult } from "@/services/async-queue";
 import { useAuth } from "@/services/auth";
-import useOrgSettings from "@/hooks/useOrgSettings";
 
 /**
  * User-friendly result message with status
@@ -34,6 +34,9 @@ export type ImportTaskResults = {
     taskResults: LDOperationResult[];
     // totalEnvironments: number;
     // remainingEnvironments: number;
+  };
+  features: {
+    taskResults: LDOperationResult[];
   };
 };
 
@@ -144,8 +147,18 @@ type AddGBCreatedEnvironment = {
   data: Environment;
 };
 
+type AddGBCreatedFeature = {
+  type: "add-gb-created-feature";
+  data: FeatureInterface;
+};
+
 type AddImportProjectResult = {
   type: "add-import-project-result";
+  data: LDOperationResult;
+};
+
+type AddImportFeatureResult = {
+  type: "add-import-feature-result";
   data: LDOperationResult;
 };
 
@@ -184,7 +197,9 @@ type LDReducerAction =
   | SetGBProjectsReady
   | AddImportProjectResult
   | AddGBCreatedEnvironment
-  | AddImportEnvironmentResult;
+  | AddGBCreatedFeature
+  | AddImportEnvironmentResult
+  | AddImportFeatureResult;
 
 const handleSetLDProjects: Reducer<LDReducerState, SetLDProjectsResponse> = (
   state,
@@ -238,6 +253,12 @@ const importFromLDReducer: Reducer<LDReducerState, LDReducerAction> = (
 ) => {
   console.log(">>>> State", state);
   switch (action.type) {
+    case "add-gb-created-feature":
+      return {
+        ...state,
+        gbFeaturesCreated: [...state.gbFeaturesCreated, action.data],
+      };
+
     case "add-gb-created-environment":
       return {
         ...state,
@@ -263,6 +284,12 @@ const importFromLDReducer: Reducer<LDReducerState, LDReducerAction> = (
           ...state.importEnvironmentsResults,
           action.data,
         ],
+      };
+
+    case "add-import-feature-result":
+      return {
+        ...state,
+        importFeaturesResults: [...state.importFeaturesResults, action.data],
       };
 
     case "set-ld-projects":
@@ -315,44 +342,6 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
   const [apiToken, setApiToken] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
 
-  // Environments don't have their own endpoint and are nested in the OrganizationInterface["settings"]
-  // and are replaced by PUT /organization/:id so we need to add to the existing environments.
-  // We are adding the environments one at a time, so
-  // the orgSettings.environments will change after every add, but we don't want to create an infinite loop
-  // of updating.
-  // TODO: Redo data modelling for Organization environments: https://github.com/growthbook/growthbook/issues/1391
-  const orgSettings = useOrgSettings();
-  const existingEnvironments = orgSettings?.environments || [];
-  // const [existingEnvironments, setExistingEnvironments] = useState<
-  //   null | Environment[]
-  // >(null);
-  // // const [ignoreExistingEnvs, setIgnoreExistingEnvs] = useState(false);
-  // useEffect(
-  //   function initExistingEnvironments() {
-  //     // if (ignoreExistingEnvs) return;
-  //
-  //     if (!orgSettings?.environments) {
-  //       return;
-  //     }
-  //
-  //     setExistingEnvironments(cloneDeep(orgSettings.environments));
-  //     // setIgnoreExistingEnvs(true);
-  //   },
-  //   [orgSettings]
-  //   // [ignoreExistingEnvs, orgSettings]
-  // );
-
-  // const existingEnvironments: Environment[] | null = useMemo(() => {
-  //   if (ignoreExistingEnvs) return existingEnvironments;
-  //
-  //   if (!orgSettings?.environments) {
-  //     return null;
-  //   }
-  //
-  //   setIgnoreExistingEnvs(true);
-  //   return cloneDeep(orgSettings.environments);
-  // }, [ignoreExistingEnvs, orgSettings]);
-
   const [state, dispatch] = useReducer(importFromLDReducer, initialState);
 
   const { apiCall } = useAuth();
@@ -398,16 +387,7 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
           return;
         }
 
-        if (!existingEnvironments) {
-          console.warn(
-            "no existing environments. cannot add to environments safely."
-          );
-          return;
-        }
-
-        // const existingEnvironments = existingEnvironmentsString.split(",");
         const environmentsToCreate = new Map<string, Environment>();
-        // const environmentsToCreate: Environment[] = [];
 
         // Enqueue fetching of LD Environments and creation of GB Environments
         for (const project of state.gbProjectsCreated) {
@@ -525,10 +505,138 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
             delayMs: 2000,
           }
         );
-
-        // todo: feature flags
       };
 
+      const createFeatures = async () => {
+        if (!apiToken) {
+          console.warn("cannot fetch LD resources without API token");
+          return;
+        }
+
+        const featuresToCreate = new Map<
+          string,
+          Omit<
+            FeatureInterface,
+            "dateCreated" | "dateUpdated" | "revision" | "organization"
+          >
+        >();
+
+        for (const project of state.gbProjectsCreated) {
+          try {
+            const ldProjectFeatureFlags = await getLDFeatureFlags(
+              apiToken,
+              project.name
+            );
+            const gbFeatures = transformLDFeatureFlagToGBFeature(
+              ldProjectFeatureFlags,
+              project.id
+            );
+
+            for (const f of gbFeatures) {
+              featuresToCreate.set(f.id, f);
+            }
+
+            dispatch({
+              type: "add-import-feature-result",
+              data: {
+                status: "completed",
+                message: `Fetched features for project ${project.name} from LaunchDarkly`,
+              },
+            });
+          } catch (e) {
+            dispatch({
+              type: "add-import-feature-result",
+              data: {
+                status: "failed",
+                message: `Failed to fetch features for project ${
+                  project.name
+                }: ${e.message || "unknown error"}`,
+              },
+            });
+          }
+
+          await wait(500);
+        }
+
+        const createFeatureTasks: QueueTask<
+          Omit<
+            FeatureInterface,
+            "dateCreated" | "dateUpdated" | "revision" | "organization"
+          >
+        >[] = [];
+        featuresToCreate.forEach((feature, id) => {
+          createFeatureTasks.push({
+            id,
+            data: feature,
+          });
+        });
+
+        await enqueueTasks<
+          Omit<
+            FeatureInterface,
+            "dateCreated" | "dateUpdated" | "revision" | "organization"
+          >,
+          FeatureInterface
+        >(createFeatureTasks, {
+          onProgress(id, result) {
+            switch (result.status) {
+              case "success":
+                dispatch({
+                  type: "add-gb-created-feature",
+                  data: result.data,
+                });
+                break;
+
+              case "fail":
+              case "retry":
+                dispatch({
+                  type: "add-import-feature-result",
+                  data: {
+                    status: "failed",
+                    message: `Failed to import feature ${id} with error: ${result.error}`,
+                  },
+                });
+                break;
+            }
+          },
+          async perform(
+            data: Omit<
+              FeatureInterface,
+              "dateCreated" | "dateUpdated" | "revision" | "organization"
+            >
+          ): Promise<TaskResult<FeatureInterface>> {
+            try {
+              const response = await apiCall<{
+                status: number;
+                message?: string;
+                feature: FeatureInterface;
+              }>("/feature", {
+                method: "POST",
+                body: JSON.stringify(data),
+              });
+
+              if (response.status !== 200) {
+                return {
+                  status: "fail",
+                  error: response.message || "unknown error",
+                };
+              }
+
+              return {
+                status: "success",
+                data: response.feature,
+              };
+            } catch (e) {
+              return {
+                status: "fail",
+                error: e.message || "unknown error",
+              };
+            }
+          },
+        });
+      };
+
+      createFeatures();
       createEnvironments();
     },
     [
@@ -536,7 +644,6 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
       state.projectsReady,
       state.gbProjectsCreated,
       state.gbEnvironments,
-      existingEnvironments,
       apiCall,
     ]
   );
@@ -659,6 +766,9 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
         taskResults: state.importEnvironmentsResults,
         // totalEnvironments,
         // remainingEnvironments,
+      },
+      features: {
+        taskResults: state.importFeaturesResults,
       },
     },
   };
