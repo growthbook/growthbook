@@ -1289,32 +1289,55 @@ export function putMetricApiPayloadToMetricInterface(
   }
 
   // Conditions
-  metric.conditions = mixpanel
-    ? (mixpanel?.conditions || []).map(({ operator, property, value }) => ({
+  if (mixpanel?.conditions) {
+    metric.conditions = mixpanel.conditions.map(
+      ({ operator, property, value }) => ({
         column: property,
         operator: operator as Operator,
         value: value,
-      }))
-    : ((sqlBuilder?.conditions || []) as Condition[]);
+      })
+    );
+  } else if (sqlBuilder?.conditions) {
+    metric.conditions = sqlBuilder.conditions as Condition[];
+  }
 
   if (sqlBuilder) {
-    // conditions are handled above in the Conditions section
-    metric.table = sqlBuilder.tableName;
-    metric.timestampColumn = sqlBuilder.timestampColumnName;
-    metric.column = sqlBuilder.valueColumnName;
+    if (typeof sqlBuilder.tableName !== "undefined") {
+      metric.table = sqlBuilder.tableName;
+    }
+    if (typeof sqlBuilder.timestampColumnName !== "undefined") {
+      metric.timestampColumn = sqlBuilder.timestampColumnName;
+    }
+    if (typeof sqlBuilder.valueColumnName !== "undefined") {
+      metric.column = sqlBuilder.valueColumnName;
+    }
   }
 
   if (sql) {
-    metric.aggregation = sql.userAggregationSQL;
-    metric.denominator = sql.denominatorMetricId;
-    metric.userIdTypes = sql.identifierTypes;
-    metric.sql = sql.conversionSQL;
+    if (typeof sql.userAggregationSQL !== "undefined") {
+      metric.aggregation = sql.userAggregationSQL;
+    }
+    if (typeof sql.denominatorMetricId !== "undefined") {
+      metric.denominator = sql.denominatorMetricId;
+    }
+    if (typeof sql.identifierTypes !== "undefined") {
+      metric.userIdTypes = sql.identifierTypes;
+    }
+    if (typeof sql.conversionSQL !== "undefined") {
+      metric.sql = sql.conversionSQL;
+    }
   }
 
   if (mixpanel) {
-    metric.aggregation = mixpanel.userAggregation;
-    metric.table = mixpanel.eventName;
-    metric.column = mixpanel.eventValue;
+    if (typeof mixpanel.userAggregation !== "undefined") {
+      metric.aggregation = mixpanel.userAggregation;
+    }
+    if (typeof mixpanel.eventName !== "undefined") {
+      metric.table = mixpanel.eventName;
+    }
+    if (typeof mixpanel.eventValue !== "undefined") {
+      metric.column = mixpanel.eventValue;
+    }
   }
 
   return UPDATEABLE_FIELDS.reduce((acc, key) => {

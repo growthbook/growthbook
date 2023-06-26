@@ -958,10 +958,7 @@ paths:
                       minimum: 0
                 sql:
                   type: object
-                  description: 'Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified.'
-                  required:
-                    - identifierTypes
-                    - conversionSQL
+                  description: 'Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed.'
                   properties:
                     identifierTypes:
                       type: array
@@ -977,19 +974,12 @@ paths:
                       description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)'
                 sqlBuilder:
                   type: object
-                  description: 'An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified.'
-                  required:
-                    - identifierTypeColumns
-                    - tableName
-                    - timestampColumnName
+                  description: 'An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed'
                   properties:
                     identifierTypeColumns:
                       type: array
                       items:
                         type: object
-                        required:
-                          - identifierType
-                          - columnName
                         properties:
                           identifierType:
                             type: string
@@ -1005,10 +995,6 @@ paths:
                       type: array
                       items:
                         type: object
-                        required:
-                          - column
-                          - operator
-                          - value
                         properties:
                           column:
                             type: string
@@ -1018,10 +1004,7 @@ paths:
                             type: string
                 mixpanel:
                   type: object
-                  description: 'Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified.'
-                  required:
-                    - eventName
-                    - userAggregation
+                  description: 'Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed.'
                   properties:
                     eventName:
                       type: string
@@ -1033,10 +1016,6 @@ paths:
                       type: array
                       items:
                         type: object
-                        required:
-                          - property
-                          - operator
-                          - value
                         properties:
                           property:
                             type: string
