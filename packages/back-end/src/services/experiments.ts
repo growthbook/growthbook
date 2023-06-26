@@ -952,7 +952,7 @@ const postOrPutMetricPayloadIsValid = (
   if (mixpanel) {
     queryFormatCount++;
   }
-  if (queryFormatCount !== 1) {
+  if (queryFormatCount > 1) {
     return {
       valid: false,
       error: "Can only specify one of: sql, sqlBuilder, mixpanel",
@@ -1077,13 +1077,22 @@ export function postMetricApiPayloadIsValid(
   payload: z.infer<typeof postMetricValidator.bodySchema>,
   datasource: Pick<DataSourceInterface, "type">
 ): { valid: true } | { valid: false; error: string } {
+  if (!payload.sql && !payload.sqlBuilder && !payload.mixpanel) {
+    return {
+      valid: false,
+      error: "Must specify one of: sql, sqlBuilder, mixpanel",
+    };
+  }
+
   const { mixpanel } = payload;
+
   if (mixpanel && datasource.type !== "mixpanel") {
     return {
       valid: false,
       error: "Mixpanel datasources must provide `mixpanel`",
     };
   }
+
   return postOrPutMetricPayloadIsValid(payload);
 }
 

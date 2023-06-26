@@ -352,6 +352,31 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(true);
     });
+
+    it("should return a failure result if datasource configuration is omitted", () => {
+      const datasource: Pick<DataSourceInterface, "type"> = {
+        type: "postgres",
+      };
+      const input: z.infer<typeof postMetricValidator.bodySchema> = {
+        datasourceId: "ds_abc123",
+        behavior: {
+          riskThresholdSuccess: 0.5,
+          riskThresholdDanger: 0.99,
+        },
+        name: "My Cool Metric",
+        type: "count",
+      };
+
+      const result = postMetricApiPayloadIsValid(input, datasource) as {
+        valid: false;
+        error: string;
+      };
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe(
+        "Must specify one of: sql, sqlBuilder, mixpanel"
+      );
+    });
   });
 
   describe("putMetricApiPayloadIsValid", () => {
@@ -634,6 +659,20 @@ describe("experiments utils", () => {
           riskThresholdDanger: 0.99,
         },
         name: "My Cool Metric",
+        type: "count",
+      };
+
+      const result = putMetricApiPayloadIsValid(input) as {
+        valid: false;
+        error: string;
+      };
+
+      expect(result.valid).toBe(true);
+    });
+
+    it("should return a successful result if no datasource is provided", () => {
+      const input: z.infer<typeof putMetricValidator.bodySchema> = {
+        name: "My Updated Metric",
         type: "count",
       };
 
@@ -971,6 +1010,36 @@ describe("experiments utils", () => {
 
         expect(result.aggregation).toEqual("sum(values)");
         expect(result.conditions).toEqual([]);
+        expect(result.datasource).toBe(undefined);
+        expect(result.denominator).toBe(undefined);
+        expect(result.description).toBe(undefined);
+        expect(result.ignoreNulls).toBe(undefined);
+        expect(result.inverse).toBe(undefined);
+        expect(result.name).toEqual("My Cool Metric");
+        expect(result.organization).toBe(undefined);
+        expect(result.owner).toBe(undefined);
+        expect(result.projects).toBe(undefined);
+        expect(result.tags).toBe(undefined);
+        expect(result.queries).toBe(undefined);
+        expect(result.queryFormat).toBe(undefined);
+        expect(result.runStarted).toBe(undefined);
+        expect(result.sql).toBe(undefined);
+        expect(result.type).toEqual("count");
+        expect(result.userIdTypes).toEqual(undefined);
+      });
+    });
+
+    describe("no specified datasource", () => {
+      it("with minimum payload, should create a MetricInterface from a putMetric payload", () => {
+        const input: z.infer<typeof putMetricValidator.bodySchema> = {
+          name: "My Cool Metric",
+          type: "count",
+        };
+
+        const result = putMetricApiPayloadToMetricInterface(input);
+
+        expect(result.aggregation).toBe(undefined);
+        expect(result.conditions).toBe(undefined);
         expect(result.datasource).toBe(undefined);
         expect(result.denominator).toBe(undefined);
         expect(result.description).toBe(undefined);
