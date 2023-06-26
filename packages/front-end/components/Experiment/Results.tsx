@@ -225,12 +225,16 @@ const Results: FC<{
       )}
       {hasData &&
         snapshot?.dimension &&
-        (snapshot.dimension === "pre:date" ? (
+        (snapshot.dimension.substring(0, 8) === "pre:date" ? (
           <DateResults
             metrics={experiment.metrics}
             guardrails={experiment.guardrails}
             results={analysis?.results ?? []}
+            seriestype={snapshot.dimension}
             variations={variations}
+            statsEngine={
+              analysis?.settings?.statsEngine ?? DEFAULT_STATS_ENGINE
+            }
           />
         ) : (
           <BreakDownResults

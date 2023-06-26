@@ -386,13 +386,15 @@ export default function ReportPage() {
           </div>
           {hasData &&
             report.args.dimension &&
-            (report.args.dimension === "pre:date" ? (
+            (report.args.dimension.substring(0, 8) === "pre:date" ? (
               <DateResults
                 metrics={report.args.metrics}
                 guardrails={report.args.guardrails}
                 // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                 results={report.results.dimensions}
+                seriestype={report.args.dimension}
                 variations={variations}
+                statsEngine={report.args.statsEngine}
               />
             ) : (
               <BreakDownResults
