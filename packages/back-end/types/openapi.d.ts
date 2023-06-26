@@ -2108,14 +2108,17 @@ export interface operations {
           behavior?: {
             /** @enum {string} */
             goal?: "increase" | "decrease";
-            /** @description (deprecated, use capping and capValue fields instead) This should be non-negative */
+            /**
+             * @deprecated 
+             * @description (deprecated, use capping and capValue fields instead) This should be non-negative
+             */
             cap?: number;
             /**
-             * @description Used in conjunction with `capValue` to set the capping (winsorization). Do not specify for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. 
+             * @description Used in conjunction with `capValue` to set the capping (winsorization). Do not specify for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/> Must specify both `behavior.capping` and `behavior.capValue` or neither. 
              * @enum {string}
              */
             capping?: "absolute" | "percentile";
-            /** @description This should be non-negative. */
+            /** @description This should be non-negative. <br/> Must specify both `behavior.capping` and `behavior.capValue` or neither. */
             capValue?: number;
             /** @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
             conversionWindowStart?: number;
