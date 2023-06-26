@@ -176,14 +176,6 @@ export default function SinglePage({
   editPhases,
   editPhase,
 }: Props) {
-  const [
-    metaInformationOpen,
-    setMetaInformationOpen,
-  ] = useLocalStorage<boolean>("experiment-page__meta-information-open", true);
-  const [variationsOpen, setVariationsOpen] = useLocalStorage<boolean>(
-    `experiment-page__${experiment.id}__variations-open`,
-    true
-  );
   const [resultsTab, setResultsTab] = useLocalStorage<string>(
     `experiment-page__${experiment.id}__results-tab`,
     "overview"
@@ -576,7 +568,7 @@ export default function SinglePage({
         </div>
       </div>
 
-      <div className="mb-4 pt-2 pb-2 border rounded bg-light">
+      <div className="mb-4 pt-2 pb-0 border rounded bg-light">
         <div className="mx-3 mb-2">
           <div className="row align-items-center mb-2">
             {(projects.length > 0 || projectIsDeReferenced) && (
@@ -702,95 +694,83 @@ export default function SinglePage({
           )}
         </div>
 
-        <Collapsible
-          trigger={
-            <div className="px-3">
-              <FaAngleRight className="chevron" /> Meta information
-            </div>
-          }
-          open={metaInformationOpen}
-          onTriggerOpening={() => setMetaInformationOpen(true)}
-          onTriggerClosing={() => setMetaInformationOpen(false)}
-          transitionTime={150}
-        >
-          <div className="px-4 mb-4 pt-3">
-            <MarkdownInlineEdit
-              value={experiment.description ?? ""}
-              save={async (description) => {
-                await apiCall(`/experiment/${experiment.id}`, {
-                  method: "POST",
-                  body: JSON.stringify({ description }),
-                });
-                mutate();
-              }}
-              canCreate={canEditExperiment}
-              canEdit={canEditExperiment}
-              className="mb-3"
-              containerClassName="mb-1"
-              headerClassName="font-weight-bolder"
-              label="description"
-              header="Description"
-            />
+        <div className="px-3">
+          <MarkdownInlineEdit
+            value={experiment.description ?? ""}
+            save={async (description) => {
+              await apiCall(`/experiment/${experiment.id}`, {
+                method: "POST",
+                body: JSON.stringify({ description }),
+              });
+              mutate();
+            }}
+            canCreate={canEditExperiment}
+            canEdit={canEditExperiment}
+            className="mb-3"
+            containerClassName="mb-1"
+            headerClassName="font-weight-bolder"
+            label="description"
+            header="Description"
+          />
 
-            <MarkdownInlineEdit
-              value={experiment.hypothesis ?? ""}
-              save={async (hypothesis) => {
-                await apiCall(`/experiment/${experiment.id}`, {
-                  method: "POST",
-                  body: JSON.stringify({ hypothesis }),
-                });
-                mutate();
-              }}
-              canCreate={canEditExperiment}
-              canEdit={canEditExperiment}
-              label="hypothesis"
-              header={
-                <>
-                  <FaRegLightbulb /> Hypothesis
-                </>
-              }
-              className="mb-3"
-              containerClassName="mb-1"
-              headerClassName="font-weight-bolder"
-            />
+          <MarkdownInlineEdit
+            value={experiment.hypothesis ?? ""}
+            save={async (hypothesis) => {
+              await apiCall(`/experiment/${experiment.id}`, {
+                method: "POST",
+                body: JSON.stringify({ hypothesis }),
+              });
+              mutate();
+            }}
+            canCreate={canEditExperiment}
+            canEdit={canEditExperiment}
+            label="hypothesis"
+            header={
+              <>
+                <FaRegLightbulb /> Hypothesis
+              </>
+            }
+            className="mb-3"
+            containerClassName="mb-1"
+            headerClassName="font-weight-bolder"
+          />
 
-            {idea && (
-              <div className="mb-3">
-                <div className="d-flex align-items-center">
-                  <div className="mr-1">Idea:</div>
-                  <div>
-                    {idea.impactScore > 0 && (
-                      <div
-                        className="badge badge-primary mr-1"
-                        title="Impact Score"
-                      >
-                        {idea.impactScore}
-                        <small>/100</small>
-                      </div>
-                    )}
-                  </div>
-                </div>
+          {idea && (
+            <div className="mb-3">
+              <div className="d-flex align-items-center">
+                <div className="mr-1">Idea:</div>
                 <div>
-                  <Link href={`/idea/${idea.id}`}>
-                    <a
-                      style={{
-                        maxWidth: 200,
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        display: "inline-block",
-                        whiteSpace: "nowrap",
-                        verticalAlign: "middle",
-                      }}
-                      title={idea.text}
+                  {idea.impactScore > 0 && (
+                    <div
+                      className="badge badge-primary mr-1"
+                      title="Impact Score"
                     >
-                      <FaExternalLinkAlt /> {idea.text}
-                    </a>
-                  </Link>
+                      {idea.impactScore}
+                      <small>/100</small>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
-        </Collapsible>
+              <div>
+                <Link href={`/idea/${idea.id}`}>
+                  <a
+                    style={{
+                      maxWidth: 200,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      display: "inline-block",
+                      whiteSpace: "nowrap",
+                      verticalAlign: "middle",
+                    }}
+                    title={idea.text}
+                  >
+                    <FaExternalLinkAlt /> {idea.text}
+                  </a>
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="mb-4 pt-3 appbox">
