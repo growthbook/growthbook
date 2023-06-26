@@ -6,14 +6,16 @@ export default function Badge({
   className = "badge-primary",
   style,
   title,
+  skipMargin,
 }: {
   content: string;
   className?: string;
   style?: CSSProperties;
   title?: string;
+  skipMargin?: boolean;
 }) {
   return (
-    <span className={clsx("badge mr-2", className)} style={style} title={title}>
+    <span className={clsx("badge", className, {"ml-2": !skipMargin})} style={style} title={title}>
       {content}
     </span>
   );

@@ -21,6 +21,7 @@ import {
 import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared/constants";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { getScopedSettings } from "shared/settings";
+import { date } from "shared/dates";
 import Collapsible from "react-collapsible";
 import { DiscussionInterface } from "back-end/types/discussion";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -175,6 +176,10 @@ export default function SinglePage({
   editPhases,
   editPhase,
 }: Props) {
+  const [
+    metaInformationOpen,
+    setMetaInformationOpen,
+  ] = useLocalStorage<boolean>("experiment-page__meta-information-open", true);
   const [variationsOpen, setVariationsOpen] = useLocalStorage<boolean>(
     "experiment-page__variations-open",
     true
@@ -220,6 +225,10 @@ export default function SinglePage({
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
+
+  const lastPhase = experiment?.phases?.[experiment?.phases?.length - 1];
+  const startDate = experiment?.phases?.[0]?.dateStarted;
+  const endDate = lastPhase?.dateEnded;
 
   const watcherIds = useApi<{
     userIds: string[];
@@ -463,39 +472,39 @@ export default function SinglePage({
           mutate={mutate}
         />
       )}
-      <div className="row align-items-center mb-1">
+      <div className="row align-items-center mb-2">
         <div className="col-auto">
           <h1 className="mb-0">{experiment.name}</h1>
         </div>
 
-        <div className="col-auto">
-          <div
-            className="border rounded overflow-hidden d-flex"
-            style={{
-              backgroundColor: "var(--surface-background-color)",
-              boxShadow: "0 2px 5px rgba(0,0,0,.1) inset",
-            }}
-          >
-            <div
-              className="d-flex px-3"
-              style={{ height: 30, lineHeight: "30px" }}
-            >
-              <StatusIndicator
-                archived={experiment.archived}
-                status={experiment.status}
-                newUi={true}
-              />
-            </div>
-            {experiment.status === "stopped" && experiment.results && (
-              <div
-                className="d-flex border-left"
-                style={{ height: 30, lineHeight: "30px" }}
-              >
-                <ResultsIndicator results={experiment.results} newUi={true} />
-              </div>
-            )}
-          </div>
-        </div>
+        {/*<div className="col-auto">*/}
+        {/*  <div*/}
+        {/*    className="border rounded overflow-hidden d-flex"*/}
+        {/*    style={{*/}
+        {/*      backgroundColor: "var(--surface-background-color)",*/}
+        {/*      boxShadow: "0 2px 5px rgba(0,0,0,.1) inset",*/}
+        {/*    }}*/}
+        {/*  >*/}
+        {/*    <div*/}
+        {/*      className="d-flex px-3"*/}
+        {/*      style={{ height: 30, lineHeight: "30px" }}*/}
+        {/*    >*/}
+        {/*      <StatusIndicator*/}
+        {/*        archived={experiment.archived}*/}
+        {/*        status={experiment.status}*/}
+        {/*        newUi={true}*/}
+        {/*      />*/}
+        {/*    </div>*/}
+        {/*    {experiment.status === "stopped" && experiment.results && (*/}
+        {/*      <div*/}
+        {/*        className="d-flex border-left"*/}
+        {/*        style={{ height: 30, lineHeight: "30px" }}*/}
+        {/*      >*/}
+        {/*        <ResultsIndicator results={experiment.results} newUi={true} />*/}
+        {/*      </div>*/}
+        {/*    )}*/}
+        {/*  </div>*/}
+        {/*</div>*/}
 
         <div className="col-auto ml-auto">
           <WatchButton itemType="experiment" item={experiment.id} />
@@ -596,163 +605,227 @@ export default function SinglePage({
         </div>
       </div>
 
-      <div className="mb-3">
-        <MarkdownInlineEdit
-          value={experiment.description ?? ""}
-          save={async (description) => {
-            await apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
-              body: JSON.stringify({ description }),
-            });
-            mutate();
-          }}
-          canCreate={canEditExperiment}
-          canEdit={canEditExperiment}
-        />
-      </div>
-
-      <div className="row align-items-center mb-4">
-        {(projects.length > 0 || projectIsDeReferenced) && (
-          <div className="col-auto">
-            Project:{" "}
-            {projectIsDeReferenced ? (
-              <Tooltip
-                body={
-                  <>
-                    Project <code>{projectId}</code> not found
-                  </>
-                }
-              >
-                <span className="text-danger">
-                  <FaExclamationTriangle /> Invalid project
-                </span>
-              </Tooltip>
-            ) : projectId ? (
-              <strong>{projectName}</strong>
-            ) : (
-              <em className="text-muted">None</em>
+      <div className="mb-4 pt-2 pb-2 border rounded bg-light">
+        <div className="mx-3 mb-2">
+          <div className="row align-items-center mb-2">
+            {(projects.length > 0 || projectIsDeReferenced) && (
+              <div className="col-auto pr-3">
+                Project:{" "}
+                {projectIsDeReferenced ? (
+                  <Tooltip
+                    body={
+                      <>
+                        Project <code>{projectId}</code> not found
+                      </>
+                    }
+                  >
+                    <span className="text-danger">
+                      <FaExclamationTriangle /> Invalid project
+                    </span>
+                  </Tooltip>
+                ) : projectId ? (
+                  <strong>{projectName}</strong>
+                ) : (
+                  <em className="text-muted">None</em>
+                )}
+                {editProject && (
+                  <a
+                    role="button"
+                    className="ml-2 cursor-pointer"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      editProject();
+                    }}
+                  >
+                    <GBEdit />
+                  </a>
+                )}
+              </div>
             )}
-            {editProject && (
-              <a
-                role="button"
-                className="ml-2 cursor-pointer"
-                onClick={(e) => {
-                  e.preventDefault();
-                  editProject();
+            <div className="col-auto pr-3">
+              Tags:{" "}
+              {experiment.tags?.length > 0 ? (
+                <SortedTags tags={experiment.tags} skipFirstMargin={true} />
+              ) : (
+                <em className="text-muted">None</em>
+              )}{" "}
+              {editTags && (
+                <a
+                  role="button"
+                  className="ml-1 cursor-pointer"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    editTags();
+                  }}
+                >
+                  <GBEdit />
+                </a>
+              )}
+            </div>
+
+            <div className="flex-1 col"></div>
+            {startDate && (
+              <div className="col-auto pr-2">
+                <span className="small">
+                  {date(startDate)}
+                  {endDate && <> — {date(endDate)}</>}
+                </span>
+              </div>
+            )}
+            <div className="col-auto">
+              <div
+                className="border rounded overflow-hidden d-flex mt-1"
+                style={{
+                  backgroundColor: "var(--surface-background-color)",
+                  boxShadow: "0 2px 5px rgba(0,0,0,.1) inset",
                 }}
               >
-                <GBEdit />
-              </a>
-            )}
-          </div>
-        )}
-        <div className="col-auto">
-          Tags:{" "}
-          {experiment.tags?.length > 0 ? (
-            <SortedTags tags={experiment.tags} />
-          ) : (
-            <em className="text-muted">None</em>
-          )}{" "}
-          {editTags && (
-            <a
-              role="button"
-              className="ml-1 cursor-pointer"
-              onClick={(e) => {
-                e.preventDefault();
-                editTags();
-              }}
-            >
-              <GBEdit />
-            </a>
-          )}
-        </div>
-        {idea && (
-          <div className="col-auto">
-            <div className="d-flex align-items-center">
-              <div className="mr-1">Idea:</div>
-              <div>
-                {idea.impactScore > 0 && (
+                <div
+                  className="d-flex px-3"
+                  style={{ height: 30, lineHeight: "30px" }}
+                >
+                  <StatusIndicator
+                    archived={experiment.archived}
+                    status={experiment.status}
+                    newUi={true}
+                  />
+                </div>
+                {experiment.status === "stopped" && experiment.results && (
                   <div
-                    className="badge badge-primary mr-1"
-                    title="Impact Score"
+                    className="d-flex border-left"
+                    style={{ height: 30, lineHeight: "30px" }}
                   >
-                    {idea.impactScore}
-                    <small>/100</small>
+                    <ResultsIndicator
+                      results={experiment.results}
+                      newUi={true}
+                    />
                   </div>
                 )}
-                <Link href={`/idea/${idea.id}`}>
-                  <a
-                    style={{
-                      maxWidth: 200,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      display: "inline-block",
-                      whiteSpace: "nowrap",
-                      verticalAlign: "middle",
-                    }}
-                    title={idea.text}
-                  >
-                    <FaExternalLinkAlt /> {idea.text}
-                  </a>
-                </Link>
               </div>
             </div>
           </div>
-        )}
-      </div>
-      {currentProject && currentProject !== experiment.project && (
-        <div className="alert alert-warning p-2 mb-2 text-center">
-          This experiment is not in your current project.{" "}
-          <a
-            href="#"
-            className="a"
-            onClick={async (e) => {
-              e.preventDefault();
-              await apiCall(`/experiment/${experiment.id}`, {
-                method: "POST",
-                body: JSON.stringify({
-                  currentProject,
-                }),
-              });
-              mutate();
-            }}
-          >
-            Move it to{" "}
-            <strong>
-              {getProjectById(currentProject)?.name || "the current project"}
-            </strong>
-          </a>
+          {currentProject && currentProject !== experiment.project && (
+            <div className="alert alert-warning p-2 mb-2 text-center">
+              This experiment is not in your current project.{" "}
+              <a
+                href="#"
+                className="a"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await apiCall(`/experiment/${experiment.id}`, {
+                    method: "POST",
+                    body: JSON.stringify({
+                      currentProject,
+                    }),
+                  });
+                  mutate();
+                }}
+              >
+                Move it to{" "}
+                <strong>
+                  {getProjectById(currentProject)?.name ||
+                    "the current project"}
+                </strong>
+              </a>
+            </div>
+          )}
         </div>
-      )}
 
-      <div className="appbox mb-4 pt-3 px-3">
-        <MarkdownInlineEdit
-          value={experiment.hypothesis ?? ""}
-          save={async (hypothesis) => {
-            await apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
-              body: JSON.stringify({ hypothesis }),
-            });
-            mutate();
-          }}
-          canCreate={canEditExperiment}
-          canEdit={canEditExperiment}
-          className="mb-3"
-          label="hypothesis"
-          header={
-            <>
-              <FaRegLightbulb /> Hypothesis
-            </>
+        <Collapsible
+          trigger={
+            <div className="px-3">
+              <FaAngleRight className="chevron" /> Meta information
+            </div>
           }
-          editElement={<div className="btn-link">Edit Hypothesis</div>}
-          containerClassName="justify-content-between"
-        />
+          open={metaInformationOpen}
+          onTriggerOpening={() => setMetaInformationOpen(true)}
+          onTriggerClosing={() => setMetaInformationOpen(false)}
+          transitionTime={150}
+        >
+          <div className="px-4 mb-4 pt-3">
+            <MarkdownInlineEdit
+              value={experiment.description ?? ""}
+              save={async (description) => {
+                await apiCall(`/experiment/${experiment.id}`, {
+                  method: "POST",
+                  body: JSON.stringify({ description }),
+                });
+                mutate();
+              }}
+              canCreate={canEditExperiment}
+              canEdit={canEditExperiment}
+              className="mb-3"
+              containerClassName="mb-1"
+              headerClassName="font-weight-bolder"
+              label="description"
+              header="Description"
+            />
+
+            <MarkdownInlineEdit
+              value={experiment.hypothesis ?? ""}
+              save={async (hypothesis) => {
+                await apiCall(`/experiment/${experiment.id}`, {
+                  method: "POST",
+                  body: JSON.stringify({ hypothesis }),
+                });
+                mutate();
+              }}
+              canCreate={canEditExperiment}
+              canEdit={canEditExperiment}
+              label="hypothesis"
+              header={
+                <>
+                  <FaRegLightbulb /> Hypothesis
+                </>
+              }
+              className="mb-3"
+              containerClassName="mb-1"
+              headerClassName="font-weight-bolder"
+            />
+
+            {idea && (
+              <div className="mb-3">
+                <div className="d-flex align-items-center">
+                  <div className="mr-1">Idea:</div>
+                  <div>
+                    {idea.impactScore > 0 && (
+                      <div
+                        className="badge badge-primary mr-1"
+                        title="Impact Score"
+                      >
+                        {idea.impactScore}
+                        <small>/100</small>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <Link href={`/idea/${idea.id}`}>
+                    <a
+                      style={{
+                        maxWidth: 200,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        display: "inline-block",
+                        whiteSpace: "nowrap",
+                        verticalAlign: "middle",
+                      }}
+                      title={idea.text}
+                    >
+                      <FaExternalLinkAlt /> {idea.text}
+                    </a>
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+        </Collapsible>
       </div>
 
       <div className="mb-4 pt-3 appbox">
         <Collapsible
           trigger={
-            <div className="px-3 pb-2">
+            <div className="px-3 pb-3">
               <HeaderWithEdit
                 edit={editVariations ?? undefined}
                 editElement={<div className="btn-link">Edit Variations</div>}

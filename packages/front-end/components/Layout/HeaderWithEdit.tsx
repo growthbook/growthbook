@@ -20,11 +20,11 @@ export default function HeaderWithEdit({
   editClassName = "a",
   additionalActions,
   className = "h3",
-  containerClassName = "",
+  containerClassName = "mb-2",
   stopPropagation = false,
 }: Props) {
   return (
-    <div className={clsx("d-flex align-items-center mb-2", containerClassName)}>
+    <div className={clsx("d-flex align-items-center", containerClassName)}>
       <div className={clsx(className, "mb-0")}>{children}</div>
       {edit && (
         <div className="ml-1">

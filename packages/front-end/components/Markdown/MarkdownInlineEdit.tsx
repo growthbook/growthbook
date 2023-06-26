@@ -14,6 +14,7 @@ type Props = {
   className?: string;
   containerClassName?: string;
   header?: string | JSX.Element;
+  headerClassName?: string;
   editElement?: ReactElement;
   editClassName?: string;
 };
@@ -27,6 +28,7 @@ export default function MarkdownInlineEdit({
   className = "",
   containerClassName = "",
   header = "",
+  headerClassName="h3",
   editElement,
   editClassName = "a",
 }: Props) {
@@ -55,7 +57,7 @@ export default function MarkdownInlineEdit({
           setLoading(false);
         }}
       >
-        {header && <div className="h3">{header}</div>}
+        {header && <div className={headerClassName}>{header}</div>}
         {loading && <LoadingOverlay />}
         <MarkdownInput
           value={val}
@@ -82,6 +84,7 @@ export default function MarkdownInlineEdit({
               setEdit(true);
             })
           }
+          className={headerClassName}
           containerClassName={containerClassName}
           editElement={editElement}
           editClassName={editClassName}
