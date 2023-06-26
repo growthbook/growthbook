@@ -1,6 +1,6 @@
 name: CI
 on:
-  pull_request:
+  push:
     paths-ignore:
       - "packages/**"
       - "yarn.lock"
