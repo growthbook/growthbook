@@ -72,7 +72,6 @@ import { postMetricValidator, putMetricValidator } from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
-import { UPDATEABLE_FIELDS } from "../controllers/metrics";
 import {
   getMetricForSnapsot,
   getReportVariations,
@@ -1234,12 +1233,34 @@ export function postMetricApiPayloadToMetricInterface(
 export function putMetricApiPayloadToMetricInterface(
   payload: z.infer<typeof putMetricValidator.bodySchema>
 ): Partial<MetricInterface> {
-  const { behavior, sql, sqlBuilder, mixpanel } = payload;
+  const {
+    behavior,
+    sql,
+    sqlBuilder,
+    mixpanel,
+    description,
+    name,
+    owner,
+    tags,
+    projects,
+    type,
+  } = payload;
 
-  const metric: Partial<MetricInterface> = {};
+  const metric: Partial<MetricInterface> = {
+    ...(typeof description !== "undefined" ? { description } : {}),
+    ...(typeof name !== "undefined" ? { name } : {}),
+    ...(typeof owner !== "undefined" ? { owner } : {}),
+    ...(typeof tags !== "undefined" ? { tags } : {}),
+    ...(typeof projects !== "undefined" ? { projects } : {}),
+    ...(typeof type !== "undefined" ? { type } : {}),
+  };
 
   // Assign all undefined behavior fields to the metric
   if (behavior) {
+    if (typeof behavior.goal !== "undefined") {
+      metric.inverse = behavior.goal === "decrease";
+    }
+
     if (typeof behavior.cap !== "undefined") {
       metric.cap = behavior.cap;
     }
@@ -1311,6 +1332,14 @@ export function putMetricApiPayloadToMetricInterface(
     if (typeof sqlBuilder.valueColumnName !== "undefined") {
       metric.column = sqlBuilder.valueColumnName;
     }
+    if (typeof sqlBuilder.identifierTypeColumns !== "undefined") {
+      metric.userIdColumns = (sqlBuilder?.identifierTypeColumns || []).reduce<
+        Record<string, string>
+      >((acc, { columnName, identifierType }) => {
+        acc[columnName] = identifierType;
+        return acc;
+      }, {});
+    }
   }
 
   if (sql) {
@@ -1340,13 +1369,7 @@ export function putMetricApiPayloadToMetricInterface(
     }
   }
 
-  return UPDATEABLE_FIELDS.reduce((acc, key) => {
-    if (typeof metric[key] !== "undefined") {
-      // @ts-expect-error Not sure what's happening here
-      acc[key] = metric[key];
-    }
-    return acc;
-  }, {} as Partial<MetricInterface>);
+  return metric;
 }
 
 export function toMetricApiInterface(
