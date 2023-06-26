@@ -5,6 +5,7 @@ import { StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { getValidDate, ago } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { ExperimentSnapshotInterface } from "@/../back-end/types/experiment-snapshot";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -18,6 +19,7 @@ import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import StatusBanner from "@/components/Experiment/StatusBanner";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { trackSnapshot } from "@/services/track";
 import PValueGuardrailResults from "./PValueGuardrailResults";
 
 const BreakDownResults = dynamic(
@@ -80,6 +82,7 @@ const Results: FC<{
   }, [experiment.phases.length]);
 
   const permissions = usePermissions();
+  const { getDatasourceById } = useDefinitions();
 
   if (error) {
     return <div className="alert alert-danger m-3">{error.message}</div>;
@@ -198,13 +201,21 @@ const Results: FC<{
             });
 
             // Fetch results again
-            await apiCall(`/experiment/${experiment.id}/snapshot`, {
+            const res = await apiCall<{
+              snapshot: ExperimentSnapshotInterface;
+            }>(`/experiment/${experiment.id}/snapshot`, {
               method: "POST",
               body: JSON.stringify({
                 phase,
                 dimension,
               }),
             });
+            trackSnapshot(
+              "create",
+              "VariationIdWarning",
+              getDatasourceById(experiment.datasource)?.type || null,
+              res.snapshot
+            );
 
             mutateExperiment();
             mutate();

@@ -37,6 +37,7 @@ import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResults";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { trackReport } from "@/services/track";
 
 export default function ReportPage() {
   const router = useRouter();
@@ -193,6 +194,12 @@ export default function ReportPage() {
                     method: "DELETE",
                   }
                 );
+                trackReport(
+                  "delete",
+                  "DeleteButton",
+                  datasource?.type || null,
+                  report
+                );
                 router.push(`/experiment/${report.experimentId}#results`);
               }}
             />
@@ -264,9 +271,18 @@ export default function ReportPage() {
                     onSubmit={async (e) => {
                       e.preventDefault();
                       try {
-                        await apiCall(`/report/${report.id}/refresh`, {
-                          method: "POST",
-                        });
+                        const res = await apiCall<{ report: ReportInterface }>(
+                          `/report/${report.id}/refresh`,
+                          {
+                            method: "POST",
+                          }
+                        );
+                        trackReport(
+                          "update",
+                          "RefreshData",
+                          datasource?.type || null,
+                          res.report
+                        );
                         mutate();
                         setRefreshError("");
                       } catch (e) {
@@ -294,9 +310,18 @@ export default function ReportPage() {
                   hasData={hasData}
                   forceRefresh={async () => {
                     try {
-                      await apiCall(`/report/${report.id}/refresh?force=true`, {
-                        method: "POST",
-                      });
+                      const res = await apiCall<{ report: ReportInterface }>(
+                        `/report/${report.id}/refresh?force=true`,
+                        {
+                          method: "POST",
+                        }
+                      );
+                      trackReport(
+                        "update",
+                        "ForceRefreshData",
+                        datasource?.type || null,
+                        res.report
+                      );
                       mutate();
                     } catch (e) {
                       console.error(e);
@@ -410,12 +435,21 @@ export default function ReportPage() {
                   }),
                 };
 
-                await apiCall(`/report/${report.id}`, {
-                  method: "PUT",
-                  body: JSON.stringify({
-                    args,
-                  }),
-                });
+                const res = await apiCall<{ updatedReport: ReportInterface }>(
+                  `/report/${report.id}`,
+                  {
+                    method: "PUT",
+                    body: JSON.stringify({
+                      args,
+                    }),
+                  }
+                );
+                trackReport(
+                  "update",
+                  "VariationIdWarning",
+                  datasource?.type || null,
+                  res.updatedReport
+                );
                 mutate();
               }}
               variations={variations}
