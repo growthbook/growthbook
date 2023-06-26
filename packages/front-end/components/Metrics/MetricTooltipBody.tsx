@@ -45,7 +45,7 @@ const MetricTooltipBody = ({
     {
       show:
         !isNullUndefinedOrEmpty(metric.capping) && (metric.capValue ?? 0) !== 0,
-      label: "Capping",
+      label: `Capping (${metric.capping})`,
       body: metric.capValue ?? 0,
     },
     {
