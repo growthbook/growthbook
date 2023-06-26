@@ -189,7 +189,7 @@ export default function SinglePage({
   );
   const [discussionOpen, setDiscussionOpen] = useLocalStorage<boolean>(
     "experiment-page__discussion-open",
-    true
+    false
   );
 
   const {
@@ -463,7 +463,7 @@ export default function SinglePage({
           mutate={mutate}
         />
       )}
-      <div className="row align-items-center mb-0">
+      <div className="row align-items-center mb-1">
         <div className="col-auto">
           <h1 className="mb-0">{experiment.name}</h1>
         </div>
@@ -473,7 +473,6 @@ export default function SinglePage({
             className="border rounded overflow-hidden d-flex"
             style={{
               backgroundColor: "var(--surface-background-color)",
-              marginTop: 3,
               boxShadow: "0 2px 5px rgba(0,0,0,.1) inset",
             }}
           >
