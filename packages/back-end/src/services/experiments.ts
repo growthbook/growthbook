@@ -1032,6 +1032,28 @@ export function postMetricApiPayloadIsValid(
             "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`",
         };
     }
+
+    // Check capping args + capping values
+    const { capping, capValue } = behavior;
+
+    const cappingExists = typeof capping !== "undefined";
+    const capValueExists = typeof capValue !== "undefined";
+    if (cappingExists !== capValueExists) {
+      return {
+        valid: false,
+        error:
+          "Must specify both `behavior.capping` and `behavior.capValue or neither.",
+      };
+    }
+    if (capping && capValue && capping === "percentile") {
+      if (capValue > 1) {
+        return {
+          valid: false,
+          error:
+            "When using percentile capping, `behavior.capValue` must be between 0 and 1.",
+        };
+      }
+    }
   }
 
   // Validate for payload.sql
