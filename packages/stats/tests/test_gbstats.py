@@ -7,6 +7,7 @@ import pandas as pd
 from gbstats.gbstats import (
     base_statistic_from_metric_row,
     detect_unknown_variations,
+    diff_for_daily_time_series,
     reduce_dimensionality,
     analyze_metric_df,
     get_metric_df,
@@ -192,6 +193,56 @@ RA_STATISTICS_DF = pd.DataFrame(
 ).assign(
     statistic_type="mean_ra", main_metric_type="count", covariate_metric_type="count"
 )
+
+
+class TestDiffDailyTS(TestCase):
+    def test_diff_works_as_expected(self):
+        dfc = MULTI_DIMENSION_STATISTICS_DF.copy()
+        dfc["dimension"].replace(
+            ["one", "two"], ["2022-01-01", "2022-01-02"], inplace=True
+        )
+        dfc = diff_for_daily_time_series(dfc)
+
+        target_df = pd.DataFrame(
+            [
+                {
+                    "dimension": "2022-01-01",
+                    "variation": "one",
+                    "main_sum": 300,
+                    "main_sum_squares": 869,
+                    "users": 120,
+                    "count": 120,
+                },
+                {
+                    "dimension": "2022-01-01",
+                    "variation": "zero",
+                    "main_sum": 270,
+                    "main_sum_squares": 848.79,
+                    "users": 100,
+                    "count": 100,
+                },
+                {
+                    "dimension": "2022-01-02",
+                    "variation": "one",
+                    "main_sum": 770.0 - 300,
+                    "main_sum_squares": 3571 - 869,
+                    "users": 220,
+                    "count": 220,
+                },
+                {
+                    "dimension": "2022-01-02",
+                    "variation": "zero",
+                    "main_sum": 740.0 - 270,
+                    "main_sum_squares": 3615.59 - 848.79,
+                    "users": 200,
+                    "count": 200,
+                },
+            ]
+        ).assign(statistic_type="mean", main_metric_type="count")
+        pd.testing.assert_frame_equal(
+            dfc.sort_values(["variation", "dimension"]).reset_index(drop=True),
+            target_df.sort_values(["variation", "dimension"]).reset_index(drop=True),
+        )
 
 
 class TestGetMetricDf(TestCase):

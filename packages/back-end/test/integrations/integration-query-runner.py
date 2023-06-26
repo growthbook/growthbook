@@ -16,6 +16,7 @@ import psycopg2
 import psycopg2.extras
 import sqlfluff
 import snowflake.connector
+import redshift_connector
 import pyodbc
 import pandas as pd
 
@@ -199,6 +200,38 @@ class clickhouseRunner(sqlRunner):
 class mssqlRunner(sqlRunner):
     def open_connection(self):
         self.connection = pyodbc.connect(
+            'DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={server};ENCRYPT=yes;UID={username};PWD={password}'
+        ).format(
+            server=config['MSSQL_TEST_SERVER'],
+            username=config['MSSQL_TEST_USER'],
+            password=config['MSSQL_TEST_PASSWORD']    
+        )
+
+    def run_query(self, sql: str) -> QueryResult:
+        cursor = self.connection.cursor()
+        cursor.execute(sql)
+        return QueryResult(rows=[row.asDict() for row in cursor.fetchall()])
+
+class redshiftRunner(sqlRunner):
+    def open_connection(self):
+        self.connection = redshift_connector.connect(
+            host=config['REDSHIFT_TEST_HOST'],
+            database=config['REDSHIFT_TEST_DATABASE'],
+            user=config['REDSHIFT_TEST_USER'],
+            password=config['REDSHIFT_TEST_PASSWORD']
+        )
+
+    def run_query(self, sql: str) -> QueryResult:
+        cursor = self.connection.cursor()
+        cursor.execute(sql)
+        return QueryResult(rows=[])
+        #return QueryResult(rows=cursor.fetch_dataframe().to_dict('records'))
+
+
+
+class mssqlRunner(sqlRunner):
+    def open_connection(self):
+        self.connection = pyodbc.connect(
             'DRIVER=ODBC Driver 17 for SQL Server;SERVER={server};ENCRYPT=yes;UID={username};PWD={password};DATABASE={database};TrustServerCertificate=yes;'.format(
                 server=config['MSSQL_TEST_SERVER'],
                 username=config['MSSQL_TEST_USER'],
@@ -283,6 +316,8 @@ def get_sql_runner(engine) -> sqlRunner:
             return mssqlRunner()
         elif engine == "clickhouse":
             return clickhouseRunner()
+        elif engine == "redshift":
+            return redshiftRunner()
         else:
             return dummyRunner("no runner configured")
     except Exception as e:
@@ -355,11 +390,8 @@ def main():
 
     for test_case in test_cases:
         engine = test_case["engine"]
-
-        if engine not in runners:
-            runners[engine] = get_sql_runner(engine)
-
         key = engine + "::" + test_case["sql"]
+
         if key in cache:
             update_fields = ['engine', 'name']
             results.append({
@@ -369,6 +401,8 @@ def main():
                 **{k: v for k, v in test_case.items() if k in update_fields}
             })
         else:
+            if engine not in runners:
+                runners[engine] = get_sql_runner(engine)
             if engine not in nonlinted_engines:
                 validate(test_case)
             result = execute_query(test_case["sql"], runners[engine])
@@ -379,7 +413,6 @@ def main():
 
     for engine, runner in runners.items():
         runner.close_connection()
-
     # Learn what branch and write out results
     branch_name = sys.argv[1].replace("/", "") if len(sys.argv) > 1 else ""
     res_filename = f"{RESULT_FILE_PREFIX}_{branch_name}.json"

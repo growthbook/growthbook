@@ -8,6 +8,8 @@ import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
+import { trackReport } from "@/services/track";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import Button from "../Button";
 import { GBAddCircle } from "../Icons";
@@ -25,6 +27,7 @@ export default function ExperimentReportsList({
   const permissions = usePermissions();
   const { userId, users } = useUser();
   const { snapshot, analysis } = useSnapshot();
+  const { getDatasourceById } = useDefinitions();
 
   const { data, error, mutate } = useApi<{
     reports: ReportInterface[];
@@ -72,6 +75,12 @@ export default function ExperimentReportsList({
                   if (!res.report) {
                     throw new Error("Failed to create report");
                   }
+                  trackReport(
+                    "create",
+                    "NewCustomReportButton",
+                    getDatasourceById(res.report.args.datasource)?.type || null,
+                    res.report
+                  );
 
                   await router.push(`/report/${res.report.id}`);
                 }}
@@ -148,6 +157,13 @@ export default function ExperimentReportsList({
                               method: "DELETE",
                               //body: JSON.stringify({ id: report.id }),
                             }
+                          );
+                          trackReport(
+                            "delete",
+                            "ExperimentReportsList",
+                            getDatasourceById(report.args.datasource)?.type ||
+                              null,
+                            report
                           );
                           mutate();
                         }}
