@@ -21,6 +21,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { trackSnapshot } from "@/services/track";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import DimensionChooser from "../Dimensions/DimensionChooser";
@@ -313,17 +314,26 @@ export default function AnalysisSettingsBar({
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
-                      apiCall(`/experiment/${experiment.id}/snapshot`, {
-                        method: "POST",
-                        body: JSON.stringify({
-                          phase,
-                          dimension,
-                          statsEngine,
-                          regressionAdjustmentEnabled,
-                          metricRegressionAdjustmentStatuses,
-                        }),
-                      })
-                        .then(() => {
+                      apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+                        `/experiment/${experiment.id}/snapshot`,
+                        {
+                          method: "POST",
+                          body: JSON.stringify({
+                            phase,
+                            dimension,
+                            statsEngine,
+                            regressionAdjustmentEnabled,
+                            metricRegressionAdjustmentStatuses,
+                          }),
+                        }
+                      )
+                        .then((res) => {
+                          trackSnapshot(
+                            "create",
+                            "RunQueriesButton",
+                            datasource?.type || null,
+                            res.snapshot
+                          );
                           mutate();
                           setRefreshError("");
                         })
@@ -364,7 +374,7 @@ export default function AnalysisSettingsBar({
             <ResultMoreMenu
               id={snapshot?.id || ""}
               forceRefresh={async () => {
-                await apiCall(
+                await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
                   `/experiment/${experiment.id}/snapshot?force=true`,
                   {
                     method: "POST",
@@ -377,7 +387,13 @@ export default function AnalysisSettingsBar({
                     }),
                   }
                 )
-                  .then(() => {
+                  .then((res) => {
+                    trackSnapshot(
+                      "create",
+                      "ForceRerunQueriesButton",
+                      datasource?.type || null,
+                      res.snapshot
+                    );
                     mutate();
                   })
                   .catch((e) => {
