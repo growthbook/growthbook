@@ -1,17 +1,8 @@
-import {
-  Reducer,
-  useCallback,
-  useEffect,
-  useMemo,
-  useReducer,
-  useState,
-} from "react";
+import { Reducer, useCallback, useEffect, useReducer, useState } from "react";
 import { ProjectInterface } from "back-end/types/project";
 import { Environment } from "back-end/types/organization";
 import { FeatureInterface } from "back-end/types/feature";
-import cloneDeep from "lodash/cloneDeep";
 import {
-  addEnvironmentToOrganizationEnvironments,
   getLDEnvironments,
   getLDProjects,
   LDListEnvironmentsResponse,
@@ -461,9 +452,9 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
 
         // Enqueue each environment creation individually
         const createEnvironmentTasks: QueueTask<Environment>[] = [];
-        environmentsToCreate.forEach((env) => {
+        environmentsToCreate.forEach((env, id) => {
           createEnvironmentTasks.push({
-            id: env.id,
+            id,
             data: env,
           });
         });
@@ -501,21 +492,13 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
             },
             async perform(data: Environment): Promise<TaskResult<Environment>> {
               try {
-                const updatedEnvironments = addEnvironmentToOrganizationEnvironments(
-                  data,
-                  existingEnvironments,
-                  false
-                );
-
                 const response = await apiCall<{
                   status: number;
                   message?: string;
-                }>("/organization", {
-                  method: "PUT",
+                }>("/environment", {
+                  method: "POST",
                   body: JSON.stringify({
-                    settings: {
-                      environments: updatedEnvironments,
-                    },
+                    environment: data,
                   }),
                 });
 
