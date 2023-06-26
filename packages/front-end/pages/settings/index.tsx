@@ -313,6 +313,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       attributionModel: "firstExposure",
       displayCurrency,
       secureAttributeSalt: "",
+      killswitchConfirmation: false,
     },
   });
   const { apiCall } = useAuth();
@@ -347,6 +348,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     attributionModel: form.watch("attributionModel"),
     displayCurrency: form.watch("displayCurrency"),
     secureAttributeSalt: form.watch("secureAttributeSalt"),
+    killswitchConfirmation: form.watch("killswitchConfirmation"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -1348,6 +1350,25 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     containerClassName="mb-3"
                     type="string"
                     {...form.register("secureAttributeSalt")}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="mr-1"
+                    htmlFor="toggle-killswitchConfirmation"
+                  >
+                    Require confirmation when changing an environment kill
+                    switch
+                  </label>
+                </div>
+                <div>
+                  <Toggle
+                    id={"toggle-killswitchConfirmation"}
+                    value={!!form.watch("killswitchConfirmation")}
+                    setValue={(value) => {
+                      form.setValue("killswitchConfirmation", value);
+                    }}
                   />
                 </div>
               </div>
