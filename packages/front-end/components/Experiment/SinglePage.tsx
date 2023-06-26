@@ -176,6 +176,10 @@ export default function SinglePage({
   editPhases,
   editPhase,
 }: Props) {
+  const [variationsOpen, setVariationsOpen] = useLocalStorage<boolean>(
+    `experiment-page__${experiment.id}__variations-open`,
+    true
+  );
   const [resultsTab, setResultsTab] = useLocalStorage<string>(
     `experiment-page__${experiment.id}__results-tab`,
     "overview"
