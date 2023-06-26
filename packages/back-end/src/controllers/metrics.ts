@@ -17,7 +17,6 @@ import {
   getMetricsByOrganization,
   getMetricById,
   updateMetric,
-  UPDATEABLE_FIELDS,
 } from "../models/MetricModel";
 import { IdeaInterface } from "../../types/idea";
 
@@ -30,6 +29,48 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+
+/**
+ * Fields on a metric that we allow users to update. Excluded fields are
+ * those that are set by asynchronous analysis jobs that run internally.
+ */
+export const UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
+  "name",
+  "description",
+  "owner",
+  "segment",
+  "type",
+  "inverse",
+  "ignoreNulls",
+  "cap",
+  "denominator",
+  "conversionWindowHours",
+  "conversionDelayHours",
+  "sql",
+  "aggregation",
+  "queryFormat",
+  "status",
+  "tags",
+  "projects",
+  "winRisk",
+  "loseRisk",
+  "maxPercentChange",
+  "minPercentChange",
+  "minSampleSize",
+  "regressionAdjustmentOverride",
+  "regressionAdjustmentEnabled",
+  "regressionAdjustmentDays",
+  "conditions",
+  "dateUpdated",
+  "table",
+  "column",
+  "userIdType",
+  "userIdColumn",
+  "anonymousIdColumn",
+  "userIdColumns",
+  "userIdTypes",
+  "timestampColumn",
+];
 
 export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,

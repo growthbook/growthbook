@@ -128,6 +128,8 @@ paths:
   /metrics/{id}:
     get:
       $ref: "./paths/getMetric.yaml"
+    put:
+      $ref: "./paths/putMetric.yaml"
   /experiments/{id}/visual-changesets:
     $ref: "./paths/listVisualChangesets.yaml"
   /visual-changesets/{id}:

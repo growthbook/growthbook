@@ -1,0 +1,157 @@
+type: object
+properties:
+  owner:
+    type: string
+    description: Name of the person who owns this metric
+  name:
+    type: string
+    description: Name of the metric
+  description:
+    type: string
+    description: Description of the metric
+  type:
+    type: string
+    description: Type of metric. See [Metrics documentation](/app/metrics)
+    enum:
+      - binomial
+      - count
+      - duration
+      - revenue
+  tags:
+    type: array
+    description: List of tags
+    items:
+      type: string
+  projects:
+    type: array
+    description: List of project IDs for projects that can access this metric
+    items:
+      type: string
+  archived:
+    type: boolean
+  behavior:
+    type: object
+    required: []
+    properties:
+      goal:
+        type: string
+        enum:
+          - increase
+          - decrease
+      cap:
+        type: number
+        description: This should be non-negative
+        minimum: 0
+      conversionWindowStart:
+        type: number
+        description: "The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither."
+      conversionWindowEnd:
+        type: number
+        description: "The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither."
+      riskThresholdSuccess:
+        type: number
+        description: Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.
+        minimum: 0
+      riskThresholdDanger:
+        type: number
+        description: Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.
+        minimum: 0
+      minPercentChange:
+        type: number
+        description: Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)
+        minimum: 0
+      maxPercentChange:
+        type: number
+        description: Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)
+        minimum: 0
+      minSampleSize:
+        type: number
+        minimum: 0
+  sql:
+    type: object
+    description: "Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified."
+    required:
+      - identifierTypes
+      - conversionSQL
+    properties:
+      identifierTypes:
+        type: array
+        items:
+          type: string
+      conversionSQL:
+        type: string
+      userAggregationSQL:
+        type: string
+        description: "Custom user level aggregation for your metric (default: `SUM(value)`)"
+      denominatorMetricId:
+        type: string
+        description: "The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)"
+  sqlBuilder:
+    type: object
+    description: "An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified."
+    required:
+      - identifierTypeColumns
+      - tableName
+      - timestampColumnName
+    properties:
+      identifierTypeColumns:
+        type: array
+        items:
+          type: object
+          required:
+            - identifierType
+            - columnName
+          properties:
+            identifierType:
+              type: string
+            columnName:
+              type: string
+      tableName:
+        type: string
+      valueColumnName:
+        type: string
+      timestampColumnName:
+        type: string
+      conditions:
+        type: array
+        items:
+          type: object
+          required:
+            - column
+            - operator
+            - value
+          properties:
+            column:
+              type: string
+            operator:
+              type: string
+            value:
+              type: string
+  mixpanel:
+    type: object
+    description: "Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified."
+    required:
+      - eventName
+      - userAggregation
+    properties:
+      eventName:
+        type: string
+      eventValue:
+        type: string
+      userAggregation:
+        type: string
+      conditions:
+        type: array
+        items:
+          type: object
+          required:
+            - property
+            - operator
+            - value
+          properties:
+            property:
+              type: string
+            operator:
+              type: string
+            value:
+              type: string

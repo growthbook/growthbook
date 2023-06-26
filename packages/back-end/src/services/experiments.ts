@@ -68,10 +68,11 @@ import {
   ApiMetric,
 } from "../../types/openapi";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
-import { postMetricValidator } from "../validators/openapi";
+import { postMetricValidator, putMetricValidator } from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
+import { UPDATEABLE_FIELDS } from "../controllers/metrics";
 import {
   getMetricForSnapsot,
   getReportVariations,
@@ -934,15 +935,11 @@ export function toSnapshotApiInterface(
   };
 }
 
-/**
- * While the `postMetricValidator` can detect the presence of values, it cannot figure out the correctness.
- * @param payload
- * @param datasource
- */
-export function postMetricApiPayloadIsValid(
-  payload: z.infer<typeof postMetricValidator.bodySchema>,
-  datasource: Pick<DataSourceInterface, "type">
-): { valid: true } | { valid: false; error: string } {
+const postOrPutMetricPayloadIsValid = (
+  payload:
+    | z.infer<typeof postMetricValidator.bodySchema>
+    | z.infer<typeof putMetricValidator.bodySchema>
+): { valid: true } | { valid: false; error: string } => {
   const { type, sql, sqlBuilder, mixpanel, behavior } = payload;
 
   // Validate query format: sql, sqlBuilder, mixpanel
@@ -1052,12 +1049,6 @@ export function postMetricApiPayloadIsValid(
         valid: false,
         error: "Binomial metrics cannot have an eventValue",
       };
-
-    if (datasource.type !== "mixpanel")
-      return {
-        valid: false,
-        error: "Mixpanel datasources must provide `mixpanel`",
-      };
   }
 
   // Validate payload.sqlBuilder
@@ -1076,6 +1067,31 @@ export function postMetricApiPayloadIsValid(
   return {
     valid: true,
   };
+};
+
+/**
+ * While the `postMetricValidator` can detect the presence of values, it cannot figure out the correctness.
+ * @param payload
+ * @param datasource
+ */
+export function postMetricApiPayloadIsValid(
+  payload: z.infer<typeof postMetricValidator.bodySchema>,
+  datasource: Pick<DataSourceInterface, "type">
+): { valid: true } | { valid: false; error: string } {
+  const { mixpanel } = payload;
+  if (mixpanel && datasource.type !== "mixpanel") {
+    return {
+      valid: false,
+      error: "Mixpanel datasources must provide `mixpanel`",
+    };
+  }
+  return postOrPutMetricPayloadIsValid(payload);
+}
+
+export function putMetricApiPayloadIsValid(
+  payload: z.infer<typeof putMetricValidator.bodySchema>
+): { valid: true } | { valid: false; error: string } {
+  return postOrPutMetricPayloadIsValid(payload);
 }
 
 /**
@@ -1207,6 +1223,107 @@ export function postMetricApiPayloadToMetricInterface(
   }
 
   return metric;
+}
+
+/**
+ * Converts the OpenAPI PUT /metric payload to a {@link MetricInterface}
+ * @param payload
+ * @param organization
+ * @param datasource
+ */
+export function putMetricApiPayloadToMetricInterface(
+  payload: z.infer<typeof putMetricValidator.bodySchema>
+): Partial<MetricInterface> {
+  const { behavior, sql, sqlBuilder, mixpanel } = payload;
+
+  const metric: Partial<MetricInterface> = {};
+
+  // Assign all undefined behavior fields to the metric
+  if (behavior) {
+    if (typeof behavior.cap !== "undefined") {
+      metric.cap = behavior.cap;
+    }
+
+    if (typeof behavior.conversionWindowStart !== "undefined") {
+      // The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the Conversion Delay
+      metric.conversionDelayHours = behavior.conversionWindowStart;
+    }
+
+    if (
+      typeof behavior.conversionWindowEnd !== "undefined" &&
+      typeof behavior.conversionWindowStart !== "undefined"
+    ) {
+      // The end of a Conversion Window relative to the exposure date, in hours.
+      // This is equivalent to the Conversion Delay + Conversion Window Hours settings in the UI. In other words,
+      // if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and
+      // conversionWindowEnd to 72 (24+48).
+      metric.conversionWindowHours =
+        behavior.conversionWindowEnd - behavior.conversionWindowStart;
+    }
+
+    if (typeof behavior.maxPercentChange !== "undefined") {
+      metric.maxPercentChange = behavior.maxPercentChange;
+    }
+
+    if (typeof behavior.minPercentChange !== "undefined") {
+      metric.minPercentChange = behavior.minPercentChange;
+    }
+
+    if (typeof behavior.minSampleSize !== "undefined") {
+      metric.minSampleSize = behavior.minSampleSize;
+    }
+
+    if (typeof behavior.riskThresholdDanger !== "undefined") {
+      metric.loseRisk = behavior.riskThresholdDanger;
+    }
+
+    if (typeof behavior.riskThresholdSuccess !== "undefined") {
+      metric.winRisk = behavior.riskThresholdSuccess;
+    }
+  }
+
+  if (sqlBuilder) {
+    metric.queryFormat = "builder";
+  } else if (sql) {
+    metric.queryFormat = "sql";
+  }
+
+  // Conditions
+  metric.conditions = mixpanel
+    ? (mixpanel?.conditions || []).map(({ operator, property, value }) => ({
+        column: property,
+        operator: operator as Operator,
+        value: value,
+      }))
+    : ((sqlBuilder?.conditions || []) as Condition[]);
+
+  if (sqlBuilder) {
+    // conditions are handled above in the Conditions section
+    metric.table = sqlBuilder.tableName;
+    metric.timestampColumn = sqlBuilder.timestampColumnName;
+    metric.column = sqlBuilder.valueColumnName;
+  }
+
+  if (sql) {
+    metric.aggregation = sql.userAggregationSQL;
+    metric.denominator = sql.denominatorMetricId;
+    metric.userIdTypes = sql.identifierTypes;
+    metric.sql = sql.conversionSQL;
+  }
+
+  if (mixpanel) {
+    metric.aggregation = mixpanel.userAggregation;
+    metric.table = mixpanel.eventName;
+    metric.column = mixpanel.eventValue;
+  }
+
+  return UPDATEABLE_FIELDS.reduce((acc, key) => {
+    if (typeof metric[key] !== "undefined") {
+      // @ts-expect-error Not sure what's happening here
+      acc[key] = metric[key];
+    }
+    return acc;
+  }, {} as Partial<MetricInterface>);
 }
 
 export function toMetricApiInterface(
