@@ -2356,16 +2356,16 @@ export interface operations {
           /** @description An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed */
           sqlBuilder?: {
             identifierTypeColumns?: ({
-                identifierType?: string;
-                columnName?: string;
+                identifierType: string;
+                columnName: string;
               })[];
             tableName?: string;
             valueColumnName?: string;
             timestampColumnName?: string;
             conditions?: ({
-                column?: string;
-                operator?: string;
-                value?: string;
+                column: string;
+                operator: string;
+                value: string;
               })[];
           };
           /** @description Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
@@ -2374,9 +2374,9 @@ export interface operations {
             eventValue?: string;
             userAggregation?: string;
             conditions?: ({
-                property?: string;
-                operator?: string;
-                value?: string;
+                property: string;
+                operator: string;
+                value: string;
               })[];
           };
         };

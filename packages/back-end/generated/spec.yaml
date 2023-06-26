@@ -980,6 +980,9 @@ paths:
                       type: array
                       items:
                         type: object
+                        required:
+                          - identifierType
+                          - columnName
                         properties:
                           identifierType:
                             type: string
@@ -995,6 +998,10 @@ paths:
                       type: array
                       items:
                         type: object
+                        required:
+                          - column
+                          - operator
+                          - value
                         properties:
                           column:
                             type: string
@@ -1016,6 +1023,10 @@ paths:
                       type: array
                       items:
                         type: object
+                        required:
+                          - property
+                          - operator
+                          - value
                         properties:
                           property:
                             type: string
