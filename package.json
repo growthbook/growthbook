@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "lint": "eslint './**/*.{ts,tsx,js,jsx}' --fix --max-warnings 0 --cache --cache-strategy content",
+    "lint:ci": "eslint './**/*.{ts,tsx,js,jsx}' --max-warnings 0 --cache --cache-strategy content",
     "pretty": "prettier --write ./**/*.{json,css,scss,md,mdx}",
     "type-check": "wsrun -m type-check",
     "clean": "rm -rf node_modules && rm -rf packages/front-end/node_modules && rm packages/front-end/tsconfig.tsbuildinfo && rm -rf packages/back-end/node_modules && rm -rf packages/sdk-js/node_modules && rm -rf packages/sdk-react/node_modules && rm -rf packages/shared/node_modules && yarn cache clean",
@@ -20,7 +21,7 @@
     "plop": "plop",
     "migrate-encryption-key": "yarn workspace back-end migrate-encryption-key",
     "generate-api-types": "yarn workspace back-end generate-api-types",
-    "ci": "yarn lint && yarn run type-check && yarn run test"
+    "ci": "yarn lint:ci && yarn run type-check && yarn run test"
   },
   "workspaces": [
     "packages/*"
@@ -54,10 +55,8 @@
     "./**/*.{ts,tsx}": [
       "yarn lint"
     ],
-    "./packages/stats/gbstats/**/*.py": [
-      "black",
-      "flake8 --config=packages/stats/.flake8",
-      "mypy --check-untyped-defs"
+    "./packages/stats/{gbstats,tests}/**/*.py": [
+      "bash -c \"yarn workspace stats lint\" && :"
     ]
   },
   "prettier": {
