@@ -7,7 +7,6 @@ import {
   FaAngleRight,
   FaExclamationTriangle,
   FaExternalLinkAlt,
-  FaLink,
   FaQuestionCircle,
   FaRegLightbulb,
 } from "react-icons/fa";
@@ -385,6 +384,11 @@ export default function SinglePage({
     )
   );
 
+  const experimentPendingWithVisualChanges =
+    experiment.status === "draft" &&
+    experiment.phases.length > 0 &&
+    hasVisualEditorPermission;
+
   return (
     <div className="container-fluid experiment-details pagecontents pb-3">
       <div className="mb-2 mt-1">
@@ -466,7 +470,7 @@ export default function SinglePage({
 
         <div className="col-auto">
           <div
-            className="border rounded overflow-hidden"
+            className="border rounded overflow-hidden d-flex"
             style={{
               backgroundColor: "var(--surface-background-color)",
               marginTop: 3,
@@ -474,7 +478,7 @@ export default function SinglePage({
             }}
           >
             <div
-              className="d-inline-block px-3"
+              className="d-flex px-3"
               style={{ height: 30, lineHeight: "30px" }}
             >
               <StatusIndicator
@@ -485,7 +489,7 @@ export default function SinglePage({
             </div>
             {experiment.status === "stopped" && experiment.results && (
               <div
-                className="d-inline-block border-left"
+                className="d-flex border-left"
                 style={{ height: 30, lineHeight: "30px" }}
               >
                 <ResultsIndicator results={experiment.results} newUi={true} />
@@ -782,16 +786,18 @@ export default function SinglePage({
         </Collapsible>
       </div>
 
-      {experiment.status === "draft" &&
-      experiment.phases.length > 0 &&
-      hasVisualEditorPermission ? (
+      {experimentPendingWithVisualChanges ? (
         <div>
           {visualChangesets.length > 0 ? (
             <div className="mb-4">
               {!hasSomeVisualChanges ? (
                 <div className="alert alert-info">
-                  Open the Visual Editor above and add at least one change to
-                  your experiment before you start
+                  Open{" "}
+                  <strong>
+                    Variations <FaAngleRight /> Visual Changes
+                  </strong>{" "}
+                  above and add at least one <strong>Visual Editor</strong>{" "}
+                  change to your experiment before you start
                 </div>
               ) : hasSDKWithVisualExperimentsEnabled ? (
                 <div className="appbox text-center px-3 py-5">
@@ -898,28 +904,17 @@ export default function SinglePage({
         <></>
       )}
 
-      <ControlledTabs
-        newStyle={true}
-        className="mt-3 mb-4"
-        buttonsClassName="px-5"
-        tabContentsClassName="border px-3 pt-3"
-        setActive={(tab) => setResultsTab(tab ?? "overview")}
-        active={resultsTab}
-      >
-        <Tab id="overview" display="Overview" padding={false}>
-          <div className="mb-2 position-relative">
-            <div style={{ position: "absolute", top: -70 }} id="results"></div>
-            <h3>
-              Results{" "}
-              <a
-                href="#results"
-                className="small"
-                style={{ verticalAlign: "middle" }}
-              >
-                <FaLink />
-              </a>
-            </h3>
-            <div style={{ overflowX: "initial" }}>
+      {!experimentPendingWithVisualChanges && (
+        <ControlledTabs
+          newStyle={true}
+          className="mt-3 mb-4"
+          buttonsClassName="px-5"
+          tabContentsClassName="border px-3 pt-3"
+          setActive={(tab) => setResultsTab(tab ?? "overview")}
+          active={resultsTab}
+        >
+          <Tab id="overview" display="Overview" padding={false}>
+            <div className="mb-2" style={{ overflowX: "initial" }}>
               {experiment.phases?.length > 0 ? (
                 <Results
                   experiment={experiment}
@@ -952,14 +947,10 @@ export default function SinglePage({
                 </div>
               )}
             </div>
-          </div>
-        </Tab>
+          </Tab>
 
-        <Tab id="config" display="Configure" padding={false}>
-          <div className="mb-4">
-            <h3>Configure</h3>
-
-            <div className="mt-3">
+          <Tab id="config" display="Configure" padding={false}>
+            <div className="mb-4 mx-2">
               <RightRailSection
                 title="Experiment Settings"
                 open={() => setReportSettingsOpen(true)}
@@ -1185,56 +1176,58 @@ export default function SinglePage({
                 </div>
               </RightRailSection>
             </div>
-          </div>
-        </Tab>
-      </ControlledTabs>
+          </Tab>
+        </ControlledTabs>
+      )}
 
-      <div className="mb-4 pt-3 appbox">
-        <Collapsible
-          trigger={
-            <div className="row mx-2 pb-3">
-              <div className="col h3">
-                <FaAngleRight className="chevron" /> Custom Reports{" "}
-                <small>({reportsData?.reports?.length || 0})</small>
-              </div>
-              {snapshot && (
-                <div className="col-auto mr-2">
-                  <Button
-                    className="btn btn-outline-primary float-right"
-                    color="outline-info"
-                    stopPropagation={true}
-                    onClick={async () => {
-                      const res = await apiCall<{ report: ReportInterface }>(
-                        `/experiments/report/${snapshot.id}`,
-                        {
-                          method: "POST",
-                        }
-                      );
-                      if (!res.report) {
-                        throw new Error("Failed to create report");
-                      }
-                      await router.push(`/report/${res.report.id}`);
-                    }}
-                  >
-                    <span className="h4 pr-2 m-0 d-inline-block align-top">
-                      <GBAddCircle />
-                    </span>
-                    Add Custom Report
-                  </Button>
+      {!experimentPendingWithVisualChanges && (
+        <div className="mb-4 pt-3 appbox">
+          <Collapsible
+            trigger={
+              <div className="row mx-2 pb-3">
+                <div className="col h3">
+                  <FaAngleRight className="chevron" /> Custom Reports{" "}
+                  <small>({reportsData?.reports?.length || 0})</small>
                 </div>
-              )}
+                {snapshot && (
+                  <div className="col-auto mr-2">
+                    <Button
+                      className="btn btn-outline-primary float-right"
+                      color="outline-info"
+                      stopPropagation={true}
+                      onClick={async () => {
+                        const res = await apiCall<{ report: ReportInterface }>(
+                          `/experiments/report/${snapshot.id}`,
+                          {
+                            method: "POST",
+                          }
+                        );
+                        if (!res.report) {
+                          throw new Error("Failed to create report");
+                        }
+                        await router.push(`/report/${res.report.id}`);
+                      }}
+                    >
+                      <span className="h4 pr-2 m-0 d-inline-block align-top">
+                        <GBAddCircle />
+                      </span>
+                      Add Custom Report
+                    </Button>
+                  </div>
+                )}
+              </div>
+            }
+            open={customReportsOpen}
+            onTriggerOpening={() => setCustomReportsOpen(true)}
+            onTriggerClosing={() => setCustomReportsOpen(false)}
+            transitionTime={150}
+          >
+            <div className="px-4 mb-4">
+              <ExperimentReportsList experiment={experiment} newUi={true} />
             </div>
-          }
-          open={customReportsOpen}
-          onTriggerOpening={() => setCustomReportsOpen(true)}
-          onTriggerClosing={() => setCustomReportsOpen(false)}
-          transitionTime={150}
-        >
-          <div className="px-4 mb-4">
-            <ExperimentReportsList experiment={experiment} newUi={true} />
-          </div>
-        </Collapsible>
-      </div>
+          </Collapsible>
+        </div>
+      )}
 
       <div className="mb-4 pt-3 appbox">
         <Collapsible

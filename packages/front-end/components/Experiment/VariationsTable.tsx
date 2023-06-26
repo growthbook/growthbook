@@ -148,14 +148,18 @@ const VariationsTable: FC<Props> = ({
   const hasLegacyVisualChanges = variations.some((v) => isLegacyVariation(v));
 
   return (
-    <div className="w-100">
+    <div className="">
       <div
-        className="w-100 mb-4 fade-mask-1rem"
+        className="mb-2 fade-mask-1rem"
         style={{
           overflowX: "auto",
         }}
       >
-        <table className="table table-bordered mx-3 w100-1rem bg-light">
+        <table
+          className={`table table-bordered mx-3 w100-1rem ${
+            newUi ? "" : "bg-light"
+          }`}
+        >
           <thead>
             <tr>
               {variations.map((v, i) => (
@@ -254,7 +258,7 @@ const VariationsTable: FC<Props> = ({
 
       {visualChangesets.length > 0 && (
         <div>
-          <div className="px-3 mb-3">
+          <div className="px-3 mb-2">
             <div className="h3 d-inline-block my-0 align-middle">
               Visual Changes
             </div>
@@ -281,9 +285,9 @@ const VariationsTable: FC<Props> = ({
             return (
               <Fragment key={i}>
                 <div
-                  className={`${
-                    i !== 0 && "mt-2"
-                  } appbox bg-light py-2 mx-3 mb-4 `}
+                  className={`${i !== 0 && "mt-2"} appbox ${
+                    newUi ? "" : "bg-light"
+                  } py-2 mx-3 mb-4`}
                 >
                   <div className="px-3">
                     <div className="row mt-1 mb-3 d-flex align-items-end">
