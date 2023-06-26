@@ -181,19 +181,19 @@ export default function SinglePage({
     setMetaInformationOpen,
   ] = useLocalStorage<boolean>("experiment-page__meta-information-open", true);
   const [variationsOpen, setVariationsOpen] = useLocalStorage<boolean>(
-    "experiment-page__variations-open",
+    `experiment-page__${experiment.id}__variations-open`,
     true
   );
   const [resultsTab, setResultsTab] = useLocalStorage<string>(
-    "experiment-page__results-tab",
+    `experiment-page__${experiment.id}__results-tab`,
     "overview"
   );
   const [customReportsOpen, setCustomReportsOpen] = useLocalStorage<boolean>(
-    "experiment-page__custom-reports-open",
+    `experiment-page__${experiment.id}__custom-reports-open`,
     false
   );
   const [discussionOpen, setDiscussionOpen] = useLocalStorage<boolean>(
-    "experiment-page__discussion-open",
+    `experiment-page__${experiment.id}__discussion-open`,
     false
   );
 
@@ -476,35 +476,6 @@ export default function SinglePage({
         <div className="col-auto">
           <h1 className="mb-0">{experiment.name}</h1>
         </div>
-
-        {/*<div className="col-auto">*/}
-        {/*  <div*/}
-        {/*    className="border rounded overflow-hidden d-flex"*/}
-        {/*    style={{*/}
-        {/*      backgroundColor: "var(--surface-background-color)",*/}
-        {/*      boxShadow: "0 2px 5px rgba(0,0,0,.1) inset",*/}
-        {/*    }}*/}
-        {/*  >*/}
-        {/*    <div*/}
-        {/*      className="d-flex px-3"*/}
-        {/*      style={{ height: 30, lineHeight: "30px" }}*/}
-        {/*    >*/}
-        {/*      <StatusIndicator*/}
-        {/*        archived={experiment.archived}*/}
-        {/*        status={experiment.status}*/}
-        {/*        newUi={true}*/}
-        {/*      />*/}
-        {/*    </div>*/}
-        {/*    {experiment.status === "stopped" && experiment.results && (*/}
-        {/*      <div*/}
-        {/*        className="d-flex border-left"*/}
-        {/*        style={{ height: 30, lineHeight: "30px" }}*/}
-        {/*      >*/}
-        {/*        <ResultsIndicator results={experiment.results} newUi={true} />*/}
-        {/*      </div>*/}
-        {/*    )}*/}
-        {/*  </div>*/}
-        {/*</div>*/}
 
         <div className="col-auto ml-auto">
           <WatchButton itemType="experiment" item={experiment.id} />
