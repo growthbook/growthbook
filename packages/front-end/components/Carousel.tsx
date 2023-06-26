@@ -15,18 +15,19 @@ const Carousel: FC<{
   deleteImage?: (i: number) => Promise<void>;
   children: ReactNode;
   maxChildHeight?: number;
-}> = ({ children, deleteImage, maxChildHeight }) => {
+  newUi?: boolean;
+}> = ({ children, deleteImage, maxChildHeight, newUi }) => {
   const [active, setActive] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
 
   const num = Children.count(children);
   if (!modalOpen && maxChildHeight) {
-    children = Children.map(children, (child, i) => {
+    children = Children.map(children, (child) => {
       return cloneElement(child as ReactElement, {
         style: {
           ...(child as ReactElement).props.style,
           maxHeight: maxChildHeight,
-        }
+        },
       });
     });
   }
@@ -44,7 +45,7 @@ const Carousel: FC<{
   }
 
   return (
-    <div className="carousel slide my-2">
+    <div className={clsx("carousel slide my-2", { "carousel-clean": newUi })}>
       {modalOpen && currentChild && (
         <Modal
           open={true}
@@ -71,7 +72,9 @@ const Carousel: FC<{
           )}
         </Modal>
       )}
-      <div className="carousel-inner">
+      <div
+        className={clsx("carousel-inner", { "carousel-inner-clean": newUi })}
+      >
         {Children.map(children, (child, i) => {
           if (!isValidElement(child)) return null;
           return (
@@ -92,7 +95,6 @@ const Carousel: FC<{
           className="carousel-control-prev"
           href="#"
           role="button"
-          style={{ backgroundColor: "rgba(68,68,68,.4)" }}
           onClick={(e) => {
             e.preventDefault();
             setActive((current + num - 1) % num);
@@ -112,7 +114,6 @@ const Carousel: FC<{
           className="carousel-control-next"
           href="#"
           role="button"
-          style={{ backgroundColor: "rgba(68,68,68,.4)" }}
           onClick={(e) => {
             e.preventDefault();
             setActive((current + 1) % num);

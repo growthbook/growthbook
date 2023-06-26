@@ -902,12 +902,12 @@ export default function SinglePage({
         newStyle={true}
         className="mt-3 mb-4"
         buttonsClassName="px-5"
-        tabContentsClassName="border"
+        tabContentsClassName="border px-3 pt-3"
         setActive={(tab) => setResultsTab(tab ?? "overview")}
         active={resultsTab}
       >
-        <Tab id="overview" display="Overview">
-          <div className="mb-4 position-relative">
+        <Tab id="overview" display="Overview" padding={false}>
+          <div className="mb-2 position-relative">
             <div style={{ position: "absolute", top: -70 }} id="results"></div>
             <h3>
               Results{" "}
@@ -955,7 +955,7 @@ export default function SinglePage({
           </div>
         </Tab>
 
-        <Tab id="config" display="Configure">
+        <Tab id="config" display="Configure" padding={false}>
           <div className="mb-4">
             <h3>Configure</h3>
 
@@ -1192,13 +1192,13 @@ export default function SinglePage({
       <div className="mb-4 pt-3 appbox">
         <Collapsible
           trigger={
-            <div className="row px-3 pb-2">
+            <div className="row mx-2 pb-3">
               <div className="col h3">
                 <FaAngleRight className="chevron" /> Custom Reports{" "}
                 <small>({reportsData?.reports?.length || 0})</small>
               </div>
               {snapshot && (
-                <div className="col-auto mb-2 mr-2">
+                <div className="col-auto mr-2">
                   <Button
                     className="btn btn-outline-primary float-right"
                     color="outline-info"

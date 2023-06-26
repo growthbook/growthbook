@@ -41,6 +41,7 @@ const ScreenshotCarousel: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   maxChildHeight?: number;
+  newUi?: boolean;
 }> = ({
   canEditExperiment,
   experiment,
@@ -48,6 +49,7 @@ const ScreenshotCarousel: FC<{
   variation,
   mutate,
   maxChildHeight,
+  newUi,
 }) => {
   const { apiCall } = useAuth();
 
@@ -77,17 +79,17 @@ const ScreenshotCarousel: FC<{
             }
       }
       maxChildHeight={maxChildHeight}
+      newUi={newUi}
     >
       {variation.screenshots.map((s) => (
         <img
-          className="experiment-image"
+          className={newUi ? "experiment-image-clean" : "experiment-image"}
           key={s.path}
           src={s.path}
           style={{
             width: "100%",
             height: "100%",
             objectFit: "contain",
-            filter: "drop-shadow(0px 4px 15px rgba(0, 0, 0, 0.12))",
           }}
         />
       ))}
@@ -197,7 +199,9 @@ const VariationsTable: FC<Props> = ({
                 <td
                   key={i}
                   scope="col"
-                  className={`align-top ${canEditExperiment ? "pb-1" : ""}`}
+                  className={`align-${newUi ? "middle" : "top"} ${
+                    canEditExperiment ? "pb-1" : ""
+                  }`}
                   style={{
                     // minWidth: "17.5rem",
                     width: `${100 / (variations.length || 1)}%`,
@@ -217,6 +221,7 @@ const VariationsTable: FC<Props> = ({
                         experiment={experiment}
                         mutate={mutate}
                         maxChildHeight={newUi ? 200 : undefined}
+                        newUi={newUi}
                       />
                     ) : null}
                   </div>
@@ -228,7 +233,7 @@ const VariationsTable: FC<Props> = ({
                 {variations.map((v, i) => (
                   <td
                     key={`b${i}`}
-                    className="pt-0 pb-1"
+                    className={`pt-0 ${newUi ? "pb-0" : "pb-1"}`}
                     style={{ borderTop: 0 }}
                   >
                     <div>
@@ -236,6 +241,7 @@ const VariationsTable: FC<Props> = ({
                         variation={i}
                         experiment={experiment.id}
                         onSuccess={() => mutate()}
+                        newUi={newUi}
                       />
                     </div>
                   </td>
