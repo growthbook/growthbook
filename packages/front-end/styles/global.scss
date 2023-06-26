@@ -76,6 +76,9 @@ pre {
 .text-warning-orange {
   color: colors.$warning-orange;
 }
+.bg-warning-orange {
+  background-color: colors.$warning-orange !important;
+}
 .text-gray {
   color: var(--text-color-th);
 }

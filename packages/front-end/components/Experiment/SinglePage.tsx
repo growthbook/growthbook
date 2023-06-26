@@ -4,23 +4,26 @@ import React, { useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import Link from "next/link";
 import {
-  FaAngleDown,
   FaAngleRight,
-  FaArrowDown,
   FaExclamationTriangle,
   FaExternalLinkAlt,
   FaLink,
-  FaQuestionCircle, FaRegLightbulb
+  FaQuestionCircle,
+  FaRegLightbulb,
 } from "react-icons/fa";
 import { MdRocketLaunch } from "react-icons/md";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import uniq from "lodash/uniq";
-import { MetricRegressionAdjustmentStatus, ReportInterface } from "back-end/types/report";
-import { useGrowthBook } from "@growthbook/growthbook-react";
+import {
+  MetricRegressionAdjustmentStatus,
+  ReportInterface,
+} from "back-end/types/report";
 import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared/constants";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { getScopedSettings } from "shared/settings";
+import Collapsible from "react-collapsible";
+import { DiscussionInterface } from "back-end/types/discussion";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -33,8 +36,10 @@ import {
 } from "@/services/experiments";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { AppFeatures } from "@/types/app-features";
 import track from "@/services/track";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
+import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import Tab from "@/components/Tabs/Tab";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -69,9 +74,6 @@ import StatusIndicator from "./StatusIndicator";
 import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
 import VariationsTable from "./VariationsTable";
 import VisualChangesetModal from "./VisualChangesetModal";
-import Collapsible from "react-collapsible";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { DiscussionInterface } from "back-end/types/discussion";
 
 function drawMetricRow(
   m: string,
@@ -174,9 +176,22 @@ export default function SinglePage({
   editPhases,
   editPhase,
 }: Props) {
-  const [variationsOpen, setVariationsOpen] = useLocalStorage<boolean>("experiment-page__variations-open", true);
-  const [customReportsOpen, setCustomReportsOpen] = useLocalStorage<boolean>("experiment-page__custom-reports-open", false);
-  const [discussionOpen, setDiscussionOpen] = useLocalStorage<boolean>("experiment-page__discussion-open", true);
+  const [variationsOpen, setVariationsOpen] = useLocalStorage<boolean>(
+    "experiment-page__variations-open",
+    true
+  );
+  const [resultsTab, setResultsTab] = useLocalStorage<string>(
+    "experiment-page__results-tab",
+    "overview"
+  );
+  const [customReportsOpen, setCustomReportsOpen] = useLocalStorage<boolean>(
+    "experiment-page__custom-reports-open",
+    false
+  );
+  const [discussionOpen, setDiscussionOpen] = useLocalStorage<boolean>(
+    "experiment-page__discussion-open",
+    true
+  );
 
   const {
     getProjectById,
@@ -203,8 +218,6 @@ export default function SinglePage({
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
-
-  const growthbook = useGrowthBook<AppFeatures>();
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
@@ -450,22 +463,37 @@ export default function SinglePage({
         <div className="col-auto">
           <h1 className="mb-0">{experiment.name}</h1>
         </div>
+
         <div className="col-auto">
-          <StatusIndicator
-            archived={experiment.archived}
-            status={experiment.status}
-          />
-        </div>
-        {experiment.status === "stopped" && experiment.results && (
-          <div className="col-auto">
-            <ResultsIndicator results={experiment.results} />
+          <div
+            className="border rounded overflow-hidden"
+            style={{
+              backgroundColor: "var(--surface-background-color)",
+              marginTop: 3,
+              boxShadow: "0 2px 5px rgba(0,0,0,.1) inset",
+            }}
+          >
+            <div
+              className="d-inline-block px-3"
+              style={{ height: 30, lineHeight: "30px" }}
+            >
+              <StatusIndicator
+                archived={experiment.archived}
+                status={experiment.status}
+                newUi={true}
+              />
+            </div>
+            {experiment.status === "stopped" && experiment.results && (
+              <div
+                className="d-inline-block border-left"
+                style={{ height: 30, lineHeight: "30px" }}
+              >
+                <ResultsIndicator results={experiment.results} newUi={true} />
+              </div>
+            )}
           </div>
-        )}
-        {/*{experiment.status !== "draft" && (*/}
-        {/*  <a href="#results">*/}
-        {/*    <FaArrowDown /> Jump to results*/}
-        {/*  </a>*/}
-        {/*)}*/}
+        </div>
+
         <div className="col-auto ml-auto">
           <WatchButton itemType="experiment" item={experiment.id} />
         </div>
@@ -600,10 +628,10 @@ export default function SinglePage({
               <strong>{projectName}</strong>
             ) : (
               <em className="text-muted">None</em>
-            )}{" "}
+            )}
             {editProject && (
               <a
-                href="#"
+                role="button"
                 className="ml-2 cursor-pointer"
                 onClick={(e) => {
                   e.preventDefault();
@@ -615,6 +643,26 @@ export default function SinglePage({
             )}
           </div>
         )}
+        <div className="col-auto">
+          Tags:{" "}
+          {experiment.tags?.length > 0 ? (
+            <SortedTags tags={experiment.tags} />
+          ) : (
+            <em className="text-muted">None</em>
+          )}{" "}
+          {editTags && (
+            <a
+              role="button"
+              className="ml-1 cursor-pointer"
+              onClick={(e) => {
+                e.preventDefault();
+                editTags();
+              }}
+            >
+              <GBEdit />
+            </a>
+          )}
+        </div>
         {idea && (
           <div className="col-auto">
             <div className="d-flex align-items-center">
@@ -648,25 +696,6 @@ export default function SinglePage({
             </div>
           </div>
         )}
-        <div className="col-auto">
-          Tags:{" "}
-          {experiment.tags?.length > 0 ? (
-            <SortedTags tags={experiment.tags} />
-          ) : (
-            <em>None</em>
-          )}{" "}
-          {editTags && (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                editTags();
-              }}
-            >
-              <GBEdit />
-            </a>
-          )}
-        </div>
       </div>
       {currentProject && currentProject !== experiment.project && (
         <div className="alert alert-warning p-2 mb-2 text-center">
@@ -707,15 +736,12 @@ export default function SinglePage({
           canEdit={canEditExperiment}
           className="mb-3"
           label="hypothesis"
-          header={<>
-            <FaRegLightbulb />{" "}
-            Hypothesis
-          </>}
-          editElement={
-            <div className="btn-link">
-              Edit Hypothesis
-            </div>
+          header={
+            <>
+              <FaRegLightbulb /> Hypothesis
+            </>
           }
+          editElement={<div className="btn-link">Edit Hypothesis</div>}
           containerClassName="justify-content-between"
         />
       </div>
@@ -726,17 +752,13 @@ export default function SinglePage({
             <div className="px-3 pb-2">
               <HeaderWithEdit
                 edit={editVariations ?? undefined}
-                editElement={
-                  <div className="btn-link">
-                    Edit Variations
-                  </div>
-                }
+                editElement={<div className="btn-link">Edit Variations</div>}
                 stopPropagation={true}
                 containerClassName="justify-content-between"
               >
                 <>
-                  <FaAngleRight className="chevron" />{" "}
-                  Variations <small>({experiment.variations.length})</small>
+                  <FaAngleRight className="chevron" /> Variations{" "}
+                  <small>({experiment.variations.length})</small>
                 </>
               </HeaderWithEdit>
             </div>
@@ -747,7 +769,6 @@ export default function SinglePage({
           transitionTime={150}
         >
           <div className="">
-
             <VariationsTable
               experiment={experiment}
               visualChangesets={visualChangesets}
@@ -759,222 +780,6 @@ export default function SinglePage({
             />
           </div>
         </Collapsible>
-       {/* <div className="col-md-4">
-          <RightRailSection
-            title="Experiment Settings"
-            open={() => setReportSettingsOpen(true)}
-            canOpen={canEditExperiment}
-          >
-            <div className="appbox px-3 pt-3 pb-2">
-              <RightRailSectionGroup
-                title="Data Source"
-                type="commaList"
-                titleClassName="align-top"
-              >
-                {datasource && (
-                  <Tooltip body={datasource?.description || ""}>
-                    <Link href={`/datasources/${datasource?.id}`}>
-                      {datasource?.name}
-                    </Link>
-                  </Tooltip>
-                )}
-              </RightRailSectionGroup>
-              {experiment.hashAttribute && (
-                <RightRailSectionGroup
-                  title="Assignment Attribute"
-                  type="commaList"
-                >
-                  {experiment.hashAttribute}
-                </RightRailSectionGroup>
-              )}
-              {exposureQuery && (
-                <RightRailSectionGroup
-                  title="Assignment Query"
-                  type="commaList"
-                >
-                  {exposureQuery?.name}
-                </RightRailSectionGroup>
-              )}
-              {datasource && (
-                <RightRailSectionGroup title="Experiment Id" type="commaList">
-                  {experiment.trackingKey}
-                </RightRailSectionGroup>
-              )}
-              {datasource?.properties?.segments && (
-                <RightRailSectionGroup
-                  title="Analysis Segment"
-                  type="commaList"
-                  empty="All Users"
-                >
-                  {segment?.name}
-                </RightRailSectionGroup>
-              )}
-              {experiment.activationMetric && (
-                <RightRailSectionGroup
-                  title="Activation Metric"
-                  type="commaList"
-                >
-                  {activationMetric?.name}
-                </RightRailSectionGroup>
-              )}
-              {experiment.queryFilter && (
-                <RightRailSectionGroup title="Custom Filter" type="custom">
-                  <Code
-                    language={datasource?.properties?.queryLanguage ?? "none"}
-                    code={experiment.queryFilter}
-                    expandable={true}
-                  />
-                </RightRailSectionGroup>
-              )}
-              <RightRailSectionGroup title="Attribution Model" type="custom">
-                <AttributionModelTooltip>
-                  <strong>
-                    {experiment.attributionModel === "experimentDuration"
-                      ? "Experiment Duration"
-                      : "First Exposure"}
-                  </strong>{" "}
-                  <FaQuestionCircle />
-                </AttributionModelTooltip>
-              </RightRailSectionGroup>
-              {statsEngine === "frequentist" && (
-                <>
-                  <RightRailSectionGroup
-                    title={
-                      <>
-                        <GBCuped size={16} /> Regression Adjustment (CUPED)
-                      </>
-                    }
-                    type="custom"
-                  >
-                    {regressionAdjustmentEnabled ? "Enabled" : "Disabled"}
-                  </RightRailSectionGroup>
-                  <RightRailSectionGroup
-                    title={
-                      <>
-                        <GBSequential size={16} /> Sequential Testing
-                      </>
-                    }
-                    type="custom"
-                  >
-                    {experiment.sequentialTestingEnabled ??
-                    !!orgSettings.sequentialTestingEnabled
-                      ? "Enabled"
-                      : "Disabled"}
-                  </RightRailSectionGroup>
-                </>
-              )}
-            </div>
-          </RightRailSection>
-          <div className="mb-4"></div>
-          <RightRailSection
-            title="Metrics"
-            open={() => editMetrics && editMetrics()}
-            canOpen={(editMetrics && !experiment.archived) ?? undefined}
-          >
-            <div className="appbox p-3">
-              <div className="row mb-1 text-muted">
-                <div className="col-5">Goals</div>
-                <div className="col-5">
-                  Conversion {ignoreConversionEnd ? "Delay" : "Window"}{" "}
-                  <Tooltip
-                    body={
-                      ignoreConversionEnd
-                        ? `Wait this long after viewing the experiment before we start counting conversions for a user.`
-                        : `After a user sees the experiment, only include
-                          metric conversions within the specified time window.`
-                    }
-                  >
-                    <FaQuestionCircle />
-                  </Tooltip>
-                </div>
-                <div className="col-sm-2">Behavior</div>
-              </div>
-              <>
-                {experiment.metrics.map((m) => {
-                  const metric = getMetricById(m);
-                  return drawMetricRow(
-                    m,
-                    metric,
-                    experiment,
-                    ignoreConversionEnd
-                  );
-                })}
-                {(experiment.guardrails?.length ?? 0) > 0 && (
-                  <>
-                    <div className="row mb-1 mt-3 text-muted">
-                      <div className="col-5">Guardrails</div>
-                      <div className="col-5">
-                        Conversion {ignoreConversionEnd ? "Delay" : "Window"}
-                      </div>
-                      <div className="col-sm-2">Behavior</div>
-                    </div>
-                    {experiment.guardrails?.map((m) => {
-                      const metric = getMetricById(m);
-                      return drawMetricRow(
-                        m,
-                        metric,
-                        experiment,
-                        ignoreConversionEnd
-                      );
-                    })}
-                  </>
-                )}
-                {experiment.activationMetric && (
-                  <>
-                    <div className="row mb-1 mt-3 text-muted">
-                      <div className="col-5">Activation Metric</div>
-                      <div className="col-5">
-                        Conversion {ignoreConversionEnd ? "Delay" : "Window"}
-                      </div>
-                      <div className="col-sm-2">Behavior</div>
-                    </div>
-                    {drawMetricRow(
-                      experiment.activationMetric,
-                      getMetricById(experiment.activationMetric),
-                      experiment,
-                      ignoreConversionEnd
-                    )}
-                  </>
-                )}
-              </>
-            </div>
-          </RightRailSection>
-          <div className="mb-4"></div>
-          <RightRailSection
-            title="Phases"
-            open={editPhases ?? undefined}
-            canOpen={!!editPhases}
-          >
-            <div className="appbox mb-0">
-              {experiment.phases?.length > 0 ? (
-                <div>
-                  {experiment.phases.map((phase, i) => (
-                    <ExpandablePhaseSummary
-                      key={i}
-                      phase={phase}
-                      i={i}
-                      editPhase={editPhase ?? undefined}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center p-3">
-                  <em>No experiment phases defined.</em>
-                  {newPhase && (
-                    <div className="mt-2">
-                      <button
-                        className="btn btn-outline-primary btn-sm"
-                        onClick={newPhase}
-                      >
-                        <GBAddCircle /> Add a Phase
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </RightRailSection>
-        </div>*/}
       </div>
 
       {experiment.status === "draft" &&
@@ -1090,7 +895,18 @@ export default function SinglePage({
           )}
         </div>
       ) : (
-        <>
+        <></>
+      )}
+
+      <ControlledTabs
+        newStyle={true}
+        className="mt-3 mb-4"
+        buttonsClassName="px-5"
+        tabContentsClassName="border"
+        setActive={(tab) => setResultsTab(tab ?? "overview")}
+        active={resultsTab}
+      >
+        <Tab id="overview" display="Overview">
           <div className="mb-4 position-relative">
             <div style={{ position: "absolute", top: -70 }} id="results"></div>
             <h3>
@@ -1103,7 +919,7 @@ export default function SinglePage({
                 <FaLink />
               </a>
             </h3>
-            <div className="appbox" style={{ overflowX: "initial" }}>
+            <div style={{ overflowX: "initial" }}>
               {experiment.phases?.length > 0 ? (
                 <Results
                   experiment={experiment}
@@ -1127,69 +943,307 @@ export default function SinglePage({
               ) : (
                 <div className="text-center my-5">
                   <p>There are no experiment phases yet.</p>
-                  <button className="btn btn-primary btn-lg" onClick={newPhase ?? undefined}>
+                  <button
+                    className="btn btn-primary btn-lg"
+                    onClick={newPhase ?? undefined}
+                  >
                     Add a Phase
                   </button>
                 </div>
               )}
             </div>
           </div>
+        </Tab>
 
-          <div className="mb-4 pt-3 appbox">
-            <Collapsible
-              trigger={
-                <div className="row px-3 pb-2">
-                  <div className="col h3">
-                    <FaAngleRight className="chevron" />{" "}
-                    Custom Reports <small>({reportsData?.reports?.length || 0})</small>
-                  </div>
-                  {snapshot && (
-                    <div className="col-auto mb-2 mr-2">
-                      <Button
-                        className="btn btn-outline-primary float-right"
-                        color="outline-info"
-                        stopPropagation={true}
-                        onClick={async () => {
-                          const res = await apiCall<{ report: ReportInterface }>(
-                            `/experiments/report/${snapshot.id}`,
-                            {
-                              method: "POST",
-                            }
-                          );
-                          if (!res.report) {
-                            throw new Error("Failed to create report");
-                          }
-                          await router.push(`/report/${res.report.id}`);
-                        }}
+        <Tab id="config" display="Configure">
+          <div className="mb-4">
+            <h3>Configure</h3>
+
+            <div className="mt-3">
+              <RightRailSection
+                title="Experiment Settings"
+                open={() => setReportSettingsOpen(true)}
+                canOpen={canEditExperiment}
+              >
+                <div className="appbox px-3 pt-3 pb-2">
+                  <RightRailSectionGroup
+                    title="Data Source"
+                    type="commaList"
+                    titleClassName="align-top"
+                  >
+                    {datasource && (
+                      <Tooltip body={datasource?.description || ""}>
+                        <Link href={`/datasources/${datasource?.id}`}>
+                          {datasource?.name}
+                        </Link>
+                      </Tooltip>
+                    )}
+                  </RightRailSectionGroup>
+                  {experiment.hashAttribute && (
+                    <RightRailSectionGroup
+                      title="Assignment Attribute"
+                      type="commaList"
+                    >
+                      {experiment.hashAttribute}
+                    </RightRailSectionGroup>
+                  )}
+                  {exposureQuery && (
+                    <RightRailSectionGroup
+                      title="Assignment Query"
+                      type="commaList"
+                    >
+                      {exposureQuery?.name}
+                    </RightRailSectionGroup>
+                  )}
+                  {datasource && (
+                    <RightRailSectionGroup
+                      title="Experiment Id"
+                      type="commaList"
+                    >
+                      {experiment.trackingKey}
+                    </RightRailSectionGroup>
+                  )}
+                  {datasource?.properties?.segments && (
+                    <RightRailSectionGroup
+                      title="Analysis Segment"
+                      type="commaList"
+                      empty="All Users"
+                    >
+                      {segment?.name}
+                    </RightRailSectionGroup>
+                  )}
+                  {experiment.activationMetric && (
+                    <RightRailSectionGroup
+                      title="Activation Metric"
+                      type="commaList"
+                    >
+                      {activationMetric?.name}
+                    </RightRailSectionGroup>
+                  )}
+                  {experiment.queryFilter && (
+                    <RightRailSectionGroup title="Custom Filter" type="custom">
+                      <Code
+                        language={
+                          datasource?.properties?.queryLanguage ?? "none"
+                        }
+                        code={experiment.queryFilter}
+                        expandable={true}
+                      />
+                    </RightRailSectionGroup>
+                  )}
+                  <RightRailSectionGroup
+                    title="Attribution Model"
+                    type="custom"
+                  >
+                    <AttributionModelTooltip>
+                      <strong>
+                        {experiment.attributionModel === "experimentDuration"
+                          ? "Experiment Duration"
+                          : "First Exposure"}
+                      </strong>{" "}
+                      <FaQuestionCircle />
+                    </AttributionModelTooltip>
+                  </RightRailSectionGroup>
+                  {statsEngine === "frequentist" && (
+                    <>
+                      <RightRailSectionGroup
+                        title={
+                          <>
+                            <GBCuped size={16} /> Regression Adjustment (CUPED)
+                          </>
+                        }
+                        type="custom"
                       >
-                      <span className="h4 pr-2 m-0 d-inline-block align-top">
-                        <GBAddCircle />
-                      </span>
-                      Add Custom Report
-                    </Button>
-                  </div>
-                )}
+                        {regressionAdjustmentEnabled ? "Enabled" : "Disabled"}
+                      </RightRailSectionGroup>
+                      <RightRailSectionGroup
+                        title={
+                          <>
+                            <GBSequential size={16} /> Sequential Testing
+                          </>
+                        }
+                        type="custom"
+                      >
+                        {experiment.sequentialTestingEnabled ??
+                        !!orgSettings.sequentialTestingEnabled
+                          ? "Enabled"
+                          : "Disabled"}
+                      </RightRailSectionGroup>
+                    </>
+                  )}
                 </div>
-              }
-              open={customReportsOpen}
-              onTriggerOpening={() => setCustomReportsOpen(true)}
-              onTriggerClosing={() => setCustomReportsOpen(false)}
-              transitionTime={150}
-            >
-              <div className="px-4 mb-4">
-                <ExperimentReportsList experiment={experiment} newUi={true} />
-              </div>
-            </Collapsible>
+              </RightRailSection>
+              <div className="mb-4"></div>
+              <RightRailSection
+                title="Metrics"
+                open={() => editMetrics && editMetrics()}
+                canOpen={(editMetrics && !experiment.archived) ?? undefined}
+              >
+                <div className="appbox p-3">
+                  <div className="row mb-1 text-muted">
+                    <div className="col-5">Goals</div>
+                    <div className="col-5">
+                      Conversion {ignoreConversionEnd ? "Delay" : "Window"}{" "}
+                      <Tooltip
+                        body={
+                          ignoreConversionEnd
+                            ? `Wait this long after viewing the experiment before we start counting conversions for a user.`
+                            : `After a user sees the experiment, only include
+                          metric conversions within the specified time window.`
+                        }
+                      >
+                        <FaQuestionCircle />
+                      </Tooltip>
+                    </div>
+                    <div className="col-sm-2">Behavior</div>
+                  </div>
+                  <>
+                    {experiment.metrics.map((m) => {
+                      const metric = getMetricById(m);
+                      return drawMetricRow(
+                        m,
+                        metric,
+                        experiment,
+                        ignoreConversionEnd
+                      );
+                    })}
+                    {(experiment.guardrails?.length ?? 0) > 0 && (
+                      <>
+                        <div className="row mb-1 mt-3 text-muted">
+                          <div className="col-5">Guardrails</div>
+                          <div className="col-5">
+                            Conversion{" "}
+                            {ignoreConversionEnd ? "Delay" : "Window"}
+                          </div>
+                          <div className="col-sm-2">Behavior</div>
+                        </div>
+                        {experiment.guardrails?.map((m) => {
+                          const metric = getMetricById(m);
+                          return drawMetricRow(
+                            m,
+                            metric,
+                            experiment,
+                            ignoreConversionEnd
+                          );
+                        })}
+                      </>
+                    )}
+                    {experiment.activationMetric && (
+                      <>
+                        <div className="row mb-1 mt-3 text-muted">
+                          <div className="col-5">Activation Metric</div>
+                          <div className="col-5">
+                            Conversion{" "}
+                            {ignoreConversionEnd ? "Delay" : "Window"}
+                          </div>
+                          <div className="col-sm-2">Behavior</div>
+                        </div>
+                        {drawMetricRow(
+                          experiment.activationMetric,
+                          getMetricById(experiment.activationMetric),
+                          experiment,
+                          ignoreConversionEnd
+                        )}
+                      </>
+                    )}
+                  </>
+                </div>
+              </RightRailSection>
+              <div className="mb-4"></div>
+              <RightRailSection
+                title="Phases"
+                open={editPhases ?? undefined}
+                canOpen={!!editPhases}
+              >
+                <div className="appbox mb-0">
+                  {experiment.phases?.length > 0 ? (
+                    <div>
+                      {experiment.phases.map((phase, i) => (
+                        <ExpandablePhaseSummary
+                          key={i}
+                          phase={phase}
+                          i={i}
+                          editPhase={editPhase ?? undefined}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center p-3">
+                      <em>No experiment phases defined.</em>
+                      {newPhase && (
+                        <div className="mt-2">
+                          <button
+                            className="btn btn-outline-primary btn-sm"
+                            onClick={newPhase}
+                          >
+                            <GBAddCircle /> Add a Phase
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </RightRailSection>
+            </div>
           </div>
-        </>
-      )}
+        </Tab>
+      </ControlledTabs>
+
+      <div className="mb-4 pt-3 appbox">
+        <Collapsible
+          trigger={
+            <div className="row px-3 pb-2">
+              <div className="col h3">
+                <FaAngleRight className="chevron" /> Custom Reports{" "}
+                <small>({reportsData?.reports?.length || 0})</small>
+              </div>
+              {snapshot && (
+                <div className="col-auto mb-2 mr-2">
+                  <Button
+                    className="btn btn-outline-primary float-right"
+                    color="outline-info"
+                    stopPropagation={true}
+                    onClick={async () => {
+                      const res = await apiCall<{ report: ReportInterface }>(
+                        `/experiments/report/${snapshot.id}`,
+                        {
+                          method: "POST",
+                        }
+                      );
+                      if (!res.report) {
+                        throw new Error("Failed to create report");
+                      }
+                      await router.push(`/report/${res.report.id}`);
+                    }}
+                  >
+                    <span className="h4 pr-2 m-0 d-inline-block align-top">
+                      <GBAddCircle />
+                    </span>
+                    Add Custom Report
+                  </Button>
+                </div>
+              )}
+            </div>
+          }
+          open={customReportsOpen}
+          onTriggerOpening={() => setCustomReportsOpen(true)}
+          onTriggerClosing={() => setCustomReportsOpen(false)}
+          transitionTime={150}
+        >
+          <div className="px-4 mb-4">
+            <ExperimentReportsList experiment={experiment} newUi={true} />
+          </div>
+        </Collapsible>
+      </div>
 
       <div className="mb-4 pt-3 appbox">
         <Collapsible
           trigger={
             <div className="h3 px-3 pb-2">
-              <FaAngleRight className="chevron" />{" "}
-              Discussion <small>({discussionData?.discussion?.comments?.length || 0})</small>
+              <FaAngleRight className="chevron" /> Discussion{" "}
+              <small>
+                ({discussionData?.discussion?.comments?.length || 0})
+              </small>
             </div>
           }
           open={discussionOpen}
@@ -1207,7 +1261,6 @@ export default function SinglePage({
           </div>
         </Collapsible>
       </div>
-
     </div>
   );
 }

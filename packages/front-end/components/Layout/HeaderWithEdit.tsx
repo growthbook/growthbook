@@ -37,7 +37,7 @@ export default function HeaderWithEdit({
               edit();
             }}
           >
-            { editElement || <GBEdit /> }
+            {editElement || <GBEdit />}
           </a>
         </div>
       )}

@@ -24,7 +24,10 @@ import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 
 const ExperimentPage = (): ReactElement => {
-  const [newUi, setNewUi] = useLocalStorage<boolean>("single-page-new-ui-v1", true);
+  const [newUi, setNewUi] = useLocalStorage<boolean>(
+    "single-page-new-ui-v1",
+    true
+  );
   const SinglePageComponent = newUi ? SinglePage : SinglePage_old;
 
   const permissions = usePermissions();
@@ -95,7 +98,9 @@ const ExperimentPage = (): ReactElement => {
       <div className="alert alert-warning p-2 mb-2 text-center">
         This is the {newUi ? "new" : "old"} experiment page.{" "}
         <a role="button" className="a" onClick={() => setNewUi(!newUi)}>
-          {newUi ? "Switch back to the old page?" : "Try the new experiment page?"}
+          {newUi
+            ? "Switch back to the old page?"
+            : "Try the new experiment page?"}
         </a>
       </div>
       {metricsModalOpen && (

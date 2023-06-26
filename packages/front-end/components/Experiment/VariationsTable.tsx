@@ -41,7 +41,14 @@ const ScreenshotCarousel: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   maxChildHeight?: number;
-}> = ({ canEditExperiment, experiment, index, variation, mutate, maxChildHeight }) => {
+}> = ({
+  canEditExperiment,
+  experiment,
+  index,
+  variation,
+  mutate,
+  maxChildHeight,
+}) => {
   const { apiCall } = useAuth();
 
   return (
@@ -114,7 +121,7 @@ const VariationsTable: FC<Props> = ({
   mutate,
   visualChangesets: _visualChangesets,
   setVisualEditorModal,
-  newUi
+  newUi,
 }) => {
   const { variations } = experiment;
   const { apiCall } = useAuth();
@@ -193,7 +200,7 @@ const VariationsTable: FC<Props> = ({
                   className={`align-top ${canEditExperiment ? "pb-1" : ""}`}
                   style={{
                     // minWidth: "17.5rem",
-                    width: `${100/(variations.length || 1)}%`,
+                    width: `${100 / (variations.length || 1)}%`,
                     minWidth: "25%",
                     maxWidth: "50%",
                     height: "inherit",

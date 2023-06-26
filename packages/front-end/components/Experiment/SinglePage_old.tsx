@@ -15,7 +15,6 @@ import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
 import uniq from "lodash/uniq";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared/constants";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { getScopedSettings } from "shared/settings";
@@ -31,7 +30,6 @@ import {
 } from "@/services/experiments";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { AppFeatures } from "@/types/app-features";
 import track from "@/services/track";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
@@ -188,8 +186,6 @@ export default function SinglePage_old({
   const [statusModal, setStatusModal] = useState(false);
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
-
-  const growthbook = useGrowthBook<AppFeatures>();
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
@@ -1080,7 +1076,10 @@ export default function SinglePage_old({
               ) : (
                 <div className="text-center my-5">
                   <p>There are no experiment phases yet.</p>
-                  <button className="btn btn-primary btn-lg" onClick={newPhase ?? undefined}>
+                  <button
+                    className="btn btn-primary btn-lg"
+                    onClick={newPhase ?? undefined}
+                  >
                     Add a Phase
                   </button>
                 </div>
