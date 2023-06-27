@@ -1235,7 +1235,7 @@ export default abstract class SqlIntegration
         isRegressionAdjusted
           ? `
           LEFT JOIN __userCovariateMetric c
-          ON (c.user_id = m.user_id)
+          ON (c.${baseIdType} = m.${baseIdType})
           `
           : ""
       }
