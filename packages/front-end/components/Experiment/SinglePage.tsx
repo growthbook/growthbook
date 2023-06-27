@@ -41,6 +41,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
+import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -181,17 +182,21 @@ export default function SinglePage({
     `experiment-page__${experiment.id}__variations-open`,
     true
   );
+  const [implementationOpen, setImplementationOpen] = useLocalStorage<boolean>(
+    `experiment-page__${experiment.id}__implementation-open`,
+    true
+  );
   const [resultsTab, setResultsTab] = useLocalStorage<string>(
     `experiment-page__${experiment.id}__results-tab`,
     "overview"
   );
   const [customReportsOpen, setCustomReportsOpen] = useLocalStorage<boolean>(
     `experiment-page__${experiment.id}__custom-reports-open`,
-    false
+    true
   );
   const [discussionOpen, setDiscussionOpen] = useLocalStorage<boolean>(
     `experiment-page__${experiment.id}__discussion-open`,
-    false
+    true
   );
 
   const {
@@ -817,6 +822,39 @@ export default function SinglePage({
               newUi={true}
             />
           </div>
+        </Collapsible>
+      </div>
+
+      <div className="mb-4 pt-3 appbox">
+        <Collapsible
+          trigger={
+            <div className="px-3 pb-2 d-flex">
+              <div className="h3">
+                <FaAngleRight className="chevron" /> Implementation{" "}
+              </div>
+              <div className="flex-1"></div>
+              <div className="text-gray ml-2">
+                Visual Editor Changes{" "}
+                <small>({visualChangesets.length || 0})</small>
+              </div>
+              <div className="text-gray ml-4">
+                Feature Flags <small>({0})</small>
+              </div>
+            </div>
+          }
+          open={implementationOpen}
+          onTriggerOpening={() => setImplementationOpen(true)}
+          onTriggerClosing={() => setImplementationOpen(false)}
+          transitionTime={150}
+        >
+          <VisualChangesetTable
+            experiment={experiment}
+            visualChangesets={visualChangesets}
+            mutate={mutate}
+            canEditVisualChangesets={hasVisualEditorPermission}
+            setVisualEditorModal={setVisualEditorModal}
+            newUi={true}
+          />
         </Collapsible>
       </div>
 
