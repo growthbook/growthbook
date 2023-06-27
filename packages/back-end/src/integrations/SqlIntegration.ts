@@ -830,8 +830,7 @@ export default abstract class SqlIntegration
       settings.regressionAdjustmentEnabled &&
       (metric.regressionAdjustmentDays ?? 0) > 0 &&
       !!metric.regressionAdjustmentEnabled &&
-      !isRatio &&
-      !metric.aggregation;
+      !isRatio;
 
     const regressionAdjustmentHours = isRegressionAdjusted
       ? (metric.regressionAdjustmentDays ?? 0) * 24
@@ -1851,9 +1850,7 @@ export default abstract class SqlIntegration
           cumulativeDate ? `AND ${this.dateTrunc("m.timestamp")} <= dr.day` : ""
         }
       `,
-      // The coalesce treats conversions that exist but have a NULL `value` as 0,
-      // reserving NULL for users with no matching metric rows in conversion window
-      `COALESCE(${col}, 0)`,
+      `${col}`,
       `NULL`
     )}`;
   }
@@ -1868,13 +1865,12 @@ export default abstract class SqlIntegration
     if (this.getMetricQueryFormat(metric) === "sql") {
       // Custom aggregation that's a hardcoded number (e.g. "1")
       if (metric.aggregation && Number(metric.aggregation)) {
-        // If value is NULL than user reliably has no conversion rows in the window
+        // Note that if user has conversion row but value IS NULL, this will
+        // return 0 for that user rather than `metric.aggregation`
         return this.ifElse("value IS NOT NULL", metric.aggregation, "0");
       }
       // Other custom aggregation
       else if (metric.aggregation) {
-        // prePostTimeFilter (and regression adjustment) not implemented for
-        // custom aggregate metrics
         return this.capValue(
           metric.cap,
           replaceCountStar(metric.aggregation, `value`)
