@@ -414,32 +414,38 @@ const VariationsTable: FC<Props> = ({
                             return (
                               <td key={j} className="px-4 py-1">
                                 <div className="d-flex justify-content-between">
-                                  <a
-                                    href="#"
-                                    onClick={() =>
-                                      setEditingVisualChange({
-                                        visualChange: changes,
-                                        visualChangeIndex: j,
-                                        visualChangeset: vc,
-                                      })
-                                    }
-                                  >
+                                  <div>
                                     {numChanges} visual change
                                     {numChanges === 1 ? "" : "s"}
-                                  </a>
+                                  </div>
                                   <div>
                                     <a
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      href={appendQueryParamsToURL(
-                                        vc.editorUrl,
-                                        {
-                                          [experiment.trackingKey]: j,
-                                        }
-                                      )}
+                                      href="#"
+                                      onClick={() =>
+                                        setEditingVisualChange({
+                                          visualChange: changes,
+                                          visualChangeIndex: j,
+                                          visualChangeset: vc,
+                                        })
+                                      }
                                     >
-                                      Preview
+                                      Edit
                                     </a>
+                                    {" / "}
+                                    <div>
+                                      <a
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        href={appendQueryParamsToURL(
+                                          vc.editorUrl,
+                                          {
+                                            [experiment.trackingKey]: j,
+                                          }
+                                        )}
+                                      >
+                                        Preview
+                                      </a>
+                                    </div>
                                   </div>
                                 </div>
                               </td>
