@@ -49,7 +49,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
                 `The experiment was stopped, but a final decision has not been made yet.`}
             </strong>
           </div>
-          {releasedVariation && (
+          {(result === "won" || result === "lost") && releasedVariation && (
             <div className="px-3">
               {winningVariation !== releasedVariation && (
                 <>

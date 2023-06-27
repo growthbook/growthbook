@@ -24,6 +24,7 @@ import { getScopedSettings } from "shared/settings";
 import { date } from "shared/dates";
 import Collapsible from "react-collapsible";
 import { DiscussionInterface } from "back-end/types/discussion";
+import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -648,7 +649,14 @@ export default function SinglePage({
                 }}
               >
                 <div
-                  className="d-flex px-3"
+                  role="button"
+                  className={clsx("d-flex px-3", {
+                    "btn-experiment-status": canRunExperiment,
+                    "cursor-not-allowed": !canRunExperiment,
+                  })}
+                  onClick={
+                    canRunExperiment ? () => setStatusModal(true) : undefined
+                  }
                   style={{ height: 30, lineHeight: "30px" }}
                 >
                   <StatusIndicator
@@ -659,7 +667,11 @@ export default function SinglePage({
                 </div>
                 {experiment.status === "stopped" && experiment.results && (
                   <div
-                    className="d-flex border-left"
+                    className={clsx("d-flex border-left", {
+                      "btn-experiment-results": canRunExperiment,
+                      "cursor-not-allowed": !canRunExperiment,
+                    })}
+                    onClick={editResult ? () => editResult() : undefined}
                     style={{ height: 30, lineHeight: "30px" }}
                   >
                     <ResultsIndicator

@@ -194,6 +194,23 @@ pre {
   background-color: rgba(154, 110, 248, 0.2);
   color: inherit;
 }
+.btn-experiment-status,
+.btn-experiment-results {
+  cursor: pointer;
+  .results-indicator {
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) inset;
+  }
+  &:hover {
+    background-color: rgba(154, 110, 248, 0.1);
+    div {
+      color: colors.$highlight-purple !important;
+    }
+    .results-indicator {
+      box-shadow: none;
+      background-color: rgba(154, 110, 248, 0.1) !important;
+    }
+  }
+}
 
 .badge {
   line-height: 1em;
