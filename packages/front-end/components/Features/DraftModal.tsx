@@ -79,6 +79,19 @@ export default function DraftModal({
   const diffs = useMemo(() => {
     const diffs: { a: string; b: string; title: string }[] = [];
 
+    const nestedJSONReplacer = (key: string, value: unknown): unknown => {
+      if (key === "value") {
+        let ret = value;
+        try {
+          ret = JSON.parse(value as string);
+        } catch (e) {
+          // not valid json, parse as normal
+        }
+        return ret;
+      }
+      return value;
+    };
+
     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     if ("defaultValue" in feature.draft) {
       diffs.push({
@@ -97,11 +110,15 @@ export default function DraftModal({
             title: `Rules - ${env.id}`,
             a: JSON.stringify(
               feature.environmentSettings?.[env.id]?.rules || [],
-              null,
+              nestedJSONReplacer,
               2
             ),
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-            b: JSON.stringify(feature.draft.rules[env.id] || [], null, 2),
+            b: JSON.stringify(
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+              feature.draft.rules[env.id] || [],
+              nestedJSONReplacer,
+              2
+            ),
           });
         }
       });
