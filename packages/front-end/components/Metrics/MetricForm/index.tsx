@@ -681,7 +681,6 @@ const MetricForm: FC<MetricFormProps> = ({
                         placeholder="SUM(value)"
                         textarea
                         minRows={1}
-                        className="mb-2"
                         containerClassName="mb-0"
                         {...form.register("aggregation")}
                         helpText="When there are multiple metric rows for a user"
