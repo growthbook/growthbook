@@ -11,7 +11,6 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       phases: [],
       ...req.body,
       datasource: req.body.datasourceId,
-      implementation: "code",
     };
 
     const experiment = await createExperiment({
