@@ -265,20 +265,23 @@ describe("async queue", () => {
   });
 
   describe("when no tasks provided", () => {
-    it("should throw an error indicating no tasks are provided", async () => {
-      const badTasks: QueueTask<boolean>[] = [];
+    it("should return empty results", async () => {
+      const tasks: QueueTask<boolean>[] = [];
       const mockPerform = jest.fn().mockResolvedValue({
         status: "success",
         data: { echo: "the number is -1" },
       });
       const onProgress = () => undefined;
 
-      await expect(async () => {
-        await enqueueTasks<boolean, MyMockResultType>(badTasks, {
-          perform: mockPerform,
-          onProgress: onProgress,
-        });
-      }).rejects.toThrow("cannot enqueue empty task list");
+      const result = await enqueueTasks<boolean, MyMockResultType>(tasks, {
+        perform: mockPerform,
+        onProgress: onProgress,
+      });
+
+      expect(result).toEqual({
+        completed: [],
+        failed: [],
+      });
     });
   });
 
