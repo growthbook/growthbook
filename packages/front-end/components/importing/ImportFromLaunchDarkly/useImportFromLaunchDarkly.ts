@@ -590,17 +590,12 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
       if (!state.gbProjects.length) {
         return;
       }
+      if (!apiToken) {
+        console.warn("cannot fetch LD resources without API token");
+        return;
+      }
 
       const perform = async () => {
-        if (!apiToken) {
-          console.warn("cannot fetch LD resources without API token");
-          return;
-        }
-
-        if (!state.gbProjects.length) {
-          return;
-        }
-
         const createProjectTasks: QueueTask<
           Pick<ProjectInterface, "name" | "description">
         >[] = state.gbProjects.map((p) => ({
