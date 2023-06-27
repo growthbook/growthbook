@@ -8,7 +8,7 @@ import {
 import LoadingSpinner from "@/components/LoadingSpinner";
 
 type ImportFromLaunchDarklyProps = {
-  pending: boolean;
+  status: "idle" | "pending" | "completed";
   errors: string[];
   results: ImportTaskResults;
   onSubmit(apiToken: string): Promise<void>;
@@ -18,7 +18,7 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
   onSubmit,
   errors,
   results,
-  pending,
+  status,
 }) => {
   const handleSubmit = useCallback(
     (evt: FormEvent<HTMLFormElement>) => {
@@ -79,20 +79,19 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
       )}
 
       {/* Loading spinner for pending state */}
-      {pending && (
+      {status === "pending" && (
         <div className="my-4 d-sm-flex justify-content-center">
           <LoadingSpinner />
         </div>
       )}
+      {status === "completed" && (
+        <div className="mt-4 alert alert-info">Import complete</div>
+      )}
 
       {/* region Project Results */}
-      {!pending && results.projects.taskResults.length > 0 && (
+      {results.projects.taskResults.length > 0 && (
         <div className="card p-4 my-4">
           <h2>Results &rarr; Projects</h2>
-          {/*<p className="text-muted">*/}
-          {/*  {results.projects.remainingProjects} out of{" "}*/}
-          {/*  {results.projects.totalProjects} remaining*/}
-          {/*</p>*/}
 
           {results.projects.taskResults.map((result) => (
             <p key={result.message} className="d-sm-flex align-items-center">
@@ -104,14 +103,10 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
       )}
       {/* endregion Project Results */}
 
-      {/* region Project Results */}
-      {!pending && results.environments.taskResults.length > 0 && (
+      {/* region Environment Results */}
+      {results.environments.taskResults.length > 0 && (
         <div className="card p-4 my-4">
           <h2>Results &rarr; Environments</h2>
-          {/*<p className="text-muted">*/}
-          {/*  {results.projects.remainingProjects} out of{" "}*/}
-          {/*  {results.projects.totalProjects} remaining*/}
-          {/*</p>*/}
 
           {results.environments.taskResults.map((result) => (
             <p key={result.message} className="d-sm-flex align-items-center">
@@ -121,7 +116,22 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
           ))}
         </div>
       )}
-      {/* endregion Project Results */}
+      {/* endregion Environment Results */}
+
+      {/* region Feature Results */}
+      {results.features.taskResults.length > 0 && (
+        <div className="card p-4 my-4">
+          <h2>Results &rarr; Features</h2>
+
+          {results.features.taskResults.map((result) => (
+            <p key={result.message} className="d-sm-flex align-items-center">
+              {getIconForTaskResultState(result.status)}{" "}
+              <span className="ml-2">{result.message}</span>
+            </p>
+          ))}
+        </div>
+      )}
+      {/* endregion Feature Results */}
     </div>
   );
 };
@@ -144,7 +154,7 @@ export const ImportFromLaunchDarklyContainer = () => {
     errors,
     performImport,
     results,
-    pending,
+    status,
   } = useImportFromLaunchDarkly();
 
   return (
@@ -152,7 +162,7 @@ export const ImportFromLaunchDarklyContainer = () => {
       errors={errors}
       results={results}
       onSubmit={performImport}
-      pending={pending}
+      status={status}
     />
   );
 };

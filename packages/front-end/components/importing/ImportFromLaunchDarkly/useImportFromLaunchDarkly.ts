@@ -27,13 +27,9 @@ export type LDOperationResult = {
 export type ImportTaskResults = {
   projects: {
     taskResults: LDOperationResult[];
-    // totalProjects: number;
-    // remainingProjects: number;
   };
   environments: {
     taskResults: LDOperationResult[];
-    // totalEnvironments: number;
-    // remainingEnvironments: number;
   };
   features: {
     taskResults: LDOperationResult[];
@@ -44,7 +40,7 @@ export type UseImportFromLaunchDarkly = {
   performImport: (apiToken: string) => Promise<void>;
   errors: string[];
   results: ImportTaskResults;
-  pending: boolean;
+  status: "idle" | "pending" | "completed";
 };
 
 type LDReducerState = {
@@ -251,7 +247,6 @@ const importFromLDReducer: Reducer<LDReducerState, LDReducerAction> = (
   state,
   action
 ) => {
-  console.log(">>>> State", state);
   switch (action.type) {
     case "add-gb-created-feature":
       return {
@@ -340,7 +335,9 @@ const initialState: LDReducerState = {
 
 export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
   const [apiToken, setApiToken] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
+  const [status, setStatus] = useState<"idle" | "pending" | "completed">(
+    "idle"
+  );
 
   const [state, dispatch] = useReducer(importFromLDReducer, initialState);
 
@@ -353,6 +350,9 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
    */
   const performImport = useCallback(
     async (apiToken: string): Promise<void> => {
+      if (status === "completed") return;
+
+      setStatus("pending");
       setApiToken(apiToken);
 
       try {
@@ -367,9 +367,10 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
           type: "add-error",
           data: e.message || "Failed to fetch projects from LaunchDarkly",
         });
+        setStatus("completed");
       }
     },
-    [dispatch]
+    [dispatch, status]
   );
 
   useEffect(
@@ -377,6 +378,7 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
      * only once the projects are created in GrowthBook can we start to create the dependent resources in GrowthBook
      */
     function onGBProjectsCreated() {
+      if (status === "completed") return;
       if (!state.projectsReady) {
         return;
       }
@@ -581,9 +583,17 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
           onProgress(id, result) {
             switch (result.status) {
               case "success":
+                // TODO: delete?
+                // dispatch({
+                //   type: "add-gb-created-feature",
+                //   data: result.data,
+                // });
                 dispatch({
-                  type: "add-gb-created-feature",
-                  data: result.data,
+                  type: "add-import-feature-result",
+                  data: {
+                    status: "completed",
+                    message: `Successfully imported feature ${id}`,
+                  },
                 });
                 break;
 
@@ -636,8 +646,14 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
         });
       };
 
-      createFeatures();
-      createEnvironments();
+      const createAll = async () => {
+        await createEnvironments();
+        await createFeatures();
+
+        setStatus("completed");
+      };
+
+      createAll();
     },
     [
       apiToken,
@@ -663,8 +679,6 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
         if (!state.gbProjects.length) {
           return;
         }
-
-        setPending(true);
 
         const createProjectTasks: QueueTask<
           Pick<ProjectInterface, "name" | "description">
@@ -738,7 +752,6 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
 
         // Tasks are done. Time to perform tasks that depend on the GB projects
         dispatch({ type: "set-gb-projects-ready" });
-        setPending(false);
       };
 
       perform();
@@ -746,26 +759,16 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
     [state.gbProjects, apiToken, apiCall]
   );
 
-  // const totalProjects = state.gbProjects.length;
-  // const remainingProjects =
-  //   state.gbProjects.length - state.importProjectsResults.length;
-
-  // const totalEnvironments = state.g
-
   return {
-    pending,
+    status,
     performImport,
     errors: state.errors,
     results: {
       projects: {
         taskResults: state.importProjectsResults,
-        // totalProjects,
-        // remainingProjects,
       },
       environments: {
         taskResults: state.importEnvironmentsResults,
-        // totalEnvironments,
-        // remainingEnvironments,
       },
       features: {
         taskResults: state.importFeaturesResults,
@@ -781,5 +784,3 @@ function wait(timeMs: number): Promise<void> {
     }, timeMs);
   });
 }
-
-// TODO: Util -> add environment to existing org environment settings
