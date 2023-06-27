@@ -353,7 +353,7 @@ export default function FeaturePage() {
       {publishedMessage && (
         <TempMessage
           close={() => setPublishedMessage(false)}
-          delay={null}
+          delay={10000}
           top={65}
           showClose={true}
         >

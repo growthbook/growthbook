@@ -475,10 +475,10 @@ To hash an attribute, use a cryptographic library with SHA-256 support, and comp
 const salt = "f09jq3fij"; // Your organization's secure attribute salt (see Organization Settings)
 
 // hashing a secureString attribute
-const userEmail = sha256(user.email + salt);
+const userEmail = sha256(salt + user.email);
 
 // hashing an secureString[] attribute
-const userTags = user.tags.map(tag => sha256(tag + salt));
+const userTags = user.tags.map(tag => sha256(salt + tag));
 
 gb.setAttributes({
   id: user.id,
@@ -510,7 +510,7 @@ Alternatively, CryptoJS (https://www.npmjs.com/package/crypto-js) provides a syn
 ```js
 import sha256 from 'crypto-js/sha256';
 
-const userEmail = sha256(user.email + salt);
+const userEmail = sha256(salt + user.email);
 ```
 
 ### Feature Usage Callback
