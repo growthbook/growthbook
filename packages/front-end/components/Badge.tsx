@@ -15,7 +15,11 @@ export default function Badge({
   skipMargin?: boolean;
 }) {
   return (
-    <span className={clsx("badge", className, {"ml-2": !skipMargin})} style={style} title={title}>
+    <span
+      className={clsx("badge", className, { "ml-2": !skipMargin })}
+      style={style}
+      title={title}
+    >
       {content}
     </span>
   );

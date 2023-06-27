@@ -28,7 +28,7 @@ export default function MarkdownInlineEdit({
   className = "",
   containerClassName = "",
   header = "",
-  headerClassName="h3",
+  headerClassName = "h3",
   editElement,
   editClassName = "a",
 }: Props) {
