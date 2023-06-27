@@ -69,6 +69,13 @@ export type ExperimentDimension = {
 export type DateDimension = {
   type: "date";
 };
+
+export type DateCumulativeDimension = {
+  type: "datecumulative";
+};
+export type DateDailyDimension = {
+  type: "datedaily";
+};
 export type ActivationDimension = {
   type: "activation";
 };
@@ -76,6 +83,8 @@ export type Dimension =
   | UserDimension
   | ExperimentDimension
   | DateDimension
+  | DateCumulativeDimension
+  | DateDailyDimension
   | ActivationDimension;
 
 export type ExperimentMetricQueryParams = {
