@@ -31,6 +31,7 @@ export const DEFAULT_CONVERSION_WINDOW_HOURS = null;
 export const DEFAULT_LOSE_RISK = null;
 export const DEFAULT_WIN_RISK = null;
 export const DEFAULT_SECURE_ATTRIBUTE_SALT = "";
+export const DEFAULT_KILLSWITCH_CONFIRMATION = false;
 
 export default function genDefaultSettings(): Settings {
   return {
@@ -54,5 +55,6 @@ export default function genDefaultSettings(): Settings {
     loseRisk: DEFAULT_LOSE_RISK,
     winRisk: DEFAULT_WIN_RISK,
     secureAttributeSalt: DEFAULT_SECURE_ATTRIBUTE_SALT,
+    killswitchConfirmation: DEFAULT_KILLSWITCH_CONFIRMATION,
   };
 }

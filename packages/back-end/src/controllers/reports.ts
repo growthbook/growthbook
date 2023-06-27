@@ -216,6 +216,7 @@ export async function refreshReport(
 
   return res.status(200).json({
     status: 200,
+    report,
   });
 }
 
@@ -266,19 +267,17 @@ export async function putReport(
 
   await updateReport(org.id, req.params.id, updates);
 
+  const updatedReport: ReportInterface = {
+    ...report,
+    ...updates,
+  };
   if (needsRun) {
-    await runReport(
-      org,
-      {
-        ...report,
-        ...updates,
-      },
-      true
-    );
+    await runReport(org, updatedReport, true);
   }
 
   return res.status(200).json({
     status: 200,
+    updatedReport,
   });
 }
 

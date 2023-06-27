@@ -78,7 +78,7 @@ export default function DimensionChooser({
   // Date is always available
   const builtInDimensions = [
     {
-      label: "Date",
+      label: "Date Cohorts (First Exposure)",
       value: "pre:date",
     },
   ];

@@ -25,7 +25,6 @@ describe("bigquery integration", () => {
       userIdTypes: ["anonymous_id", "user_id"],
     };
 
-    const binomialMetric = { ...baseMetric };
     const customNumberAggMetric: MetricInterface = {
       ...baseMetric,
       ...{
@@ -52,55 +51,40 @@ describe("bigquery integration", () => {
     // builder metrics not tested
 
     expect(
-      bqIntegration["getAggregateMetricColumn"](binomialMetric, "noWindow")
-    ).toEqual("MAX(1)");
-    expect(
-      bqIntegration["getAggregateMetricColumn"](binomialMetric, "post")
-    ).toEqual(
-      "MAX((CASE WHEN m.timestamp >= d.conversion_start THEN 1 ELSE NULL END))"
-    );
-    expect(
-      bqIntegration["getAggregateMetricColumn"](binomialMetric, "pre")
-    ).toEqual(
-      "MAX((CASE WHEN m.timestamp < d.preexposure_end THEN 1 ELSE NULL END))"
-    );
-    expect(
-      bqIntegration["getAggregateMetricColumn"](
-        customNumberAggMetric,
-        "noWindow"
+      bqIntegration["addCaseWhenTimeFilter"]("val", false, false).replace(
+        /\s+/g,
+        " "
       )
-    ).toEqual("MAX(33)");
-    expect(
-      bqIntegration["getAggregateMetricColumn"](customNumberAggMetric, "post")
     ).toEqual(
-      "MAX((CASE WHEN m.timestamp >= d.conversion_start THEN 33 ELSE NULL END))"
+      "(CASE WHEN m.timestamp >= d.conversion_start AND m.timestamp <= d.conversion_end THEN COALESCE(val, 0) ELSE NULL END)"
     );
+
     expect(
-      bqIntegration["getAggregateMetricColumn"](customNumberAggMetric, "pre")
+      bqIntegration["addCaseWhenTimeFilter"]("val", true, false).replace(
+        /\s+/g,
+        " "
+      )
     ).toEqual(
-      "MAX((CASE WHEN m.timestamp < d.preexposure_end THEN 33 ELSE NULL END))"
+      "(CASE WHEN m.timestamp >= d.conversion_start THEN COALESCE(val, 0) ELSE NULL END)"
     );
+
     expect(
-      bqIntegration["getAggregateMetricColumn"](customCountAgg, "noWindow")
-    ).toEqual("COUNT(*) / (5 + COUNT(*))");
-    expect(
-      bqIntegration["getAggregateMetricColumn"](customCountAgg, "post")
-    ).toEqual("COUNT(*) / (5 + COUNT(*))");
-    expect(
-      bqIntegration["getAggregateMetricColumn"](customCountAgg, "pre")
-    ).toEqual("COUNT(*) / (5 + COUNT(*))");
-    expect(
-      bqIntegration["getAggregateMetricColumn"](normalSqlMetric, "noWindow")
-    ).toEqual("SUM(m.value)");
-    expect(
-      bqIntegration["getAggregateMetricColumn"](normalSqlMetric, "post")
+      bqIntegration["addCaseWhenTimeFilter"]("val", true, true).replace(
+        /\s+/g,
+        " "
+      )
     ).toEqual(
-      "SUM((CASE WHEN m.timestamp >= d.conversion_start THEN m.value ELSE NULL END))"
+      "(CASE WHEN m.timestamp >= d.conversion_start AND date_trunc(m.timestamp, DAY) <= dr.day THEN COALESCE(val, 0) ELSE NULL END)"
     );
+
     expect(
-      bqIntegration["getAggregateMetricColumn"](normalSqlMetric, "pre")
-    ).toEqual(
-      "SUM((CASE WHEN m.timestamp < d.preexposure_end THEN m.value ELSE NULL END))"
+      bqIntegration["getAggregateMetricColumn"](customNumberAggMetric)
+    ).toEqual("(CASE WHEN value IS NOT NULL THEN 33 ELSE 0 END)");
+    expect(bqIntegration["getAggregateMetricColumn"](customCountAgg)).toEqual(
+      "COUNT(value) / (5 + COUNT(value))"
+    );
+    expect(bqIntegration["getAggregateMetricColumn"](normalSqlMetric)).toEqual(
+      "SUM(COALESCE(value, 0))"
     );
   });
 });

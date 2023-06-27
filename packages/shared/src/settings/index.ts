@@ -76,6 +76,7 @@ export const resolvers: Record<
   winRisk: genMetricOverrideResolver("winRisk"),
   loseRisk: genMetricOverrideResolver("loseRisk"),
   secureAttributeSalt: genDefaultResolver("secureAttributeSalt"),
+  killswitchConfirmation: genDefaultResolver("killswitchConfirmation"),
 };
 
 const scopeSettings = (
