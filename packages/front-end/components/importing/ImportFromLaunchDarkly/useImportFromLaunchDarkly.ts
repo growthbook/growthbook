@@ -91,6 +91,8 @@ type LDReducerState = {
    */
   gbEnvironmentsCreated: Environment[];
 
+  // State and results
+
   /**
    * when projects are ready, we can create the dependent resources
    */
@@ -117,6 +119,10 @@ type AddErrorAction = {
 type AddGBImportedProject = {
   type: "add-gb-imported-project";
   data: ProjectInterface;
+};
+
+type SetGBProjectsReady = {
+  type: "set-gb-projects-ready";
 };
 
 type AddImportProjectResult = {
@@ -151,17 +157,13 @@ type SetLDFeatureFlagsResponse = {
   data: LDListFeatureFlagsResponse;
 };
 
-type SetGBProjectsReady = {
-  type: "set-gb-projects-ready";
-};
-
 type LDReducerAction =
-  | AddErrorAction
-  | AddGBImportedProject
   | SetLDProjectsResponse
   | SetLDEnvironmentsResponse
   | SetLDFeatureFlagsResponse
   | SetGBProjectsReady
+  | AddGBImportedProject
+  | AddErrorAction
   | AddImportProjectResult
   | AddImportEnvironmentResult
   | AddImportFeatureResult;
@@ -171,6 +173,36 @@ const importFromLDReducer: Reducer<LDReducerState, LDReducerAction> = (
   action
 ) => {
   switch (action.type) {
+    case "set-ld-projects":
+      return {
+        ...state,
+        ldProjectsResponse: action.data,
+        gbProjects: transformLDProjectsToGBProject(action.data),
+      };
+
+    case "set-ld-environments":
+      return {
+        ...state,
+        ldEnvironmentsResponse: action.data,
+        gbEnvironments: transformLDEnvironmentsToGBEnvironment(action.data),
+      };
+
+    case "set-ld-feature-flags":
+      return {
+        ...state,
+        ldFeatureFlagsResponse: action.data,
+        gbFeatures: transformLDFeatureFlagToGBFeature(
+          action.data,
+          action.projectId
+        ),
+      };
+
+    case "add-gb-imported-project":
+      return {
+        ...state,
+        gbProjectsCreated: [...state.gbProjectsCreated, action.data],
+      };
+
     case "set-gb-projects-ready":
       return {
         ...state,
@@ -198,40 +230,10 @@ const importFromLDReducer: Reducer<LDReducerState, LDReducerAction> = (
         importFeaturesResults: [...state.importFeaturesResults, action.data],
       };
 
-    case "set-ld-projects":
-      return {
-        ...state,
-        ldProjectsResponse: action.data,
-        gbProjects: transformLDProjectsToGBProject(action.data),
-      };
-
-    case "set-ld-environments":
-      return {
-        ...state,
-        ldEnvironmentsResponse: action.data,
-        gbEnvironments: transformLDEnvironmentsToGBEnvironment(action.data),
-      };
-
-    case "set-ld-feature-flags":
-      return {
-        ...state,
-        ldFeatureFlagsResponse: action.data,
-        gbFeatures: transformLDFeatureFlagToGBFeature(
-          action.data,
-          action.projectId
-        ),
-      };
-
     case "add-error":
       return {
         ...state,
         errors: [...state.errors, action.data],
-      };
-
-    case "add-gb-imported-project":
-      return {
-        ...state,
-        gbProjectsCreated: [...state.gbProjectsCreated, action.data],
       };
 
     default:
