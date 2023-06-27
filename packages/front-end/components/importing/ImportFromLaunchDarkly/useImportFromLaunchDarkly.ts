@@ -45,20 +45,6 @@ export type UseImportFromLaunchDarkly = {
 
 type LDReducerState = {
   // LD resources
-  /**
-   * a list of project names that were downloaded from LD
-   */
-  downloadedProjects: string[];
-
-  /**
-   * a list of environment names that were downloaded from LD
-   */
-  downloadedEnvironments: string[];
-
-  /**
-   * a list of feature keys that were downloaded from LD
-   */
-  downloadedFeatureFlags: string[];
 
   /**
    * raw response from LD for List Environments
@@ -94,11 +80,6 @@ type LDReducerState = {
     FeatureInterface,
     "dateCreated" | "dateUpdated" | "revision" | "organization"
   >[];
-
-  /**
-   * the features that we created
-   */
-  gbFeaturesCreated: FeatureInterface[];
 
   /**
    * the environments we plan on creating
@@ -185,52 +166,6 @@ type LDReducerAction =
   | AddImportEnvironmentResult
   | AddImportFeatureResult;
 
-const handleSetLDProjects: Reducer<LDReducerState, SetLDProjectsResponse> = (
-  state,
-  action
-) => {
-  const gbProjects = transformLDProjectsToGBProject(action.data);
-  const projectNames = gbProjects.map((p) => p.name);
-
-  return {
-    ...state,
-    ldProjectsResponse: action.data,
-    gbProjects,
-    downloadedProjects: projectNames,
-  };
-};
-
-const handleSetLDEnvironments: Reducer<
-  LDReducerState,
-  SetLDEnvironmentsResponse
-> = (state, action) => {
-  const gbEnvironments = transformLDEnvironmentsToGBEnvironment(action.data);
-  const envNames = gbEnvironments.map((env) => env.id);
-
-  return {
-    ...state,
-    ldEnvironmentsResponse: action.data,
-    gbEnvironments,
-    downloadedEnvironments: envNames,
-  };
-};
-
-const handleSetLDFeatureFlags: Reducer<
-  LDReducerState,
-  SetLDFeatureFlagsResponse
-> = (state, action) => {
-  const gbFeatures = transformLDFeatureFlagToGBFeature(
-    action.data,
-    action.projectId
-  );
-
-  return {
-    ...state,
-    ldFeatureFlagsResponse: action.data,
-    gbFeatures,
-  };
-};
-
 const importFromLDReducer: Reducer<LDReducerState, LDReducerAction> = (
   state,
   action
@@ -264,13 +199,28 @@ const importFromLDReducer: Reducer<LDReducerState, LDReducerAction> = (
       };
 
     case "set-ld-projects":
-      return handleSetLDProjects(state, action);
+      return {
+        ...state,
+        ldProjectsResponse: action.data,
+        gbProjects: transformLDProjectsToGBProject(action.data),
+      };
 
     case "set-ld-environments":
-      return handleSetLDEnvironments(state, action);
+      return {
+        ...state,
+        ldEnvironmentsResponse: action.data,
+        gbEnvironments: transformLDEnvironmentsToGBEnvironment(action.data),
+      };
 
     case "set-ld-feature-flags":
-      return handleSetLDFeatureFlags(state, action);
+      return {
+        ...state,
+        ldFeatureFlagsResponse: action.data,
+        gbFeatures: transformLDFeatureFlagToGBFeature(
+          action.data,
+          action.projectId
+        ),
+      };
 
     case "add-error":
       return {
@@ -290,14 +240,11 @@ const importFromLDReducer: Reducer<LDReducerState, LDReducerAction> = (
 };
 
 const initialState: LDReducerState = {
-  importProjectsResults: [], // todo: add & use
-  importFeaturesResults: [], // todo: add & use
-  importEnvironmentsResults: [], // todo: add & use
+  importProjectsResults: [],
+  importFeaturesResults: [],
+  importEnvironmentsResults: [],
   projectsReady: false,
   errors: [],
-  downloadedProjects: [], // todo: use or delete
-  downloadedEnvironments: [], // todo: add & use
-  downloadedFeatureFlags: [], // todo: add & use
   ldProjectsResponse: null,
   ldEnvironmentsResponse: null,
   ldFeatureFlagsResponse: null,
@@ -306,7 +253,6 @@ const initialState: LDReducerState = {
   gbEnvironments: [],
   gbEnvironmentsCreated: [],
   gbFeatures: [],
-  gbFeaturesCreated: [], // todo: add & use
 };
 
 export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
@@ -633,6 +579,11 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
   );
 
   useEffect(
+    /**
+     * This runs once the projects are downloaded from LD and created in GrowthBook.
+     * Projects are a hard dependency of remaining resources in LD and
+     * without them we cannot proceed.
+     */
     function fetchLDResourcesForProjects() {
       if (!state.gbProjects.length) {
         return;
@@ -655,7 +606,6 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
           data: p,
         }));
 
-        // const { failed, completed } = await enqueueTasks<
         await enqueueTasks<
           Pick<ProjectInterface, "name" | "description">,
           ProjectInterface
@@ -718,7 +668,6 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
           },
         });
 
-        // Tasks are done. Time to perform tasks that depend on the GB projects
         dispatch({ type: "set-gb-projects-ready" });
       };
 
