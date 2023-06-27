@@ -21,7 +21,6 @@ import {
 import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared/constants";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { getScopedSettings } from "shared/settings";
-import { date } from "shared/dates";
 import Collapsible from "react-collapsible";
 import { DiscussionInterface } from "back-end/types/discussion";
 import clsx from "clsx";
@@ -41,6 +40,7 @@ import track from "@/services/track";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
+import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -222,10 +222,6 @@ export default function SinglePage({
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
-
-  const lastPhase = experiment?.phases?.[experiment?.phases?.length - 1];
-  const startDate = experiment?.phases?.[0]?.dateStarted;
-  const endDate = lastPhase?.dateEnded;
 
   const watcherIds = useApi<{
     userIds: string[];
@@ -469,7 +465,7 @@ export default function SinglePage({
           mutate={mutate}
         />
       )}
-      <div className="row align-items-center mb-2">
+      <div className="row align-items-center mb-1">
         <div className="col-auto">
           <h1 className="mb-0">{experiment.name}</h1>
         </div>
@@ -632,14 +628,13 @@ export default function SinglePage({
             </div>
 
             <div className="flex-1 col"></div>
-            {startDate && (
-              <div className="col-auto pr-2">
-                <span className="small">
-                  {date(startDate)}
-                  {endDate && <> — {date(endDate)}</>}
-                </span>
+
+            <div className="col-auto pr-2">
+              <div className="mt-1">
+                <PhaseSelector mutateExperiment={mutate} newUi={true} />
               </div>
-            )}
+            </div>
+
             <div className="col-auto">
               <div
                 className="border rounded overflow-hidden d-flex mt-1"

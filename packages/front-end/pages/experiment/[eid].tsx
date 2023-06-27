@@ -95,7 +95,10 @@ const ExperimentPage = (): ReactElement => {
 
   return (
     <div>
-      <div className="alert alert-warning p-2 mb-2 text-center">
+      <div
+        className="alert-warning p-2 mb-2 text-center"
+        style={{ marginTop: -5 }}
+      >
         This is the {newUi ? "new" : "old"} experiment page.{" "}
         <a role="button" className="a" onClick={() => setNewUi(!newUi)}>
           {newUi
