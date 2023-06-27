@@ -1,5 +1,4 @@
 import type { Response } from "express";
-import pick from "lodash/pick";
 import { AuthRequest } from "../../types/AuthRequest";
 import { PrivateApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";

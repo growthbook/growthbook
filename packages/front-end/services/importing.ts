@@ -1,7 +1,6 @@
 import { ProjectInterface } from "back-end/types/project";
 import { Environment } from "back-end/types/organization";
 import { FeatureInterface } from "back-end/types/feature";
-import cloneDeep from "lodash/cloneDeep";
 
 // Various utilities to help migrate from another service to GrowthBook
 

@@ -138,16 +138,6 @@ type AddGBImportedProject = {
   data: ProjectInterface;
 };
 
-type AddGBCreatedEnvironment = {
-  type: "add-gb-created-environment";
-  data: Environment;
-};
-
-type AddGBCreatedFeature = {
-  type: "add-gb-created-feature";
-  data: FeatureInterface;
-};
-
 type AddImportProjectResult = {
   type: "add-import-project-result";
   data: LDOperationResult;
@@ -192,8 +182,6 @@ type LDReducerAction =
   | SetLDFeatureFlagsResponse
   | SetGBProjectsReady
   | AddImportProjectResult
-  | AddGBCreatedEnvironment
-  | AddGBCreatedFeature
   | AddImportEnvironmentResult
   | AddImportFeatureResult;
 
@@ -248,18 +236,6 @@ const importFromLDReducer: Reducer<LDReducerState, LDReducerAction> = (
   action
 ) => {
   switch (action.type) {
-    case "add-gb-created-feature":
-      return {
-        ...state,
-        gbFeaturesCreated: [...state.gbFeaturesCreated, action.data],
-      };
-
-    case "add-gb-created-environment":
-      return {
-        ...state,
-        gbEnvironmentsCreated: [...state.gbEnvironmentsCreated, action.data],
-      };
-
     case "set-gb-projects-ready":
       return {
         ...state,
@@ -448,10 +424,6 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
               switch (result.status) {
                 case "success":
                   dispatch({
-                    type: "add-gb-created-environment",
-                    data: result.data,
-                  });
-                  dispatch({
                     type: "add-import-environment-result",
                     data: {
                       status: "completed",
@@ -583,11 +555,6 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
           onProgress(id, result) {
             switch (result.status) {
               case "success":
-                // TODO: delete?
-                // dispatch({
-                //   type: "add-gb-created-feature",
-                //   data: result.data,
-                // });
                 dispatch({
                   type: "add-import-feature-result",
                   data: {
@@ -661,6 +628,7 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
       state.gbProjectsCreated,
       state.gbEnvironments,
       apiCall,
+      status,
     ]
   );
 
