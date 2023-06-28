@@ -34,7 +34,7 @@ import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { orgHasPremiumFeature } from "../util/organization.util";
-import { FASTLY_API_KEY, FASTLY_SERVICE_ID } from "../util/secrets";
+import { FASTLY_API_TOKEN, FASTLY_SERVICE_ID } from "../util/secrets";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -264,7 +264,7 @@ export async function purgeCDNCache(
   payloadKeys: SDKPayloadKey[]
 ): Promise<void> {
   // Only purge when Fastly is used as the CDN (e.g. GrowthBook Cloud)
-  if (!FASTLY_SERVICE_ID || !FASTLY_API_KEY) return;
+  if (!FASTLY_SERVICE_ID || !FASTLY_API_TOKEN) return;
 
   // Only purge the specific payloads that are affected
   const surrogateKeys = payloadKeys.map((k) =>
@@ -276,7 +276,7 @@ export async function purgeCDNCache(
     await fetch(`https://api.fastly.com/service/${FASTLY_SERVICE_ID}/purge`, {
       method: "POST",
       headers: {
-        "Fastly-Key": FASTLY_API_KEY,
+        "Fastly-Key": FASTLY_API_TOKEN,
         "surrogate-key": surrogateKeys.join(" "),
         Accept: "application/json",
       },
