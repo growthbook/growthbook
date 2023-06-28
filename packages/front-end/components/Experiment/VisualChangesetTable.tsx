@@ -128,10 +128,10 @@ export const VisualChangesetTable: FC<Props> = ({
     <>
       {visualChangesets.length > 0 && (
         <div>
-          <div className="px-3 mb-2">
+          <div className="mb-2">
             <div
               className={`${
-                newUi ? "h4" : "h3 mt-3"
+                newUi ? "h4" : "px-3 h3 mt-3"
               } d-inline-block my-0 align-middle`}
             >
               Visual Changes
@@ -163,7 +163,7 @@ export const VisualChangesetTable: FC<Props> = ({
                     newUi ? "" : "bg-light mx-3"
                   } py-2 mb-4`}
                 >
-                  <div className="px-3">
+                  <div className="mt-2 px-3">
                     <div className="row mt-1 mb-3 d-flex align-items-end">
                       <div className="col">
                         <div className="col-auto px-3 py-2 rounded bg-muted-yellow">
@@ -236,7 +236,7 @@ export const VisualChangesetTable: FC<Props> = ({
                     }}
                   >
                     <table
-                      className="table table-bordered mx-3 my-0"
+                      className="table table-bordered mx-3 mt-0 mb-2 w100-1rem"
                       style={{ tableLayout: "fixed", width: "auto" }}
                     >
                       <thead>
@@ -272,7 +272,7 @@ export const VisualChangesetTable: FC<Props> = ({
                                   }rem`,
                                 }}
                               >
-                                <div className="d-flex justify-content-between mx-3">
+                                <div className="d-flex justify-content-between mx-2">
                                   <div>
                                     <a
                                       href="#"

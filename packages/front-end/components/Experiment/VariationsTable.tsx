@@ -108,7 +108,9 @@ const VariationsTable: FC<Props> = ({
         }}
       >
         <table
-          className={`table table-bordered mx-3 ${newUi ? "" : "bg-light"}`}
+          className={`table table-bordered mx-3 w100-1rem ${
+            newUi ? "" : "bg-light"
+          }`}
         >
           <thead>
             <tr>
@@ -152,7 +154,6 @@ const VariationsTable: FC<Props> = ({
               {variations.map((v, i) => (
                 <td
                   key={i}
-                  scope="col"
                   className={`align-${newUi ? "middle" : "top"} ${
                     canEditExperiment ? "pb-1" : ""
                   }`}
