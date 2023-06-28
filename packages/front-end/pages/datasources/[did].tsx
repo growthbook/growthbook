@@ -6,8 +6,12 @@ import {
   FaExclamationTriangle,
   FaExternalLinkAlt,
   FaKey,
+  FaPencilAlt,
+  FaPlus,
 } from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { MetricInterface } from "@/../back-end/types/metric";
+import { ago, datetime } from "@/../shared/dates";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -27,6 +31,9 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import { GBCircleArrowLeft } from "@/components/Icons";
+import useApi from "@/hooks/useApi";
+import MoreMenu from "@/components/Dropdown/MoreMenu";
+import MetricForm from "@/components/Metrics/MetricForm";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -40,15 +47,25 @@ const DataSourcePage: FC = () => {
   const [editConn, setEditConn] = useState(false);
   const [viewSchema, setViewSchema] = useState(false);
   const router = useRouter();
+  const [modalData, setModalData] = useState<{
+    current: Partial<MetricInterface>;
+    edit: boolean;
+    duplicate: boolean;
+  } | null>(null);
 
   const {
     getDatasourceById,
+    project,
     mutateDefinitions,
     ready,
     error,
   } = useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
+  const [
+    showAutoGenerateMetricsModal,
+    setShowAutoGenerateMetricsModal,
+  ] = useState(false);
 
   const { apiCall } = useAuth();
 
@@ -57,6 +74,12 @@ const DataSourcePage: FC = () => {
       checkDatasourceProjectPermissions(d, permissions, "createDatasources") &&
       !hasFileConfig()) ||
     false;
+
+  const { data, mutate } = useApi<{
+    metrics: MetricInterface[];
+  }>(`/datasource/${did}/metrics`);
+
+  const metrics: MetricInterface[] | undefined = data?.metrics;
 
   /**
    * Update the data source provided.
@@ -109,11 +132,40 @@ const DataSourcePage: FC = () => {
     );
   }
 
+  const closeModal = () => {
+    setModalData(null);
+  };
+  const onSuccess = () => {
+    mutateDefinitions();
+    mutate();
+  };
+
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
 
   return (
     <div className="container pagecontents">
+      {modalData && (
+        <MetricForm
+          {...modalData}
+          onClose={closeModal}
+          onSuccess={onSuccess}
+          source="datasource-detail"
+          openAutoGenerateMetrics={() => setShowAutoGenerateMetricsModal(true)}
+        />
+      )}
+      {showAutoGenerateMetricsModal && (
+        // TODO: Should I make this a component?
+        // I could make the component hit the endpoint to fetch the trackedEvents on load, so I can keep the state entirely encompassed within the component
+        <Modal
+          size="lg"
+          open={true}
+          close={() => setShowAutoGenerateMetricsModal(false)}
+        >
+          Hi
+          {/* //TODO: This is where we'll put the auto generate metrics modal */}
+        </Modal>
+      )}
       <div className="mb-2">
         <Link href="/datasources">
           <a>
@@ -313,6 +365,111 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   onCancel={() => undefined}
                   canEdit={canEdit}
                 />
+              </div>
+
+              <div className="my-5">
+                <div className="d-flex flex-row justify-content-between align-items-center">
+                  <div>
+                    <h2>Metrics</h2>
+                    <p>
+                      Metrics are what your experiments are trying to improve
+                      (or at least not hurt). Below are the metrics defined from
+                      this data source.{" "}
+                      <DocLink docSection="metrics">Learn more.</DocLink>
+                    </p>
+                  </div>
+                  {permissions.check("createMetrics", project) &&
+                    !hasFileConfig() && (
+                      <div className="col-auto">
+                        <button
+                          className="btn btn-outline-primary font-weight-bold text-nowrap"
+                          onClick={() =>
+                            setModalData({
+                              current: { datasource: d.id },
+                              edit: false,
+                              duplicate: false,
+                            })
+                          }
+                        >
+                          <FaPlus className="mr-1" /> Add
+                        </button>
+                      </div>
+                    )}
+                </div>
+
+                {metrics && metrics?.length > 0 ? (
+                  <div>
+                    {metrics.map((metric) => {
+                      return (
+                        <div key={metric.id} className="card p-3 mb-3">
+                          <Link href={`/metric/${metric.id}`}>
+                            <div
+                              className="d-flex flex-row align-items-center justify-content-between"
+                              role="button"
+                            >
+                              <div className="mr-5 w-100">
+                                <h4>{metric.name}</h4>
+                                <div className="d-flex flex-row align-items-center justify-content-between">
+                                  <div>
+                                    <strong>Type: </strong>
+                                    <code>{metric.type}</code>
+                                  </div>
+                                  <div>
+                                    <strong>Owner: </strong>
+                                    {metric.owner}
+                                  </div>
+                                  {!hasFileConfig() && (
+                                    <div
+                                      title={datetime(metric.dateUpdated || "")}
+                                      className="d-none d-md-table-cell"
+                                    >
+                                      <strong>Last Updated: </strong>
+                                      {ago(metric.dateUpdated || "")}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                              <div
+                                style={{ cursor: "initial" }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                }}
+                              >
+                                <MoreMenu>
+                                  <Link href={`/metric/${metric.id}`}>
+                                    <button
+                                      className="dropdown-item py-2"
+                                      onClick={() => console.log("hey")}
+                                    >
+                                      <FaPencilAlt className="mr-2" /> Edit
+                                    </button>
+                                  </Link>
+                                  <DeleteButton
+                                    onClick={() => console.log("hey")}
+                                    className="dropdown-item text-danger py-2"
+                                    iconClassName="mr-2"
+                                    style={{ borderRadius: 0 }}
+                                    useIcon
+                                    displayName={metric.name}
+                                    deleteMessage={`Are you sure you want to delete identifier join ${metric.name}?`}
+                                    title="Delete"
+                                    text="Delete"
+                                    outline={false}
+                                  />
+                                </MoreMenu>
+                              </div>
+                            </div>
+                          </Link>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="alert alert-info">
+                    No metrics have been defined from this data source.
+                  </div>
+                )}
               </div>
 
               <div className="my-5">
