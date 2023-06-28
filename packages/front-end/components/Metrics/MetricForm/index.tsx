@@ -283,6 +283,7 @@ const MetricForm: FC<MetricFormProps> = ({
     userIdColumns: form.watch("userIdColumns"),
     userIdTypes: form.watch("userIdTypes"),
     denominator: form.watch("denominator"),
+    aggregation: form.watch("aggregation"),
     column: form.watch("column"),
     table: form.watch("table"),
     type,
@@ -358,12 +359,6 @@ const MetricForm: FC<MetricFormProps> = ({
       );
     }
   }
-  if (form.watch("aggregation")) {
-    regressionAdjustmentAvailableForMetric = false;
-    regressionAdjustmentAvailableForMetricReason = (
-      <>Not available for metrics with custom aggregations.</>
-    );
-  }
 
   let table = "Table";
   let column = "Column";
@@ -435,6 +430,10 @@ const MetricForm: FC<MetricFormProps> = ({
       : value.regressionAdjustmentDays < 7
       ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
       : "";
+
+  const customAggregationWarningMsg = value.aggregation
+    ? "When using a custom aggregation, it is safest to COALESCE values in your SQL so that the `value` column has no NULL values."
+    : "";
 
   const requiredColumns = useMemo(() => {
     const set = new Set(["timestamp", ...value.userIdTypes]);
@@ -676,14 +675,20 @@ const MetricForm: FC<MetricFormProps> = ({
                     </div>
                   </div>
                   {value.type !== "binomial" && (
-                    <Field
-                      label="User Value Aggregation"
-                      placeholder="SUM(value)"
-                      textarea
-                      minRows={1}
-                      {...form.register("aggregation")}
-                      helpText="When there are multiple metric rows for a user"
-                    />
+                    <div className="mb-2">
+                      <Field
+                        label="User Value Aggregation"
+                        placeholder="SUM(value)"
+                        textarea
+                        minRows={1}
+                        containerClassName="mb-0"
+                        {...form.register("aggregation")}
+                        helpText="When there are multiple metric rows for a user"
+                      />
+                      {customAggregationWarningMsg && (
+                        <small>{customAggregationWarningMsg}</small>
+                      )}
+                    </div>
                   )}
                   <SelectField
                     label="Denominator"
