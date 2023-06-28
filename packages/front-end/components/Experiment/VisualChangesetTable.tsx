@@ -1,13 +1,14 @@
-import React, { FC, Fragment, useState } from "react";
+import React, { FC, Fragment, useCallback, useState } from "react";
 import {
   ExperimentInterfaceStringDates,
   LegacyVariation,
 } from "back-end/types/experiment";
 import {
+  VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "back-end/types/visual-changeset";
-import { FaPlusCircle, FaTimesCircle } from "react-icons/fa";
+import { FaPencilAlt, FaPlusCircle, FaTimesCircle } from "react-icons/fa";
 import Link from "next/link";
 import track from "@/services/track";
 import { GBEdit } from "@/components/Icons";
@@ -19,6 +20,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
+import EditDOMMutatonsModal from "@/components/Experiment/EditDOMMutationsModal";
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;
@@ -73,7 +75,54 @@ export const VisualChangesetTable: FC<Props> = ({
     setEditingVisualChangeset,
   ] = useState<VisualChangesetInterface | null>(null);
 
+  const [editingVisualChange, setEditingVisualChange] = useState<{
+    visualChangeset: VisualChangesetInterface;
+    visualChange: VisualChange;
+    visualChangeIndex: number;
+  } | null>(null);
+
   const hasLegacyVisualChanges = variations.some((v) => isLegacyVariation(v));
+
+  const deleteVisualChangeset = useCallback(
+    async (id: string) => {
+      await apiCall(`/visual-changesets/${id}`, {
+        method: "DELETE",
+      });
+      mutate();
+      track("Delete visual changeset", {
+        source: "visual-editor-ui",
+      });
+    },
+    [apiCall, mutate]
+  );
+
+  const updateVisualChange = useCallback(
+    async ({
+      visualChangeset,
+      visualChange,
+      index,
+    }: {
+      visualChangeset: VisualChangesetInterface;
+      visualChange: VisualChange;
+      index: number;
+    }) => {
+      const newVisualChangeset: VisualChangesetInterface = {
+        ...visualChangeset,
+        visualChanges: visualChangeset.visualChanges.map((c, i) =>
+          i === index ? visualChange : c
+        ),
+      };
+      await apiCall(`/visual-changesets/${visualChangeset.id}`, {
+        method: "PUT",
+        body: JSON.stringify(newVisualChangeset),
+      });
+      mutate();
+      track("Delete visual changeset", {
+        source: "visual-editor-ui",
+      });
+    },
+    [apiCall, mutate]
+  );
 
   return (
     <>
@@ -82,7 +131,7 @@ export const VisualChangesetTable: FC<Props> = ({
           <div className="px-3 mb-2">
             <div
               className={`${
-                newUi ? "h4" : "h3"
+                newUi ? "h4" : "h3 mt-3"
               } d-inline-block my-0 align-middle`}
             >
               Visual Changes
@@ -111,8 +160,8 @@ export const VisualChangesetTable: FC<Props> = ({
               <Fragment key={i}>
                 <div
                   className={`${i !== 0 && "mt-2"} appbox ${
-                    newUi ? "" : "bg-light"
-                  } py-2 mx-3 mb-4`}
+                    newUi ? "" : "bg-light mx-3"
+                  } py-2 mb-4`}
                 >
                   <div className="px-3">
                     <div className="row mt-1 mb-3 d-flex align-items-end">
@@ -172,15 +221,7 @@ export const VisualChangesetTable: FC<Props> = ({
                             )}
                             <DeleteButton
                               className="btn-sm ml-4"
-                              onClick={async () => {
-                                await apiCall(`/visual-changesets/${vc.id}`, {
-                                  method: "DELETE",
-                                });
-                                mutate();
-                                track("Delete visual changeset", {
-                                  source: "visual-editor-ui",
-                                });
-                              }}
+                              onClick={() => deleteVisualChangeset(vc.id)}
                               displayName="Visual Changes"
                             />
                           </div>
@@ -189,14 +230,14 @@ export const VisualChangesetTable: FC<Props> = ({
                   </div>
 
                   <div
-                    className="w-100 fade-mask-1rem"
+                    className="w-100 fade-mask-1rem mb-1"
                     style={{
                       overflowX: "auto",
                     }}
                   >
                     <table
-                      className="table table-borderless mx-3 my-0 w100-1rem"
-                      style={{ tableLayout: "fixed" }}
+                      className="table table-bordered mx-3 my-0"
+                      style={{ tableLayout: "fixed", width: "auto" }}
                     >
                       <thead>
                         <tr>
@@ -204,7 +245,7 @@ export const VisualChangesetTable: FC<Props> = ({
                             <th
                               key={i}
                               className={`py-2 variation with-variation-label variation${i} with-variation-border-bottom`}
-                              style={{ borderBottomWidth: 3, width: "10rem" }}
+                              style={{ borderBottomWidth: 3 }}
                             >
                               <span className="label">{i}</span>
                               <span className="name">{v.name}</span>
@@ -221,9 +262,31 @@ export const VisualChangesetTable: FC<Props> = ({
                               (changes?.js ? 1 : 0) +
                               (changes?.domMutations?.length || 0);
                             return (
-                              <td key={j} className="px-4 py-1">
-                                <div className="d-flex justify-content-between">
+                              <td
+                                key={j}
+                                className="py-1"
+                                style={{
+                                  minWidth: "17.5rem",
+                                  width: `${
+                                    50 / Math.min(variations.length || 1, 4)
+                                  }rem`,
+                                }}
+                              >
+                                <div className="d-flex justify-content-between mx-3">
                                   <div>
+                                    <a
+                                      href="#"
+                                      className="mr-2"
+                                      onClick={() =>
+                                        setEditingVisualChange({
+                                          visualChange: changes,
+                                          visualChangeIndex: j,
+                                          visualChangeset: vc,
+                                        })
+                                      }
+                                    >
+                                      <FaPencilAlt />
+                                    </a>
                                     {numChanges} visual change
                                     {numChanges === 1 ? "" : "s"}
                                   </div>
@@ -278,6 +341,13 @@ export const VisualChangesetTable: FC<Props> = ({
           </div>
         </div>
       )}
+      {hasLegacyVisualChanges && (
+        <div className="alert alert-warning mt-3">
+          <Link href={`/experiments/designer/${experiment.id}`}>
+            Open Legacy Visual Editor
+          </Link>
+        </div>
+      )}
 
       {editingVisualChangeset ? (
         <VisualChangesetModal
@@ -289,13 +359,19 @@ export const VisualChangesetTable: FC<Props> = ({
         />
       ) : null}
 
-      {hasLegacyVisualChanges && (
-        <div className="alert alert-warning mt-3">
-          <Link href={`/experiments/designer/${experiment.id}`}>
-            Open Legacy Visual Editor
-          </Link>
-        </div>
-      )}
+      {editingVisualChange ? (
+        <EditDOMMutatonsModal
+          visualChange={editingVisualChange.visualChange}
+          close={() => setEditingVisualChange(null)}
+          onSave={(newVisualChange) =>
+            updateVisualChange({
+              index: editingVisualChange.visualChangeIndex,
+              visualChange: newVisualChange,
+              visualChangeset: editingVisualChange.visualChangeset,
+            })
+          }
+        />
+      ) : null}
     </>
   );
 };

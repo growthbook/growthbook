@@ -108,9 +108,7 @@ const VariationsTable: FC<Props> = ({
         }}
       >
         <table
-          className={`table table-bordered mx-3 w100-1rem ${
-            newUi ? "" : "bg-light"
-          }`}
+          className={`table table-bordered mx-3 ${newUi ? "" : "bg-light"}`}
         >
           <thead>
             <tr>
