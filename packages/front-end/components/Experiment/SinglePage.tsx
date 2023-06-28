@@ -177,12 +177,8 @@ export default function SinglePage({
   editPhases,
   editPhase,
 }: Props) {
-  const [variationsOpen, setVariationsOpen] = useLocalStorage<boolean>(
-    `experiment-page__${experiment.id}__variations-open`,
-    true
-  );
-  const [implementationOpen, setImplementationOpen] = useLocalStorage<boolean>(
-    `experiment-page__${experiment.id}__implementation-open`,
+  const [metaInfoOpen, setMetaInfoOpen] = useLocalStorage<boolean>(
+    `experiment-page__${experiment.id}__meta-info-open`,
     true
   );
   const [resultsTab, setResultsTab] = useLocalStorage<string>(
@@ -584,238 +580,233 @@ export default function SinglePage({
         </div>
       </div>
 
-      <div className="mb-4 pt-2 pb-0 border rounded bg-light">
-        <div className="mx-3 mb-2">
-          <div className="row align-items-center mb-2">
-            {(projects.length > 0 || projectIsDeReferenced) && (
-              <div className="col-auto pr-3">
-                Project:{" "}
-                {projectIsDeReferenced ? (
-                  <Tooltip
-                    body={
-                      <>
-                        Project <code>{projectId}</code> not found
-                      </>
-                    }
-                  >
-                    <span className="text-danger">
-                      <FaExclamationTriangle /> Invalid project
-                    </span>
-                  </Tooltip>
-                ) : projectId ? (
-                  <strong>{projectName}</strong>
-                ) : (
-                  <em className="text-muted">None</em>
-                )}
-                {editProject && (
-                  <a
-                    role="button"
-                    className="ml-2 cursor-pointer"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      editProject();
-                    }}
-                  >
-                    <GBEdit />
-                  </a>
-                )}
-              </div>
-            )}
+      <div className="mb-4">
+        <div className="row align-items-center mb-2">
+          {(projects.length > 0 || projectIsDeReferenced) && (
             <div className="col-auto pr-3">
-              Tags:{" "}
-              {experiment.tags?.length > 0 ? (
-                <SortedTags tags={experiment.tags} skipFirstMargin={true} />
+              Project:{" "}
+              {projectIsDeReferenced ? (
+                <Tooltip
+                  body={
+                    <>
+                      Project <code>{projectId}</code> not found
+                    </>
+                  }
+                >
+                  <span className="text-danger">
+                    <FaExclamationTriangle /> Invalid project
+                  </span>
+                </Tooltip>
+              ) : projectId ? (
+                <strong>{projectName}</strong>
               ) : (
                 <em className="text-muted">None</em>
-              )}{" "}
-              {editTags && (
+              )}
+              {editProject && (
                 <a
                   role="button"
-                  className="ml-1 cursor-pointer"
+                  className="ml-2 cursor-pointer"
                   onClick={(e) => {
                     e.preventDefault();
-                    editTags();
+                    editProject();
                   }}
                 >
                   <GBEdit />
                 </a>
               )}
             </div>
-
-            <div className="flex-1 col"></div>
-
-            <div className="col-auto pr-2">
-              <div className="mt-1 small text-gray">
-                {startDate && (
-                  <>
-                    {startDate}
-                    {endDate && <> — {endDate}</>}
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div className="col-auto">
-              <div
-                className="border rounded overflow-hidden d-flex mt-1"
-                style={{
-                  backgroundColor: "var(--surface-background-color)",
-                  boxShadow: "0 2px 5px rgba(0,0,0,.1) inset",
+          )}
+          <div className="col-auto pr-3">
+            Tags:{" "}
+            {experiment.tags?.length > 0 ? (
+              <SortedTags tags={experiment.tags} skipFirstMargin={true} />
+            ) : (
+              <em className="text-muted">None</em>
+            )}{" "}
+            {editTags && (
+              <a
+                role="button"
+                className="ml-1 cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  editTags();
                 }}
               >
-                <div
-                  className="d-flex px-3"
-                  style={{ height: 30, lineHeight: "30px" }}
-                >
-                  <StatusIndicator
-                    archived={experiment.archived}
-                    status={experiment.status}
-                    newUi={true}
-                  />
-                </div>
-                {experiment.status === "stopped" && experiment.results && (
-                  <div
-                    className="d-flex border-left"
-                    style={{ height: 30, lineHeight: "30px" }}
-                  >
-                    <ResultsIndicator
-                      results={experiment.results}
-                      newUi={true}
-                    />
-                  </div>
-                )}
-              </div>
+                <GBEdit />
+              </a>
+            )}
+          </div>
+
+          <div className="flex-1 col"></div>
+
+          <div className="col-auto pr-2">
+            <div className="mt-1 small text-gray">
+              {startDate && (
+                <>
+                  {startDate}
+                  {endDate && <> — {endDate}</>}
+                </>
+              )}
             </div>
           </div>
-          {currentProject && currentProject !== experiment.project && (
-            <div className="alert alert-warning p-2 mb-2 text-center">
-              This experiment is not in your current project.{" "}
-              <a
-                href="#"
-                className="a"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  await apiCall(`/experiment/${experiment.id}`, {
-                    method: "POST",
-                    body: JSON.stringify({
-                      currentProject,
-                    }),
-                  });
-                  mutate();
-                }}
+
+          <div className="col-auto">
+            <div
+              className="border rounded overflow-hidden d-flex mt-1"
+              style={{
+                backgroundColor: "var(--surface-background-color)",
+                boxShadow: "0 2px 5px rgba(0,0,0,.1) inset",
+              }}
+            >
+              <div
+                className="d-flex px-3"
+                style={{ height: 30, lineHeight: "30px" }}
               >
-                Move it to{" "}
-                <strong>
-                  {getProjectById(currentProject)?.name ||
-                    "the current project"}
-                </strong>
-              </a>
-            </div>
-          )}
-        </div>
-
-        <div className="px-3">
-          <MarkdownInlineEdit
-            value={experiment.description ?? ""}
-            save={async (description) => {
-              await apiCall(`/experiment/${experiment.id}`, {
-                method: "POST",
-                body: JSON.stringify({ description }),
-              });
-              mutate();
-            }}
-            canCreate={canEditExperiment}
-            canEdit={canEditExperiment}
-            className="mb-3"
-            containerClassName="mb-1"
-            headerClassName="font-weight-bolder"
-            label="description"
-            header="Description"
-          />
-
-          <MarkdownInlineEdit
-            value={experiment.hypothesis ?? ""}
-            save={async (hypothesis) => {
-              await apiCall(`/experiment/${experiment.id}`, {
-                method: "POST",
-                body: JSON.stringify({ hypothesis }),
-              });
-              mutate();
-            }}
-            canCreate={canEditExperiment}
-            canEdit={canEditExperiment}
-            label="hypothesis"
-            header={
-              <>
-                <FaRegLightbulb /> Hypothesis
-              </>
-            }
-            className="mb-3"
-            containerClassName="mb-1"
-            headerClassName="font-weight-bolder"
-          />
-
-          {idea && (
-            <div className="mb-3">
-              <div className="d-flex align-items-center">
-                <div className="mr-1">Idea:</div>
-                <div>
-                  {idea.impactScore > 0 && (
-                    <div
-                      className="badge badge-primary mr-1"
-                      title="Impact Score"
-                    >
-                      {idea.impactScore}
-                      <small>/100</small>
-                    </div>
-                  )}
+                <StatusIndicator
+                  archived={experiment.archived}
+                  status={experiment.status}
+                  newUi={true}
+                />
+              </div>
+              {experiment.status === "stopped" && experiment.results && (
+                <div
+                  className="d-flex border-left"
+                  style={{ height: 30, lineHeight: "30px" }}
+                >
+                  <ResultsIndicator results={experiment.results} newUi={true} />
                 </div>
-              </div>
-              <div>
-                <Link href={`/idea/${idea.id}`}>
-                  <a
-                    style={{
-                      maxWidth: 200,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      display: "inline-block",
-                      whiteSpace: "nowrap",
-                      verticalAlign: "middle",
-                    }}
-                    title={idea.text}
-                  >
-                    <FaExternalLinkAlt /> {idea.text}
-                  </a>
-                </Link>
-              </div>
+              )}
             </div>
-          )}
+          </div>
         </div>
+        {currentProject && currentProject !== experiment.project && (
+          <div className="alert alert-warning p-2 mb-2 text-center">
+            This experiment is not in your current project.{" "}
+            <a
+              href="#"
+              className="a"
+              onClick={async (e) => {
+                e.preventDefault();
+                await apiCall(`/experiment/${experiment.id}`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    currentProject,
+                  }),
+                });
+                mutate();
+              }}
+            >
+              Move it to{" "}
+              <strong>
+                {getProjectById(currentProject)?.name || "the current project"}
+              </strong>
+            </a>
+          </div>
+        )}
       </div>
 
       <div className="mb-4 pt-3 appbox">
         <Collapsible
           trigger={
-            <div className="px-3 pb-3">
-              <HeaderWithEdit
-                edit={editVariations ?? undefined}
-                editElement={<div className="btn-link">Edit Variations</div>}
-                stopPropagation={true}
-                containerClassName="justify-content-between"
-              >
-                <>
-                  <FaAngleRight className="chevron" /> Variations{" "}
-                  <small>({experiment.variations.length})</small>
-                </>
-              </HeaderWithEdit>
+            <div className="h3 px-3 pb-2">
+              <FaAngleRight className="chevron" /> Meta Information
             </div>
           }
-          open={variationsOpen}
-          onTriggerOpening={() => setVariationsOpen(true)}
-          onTriggerClosing={() => setVariationsOpen(false)}
+          open={metaInfoOpen}
+          onTriggerOpening={() => setMetaInfoOpen(true)}
+          onTriggerClosing={() => setMetaInfoOpen(false)}
           transitionTime={150}
         >
-          <div className="">
+          <div className="mx-4 pt-3 border-top">
+            <div className="mb-4">
+              <MarkdownInlineEdit
+                value={experiment.description ?? ""}
+                save={async (description) => {
+                  await apiCall(`/experiment/${experiment.id}`, {
+                    method: "POST",
+                    body: JSON.stringify({ description }),
+                  });
+                  mutate();
+                }}
+                canCreate={canEditExperiment}
+                canEdit={canEditExperiment}
+                className="mb-3"
+                containerClassName="mb-1"
+                label="description"
+                header="Description"
+                headerClassName="h4"
+              />
+
+              <MarkdownInlineEdit
+                value={experiment.hypothesis ?? ""}
+                save={async (hypothesis) => {
+                  await apiCall(`/experiment/${experiment.id}`, {
+                    method: "POST",
+                    body: JSON.stringify({ hypothesis }),
+                  });
+                  mutate();
+                }}
+                canCreate={canEditExperiment}
+                canEdit={canEditExperiment}
+                label="hypothesis"
+                header={
+                  <>
+                    <FaRegLightbulb /> Hypothesis
+                  </>
+                }
+                headerClassName="h4"
+                className="mb-3"
+                containerClassName="mb-1"
+              />
+
+              {idea && (
+                <div className="mb-3">
+                  <div className="d-flex align-items-center">
+                    <div className="mr-1">Idea:</div>
+                    <div>
+                      {idea.impactScore > 0 && (
+                        <div
+                          className="badge badge-primary mr-1"
+                          title="Impact Score"
+                        >
+                          {idea.impactScore}
+                          <small>/100</small>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <Link href={`/idea/${idea.id}`}>
+                      <a
+                        style={{
+                          maxWidth: 200,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          display: "inline-block",
+                          whiteSpace: "nowrap",
+                          verticalAlign: "middle",
+                        }}
+                        title={idea.text}
+                      >
+                        <FaExternalLinkAlt /> {idea.text}
+                      </a>
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <HeaderWithEdit
+            edit={editVariations ?? undefined}
+            editElement={<div className="btn-link">Edit Variations</div>}
+            className="h3 mt-1 mb-2"
+            containerClassName="mx-4 mb-1 justify-content-between"
+          >
+            Variations
+          </HeaderWithEdit>
+
+          <div className="mx-1 mb-3">
             <VariationsTable
               experiment={experiment}
               visualChangesets={visualChangesets}
@@ -826,39 +817,19 @@ export default function SinglePage({
               newUi={true}
             />
           </div>
-        </Collapsible>
-      </div>
 
-      <div className="mb-4 pt-3 appbox">
-        <Collapsible
-          trigger={
-            <div className="px-3 pb-2 d-flex">
-              <div className="h3">
-                <FaAngleRight className="chevron" /> Implementation{" "}
-              </div>
-              <div className="flex-1"></div>
-              <div className="text-gray ml-2">
-                Visual Editor Changes{" "}
-                <small>({visualChangesets.length || 0})</small>
-              </div>
-              <div className="text-gray ml-4">
-                Feature Flags <small>({0})</small>
-              </div>
-            </div>
-          }
-          open={implementationOpen}
-          onTriggerOpening={() => setImplementationOpen(true)}
-          onTriggerClosing={() => setImplementationOpen(false)}
-          transitionTime={150}
-        >
-          <VisualChangesetTable
-            experiment={experiment}
-            visualChangesets={visualChangesets}
-            mutate={mutate}
-            canEditVisualChangesets={hasVisualEditorPermission}
-            setVisualEditorModal={setVisualEditorModal}
-            newUi={true}
-          />
+          <div className="mx-4 pb-3">
+            <div className="h3 pb-2">Visual Changes</div>
+
+            <VisualChangesetTable
+              experiment={experiment}
+              visualChangesets={visualChangesets}
+              mutate={mutate}
+              canEditVisualChangesets={hasVisualEditorPermission}
+              setVisualEditorModal={setVisualEditorModal}
+              newUi={true}
+            />
+          </div>
         </Collapsible>
       </div>
 

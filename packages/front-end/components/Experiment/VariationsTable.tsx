@@ -100,7 +100,7 @@ const VariationsTable: FC<Props> = ({
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
 
   return (
-    <div className="">
+    <div className="mx-1">
       <div
         className="mb-2 fade-mask-1rem"
         style={{
@@ -159,10 +159,8 @@ const VariationsTable: FC<Props> = ({
                     canEditExperiment ? "pb-1" : ""
                   }`}
                   style={{
-                    // minWidth: "17.5rem",
-                    width: `${100 / (variations.length || 1)}%`,
-                    minWidth: "25%",
-                    maxWidth: "50%",
+                    minWidth: "17.5rem",
+                    width: `${50 / Math.min(variations.length || 1, 4)}rem`,
                     height: "inherit",
                     borderBottom: canEditExperiment ? 0 : undefined,
                   }}
