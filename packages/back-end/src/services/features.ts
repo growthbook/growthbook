@@ -256,7 +256,14 @@ export function getSurrogateKey(
   project: string,
   environment: string
 ) {
-  return `${orgId}_${project || "AllProjects"}_${environment || "production"}`;
+  // Fill with default values if missing
+  project = project || "AllProjects";
+  environment = environment || "production";
+
+  const key = `${orgId}_${project}_${environment}`;
+
+  // Protect against environments or projects having unusual characters
+  return key.replace(/[^a-zA-Z0-9_-]/g, "");
 }
 
 export async function purgeCDNCache(
