@@ -28,6 +28,13 @@
     "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\namount as value\nFROM orders"
   },
   {
+    "id": "nonbinom__count_distinct_date",
+    "type": "count",
+    "ignoreNulls": false,
+    "aggregation": "COUNT(DISTINCT value)",
+    "sql": "SELECT\nuserId as user_id,\ntimestamp as timestamp,\nCAST(timestamp AS DATE) as value\nFROM orders"
+  },
+  {
     "id": "binomial__any_item_in_cart",
     "type": "binomial",
     "ignoreNulls": false,
