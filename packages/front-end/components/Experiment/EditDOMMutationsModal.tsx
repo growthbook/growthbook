@@ -51,7 +51,7 @@ const EditDOMMutatonsModal: FC<{
       submit={onSubmit}
       cta="Save"
     >
-      <div className="col">
+      <div>
         <div className="mb-4">
           <h4>
             Global CSS
@@ -101,19 +101,21 @@ const EditDOMMutatonsModal: FC<{
 
           {newVisualChange.domMutations.length ? (
             newVisualChange.domMutations.map((m, i) => (
-              <div key={i} className="d-flex">
+              <div key={i} className="d-flex flex-column align-items-end">
+                <a
+                  className="text-danger"
+                  href="#"
+                  onClick={() => deleteDOMMutation(i)}
+                  style={{ marginBottom: "-.5rem", fontSize: "0.75rem" }}
+                >
+                  delete
+                </a>
                 <Code
                   language="json"
                   code={JSON.stringify(m)}
                   className="disabled"
+                  containerClassName="w-100"
                 />
-                <button
-                  className="btn text-danger"
-                  onClick={() => deleteDOMMutation(i)}
-                  style={{ fontSize: "1.2rem", paddingLeft: "0.3rem" }}
-                >
-                  &times;
-                </button>
               </div>
             ))
           ) : (
