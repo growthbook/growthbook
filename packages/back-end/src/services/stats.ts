@@ -30,7 +30,7 @@ export async function analyzeExperimentMetric(
   variations: ExperimentReportVariation[],
   metric: MetricInterface,
   rows: ExperimentMetricQueryResponse,
-  maxDimensions: number,
+  dimension: string | null = null,
   statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
   sequentialTestingEnabled: boolean = false,
   sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
@@ -51,6 +51,7 @@ export async function analyzeExperimentMetric(
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gbstats import (
+  diff_for_daily_time_series,
   detect_unknown_variations,
   analyze_metric_df,
   get_metric_df,
@@ -67,7 +68,8 @@ data = json.loads("""${JSON.stringify({
       weights: variations.map((v) => v.weight),
       ignore_nulls: !!metric.ignoreNulls,
       inverse: !!metric.inverse,
-      max_dimensions: maxDimensions,
+      max_dimensions:
+        dimension?.substring(0, 8) === "pre:date" ? 9999 : MAX_DIMENSIONS,
       rows,
     }).replace(/\\/g, "\\\\")}""", strict=False)
 
@@ -84,6 +86,10 @@ unknown_var_ids = detect_unknown_variations(
   rows=rows,
   var_id_map=var_id_map
 )
+
+${
+  dimension === "pre:datedaily" ? `rows = diff_for_daily_time_series(rows)` : ``
+}
 
 df = get_metric_df(
   rows=rows,
@@ -217,7 +223,7 @@ export async function analyzeExperimentResults({
           })),
           metric,
           data.rows,
-          analysisSettings.dimensions[0] === "pre:date" ? 100 : MAX_DIMENSIONS,
+          analysisSettings.dimensions[0],
           analysisSettings.statsEngine,
           analysisSettings.sequentialTesting,
           analysisSettings.sequentialTestingTuningParameter

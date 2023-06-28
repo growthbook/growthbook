@@ -1,5 +1,6 @@
 import { FC, useState, useEffect } from "react";
 import {
+  ExperimentSnapshotInterface,
   ExperimentSnapshotAnalysis,
   SnapshotVariation,
 } from "back-end/types/experiment-snapshot";
@@ -12,6 +13,7 @@ import {
   formatConversionRate,
   getMetricConversionTitle,
 } from "@/services/metrics";
+import { trackSnapshot } from "@/services/track";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import { SRM_THRESHOLD } from "./SRMWarning";
@@ -30,6 +32,7 @@ const ManualSnapshotForm: FC<{
 }> = ({ experiment, close, success, lastAnalysis, phase }) => {
   const { metrics, getMetricById } = useDefinitions();
   const { apiCall } = useAuth();
+  const { getDatasourceById } = useDefinitions();
 
   const filteredMetrics: MetricInterface[] = [];
 
@@ -198,16 +201,23 @@ const ManualSnapshotForm: FC<{
   }, [hash]);
 
   const onSubmit = form.handleSubmit(async (values) => {
-    await apiCall<{ status: number; message: string }>(
-      `/experiment/${experiment.id}/snapshot`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          phase,
-          users: values.users,
-          metrics: getStats(),
-        }),
-      }
+    const res = await apiCall<{
+      status: number;
+      message: string;
+      snapshot: ExperimentSnapshotInterface;
+    }>(`/experiment/${experiment.id}/snapshot`, {
+      method: "POST",
+      body: JSON.stringify({
+        phase,
+        users: values.users,
+        metrics: getStats(),
+      }),
+    });
+    trackSnapshot(
+      "create",
+      "ManualSnapshotForm",
+      getDatasourceById(experiment.datasource)?.type || null,
+      res.snapshot
     );
 
     success();
