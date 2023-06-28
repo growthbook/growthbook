@@ -10,7 +10,7 @@ import {
   VisualChangesetURLPattern,
 } from "back-end/types/visual-changeset";
 import React, { FC, Fragment, useCallback, useState } from "react";
-import { FaPlusCircle, FaTimesCircle } from "react-icons/fa";
+import { FaPencilAlt, FaPlusCircle, FaTimesCircle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -415,12 +415,9 @@ const VariationsTable: FC<Props> = ({
                               <td key={j} className="px-4 py-1">
                                 <div className="d-flex justify-content-between">
                                   <div>
-                                    {numChanges} visual change
-                                    {numChanges === 1 ? "" : "s"}
-                                  </div>
-                                  <div>
                                     <a
                                       href="#"
+                                      className="mr-2"
                                       onClick={() =>
                                         setEditingVisualChange({
                                           visualChange: changes,
@@ -429,23 +426,24 @@ const VariationsTable: FC<Props> = ({
                                         })
                                       }
                                     >
-                                      Edit
+                                      <FaPencilAlt />
                                     </a>
-                                    {" / "}
-                                    <div>
-                                      <a
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        href={appendQueryParamsToURL(
-                                          vc.editorUrl,
-                                          {
-                                            [experiment.trackingKey]: j,
-                                          }
-                                        )}
-                                      >
-                                        Preview
-                                      </a>
-                                    </div>
+                                    {numChanges} visual change
+                                    {numChanges === 1 ? "" : "s"}
+                                  </div>
+                                  <div>
+                                    <a
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      href={appendQueryParamsToURL(
+                                        vc.editorUrl,
+                                        {
+                                          [experiment.trackingKey]: j,
+                                        }
+                                      )}
+                                    >
+                                      Preview
+                                    </a>
                                   </div>
                                 </div>
                               </td>

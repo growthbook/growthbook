@@ -47,7 +47,7 @@ const EditDOMMutatonsModal: FC<{
       open
       close={close}
       size="lg"
-      header="Edit Visual Changes"
+      header="Remove Visual Changes"
       submit={onSubmit}
       cta="Save"
     >
@@ -101,24 +101,19 @@ const EditDOMMutatonsModal: FC<{
 
           {newVisualChange.domMutations.length ? (
             newVisualChange.domMutations.map((m, i) => (
-              <div key={i}>
-                <div className="d-flex align-items-baseline">
-                  <strong className="py-2 mr-2">{i + 1}.</strong>
-                  <div>
-                    <a
-                      href="#"
-                      className="text-danger"
-                      onClick={() => deleteDOMMutation(i)}
-                    >
-                      delete
-                    </a>
-                  </div>
-                </div>
+              <div key={i} className="d-flex">
                 <Code
                   language="json"
                   code={JSON.stringify(m)}
                   className="disabled"
                 />
+                <button
+                  className="btn text-danger"
+                  onClick={() => deleteDOMMutation(i)}
+                  style={{ fontSize: "1.2rem", paddingLeft: "0.3rem" }}
+                >
+                  &times;
+                </button>
               </div>
             ))
           ) : (
