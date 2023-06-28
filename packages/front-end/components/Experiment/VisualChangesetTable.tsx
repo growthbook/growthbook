@@ -274,19 +274,22 @@ export const VisualChangesetTable: FC<Props> = ({
                               >
                                 <div className="d-flex justify-content-between mx-2">
                                   <div>
-                                    <a
-                                      href="#"
-                                      className="mr-2"
-                                      onClick={() =>
-                                        setEditingVisualChange({
-                                          visualChange: changes,
-                                          visualChangeIndex: j,
-                                          visualChangeset: vc,
-                                        })
-                                      }
-                                    >
-                                      <FaPencilAlt />
-                                    </a>
+                                    {canEditVisualChangesets &&
+                                      experiment.status === "draft" && (
+                                        <a
+                                          href="#"
+                                          className="mr-2"
+                                          onClick={() =>
+                                            setEditingVisualChange({
+                                              visualChange: changes,
+                                              visualChangeIndex: j,
+                                              visualChangeset: vc,
+                                            })
+                                          }
+                                        >
+                                          <FaPencilAlt />
+                                        </a>
+                                      )}
                                     {numChanges} visual change
                                     {numChanges === 1 ? "" : "s"}
                                   </div>
