@@ -1,9 +1,8 @@
-import { ReactElement, useEffect, useState } from "react";
+import { useState, ReactElement, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
 import clsx from "clsx";
-import { UserIdType } from "@/../back-end/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { validateSQL } from "@/services/datasources";
@@ -22,12 +21,8 @@ export interface Props {
   close: () => void;
   requiredColumns: Set<string>;
   placeholder?: string;
-  queryType?: "segment" | "dimension" | "metric" | "experiment-assignment";
-  setDimensions?: (dimensions: string[]) => void;
-  setHasNameCols?: (hasNameCols: boolean) => void;
-  identityTypes?: UserIdType[];
-  userEnteredHasNameCol?: boolean;
-  userEnteredDimensions?: string[];
+  validateResponse?: (response: TestQueryResults) => void;
+  suggestions?: ReactElement[];
 }
 
 type TestQueryResults = {
@@ -44,14 +39,13 @@ export default function EditSqlModal({
   requiredColumns,
   placeholder = "",
   datasourceId,
-  queryType,
-  identityTypes,
-  setHasNameCols,
-  setDimensions,
-  userEnteredDimensions = [],
-  userEnteredHasNameCol,
+  validateResponse,
+  suggestions = [],
 }: Props) {
-  const [suggestions, setSuggestions] = useState<ReactElement[]>([]);
+  const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
+  const [autoCloseOnSubmit, setAutoCloseOnSubmit] = useState(
+    validateResponse ? false : true
+  );
   const form = useForm({
     defaultValues: {
       sql: value,
@@ -68,98 +62,6 @@ export default function EditSqlModal({
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [testingQuery, setTestingQuery] = useState(false);
 
-  // We do some one-off logic for Experiment Assignment queries
-  useEffect(() => {
-    if (
-      queryType === "experiment-assignment" &&
-      setHasNameCols &&
-      setDimensions
-    ) {
-      const result = testQueryResults?.results?.[0];
-      if (!result) return;
-
-      const suggestions: ReactElement[] = [];
-
-      const namedCols = ["experiment_name", "variation_name"];
-      const userIdTypes = identityTypes?.map((type) => type.userIdType || []);
-
-      const returnedColumns = new Set<string>(Object.keys(result));
-      const optionalColumns = [...returnedColumns].filter(
-        (col) =>
-          !requiredColumns.has(col) &&
-          !namedCols.includes(col) &&
-          !userIdTypes?.includes(col)
-      );
-
-      // Check if `hasNameCol` should be enabled
-      if (!userEnteredHasNameCol) {
-        // Selected both required columns, turn on `hasNameCol` automatically
-        if (
-          returnedColumns.has("experiment_name") &&
-          returnedColumns.has("variation_name")
-        ) {
-          setHasNameCols(true);
-        }
-        // Only selected `experiment_name`, add warning
-        else if (returnedColumns.has("experiment_name")) {
-          suggestions.push(
-            <>
-              Add <code>variation_name</code> to your SELECT clause to enable
-              GrowthBook to populate names automatically.
-            </>
-          );
-        }
-        // Only selected `variation_name`, add warning
-        else if (returnedColumns.has("variation_name")) {
-          suggestions.push(
-            <>
-              Add <code>experiment_name</code> to your SELECT clause to enable
-              GrowthBook to populate names automatically.
-            </>
-          );
-        }
-      }
-
-      // Prompt to add optional columns as dimensions
-      if (optionalColumns.length > 0) {
-        suggestions.push(
-          <>
-            The following columns were returned, but will be ignored. Add them
-            as dimensions or disregard this message.
-            <ul className="mb-0 pb-0">
-              {optionalColumns.map((col) => (
-                <li key={col}>
-                  <code>{col}</code> -{" "}
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      setDimensions([...userEnteredDimensions, col]);
-                    }}
-                  >
-                    add as dimension
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </>
-        );
-      }
-
-      setSuggestions(suggestions);
-    }
-  }, [
-    requiredColumns,
-    testQueryResults,
-    form,
-    queryType,
-    userEnteredHasNameCol,
-    userEnteredDimensions,
-    identityTypes,
-    setHasNameCols,
-    setDimensions,
-  ]);
-
   const handleTestQuery = async () => {
     const sql = form.getValues("sql");
     setTestQueryResults(null);
@@ -174,6 +76,14 @@ export default function EditSqlModal({
         }),
       });
 
+      if (res.results?.length && validateResponse) {
+        validateResponse(res.results[0]);
+      }
+
+      if (!res.error && !suggestions.length) {
+        setAutoCloseOnSubmit(true);
+      }
+
       setTestQueryResults(res);
     } catch (e) {
       setTestQueryResults({ error: e.message });
@@ -184,11 +94,25 @@ export default function EditSqlModal({
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
 
+  useEffect(() => {
+    setAutoCloseOnSubmit(!testQueryBeforeSaving);
+  }, [autoCloseOnSubmit, testQueryBeforeSaving]);
+
+  useEffect(() => {
+    if (testQueryResults && !testQueryResults.error && !suggestions.length) {
+      setAutoCloseOnSubmit(true);
+    }
+  }, [suggestions.length, testQueryResults]);
+
   return (
     <Modal
       open
       header="Edit SQL"
       submit={form.handleSubmit(async (value) => {
+        if (testQueryBeforeSaving) {
+          await handleTestQuery();
+        }
+
         await save(value.sql);
       })}
       close={close}
@@ -196,6 +120,18 @@ export default function EditSqlModal({
       bodyClassName="p-0"
       cta="Save"
       closeCta="Back"
+      autoCloseOnSubmit={autoCloseOnSubmit}
+      secondaryCTA={
+        <label>
+          <input
+            type="checkbox"
+            className="form-check-input"
+            checked={testQueryBeforeSaving}
+            onChange={(e) => setTestQueryBeforeSaving(e.target.checked)}
+          />
+          Test Query Before Saving
+        </label>
+      }
     >
       <div
         className={clsx("d-flex", {

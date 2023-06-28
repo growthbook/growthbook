@@ -1,4 +1,4 @@
-import React, { FC, useMemo, useState } from "react";
+import React, { FC, ReactElement, useMemo, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
@@ -6,7 +6,7 @@ import {
 import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
-import { FaExternalLinkAlt } from "react-icons/fa";
+import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Toggle from "@/components/Forms/Toggle";
@@ -31,6 +31,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onCancel,
 }) => {
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
+  const [suggestions, setSuggestions] = useState<ReactElement[]>([]);
   const [sqlOpen, setSqlOpen] = useState(false);
   const modalTitle =
     mode === "add"
@@ -117,19 +118,88 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
           datasourceId={dataSource.id || ""}
           requiredColumns={requiredColumns}
           value={userEnteredQuery}
-          save={async (userEnteredQuery) =>
-            form.setValue("query", userEnteredQuery)
-          }
-          queryType="experiment-assignment"
-          setDimensions={(dimensions) =>
-            form.setValue("dimensions", dimensions)
-          }
-          setHasNameCols={(hasNameCol) => {
-            form.setValue("hasNameCol", hasNameCol);
+          save={async (userEnteredQuery) => {
+            form.setValue("query", userEnteredQuery);
           }}
-          identityTypes={identityTypes}
-          userEnteredHasNameCol={userEnteredHasNameCol}
-          userEnteredDimensions={userEnteredDimensions}
+          suggestions={suggestions}
+          validateResponse={(result) => {
+            if (!result) return;
+
+            const suggestions: ReactElement[] = [];
+
+            const namedCols = ["experiment_name", "variation_name"];
+            const userIdTypes = identityTypes?.map(
+              (type) => type.userIdType || []
+            );
+
+            const returnedColumns = new Set<string>(Object.keys(result));
+            const optionalColumns = [...returnedColumns].filter(
+              (col) =>
+                !requiredColumns.has(col) &&
+                !namedCols.includes(col) &&
+                !userIdTypes?.includes(col)
+            );
+
+            // Check if `hasNameCol` should be enabled
+            if (!userEnteredHasNameCol) {
+              // Selected both required columns, turn on `hasNameCol` automatically
+              if (
+                returnedColumns.has("experiment_name") &&
+                returnedColumns.has("variation_name")
+              ) {
+                form.setValue("hasNameCol", true);
+              }
+              // Only selected `experiment_name`, add warning
+              else if (returnedColumns.has("experiment_name")) {
+                suggestions.push(
+                  <>
+                    Add <code>variation_name</code> to your SELECT clause to
+                    enable GrowthBook to populate names automatically.
+                  </>
+                );
+              }
+              // Only selected `variation_name`, add warning
+              else if (returnedColumns.has("variation_name")) {
+                suggestions.push(
+                  <>
+                    Add <code>experiment_name</code> to your SELECT clause to
+                    enable GrowthBook to populate names automatically.
+                  </>
+                );
+              }
+            }
+
+            // Prompt to add optional columns as dimensions
+            if (optionalColumns.length > 0) {
+              suggestions.push(
+                <>
+                  The following columns were returned, but will be ignored. Add
+                  them as dimensions or disregard this message.
+                  <ul className="mb-0 pb-0">
+                    {optionalColumns.map((col) => (
+                      <li key={col}>
+                        <code>{col}</code> -{" "}
+                        <a
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            form.setValue("dimensions", [
+                              ...userEnteredDimensions,
+                              col,
+                            ]);
+                          }}
+                        >
+                          add as dimension
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              );
+            }
+
+            setSuggestions(suggestions);
+          }}
         />
       )}
       <Modal
@@ -159,7 +229,14 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 {...form.register("userIdType")}
               />
               <div className="form-group">
-                <label>Query</label>
+                <label className="mr-5">Query</label>
+                {userEnteredQuery === defaultQuery && (
+                  <div className="alert alert-info">
+                    <FaExclamationTriangle style={{ marginTop: "-2px" }} /> The
+                    prefilled query below may require editing to fit your data
+                    structure.
+                  </div>
+                )}
                 {userEnteredQuery && (
                   <Code
                     language="sql"
@@ -168,12 +245,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                   />
                 )}
                 <div>
-                  {userEnteredQuery === defaultQuery && (
-                    <div className="alert alert-warning">
-                      The query above is just a starting point and will need to
-                      be customized.
-                    </div>
-                  )}
                   <button
                     className="btn btn-primary mt-2"
                     type="button"
