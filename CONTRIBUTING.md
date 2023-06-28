@@ -58,8 +58,12 @@ It's **strongly recommended** that if you are using WSL on Windows that you run 
 docker run -d -p 27017:27017 --name mongo \
   -e MONGO_INITDB_ROOT_USERNAME=root \
   -e MONGO_INITDB_ROOT_PASSWORD=password \
+  -v ~/gb_mongo_data/:/data/db \
   mongo
 ```
+
+The -v is optional and will store the data in your ~/gb_mongo_data directory on your computer. This will allow you to start a new docker container with the same command in case the old one dies preserving your data. Setup can also be shared between devs
+by replacing the contents of that directory with theirs.
 
 If docker isn't running, view [this](https://stackoverflow.com/questions/44678725/cannot-connect-to-the-docker-daemon-at-unix-var-run-docker-sock-is-the-docker).
 Look at [this](https://www.digitalocean.com/community/questions/how-to-fix-docker-got-permission-denied-while-trying-to-connect-to-the-docker-daemon-socket) for other docker issues with Linux
