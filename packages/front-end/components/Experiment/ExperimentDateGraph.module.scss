@@ -1,52 +1,72 @@
+.dategraph {
+  z-index: 1;
+  position: absolute;
+  overflow: hidden;
+
+  .positionIndicator {
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    margin-left: -6px;
+    margin-top: -6px;
+    border-radius: 50%;
+    background: rgba(96, 48, 183, 0.8);
+    box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
+    border: 1px solid #ffffff;
+    box-sizing: border-box;
+  }
+  .crosshair {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 0px;
+    margin-left: -0.5px;
+    border-left: 1px dashed rgba(96, 48, 183, 0.8);
+  }
+}
+
 .tooltip {
+  position: absolute;
   display: inline-block;
-  background-color: var(--surface-background-color);
+  background-color: var(--surface-background-color-alt);
   box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
   padding: 3px 8px;
   border: 1px solid var(--border-color-300);
   box-sizing: border-box;
   border-radius: 2px;
   font-size: 12px;
+  color: var(--text-color-table);
+  z-index: 100;
+  pointer-events: none;
   transition: 100ms all;
-  text-align: right;
-  .date {
-    margin: 2px -2px -2px 20px;
-    text-align: right;
-    font-size: 10px;
+
+  .table {
+    thead {
+      text-align: center;
+    }
+    tr,
+    td {
+      padding-left: 0.35rem;
+      padding-right: 0.35rem;
+    }
+    thead {
+      td {
+        border-bottom: 1px solid var(--border-color-300);
+        color: var(--text-color-muted);
+      }
+    }
+    tbody {
+      td {
+        border-bottom: 1px solid var(--border-color-100);
+        &:not(:first-child) {
+          text-align: center;
+          border-left: 1px solid var(--border-color-100);
+        }
+      }
+      td:first-child {
+        max-width: 120px;
+      }
+    }
   }
-  .val {
-    font-size: 13px;
-    line-height: 15px;
-    margin: 2px 0;
-    font-weight: 600;
-  }
-  .secondary {
-    line-height: 14px;
-  }
-}
-.tooltipDategraph {
-  z-index: 1;
-  position: absolute;
-  overflow: hidden;
-}
-.positionIndicator {
-  position: absolute;
-  width: 12px;
-  height: 12px;
-  margin-left: -6px;
-  margin-top: -6px;
-  border-radius: 50%;
-  background: rgba(96, 48, 183, 0.8);
-  box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
-  border: 1px solid var(--surface-background-color);
-  box-sizing: border-box;
-}
-.crosshair {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 0px;
-  margin-left: -0.5px;
-  border-left: 1px dashed rgba(96, 48, 183, 0.8);
 }

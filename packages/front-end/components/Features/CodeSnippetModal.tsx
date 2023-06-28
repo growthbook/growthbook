@@ -436,15 +436,15 @@ export default function CodeSnippetModal({
                             </div>
                           )}
                           <Code
-                            filename="psuedocode"
+                            filename="pseudocode"
                             language="javascript"
                             code={`const salt = "${secureAttributeSalt}";
 
 // hashing a secureString attribute
-myAttribute = sha256(myAttribute + salt);
+myAttribute = sha256(salt + myAttribute);
 
 // hashing an secureString[] attribute
-myAttributes = myAttributes.map(attribute => sha256(attribute + salt));`}
+myAttributes = myAttributes.map(attribute => sha256(salt + attribute));`}
                           />
                         </div>
                         <div className="alert text-warning-orange mt-3 mb-0 px-2 py-1">

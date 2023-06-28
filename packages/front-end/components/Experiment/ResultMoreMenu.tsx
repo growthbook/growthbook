@@ -15,6 +15,8 @@ import Button from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { trackReport } from "@/services/track";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function ResultMoreMenu({
   editMetrics,
@@ -56,6 +58,7 @@ export default function ResultMoreMenu({
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissions = usePermissions();
+  const { getDatasourceById } = useDefinitions();
 
   const canEdit = permissions.check("createAnalyses", project);
 
@@ -108,6 +111,12 @@ export default function ResultMoreMenu({
             if (!res.report) {
               throw new Error("Failed to create report");
             }
+            trackReport(
+              "create",
+              "AdhocReportButton",
+              getDatasourceById(res.report.args.datasource)?.type || null,
+              res.report
+            );
 
             await router.push(`/report/${res.report.id}`);
           }}
