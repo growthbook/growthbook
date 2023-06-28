@@ -401,11 +401,10 @@ def main():
                 **{k: v for k, v in test_case.items() if k in update_fields}
             })
         else:
-            print("exec: ", test_case['name'])
+            if engine not in nonlinted_engines:
+                validate(test_case)
             if engine not in runners:
                 runners[engine] = get_sql_runner(engine)
-            #if engine not in nonlinted_engines:
-            #    validate(test_case)
             result = execute_query(test_case["sql"], runners[engine])
             result.update(test_case)
             cache[key] = result

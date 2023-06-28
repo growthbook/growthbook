@@ -1235,7 +1235,7 @@ export default abstract class SqlIntegration
       }
       -- One row per variation/dimension with aggregations
       SELECT
-        m.variation,
+        m.variation AS variation,
         ${
           cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
         } AS dimension,
