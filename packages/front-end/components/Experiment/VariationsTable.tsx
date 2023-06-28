@@ -415,19 +415,22 @@ const VariationsTable: FC<Props> = ({
                               <td key={j} className="px-4 py-1">
                                 <div className="d-flex justify-content-between">
                                   <div>
-                                    <a
-                                      href="#"
-                                      className="mr-2"
-                                      onClick={() =>
-                                        setEditingVisualChange({
-                                          visualChange: changes,
-                                          visualChangeIndex: j,
-                                          visualChangeset: vc,
-                                        })
-                                      }
-                                    >
-                                      <FaPencilAlt />
-                                    </a>
+                                    {canEditVisualChangesets &&
+                                      experiment.status === "draft" && (
+                                        <a
+                                          href="#"
+                                          className="mr-2"
+                                          onClick={() =>
+                                            setEditingVisualChange({
+                                              visualChange: changes,
+                                              visualChangeIndex: j,
+                                              visualChangeset: vc,
+                                            })
+                                          }
+                                        >
+                                          <FaPencilAlt />
+                                        </a>
+                                      )}
                                     {numChanges} visual change
                                     {numChanges === 1 ? "" : "s"}
                                   </div>
