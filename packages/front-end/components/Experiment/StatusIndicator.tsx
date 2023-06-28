@@ -1,8 +1,9 @@
 import { FC } from "react";
 import clsx from "clsx";
 import { ExperimentStatus } from "back-end/types/experiment";
-import { FaArchive, FaPause, FaPlay, FaStop } from "react-icons/fa";
+import { FaArchive, FaPlay, FaStop } from "react-icons/fa";
 import styles from "./StatusIndicator.module.scss";
+import { BsConeStriped } from "react-icons/bs";
 
 const getColor = (status: ExperimentStatus) => {
   switch (status) {
@@ -37,7 +38,7 @@ const StatusIndicator: FC<{
           <div
             className={clsx(styles.container, className, "text-warning-orange")}
           >
-            <FaPause className="mr-1" />
+            <BsConeStriped className="mr-1" />
             Draft
           </div>
         );

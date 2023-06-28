@@ -21,9 +21,9 @@ import {
 import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared/constants";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { getScopedSettings } from "shared/settings";
+import { date } from "shared/dates";
 import Collapsible from "react-collapsible";
 import { DiscussionInterface } from "back-end/types/discussion";
-import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -40,7 +40,6 @@ import track from "@/services/track";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
-import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
@@ -217,6 +216,17 @@ export default function SinglePage({
   const { data: discussionData } = useApi<{ discussion: DiscussionInterface }>(
     `/discussion/experiment/${experiment.id}`
   );
+
+  const phases = experiment.phases || [];
+  const startDate = phases?.[0]?.dateStarted
+    ? date(phases[0].dateStarted)
+    : null;
+  const endDate =
+    phases.length > 0
+      ? phases?.[phases.length - 1]?.dateEnded
+        ? date(phases[phases.length - 1].dateEnded ?? "")
+        : "now"
+      : null;
 
   const [reportSettingsOpen, setReportSettingsOpen] = useState(false);
   const [editNameOpen, setEditNameOpen] = useState(false);
@@ -635,8 +645,13 @@ export default function SinglePage({
             <div className="flex-1 col"></div>
 
             <div className="col-auto pr-2">
-              <div className="mt-1">
-                <PhaseSelector mutateExperiment={mutate} newUi={true} />
+              <div className="mt-1 small text-gray">
+                {startDate && (
+                  <>
+                    {startDate}
+                    {endDate && <> — {endDate}</>}
+                  </>
+                )}
               </div>
             </div>
 
@@ -649,14 +664,7 @@ export default function SinglePage({
                 }}
               >
                 <div
-                  role="button"
-                  className={clsx("d-flex px-3", {
-                    "btn-experiment-status": canRunExperiment,
-                    "cursor-not-allowed": !canRunExperiment,
-                  })}
-                  onClick={
-                    canRunExperiment ? () => setStatusModal(true) : undefined
-                  }
+                  className="d-flex px-3"
                   style={{ height: 30, lineHeight: "30px" }}
                 >
                   <StatusIndicator
@@ -667,11 +675,7 @@ export default function SinglePage({
                 </div>
                 {experiment.status === "stopped" && experiment.results && (
                   <div
-                    className={clsx("d-flex border-left", {
-                      "btn-experiment-results": canRunExperiment,
-                      "cursor-not-allowed": !canRunExperiment,
-                    })}
-                    onClick={editResult ? () => editResult() : undefined}
+                    className="d-flex border-left"
                     style={{ height: 30, lineHeight: "30px" }}
                   >
                     <ResultsIndicator
