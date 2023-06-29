@@ -819,6 +819,7 @@ export default function SinglePage({
           </div>
 
           <div className="mx-4 pb-3">
+            <div className="h3 mb-2">Linked Changes</div>
             <VisualChangesetTable
               experiment={experiment}
               visualChangesets={visualChangesets}
