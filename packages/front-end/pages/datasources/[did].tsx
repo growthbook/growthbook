@@ -144,14 +144,6 @@ const DataSourcePage: FC = () => {
     );
   }
 
-  const closeModal = () => {
-    setModalData(null);
-  };
-  const onSuccess = () => {
-    mutateDefinitions();
-    mutate();
-  };
-
   const supportsSQL = d.properties?.queryLanguage === "sql";
   const supportsEvents = d.properties?.events || false;
 
@@ -160,8 +152,11 @@ const DataSourcePage: FC = () => {
       {modalData && (
         <MetricForm
           {...modalData}
-          onClose={closeModal}
-          onSuccess={onSuccess}
+          onClose={() => setModalData(null)}
+          onSuccess={() => {
+            mutateDefinitions();
+            mutate();
+          }}
           source="datasource-detail"
         />
       )}
@@ -473,52 +468,51 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                                 <MoreMenu>
                                   {!hasFileConfig() &&
                                     editMetricsPermissions[metric.id] && (
-                                      <button
-                                        className="btn dropdown-item py-2"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          e.preventDefault();
-                                          setModalData({
-                                            current: {
-                                              ...metric,
-                                              name: metric.name + " (copy)",
-                                            },
-                                            edit: false,
-                                            duplicate: true,
-                                          });
-                                        }}
-                                      >
-                                        <FaRegCopy /> Duplicate
-                                      </button>
-                                    )}
-                                  {!hasFileConfig() &&
-                                    editMetricsPermissions[metric.id] && (
-                                      <button
-                                        className="btn dropdown-item py-2"
-                                        color=""
-                                        onClick={async () => {
-                                          const newStatus =
-                                            metric.status === "archived"
-                                              ? "active"
-                                              : "archived";
-                                          await apiCall(
-                                            `/metric/${metric.id}`,
-                                            {
-                                              method: "PUT",
-                                              body: JSON.stringify({
-                                                status: newStatus,
-                                              }),
-                                            }
-                                          );
-                                          mutateDefinitions({});
-                                          mutate();
-                                        }}
-                                      >
-                                        <FaArchive />{" "}
-                                        {metric.status === "archived"
-                                          ? "Unarchive"
-                                          : "Archive"}
-                                      </button>
+                                      <>
+                                        <button
+                                          className="btn dropdown-item py-2"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            e.preventDefault();
+                                            setModalData({
+                                              current: {
+                                                ...metric,
+                                                name: metric.name + " (copy)",
+                                              },
+                                              edit: false,
+                                              duplicate: true,
+                                            });
+                                          }}
+                                        >
+                                          <FaRegCopy /> Duplicate
+                                        </button>
+                                        <button
+                                          className="btn dropdown-item py-2"
+                                          color=""
+                                          onClick={async () => {
+                                            const newStatus =
+                                              metric.status === "archived"
+                                                ? "active"
+                                                : "archived";
+                                            await apiCall(
+                                              `/metric/${metric.id}`,
+                                              {
+                                                method: "PUT",
+                                                body: JSON.stringify({
+                                                  status: newStatus,
+                                                }),
+                                              }
+                                            );
+                                            mutateDefinitions({});
+                                            mutate();
+                                          }}
+                                        >
+                                          <FaArchive />{" "}
+                                          {metric.status === "archived"
+                                            ? "Unarchive"
+                                            : "Archive"}
+                                        </button>
+                                      </>
                                     )}
                                 </MoreMenu>
                               </div>
