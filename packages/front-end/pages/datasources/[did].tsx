@@ -2,16 +2,18 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
 import {
+  FaArchive,
   FaDatabase,
   FaExclamationTriangle,
   FaExternalLinkAlt,
   FaKey,
-  FaPencilAlt,
   FaPlus,
+  FaRegCopy,
 } from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { MetricInterface } from "@/../back-end/types/metric";
 import { ago, datetime } from "@/../shared/dates";
+import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -34,6 +36,7 @@ import { GBCircleArrowLeft } from "@/components/Icons";
 import useApi from "@/hooks/useApi";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import MetricForm from "@/components/Metrics/MetricForm";
+import { checkMetricProjectPermissions } from "@/services/metrics";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -62,11 +65,6 @@ const DataSourcePage: FC = () => {
   } = useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
-  const [
-    showAutoGenerateMetricsModal,
-    setShowAutoGenerateMetricsModal,
-  ] = useState(false);
-
   const { apiCall } = useAuth();
 
   const canEdit =
@@ -80,6 +78,20 @@ const DataSourcePage: FC = () => {
   }>(`/datasource/${did}/metrics`);
 
   const metrics: MetricInterface[] | undefined = data?.metrics;
+
+  const filteredMetrics = metrics?.filter((m) => {
+    if (!project) return true;
+    if (!m?.projects?.length) return true;
+    return m?.projects?.includes(project);
+  });
+
+  const editMetricsPermissions: { [id: string]: boolean } = {};
+  filteredMetrics?.forEach((m) => {
+    editMetricsPermissions[m.id] = checkMetricProjectPermissions(
+      m,
+      permissions
+    );
+  });
 
   /**
    * Update the data source provided.
@@ -151,20 +163,7 @@ const DataSourcePage: FC = () => {
           onClose={closeModal}
           onSuccess={onSuccess}
           source="datasource-detail"
-          openAutoGenerateMetrics={() => setShowAutoGenerateMetricsModal(true)}
         />
-      )}
-      {showAutoGenerateMetricsModal && (
-        // TODO: Should I make this a component?
-        // I could make the component hit the endpoint to fetch the trackedEvents on load, so I can keep the state entirely encompassed within the component
-        <Modal
-          size="lg"
-          open={true}
-          close={() => setShowAutoGenerateMetricsModal(false)}
-        >
-          Hi
-          {/* //TODO: This is where we'll put the auto generate metrics modal */}
-        </Modal>
       )}
       <div className="mb-2">
         <Link href="/datasources">
@@ -408,20 +407,55 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                               role="button"
                             >
                               <div className="mr-5 w-100">
-                                <h4>{metric.name}</h4>
+                                <h4
+                                  className={
+                                    metric.status === "archived"
+                                      ? "text-muted"
+                                      : ""
+                                  }
+                                >
+                                  {metric.name}
+                                </h4>
                                 <div className="d-flex flex-row align-items-center justify-content-between">
                                   <div>
-                                    <strong>Type: </strong>
-                                    <code>{metric.type}</code>
+                                    <strong
+                                      className={
+                                        metric.status === "archived"
+                                          ? "text-muted"
+                                          : ""
+                                      }
+                                    >
+                                      Type:{" "}
+                                    </strong>
+                                    <code
+                                      className={
+                                        metric.status === "archived"
+                                          ? "text-muted"
+                                          : ""
+                                      }
+                                    >
+                                      {metric.type}
+                                    </code>
                                   </div>
-                                  <div>
+                                  <div
+                                    className={
+                                      metric.status === "archived"
+                                        ? "text-muted"
+                                        : ""
+                                    }
+                                  >
                                     <strong>Owner: </strong>
                                     {metric.owner}
                                   </div>
                                   {!hasFileConfig() && (
                                     <div
                                       title={datetime(metric.dateUpdated || "")}
-                                      className="d-none d-md-table-cell"
+                                      className={clsx(
+                                        metric.status === "archived"
+                                          ? "text-muted"
+                                          : "",
+                                        "d-none d-md-table-cell"
+                                      )}
                                     >
                                       <strong>Last Updated: </strong>
                                       {ago(metric.dateUpdated || "")}
@@ -437,26 +471,55 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                                 }}
                               >
                                 <MoreMenu>
-                                  <Link href={`/metric/${metric.id}`}>
-                                    <button
-                                      className="dropdown-item py-2"
-                                      onClick={() => console.log("hey")}
-                                    >
-                                      <FaPencilAlt className="mr-2" /> Edit
-                                    </button>
-                                  </Link>
-                                  <DeleteButton
-                                    onClick={() => console.log("hey")}
-                                    className="dropdown-item text-danger py-2"
-                                    iconClassName="mr-2"
-                                    style={{ borderRadius: 0 }}
-                                    useIcon
-                                    displayName={metric.name}
-                                    deleteMessage={`Are you sure you want to delete identifier join ${metric.name}?`}
-                                    title="Delete"
-                                    text="Delete"
-                                    outline={false}
-                                  />
+                                  {!hasFileConfig() &&
+                                    editMetricsPermissions[metric.id] && (
+                                      <button
+                                        className="btn dropdown-item py-2"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          e.preventDefault();
+                                          setModalData({
+                                            current: {
+                                              ...metric,
+                                              name: metric.name + " (copy)",
+                                            },
+                                            edit: false,
+                                            duplicate: true,
+                                          });
+                                        }}
+                                      >
+                                        <FaRegCopy /> Duplicate
+                                      </button>
+                                    )}
+                                  {!hasFileConfig() &&
+                                    editMetricsPermissions[metric.id] && (
+                                      <button
+                                        className="btn dropdown-item py-2"
+                                        color=""
+                                        onClick={async () => {
+                                          const newStatus =
+                                            metric.status === "archived"
+                                              ? "active"
+                                              : "archived";
+                                          await apiCall(
+                                            `/metric/${metric.id}`,
+                                            {
+                                              method: "PUT",
+                                              body: JSON.stringify({
+                                                status: newStatus,
+                                              }),
+                                            }
+                                          );
+                                          mutateDefinitions({});
+                                          mutate();
+                                        }}
+                                      >
+                                        <FaArchive />{" "}
+                                        {metric.status === "archived"
+                                          ? "Unarchive"
+                                          : "Archive"}
+                                      </button>
+                                    )}
                                 </MoreMenu>
                               </div>
                             </div>
