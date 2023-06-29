@@ -10,9 +10,11 @@ import ExternalLink from '@site/src/components/ExternalLink'
 
 # GrowthBook Go SDK
 
+Supports Go versions **1.18**, **1.19** and **1.20**.
+
 ## Installation
 
-```
+```bash
 go get github.com/growthbook/growthbook-golang
 ```
 
@@ -25,97 +27,249 @@ provides a `Feature` method for accessing feature values, and a `Run`
 method for running inline experiments.
 
 ```go
-// GBFeaturesResponse
-// GrowthBook features response
-type GBFeaturesResponse struct {
-	Status            int             `json:"status"`
-	Features          json.RawMessage `json:"features"`
-	EncryptedFeatures string          `json:"encryptedFeatures,omitempty"` // Not yet supported in the Go SDK
-	DateUpdated       time.Time       `json:"dateUpdated"`
+package main
+
+import (
+	"fmt"
+
+	growthbook "github.com/growthbook/growthbook-golang"
+)
+
+func main() {
+	// Set up development logger: logs all messages from GrowthBook SDK
+	// and exits on errors.
+	growthbook.SetLogger(&growthbook.DevLogger{})
+
+	// User attributes for experiment setup.
+	attributes := growthbook.Attributes{
+		"id":     123,
+		"custom": "foo",
+	}
+
+	// Experiment tracking callback. In a real application, this would
+	// probably save data to some sort of analytics system.
+	tracking := func(experiment *growthbook.Experiment, result *growthbook.Result) {
+		fmt.Printf("TRACKING: %d => experimentId=%s variationId=%s\n",
+			attributes["id"], experiment.Key, result.Key)
+	}
+
+	// Create context and main GrowthBook object.
+	context := growthbook.NewContext().
+		WithAttributes(attributes).
+		WithAPIHost("https://cdn.growthbook.io").
+		WithClientKey("sdk-abc123").
+		WithTrackingCallback(tracking)
+	gb := growthbook.New(context)
+
+	// Load features from the GrowthBook API with caching.
+	gb.LoadFeatures(nil)
+
+	// Simple on/off feature gating.
+	if gb.IsOn("my-feature") {
+		fmt.Println("My feature is on!")
+	}
+
+	// Get the value of a feature with a fallback.
+	color := gb.GetFeatureValue("button-color-feature", "blue")
+	fmt.Println("Button color:", color)
 }
-
-// Get JSON from GrowthBook and deserialize it into GBFeaturesResponse struct
-res, err := http.Get("https://cdn.growthbook.io/api/features/<environment_key>")
-if err != nil {
-	fmt.Printf("Error fetching features from GrowthBook: %s \n", err)
-	os.Exit(1)
-}
-
-var featuresResponse GBFeaturesResponse
-err = json.NewDecoder(res.Body).Decode(&featuresResponse)
-if err != nil {
-	fmt.Printf("Error decoding JSON: %s \n", err)
-	os.Exit(1)
-}
-
-features := growthbook.ParseFeatureMap(featuresResponse.Features)
-
-// Optional tracking callback
-// This will get called when the font_colour experiment below is evaluated
-// See "Tracking and subscriptions" section below
-trackingCallback := func(experiment *growthbook.Experiment, result *growthbook.ExperimentResult) {
-	fmt.Printf("Experiment Viewed: %s - Variation index: %d - Value: %s \n", experiment.Key, result.VariationID, result.Value)
-}
-
-// Set up user attributes - See Attributes below for more info
-userAttributes := growthbook.Attributes{
-	"id": "user-abc123",
-	"country": "canada",
-}
-
-// Create a growthbook.Context instance with the features and attributes
-context := growthbook.NewContext().
-	WithFeatures(features).
-	WithAttributes(userAttributes).
-	WithTrackingCallback(trackingCallback)
-
-// Create a growthbook.GrowthBook instance
-gb := growthbook.New(context)
-
-// Get a string value
-bannerText := gb.Feature("banner_text").GetValueWithDefault("(unknown banner text)")
-
-// Perform feature test.
-if gb.Feature("dark_mode").On {
-	// ...
-}
-
-// Evaluate an inline experiment and cast the result to a string (or the known type)
-experiment := growthbook.
-	NewExperiment("font_colour").
-	WithVariations("red", "orange", "yellow", "green", "blue", "purple")
-result := gb.Run(experiment)
-var fontColour = result.Value.(string)
-
-fmt.Println(fontColour)
-
-experiment2 :=
-  growthbook.NewExperiment("complex-experiment").
-    WithVariations(
-      map[string]string{"color": "blue", "size": "small"},
-      map[string]string{"color": "green", "size": "large"},
-    ).
-    WithWeights(0.8, 0.2).
-    WithCoverage(0.5)
-
-result2 := gb.Run(experiment2)
-fmt.Println(result2.Value.(map[string]string)["color"],
-  result2.Value.(map[string]string)["size"])
 ```
 
-## The GrowthBook Context
+## Loading features
+
+There are two ways to load feature flags into the GrowthBook SDK. You
+can either use the built-in fetching/caching logic or implement your
+own custom solution.
+
+### Build-in Fetching and Caching
+
+To use the built-in fetching and caching logic, when creating your
+`Context`, pass in your GrowthBook `api_host` (using `WithAPIHost`)
+and `client_key` (using `WithClientKey`). If you have encryption
+enabled for your GrowthBook endpoint, you also need to pass the
+`decryption_key` into the constructor (using `WithDecryptionKey`).
+
+Then, call the `LoadFeatures()` method to initiate the HTTP request to
+the GrowthBook API with a cache layer.
+
+Here's a full example:
+
+```go
+	// Create context and main GrowthBook object, setting cache TTL to
+	// 2 minutes (default is 60 seconds).
+	context := growthbook.NewContext().
+		WithAPIHost("https://cdn.growthbook.io").
+		WithClientKey("sdk-abc123").
+        WithCacheTTL(2 * time.Minute)
+	gb := growthbook.New(context)
+
+	// Load features from the GrowthBook API with caching.
+	gb.LoadFeatures(nil)
+```
+
+#### Caching
+
+The GrowthBook Go SDK comes with a custom in-memory cache. If you
+scale your web application horizontally across multiple nodes, the
+different processes cannot share memory, so you likely want to switch
+to a distributed cache system like Redis instead.
+
+Here is an example of using Redis:
+
+```go
+package demo
+
+import (
+	"context"
+	"encoding/json"
+	"time"
+
+	"github.com/go-redis/redis/v8"
+)
+
+var ctx = context.Background()
+
+type RedisFeatureCache struct {
+	client *redis.Client
+	prefix string
+}
+
+func (c *RedisFeatureCache) Initialize() {}
+
+func (c *RedisFeatureCache) Clear() {
+	err := c.client.FlushDB(ctx).Err()
+	if err != nil {
+		logError("failed clearing cache")
+	}
+}
+
+func (c *RedisFeatureCache) Get(key RepositoryKey) *CacheEntry {
+	val, err := c.client.Get(ctx, c.prefix+string(key)).Result()
+	if err == redis.Nil {
+		return nil
+	}
+	if err != nil {
+		logError("failed getting cache data")
+	}
+	var entry CacheEntry
+	err = json.Unmarshal([]byte(val), &entry)
+	if err != nil {
+		logError("failed decoding cache data")
+		return nil
+	}
+	return &entry
+}
+
+func (c *RedisFeatureCache) Set(key RepositoryKey, entry *CacheEntry) {
+	data, err := json.Marshal(entry)
+	if err != nil {
+		logError("failed encoding cache data")
+	}
+	expiry := entry.StaleAt.Sub(time.Now())
+	if expiry < 0 {
+		c.client.Del(ctx, c.prefix+string(key)).Err()
+		return
+	}
+	err = c.client.Set(ctx, c.prefix+string(key), string(data), expiry).Err()
+	if err != nil {
+		logError("failed setting cache data")
+	}
+}
+
+func NewRedisFeatureCache(prefix string, options *redis.Options) *RedisFeatureCache {
+	client := redis.NewClient(options)
+	_, err := client.Ping(ctx).Result()
+	if err != nil {
+		return nil
+	}
+	return &RedisFeatureCache{client, prefix}
+}
+
+var options *redis.Options = &redis.Options{
+	Addr: "localhost:6379",
+}
+
+// Configure the GrowthBook Go SDK to use your custom Redis cache.
+growthbook.ConfigureCache(NewRedisFeatureCache("gb:", options))
+```
+
+### Custom Implementation
+
+If you prefer to handle feature fetching/caching logic yourself, you
+can use the `WithFeatures` method of `Context`. This takes a
+`FeatureMap` value, which is defined as `map[string]*Feature`, and
+which can be created from JSON data using the `ParseFeatureMap`
+function (see [JSON data
+representations](#json-data-representations)). You can pass a feature
+map generated this way to the `WithFeatures` method of `Context` or
+`GrowthBook`:
+
+```go
+featureMap := ParseFeatureMap([]byte(
+  `{ "feature-1": {...},
+     "feature-2": {...},
+     "another-feature": {...}
+   }`))
+
+gb := NewContext().WithFeatures(featureMap)
+```
+
+If you need to load feature definitions from a remote source like an
+API or database, you can update the context at any time with
+`WithFeatures`.
+
+If you use the GrowthBook App to manage your features, you don't need
+to build this JSON file yourself -- it will auto-generate one for you
+and make it available via an API endpoint.
+
+If you prefer to build this file by hand or you want to know how it
+works under the hood, check out the detailed [Feature
+Definitions](#feature-definitions) section below.
+
+
+## The `Context` and `GrowthBook` Types
 
 A new `Context` is created using the `NewContext` function and its
-fields can be set using the `WithEnabled`, `WithAttributes`,
-`WithURL`, `WithFeatures`, `WithForcedVariations`, `WithQAMode` and
-`WithTrackingCallback` methods. These `With...` methods return a
-`Context` pointer to enable call chaining. Context details can
-alternatively be parsed from JSON data (see [JSON data
-representations](#json-data-representations)). The fields in a
-`Context` include information about the user for whom feature results
-will be evaluated (the `Attributes`), the features that are defined,
-plus some additional values to control forcing of feature results
-under some circumstances.
+fields can be set using the following methods:
+
+- `WithEnabled` (`bool`): Flag to globally disable all experiments.
+  Default `true`.
+- `WithAttributes` (`Attributes = map[string]interface{}`): Dictionary
+  of user attributes that are used for targeting and to assign
+  variations.
+- `WithUserAttributes` (`Attributes = map[string]interface{}`): ???
+- `WithUrl` (`*url.URL`): The URL of the current request (if
+  applicable).
+- `WithFeatures` (`FeatureMap = map[string]*Feature`): Feature
+  definitions from the GrowthBook API (only required if
+  `WithClientKey` is not specified).
+- `WithForcedVariations` (`ForcedVariationsMap = map[string]int`):
+  Dictionary of forced experiment variations (used for QA).
+- `WithQAMode` (`bool`): If `true`, random assignment is disabled and
+  only explicitly forced variations are used.
+- `WithDevMode` (`bool`): ???
+- `WithTrackingCallback` (`ExperimentCallback`): A function that takes
+  an `Experiment` and a `Result` as arguments.
+- `WithFeatureUsageCallback`: TODO
+- `WithGroups`: TODO
+- `WithAPIHost` (`string`): The GrowthBook API host to fetch feature
+  flags from. Defaults to `https://cdn.growthbook.io`.
+- `WithClientKey` (`string`): The client key that will be passed to
+  the API host to fetch feature flags.
+- `WithDecryptionKey` (`string`): If the GrowthBook API endpoint has
+  encryption enabled, specify the decryption key here.
+- `WithOverrides` (`ExperimentOverrides`): TODO
+- `WithCacheTTL` (`time.Duration`): How long to cache features
+  in-memory from the GrowthBook API (defaults to 60 seconds).
+
+These `With...` methods all return a `Context` pointer to enable call
+chaining. Context details can alternatively be parsed from JSON data
+(see [JSON data representations](#json-data-representations)). The
+fields in a `Context` include information about the user for whom
+feature results will be evaluated (the `Attributes`), the features
+that are defined, plus some additional values to control forcing of
+feature results under some circumstances, and interactions with the
+GrowthBook API.
 
 Given a `Context` value, a new `GrowthBook` value can be created using
 the `New` function. The `GrowthBook` type has some getter and setter
@@ -145,46 +299,15 @@ context := growthbook.NewContext().
 gb := growthbook.New(context)
 ```
 
-### Features
-
-The `WithFeatures` method of `Context` takes a `FeatureMap` value,
-which is defined as `map[string]*Feature`, and which can be created
-from JSON data using the `ParseFeatureMap` function (see [JSON data
-representations](#json-data-representations)). You can pass a feature
-map generated this way to the `WithFeatures` method of `Context` or
-`GrowthBook`:
-
-```go
-featureMap := ParseFeatureMap([]byte(
-  `{ "feature-1": {...},
-     "feature-2": {...},
-     "another-feature": {...}
-   }`))
-
-gb := NewContext().WithFeatures(featureMap)
-```
-
-If you need to load feature definitions from a remote source like an
-API or database, you can update the context at any time with
-`WithFeatures`.
-
-If you use the GrowthBook App to manage your features, you don't need
-to build this JSON file yourself -- it will auto-generate one for you
-and make it available via an API endpoint.
-
-If you prefer to build this file by hand or you want to know how it
-works under the hood, check out the detailed [Feature
-Definitions](#feature-definitions) section below.
-
 ### Attributes
 
 You can specify attributes about the current user and request. These
 are used for two things:
 
-- Feature targeting (e.g. paid users get one value, free users get
-  another);
-- Assigning persistent variations in A/B tests (e.g. user id "123"
-  always gets variation B).
+1. Feature targeting (e.g. paid users get one value, free users get
+   another);
+2. Assigning persistent variations in A/B tests (e.g. user id "123"
+   always gets variation B).
 
 Attributes can be any JSON data type -- boolean, integer, string,
 array, or object and are represented by the `Attributes` type, which
@@ -224,7 +347,7 @@ common approach is to only refresh attributes on navigation, when the
 window is focused, and/or after a user performs a major action like
 logging in.
 
-### Tracking Callback
+### Tracking Experiments
 
 Any time an experiment is run to determine the value of a feature, we
 can run a callback function so you can record the assigned value in
@@ -270,7 +393,9 @@ To be specific about this:
   return errors.
 
 - None of the functions that create values from JSON data return
-  errors.
+  errors, *except* when presented with malformed JSON values. In such
+  cases, functions like `ParseExperiment` follow the usual Go
+  convention and return a `nil` value while logging an error.
 
 For most common use cases, this means that the GrowthBook SDK can be
 used transparently, without needing to care about error handling. Your
@@ -366,24 +491,60 @@ experiment :=
 result := gb.Run(experiment)
 ```
 
-All other experiment settings (weights, hash attribute, coverage,
-namespace, condition) are supported when using inline experiments: the
-`Experiment` type has `With...` methods that allow these fields to be
-set easily (i.e. `WithWeights`, `WithHashAttribute`, `WithCoverage`,
-`WithNamespace`, `WithCondition`).
+The `NewExperiment` value is passed a unique tracking key for the
+experiment. Other settings to control the experiment behavior may be
+set using the following `With...` methods:
 
-In addition, there are a few other settings that only really make
-sense for inline experiments:
+- `WithVariations` (`...FeatureValue = ...interface{}`): The different
+  variations to choose between.
+- `WithSeed` (`string`): Added to the user ID when hashing to
+  determine a variation. Defaults to the experiment key value.
+- `WithWeights` (`...float64`): How to weight traffic between
+  variations. Must total to 1.
+- `WithCoverage` (`*float64`): The percentage of users to be included
+  in the experiment (between 0 and 1, inclusive; optional).
+- `WithCondition` (`Condition`): Targeting conditions.
+- `WithForce` (`*int`): All users included in the experiment will be
+  forced into the specified variation index (optional).
+- `WithHashAttribute` (`string`): The user attribute that should be
+  used to assign variations (defaults to "id").
+- `WithHashVersion` (`int`): The version of our hashing algorithm to
+  use. We recommend using the latest version 2, which is the default.
+- `WithNamespace` (`Namespace = struct{ string, float64, float64 }`):
+  Used to run mutually exclusive experiments.
+- `WithActive` (`bool`): Can be set to `false` to disable the
+  experiment and return the control for everyone.
 
-- `Force` can be set to one of the variation array indexes. Everyone
-  will be immediately assigned the specified value.
-- `Active` can be set to `false` to disable the experiment and return
-  the control for everyone.
+Here's an exmaple that uses most of these:
+
+```go
+exp := growthbook.NewExperiment("my-test").
+  # Variations can be a sequence of values of any data type.
+  WithVariations(0, 1).
+  # If this changes, it will re-randomize all users in the experiment.
+  WithSeed("abcdef123456").
+  # Run a 40/60 experiment instead of the default even split (50/50).
+  WithWeights(0.4, 0.6),
+  # Only include 20% of users in the experiment.
+  WithCoverage(0.2).
+  # Targeting condition using a MongoDB-like syntax.
+  WithCondition(growthbook.BuildCondition(map[string]interface{}{
+    "country": "US",
+    "browser": map[string]interface{}{"$in": []string{"chrome", "firefox"}},
+  })).
+  # Use an alternate attribute for assigning variations (default is "id").
+  WithHashAttribute("sessionId").
+  # Use the latest hashing algorithm.
+  WithHashVersion(2).
+  # Includes the first 50% of users in the "pricing" namespace.
+  # Another experiment with a non-overlapping range will be mutually exclusive (e.g. [0.5, 1]).
+  WithNamespace(&growthbook.Namespace{"pricing", 0.0, 0.5})
+```
 
 ### Inline Experiment Return Value
 
 A call to `GrowthBook.Run(experiment)` returns a value of type
-`*ExperimentResult`:
+`*Result`:
 
 ```go
 experiment := growthbook.NewExperiment("my-experiment").
@@ -409,6 +570,75 @@ fmt.Println(result.HashValue) // e.g. "123"
 The `InExperiment` flag is only set to true if the user was randomly
 assigned a variation. If the user failed any targeting rules or was
 forced into a specific variation, this flag will be false.
+
+The `HashUsed` flag will only be true if the user was randomly
+assigned a variation. If the user was forced into a specific variation
+instead, this flag will be false.
+
+### Example Experiments
+
+3-way experiment with uneven variation weights:
+
+```go
+gb.Run(NewExperiment("3-way-uneven").
+  WithVariations("A","B","C").
+  WithWeights(0.5, 0.25, 0.25)
+)
+```
+
+Slow rollout (10% of users who match the targeting condition):
+
+```go
+// User is marked as being in "qa" and "beta".
+context := growthbook.NewContext().
+  WithAttributes(Attributes{
+    "id": "123",
+    "beta": true,
+    "qa": true,
+  })
+gb := growthbook.New(context)
+
+gb.Run(NewExperiment("slow-rollout").
+  WithVariations("A", "B").
+  WithCoverage(0.1).
+  WithCondition(
+    growthbook.BuildCondition(map[string]interface{}{
+      "beta": true
+    })
+  )
+)
+```
+
+Complex variations
+
+```go
+experiment := NewExperiment("complex-variations").
+  WithVariations([]string{"blue", "large"}, []string{"green", "small"})
+
+result := gb.Run(experiment)
+
+# Either "blue,large" OR "green,small"
+vals := result.Value.([]string)
+fmt.Println(vals[0] + "," + vals[1])
+```
+
+Assign variations based on something other than user id
+
+```go
+gb := growthbook.New(
+  growthbook.NewContext().
+    WithAttributes(Attributes{
+      "id": "123",
+      "company": "growthbook",
+    })
+)
+
+# Users in the same company will always get the same variation
+gb.Run(NewExperiment("by-company-id").
+  WithVariations("A", "B").
+  WithHashAttribute("company")
+)
+```
 
 ## JSON data representations
 
@@ -468,17 +698,24 @@ of JSON data.
 
 ## Tracking and subscriptions
 
-The `Context` value supports a "tracking callback", which is a
-function that is called any time an experiment is run to determine the
-value of a feature, so that users can record the assigned value in an
-external event tracking or analytics system.
+The `Context` value supports two kinds of callbacks:
 
-In addition to the tracking callback, the `GrowthBook` type also
-supports more general "subscriptions", which are callback functions
-that are called any time `Run` is called, irrespective of whether or
-not a user is included in an experiment. The subscription system
-ensures that subscription callbacks are only called when the result of
-an experiment changes, or a new experiment is run.
+- A "tracking callback", which is a function that is called any time
+  an experiment is run to determine the value of a feature, so that
+  users can record the assigned value in an external event tracking or
+  analytics system.
+  
+- A "feature usage callback", which is called the first time a
+  particular result is returned for a feature, which allows for
+  tracking of feature result coverage.
+
+In addition to the tracking and feature usage callbacks, the
+`GrowthBook` type also supports more general "subscriptions", which
+are callback functions that are called any time `Run` is called,
+irrespective of whether or not a user is included in an experiment.
+The subscription system ensures that subscription callbacks are only
+called when the result of an experiment changes, or a new experiment
+is run.
 
 ## Code Examples
 
