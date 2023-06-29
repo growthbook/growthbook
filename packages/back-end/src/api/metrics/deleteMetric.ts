@@ -11,6 +11,8 @@ export const deleteMetricHandler = createApiRequestHandler(getMetricValidator)(
       false
     );
 
+    req.checkPermissions("createMetrics", metric?.projects ?? "");
+
     if (!metric) {
       throw new Error("Could not find metric with that id");
     }

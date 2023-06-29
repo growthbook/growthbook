@@ -374,7 +374,7 @@ describe("experiments utils", () => {
 
       expect(result.valid).toBe(false);
       expect(result.error).toBe(
-        "Must specify one of: sql, sqlBuilder, mixpanel"
+        "Can only specify one of: sql, sqlBuilder, mixpanel"
       );
     });
   });

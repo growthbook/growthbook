@@ -933,11 +933,153 @@ export function toSnapshotApiInterface(
   };
 }
 
-const postOrPutMetricPayloadIsValid = (
-  payload:
-    | z.infer<typeof postMetricValidator.bodySchema>
-    | z.infer<typeof putMetricValidator.bodySchema>
-): { valid: true } | { valid: false; error: string } => {
+/**
+ * While the `postMetricValidator` can detect the presence of values, it cannot figure out the correctness.
+ * @param payload
+ * @param datasource
+ */
+export function postMetricApiPayloadIsValid(
+  payload: z.infer<typeof postMetricValidator.bodySchema>,
+  datasource: Pick<DataSourceInterface, "type">
+): { valid: true } | { valid: false; error: string } {
+  const { type, sql, sqlBuilder, mixpanel, behavior } = payload;
+
+  // Validate query format: sql, sqlBuilder, mixpanel
+  let queryFormatCount = 0;
+  if (sqlBuilder) {
+    queryFormatCount++;
+  }
+  if (sql) {
+    queryFormatCount++;
+  }
+  if (mixpanel) {
+    queryFormatCount++;
+  }
+  if (queryFormatCount !== 1) {
+    return {
+      valid: false,
+      error: "Can only specify one of: sql, sqlBuilder, mixpanel",
+    };
+  }
+
+  // Validate behavior
+  if (behavior) {
+    const { riskThresholdDanger, riskThresholdSuccess } = behavior;
+
+    // Enforce that both and riskThresholdSuccess exist, or neither
+    const riskDangerExists = typeof riskThresholdDanger !== "undefined";
+    const riskSuccessExists = typeof riskThresholdSuccess !== "undefined";
+    if (riskDangerExists !== riskSuccessExists)
+      return {
+        valid: false,
+        error:
+          "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
+      };
+
+    // We have both. Make sure they're valid
+    if (riskDangerExists && riskSuccessExists) {
+      // Enforce riskThresholdDanger must be higher than riskThresholdSuccess
+      if (riskThresholdDanger < riskThresholdSuccess)
+        return {
+          valid: false,
+          error: "riskThresholdDanger must be higher than riskThresholdSuccess",
+        };
+    }
+
+    // Validate conversion window
+    const { conversionWindowEnd, conversionWindowStart } = behavior;
+    const conversionWindowEndExists =
+      typeof conversionWindowEnd !== "undefined";
+    const conversionWindowStartExists =
+      typeof conversionWindowStart !== "undefined";
+    if (conversionWindowEndExists !== conversionWindowStartExists) {
+      return {
+        valid: false,
+        error:
+          "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
+      };
+    }
+
+    if (conversionWindowEndExists && conversionWindowStartExists) {
+      // Enforce conversion window end is greater than start
+      if (conversionWindowEnd <= conversionWindowStart)
+        return {
+          valid: false,
+          error:
+            "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`",
+        };
+    }
+
+    // Min/max percentage change
+    const { maxPercentChange, minPercentChange } = behavior;
+    const maxPercentExists = typeof maxPercentChange !== "undefined";
+    const minPercentExists = typeof minPercentChange !== "undefined";
+    // Enforce both max/min percent or neither
+    if (maxPercentExists !== minPercentExists)
+      return {
+        valid: false,
+        error:
+          "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
+      };
+
+    if (maxPercentExists && minPercentExists) {
+      // Enforce max is greater than min
+      if (maxPercentChange <= minPercentChange)
+        return {
+          valid: false,
+          error:
+            "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`",
+        };
+    }
+  }
+
+  // Validate for payload.sql
+  if (sql) {
+    // Validate binomial metrics
+    if (type === "binomial" && typeof sql.userAggregationSQL !== "undefined")
+      return {
+        valid: false,
+        error: "Binomial metrics cannot have userAggregationSQL",
+      };
+  }
+
+  // Validate payload.mixpanel
+  if (mixpanel) {
+    if (datasource.type !== "mixpanel") {
+      return {
+        valid: false,
+        error: "Mixpanel datasources must provide `mixpanel`",
+      };
+    }
+    // Validate binomial metrics
+    if (type === "binomial" && typeof mixpanel.eventValue !== "undefined")
+      return {
+        valid: false,
+        error: "Binomial metrics cannot have an eventValue",
+      };
+  }
+
+  // Validate payload.sqlBuilder
+  if (sqlBuilder) {
+    // Validate binomial metrics
+    if (
+      type === "binomial" &&
+      typeof sqlBuilder.valueColumnName !== "undefined"
+    )
+      return {
+        valid: false,
+        error: "Binomial metrics cannot have a valueColumnName",
+      };
+  }
+
+  return {
+    valid: true,
+  };
+}
+
+export function putMetricApiPayloadIsValid(
+  payload: z.infer<typeof putMetricValidator.bodySchema>
+): { valid: true } | { valid: false; error: string } {
   const { type, sql, sqlBuilder, mixpanel, behavior } = payload;
 
   // Validate query format: sql, sqlBuilder, mixpanel
@@ -1065,40 +1207,6 @@ const postOrPutMetricPayloadIsValid = (
   return {
     valid: true,
   };
-};
-
-/**
- * While the `postMetricValidator` can detect the presence of values, it cannot figure out the correctness.
- * @param payload
- * @param datasource
- */
-export function postMetricApiPayloadIsValid(
-  payload: z.infer<typeof postMetricValidator.bodySchema>,
-  datasource: Pick<DataSourceInterface, "type">
-): { valid: true } | { valid: false; error: string } {
-  if (!payload.sql && !payload.sqlBuilder && !payload.mixpanel) {
-    return {
-      valid: false,
-      error: "Must specify one of: sql, sqlBuilder, mixpanel",
-    };
-  }
-
-  const { mixpanel } = payload;
-
-  if (mixpanel && datasource.type !== "mixpanel") {
-    return {
-      valid: false,
-      error: "Mixpanel datasources must provide `mixpanel`",
-    };
-  }
-
-  return postOrPutMetricPayloadIsValid(payload);
-}
-
-export function putMetricApiPayloadIsValid(
-  payload: z.infer<typeof putMetricValidator.bodySchema>
-): { valid: true } | { valid: false; error: string } {
-  return postOrPutMetricPayloadIsValid(payload);
 }
 
 /**
