@@ -37,6 +37,7 @@ import useApi from "@/hooks/useApi";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import MetricForm from "@/components/Metrics/MetricForm";
 import { checkMetricProjectPermissions } from "@/services/metrics";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -401,71 +402,81 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                               className="d-flex flex-row align-items-center justify-content-between"
                               role="button"
                             >
-                              <div className="mr-5 w-100">
-                                <h4
-                                  className={
-                                    metric.status === "archived"
-                                      ? "text-muted"
-                                      : ""
-                                  }
-                                >
-                                  {metric.name}
-                                </h4>
-                                <div className="d-flex flex-row align-items-center justify-content-between">
-                                  <div>
-                                    <strong
-                                      className={
-                                        metric.status === "archived"
-                                          ? "text-muted"
-                                          : ""
-                                      }
-                                    >
-                                      Type:{" "}
-                                    </strong>
-                                    <code
-                                      className={
-                                        metric.status === "archived"
-                                          ? "text-muted"
-                                          : ""
-                                      }
-                                    >
-                                      {metric.type}
-                                    </code>
-                                  </div>
-                                  <div
+                              <div className="pr-3">
+                                <div className="mr-5 w-100">
+                                  <h4
                                     className={
                                       metric.status === "archived"
                                         ? "text-muted"
                                         : ""
                                     }
                                   >
-                                    <strong>Owner: </strong>
-                                    {metric.owner}
-                                  </div>
-                                  {!hasFileConfig() && (
+                                    {metric.name}
+                                  </h4>
+                                  <div className="d-flex flex-row align-items-center">
+                                    <div className="pr-3">
+                                      <strong
+                                        className={
+                                          metric.status === "archived"
+                                            ? "text-muted"
+                                            : ""
+                                        }
+                                      >
+                                        Type:{" "}
+                                      </strong>
+                                      <code
+                                        className={
+                                          metric.status === "archived"
+                                            ? "text-muted"
+                                            : ""
+                                        }
+                                      >
+                                        {metric.type}
+                                      </code>
+                                    </div>
                                     <div
-                                      title={datetime(metric.dateUpdated || "")}
                                       className={clsx(
                                         metric.status === "archived"
                                           ? "text-muted"
                                           : "",
-                                        "d-none d-md-table-cell"
+                                        "pr-3"
                                       )}
                                     >
-                                      <strong>Last Updated: </strong>
-                                      {ago(metric.dateUpdated || "")}
+                                      <strong>Owner: </strong>
+                                      {metric.owner}
                                     </div>
-                                  )}
+                                    {!hasFileConfig() && (
+                                      <div
+                                        title={datetime(
+                                          metric.dateUpdated || ""
+                                        )}
+                                        className={clsx(
+                                          metric.status === "archived"
+                                            ? "text-muted"
+                                            : "",
+                                          "d-none d-md-table-cell"
+                                        )}
+                                      >
+                                        <strong>Last Updated: </strong>
+                                        {ago(metric.dateUpdated || "")}
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
-                              <div
-                                style={{ cursor: "initial" }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                }}
-                              >
-                                <MoreMenu>
+                              <div className="d-flex flex-row align-items-center">
+                                <div className="text-muted px-2">
+                                  {metric.status === "archived" ? (
+                                    <Tooltip
+                                      body={"Archived"}
+                                      innerClassName="p-2"
+                                      tipMinWidth="auto"
+                                    >
+                                      <FaArchive />
+                                    </Tooltip>
+                                  ) : null}
+                                </div>
+                                <MoreMenu className="px-2">
                                   {!hasFileConfig() &&
                                   editMetricsPermissions[metric.id] ? (
                                     <>
