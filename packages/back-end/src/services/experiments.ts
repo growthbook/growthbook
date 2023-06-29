@@ -1052,12 +1052,11 @@ export function postMetricApiPayloadIsValid(
         error: "Binomial metrics cannot have an eventValue",
       };
 
-    if (datasource.type !== "mixpanel") {
+    if (datasource.type !== "mixpanel")
       return {
         valid: false,
         error: "Mixpanel datasources must provide `mixpanel`",
       };
-    }
   }
 
   // Validate payload.sqlBuilder
