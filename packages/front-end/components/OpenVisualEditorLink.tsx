@@ -56,12 +56,11 @@ const OpenVisualEditorLink: FC<{
 
   return (
     <>
-      <a
-        href={url}
+      <span
         className="btn btn-sm btn-primary"
         onClick={async (e) => {
-          e.preventDefault();
           if (!visualEditorUrl) {
+            e.preventDefault();
             setShowEditorUrlDialog(true);
             track("Open visual editor", {
               source: "visual-editor-ui",
@@ -102,7 +101,7 @@ const OpenVisualEditorLink: FC<{
         }}
       >
         Open Visual Editor <FaExternalLinkAlt />
-      </a>
+      </span>
 
       {showEditorUrlDialog && openSettings && (
         <Modal
