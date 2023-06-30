@@ -145,7 +145,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
         const isOpen = openIndexes[idx] || false;
 
         return (
-          <div key={query.id} className="card p-3 mb-3">
+          <div key={query.id} className="card p-3 mb-3 bg-light">
             <div className="d-flex justify-content-between">
               {/* region Title Bar */}
               <div>

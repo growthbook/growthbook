@@ -2,8 +2,6 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
 import {
-  FaAngleDown,
-  FaAngleRight,
   FaArchive,
   FaChevronRight,
   FaDatabase,
@@ -333,31 +331,25 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     structure.
                   </div>
                 )}
-
-              <h2 className="mt-4">Identifiers</h2>
-              <p>
-                The different units you use to split traffic in an experiment.
-              </p>
-
-              <div className="card py-3 px-3 mb-4">
+              <div className="my-3 p-3 rounded border bg-white">
                 <DataSourceInlineEditIdentifierTypes
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
                   dataSource={d}
                   canEdit={canEdit}
                 />
-
-                <div className="mt-4">
-                  <DataSourceInlineEditIdentityJoins
-                    dataSource={d}
-                    onSave={updateDataSourceSettings}
-                    onCancel={() => undefined}
-                    canEdit={canEdit}
-                  />
-                </div>
               </div>
 
-              <div className="my-5">
+              <div className="my-3 p-3 rounded border bg-white">
+                <DataSourceInlineEditIdentityJoins
+                  dataSource={d}
+                  onSave={updateDataSourceSettings}
+                  onCancel={() => undefined}
+                  canEdit={canEdit}
+                />
+              </div>
+
+              <div className="my-3 p-3 rounded border bg-white">
                 <ExperimentAssignmentQueries
                   dataSource={d}
                   onSave={updateDataSourceSettings}
@@ -365,206 +357,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   canEdit={canEdit}
                 />
               </div>
-              {/* <div className="my-5">
-                <div className="d-flex flex-row justify-content-between align-items-center">
-                  <div>
-                    <h2
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setMetricsOpen(!metricsOpen);
-                      }}
-                    >
-                      Metrics{" "}
-                      {metrics && metrics.length > 0 ? (
-                        <span className="badge badge-purple mx-2 my-0">
-                          {metrics.length}
-                        </span>
-                      ) : (
-                        ""
-                      )}
-                      {metricsOpen ? (
-                        <FaAngleDown role="button" />
-                      ) : (
-                        <FaAngleRight role="button" />
-                      )}
-                    </h2>
-                    <p>
-                      Metrics are what your experiments are trying to improve
-                      (or at least not hurt). Below are the metrics defined from
-                      this data source.{" "}
-                      <DocLink docSection="metrics">Learn more.</DocLink>
-                    </p>
-                  </div>
-                  {permissions.check("createMetrics", project) &&
-                    !hasFileConfig() && (
-                      <div className="col-auto">
-                        <button
-                          className="btn btn-outline-primary font-weight-bold text-nowrap"
-                          onClick={() =>
-                            setModalData({
-                              current: { datasource: d.id },
-                              edit: false,
-                              duplicate: false,
-                            })
-                          }
-                        >
-                          <FaPlus className="mr-1" /> Add
-                        </button>
-                      </div>
-                    )}
-                </div>
-                {metricsOpen ? (
-                  <>
-                    {metrics && metrics?.length > 0 ? (
-                      <div>
-                        {metrics.map((metric) => {
-                          return (
-                            <div key={metric.id} className="card p-3 mb-3">
-                              <Link href={`/metric/${metric.id}`}>
-                                <div
-                                  className="d-flex flex-row align-items-center justify-content-between"
-                                  role="button"
-                                >
-                                  <div className="pr-3">
-                                    <div className="mr-5 w-100">
-                                      <h4
-                                        className={
-                                          metric.status === "archived"
-                                            ? "text-muted"
-                                            : ""
-                                        }
-                                      >
-                                        {metric.name}
-                                      </h4>
-                                      <div className="d-flex flex-row align-items-center">
-                                        <div className="pr-3">
-                                          <strong
-                                            className={
-                                              metric.status === "archived"
-                                                ? "text-muted"
-                                                : ""
-                                            }
-                                          >
-                                            Type:{" "}
-                                          </strong>
-                                          <code
-                                            className={
-                                              metric.status === "archived"
-                                                ? "text-muted"
-                                                : ""
-                                            }
-                                          >
-                                            {metric.type}
-                                          </code>
-                                        </div>
-                                        <div
-                                          className={clsx(
-                                            metric.status === "archived"
-                                              ? "text-muted"
-                                              : "",
-                                            "pr-3"
-                                          )}
-                                        >
-                                          <strong>Owner: </strong>
-                                          {metric.owner}
-                                        </div>
-                                        {!hasFileConfig() && (
-                                          <div
-                                            title={datetime(
-                                              metric.dateUpdated || ""
-                                            )}
-                                            className={clsx(
-                                              metric.status === "archived"
-                                                ? "text-muted"
-                                                : "",
-                                              "d-none d-md-table-cell"
-                                            )}
-                                          >
-                                            <strong>Last Updated: </strong>
-                                            {ago(metric.dateUpdated || "")}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="d-flex flex-row align-items-center">
-                                    <div className="text-muted px-2">
-                                      {metric.status === "archived" ? (
-                                        <Tooltip
-                                          body={"Archived"}
-                                          innerClassName="p-2"
-                                          tipMinWidth="auto"
-                                        >
-                                          <FaArchive />
-                                        </Tooltip>
-                                      ) : null}
-                                    </div>
-                                    <MoreMenu className="px-2">
-                                      {!hasFileConfig() &&
-                                      editMetricsPermissions[metric.id] ? (
-                                        <>
-                                          <button
-                                            className="btn dropdown-item py-2"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              e.preventDefault();
-                                              setModalData({
-                                                current: {
-                                                  ...metric,
-                                                  name: metric.name + " (copy)",
-                                                },
-                                                edit: false,
-                                                duplicate: true,
-                                              });
-                                            }}
-                                          >
-                                            <FaRegCopy /> Duplicate
-                                          </button>
-                                          <button
-                                            className="btn dropdown-item py-2"
-                                            color=""
-                                            onClick={async () => {
-                                              const newStatus =
-                                                metric.status === "archived"
-                                                  ? "active"
-                                                  : "archived";
-                                              await apiCall(
-                                                `/metric/${metric.id}`,
-                                                {
-                                                  method: "PUT",
-                                                  body: JSON.stringify({
-                                                    status: newStatus,
-                                                  }),
-                                                }
-                                              );
-                                              mutateDefinitions({});
-                                              mutate();
-                                            }}
-                                          >
-                                            <FaArchive />{" "}
-                                            {metric.status === "archived"
-                                              ? "Unarchive"
-                                              : "Archive"}
-                                          </button>
-                                        </>
-                                      ) : null}
-                                    </MoreMenu>
-                                  </div>
-                                </div>
-                              </Link>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="alert alert-info">
-                        No metrics have been defined from this data source.
-                      </div>
-                    )}
-                  </>
-                ) : null}
-              </div> */}
-              <div className="my-5 p-3 rounded border">
+              <div className="my-3 p-3 rounded border bg-white">
                 <div className="d-flex flex-row align-items-center justify-content-between">
                   <div>
                     <h2>
@@ -583,32 +376,18 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   <div className="d-flex flex-row pl-3">
                     {permissions.check("createMetrics", project) &&
                       !hasFileConfig() && (
-                        <div className="d-flex flex-row">
-                          <button
-                            className="btn btn-outline-info mr-1 font-weight-bold text-nowrap"
-                            onClick={() =>
-                              setModalData({
-                                current: { datasource: d.id },
-                                edit: false,
-                                duplicate: false,
-                              })
-                            }
-                          >
-                            <FaPlus className="mr-1" /> Discover Metrics
-                          </button>
-                          <button
-                            className="btn btn-outline-primary font-weight-bold text-nowrap"
-                            onClick={() =>
-                              setModalData({
-                                current: { datasource: d.id },
-                                edit: false,
-                                duplicate: false,
-                              })
-                            }
-                          >
-                            <FaPlus className="mr-1" /> Add
-                          </button>
-                        </div>
+                        <button
+                          className="btn btn-outline-primary font-weight-bold text-nowrap"
+                          onClick={() =>
+                            setModalData({
+                              current: { datasource: d.id },
+                              edit: false,
+                              duplicate: false,
+                            })
+                          }
+                        >
+                          <FaPlus className="mr-1" /> Add
+                        </button>
                       )}
                     <button
                       className="btn text-dark"
@@ -633,7 +412,10 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       <div>
                         {metrics.map((metric) => {
                           return (
-                            <div key={metric.id} className="card p-3">
+                            <div
+                              key={metric.id}
+                              className="card p-3 mb-3 bg-light"
+                            >
                               <Link href={`/metric/${metric.id}`}>
                                 <div
                                   className="d-flex flex-row align-items-center justify-content-between"
@@ -781,7 +563,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 ) : null}
               </div>
 
-              <div className="my-5">
+              <div className="my-3 p-3 rounded border bg-white">
                 <DataSourceJupyterNotebookQuery
                   dataSource={d}
                   onSave={updateDataSourceSettings}
