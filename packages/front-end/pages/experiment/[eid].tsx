@@ -22,6 +22,7 @@ import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
+import track from "@/services/track";
 
 const ExperimentPage = (): ReactElement => {
   const [newUi, setNewUi] = useLocalStorage<boolean>(
@@ -100,7 +101,16 @@ const ExperimentPage = (): ReactElement => {
         style={{ marginTop: -5 }}
       >
         This is the {newUi ? "new" : "old"} experiment page.{" "}
-        <a role="button" className="a" onClick={() => setNewUi(!newUi)}>
+        <a
+          role="button"
+          className="a"
+          onClick={() => {
+            track("Switched Experiment Page UI", {
+              to: newUi ? "old" : "new",
+            });
+            setNewUi(!newUi);
+          }}
+        >
           {newUi
             ? "Switch back to the old page?"
             : "Try the new experiment page?"}

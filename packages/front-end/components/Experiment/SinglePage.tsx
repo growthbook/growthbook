@@ -1343,9 +1343,7 @@ export default function SinglePage({
             onTriggerClosing={() => setCustomReportsOpen(false)}
             transitionTime={150}
           >
-            <div className="px-4 mb-4">
-              <ExperimentReportsList experiment={experiment} newUi={true} />
-            </div>
+            <ExperimentReportsList experiment={experiment} newUi={true} />
           </Collapsible>
         </div>
       )}

@@ -53,7 +53,7 @@ export default function ExperimentReportsList({
     hasData && snapshot?.queries && permissions.check("createAnalyses", "");
 
   return (
-    <div>
+    <div className={newUi ? "px-4 mb-4" : ""}>
       {!newUi && (
         <div className="row align-items-center mb-2">
           <div className="col">
