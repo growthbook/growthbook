@@ -380,6 +380,8 @@ export default function SinglePage({
   const ignoreConversionEnd =
     experiment.attributionModel === "experimentDuration";
 
+  const numLinkedChanges = visualChangesets.length || 0;
+
   // Get name or email of all active users watching this experiment
   const usersWatching = (watcherIds?.data?.userIds || [])
     .map((id) => users.get(id))
@@ -819,7 +821,10 @@ export default function SinglePage({
           </div>
 
           <div className="mx-4 pb-3">
-            <div className="h3 mb-2">Linked Changes</div>
+            <div className="h3 mb-2">
+              Linked Changes{" "}
+              <small className="text-muted">({numLinkedChanges})</small>
+            </div>
             <VisualChangesetTable
               experiment={experiment}
               visualChangesets={visualChangesets}

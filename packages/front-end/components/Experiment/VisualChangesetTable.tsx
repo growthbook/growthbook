@@ -79,7 +79,11 @@ const drawChange = ({
       })}
     >
       <div className="mt-2 px-3">
-        <div className="row mt-1 mb-3 d-flex align-items-end">
+        <div
+          className={`row mt-1 mb-3 d-flex ${
+            newUi ? "align-items-start" : "align-items-end"
+          }`}
+        >
           <div className="col">
             <div className="col-auto px-3 py-2 rounded bg-muted-yellow">
               <label className="d-block mb-1 font-weight-bold">
@@ -318,124 +322,114 @@ export const VisualChangesetTable: FC<Props> = ({
 
   return (
     <>
-      {visualChangesets.length > 0 && (
-        <>
-          {newUi ? (
-            <></>
-          ) : (
-            <div className="mb-2">
-              <div className="px-3 h3 mt-3 d-inline-block my-0 align-middle">
-                Visual Changes
-              </div>
+      {newUi ? (
+        <></>
+      ) : (
+        <div className="mb-2">
+          <div className="px-3 h3 mt-3 d-inline-block my-0 align-middle">
+            Visual Changes
+          </div>
 
-              {hasAnyPositionMutations && (
-                <div className="small text-muted">
-                  This experiment requires at least version 0.26.0 of our
-                  Javascript SDK
-                </div>
-              )}
+          {hasAnyPositionMutations && (
+            <div className="small text-muted">
+              This experiment requires at least version 0.26.0 of our Javascript
+              SDK
             </div>
           )}
-
-          {visualChangesets.map((vc, i) => {
-            const simpleUrlPatterns = vc.urlPatterns
-              .filter((v) => v.type === "simple")
-              .sort((v) => (!v.include ? 1 : -1));
-            const regexUrlPatterns = vc.urlPatterns
-              .filter((v) => v.type === "regex")
-              .sort((v) => (!v.include ? 1 : -1));
-
-            const onlySimpleRules =
-              simpleUrlPatterns.length > 0 && regexUrlPatterns.length === 0;
-
-            const change = drawChange({
-              i,
-              vc,
-              variations,
-              experiment,
-              hasVisualEditorFeature,
-              canEditVisualChangesets,
-              setEditingVisualChangeset,
-              setEditingVisualChange,
-              deleteVisualChangeset,
-              simpleUrlPatterns,
-              onlySimpleRules,
-              regexUrlPatterns,
-              newUi,
-            });
-
-            const visualChangeTypesSet: Set<string> = new Set();
-            vc.visualChanges.forEach((c) => {
-              if (c.domMutations.length > 0) {
-                visualChangeTypesSet.add("Copy");
-              }
-              if (c.css) {
-                visualChangeTypesSet.add("CSS");
-              }
-              if (c.js) {
-                visualChangeTypesSet.add("Javascript");
-              }
-            });
-            const visualChangeTypes: string[] = [];
-            // lazy sort: [Copy, CSS, Javascript]
-            if (visualChangeTypesSet.has("Copy")) {
-              visualChangeTypes.push("Copy");
-            }
-            if (visualChangeTypesSet.has("CSS")) {
-              visualChangeTypes.push("CSS");
-            }
-            if (visualChangeTypesSet.has("Javascript")) {
-              visualChangeTypes.push("Javascript");
-            }
-
-            return (
-              <>
-                {newUi ? (
-                  <LinkedChange
-                    key={i}
-                    changeType={"visual"}
-                    page={vc.editorUrl}
-                    changes={visualChangeTypes}
-                    setOpen={(o) => o}
-                    open={true}
-                  >
-                    {change}
-                  </LinkedChange>
-                ) : (
-                  <Fragment key={i}>{change}</Fragment>
-                )}
-              </>
-            );
-          })}
-
-          {canEditVisualChangesets && (
-            <div className={`${newUi ? "" : "px-3"} my-2`}>
-              {hasVisualEditorFeature ? (
-                <button
-                  className="btn btn-link"
-                  onClick={() => {
-                    setVisualEditorModal(true);
-                    track("Open visual editor modal", {
-                      source: "visual-editor-ui",
-                      action: "add",
-                    });
-                  }}
-                >
-                  <FaPlusCircle />{" "}
-                  {newUi ? "Visual Editor change" : "Add Visual Editor page"}
-                </button>
-              ) : (
-                <PremiumTooltip commercialFeature={"visual-editor"}>
-                  <div className="btn btn-link disabled">
-                    <FaPlusCircle />{" "}
-                    {newUi ? "Visual Editor change" : "Add Visual Editor page"}
-                  </div>
-                </PremiumTooltip>
-              )}
-            </div>
-          )}
-        </>
+        </div>
       )}
+
+      {visualChangesets.map((vc, i) => {
+        const simpleUrlPatterns = vc.urlPatterns
+          .filter((v) => v.type === "simple")
+          .sort((v) => (!v.include ? 1 : -1));
+        const regexUrlPatterns = vc.urlPatterns
+          .filter((v) => v.type === "regex")
+          .sort((v) => (!v.include ? 1 : -1));
+
+        const onlySimpleRules =
+          simpleUrlPatterns.length > 0 && regexUrlPatterns.length === 0;
+
+        const change = drawChange({
+          i,
+          vc,
+          variations,
+          experiment,
+          hasVisualEditorFeature,
+          canEditVisualChangesets,
+          setEditingVisualChangeset,
+          setEditingVisualChange,
+          deleteVisualChangeset,
+          simpleUrlPatterns,
+          onlySimpleRules,
+          regexUrlPatterns,
+          newUi,
+        });
+
+        const visualChangeTypesSet: Set<string> = new Set();
+        vc.visualChanges.forEach((c) => {
+          if (c.domMutations.length > 0) {
+            visualChangeTypesSet.add("Copy");
+          }
+          if (c.css) {
+            visualChangeTypesSet.add("CSS");
+          }
+          if (c.js) {
+            visualChangeTypesSet.add("Javascript");
+          }
+        });
+
+        const visualChangeTypesDict: string[] = ["Copy", "CSS", "Javascript"];
+        const visualChangeTypes: string[] = [...visualChangeTypesSet].sort(
+          (a, b) =>
+            visualChangeTypesDict.indexOf(a) - visualChangeTypesDict.indexOf(b)
+        );
+
+        return (
+          <Fragment key={i}>
+            {newUi ? (
+              <LinkedChange
+                changeType={"visual"}
+                page={vc.editorUrl}
+                changes={visualChangeTypes}
+                open={experiment.status === "draft"}
+              >
+                {change}
+              </LinkedChange>
+            ) : (
+              change
+            )}
+          </Fragment>
+        );
+      })}
+
+      {canEditVisualChangesets && (
+        <div className={`${newUi ? "" : "px-3"} my-2`}>
+          {hasVisualEditorFeature ? (
+            <button
+              className="btn btn-link"
+              onClick={() => {
+                setVisualEditorModal(true);
+                track("Open visual editor modal", {
+                  source: "visual-editor-ui",
+                  action: "add",
+                });
+              }}
+            >
+              <FaPlusCircle className="mr-1" />
+              {newUi ? "Visual Editor change" : "Add Visual Editor page"}
+            </button>
+          ) : (
+            <PremiumTooltip commercialFeature={"visual-editor"}>
+              <div className="btn btn-link disabled">
+                <FaPlusCircle className="mr-1" />
+                {newUi ? "Visual Editor change" : "Add Visual Editor page"}
+              </div>
+            </PremiumTooltip>
+          )}
+        </div>
+      )}
+
       {hasLegacyVisualChanges && (
         <div className="alert alert-warning mt-3">
           <Link href={`/experiments/designer/${experiment.id}`}>

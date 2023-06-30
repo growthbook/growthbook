@@ -3,11 +3,10 @@ import { FaAngleRight, FaFlag } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { RxDesktop } from "react-icons/rx";
 
-type LinkedChangeProps = {
+type Props = {
   changeType: "flag" | "visual";
   page?: string;
   changes?: string[];
-  setOpen: (v: boolean) => void;
   open: boolean;
   children?: ReactNode;
 };
@@ -16,16 +15,15 @@ export default function LinkedChange({
   changeType,
   page,
   changes,
-  setOpen,
   open,
   children,
-}: LinkedChangeProps) {
+}: Props) {
   return (
-    <div className="linked-change border bg-light">
+    <div className="linked-change border bg-light my-3">
       <Collapsible
         trigger={
           <div className="px-3 py-3 row">
-            <div className="col-auto">
+            <div className="col-auto d-flex align-items-center">
               <FaAngleRight className="chevron" />
             </div>
             {changeType === "flag" ? (
@@ -47,15 +45,18 @@ export default function LinkedChange({
                   <RxDesktop />
                   <div className="ml-1 small">Visual Editor</div>
                 </div>
-                <div className="col-3 text-body d-flex align-items-center">
-                  <span className="text-muted">Page:</span>{" "}
-                  <span className="ml-1 d-inline-block text-ellipsis">
+                <div
+                  className="col-3 d-flex align-items-center"
+                  style={{ minWidth: 200 }}
+                >
+                  <span className="text-muted hover-label">Page:</span>{" "}
+                  <span className="ml-1 d-inline-block text-ellipsis text-body hover-label">
                     {page}
                   </span>
                 </div>
-                <div className="col-3 pl-3 text-body">
-                  <span className="text-muted">Changes:</span>{" "}
-                  <span>
+                <div className="col-3 pl-3">
+                  <span className="text-muted hover-label">Changes:</span>{" "}
+                  <span className="text-body hover-label">
                     {(changes?.length || 0) > 0 ? (
                       changes?.join(" + ")
                     ) : (
@@ -68,9 +69,7 @@ export default function LinkedChange({
           </div>
         }
         open={open}
-        onTriggerOpening={() => setOpen(true)}
-        onTriggerClosing={() => setOpen(false)}
-        transitionTime={150}
+        transitionTime={100}
       >
         <div className="border-top mx-3 mb-3"></div>
         {children}

@@ -624,6 +624,9 @@ pre {
   &:hover {
     cursor: pointer;
     color: colors.$primary-blue;
+    .hover-label {
+      color: colors.$primary-blue !important;
+    }
   }
   .chevron {
     transition: transform 0.1s;
