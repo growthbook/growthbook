@@ -403,7 +403,7 @@ export const VisualChangesetTable: FC<Props> = ({
         );
       })}
 
-      {canEditVisualChangesets && (
+      {canEditVisualChangesets && experiment.status === "draft" ? (
         <div className={`${newUi ? "" : "px-3"} my-2`}>
           {hasVisualEditorFeature ? (
             <button
@@ -428,15 +428,19 @@ export const VisualChangesetTable: FC<Props> = ({
             </PremiumTooltip>
           )}
         </div>
-      )}
+      ) : null}
 
-      {hasLegacyVisualChanges && (
-        <div className="alert alert-warning mt-3">
+      {hasLegacyVisualChanges && experiment.status === "draft" ? (
+        <div className={`alert alert-warning mt-3 ${newUi ? "" : "mx-4"}`}>
+          <div className="mb-1">
+            Your experiment has visual changes created with the legacy visual
+            editor
+          </div>
           <Link href={`/experiments/designer/${experiment.id}`}>
             Open Legacy Visual Editor
           </Link>
         </div>
-      )}
+      ) : null}
 
       {editingVisualChangeset ? (
         <VisualChangesetModal
