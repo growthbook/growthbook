@@ -3,6 +3,7 @@ import {
   replaceSQLVars,
   expandDenominatorMetrics,
   format,
+  replaceCountStar,
 } from "../src/util/sql";
 
 describe("backend", () => {
@@ -192,5 +193,23 @@ from
     // Invalid syntax
     inputSQL = `SELECT (a* as c`;
     expect(format(inputSQL, "mysql")).toEqual(inputSQL);
+  });
+
+  it("replaces COUNT(*) correctly", () => {
+    expect(replaceCountStar("COuNt(*)", "m.user_id")).toEqual(
+      "COUNT(m.user_id)"
+    );
+    expect(replaceCountStar("count( * )", "m.user_id")).toEqual(
+      "COUNT(m.user_id)"
+    );
+    expect(replaceCountStar("SUM(value) / COUNT( * )", "m.user_id")).toEqual(
+      "SUM(value) / COUNT(m.user_id)"
+    );
+    expect(replaceCountStar("COUNT(value)", "m.user_id")).toEqual(
+      "COUNT(value)"
+    );
+    expect(
+      replaceCountStar("SUM(value) / COUNT( * ) + COUNT(*)", "m.user_id")
+    ).toEqual("SUM(value) / COUNT(m.user_id) + COUNT(m.user_id)");
   });
 });
