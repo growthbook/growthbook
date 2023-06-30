@@ -1,4 +1,7 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentStatus,
+} from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/router";
@@ -24,6 +27,8 @@ import { getScopedSettings } from "shared/settings";
 import { date } from "shared/dates";
 import Collapsible from "react-collapsible";
 import { DiscussionInterface } from "back-end/types/discussion";
+import { RxDesktop } from "react-icons/rx";
+import { BsFlag } from "react-icons/bs";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -177,9 +182,12 @@ export default function SinglePage({
   editPhases,
   editPhase,
 }: Props) {
+  // Select the correct default UI states based on experiment status
+  const draftOrLive = experiment.status === "draft" ? "draft" : "live";
   const [metaInfoOpen, setMetaInfoOpen] = useLocalStorage<boolean>(
-    `experiment-page__${experiment.id}__meta-info-open`,
-    true
+    `experiment-page__${experiment.id}__${draftOrLive}__meta-info-open`,
+    // Use a separate cache key for draft/non-draft so that we can reset the UI state if the experiment status is changed externally from our browser session
+    draftOrLive === "draft"
   );
   const [resultsTab, setResultsTab] = useLocalStorage<string>(
     `experiment-page__${experiment.id}__results-tab`,
@@ -193,6 +201,19 @@ export default function SinglePage({
     `experiment-page__${experiment.id}__discussion-open`,
     true
   );
+
+  // Force a new UI state when we change the experiment status within our browser session
+  const onChangeStatus = (
+    oldStatus: ExperimentStatus,
+    status: ExperimentStatus
+  ) => {
+    if (oldStatus !== "draft" && status === "draft") {
+      setMetaInfoOpen(true);
+    }
+    if (oldStatus === "draft" && status !== "draft") {
+      setMetaInfoOpen(false);
+    }
+  };
 
   const {
     getProjectById,
@@ -380,7 +401,10 @@ export default function SinglePage({
   const ignoreConversionEnd =
     experiment.attributionModel === "experimentDuration";
 
-  const numLinkedChanges = visualChangesets.length || 0;
+  const numLinkedVisualEditorChanges = visualChangesets.length || 0;
+  const numLinkedFeatureFlagChanges = 0;
+  const numLinkedChanges =
+    numLinkedVisualEditorChanges + numLinkedFeatureFlagChanges;
 
   // Get name or email of all active users watching this experiment
   const usersWatching = (watcherIds?.data?.userIds || [])
@@ -475,6 +499,7 @@ export default function SinglePage({
         <EditStatusModal
           experiment={experiment}
           close={() => setStatusModal(false)}
+          onChangeStatus={onChangeStatus}
           mutate={mutate}
         />
       )}
@@ -638,6 +663,52 @@ export default function SinglePage({
               </a>
             )}
           </div>
+          {numLinkedChanges > 0 ? (
+            <div className="col-auto ml-5 pr-3">
+              <div className="d-inline-block">Linked changes:</div>
+              <div className="d-inline-block ml-2">
+                {numLinkedFeatureFlagChanges > 0 ? (
+                  <>
+                    <Tooltip
+                      body={
+                        <div className="d-flex align-items-center">
+                          <span className="small text-uppercase mr-2">
+                            Feature Flags:
+                          </span>{" "}
+                          {numLinkedFeatureFlagChanges} change
+                          {numLinkedFeatureFlagChanges === 1 ? "" : "s"}
+                        </div>
+                      }
+                    >
+                      <div className="d-inline-block">
+                        <BsFlag />{" "}
+                        <span className="">{numLinkedFeatureFlagChanges}</span>
+                      </div>
+                    </Tooltip>
+                    {numLinkedVisualEditorChanges > 0 ? ", " : null}
+                  </>
+                ) : null}
+                {numLinkedVisualEditorChanges > 0 ? (
+                  <Tooltip
+                    body={
+                      <div className="d-flex align-items-center">
+                        <span className="small text-uppercase mr-2">
+                          Visual Editor:
+                        </span>{" "}
+                        {numLinkedVisualEditorChanges} change
+                        {numLinkedVisualEditorChanges === 1 ? "" : "s"}
+                      </div>
+                    }
+                  >
+                    <div className="d-inline-block">
+                      <RxDesktop />{" "}
+                      <span className="">{numLinkedVisualEditorChanges}</span>
+                    </div>
+                  </Tooltip>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
 
           <div className="flex-1 col"></div>
 
@@ -681,6 +752,7 @@ export default function SinglePage({
             </div>
           </div>
         </div>
+
         {currentProject && currentProject !== experiment.project && (
           <div className="alert alert-warning p-2 mb-2 text-center">
             This experiment is not in your current project.{" "}
@@ -837,8 +909,8 @@ export default function SinglePage({
         </Collapsible>
       </div>
 
-      {experimentPendingWithVisualChanges ? (
-        <div>
+      {experimentPendingWithVisualChanges && visualChangesets.length > 0 ? (
+        <>
           {visualChangesets.length > 0 ? (
             <div className="mb-4">
               {!hasSomeVisualChanges ? (
@@ -950,10 +1022,8 @@ export default function SinglePage({
               </div>
             </div>
           )}
-        </div>
-      ) : (
-        <></>
-      )}
+        </>
+      ) : null}
 
       {!experimentPendingWithVisualChanges && (
         <ControlledTabs

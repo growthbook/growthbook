@@ -11,10 +11,20 @@ import Field from "../Forms/Field";
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
+  onChangeStatus?: (
+    oldStatus: ExperimentStatus,
+    status: ExperimentStatus
+  ) => void;
   close: () => void;
 }
 
-export default function EditStatusModal({ experiment, close, mutate }: Props) {
+export default function EditStatusModal({
+  experiment,
+  close,
+  mutate,
+  onChangeStatus,
+}: Props) {
+  const oldStatus = experiment.status;
   const form = useForm({
     defaultValues: {
       status: experiment.status,
@@ -34,6 +44,7 @@ export default function EditStatusModal({ experiment, close, mutate }: Props) {
           method: "POST",
           body: JSON.stringify(value),
         });
+        onChangeStatus?.(oldStatus, value.status);
         mutate();
       })}
     >

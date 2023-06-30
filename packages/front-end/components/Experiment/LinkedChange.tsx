@@ -1,7 +1,8 @@
 import React, { ReactNode } from "react";
-import { FaAngleRight, FaFlag } from "react-icons/fa";
+import { FaAngleRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { RxDesktop } from "react-icons/rx";
+import { BsFlag } from "react-icons/bs";
 
 type Props = {
   changeType: "flag" | "visual";
@@ -32,7 +33,7 @@ export default function LinkedChange({
                   className="col-auto text-uppercase d-flex align-items-center"
                   style={{ width: 150 }}
                 >
-                  <FaFlag />
+                  <BsFlag />
                   <div className="ml-1 small">Feature Flag</div>
                 </div>
               </>
