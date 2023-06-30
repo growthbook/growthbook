@@ -717,6 +717,32 @@ The subscription system ensures that subscription callbacks are only
 called when the result of an experiment changes, or a new experiment
 is run.
 
+## Locking strategy
+
+To support feature loading from the GrowthBook API, the GrowthBook Go
+SDK includes some data structures that are shared between user
+goroutines calling SDK functions and internal goroutines used for
+automated feature updating.
+
+In all such cases, data structures that may be accessed by multiple
+goroutines are protected by `sync.RWMutex` mutexes.
+
+To make it clear to readers of the SDK code that there is no
+possibility of deadlocks, we use a stereotyped approach to locking. In
+every case where a shared data structure must be accessed within an
+SDK function, the relevant mutex is locked on the first line of the
+function, and the second line of the function contains a deferred
+unlock of the mutex. No SDK function locks more than one mutex and the
+mutexes that protect internal SDK data structures are private, and not
+accessible from outside the SDK.
+
+The semantics of Go's `defer` statement ensures that mutexes locked
+under these conditions are always unlocked when the function returns
+(details [here](https://go.dev/ref/spec#Defer_statements)). In short,
+`defer` statements are executed however the thread of execution leaves
+the function containing the defer, whether that's through a normal
+return, or because of a panic.
+
 ## Code Examples
 
 - [Go server example that fetches from the GrowthBook API <ExternalLink/>](https://github.com/growthbook/examples/tree/main/go-example)
