@@ -676,7 +676,10 @@ export default function SinglePage({
                             Feature Flags:
                           </span>{" "}
                           {numLinkedFeatureFlagChanges} change
-                          {numLinkedFeatureFlagChanges === 1 ? "" : "s"}
+                          {
+                            // @ts-expect-error - numLinkedFeatureFlagChanges is always 0, but not for long...
+                            numLinkedFeatureFlagChanges === 1 ? "" : "s"
+                          }
                         </div>
                       }
                     >
