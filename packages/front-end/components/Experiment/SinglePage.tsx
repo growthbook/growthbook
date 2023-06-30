@@ -1,7 +1,4 @@
-import {
-  ExperimentInterfaceStringDates,
-  ExperimentStatus,
-} from "back-end/types/experiment";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/router";
@@ -183,11 +180,9 @@ export default function SinglePage({
   editPhase,
 }: Props) {
   // Select the correct default UI states based on experiment status
-  const draftOrLive = experiment.status === "draft" ? "draft" : "live";
   const [metaInfoOpen, setMetaInfoOpen] = useLocalStorage<boolean>(
-    `experiment-page__${experiment.id}__${draftOrLive}__meta-info-open`,
-    // Use a separate cache key for draft/non-draft so that we can reset the UI state if the experiment status is changed externally from our browser session
-    draftOrLive === "draft"
+    `experiment-page__${experiment.id}__meta-info-open`,
+    true
   );
   const [resultsTab, setResultsTab] = useLocalStorage<string>(
     `experiment-page__${experiment.id}__results-tab`,
@@ -201,19 +196,6 @@ export default function SinglePage({
     `experiment-page__${experiment.id}__discussion-open`,
     true
   );
-
-  // Force a new UI state when we change the experiment status within our browser session
-  const onChangeStatus = (
-    oldStatus: ExperimentStatus,
-    status: ExperimentStatus
-  ) => {
-    if (oldStatus !== "draft" && status === "draft") {
-      setMetaInfoOpen(true);
-    }
-    if (oldStatus === "draft" && status !== "draft") {
-      setMetaInfoOpen(false);
-    }
-  };
 
   const {
     getProjectById,
@@ -499,7 +481,6 @@ export default function SinglePage({
         <EditStatusModal
           experiment={experiment}
           close={() => setStatusModal(false)}
-          onChangeStatus={onChangeStatus}
           mutate={mutate}
         />
       )}
