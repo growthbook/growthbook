@@ -27,7 +27,8 @@ const OpenVisualEditorLink: FC<{
   const url = useMemo(() => {
     if (!visualEditorUrl) return "";
 
-    let url = visualEditorUrl;
+    // Trim whitespace to prevent simple copy/paste errors
+    let url = visualEditorUrl.trim();
 
     // Force all URLs to be absolute
     if (!url.match(/^http(s)?:/)) {
