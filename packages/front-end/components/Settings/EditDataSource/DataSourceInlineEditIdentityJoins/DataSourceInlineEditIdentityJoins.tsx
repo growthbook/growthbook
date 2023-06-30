@@ -12,7 +12,6 @@ import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import Tooltip from "@/components/Tooltip/Tooltip";
 
 type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
 
