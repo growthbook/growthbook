@@ -1,10 +1,15 @@
 import { FC, useState } from "react";
 import { BsArrowRepeat } from "react-icons/bs";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentSnapshotAnalysis } from "back-end/types/experiment-snapshot";
+import {
+  ExperimentSnapshotInterface,
+  ExperimentSnapshotAnalysis,
+} from "back-end/types/experiment-snapshot";
 import { StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { trackSnapshot } from "@/services/track";
 import Button from "../Button";
 import ManualSnapshotForm from "./ManualSnapshotForm";
 
@@ -30,6 +35,7 @@ const RefreshSnapshotButton: FC<{
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [longResult, setLongResult] = useState(false);
+  const { getDatasourceById } = useDefinitions();
 
   const { apiCall } = useAuth();
   const manual = !experiment.datasource;
@@ -41,20 +47,26 @@ const RefreshSnapshotButton: FC<{
       return;
     }
 
-    await apiCall<{ status: number; message: string }>(
-      `/experiment/${experiment.id}/snapshot`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          phase,
-          dimension,
-          statsEngine,
-          regressionAdjustmentEnabled,
-          metricRegressionAdjustmentStatuses,
-        }),
-      }
+    const res = await apiCall<{
+      status: number;
+      message: string;
+      snapshot: ExperimentSnapshotInterface;
+    }>(`/experiment/${experiment.id}/snapshot`, {
+      method: "POST",
+      body: JSON.stringify({
+        phase,
+        dimension,
+        statsEngine,
+        regressionAdjustmentEnabled,
+        metricRegressionAdjustmentStatuses,
+      }),
+    });
+    trackSnapshot(
+      "create",
+      "RefreshSnapshotButton",
+      getDatasourceById(experiment.datasource)?.type || null,
+      res.snapshot
     );
-
     mutate();
   };
 

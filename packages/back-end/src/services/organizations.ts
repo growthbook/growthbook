@@ -52,6 +52,7 @@ import {
 } from "../models/SegmentModel";
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
+import { addTags } from "../models/TagModel";
 import { markInstalled } from "./auth";
 import {
   encryptParams,
@@ -617,6 +618,9 @@ export async function importConfig(
               id: k,
               organization: organization.id,
             });
+          }
+          if (m.tags && organization.id) {
+            await addTags(organization.id, m.tags);
           }
         } catch (e) {
           throw new Error(`Metric ${k}: ${e.message}`);

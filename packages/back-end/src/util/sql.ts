@@ -133,3 +133,8 @@ export function expandDenominatorMetrics(
   if (!m.denominator) return [metric];
   return [...expandDenominatorMetrics(m.denominator, map, visited), metric];
 }
+
+// replace COUNT(*) with COUNT(${col}) to prevent counting null rows in some locations
+export function replaceCountStar(aggregation: string, col: string) {
+  return aggregation.replace(/count\(\s*\*\s*\)/gi, `COUNT(${col})`);
+}

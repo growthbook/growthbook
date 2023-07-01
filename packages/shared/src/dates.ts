@@ -28,6 +28,25 @@ export function daysBetween(start: string | Date, end: string | Date): number {
   return differenceInDays(getValidDate(end), getValidDate(start));
 }
 
+// returns of the format ["'2022-01-05'", "'2022-01-06'"] for
+// ease of use with SQL
+export function dateStringArrayBetweenDates(
+  start: Date,
+  end: Date,
+  truncate: boolean = true,
+  dayInterval: number = 1
+): string[] {
+  const dateArray: string[] = [];
+  let startTruncate = new Date(start);
+  if (truncate) {
+    startTruncate = new Date(start.toISOString().substring(0, 10));
+  }
+  for (let d = startTruncate; d <= end; d.setDate(d.getDate() + dayInterval)) {
+    dateArray.push(`'${d.toISOString().substring(0, 10)}'`);
+  }
+  return dateArray;
+}
+
 export function getValidDate(
   dateStr: string | Date | null | number,
   fallback?: Date
