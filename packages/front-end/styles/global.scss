@@ -194,11 +194,11 @@ pre {
   background-color: rgba(154, 110, 248, 0.2);
   color: inherit;
 }
-.btn-experiment-status,
-.btn-experiment-results {
-  .results-indicator {
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2) inset;
-  }
+
+.experiment-status-widget {
+  background-color: var(--surface-background-color);
+  border-radius: 20px !important;
+  overflow: hidden;
 }
 
 .badge {

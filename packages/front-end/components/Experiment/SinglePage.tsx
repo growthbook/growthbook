@@ -708,13 +708,7 @@ export default function SinglePage({
           </div>
 
           <div className="col-auto">
-            <div
-              className="border rounded overflow-hidden d-flex mt-1"
-              style={{
-                backgroundColor: "var(--surface-background-color)",
-                boxShadow: "0 2px 5px rgba(0,0,0,.1) inset",
-              }}
-            >
+            <div className="experiment-status-widget border d-flex mt-1">
               <div
                 className="d-flex px-3"
                 style={{ height: 30, lineHeight: "30px" }}
@@ -1289,8 +1283,8 @@ export default function SinglePage({
         <div className="mb-4 pt-3 appbox">
           <Collapsible
             trigger={
-              <div className="row mx-2 pb-3">
-                <div className="col h3">
+              <div className="row mx-2 pb-3 d-flex align-items-center">
+                <div className="col h3 mb-0">
                   <FaAngleRight className="chevron" /> Custom Reports{" "}
                   <small>({reportsData?.reports?.length || 0})</small>
                 </div>
@@ -1313,10 +1307,8 @@ export default function SinglePage({
                         await router.push(`/report/${res.report.id}`);
                       }}
                     >
-                      <span className="h4 pr-2 m-0 d-inline-block align-top">
-                        <GBAddCircle />
-                      </span>
-                      Add Custom Report
+                      <GBAddCircle className="pr-1" />
+                      Custom Report
                     </Button>
                   </div>
                 )}
