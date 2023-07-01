@@ -4,6 +4,7 @@ import {
 } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { FC } from "react";
+import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import Carousel from "../Carousel";
@@ -108,9 +109,11 @@ const VariationsTable: FC<Props> = ({
         }}
       >
         <table
-          className={`table table-bordered mx-3 w100-1rem ${
-            newUi ? "" : "bg-light"
-          }`}
+          className={clsx("table table-bordered mx-3", {
+            "bg-light mw100-1rem": newUi,
+            "w100-1rem": !newUi,
+          })}
+          style={newUi ? { width: "auto" } : {}}
         >
           <thead>
             <tr>
@@ -159,7 +162,8 @@ const VariationsTable: FC<Props> = ({
                   }`}
                   style={{
                     minWidth: "17.5rem",
-                    width: `${50 / Math.min(variations.length || 1, 4)}rem`,
+                    maxWidth: "27rem",
+                    width: `${80 / Math.min(variations.length || 1, 4)}rem`,
                     height: "inherit",
                     borderBottom: canEditExperiment ? 0 : undefined,
                   }}

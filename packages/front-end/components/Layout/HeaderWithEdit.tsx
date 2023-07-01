@@ -7,7 +7,6 @@ export interface Props {
   containerClassName?: string;
   children: string | ReactElement;
   edit?: () => void;
-  editElement?: ReactElement;
   editClassName?: string;
   additionalActions?: ReactElement;
   stopPropagation?: boolean;
@@ -16,7 +15,6 @@ export interface Props {
 export default function HeaderWithEdit({
   children,
   edit,
-  editElement,
   editClassName = "a",
   additionalActions,
   className = "h3",
@@ -37,7 +35,7 @@ export default function HeaderWithEdit({
               edit();
             }}
           >
-            {editElement || <GBEdit />}
+            <GBEdit />
           </a>
         </div>
       )}

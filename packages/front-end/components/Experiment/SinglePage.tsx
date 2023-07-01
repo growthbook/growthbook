@@ -851,9 +851,8 @@ export default function SinglePage({
 
           <HeaderWithEdit
             edit={editVariations ?? undefined}
-            editElement={<div className="btn-link">Edit Variations</div>}
             className="h3 mt-1 mb-2"
-            containerClassName="mx-4 mb-1 justify-content-between"
+            containerClassName="mx-4 mb-1"
           >
             Variations
           </HeaderWithEdit>

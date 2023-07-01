@@ -1225,6 +1225,9 @@ pre {
 .w100-1rem {
   width: calc(100% - 2rem);
 }
+.mw100-1rem {
+  max-width: calc(100% - 2rem);
+}
 
 .variation {
   &.with-variation-label {
