@@ -10,7 +10,6 @@ import {
   ReportInterface,
 } from "../../types/report";
 import { getMetricMap } from "../models/MetricModel";
-import { QueryDocument } from "../models/QueryModel";
 import { findSegmentById } from "../models/SegmentModel";
 import { SegmentInterface } from "../../types/segment";
 import { getDataSourceById } from "../models/DataSourceModel";
@@ -29,6 +28,7 @@ import {
 import { expandDenominatorMetrics } from "../util/sql";
 import { OrganizationInterface } from "../../types/organization";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import { QueryInterface } from "../../types/query";
 import { analyzeExperimentResults } from "./stats";
 import { parseDimensionId } from "./experiments";
 import { getExperimentMetric, getExperimentResults, startRun } from "./queries";
@@ -215,7 +215,7 @@ export async function startExperimentAnalysis({
     );
   }
 
-  const queryDocs: { [key: string]: Promise<QueryDocument> } = {};
+  const queryDocs: { [key: string]: Promise<QueryInterface> } = {};
   const dimensionObj = await parseDimensionId(
     snapshotSettings.dimensions[0]?.id,
     organization.id

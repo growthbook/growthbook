@@ -1,9 +1,8 @@
-import uniqid from "uniqid";
 import { getValidDate } from "shared/dates";
 import {
+  createNewQuery,
   getQueriesByIds,
-  QueryDocument,
-  QueryModel,
+  getRecentQuery,
   updateQuery,
 } from "../models/QueryModel";
 import {
@@ -26,7 +25,6 @@ import {
 } from "../../types/query";
 import { MetricInterface } from "../../types/metric";
 import { DimensionInterface } from "../../types/dimension";
-import { QUERY_CACHE_TTL_MINS } from "../util/secrets";
 import { meanVarianceFromSums } from "../util/stats";
 import {
   ExperimentSnapshotInterface,
@@ -35,6 +33,7 @@ import {
 import { updateSnapshot } from "../models/ExperimentSnapshotModel";
 import { getMetricMap } from "../models/MetricModel";
 import { ExperimentInterface } from "../../types/experiment";
+import { logger } from "../util/logger";
 import { analyzeExperimentResults } from "./stats";
 export type QueryMap = Map<string, QueryInterface>;
 
@@ -55,71 +54,21 @@ export type QueryStatusEndpointResponse = {
 async function getExistingQuery(
   integration: SourceIntegrationInterface,
   query: string
-): Promise<QueryDocument | null> {
-  // Only re-use queries that were started recently
-  const earliestDate = new Date();
-  earliestDate.setMinutes(earliestDate.getMinutes() - QUERY_CACHE_TTL_MINS);
-
-  // Only re-use running queries if they've had a heartbeat recently
-  const lastHeartbeat = new Date();
-  lastHeartbeat.setMinutes(lastHeartbeat.getMinutes() - 2);
-
-  const existing = await QueryModel.find({
-    organization: integration.organization,
-    datasource: integration.datasource,
-    query,
-    createdAt: {
-      $gt: earliestDate,
-    },
-    status: {
-      $in: ["running", "succeeded"],
-    },
-  })
-    .sort({ createdAt: -1 })
-    .limit(5);
-  for (let i = 0; i < existing.length; i++) {
-    if (existing[i].status === "succeeded") {
-      return existing[i];
-    }
-    if (existing[i].heartbeat >= lastHeartbeat) {
-      return existing[i];
-    }
-  }
-
-  return null;
+): Promise<QueryInterface | null> {
+  return await getRecentQuery(
+    integration.organization,
+    integration.datasource,
+    query
+  );
 }
 
-async function createNewQuery(
-  integration: SourceIntegrationInterface,
-  query: string,
-  // eslint-disable-next-line
-  result: null | Record<string, any> = null,
-  error: null | string = null
-): Promise<QueryDocument> {
-  const data: QueryInterface = {
-    createdAt: new Date(),
-    datasource: integration.datasource,
-    finishedAt: result || error ? new Date() : undefined,
-    heartbeat: new Date(),
-    id: uniqid("qry_"),
-    language: integration.getSourceProperties().queryLanguage,
-    organization: integration.organization,
-    query,
-    startedAt: new Date(),
-    status: result ? "succeeded" : error ? "failed" : "running",
-    result: result || undefined,
-    error: error || undefined,
-  };
-  return await QueryModel.create(data);
-}
-
-async function getQueryDoc<T, P>(
+async function getQueryDoc<T extends Record<string, unknown>[], P>(
   integration: SourceIntegrationInterface,
   query: string,
   run: (query: string) => Promise<T>,
   process: (rows: T) => P,
   useExisting: boolean = true
-): Promise<QueryDocument> {
+): Promise<QueryInterface> {
   // Re-use recent identical query
   if (useExisting) {
     const existing = await getExistingQuery(integration, query);
@@ -127,31 +76,39 @@ async function getQueryDoc<T, P>(
   }
 
   // Otherwise, create a new query in mongo;
-  const doc = await createNewQuery(integration, query);
+  const doc = await createNewQuery({
+    query,
+    datasource: integration.datasource,
+    organization: integration.organization,
+    language: integration.getSourceProperties().queryLanguage,
+  });
 
   // Update heartbeat for the query once every 30 seconds
   // This lets us detect orphaned queries where the thread died
   const timer = setInterval(() => {
-    doc.set("heartbeat", new Date());
-    doc.save();
+    updateQuery(doc, { heartbeat: new Date() }).catch((e) => {
+      logger.error(e);
+    });
   }, 30000);
 
   // Run the query in the background
   run(query)
     .then((rows) => {
       clearInterval(timer);
-      doc.set("finishedAt", new Date());
-      doc.set("status", "succeeded");
-      doc.set("rawResult", rows);
-      doc.set("result", process(rows));
-      doc.save();
+      return updateQuery(doc, {
+        finishedAt: new Date(),
+        status: "succeeded",
+        rawResult: rows as Record<string, string | boolean | number>[],
+        result: process(rows),
+      });
     })
     .catch((e) => {
       clearInterval(timer);
-      doc.set("finishedAt", new Date());
-      doc.set("status", "failed");
-      doc.set("error", e.message);
-      doc.save();
+      updateQuery(doc, {
+        finishedAt: new Date(),
+        status: "failed",
+        error: e.message,
+      }).catch((e) => logger.error(e));
     });
 
   return doc;
@@ -160,7 +117,7 @@ async function getQueryDoc<T, P>(
 export async function getPastExperiments(
   integration: SourceIntegrationInterface,
   from: Date
-): Promise<QueryDocument> {
+): Promise<QueryInterface> {
   return getQueryDoc(
     integration,
     integration.getPastExperimentQuery({
@@ -174,7 +131,7 @@ export async function getPastExperiments(
 export async function getMetricValue(
   integration: SourceIntegrationInterface,
   params: MetricValueParams
-): Promise<QueryDocument> {
+): Promise<QueryInterface> {
   return getQueryDoc(
     integration,
     integration.getMetricValueQuery(params),
@@ -195,7 +152,7 @@ export async function getExperimentResults({
   metrics: MetricInterface[];
   activationMetric: MetricInterface | null;
   dimension: DimensionInterface | null;
-}): Promise<QueryDocument> {
+}): Promise<QueryInterface> {
   const query = integration.getExperimentResultsQuery(
     snapshotSettings,
     metrics,
@@ -222,7 +179,7 @@ export async function getExperimentMetric(
   integration: SourceIntegrationInterface,
   params: ExperimentMetricQueryParams,
   useCache: boolean
-): Promise<QueryDocument> {
+): Promise<QueryInterface> {
   return getQueryDoc(
     integration,
     integration.getExperimentMetricQuery(params),
@@ -354,12 +311,10 @@ export async function getQueryData(
   organization: string,
   map?: QueryMap
 ): Promise<QueryMap> {
-  const docs = await QueryModel.find({
+  const docs = await getQueriesByIds(
     organization,
-    id: {
-      $in: queries.map((q) => q.query),
-    },
-  });
+    queries.map((q) => q.query)
+  );
 
   const res: QueryMap = map || new Map();
   docs.forEach((doc) => {
@@ -395,7 +350,7 @@ export async function updateQueryPointers(
     pointers.map((p) => p.query)
   );
 
-  const updateQueryPromises: Promise<void>[] = [];
+  const updateQueryPromises: Promise<QueryInterface>[] = [];
 
   let hasChanges = false;
   const queryMap: QueryMap = new Map();
@@ -406,9 +361,7 @@ export async function updateQueryPointers(
       Date.now() - query.heartbeat.getTime() > 150000
     ) {
       query.status = "failed";
-      updateQueryPromises.push(
-        updateQuery(organization, query.id, { status: "failed" })
-      );
+      updateQueryPromises.push(updateQuery(query, { status: "failed" }));
     }
 
     // Update pointer status to match query status
@@ -592,7 +545,7 @@ export async function updateQueryStatuses(
 }
 
 export async function startRun<T>(
-  docs: { [key: string]: Promise<QueryDocument> },
+  docs: { [key: string]: Promise<QueryInterface> },
   processResults: (data: QueryMap) => Promise<T>
 ): Promise<{
   queries: Queries;
