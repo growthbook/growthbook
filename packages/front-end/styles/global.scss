@@ -474,7 +474,7 @@ pre {
       margin-bottom: 1px;
     }
   }
-  .tab-content {
+  .tab-content:not(.noborder) {
     border-radius: 3px;
     border-color: var(--border-color-300);
   }
@@ -1649,7 +1649,9 @@ li.metrics a span img {
   .tab-content {
     background-color: var(--surface-background-color);
     padding: 1rem;
-    border: 1px solid var(--border-color-300);
+    &:not(.noborder) {
+      border: 1px solid var(--border-color-300);
+    }
   }
 
   h5 {

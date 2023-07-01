@@ -26,6 +26,7 @@ import Collapsible from "react-collapsible";
 import { DiscussionInterface } from "back-end/types/discussion";
 import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
+import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -1003,7 +1004,12 @@ export default function SinglePage({
           newStyle={true}
           className="mt-3 mb-4"
           buttonsClassName="px-5"
-          tabContentsClassName="border px-3 pt-3"
+          tabContentsClassName={clsx(
+            "px-3 pt-3",
+            resultsTab === "overview" && (experiment.phases?.length || 0) === 0
+              ? "alert-cool-1 py-3 noborder"
+              : "border"
+          )}
           setActive={(tab) => setResultsTab(tab ?? "overview")}
           active={resultsTab}
         >
@@ -1030,8 +1036,10 @@ export default function SinglePage({
                   onRegressionAdjustmentChange={onRegressionAdjustmentChange}
                 />
               ) : (
-                <div className="text-center my-5">
-                  <p>There are no experiment phases yet.</p>
+                <div className="text-center my-4">
+                  <p className="h4 mb-4">
+                    Add an experiment phase to begin testing
+                  </p>
                   <button
                     className="btn btn-primary btn-lg"
                     onClick={newPhase ?? undefined}

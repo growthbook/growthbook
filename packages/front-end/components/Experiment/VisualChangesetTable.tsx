@@ -433,8 +433,7 @@ export const VisualChangesetTable: FC<Props> = ({
       {hasLegacyVisualChanges && experiment.status === "draft" ? (
         <div className={`alert alert-warning mt-3 ${newUi ? "" : "mx-4"}`}>
           <div className="mb-1">
-            Your experiment has visual changes created with the legacy visual
-            editor
+            Your experiment has changes created with the legacy visual editor
           </div>
           <Link href={`/experiments/designer/${experiment.id}`}>
             Open Legacy Visual Editor
