@@ -350,20 +350,9 @@ export async function updateQueryPointers(
     pointers.map((p) => p.query)
   );
 
-  const updateQueryPromises: Promise<QueryInterface>[] = [];
-
   let hasChanges = false;
   const queryMap: QueryMap = new Map();
   queries.forEach((query) => {
-    // Running with no recent heartbeat, update to mark as failed
-    if (
-      query.status === "running" &&
-      Date.now() - query.heartbeat.getTime() > 150000
-    ) {
-      query.status = "failed";
-      updateQueryPromises.push(updateQuery(query, { status: "failed" }));
-    }
-
     // Update pointer status to match query status
     const pointer = pointers.find((p) => p.query === query.id);
     if (!pointer) return;
@@ -376,10 +365,6 @@ export async function updateQueryPointers(
       pointer.status = query.status;
     }
   });
-
-  if (updateQueryPromises.length > 0) {
-    await Promise.all(updateQueryPromises);
-  }
 
   return {
     pointers,
@@ -503,17 +488,9 @@ export async function updateQueryStatuses(
       return;
     }
 
-    let status = latest.status;
-    if (
-      status === "running" &&
-      Date.now() - latest.heartbeat.getTime() > 150000
-    ) {
-      status = "failed";
-    }
-
-    if (status !== q.status) {
+    if (latest.status !== q.status) {
       needsUpdate = true;
-      q.status = status;
+      q.status = latest.status;
     }
   });
 

@@ -26,7 +26,10 @@ const querySchema = new mongoose.Schema({
   datasource: String,
   language: String,
   query: String,
-  status: String,
+  status: {
+    type: String,
+    index: true,
+  },
   createdAt: Date,
   startedAt: Date,
   finishedAt: Date,
@@ -70,46 +73,49 @@ export async function getRecentQuery(
   datasource: string,
   query: string
 ) {
-  // Only re-use queries that were started recently
+  // Only re-use queries that were run recently
   const earliestDate = new Date();
   earliestDate.setMinutes(earliestDate.getMinutes() - QUERY_CACHE_TTL_MINS);
 
-  // Only re-use running queries if they've had a heartbeat recently
-  const lastHeartbeat = new Date();
-  lastHeartbeat.setMinutes(lastHeartbeat.getMinutes() - 2);
-
-  // Last successful query
-  const lastSuccess = await QueryModel.find({
+  const latest = await QueryModel.find({
     organization,
     datasource,
     query,
     createdAt: {
       $gt: earliestDate,
     },
-    status: "succeeded",
+    status: { $in: ["succeeded", "running"] },
   })
     .sort({ createdAt: -1 })
     .limit(1);
 
-  // If there's an actively running query since the last success, use that instead
-  const lastRunning = await QueryModel.find({
-    organization,
-    datasource,
-    query,
-    createdAt: {
-      $gt: lastSuccess?.[0]?.createdAt || earliestDate,
-    },
-    status: "running",
-    heartbeat: {
-      $gte: lastHeartbeat,
-    },
-  })
-    .sort({ createdAt: -1 })
-    .limit(1);
+  return latest[0] ? toInterface(latest[0]) : null;
+}
 
-  const mostRecent = lastRunning?.[0] || lastSuccess?.[0];
+export async function expireOldQueries() {
+  const earliestDate = new Date();
+  earliestDate.setHours(earliestDate.getHours() - 24);
 
-  return mostRecent ? toInterface(mostRecent) : null;
+  // Queries get a heartbeat updated every 30 seconds while actively running
+  // If there's a fatal error (e.g. Node gets killed), a query could be stuck in a "running" state
+  // This looks for any recent query that missed 2 heartbeats and marks them as failed
+  const lastHeartbeat = new Date();
+  lastHeartbeat.setSeconds(lastHeartbeat.getSeconds() - 70);
+
+  await QueryModel.updateMany(
+    {
+      status: "running",
+      heartbeat: {
+        $lt: lastHeartbeat,
+      },
+    },
+    {
+      $set: {
+        status: "failed",
+        error: "Query timed out",
+      },
+    }
+  );
 }
 
 export async function createNewQuery({

@@ -21,7 +21,7 @@ import {
   createExperiment,
   getSampleExperiment,
 } from "../models/ExperimentModel";
-import { getQueriesByIds, updateQuery } from "../models/QueryModel";
+import { getQueriesByIds } from "../models/QueryModel";
 import { findSegmentsByDataSource } from "../models/SegmentModel";
 import { createManualSnapshot } from "../services/experiments";
 import { findDimensionsByDataSource } from "../models/DimensionModel";
@@ -565,21 +565,6 @@ export async function getQueries(
 
   // Lookup table so we can return queries in the same order we received them
   const map = new Map(docs.map((d) => [d.id, d]));
-
-  const promises = docs.map(async (doc) => {
-    // If we haven't gotten a heartbeat in a while, change the status to failed
-    if (
-      doc.status === "running" &&
-      Date.now() - doc.heartbeat.getTime() > 120000
-    ) {
-      const newDoc = await updateQuery(doc, {
-        status: "failed",
-        error: "Query timed out",
-      });
-      map.set(doc.id, newDoc);
-    }
-  });
-  await Promise.all(promises);
 
   res.status(200).json({
     queries: queries.map((id) => map.get(id) || null),
