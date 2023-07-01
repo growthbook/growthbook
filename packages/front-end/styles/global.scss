@@ -2457,4 +2457,13 @@ input:disabled {
   }
 }
 
+.alert-cool-1 {
+  border-radius: 5px;
+  color: #638aa6;
+  background: linear-gradient(to top, #c0d6e6, #d5ebf0);
+  .btn-link {
+    color: #007bff;
+  }
+}
+
 @import "./components/react-select.scss";

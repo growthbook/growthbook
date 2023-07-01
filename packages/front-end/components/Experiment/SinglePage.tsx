@@ -891,17 +891,13 @@ export default function SinglePage({
           {visualChangesets.length > 0 ? (
             <div className="mb-4">
               {!hasSomeVisualChanges ? (
-                <div className="alert alert-info">
-                  Open{" "}
-                  <strong>
-                    Variations <FaAngleRight /> Visual Changes
-                  </strong>{" "}
-                  above and add at least one <strong>Visual Editor</strong>{" "}
-                  change to your experiment before you start
+                <div className="alert py-4 text-center alert-info">
+                  Open the Visual Editor above and add at least one change to
+                  your experiment before you start
                 </div>
               ) : hasSDKWithVisualExperimentsEnabled ? (
-                <div className="appbox text-center px-3 py-5">
-                  <p>Done setting everything up?</p>
+                <div className="alert-cool-1 text-center px-3 py-4">
+                  <p className="h4 mb-4">Done setting everything up?</p>
                   <Button
                     color="primary"
                     className="btn-lg"
