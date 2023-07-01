@@ -8,7 +8,6 @@ import {
   getExperimentsByIds,
 } from "../models/ExperimentModel";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
-import { getMetricMap } from "../models/MetricModel";
 import {
   createReport,
   deleteReportById,
@@ -19,13 +18,12 @@ import {
 } from "../models/ReportModel";
 import { generateReportNotebook } from "../services/notebook";
 import { getOrgFromReq } from "../services/organizations";
-import { cancelRun, getStatusEndpoint } from "../services/queries";
 import {
-  getSnapshotSettingsFromReportArgs,
-  reportArgsFromSnapshot,
-  runReport,
-} from "../services/reports";
-import { analyzeExperimentResults } from "../services/stats";
+  cancelRun,
+  formatStatusEndpointResponse,
+  refreshReportStatus,
+} from "../services/queries";
+import { reportArgsFromSnapshot, runReport } from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
 
 export async function postReportFromSnapshot(
@@ -291,38 +289,9 @@ export async function getReportStatus(
   if (!report) {
     throw new Error("Could not get query status");
   }
-  const result = await getStatusEndpoint(
-    report,
-    org.id,
-    async (queryData) => {
-      if (report.type === "experiment") {
-        const metricMap = await getMetricMap(org.id);
 
-        const {
-          snapshotSettings,
-          analysisSettings,
-        } = getSnapshotSettingsFromReportArgs(report.args, metricMap);
-
-        return analyzeExperimentResults({
-          variationNames: report.args.variations.map((v) => v.name),
-          queryData,
-          metricMap,
-          snapshotSettings,
-          analysisSettings,
-        });
-      }
-      throw new Error("Unsupported report type");
-    },
-    async (updates, results, error) => {
-      await updateReport(org.id, id, {
-        ...updates,
-        results: results || report.results,
-        error,
-      });
-    },
-    report.error
-  );
-  return res.status(200).json(result);
+  const newReport = await refreshReportStatus(report);
+  res.json(formatStatusEndpointResponse(newReport));
 }
 
 export async function cancelReport(

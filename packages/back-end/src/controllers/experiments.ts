@@ -45,14 +45,18 @@ import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import {
   cancelRun,
-  getOverallQueryStatus,
+  formatStatusEndpointResponse,
   getPastExperiments,
-  getStatusEndpoint,
-  QueryStatusEndpointResponse,
+  refreshPastExperimentStatus,
   refreshSnapshotStatus,
   startRun,
 } from "../services/queries";
-import { PastExperimentsModel } from "../models/PastExperimentsModel";
+import {
+  createPastExperiments,
+  getPastExperimentsById,
+  getPastExperimentsModelByDatasource,
+  updatePastExperiments,
+} from "../models/PastExperimentsModel";
 import {
   Changeset,
   ExperimentInterface,
@@ -1524,17 +1528,7 @@ export async function getSnapshotStatus(
 
   const newSnapshot = await refreshSnapshotStatus(snapshot, experiment);
 
-  const data: QueryStatusEndpointResponse = {
-    status: 200,
-    queryStatus: getOverallQueryStatus(newSnapshot.queries),
-    elapsed: Math.floor(
-      (Date.now() - (newSnapshot.runStarted?.getTime() || 0)) / 1000
-    ),
-    finished: newSnapshot.queries.filter((q) => q.status === "succeeded")
-      .length,
-    total: newSnapshot.queries.length,
-  };
-  res.json(data);
+  res.json(formatStatusEndpointResponse(newSnapshot));
 }
 export async function cancelSnapshot(
   req: AuthRequest<null, { id: string }>,
@@ -1900,29 +1894,13 @@ export async function getPastExperimentStatus(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const model = await PastExperimentsModel.findOne({ id });
-  if (!model) {
+  const pastExperiments = await getPastExperimentsById(org.id, id);
+  if (!pastExperiments) {
     throw new Error("Could not get query status");
   }
-  const result = await getStatusEndpoint(
-    model,
-    org.id,
-    processPastExperiments,
-    async (updates, experiments, error) => {
-      await PastExperimentsModel.updateOne(
-        { id },
-        {
-          $set: {
-            ...updates,
-            experiments: experiments || model.experiments,
-            error,
-          },
-        }
-      );
-    },
-    model.error
-  );
-  return res.status(200).json(result);
+
+  const newPastExperiments = await refreshPastExperimentStatus(pastExperiments);
+  res.json(formatStatusEndpointResponse(newPastExperiments));
 }
 export async function cancelPastExperiments(
   req: AuthRequest<null, { id: string }>,
@@ -1932,18 +1910,16 @@ export async function cancelPastExperiments(
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const model = await PastExperimentsModel.findOne({
-    id,
-    organization: org.id,
-  });
-  if (!model) {
+  const pastExperiments = await getPastExperimentsById(org.id, id);
+  if (!pastExperiments) {
     throw new Error("Could not cancel query");
   }
   res.status(200).json(
-    await cancelRun(model, org.id, async () => {
-      model.set("queries", []);
-      model.set("runStarted", null);
-      await model.save();
+    await cancelRun(pastExperiments, org.id, async () => {
+      await updatePastExperiments(pastExperiments, {
+        queries: [],
+        runStarted: null,
+      });
     })
   );
 }
@@ -1954,18 +1930,15 @@ export async function getPastExperimentsList(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const model = await PastExperimentsModel.findOne({
-    id,
-    organization: org.id,
-  });
+  const pastExperiments = await getPastExperimentsById(org.id, id);
 
-  if (!model) {
+  if (!pastExperiments) {
     throw new Error("Invalid import id");
   }
 
   const experiments = await getPastExperimentsByDatasource(
     org.id,
-    model.datasource
+    pastExperiments.datasource
   );
 
   const experimentMap = new Map<string, string>();
@@ -1974,7 +1947,7 @@ export async function getPastExperimentsList(
   });
 
   const trackingKeyMap: Record<string, string> = {};
-  (model.experiments || []).forEach((e) => {
+  (pastExperiments.experiments || []).forEach((e) => {
     const id = experimentMap.get(e.trackingKey);
     if (id) {
       trackingKeyMap[e.trackingKey] = id;
@@ -1983,7 +1956,7 @@ export async function getPastExperimentsList(
 
   res.status(200).json({
     status: 200,
-    experiments: model,
+    experiments: pastExperiments,
     existing: trackingKeyMap,
   });
 }
@@ -2015,32 +1988,25 @@ export async function postPastExperiments(
   start.setDate(start.getDate() - IMPORT_LIMIT_DAYS);
   const now = new Date();
 
-  let model = await PastExperimentsModel.findOne({
-    datasource,
-    organization: org.id,
-  });
+  let pastExperiments = await getPastExperimentsModelByDatasource(
+    org.id,
+    datasource
+  );
   let runStarted = false;
-  if (!model) {
+  if (!pastExperiments) {
     const { queries, result } = await startRun(
       {
         experiments: getPastExperiments(integration, start),
       },
       processPastExperiments
     );
-    model = await PastExperimentsModel.create({
-      id: uniqid("imp_"),
+
+    pastExperiments = await createPastExperiments({
       organization: org.id,
-      datasource: datasource,
+      datasource,
       experiments: result || [],
-      runStarted: now,
-      config: {
-        start,
-        end: now,
-      },
-      error: "",
+      start,
       queries,
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
     });
     runStarted = true;
   } else if (force) {
@@ -2050,23 +2016,23 @@ export async function postPastExperiments(
       },
       processPastExperiments
     );
-    model.set("runStarted", now);
-    model.set("error", "");
-    model.set("queries", queries);
-    model.set("config", {
-      start: start,
-      end: new Date(),
+
+    await updatePastExperiments(pastExperiments, {
+      runStarted: now,
+      error: "",
+      queries,
+      config: {
+        start,
+        end: new Date(),
+      },
+      ...(result ? { experiments: result } : {}),
     });
-    if (result) {
-      model.set("experiments", result);
-    }
-    await model.save();
     runStarted = true;
   }
 
   res.status(200).json({
     status: 200,
-    id: model.id,
+    id: pastExperiments.id,
   });
 
   if (runStarted) {

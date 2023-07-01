@@ -31,10 +31,16 @@ import {
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
 import { updateSnapshot } from "../models/ExperimentSnapshotModel";
-import { getMetricMap } from "../models/MetricModel";
+import { getMetricMap, updateMetric } from "../models/MetricModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { logger } from "../util/logger";
+import { PastExperimentsInterface } from "../../types/past-experiments";
+import { updatePastExperiments } from "../models/PastExperimentsModel";
+import { ReportInterface } from "../../types/report";
+import { updateReport } from "../models/ReportModel";
 import { analyzeExperimentResults } from "./stats";
+import { getMetricAnalysis, processPastExperiments } from "./experiments";
+import { getSnapshotSettingsFromReportArgs } from "./reports";
 export type QueryMap = Map<string, QueryInterface>;
 
 export type InterfaceWithQueries = {
@@ -374,81 +380,175 @@ export async function updateQueryPointers(
   };
 }
 
+async function refreshStatus<T extends InterfaceWithQueries>(
+  obj: T,
+  {
+    onFailure,
+    onSuccess,
+    update,
+  }: {
+    onFailure: (error: string) => Partial<T>;
+    onSuccess: (queryMap: QueryMap) => Promise<Partial<T>>;
+    update: (changes: Partial<T>) => Promise<void>;
+  }
+): Promise<T> {
+  const currentStatus = getOverallQueryStatus(obj.queries);
+
+  const {
+    pointers: queries,
+    hasChanges,
+    overallStatus: newStatus,
+    queryMap,
+  } = await updateQueryPointers(obj.organization, obj.queries);
+
+  if (!hasChanges) return obj;
+
+  let changes = {
+    queries,
+  } as Partial<T>;
+
+  if (currentStatus === "running" && newStatus === "failed") {
+    changes = {
+      ...changes,
+      ...onFailure("There was an error running one or more database queries."),
+    };
+  }
+
+  if (currentStatus === "running" && newStatus === "succeeded") {
+    changes = {
+      ...changes,
+      ...(await onSuccess(queryMap)),
+    };
+  }
+
+  await update(changes);
+
+  return {
+    ...obj,
+    ...changes,
+  };
+}
+
+export async function refreshPastExperimentStatus(
+  pastExperiments: PastExperimentsInterface
+): Promise<PastExperimentsInterface> {
+  return refreshStatus(pastExperiments, {
+    onFailure: (error) => ({ error }),
+    onSuccess: async (queryMap) => ({
+      experiments: await processPastExperiments(queryMap),
+    }),
+    update: async (changes) => {
+      await updatePastExperiments(pastExperiments, changes);
+    },
+  });
+}
+
+export async function refreshMetricAnalysisStatus(
+  metric: MetricInterface
+): Promise<MetricInterface> {
+  return refreshStatus(metric, {
+    onFailure: (analysisError) => ({ analysisError }),
+    onSuccess: async (queryMap) => ({
+      analysis: await getMetricAnalysis(metric, queryMap),
+    }),
+    update: async (changes) => {
+      await updateMetric(metric.id, changes, metric.organization);
+    },
+  });
+}
+
+export async function refreshReportStatus(
+  report: ReportInterface
+): Promise<ReportInterface> {
+  return refreshStatus(report, {
+    onFailure: (error) => ({ error }),
+    onSuccess: async (queryMap) => {
+      if (report.type === "experiment") {
+        const metricMap = await getMetricMap(report.organization);
+
+        const {
+          snapshotSettings,
+          analysisSettings,
+        } = getSnapshotSettingsFromReportArgs(report.args, metricMap);
+
+        const results = await analyzeExperimentResults({
+          variationNames: report.args.variations.map((v) => v.name),
+          queryData: queryMap,
+          metricMap,
+          snapshotSettings,
+          analysisSettings,
+        });
+
+        return {
+          results,
+          error: "",
+        };
+      }
+
+      return {
+        error: "Unsupported report type",
+      };
+    },
+    update: async (changes) => {
+      await updateReport(report.organization, report.id, changes);
+    },
+  });
+}
+
 export async function refreshSnapshotStatus(
   snapshot: ExperimentSnapshotInterface,
   experiment: ExperimentInterface
 ): Promise<ExperimentSnapshotInterface> {
-  const {
-    pointers: queries,
-    hasChanges,
-    overallStatus,
-    queryMap,
-  } = await updateQueryPointers(snapshot.organization, snapshot.queries);
+  return refreshStatus(snapshot, {
+    onFailure: (error) => ({ error, status: "error" as const }),
+    onSuccess: async (queryMap) => {
+      const metricMap = await getMetricMap(snapshot.organization);
 
-  if (!hasChanges) return snapshot;
+      // Run each analysis
+      const analysisPromises: Promise<void>[] = [];
+      const newAnalyses = snapshot.analyses;
+      newAnalyses.forEach((analysis) => {
+        analysisPromises.push(
+          (async () => {
+            try {
+              const results = await analyzeExperimentResults({
+                queryData: queryMap,
+                snapshotSettings: snapshot.settings,
+                analysisSettings: analysis.settings,
+                variationNames: experiment.variations.map((v) => v.name),
+                metricMap,
+              });
 
-  const changes: Partial<ExperimentSnapshotInterface> = {
-    status:
-      overallStatus === "failed"
-        ? "error"
-        : overallStatus === "running"
-        ? "running"
-        : overallStatus === "succeeded"
-        ? "success"
-        : undefined,
-    queries: queries,
-  };
+              analysis.results = results.dimensions || [];
+              analysis.status = "success";
+              analysis.error = "";
 
-  // If it's going from "running" to "failed", update the error field
-  if (snapshot.status === "running" && overallStatus === "failed") {
-    changes.error = "There was an error running one or more database queries.";
-  }
+              // TODO: do this once, not per analysis
+              changes.unknownVariations = results.unknownVariations || [];
+              changes.multipleExposures = results.multipleExposures ?? 0;
+            } catch (e) {
+              analysis.error = e?.message || "An error occurred";
+              analysis.status = "error";
+            }
+          })()
+        );
+      });
 
-  // If it's going from "running" to "succeeded", run each analyses
-  if (snapshot.status === "running" && overallStatus === "succeeded") {
-    const metricMap = await getMetricMap(snapshot.organization);
+      const changes: Partial<ExperimentSnapshotInterface> = {
+        status: "success",
+      };
 
-    const analysisPromises: Promise<void>[] = [];
-    const newAnalyses = snapshot.analyses;
-    newAnalyses.forEach((analysis) => {
-      analysisPromises.push(
-        (async () => {
-          try {
-            const results = await analyzeExperimentResults({
-              queryData: queryMap,
-              snapshotSettings: snapshot.settings,
-              analysisSettings: analysis.settings,
-              variationNames: experiment.variations.map((v) => v.name),
-              metricMap,
-            });
+      if (analysisPromises.length > 0) {
+        await Promise.all(analysisPromises);
+        changes.analyses = newAnalyses;
+      }
 
-            analysis.results = results.dimensions || [];
-            analysis.status = "success";
-            analysis.error = "";
-
-            // TODO: do this once, not per analysis
-            changes.unknownVariations = results.unknownVariations || [];
-            changes.multipleExposures = results.multipleExposures ?? 0;
-          } catch (e) {
-            analysis.error = e?.message || "An error occurred";
-            analysis.status = "error";
-          }
-        })()
-      );
-    });
-
-    if (analysisPromises.length > 0) {
-      await Promise.all(analysisPromises);
-      changes.analyses = newAnalyses;
-    }
-  }
-
-  await updateSnapshot(snapshot.organization, snapshot.id, changes);
-
-  return {
-    ...snapshot,
-    ...changes,
-  };
+      return changes;
+    },
+    update: async (changes) => {
+      await updateSnapshot(snapshot.organization, snapshot.id, changes);
+    },
+  });
 }
 
 export async function updateQueryStatuses(
@@ -575,51 +675,16 @@ export async function cancelRun<T extends InterfaceWithQueries>(
   };
 }
 
-export async function getStatusEndpoint<T extends InterfaceWithQueries, R>(
-  doc: T,
-  organization: string,
-  processResults: (data: QueryMap) => Promise<R>,
-  onSave: (
-    data: Partial<InterfaceWithQueries>,
-    result?: R,
-    error?: string
-  ) => Promise<void>,
-  currentError?: string
-) {
-  if (!doc) {
-    throw new Error("Could not find document");
-  }
-
-  if (doc.organization !== organization) {
-    throw new Error("You do not have access to this document");
-  }
-
-  const status = await updateQueryStatuses(
-    doc.queries,
-    organization,
-    async (queries: Queries, error?: string) => {
-      await onSave({ queries }, undefined, error || undefined);
-    },
-    async (queries: Queries, data: QueryMap) => {
-      let error = "";
-      let results: R | undefined = undefined;
-      try {
-        results = await processResults(data);
-      } catch (e) {
-        error = e.message;
-      }
-      await onSave({ queries }, results, error);
-    },
-    currentError
-  );
+export function formatStatusEndpointResponse<T extends InterfaceWithQueries>(
+  obj: T
+): QueryStatusEndpointResponse {
+  const queryStatus = getOverallQueryStatus(obj.queries);
 
   return {
     status: 200,
-    queryStatus: status,
-    elapsed: Math.floor(
-      (Date.now() - (doc?.runStarted?.getTime() || 0)) / 1000
-    ),
-    finished: doc.queries.filter((q) => q.status === "succeeded").length,
-    total: doc.queries.length,
+    queryStatus,
+    elapsed: Math.floor((Date.now() - (obj.runStarted?.getTime() || 0)) / 1000),
+    finished: obj.queries.filter((q) => q.status === "succeeded").length,
+    total: obj.queries.length,
   };
 }
