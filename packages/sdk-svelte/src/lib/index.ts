@@ -12,7 +12,6 @@ export type {
   ExperimentOverride,
   Attributes,
   ConditionInterface,
-  ExperimentStatus,
   FeatureDefinition,
   FeatureResult,
   FeatureResultSource,
