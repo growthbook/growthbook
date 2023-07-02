@@ -165,6 +165,8 @@ export interface Props {
   editPhase?: ((i: number | null) => void) | null;
 }
 
+type ResultsTab = "overview" | "config";
+
 export default function SinglePage({
   experiment,
   idea,
@@ -180,12 +182,11 @@ export default function SinglePage({
   editPhases,
   editPhase,
 }: Props) {
-  // Select the correct default UI states based on experiment status
   const [metaInfoOpen, setMetaInfoOpen] = useLocalStorage<boolean>(
     `experiment-page__${experiment.id}__meta-info-open`,
     true
   );
-  const [resultsTab, setResultsTab] = useLocalStorage<string>(
+  const [resultsTab, setResultsTab] = useLocalStorage<ResultsTab>(
     `experiment-page__${experiment.id}__results-tab`,
     "overview"
   );
@@ -887,7 +888,7 @@ export default function SinglePage({
         </Collapsible>
       </div>
 
-      {experimentPendingWithVisualChanges && visualChangesets.length > 0 ? (
+      {experimentPendingWithVisualChanges ? (
         <>
           {visualChangesets.length > 0 ? (
             <div className="mb-4">
@@ -943,15 +944,15 @@ export default function SinglePage({
               )}
             </div>
           ) : (
-            <div className="appbox text-center px-3 pt-4 pb-3 mb-4">
-              <p>
+            <div className="alert-cool-1 text-center mb-4 px-3 py-4 position-relative">
+              <p className="h4 mb-4">
                 Use our Visual Editor to make changes to your site without
                 deploying code
               </p>
 
               {hasVisualEditorFeature ? (
                 <button
-                  className="btn btn-primary btn-lg"
+                  className="btn btn-primary btn-lg mb-3"
                   onClick={() => {
                     setVisualEditorModal(true);
                     track("Open visual editor modal", {
@@ -963,7 +964,7 @@ export default function SinglePage({
                   Open Visual Editor
                 </button>
               ) : (
-                <div className="ml-3">
+                <div className="mb-3">
                   <PremiumTooltip commercialFeature={"visual-editor"}>
                     <div className="btn btn-primary btn-lg disabled">
                       Open Visual Editor
@@ -972,11 +973,14 @@ export default function SinglePage({
                 </div>
               )}
 
-              <div className="text-right">
-                <p className="mb-1 text-muted small">Want to skip this step?</p>
+              <div
+                className="position-absolute text-center mr-4 mb-4"
+                style={{ right: 0, bottom: 0 }}
+              >
+                <p className="mb-1">Want to skip this step?</p>
                 <Button
                   color=""
-                  className="btn-sm btn-outline-primary"
+                  className="btn btn-outline-primary"
                   onClick={async () => {
                     await apiCall(`/experiment/${experiment.id}/status`, {
                       method: "POST",
@@ -1010,7 +1014,7 @@ export default function SinglePage({
               ? "alert-cool-1 py-3 noborder"
               : "border"
           )}
-          setActive={(tab) => setResultsTab(tab ?? "overview")}
+          setActive={(tab: ResultsTab) => setResultsTab(tab ?? "overview")}
           active={resultsTab}
         >
           <Tab id="overview" display="Overview" padding={false}>

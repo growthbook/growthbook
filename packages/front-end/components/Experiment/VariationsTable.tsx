@@ -7,6 +7,8 @@ import { FC } from "react";
 import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
+import { trafficSplitPercentages } from "@/services/utils";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
 
@@ -94,6 +96,10 @@ const VariationsTable: FC<Props> = ({
   newUi,
 }) => {
   const { variations } = experiment;
+  const { phase: phaseIndex } = useSnapshot();
+  const weights = experiment?.phases?.[phaseIndex]?.variationWeights ?? null;
+  const percentages =
+    (weights?.length || 0) > 0 ? trafficSplitPercentages(weights) : null;
 
   const visualChangesets = _visualChangesets || [];
 
@@ -121,13 +127,13 @@ const VariationsTable: FC<Props> = ({
                 <th
                   key={i}
                   className={`variation with-variation-label variation${i} ${
-                    !(hasDescriptions || hasUniqueIDs)
+                    !(hasDescriptions || hasUniqueIDs || newUi)
                       ? "with-variation-border-bottom"
                       : "pb-2"
                   }`}
                   style={{
                     borderBottom:
-                      hasDescriptions || hasUniqueIDs ? 0 : undefined,
+                      hasDescriptions || hasUniqueIDs || newUi ? 0 : undefined,
                   }}
                 >
                   <span className="label">{i}</span>
@@ -135,7 +141,7 @@ const VariationsTable: FC<Props> = ({
                 </th>
               ))}
             </tr>
-            {(hasDescriptions || hasUniqueIDs) && (
+            {hasDescriptions || hasUniqueIDs || newUi ? (
               <tr>
                 {variations.map((v, i) => (
                   <td
@@ -144,12 +150,19 @@ const VariationsTable: FC<Props> = ({
                     key={i}
                     scope="col"
                   >
-                    {hasDescriptions && <div>{v.description}</div>}
-                    {hasUniqueIDs && <code className="small">ID: {v.key}</code>}
+                    {hasDescriptions ? <div>{v.description}</div> : null}
+                    {hasUniqueIDs ? (
+                      <code className="small">ID: {v.key}</code>
+                    ) : null}
+                    {newUi && percentages?.[i] !== undefined ? (
+                      <div className="text-right text-muted">
+                        Split: {percentages[i].toFixed(0)}%
+                      </div>
+                    ) : null}
                   </td>
                 ))}
               </tr>
-            )}
+            ) : null}
           </thead>
 
           <tbody>
