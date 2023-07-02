@@ -1,7 +1,8 @@
 <script lang="ts">
-  import { getContext, onMount } from "svelte";
-  import { ContextSymbol, type GrowthBookContext } from "./context";
-  
+  import { getContext } from "svelte";
+  import { ContextSymbol } from "./context";
+  import type { GrowthBookContext } from "./context";
+
   export let timeout = 0;
 
   const { growthbookClient } = getContext<GrowthBookContext>(ContextSymbol);
@@ -12,9 +13,12 @@
     if (timeout !== 0 && !ready) {
       setTimeout(() => {
         $growthbookClient &&
-          $growthbookClient.log("FeaturesReady timed out waiting for features to load", {
-            timeout,
-          });
+          $growthbookClient.log(
+            "FeaturesReady timed out waiting for features to load",
+            {
+              timeout,
+            }
+          );
         hitTimeout = true;
       }, timeout);
     }
