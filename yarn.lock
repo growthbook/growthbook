@@ -2813,6 +2813,13 @@
     uuid "^8.0.0"
     xdg-basedir "^4.0.0"
 
+"@growthbook/growthbook@^0.26.0":
+  version "0.26.0"
+  resolved "https://registry.yarnpkg.com/@growthbook/growthbook/-/growthbook-0.26.0.tgz#d3cfc27e6c31c8116f4a56daae9f4e32237abd6e"
+  integrity sha512-Y5TOOxm8j1UEirj2AA2VQTrvJK5UGFmo6jJQLGUbNN3CSIjr+4qwb2s5dtiyNGX5Qzq/BV2/SB9G/mC+Lpc5sg==
+  dependencies:
+    dom-mutator "^0.5.0"
+
 "@humanwhocodes/config-array@^0.9.2":
   version "0.9.5"
   resolved "https://registry.yarnpkg.com/@humanwhocodes/config-array/-/config-array-0.9.5.tgz#2cbaf9a89460da24b5ca6531b8bbfc23e1df50c7"
@@ -7523,6 +7530,11 @@ bson@^4.7.2:
   integrity sha512-Ry9wCtIZ5kGqkJoi6aD8KjxFZEx78guTQDnpXWiNthsxzrxAK/i8E6pCHAIZTbaEFWcOCvbecMukfK7XUvyLpQ==
   dependencies:
     buffer "^5.6.0"
+
+buffer-crc32@^0.2.5:
+  version "0.2.13"
+  resolved "https://registry.yarnpkg.com/buffer-crc32/-/buffer-crc32-0.2.13.tgz#0d333e3f00eac50aa1454abd30ef8c2a5d9a7242"
+  integrity sha512-VO9Ht/+p3SN7SKWqcrgEzjGbRSJYTx+Q1pTQC0wrWqHx0vpJraQ6GtHx8tvcg1rlK1byhU5gccxgOgj7B0TDkQ==
 
 buffer-equal-constant-time@1.0.1:
   version "1.0.1"
