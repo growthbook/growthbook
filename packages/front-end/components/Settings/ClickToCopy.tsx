@@ -3,10 +3,11 @@ import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "../SimpleTooltip/SimpleTooltip";
 
 type Props = {
+  compact?: boolean;
   children: string;
 };
 
-export default function ClickToCopy({ children }: Props) {
+export default function ClickToCopy({ compact, children }: Props) {
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 800,
   });
@@ -21,14 +22,26 @@ export default function ClickToCopy({ children }: Props) {
             performCopy(children);
           }}
           title="Copy to Clipboard"
+          style={compact ? { lineHeight: 1.1 } : {}}
         >
-          <span className="text-main" style={{ fontSize: "1.1rem" }}>
+          <span
+            className="text-main"
+            style={{ fontSize: compact ? ".95rem" : "1.1rem" }}
+          >
             {copySuccess ? <HiOutlineClipboardCheck /> : <HiOutlineClipboard />}
           </span>
         </button>
       ) : null}
-      <span className="ml-2">
-        <code className="text-main text-break">{children}</code>
+      <span
+        className={compact ? "" : "ml-2"}
+        style={compact ? { marginLeft: 2, lineHeight: 1.1 } : {}}
+      >
+        <code
+          className="text-main text-break"
+          style={compact ? { fontSize: ".7rem" } : {}}
+        >
+          {children}
+        </code>
       </span>
 
       {copySuccess ? (

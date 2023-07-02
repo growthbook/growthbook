@@ -44,6 +44,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
+import ClickToCopy from "@/components/Settings/ClickToCopy";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -647,9 +648,12 @@ export default function SinglePage({
             )}
           </div>
           {numLinkedChanges > 0 ? (
-            <div className="col-auto ml-5 pr-3">
-              <div className="d-inline-block">Linked changes:</div>
-              <div className="d-inline-block ml-2">
+            <div
+              className="col-auto ml-5 pr-3 d-flex flex-column"
+              style={{ height: 42, justifyContent: "space-between" }}
+            >
+              <div>Linked changes</div>
+              <div style={{ marginLeft: 4 }}>
                 {numLinkedFeatureFlagChanges > 0 ? (
                   <>
                     <Tooltip
@@ -695,6 +699,13 @@ export default function SinglePage({
               </div>
             </div>
           ) : null}
+          <div
+            className="col-auto ml-5 pr-3 d-flex flex-column"
+            style={{ height: 42, justifyContent: "space-between" }}
+          >
+            <div>Experiment key</div>
+            <ClickToCopy compact={true}>{experiment.trackingKey}</ClickToCopy>
+          </div>
 
           <div className="flex-1 col"></div>
 
