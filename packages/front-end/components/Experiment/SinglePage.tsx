@@ -166,7 +166,7 @@ export interface Props {
   editPhase?: ((i: number | null) => void) | null;
 }
 
-type ResultsTab = "overview" | "config";
+type ResultsTab = "results" | "config";
 
 export default function SinglePage({
   experiment,
@@ -189,7 +189,7 @@ export default function SinglePage({
   );
   const [resultsTab, setResultsTab] = useLocalStorage<ResultsTab>(
     `experiment-page__${experiment.id}__results-tab`,
-    "overview"
+    "results"
   );
   const [customReportsOpen, setCustomReportsOpen] = useLocalStorage<boolean>(
     `experiment-page__${experiment.id}__custom-reports-open`,
@@ -415,6 +415,7 @@ export default function SinglePage({
     )
   );
 
+  const experimentHasPhases = experiment.phases.length > 0;
   const experimentPendingWithVisualChanges =
     experiment.status === "draft" &&
     experiment.phases.length > 0 &&
@@ -901,17 +902,38 @@ export default function SinglePage({
 
           <div className="mx-4 pb-3">
             <div className="h3 mb-2">
-              Linked Changes{" "}
-              <small className="text-muted">({numLinkedChanges})</small>
+              <Tooltip
+                body={
+                  <span style={{ lineHeight: 1.5 }}>
+                    Linked changes are feature flag or visual editor changes
+                    associated with this experiment which are managed within the
+                    GrowthBook app.
+                  </span>
+                }
+              >
+                Linked Changes{" "}
+                <FaQuestionCircle style={{ fontSize: "0.8rem" }} />{" "}
+                <small className="text-muted">({numLinkedChanges})</small>
+              </Tooltip>
             </div>
-            <VisualChangesetTable
-              experiment={experiment}
-              visualChangesets={visualChangesets}
-              mutate={mutate}
-              canEditVisualChangesets={hasVisualEditorPermission}
-              setVisualEditorModal={setVisualEditorModal}
-              newUi={true}
-            />
+            {numLinkedChanges === 0 && experiment.status !== "draft" ? (
+              <>
+                This experiment has no feature flag or visual editor changes
+                which are managed within the GrowthBook app. Changes are likely
+                implemented manually.
+              </>
+            ) : (
+              <>
+                <VisualChangesetTable
+                  experiment={experiment}
+                  visualChangesets={visualChangesets}
+                  mutate={mutate}
+                  canEditVisualChangesets={hasVisualEditorPermission}
+                  setVisualEditorModal={setVisualEditorModal}
+                  newUi={true}
+                />
+              </>
+            )}
           </div>
         </Collapsible>
       </div>
@@ -977,7 +999,6 @@ export default function SinglePage({
                 Use our Visual Editor to make changes to your site without
                 deploying code
               </p>
-
               {hasVisualEditorFeature ? (
                 <button
                   className="btn btn-primary btn-lg mb-3"
@@ -1029,57 +1050,53 @@ export default function SinglePage({
             </div>
           )}
         </>
+      ) : !experimentHasPhases ? (
+        <div className="alert-cool-1 text-center mb-4 px-3 py-4 position-relative text-center">
+          <p className="h4 mb-3">Add an experiment phase to begin testing</p>
+          <button
+            className="btn btn-primary btn-lg"
+            onClick={newPhase ?? undefined}
+          >
+            Add a Phase
+          </button>
+        </div>
       ) : null}
 
-      {!experimentPendingWithVisualChanges && (
+      {experimentHasPhases && !experimentPendingWithVisualChanges ? (
         <ControlledTabs
           newStyle={true}
           className="mt-3 mb-4"
           buttonsClassName="px-5"
           tabContentsClassName={clsx(
             "px-3 pt-3",
-            resultsTab === "overview" && (experiment.phases?.length || 0) === 0
+            resultsTab === "results" && (experiment.phases?.length || 0) === 0
               ? "alert-cool-1 py-3 noborder"
               : "border"
           )}
-          setActive={(tab: ResultsTab) => setResultsTab(tab ?? "overview")}
+          setActive={(tab: ResultsTab) => setResultsTab(tab ?? "results")}
           active={resultsTab}
         >
-          <Tab id="overview" display="Overview" padding={false}>
+          <Tab id="results" display="Results" padding={false}>
             <div className="mb-2" style={{ overflowX: "initial" }}>
-              {experiment.phases?.length > 0 ? (
-                <Results
-                  experiment={experiment}
-                  mutateExperiment={mutate}
-                  editMetrics={editMetrics ?? undefined}
-                  editResult={editResult ?? undefined}
-                  editPhases={editPhases ?? undefined}
-                  alwaysShowPhaseSelector={true}
-                  reportDetailsLink={false}
-                  statsEngine={statsEngine}
-                  regressionAdjustmentAvailable={regressionAdjustmentAvailable}
-                  regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                  regressionAdjustmentHasValidMetrics={
-                    regressionAdjustmentHasValidMetrics
-                  }
-                  metricRegressionAdjustmentStatuses={
-                    metricRegressionAdjustmentStatuses
-                  }
-                  onRegressionAdjustmentChange={onRegressionAdjustmentChange}
-                />
-              ) : (
-                <div className="text-center my-4">
-                  <p className="h4 mb-4">
-                    Add an experiment phase to begin testing
-                  </p>
-                  <button
-                    className="btn btn-primary btn-lg"
-                    onClick={newPhase ?? undefined}
-                  >
-                    Add a Phase
-                  </button>
-                </div>
-              )}
+              <Results
+                experiment={experiment}
+                mutateExperiment={mutate}
+                editMetrics={editMetrics ?? undefined}
+                editResult={editResult ?? undefined}
+                editPhases={editPhases ?? undefined}
+                alwaysShowPhaseSelector={true}
+                reportDetailsLink={false}
+                statsEngine={statsEngine}
+                regressionAdjustmentAvailable={regressionAdjustmentAvailable}
+                regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                regressionAdjustmentHasValidMetrics={
+                  regressionAdjustmentHasValidMetrics
+                }
+                metricRegressionAdjustmentStatuses={
+                  metricRegressionAdjustmentStatuses
+                }
+                onRegressionAdjustmentChange={onRegressionAdjustmentChange}
+              />
             </div>
           </Tab>
 
@@ -1312,9 +1329,9 @@ export default function SinglePage({
             </div>
           </Tab>
         </ControlledTabs>
-      )}
+      ) : null}
 
-      {!experimentPendingWithVisualChanges && (
+      {!experimentPendingWithVisualChanges && experimentHasPhases ? (
         <div className="mb-4 pt-3 appbox">
           <Collapsible
             trigger={
@@ -1357,7 +1374,7 @@ export default function SinglePage({
             <ExperimentReportsList experiment={experiment} newUi={true} />
           </Collapsible>
         </div>
-      )}
+      ) : null}
 
       <div className="mb-4 pt-3 appbox">
         <Collapsible
