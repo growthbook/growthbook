@@ -92,30 +92,43 @@ export async function getRecentQuery(
   return latest[0] ? toInterface(latest[0]) : null;
 }
 
-export async function expireOldQueries() {
-  const earliestDate = new Date();
-  earliestDate.setHours(earliestDate.getHours() - 24);
-
+export async function getStaleQueries(): Promise<
+  { id: string; organization: string }[]
+> {
   // Queries get a heartbeat updated every 30 seconds while actively running
   // If there's a fatal error (e.g. Node gets killed), a query could be stuck in a "running" state
   // This looks for any recent query that missed 2 heartbeats and marks them as failed
   const lastHeartbeat = new Date();
   lastHeartbeat.setSeconds(lastHeartbeat.getSeconds() - 70);
 
+  const query = {
+    status: "running",
+    heartbeat: {
+      $lt: lastHeartbeat,
+    },
+  };
+
+  const docs = await QueryModel.find(query, {
+    _id: 1,
+    id: 1,
+    organization: 1,
+  }).limit(10);
+  if (!docs.length) return [];
+
   await QueryModel.updateMany(
     {
-      status: "running",
-      heartbeat: {
-        $lt: lastHeartbeat,
-      },
+      ...query,
+      _id: { $in: docs.map((d) => d._id) },
     },
     {
       $set: {
         status: "failed",
-        error: "Query timed out",
+        error: "Query execution was interupted. Please try again.",
       },
     }
   );
+
+  return docs.map((doc) => ({ id: doc.id, organization: doc.organization }));
 }
 
 export async function createNewQuery({
