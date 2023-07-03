@@ -1,4 +1,4 @@
-import { ReactElement, useState } from "react";
+import { useState } from "react";
 import { GBEdit } from "../Icons";
 import HeaderWithEdit from "../Layout/HeaderWithEdit";
 import LoadingOverlay from "../LoadingOverlay";
@@ -15,7 +15,6 @@ type Props = {
   containerClassName?: string;
   header?: string | JSX.Element;
   headerClassName?: string;
-  editElement?: ReactElement;
   editClassName?: string;
 };
 
@@ -29,13 +28,11 @@ export default function MarkdownInlineEdit({
   containerClassName = "",
   header = "",
   headerClassName = "h3",
-  editElement,
   editClassName = "a",
 }: Props) {
   const [edit, setEdit] = useState(false);
   const [val, setVal] = useState("");
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
-  const [error, setError] = useState<string>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   if (edit) {
@@ -45,7 +42,6 @@ export default function MarkdownInlineEdit({
         onSubmit={async (e) => {
           e.preventDefault();
           if (loading) return;
-          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
           setError(null);
           setLoading(true);
           try {
@@ -63,7 +59,7 @@ export default function MarkdownInlineEdit({
           value={val}
           setValue={setVal}
           cta={"Save"}
-          error={error}
+          error={error ?? undefined}
           autofocus={true}
           onCancel={() => setEdit(false)}
         />
@@ -75,18 +71,16 @@ export default function MarkdownInlineEdit({
     <div className={className}>
       {header && (
         <HeaderWithEdit
-          // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'false | "" | (() => void)' is not assignable... Remove this comment to see the full error message
           edit={
-            value &&
-            canEdit &&
-            (() => {
-              setVal(value || "");
-              setEdit(true);
-            })
+            value && canEdit
+              ? () => {
+                  setVal(value || "");
+                  setEdit(true);
+                }
+              : undefined
           }
           className={headerClassName}
           containerClassName={containerClassName}
-          editElement={editElement}
           editClassName={editClassName}
         >
           {header}

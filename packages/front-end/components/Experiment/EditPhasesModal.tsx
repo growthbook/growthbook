@@ -96,7 +96,15 @@ export default function EditPhasesModal({
                 </strong>
               </td>
               <td>{phaseSummary(phase)}</td>
-              {hasStoppedPhases ? <td>{phase.reason}</td> : null}
+              {hasStoppedPhases ? (
+                <td>
+                  {phase.dateEnded ? (
+                    phase.reason
+                  ) : (
+                    <em className="text-muted">not applicable</em>
+                  )}
+                </td>
+              ) : null}
               <td style={{ width: 125 }}>
                 <button
                   className="btn btn-outline-primary mr-2"
