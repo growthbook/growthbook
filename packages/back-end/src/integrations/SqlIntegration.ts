@@ -489,7 +489,6 @@ export default abstract class SqlIntegration
         dimension: row.dimension || "",
         users: parseInt(row.users) || 0,
         count: parseInt(row.users) || 0,
-        statistic_type: row.statistic_type ?? "",
         main_metric_type: row.main_metric_type ?? "",
         main_sum: parseFloat(row.main_sum) || 0,
         main_sum_squares: parseFloat(row.main_sum_squares) || 0,
@@ -751,19 +750,6 @@ export default abstract class SqlIntegration
     return metricEnd;
   }
 
-  private getStatisticType(
-    isRatio: boolean,
-    isRegressionAdjusted: boolean
-  ): "mean" | "ratio" | "mean_ra" {
-    if (isRatio) {
-      return "ratio";
-    }
-    if (isRegressionAdjusted) {
-      return "mean_ra";
-    }
-    return "mean";
-  }
-
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string {
     const {
       metric: metricDoc,
@@ -888,7 +874,7 @@ export default abstract class SqlIntegration
     const initialConversionDelayHours = intialMetric.conversionDelayHours || 0;
 
     const startDate: Date = settings.startDate;
-    const endDate: Date | null = this.getExperimentEndDate(
+    const endDate: Date = this.getExperimentEndDate(
       settings,
       initialConversionWindowHours + initialConversionDelayHours
     );
@@ -1192,10 +1178,6 @@ export default abstract class SqlIntegration
           cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
         } AS dimension,
         COUNT(*) AS users,
-        '${this.getStatisticType(
-          isRatio,
-          isRegressionAdjusted
-        )}' as statistic_type,
         '${metric.type}' as main_metric_type,
         SUM(COALESCE(m.value, 0)) AS main_sum,
         SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
@@ -1675,7 +1657,7 @@ export default abstract class SqlIntegration
   private getExperimentEndDate(
     settings: ExperimentSnapshotSettings,
     conversionWindowHours: number
-  ): Date | null {
+  ): Date {
     // If we need to wait until users have had a chance to fully convert
     if (settings.skipPartialData) {
       // The last date allowed to give enough time for users to convert
@@ -1710,7 +1692,7 @@ export default abstract class SqlIntegration
     settings: ExperimentSnapshotSettings;
     baseIdType: string;
     startDate: Date;
-    endDate: Date | null;
+    endDate: Date;
     conversionWindowHours: number;
     conversionDelayHours: number;
     experimentDimension: string | null;
@@ -1756,11 +1738,7 @@ export default abstract class SqlIntegration
     WHERE
         e.experiment_id = '${settings.experimentId}'
         AND ${timestampColumn} >= ${this.toTimestamp(startDate)}
-        ${
-          endDate
-            ? `AND ${timestampColumn} <= ${this.toTimestamp(endDate)}`
-            : ""
-        }
+        AND ${timestampColumn} <= ${this.toTimestamp(endDate)}
         ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
     `;
   }

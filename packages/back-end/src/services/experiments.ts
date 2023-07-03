@@ -271,7 +271,6 @@ export async function getManualSnapshotData(
             variation: experiment.variations[i].key || i + "",
             users: s.count,
             count: s.count,
-            statistic_type: "mean", // ratio not supported for now
             main_metric_type: metric.type,
             main_sum: s.mean * s.count,
             main_sum_squares: sumSquaresFromStats(

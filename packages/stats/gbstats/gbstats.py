@@ -91,7 +91,6 @@ def get_metric_df(
             dimensions[dim] = {
                 "dimension": dim,
                 "variations": len(var_names),
-                "statistic_type": row.statistic_type,
                 "main_metric_type": row.main_metric_type,
                 "denominator_metric_type": getattr(
                     row, "denominator_metric_type", None
@@ -162,9 +161,13 @@ def analyze_metric_df(
     num_variations = df.at[0, "variations"]
     # parse config
     test_config = engine_config.copy()
+    sequential: bool = test_config.pop("sequential", False)
+    regression_adjusted: bool = test_config.pop("regression_adjusted", False)
+
     if engine == StatsEngine.BAYESIAN:
         test_config["inverse"] = inverse
-    sequential: bool = test_config.pop("sequential", False)
+        if regression_adjusted and engine:
+            raise ValueError("regression_adjusted cannot be used with the Bayesian statistics engine")
 
     # Add new columns to the dataframe with placeholder values
     df["srm_p"] = 0
@@ -189,8 +192,7 @@ def analyze_metric_df(
     def analyze_row(s):
         s = s.copy()
         # Baseline values
-        stat_a: Statistic = variation_statistic_from_metric_row(s, "baseline")
-        raise_error_if_bayesian_ra(stat_a, engine)
+        stat_a: Statistic = variation_statistic_from_metric_row(s, "baseline", regression_adjusted)
 
         s["baseline_cr"] = stat_a.unadjusted_mean
         s["baseline_mean"] = stat_a.unadjusted_mean
@@ -203,8 +205,7 @@ def analyze_metric_df(
         # Loop through each non-baseline variation and run an analysis
         baseline_risk: float = 0
         for i in range(1, num_variations):
-            stat_b: Statistic = variation_statistic_from_metric_row(s, f"v{i}")
-            raise_error_if_bayesian_ra(stat_b, engine)
+            stat_b: Statistic = variation_statistic_from_metric_row(s, f"v{i}", regression_adjusted)
 
             if isinstance(stat_b, RegressionAdjustedStatistic) and isinstance(
                 stat_a, RegressionAdjustedStatistic
@@ -314,30 +315,33 @@ def format_results(df):
     return results
 
 
-def variation_statistic_from_metric_row(row: pd.Series, prefix: str) -> Statistic:
-    statistic_type = row["statistic_type"]
+def variation_statistic_from_metric_row(row: pd.Series, variant_prefix: str, regression_adjusted: bool, statistic_type: str) -> Statistic:
+    if regression_adjusted and statistic_type == 'ratio':
+        raise ValueError("This is a bug. Regression adjustment is not yet supported for ratio metrics. Contact GrowthBook with this warning message.")
+    if statistic_type not in ['mean', 'ratio']:
+        raise ValueError(
+            f"Unexpected statistic_type {statistic_type}' found."
+        )
+
+    
     if statistic_type == "ratio":
         return RatioStatistic(
-            m_statistic=base_statistic_from_metric_row(row, prefix, "main"),
-            d_statistic=base_statistic_from_metric_row(row, prefix, "denominator"),
-            m_d_sum_of_products=row[f"{prefix}_main_denominator_sum_product"],
-            n=row[f"{prefix}_users"],
+            m_statistic=base_statistic_from_metric_row(row, variant_prefix, "main"),
+            d_statistic=base_statistic_from_metric_row(row, variant_prefix, "denominator"),
+            m_d_sum_of_products=row[f"{variant_prefix}_main_denominator_sum_product"],
+            n=row[f"{variant_prefix}_users"],
         )
     elif statistic_type == "mean":
-        return base_statistic_from_metric_row(row, prefix, "main")
-    elif statistic_type == "mean_ra":
-        return RegressionAdjustedStatistic(
-            post_statistic=base_statistic_from_metric_row(row, prefix, "main"),
-            pre_statistic=base_statistic_from_metric_row(row, prefix, "covariate"),
-            post_pre_sum_of_products=row[f"{prefix}_main_covariate_sum_product"],
-            n=row[f"{prefix}_users"],
-            # Theta should be overriden with correct value later
-            theta=0,
-        )
-    else:
-        raise ValueError(
-            f"Unexpected statistic_type {statistic_type}' found in experiment data."
-        )
+        if regression_adjusted:
+            return RegressionAdjustedStatistic(
+                post_statistic=base_statistic_from_metric_row(row, variant_prefix, "main"),
+                pre_statistic=base_statistic_from_metric_row(row, variant_prefix, "covariate"),
+                post_pre_sum_of_products=row[f"{variant_prefix}_main_covariate_sum_product"],
+                n=row[f"{variant_prefix}_users"],
+                # Theta should be overriden with correct value later
+                theta=0,
+            )
+        return base_statistic_from_metric_row(row, variant_prefix, "main")
 
 
 def base_statistic_from_metric_row(

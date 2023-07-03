@@ -32,6 +32,7 @@ export async function analyzeExperimentMetric(
   rows: ExperimentMetricQueryResponse,
   dimension: string | null = null,
   statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
+  regressionAdjusted: boolean = false,
   sequentialTestingEnabled: boolean = false,
   sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
 ): Promise<ExperimentMetricAnalysis> {
@@ -102,6 +103,16 @@ reduced = reduce_dimensionality(
   max=max_dimensions
 )
 
+config = dict(
+  regression_adjusted=${regressionAdjusted},
+  ${statsEngine === "frequentist" && sequentialTestingEnabled
+    ? `
+      sequential=True,
+      sequential_tuning_parameter=${sequentialTestingTuningParameter}
+      `
+    : ``
+  }
+
 result = analyze_metric_df(
   df=reduced,
   weights=weights,
@@ -111,11 +122,7 @@ result = analyze_metric_df(
       ? "StatsEngine.FREQUENTIST"
       : "StatsEngine.BAYESIAN"
   },
-  engine_config=${
-    statsEngine === "frequentist" && sequentialTestingEnabled
-      ? `{'sequential': True, 'sequential_tuning_parameter': ${sequentialTestingTuningParameter}}`
-      : "{}"
-  }
+  engine_config=
 )
 
 print(json.dumps({
@@ -181,9 +188,8 @@ export async function analyzeExperimentResults({
               snapshotSettings.variations[v.variation]?.id || v.variation + "",
             users: stats.count,
             count: stats.count,
-            statistic_type: "mean", // no ratio in mixpanel or GA
             main_metric_type: stats.metric_type,
-            main_sum: stats.main_sum,
+            main_sum: stats.main_sum, 
             main_sum_squares: stats.main_sum_squares,
           });
         });
@@ -225,6 +231,7 @@ export async function analyzeExperimentResults({
           data.rows,
           analysisSettings.dimensions[0],
           analysisSettings.statsEngine,
+          analysisSettings.regressionAdjusted,
           analysisSettings.sequentialTesting,
           analysisSettings.sequentialTestingTuningParameter
         );

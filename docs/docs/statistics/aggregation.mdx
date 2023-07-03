@@ -28,7 +28,6 @@ The potential fields the queries will return are as follows, with all sums aggre
 - `dimension` - the name of the dimension we aggregate to; defaults to "All" if there is no dimensional analysis specified
 - `users` - the number of users in the variation-dimension that are part of the denominator for that metric; normally this is all users in the variation-dimension, but for ratio metrics or activation metrics it will only include users that are in the ratio denomitor or in the set of activated users.
 - `count` - deprecated; duplicate of users
-- `statistic_type` - one of "mean" or "ratio"; this indicates to the statistics engine how to process the data as the formulae for the variance is different across these statistic types
 - `main_metric_type` - the metric type of the main metric (e.g. the metric itself or the numerator for ratio metrics)
 - `main_sum` - the summed value of the user-level main metric
 - `main_sum_squares` - the sum of the squared values of the user-level main metric
@@ -39,3 +38,10 @@ If the metric is a ratio metric, you will additionally see the following fields:
 - `denominator_sum` - the summed value of the user-level denominator metric
 - `denominator_sum_squares` - the sum of the squared values of the user-level denominator metric
 - `main_denominator_sum_product` - the sum of the product of the user-level main and denominator metric
+
+If the metric is analyzed with regression adjustment, you will additionally see the following fields:
+
+- `covariate_metric_type` - the metric type of the main metric
+- `covariate_sum` - the summed value of the user-level metric in the pre-exposure period
+- `covriate_sum_squares` - the sum of the squared values of the user-level metric in the pre-exposure period
+- `main_covariate_sum_product` - the sum of the product of the user-level main metric and pre-exposure main metric

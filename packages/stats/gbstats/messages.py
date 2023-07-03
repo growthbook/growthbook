@@ -8,6 +8,6 @@ RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR = (
 
 
 # Raises error if bayesian engine and regression adjustment used together
-def raise_error_if_bayesian_ra(stat: Statistic, engine: StatsEngine):
-    if isinstance(stat, RegressionAdjustedStatistic) and engine == StatsEngine.BAYESIAN:
-        raise ValueError(RA_NOT_COMPATIBLE_WITH_BAYESIAN_ERROR)
+def raise_error_if_bayesian_ra(regression_adjusted: bool, engine: StatsEngine):
+    if regression_adjusted and engine == StatsEngine.BAYESIAN:
+        raise ValueError("RegressionAdjustedStatistic cannot be used with the Bayesian statistics engine")

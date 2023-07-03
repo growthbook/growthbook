@@ -429,6 +429,7 @@ app.post(
   "/experiments/:id/visual-changeset",
   experimentsController.postVisualChangeset
 );
+app.post("/snapshot/:id/analysis", experimentsController.postSnapshotAnalysis);
 
 // Visual Changesets
 app.put("/visual-changesets/:id", experimentsController.putVisualChangeset);

@@ -59,7 +59,7 @@ MULTI_DIMENSION_STATISTICS_DF = pd.DataFrame(
             "count": 200,
         },
     ]
-).assign(statistic_type="mean", main_metric_type="count")
+).assign(main_metric_type="count")
 
 THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
     [
@@ -80,7 +80,7 @@ THIRD_DIMENSION_STATISTICS_DF = pd.DataFrame(
             "count": 3001,
         },
     ]
-).assign(statistic_type="mean", main_metric_type="count")
+).assign(main_metric_type="count")
 
 RATIO_STATISTICS_DF = pd.DataFrame(
     [
@@ -108,7 +108,7 @@ RATIO_STATISTICS_DF = pd.DataFrame(
         },
     ]
 ).assign(
-    statistic_type="ratio", main_metric_type="count", denominator_metric_type="count"
+    main_metric_type="count", denominator_metric_type="count"
 )
 
 RATIO_STATISTICS_ADDITIONAL_DIMENSION_DF = RATIO_STATISTICS_DF.copy()
@@ -133,7 +133,7 @@ ONE_USER_DF = pd.DataFrame(
             "count": 3,
         },
     ]
-).assign(statistic_type="mean", main_metric_type="count")
+).assign(main_metric_type="count")
 
 
 ZERO_DENOM_RATIO_STATISTICS_DF = pd.DataFrame(
@@ -162,7 +162,7 @@ ZERO_DENOM_RATIO_STATISTICS_DF = pd.DataFrame(
         },
     ]
 ).assign(
-    statistic_type="ratio", main_metric_type="count", denominator_metric_type="count"
+    main_metric_type="count", denominator_metric_type="count"
 )
 
 RA_STATISTICS_DF = pd.DataFrame(
@@ -191,7 +191,7 @@ RA_STATISTICS_DF = pd.DataFrame(
         },
     ]
 ).assign(
-    statistic_type="mean_ra", main_metric_type="count", covariate_metric_type="count"
+    main_metric_type="count", covariate_metric_type="count"
 )
 
 
@@ -238,7 +238,7 @@ class TestDiffDailyTS(TestCase):
                     "count": 200,
                 },
             ]
-        ).assign(statistic_type="mean", main_metric_type="count")
+        ).assign(main_metric_type="count")
         pd.testing.assert_frame_equal(
             dfc.sort_values(["variation", "dimension"]).reset_index(drop=True),
             target_df.sort_values(["variation", "dimension"]).reset_index(drop=True),
@@ -274,13 +274,12 @@ class TestVariationStatisticBuilder(TestCase):
             ValueError, expected_regex="statistic_type.*not_real.*"
         ):
             variation_statistic_from_metric_row(
-                pd.Series({"statistic_type": "not_real"}), prefix=""
+                pd.Series({}), prefix="", statistic_type="not_real"
             )
 
     def test_ra_statistic_type(self):
         test_row = pd.Series(
             {
-                "statistic_type": "mean_ra",
                 "main_metric_type": "count",
                 "covariate_metric_type": "count",
                 "baseline_main_sum": 222,

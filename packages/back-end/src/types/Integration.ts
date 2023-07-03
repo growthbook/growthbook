@@ -172,7 +172,6 @@ export type ExperimentMetricQueryResponse = {
   variation: string;
   users: number;
   count: number;
-  statistic_type: "ratio" | "mean" | "mean_ra";
   main_metric_type: MetricType;
   main_sum: number;
   main_sum_squares: number;
