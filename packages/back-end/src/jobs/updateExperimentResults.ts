@@ -18,7 +18,6 @@ import {
 import { getConfidenceLevelsForOrg } from "../services/organizations";
 import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
-import { refreshSnapshotStatus } from "../services/queries";
 import { getMetricById, getMetricMap } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { findOrganizationById } from "../models/OrganizationModel";
@@ -179,7 +178,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     const metricMap = await getMetricMap(organization.id);
 
-    let currentSnapshot = await createSnapshot({
+    const queryRunner = await createSnapshot({
       experiment,
       organization,
       phaseIndex: experiment.phases.length - 1,
@@ -188,32 +187,8 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         metricRegressionAdjustmentStatuses || [],
       metricMap,
     });
-
-    await new Promise<void>((resolve, reject) => {
-      const check = async () => {
-        const phase = experiment.phases[experiment.phases.length - 1];
-        if (!phase) {
-          reject("Invalid phase");
-          return;
-        }
-        currentSnapshot = await refreshSnapshotStatus(
-          currentSnapshot,
-          experiment
-        );
-        if (currentSnapshot.status === "success") {
-          resolve();
-          return;
-        }
-        if (currentSnapshot.status === "error") {
-          reject(currentSnapshot.error || "Queries failed to run");
-          return;
-        }
-        // Check every 10 seconds
-        setTimeout(check, 10000);
-      };
-      // Do the first check after a 2 second delay to quickly handle fast queries
-      setTimeout(check, 2000);
-    });
+    await queryRunner.waitForResults();
+    const currentSnapshot = queryRunner.model;
 
     if (lastSnapshot) {
       await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);

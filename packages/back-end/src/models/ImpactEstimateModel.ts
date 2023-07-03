@@ -4,8 +4,8 @@ import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import { getMetricById } from "../models/MetricModel";
 import { getSourceIntegrationObject } from "../services/datasource";
 import { SegmentInterface } from "../../types/segment";
-import { processMetricValueQueryResponse } from "../services/queries";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
+import { processMetricValueQueryResponse } from "../queryRunners/MetricAnalysisQueryRunner";
 import { findSegmentById } from "./SegmentModel";
 import { getDataSourceById } from "./DataSourceModel";
 
@@ -74,11 +74,6 @@ export async function getImpactEstimate(
   }
 
   const integration = getSourceIntegrationObject(datasource);
-  if (integration.decryptionError) {
-    throw new Error(
-      "Could not decrypt data source credentials. View the data source settings for more info."
-    );
-  }
 
   const conversionWindowHours =
     metricObj.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;

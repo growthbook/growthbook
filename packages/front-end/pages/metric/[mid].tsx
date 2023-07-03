@@ -562,16 +562,10 @@ const MetricPage: FC = () => {
                               <RunQueriesButton
                                 icon="refresh"
                                 cta={analysis ? "Refresh Data" : "Run Analysis"}
-                                initialStatus={getQueryStatus(
-                                  metric.queries || [],
-                                  metric.analysisError
-                                )}
-                                statusEndpoint={`/metric/${metric.id}/analysis/status`}
+                                mutate={mutate}
+                                model={metric}
                                 cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
                                 color="outline-primary"
-                                onReady={() => {
-                                  mutate();
-                                }}
                               />
                             </form>
                           )}

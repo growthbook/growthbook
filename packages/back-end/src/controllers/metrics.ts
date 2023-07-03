@@ -10,11 +10,6 @@ import {
 import { addTagsDiff } from "../models/TagModel";
 import { getOrgFromReq } from "../services/organizations";
 import {
-  cancelRun,
-  refreshMetricAnalysisStatus,
-  formatStatusEndpointResponse,
-} from "../services/queries";
-import {
   deleteMetricById,
   getMetricsByOrganization,
   getMetricById,
@@ -31,6 +26,8 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { getIntegrationFromDatasourceId } from "../services/datasource";
+import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 
 export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,
@@ -142,20 +139,6 @@ export async function getMetricUsage(
   });
 }
 
-export async function getMetricAnalysisStatus(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-  const metric = await getMetricById(id, org.id, true);
-  if (!metric) {
-    throw new Error("Could not get query status");
-  }
-
-  const newMetric = await refreshMetricAnalysisStatus(metric);
-  res.json(formatStatusEndpointResponse(newMetric));
-}
 export async function cancelMetricAnalysis(
   req: AuthRequest<null, { id: string }>,
   res: Response
@@ -168,18 +151,17 @@ export async function cancelMetricAnalysis(
   if (!metric) {
     throw new Error("Could not cancel query");
   }
-  res.status(200).json(
-    await cancelRun(metric, org.id, async () => {
-      await updateMetric(
-        id,
-        {
-          queries: [],
-          runStarted: null,
-        },
-        org.id
-      );
-    })
+
+  const integration = await getIntegrationFromDatasourceId(
+    org.id,
+    metric.datasource
   );
+  const queryRunner = new MetricAnalysisQueryRunner(metric, integration);
+  await queryRunner.cancelQueries();
+
+  res.status(200).json({
+    status: 200,
+  });
 }
 
 export async function postMetricAnalysis(

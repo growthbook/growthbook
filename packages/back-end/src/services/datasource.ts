@@ -19,6 +19,7 @@ import {
 } from "../../types/datasource";
 import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
+import { getDataSourceById } from "../models/DataSourceModel";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string
@@ -85,6 +86,17 @@ function getIntegrationObj(
   }
 }
 
+export async function getIntegrationFromDatasourceId(
+  organization: string,
+  id: string
+) {
+  const datasource = await getDataSourceById(id, organization);
+  if (!datasource) {
+    throw new Error("Could not load metric datasource");
+  }
+  return getSourceIntegrationObject(datasource);
+}
+
 export function getSourceIntegrationObject(datasource: DataSourceInterface) {
   const { type, params, settings } = datasource;
 
@@ -98,6 +110,12 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
   obj.organization = datasource.organization;
   obj.datasource = datasource.id;
   obj.type = datasource.type;
+
+  if (obj.decryptionError) {
+    throw new Error(
+      "Could not decrypt data source credentials. View the data source settings for more info."
+    );
+  }
 
   return obj;
 }

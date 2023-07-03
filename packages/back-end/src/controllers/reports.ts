@@ -8,6 +8,7 @@ import {
   getExperimentsByIds,
 } from "../models/ExperimentModel";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
+import { getMetricMap } from "../models/MetricModel";
 import {
   createReport,
   deleteReportById,
@@ -16,14 +17,14 @@ import {
   getReportsByOrg,
   updateReport,
 } from "../models/ReportModel";
+import { ReportQueryRunner } from "../queryRunners/ReportQueryRunner";
+import { getIntegrationFromDatasourceId } from "../services/datasource";
 import { generateReportNotebook } from "../services/notebook";
 import { getOrgFromReq } from "../services/organizations";
 import {
-  cancelRun,
-  formatStatusEndpointResponse,
-  refreshReportStatus,
-} from "../services/queries";
-import { reportArgsFromSnapshot, runReport } from "../services/reports";
+  getSnapshotSettingsFromReportArgs,
+  reportArgsFromSnapshot,
+} from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
 
 export async function postReportFromSnapshot(
@@ -210,11 +211,29 @@ export async function refreshReport(
       ? !!report.args?.regressionAdjustmentEnabled
       : false;
 
-  await runReport(org, report, useCache);
+  const metricMap = await getMetricMap(org.id);
+  const {
+    analysisSettings,
+    snapshotSettings,
+  } = getSnapshotSettingsFromReportArgs(report.args, metricMap);
+
+  const integration = await getIntegrationFromDatasourceId(
+    org.id,
+    report.args.datasource
+  );
+  const queryRunner = new ReportQueryRunner(report, integration);
+
+  const updatedReport = await queryRunner.startAnalysis({
+    analysisSettings,
+    snapshotSettings,
+    metricMap,
+    variationNames: report.args.variations.map((v) => v.name),
+    useCache,
+  });
 
   return res.status(200).json({
     status: 200,
-    report,
+    updatedReport,
   });
 }
 
@@ -270,28 +289,30 @@ export async function putReport(
     ...updates,
   };
   if (needsRun) {
-    await runReport(org, updatedReport, true);
+    const metricMap = await getMetricMap(org.id);
+    const {
+      analysisSettings,
+      snapshotSettings,
+    } = getSnapshotSettingsFromReportArgs(report.args, metricMap);
+
+    const integration = await getIntegrationFromDatasourceId(
+      org.id,
+      report.args.datasource
+    );
+    const queryRunner = new ReportQueryRunner(updatedReport, integration);
+
+    await queryRunner.startAnalysis({
+      analysisSettings,
+      snapshotSettings,
+      metricMap,
+      variationNames: report.args.variations.map((v) => v.name),
+    });
   }
 
   return res.status(200).json({
     status: 200,
     updatedReport,
   });
-}
-
-export async function getReportStatus(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-  const report = await getReportById(org.id, id);
-  if (!report) {
-    throw new Error("Could not get query status");
-  }
-
-  const newReport = await refreshReportStatus(report);
-  res.json(formatStatusEndpointResponse(newReport));
 }
 
 export async function cancelReport(
@@ -306,14 +327,15 @@ export async function cancelReport(
   if (!report) {
     throw new Error("Could not cancel query");
   }
-  res.status(200).json(
-    await cancelRun(report, org.id, async () => {
-      await updateReport(org.id, id, {
-        queries: [],
-        runStarted: null,
-      });
-    })
+
+  const integration = await getIntegrationFromDatasourceId(
+    org.id,
+    report.args.datasource
   );
+  const queryRunner = new ReportQueryRunner(report, integration);
+  await queryRunner.cancelQueries();
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function postNotebook(
