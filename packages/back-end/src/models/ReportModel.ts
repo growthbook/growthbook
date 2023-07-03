@@ -90,6 +90,20 @@ export async function getReportsByExperimentId(
   );
 }
 
+export async function findReportsByQueryId(ids: string[]) {
+  // Only look for matches in the past 24 hours to make the query more efficient
+  // Older snapshots should not still be running anyway
+  const earliestDate = new Date();
+  earliestDate.setDate(earliestDate.getDate() - 1);
+
+  const docs = await ReportModel.find({
+    dateCreated: { $gt: earliestDate },
+    "queries.query": { $elemMatch: { query: { $in: ids }, status: "running" } },
+  });
+
+  return docs.map((doc) => toInterface(doc));
+}
+
 export async function updateReport(
   organization: string,
   id: string,

@@ -112,7 +112,7 @@ export async function getStaleQueries(): Promise<
     _id: 1,
     id: 1,
     organization: 1,
-  }).limit(10);
+  }).limit(20);
   if (!docs.length) return [];
 
   await QueryModel.updateMany(

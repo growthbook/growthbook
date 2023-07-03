@@ -10,7 +10,10 @@ import { queriesSchema } from "./QueryModel";
 
 const pastExperimentsSchema = new mongoose.Schema({
   id: String,
-  organization: String,
+  organization: {
+    type: String,
+    index: true,
+  },
   datasource: String,
   experiments: [
     {
@@ -63,6 +66,18 @@ export async function getPastExperimentsModelByDatasource(
   const doc = await PastExperimentsModel.findOne({ organization, datasource });
 
   return doc ? toInterface(doc) : null;
+}
+
+export async function findRunningPastExperimentsByQueryId(
+  orgIds: string[],
+  ids: string[]
+) {
+  const docs = await PastExperimentsModel.find({
+    organization: { $in: orgIds },
+    "queries.query": { $elemMatch: { query: { $in: ids }, status: "running" } },
+  });
+
+  return docs.map((doc) => toInterface(doc));
 }
 
 export async function updatePastExperiments(

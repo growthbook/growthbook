@@ -233,6 +233,21 @@ export async function getMetricsByIds(ids: string[], organization: string) {
   return docs.map(toInterface);
 }
 
+export async function findRunningMetricsByQueryId(
+  orgIds: string[],
+  queryIds: string[]
+) {
+  const docs = await MetricModel.find({
+    // Query ids are globally unique, this filter is just for index performance
+    organization: { $in: orgIds },
+    "queries.query": {
+      $elemMatch: { query: { $in: queryIds }, status: "running" },
+    },
+  });
+
+  return docs.map((doc) => toInterface(doc));
+}
+
 export async function removeProjectFromMetrics(
   project: string,
   organization: string
