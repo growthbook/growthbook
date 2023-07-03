@@ -15,6 +15,8 @@ import Button from "@/components/Button";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { trackReport } from "@/services/track";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export default function ResultMoreMenu({
   editMetrics,
@@ -27,7 +29,6 @@ export default function ResultMoreMenu({
   generateReport,
   notebookUrl,
   notebookFilename,
-  hasUserQuery,
   forceRefresh,
   results,
   metrics,
@@ -46,7 +47,6 @@ export default function ResultMoreMenu({
   generateReport?: boolean;
   notebookUrl: string;
   notebookFilename: string;
-  hasUserQuery?: boolean;
   forceRefresh?: () => Promise<void>;
   results?: ExperimentReportResultDimension[];
   metrics?: string[];
@@ -58,15 +58,12 @@ export default function ResultMoreMenu({
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissions = usePermissions();
+  const { getDatasourceById } = useDefinitions();
 
   const canEdit = permissions.check("createAnalyses", project);
 
   const canDownloadJupyterNotebook =
-    hasData &&
-    !hasUserQuery &&
-    supportsNotebooks &&
-    notebookUrl &&
-    notebookFilename;
+    hasData && supportsNotebooks && notebookUrl && notebookFilename;
 
   return (
     <MoreMenu>
@@ -99,7 +96,7 @@ export default function ResultMoreMenu({
           <BsArrowRepeat className="mr-2" /> Re-run All Queries
         </button>
       )}
-      {hasData && queries && !hasUserQuery && generateReport && canEdit && (
+      {hasData && queries && generateReport && canEdit && (
         <Button
           className="dropdown-item py-2"
           color="outline-info"
@@ -114,6 +111,12 @@ export default function ResultMoreMenu({
             if (!res.report) {
               throw new Error("Failed to create report");
             }
+            trackReport(
+              "create",
+              "AdhocReportButton",
+              getDatasourceById(res.report.args.datasource)?.type || null,
+              res.report
+            );
 
             await router.push(`/report/${res.report.id}`);
           }}

@@ -1,7 +1,12 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
-import { FaDatabase, FaExternalLinkAlt, FaKey } from "react-icons/fa";
+import {
+  FaDatabase,
+  FaExclamationTriangle,
+  FaExternalLinkAlt,
+  FaKey,
+} from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -48,9 +53,10 @@ const DataSourcePage: FC = () => {
   const { apiCall } = useAuth();
 
   const canEdit =
-    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'DataSourceInterfaceWithParams | ... Remove this comment to see the full error message
-    checkDatasourceProjectPermissions(d, permissions, "createDatasources") &&
-    !hasFileConfig();
+    (d &&
+      checkDatasourceProjectPermissions(d, permissions, "createDatasources") &&
+      !hasFileConfig()) ||
+    false;
 
   /**
    * Update the data source provided.
@@ -66,9 +72,9 @@ const DataSourcePage: FC = () => {
         body: JSON.stringify(updates),
       });
       const queriesUpdated =
-        // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
+        d &&
         JSON.stringify(d.settings?.queries) !==
-        JSON.stringify(dataSource.settings?.queries);
+          JSON.stringify(dataSource.settings?.queries);
       if (queriesUpdated) {
         apiCall<{ id: string }>("/experiments/import", {
           method: "POST",
@@ -140,8 +146,7 @@ const DataSourcePage: FC = () => {
       <div className="row mb-3 align-items-center">
         <div className="col">
           Projects:{" "}
-          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-          {d?.projects?.length > 0 ? (
+          {d?.projects?.length || 0 > 0 ? (
             <ProjectBadges
               projectIds={d.projects}
               className="badge-ellipsis align-middle"
@@ -175,8 +180,7 @@ const DataSourcePage: FC = () => {
                   >
                     <FaExternalLinkAlt /> View Documentation
                   </DocLink>
-                  {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                  {d.properties.supportsInformationSchema && (
+                  {d?.properties?.supportsInformationSchema && (
                     <button
                       className="btn btn-outline-info mr-2 mt-1 font-weight-bold"
                       onClick={(e) => {
@@ -269,6 +273,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
           )}
           {supportsSQL && (
             <>
+              {d.dateUpdated === d.dateCreated &&
+                d?.settings?.schemaFormat !== "custom" && (
+                  <div className="alert alert-info">
+                    <FaExclamationTriangle style={{ marginTop: "-2px" }} /> We
+                    have prefilled the identifiers and assignment queries below.
+                    These queries may require editing to fit your data
+                    structure.
+                  </div>
+                )}
+
               <h2 className="mt-4">Identifiers</h2>
               <p>
                 The different units you use to split traffic in an experiment.

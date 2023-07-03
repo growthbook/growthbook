@@ -63,8 +63,7 @@ const LoggedInPageGuard = ({
   }
 
   // Still waiting to fetch current user/org details
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  if (organizations?.length > 0 && !organization) {
+  if ((organizations || []).length > 0 && !organization) {
     return <LoadingOverlay />;
   }
 

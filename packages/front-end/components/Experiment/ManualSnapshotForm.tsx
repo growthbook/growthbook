@@ -1,6 +1,7 @@
 import { FC, useState, useEffect } from "react";
 import {
   ExperimentSnapshotInterface,
+  ExperimentSnapshotAnalysis,
   SnapshotVariation,
 } from "back-end/types/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -12,6 +13,7 @@ import {
   formatConversionRate,
   getMetricConversionTitle,
 } from "@/services/metrics";
+import { trackSnapshot } from "@/services/track";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import { SRM_THRESHOLD } from "./SRMWarning";
@@ -25,11 +27,12 @@ const ManualSnapshotForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   close: () => void;
   success: () => void;
-  lastSnapshot?: ExperimentSnapshotInterface;
+  lastAnalysis?: ExperimentSnapshotAnalysis;
   phase: number;
-}> = ({ experiment, close, success, lastSnapshot, phase }) => {
+}> = ({ experiment, close, success, lastAnalysis, phase }) => {
   const { metrics, getMetricById } = useDefinitions();
   const { apiCall } = useAuth();
+  const { getDatasourceById } = useDefinitions();
 
   const filteredMetrics: MetricInterface[] = [];
 
@@ -55,8 +58,8 @@ const ManualSnapshotForm: FC<{
       [key: string]: Omit<MetricStats, "users">[];
     };
   } = { users: Array(experiment.variations.length).fill(0), metrics: {} };
-  if (lastSnapshot?.results?.[0]) {
-    initialValue.users = lastSnapshot.results[0].variations.map((v) => v.users);
+  if (lastAnalysis?.results?.[0]) {
+    initialValue.users = lastAnalysis.results[0].variations.map((v) => v.users);
   }
   filteredMetrics.forEach(({ id, type }) => {
     initialValue.metrics[id] = Array(experiment.variations.length).fill({
@@ -64,9 +67,9 @@ const ManualSnapshotForm: FC<{
       mean: 0,
       stddev: 0,
     });
-    if (lastSnapshot?.results?.[0]) {
+    if (lastAnalysis?.results?.[0]) {
       for (let i = 0; i < experiment.variations.length; i++) {
-        const variation = lastSnapshot.results[0].variations[i];
+        const variation = lastAnalysis.results[0].variations[i];
         if (variation?.metrics[id]) {
           let count =
             variation.metrics[id].stats?.count || variation.metrics[id].value;
@@ -198,16 +201,23 @@ const ManualSnapshotForm: FC<{
   }, [hash]);
 
   const onSubmit = form.handleSubmit(async (values) => {
-    await apiCall<{ status: number; message: string }>(
-      `/experiment/${experiment.id}/snapshot`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          phase,
-          users: values.users,
-          metrics: getStats(),
-        }),
-      }
+    const res = await apiCall<{
+      status: number;
+      message: string;
+      snapshot: ExperimentSnapshotInterface;
+    }>(`/experiment/${experiment.id}/snapshot`, {
+      method: "POST",
+      body: JSON.stringify({
+        phase,
+        users: values.users,
+        metrics: getStats(),
+      }),
+    });
+    trackSnapshot(
+      "create",
+      "ManualSnapshotForm",
+      getDatasourceById(experiment.datasource)?.type || null,
+      res.snapshot
     );
 
     success();

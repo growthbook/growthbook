@@ -14,6 +14,7 @@ export type eventSchema = {
   logo?: string;
   intro?: ReactElement;
   popular?: boolean;
+  beta?: boolean;
 };
 
 export const eventSchemas: eventSchema[] = [
@@ -219,27 +220,35 @@ export const eventSchemas: eventSchema[] = [
     ),
   },
   {
-    value: "gaua",
-    label: "Google Analytics UA",
-    types: ["google_analytics"],
-    logo: "/images/3rd-party-logos/gaua.png",
-    popular: false,
+    value: "fullstory",
+    label: "FullStory",
+    types: ["bigquery", "snowflake"],
+    logo: "/images/3rd-party-logos/fullstory.png",
+    beta: true,
+    popular: true,
     intro: (
       <>
-        Keep in mind that there are some limitations with using GA UA as data
-        source; namely it only supports running one experiment at a time. Using
-        GA4 (or any other supported event tracking) as a data source provides
-        more flexibility and has no limits.{" "}
+        FullStory supports exporting to a Data Destination, specifically
+        BigQuery and Snowflake, which GrowthBook can use for experiment
+        analytics. You can{" "}
         <a
           target="_blank"
-          href="https://docs.growthbook.io/guide/GA-universal-analytics"
+          href="https://help.fullstory.com/hc/en-us/articles/6295300682903-Data-Destinations"
           rel="noreferrer"
         >
-          Read more about it here
+          read more about setting up a data destination here
         </a>
-        .
+        . This integration is in beta.
       </>
     ),
+    // options: [
+    //   {
+    //     name: "eventName",
+    //     label: "Experiment exposure table name",
+    //     defaultValue: "experiment_viewed",
+    //     type: "text",
+    //   },
+    // ],
   },
   {
     value: "freshpaint",

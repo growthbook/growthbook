@@ -119,7 +119,7 @@ export default function SelfHostedUpgradeForm({
         </p>
         <p className="text-center mt-2 mb-1">
           Try our <strong>Enterprise</strong> plan for self-hosted accounts for{" "}
-          <em>3 months free</em>!
+          <em>14 days free</em>!
         </p>
         <p>
           Complete the form below and we&apos;ll email you a trial license key.

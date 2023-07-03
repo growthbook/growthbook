@@ -1,6 +1,7 @@
 import Agenda, { Job } from "agenda";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
+import { getSnapshotAnalysis } from "shared/util";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -21,15 +22,14 @@ import {
 } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
 import { getStatusEndpoint } from "../services/queries";
-import { getMetricById } from "../models/MetricModel";
+import { getMetricById, getMetricMap } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
 import { analyzeExperimentResults } from "../services/stats";
-import { getReportVariations } from "../services/reports";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
 import {
+  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
-  ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
 import { orgHasPremiumFeature } from "../util/organization.util";
 import { findProjectById } from "../models/ProjectModel";
@@ -163,13 +163,14 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     const statsEngine = scopedSettings.statsEngine.value;
 
-    const experimentSnapshotSettings: ExperimentSnapshotSettings = {
+    const analysisSettings: ExperimentSnapshotAnalysisSettings = {
       statsEngine,
-      regressionAdjustmentEnabled:
-        hasRegressionAdjustmentFeature && regressionAdjustmentEnabled,
-      metricRegressionAdjustmentStatuses:
-        metricRegressionAdjustmentStatuses || [],
-      sequentialTestingEnabled:
+      dimensions: [],
+      regressionAdjusted:
+        hasRegressionAdjustmentFeature &&
+        statsEngine === "frequentist" &&
+        regressionAdjustmentEnabled,
+      sequentialTesting:
         hasSequentialTestingFeature &&
         statsEngine === "frequentist" &&
         (experiment?.sequentialTestingEnabled ??
@@ -180,11 +181,16 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
     };
 
+    const metricMap = await getMetricMap(organization.id);
+
     const currentSnapshot = await createSnapshot({
       experiment,
       organization,
       phaseIndex: experiment.phases.length - 1,
-      experimentSnapshotSettings,
+      analysisSettings,
+      metricRegressionAdjustmentStatuses:
+        metricRegressionAdjustmentStatuses || [],
+      metricMap,
     });
 
     await new Promise<void>((resolve, reject) => {
@@ -197,27 +203,34 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         const res = await getStatusEndpoint(
           currentSnapshot,
           currentSnapshot.organization,
-          (queryData) => {
+          async (queryData) => {
+            const metricMap = await getMetricMap(experiment.organization);
+
             return analyzeExperimentResults({
-              organization: experiment.organization,
-              variations: getReportVariations(experiment, phase),
               queryData,
-              statsEngine: currentSnapshot.statsEngine,
-              sequentialTestingEnabled:
-                currentSnapshot.sequentialTestingEnabled ??
-                organization.settings?.sequentialTestingEnabled,
-              sequentialTestingTuningParameter:
-                currentSnapshot.sequentialTestingTuningParameter ??
-                organization.settings?.sequentialTestingTuningParameter,
+              snapshotSettings: currentSnapshot.settings,
+              analysisSettings,
+              metricMap,
+              variationNames: experiment.variations.map((v) => v.name),
             });
           },
           async (updates, results, error) => {
+            const status = error ? "error" : results ? "success" : "running";
+
+            const analysis = getSnapshotAnalysis(currentSnapshot);
+            if (analysis) {
+              analysis.results = results?.dimensions || [];
+              analysis.error = error;
+              analysis.status = status;
+            }
+
             await updateSnapshot(experiment.organization, currentSnapshot.id, {
               ...updates,
               unknownVariations: results?.unknownVariations || [],
               multipleExposures: results?.multipleExposures || 0,
-              results: results?.dimensions || currentSnapshot.results,
-              error,
+              analyses: currentSnapshot.analyses,
+              error: error || "",
+              status: status,
             });
           },
           currentSnapshot.error
@@ -269,7 +282,12 @@ async function sendSignificanceEmail(
     return;
   }
 
-  if (!currentSnapshot?.results?.[0]?.variations) {
+  const currentVariations = getSnapshotAnalysis(currentSnapshot)?.results?.[0]
+    ?.variations;
+  const lastVariations = getSnapshotAnalysis(lastSnapshot)?.results?.[0]
+    ?.variations;
+
+  if (!currentVariations || !lastVariations) {
     return;
   }
 
@@ -281,9 +299,9 @@ async function sendSignificanceEmail(
 
     // check this and the previous snapshot to see if anything changed:
     const experimentChanges: string[] = [];
-    for (let i = 1; i < currentSnapshot.results[0].variations.length; i++) {
-      const curVar = currentSnapshot.results?.[0]?.variations?.[i];
-      const lastVar = lastSnapshot.results?.[0]?.variations?.[i];
+    for (let i = 1; i < currentVariations.length; i++) {
+      const curVar = currentVariations[i];
+      const lastVar = lastVariations[i];
 
       for (const m in curVar.metrics) {
         const curMetric = curVar?.metrics?.[m];
@@ -303,7 +321,7 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and won
             experimentChanges.push(
               "The metric " +
-                getMetricById(m, experiment.organization) +
+                (await getMetricById(m, experiment.organization))?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has reached a " +
@@ -317,7 +335,7 @@ async function sendSignificanceEmail(
             // this test variation has gone significant, and lost
             experimentChanges.push(
               "The metric " +
-                getMetricById(m, experiment.organization) +
+                (await getMetricById(m, experiment.organization))?.name +
                 " for variation " +
                 experiment.variations[i].name +
                 " has dropped to a " +

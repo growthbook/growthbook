@@ -140,7 +140,7 @@ const ProjectPage: FC = () => {
 
         <div className="d-flex align-items-center mb-2">
           <div className="text-gray">
-            {p.description ?? <em>add description</em>}
+            {p.description || <em>add description</em>}
           </div>
           <div className="ml-1">
             <a
@@ -179,7 +179,10 @@ const ProjectPage: FC = () => {
             </div>
             <div className="col-sm-9">
               <StatsEngineSelect
-                form={form}
+                value={form.watch("statsEngine")}
+                onChange={(v) => {
+                  form.setValue("statsEngine", v);
+                }}
                 label="Default Statistics Engine"
                 parentSettings={parentSettings}
               />

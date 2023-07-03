@@ -60,8 +60,7 @@ const CommentForm: FC<{
         autofocus={autofocus}
         cta={cta}
         onCancel={onCancel}
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string | un... Remove this comment to see the full error message
-        error={formError}
+        error={formError || ""}
       />
     </form>
   );

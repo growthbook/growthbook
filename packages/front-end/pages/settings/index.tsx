@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import {
+  FaExclamationCircle,
   FaExclamationTriangle,
   FaPencilAlt,
   FaQuestionCircle,
 } from "react-icons/fa";
 import { useForm } from "react-hook-form";
-import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import cronstrue from "cronstrue";
 import { AttributionModel } from "back-end/types/experiment";
@@ -16,6 +16,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { OrganizationSettings } from "@/../back-end/types/organization";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -26,7 +27,10 @@ import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import TempMessage from "@/components/TempMessage";
 import Button from "@/components/Button";
 import { DocLink } from "@/components/DocLink";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import {
+  OrganizationSettingsWithMetricDefaults,
+  useOrganizationMetricDefaults,
+} from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
 import { GBCuped, GBPremiumBadge, GBSequential } from "@/components/Icons";
@@ -39,6 +43,179 @@ import { AttributionModelTooltip } from "@/components/Experiment/AttributionMode
 import Tab from "@/components/Tabs/Tab";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import { useCurrency } from "@/hooks/useCurrency";
+
+export const supportedCurrencies = {
+  AED: "UAE Dirham (AED)",
+  AFN: "Afghani (AFN)",
+  ALL: "Lek (ALL)",
+  AMD: "Armenian Dram (AMD)",
+  ANG: "Netherlands Antillean Guilder (ANG)",
+  AOA: "Kwanza (AOA)",
+  ARS: "Argentine Peso (ARS)",
+  AUD: "Australian Dollar (AUD)",
+  AWG: "Aruban Florin (AWG)",
+  AZN: "Azerbaijan Manat (AZN)",
+  BAM: "Convertible Mark (BAM)",
+  BBD: "Barbados Dollar (BBD)",
+  BDT: "Taka (BDT)",
+  BGN: "Bulgarian Lev (BGN)",
+  BHD: "Bahraini Dinar (BHD)",
+  BIF: "Burundi Franc (BIF)",
+  BMD: "Bermudian Dollar (BMD)",
+  BND: "Brunei Dollar (BND)",
+  BOB: "Boliviano (BOB)",
+  BOV: "Mvdol (BOV)",
+  BRL: "Brazilian Real (BRL)",
+  BSD: "Bahamian Dollar (BSD)",
+  BTN: "Ngultrum (BTN)",
+  BWP: "Pula (BWP)",
+  BYN: "Belarusian Ruble (BYN)",
+  BZD: "Belize Dollar (BZD)",
+  CAD: "Canadian Dollar (CAD)",
+  CDF: "Congolese Franc (CDF)",
+  CHE: "WIR Euro (CHE)",
+  CHF: "Swiss Franc (CHF)",
+  CHW: "WIR Franc (CHW)",
+  CLF: "Unidad de Fomento (CLF)",
+  CLP: "Chilean Peso (CLP)",
+  CNY: "Yuan Renminbi (CNY)",
+  COP: "Colombian Peso (COP)",
+  COU: "Unidad de Valor Real (COU)",
+  CRC: "Costa Rican Colon (CRC)",
+  CUC: "Peso Convertible (CUC)",
+  CUP: "Cuban Peso (CUP)",
+  CVE: "Cabo Verde Escudo (CVE)",
+  CZK: "Czech Koruna (CZK)",
+  DJF: "Djibouti Franc (DJF)",
+  DKK: "Danish Krone (DKK)",
+  DOP: "Dominican Peso (DOP)",
+  DZD: "Algerian Dinar (DZD)",
+  EGP: "Egyptian Pound (EGP)",
+  ERN: "Nakfa (ERN)",
+  ETB: "Ethiopian Birr (ETB)",
+  EUR: "Euro (EUR)",
+  FJD: "Fiji Dollar (FJD)",
+  FKP: "Falkland Islands Pound (FKP)",
+  GBP: "Pound Sterling (GBP)",
+  GEL: "Lari (GEL)",
+  GHS: "Ghana Cedi (GHS)",
+  GIP: "Gibraltar Pound (GIP)",
+  GMD: "Dalasi (GMD)",
+  GNF: "Guinean Franc (GNF)",
+  GTQ: "Quetzal (GTQ)",
+  GYD: "Guyana Dollar (GYD)",
+  HKD: "Hong Kong Dollar (HKD)",
+  HNL: "Lempira (HNL)",
+  HTG: "Gourde (HTG)",
+  HUF: "Forint (HUF)",
+  IDR: "Rupiah (IDR)",
+  ILS: "New Israeli Sheqel (ILS)",
+  INR: "Indian Rupee (INR)",
+  IQD: "Iraqi Dinar (IQD)",
+  IRR: "Iranian Rial (IRR)",
+  ISK: "Iceland Krona (ISK)",
+  JMD: "Jamaican Dollar (JMD)",
+  JOD: "Jordanian Dinar (JOD)",
+  JPY: "Yen (JPY)",
+  KES: "Kenyan Shilling (KES)",
+  KGS: "Som (KGS)",
+  KHR: "Riel (KHR)",
+  KMF: "Comorian Franc (KMF)",
+  KPW: "North Korean Won (KPW)",
+  KRW: "Won (KRW)",
+  KWD: "Kuwaiti Dinar (KWD)",
+  KYD: "Cayman Islands Dollar (KYD)",
+  KZT: "Tenge (KZT)",
+  LAK: "Lao Kip (LAK)",
+  LBP: "Lebanese Pound (LBP)",
+  LKR: "Sri Lanka Rupee (LKR)",
+  LRD: "Liberian Dollar (LRD)",
+  LSL: "Loti (LSL)",
+  LYD: "Libyan Dinar (LYD)",
+  MAD: "Moroccan Dirham (MAD)",
+  MDL: "Moldovan Leu (MDL)",
+  MGA: "Malagasy Ariary (MGA)",
+  MKD: "Denar (MKD)",
+  MMK: "Kyat (MMK)",
+  MNT: "Tugrik (MNT)",
+  MOP: "Pataca (MOP)",
+  MRU: "Ouguiya (MRU)",
+  MUR: "Mauritius Rupee (MUR)",
+  MVR: "Rufiyaa (MVR)",
+  MWK: "Malawi Kwacha (MWK)",
+  MXN: "Mexican Peso (MXN)",
+  MXV: "Mexican Unidad de Inversion (UDI) (MXV)",
+  MYR: "Malaysian Ringgit (MYR)",
+  MZN: "Mozambique Metical (MZN)",
+  NAD: "Namibia Dollar (NAD)",
+  NGN: "Naira (NGN)",
+  NIO: "Cordoba Oro (NIO)",
+  NOK: "Norwegian Krone (NOK)",
+  NPR: "Nepalese Rupee (NPR)",
+  NZD: "New Zealand Dollar (NZD)",
+  OMR: "Rial Omani (OMR)",
+  PAB: "Balboa (PAB)",
+  PEN: "Sol (PEN)",
+  PGK: "Kina (PGK)",
+  PHP: "Philippine Peso (PHP)",
+  PKR: "Pakistan Rupee (PKR)",
+  PLN: "Zloty (PLN)",
+  PYG: "Guarani (PYG)",
+  QAR: "Qatari Rial (QAR)",
+  RON: "Romanian Leu (RON)",
+  RSD: "Serbian Dinar (RSD)",
+  RUB: "Russian Ruble (RUB)",
+  RWF: "Rwanda Franc (RWF)",
+  SAR: "Saudi Riyal (SAR)",
+  SBD: "Solomon Islands Dollar (SBD)",
+  SCR: "Seychelles Rupee (SCR)",
+  SDG: "Sudanese Pound (SDG)",
+  SEK: "Swedish Krona (SEK)",
+  SGD: "Singapore Dollar (SGD)",
+  SHP: "Saint Helena Pound (SHP)",
+  SLE: "Leone (SLE)",
+  SLL: "Leone (SLL)",
+  SOS: "Somali Shilling (SOS)",
+  SRD: "Surinam Dollar (SRD)",
+  SSP: "South Sudanese Pound (SSP)",
+  STN: "Dobra (STN)",
+  SVC: "El Salvador Colon (SVC)",
+  SYP: "Syrian Pound (SYP)",
+  SZL: "Lilangeni (SZL)",
+  THB: "Baht (THB)",
+  TJS: "Somoni (TJS)",
+  TMT: "Turkmenistan New Manat (TMT)",
+  TND: "Tunisian Dinar (TND)",
+  TOP: "Pa’anga (TOP)",
+  TRY: "Turkish Lira (TRY)",
+  TTD: "Trinidad and Tobago Dollar (TTD)",
+  TWD: "New Taiwan Dollar (TWD)",
+  TZS: "Tanzanian Shilling (TZS)",
+  UAH: "Hryvnia (UAH)",
+  UGX: "Uganda Shilling (UGX)",
+  USD: "US Dollar (USD)",
+  UYI: "Uruguay Peso en Unidades Indexadas (UI) (UYI)",
+  UYU: "Peso Uruguayo (UYU)",
+  UYW: "Unidad Previsional (UYW)",
+  UZS: "Uzbekistan Sum (UZS)",
+  VED: "Bolívar Soberano (VED)",
+  VES: "Bolívar Soberano (VES)",
+  VND: "Dong (VND)",
+  VUV: "Vatu (VUV)",
+  WST: "Tala (WST)",
+  XAF: "CFA Franc BEAC (XAF)",
+  XCD: "East Caribbean Dollar (XCD)",
+  XDR: "SDR (Special Drawing Right) (XDR)",
+  XOF: "CFA Franc BCEAO (XOF)",
+  XPF: "CFP Franc (XPF)",
+  XSU: "Sucre (XSU)",
+  XUA: "ADB Unit of Account (XUA)",
+  YER: "Yemeni Rial (YER)",
+  ZAR: "Rand (ZAR)",
+  ZMW: "Zambian Kwacha (ZMW)",
+  ZWL: "Zimbabwe Dollar (ZWL)",
+};
 
 function hasChanges(
   value: OrganizationSettings,
@@ -65,6 +242,11 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [statsEngineTab, setStatsEngineTab] = useState<string>(
     settings.statsEngine || DEFAULT_STATS_ENGINE
   );
+  const displayCurrency = useCurrency();
+
+  const currencyOptions = Object.entries(
+    supportedCurrencies
+  ).map(([value, label]) => ({ value, label }));
 
   const permissions = usePermissions();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
@@ -73,12 +255,14 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const hasSequentialTestingFeature = hasCommercialFeature(
     "sequential-testing"
   );
+  const hasSecureAttributesFeature = hasCommercialFeature(
+    "hash-secure-attributes"
+  );
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
+  const showUpgradeButton = ["oss", "starter"].includes(accountPlan || "");
   const licensePlanText =
     (accountPlan === "enterprise"
       ? "Enterprise"
@@ -88,7 +272,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ? "Pro + SSO"
       : "Starter") + (license && license.trial ? " (trial)" : "");
 
-  const form = useForm<OrganizationSettings>({
+  const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
       visualEditorEnabled: false,
       pastExperimentsMinLength: 6,
@@ -109,9 +293,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       },
       metricDefaults: {
         minimumSampleSize: metricDefaults.minimumSampleSize,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         maxPercentageChange: metricDefaults.maxPercentageChange * 100,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         minPercentageChange: metricDefaults.minPercentageChange * 100,
       },
       updateSchedule: {
@@ -129,6 +311,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       sequentialTestingEnabled: false,
       sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       attributionModel: "firstExposure",
+      displayCurrency,
+      secureAttributeSalt: "",
+      killswitchConfirmation: false,
     },
   });
   const { apiCall } = useAuth();
@@ -161,6 +346,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       "sequentialTestingTuningParameter"
     ),
     attributionModel: form.watch("attributionModel"),
+    displayCurrency: form.watch("displayCurrency"),
+    secureAttributeSalt: form.watch("secureAttributeSalt"),
+    killswitchConfirmation: form.watch("killswitchConfirmation"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -192,10 +380,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
           newVal.metricDefaults = {
             ...newVal.metricDefaults,
             maxPercentageChange:
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               newVal.metricDefaults.maxPercentageChange * 100,
             minPercentageChange:
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               newVal.metricDefaults.minPercentageChange * 100,
           };
         }
@@ -218,9 +404,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ...value,
       metricDefaults: {
         ...value.metricDefaults,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
-        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         minPercentageChange: value.metricDefaults.minPercentageChange / 100,
       },
       // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
@@ -679,11 +863,12 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     )}
                   </div>
                   <StatsEngineSelect
-                    form={form}
                     label="Default Statistics Engine"
                     allowUndefined={false}
+                    value={form.watch("statsEngine")}
                     onChange={(value) => {
                       setStatsEngineTab(value);
+                      form.setValue("statsEngine", value);
                     }}
                   />
                 </div>
@@ -1096,6 +1281,96 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   {/* endregion Minimum Percentage Change */}
                 </>
                 {/* endregion Metrics Behavior Defaults */}
+                <>
+                  <SelectField
+                    label="Display Currency"
+                    value={form.watch("displayCurrency") || "USD"}
+                    options={currencyOptions}
+                    onChange={(v: string) =>
+                      form.setValue("displayCurrency", v)
+                    }
+                    required
+                    placeholder="Select currency..."
+                    helpText="This should match what is stored in the data source and controls what currency symbol is displayed."
+                  />
+                </>
+              </div>
+            </div>
+
+            <div className="divider border-bottom mb-3 mt-3" />
+
+            <div className="row">
+              <div className="col-sm-3">
+                <h4>Features Settings</h4>
+              </div>
+              <div className="col-sm-9">
+                <div className="form-inline">
+                  <Field
+                    label={
+                      <PremiumTooltip
+                        commercialFeature={"hash-secure-attributes"}
+                        body={
+                          <>
+                            <p>
+                              Feature targeting conditions referencing{" "}
+                              <code>secureString</code> attributes will be
+                              anonymized via SHA-256 hashing. When evaluating
+                              feature flags in a public or insecure environment
+                              (such as a browser), hashing provides an
+                              additional layer of security through obfuscation.
+                              This allows you to target users based on sensitive
+                              attributes.
+                            </p>
+                            <p>
+                              You must enable this feature in your SDK
+                              Connection for it to take effect.
+                            </p>
+                            <p>
+                              You may add a cryptographic salt string (a random
+                              string of your choosing) to the hashing algorithm,
+                              which helps defend against hash lookup
+                              vulnerabilities.
+                            </p>
+                            <p className="mb-0 text-warning-orange small">
+                              <FaExclamationCircle /> When using an insecure
+                              environment, do not rely exclusively on hashing as
+                              a means of securing highly sensitive data. Hashing
+                              is an obfuscation technique that makes it very
+                              difficult, but not impossible, to extract
+                              sensitive data.
+                            </p>
+                          </>
+                        }
+                      >
+                        Salt string for secure attributes <FaQuestionCircle />
+                      </PremiumTooltip>
+                    }
+                    disabled={!hasSecureAttributesFeature}
+                    className="ml-2"
+                    containerClassName="mb-3"
+                    type="string"
+                    {...form.register("secureAttributeSalt")}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="mr-1"
+                    htmlFor="toggle-killswitchConfirmation"
+                  >
+                    Require confirmation when changing an environment kill
+                    switch
+                  </label>
+                </div>
+                <div>
+                  <Toggle
+                    id={"toggle-killswitchConfirmation"}
+                    value={!!form.watch("killswitchConfirmation")}
+                    setValue={(value) => {
+                      form.setValue("killswitchConfirmation", value);
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>

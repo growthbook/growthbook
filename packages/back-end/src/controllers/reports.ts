@@ -1,12 +1,14 @@
 import { Response } from "express";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
+import { getSnapshotAnalysis } from "shared/util";
 import { ReportInterface } from "../../types/report";
 import {
   getExperimentById,
   getExperimentsByIds,
 } from "../models/ExperimentModel";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
+import { getMetricMap } from "../models/MetricModel";
 import {
   createReport,
   deleteReportById,
@@ -18,7 +20,11 @@ import {
 import { generateReportNotebook } from "../services/notebook";
 import { getOrgFromReq } from "../services/organizations";
 import { cancelRun, getStatusEndpoint } from "../services/queries";
-import { reportArgsFromSnapshot, runReport } from "../services/reports";
+import {
+  getSnapshotSettingsFromReportArgs,
+  reportArgsFromSnapshot,
+  runReport,
+} from "../services/reports";
 import { analyzeExperimentResults } from "../services/stats";
 import { AuthRequest } from "../types/AuthRequest";
 
@@ -47,16 +53,21 @@ export async function postReportFromSnapshot(
     throw new Error("Unknown experiment phase");
   }
 
+  const analysis = getSnapshotAnalysis(snapshot);
+  if (!analysis) {
+    throw new Error("Missing analysis settings");
+  }
+
   const doc = await createReport(org.id, {
     experimentId: experiment.id,
     userId: req.userId,
     title: `New Report - ${experiment.name}`,
     description: ``,
     type: "experiment",
-    args: reportArgsFromSnapshot(experiment, snapshot),
-    results: snapshot.results
+    args: reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
+    results: analysis.results
       ? {
-          dimensions: snapshot.results,
+          dimensions: analysis.results,
           unknownVariations: snapshot.unknownVariations || [],
           multipleExposures: snapshot.multipleExposures || 0,
         }
@@ -205,6 +216,7 @@ export async function refreshReport(
 
   return res.status(200).json({
     status: 200,
+    report,
   });
 }
 
@@ -255,19 +267,17 @@ export async function putReport(
 
   await updateReport(org.id, req.params.id, updates);
 
+  const updatedReport: ReportInterface = {
+    ...report,
+    ...updates,
+  };
   if (needsRun) {
-    await runReport(
-      org,
-      {
-        ...report,
-        ...updates,
-      },
-      true
-    );
+    await runReport(org, updatedReport, true);
   }
 
   return res.status(200).json({
     status: 200,
+    updatedReport,
   });
 }
 
@@ -284,20 +294,21 @@ export async function getReportStatus(
   const result = await getStatusEndpoint(
     report,
     org.id,
-    (queryData) => {
+    async (queryData) => {
       if (report.type === "experiment") {
+        const metricMap = await getMetricMap(org.id);
+
+        const {
+          snapshotSettings,
+          analysisSettings,
+        } = getSnapshotSettingsFromReportArgs(report.args, metricMap);
+
         return analyzeExperimentResults({
-          organization: org.id,
-          variations: report.args.variations,
-          dimension: report.args.dimension,
+          variationNames: report.args.variations.map((v) => v.name),
           queryData,
-          statsEngine: report.args.statsEngine,
-          sequentialTestingEnabled:
-            report.args.sequentialTestingEnabled ??
-            org.settings?.sequentialTestingEnabled,
-          sequentialTestingTuningParameter:
-            report.args.sequentialTestingTuningParameter ??
-            org.settings?.sequentialTestingTuningParameter,
+          metricMap,
+          snapshotSettings,
+          analysisSettings,
         });
       }
       throw new Error("Unsupported report type");

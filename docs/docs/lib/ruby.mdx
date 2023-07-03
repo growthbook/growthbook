@@ -27,14 +27,14 @@ gem install growthbook
 
 ```ruby
 require 'growthbook'
-require 'uri'
-require 'net/http'
-require 'json'
 
-# Fetch features from GrowthBook API (or a Redis cache, etc.)
-uri = URI('https://cdn.growthbook.io/api/features/MY_API_KEY')
-res = Net::HTTP.get_response(uri)
-features = res.is_a?(Net::HTTPSuccess) ? JSON.parse(res.body)['features'] : nil
+# Fetch features from a GrowthBook instance
+# You should cache this in Redis or similar in production
+features_repository = Growthbook::FeatureRepository.new(
+  endpoint: 'https://cdn.growthbook.io/api/features/MY_API_KEY',
+  decryption_key: nil
+)
+features = features_repository.fetch
 
 # Create a context for the current user/request
 gb = Growthbook::Context.new(

@@ -13,7 +13,10 @@ info:
 
     We support both the HTTP Basic and Bearer authentication schemes for convenience.
 
-    You first need to generate a new Secret Key in GrowthBook by going to `Settings -> API Keys`.
+    You first need to generate a new API Key in GrowthBook. Different keys have different permissions:
+
+    - **Personal Access Tokens**: These are sensitive and provide the same level of access as the user has to an organization. These can be created by going to `Personal Access Tokens` under the your user menu.
+    - **Secret Keys**: These are sensitive and provide the level of access for the role, which currently is either `admin` or `readonly`. Only Admins with the `manageApiKeys` permission can manage Secret Keys on behalf of an organization. These can be created by going to `Settings -> API Keys`
 
     If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank:
 
@@ -1816,7 +1819,9 @@ components:
         proxySigningKey:
           type: string
         sseEnabled:
-          type: boolean;
+          type: boolean
+        hashSecureAttributes:
+          type: boolean
     Experiment:
       type: object
       required:

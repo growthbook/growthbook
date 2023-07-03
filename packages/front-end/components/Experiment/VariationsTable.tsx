@@ -5,11 +5,12 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import {
+  VisualChange,
   VisualChangesetInterface,
   VisualChangesetURLPattern,
 } from "back-end/types/visual-changeset";
-import React, { FC, Fragment, useState } from "react";
-import { FaPlusCircle, FaTimesCircle } from "react-icons/fa";
+import React, { FC, Fragment, useCallback, useState } from "react";
+import { FaPencilAlt, FaPlusCircle, FaTimesCircle } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -22,6 +23,7 @@ import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
 import { GBEdit } from "../Icons";
 import OpenVisualEditorLink from "../OpenVisualEditorLink";
 import VisualChangesetModal from "./VisualChangesetModal";
+import EditDOMMutatonsModal from "./EditDOMMutationsModal";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -130,9 +132,56 @@ const VariationsTable: FC<Props> = ({
     setEditingVisualChangeset,
   ] = useState<VisualChangesetInterface | null>(null);
 
+  const [editingVisualChange, setEditingVisualChange] = useState<{
+    visualChangeset: VisualChangesetInterface;
+    visualChange: VisualChange;
+    visualChangeIndex: number;
+  } | null>(null);
+
   const hasDescriptions = variations.some((v) => !!v.description?.trim());
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
   const hasLegacyVisualChanges = variations.some((v) => isLegacyVariation(v));
+
+  const deleteVisualChangeset = useCallback(
+    async (id: string) => {
+      await apiCall(`/visual-changesets/${id}`, {
+        method: "DELETE",
+      });
+      mutate();
+      track("Delete visual changeset", {
+        source: "visual-editor-ui",
+      });
+    },
+    [apiCall, mutate]
+  );
+
+  const updateVisualChange = useCallback(
+    async ({
+      visualChangeset,
+      visualChange,
+      index,
+    }: {
+      visualChangeset: VisualChangesetInterface;
+      visualChange: VisualChange;
+      index: number;
+    }) => {
+      const newVisualChangeset: VisualChangesetInterface = {
+        ...visualChangeset,
+        visualChanges: visualChangeset.visualChanges.map((c, i) =>
+          i === index ? visualChange : c
+        ),
+      };
+      await apiCall(`/visual-changesets/${visualChangeset.id}`, {
+        method: "PUT",
+        body: JSON.stringify(newVisualChangeset),
+      });
+      mutate();
+      track("Delete visual changeset", {
+        source: "visual-editor-ui",
+      });
+    },
+    [apiCall, mutate]
+  );
 
   return (
     <div className="w-100">
@@ -322,15 +371,7 @@ const VariationsTable: FC<Props> = ({
                             )}
                             <DeleteButton
                               className="btn-sm ml-4"
-                              onClick={async () => {
-                                await apiCall(`/visual-changesets/${vc.id}`, {
-                                  method: "DELETE",
-                                });
-                                mutate();
-                                track("Delete visual changeset", {
-                                  source: "visual-editor-ui",
-                                });
-                              }}
+                              onClick={() => deleteVisualChangeset(vc.id)}
                               displayName="Visual Changes"
                             />
                           </div>
@@ -368,11 +409,28 @@ const VariationsTable: FC<Props> = ({
                             const changes = vc.visualChanges[j];
                             const numChanges =
                               (changes?.css ? 1 : 0) +
+                              (changes?.js ? 1 : 0) +
                               (changes?.domMutations?.length || 0);
                             return (
                               <td key={j} className="px-4 py-1">
                                 <div className="d-flex justify-content-between">
                                   <div>
+                                    {canEditVisualChangesets &&
+                                      experiment.status === "draft" && (
+                                        <a
+                                          href="#"
+                                          className="mr-2"
+                                          onClick={() =>
+                                            setEditingVisualChange({
+                                              visualChange: changes,
+                                              visualChangeIndex: j,
+                                              visualChangeset: vc,
+                                            })
+                                          }
+                                        >
+                                          <FaPencilAlt />
+                                        </a>
+                                      )}
                                     {numChanges} visual change
                                     {numChanges === 1 ? "" : "s"}
                                   </div>
@@ -445,6 +503,20 @@ const VariationsTable: FC<Props> = ({
           </Link>
         </div>
       )}
+
+      {editingVisualChange ? (
+        <EditDOMMutatonsModal
+          visualChange={editingVisualChange.visualChange}
+          close={() => setEditingVisualChange(null)}
+          onSave={(newVisualChange) =>
+            updateVisualChange({
+              index: editingVisualChange.visualChangeIndex,
+              visualChange: newVisualChange,
+              visualChangeset: editingVisualChange.visualChangeset,
+            })
+          }
+        />
+      ) : null}
     </div>
   );
 };

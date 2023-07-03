@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { useFieldArray, useForm, UseFormReturn } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import {
   MetricRegressionAdjustmentStatus,
   ReportInterface,
@@ -16,6 +16,7 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
+import { MetricInterface } from "back-end/types/metric";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
@@ -27,6 +28,7 @@ import { hasFileConfig } from "@/services/env";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import useApi from "@/hooks/useApi";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import { trackReport } from "@/services/track";
 import MetricsSelector from "../Experiment/MetricsSelector";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
@@ -61,8 +63,7 @@ export default function ConfigureReport({
   }>(`/experiment/${eid}`);
   const experiment = experimentData?.experiment;
   const pid = experiment?.project;
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const project = getProjectById(pid);
+  const project = pid ? getProjectById(pid) : null;
 
   const { settings: parentSettings } = getScopedSettings({
     organization,
@@ -86,8 +87,20 @@ export default function ConfigureReport({
   const denominatorMetricIds = uniq(
     allExperimentMetrics.map((m) => m?.denominator).filter((m) => m)
   );
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
-  const denominatorMetrics = denominatorMetricIds.map((m) => getMetricById(m));
+  const denominatorMetrics: MetricInterface[] = useMemo(() => {
+    const metrics: MetricInterface[] = [];
+
+    denominatorMetricIds.forEach((id) => {
+      if (id) {
+        const metric = getMetricById(id);
+        if (metric) {
+          metrics.push(metric);
+        }
+      }
+    });
+
+    return metrics;
+  }, [denominatorMetricIds, getMetricById]);
 
   // todo: type this form
   const form = useForm({
@@ -132,7 +145,6 @@ export default function ConfigureReport({
         metricRegressionAdjustmentStatus,
       } = getRegressionAdjustmentsForMetric({
         metric: metric,
-        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(MetricInterface | null)[]' is not assignabl... Remove this comment to see the full error message
         denominatorMetrics: denominatorMetrics,
         experimentRegressionAdjustmentEnabled: !!form.watch(
           `regressionAdjustmentEnabled`
@@ -185,12 +197,21 @@ export default function ConfigureReport({
           args.metricRegressionAdjustmentStatuses = metricRegressionAdjustmentStatuses;
         }
 
-        await apiCall(`/report/${report.id}`, {
-          method: "PUT",
-          body: JSON.stringify({
-            args,
-          }),
-        });
+        const res = await apiCall<{ updatedReport: ReportInterface }>(
+          `/report/${report.id}`,
+          {
+            method: "PUT",
+            body: JSON.stringify({
+              args,
+            }),
+          }
+        );
+        trackReport(
+          "update",
+          "SaveAndRunButton",
+          datasource?.type || null,
+          res.updatedReport
+        );
         mutate();
         viewResults();
       })}
@@ -404,10 +425,10 @@ export default function ConfigureReport({
       )}
 
       <StatsEngineSelect
-        form={
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          form as UseFormReturn<any>
-        }
+        value={form.watch("statsEngine")}
+        onChange={(v) => {
+          form.setValue("statsEngine", v);
+        }}
         parentSettings={parentSettings}
         allowUndefined={false}
       />

@@ -205,7 +205,7 @@ export default function SinglePage({
   const projectId = experiment.project;
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
-  const projectIsOprhaned = projectId && !projectName;
+  const projectIsDeReferenced = projectId && !projectName;
 
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -317,9 +317,11 @@ export default function SinglePage({
     mutate();
   };
 
-  const canEditExperiment =
-    !experiment.archived &&
-    permissions.check("createAnalyses", experiment.project);
+  const canCreateAnalyses = permissions.check(
+    "createAnalyses",
+    experiment.project
+  );
+  const canEditExperiment = !experiment.archived && canCreateAnalyses;
 
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
   const hasVisualEditorPermission =
@@ -508,7 +510,7 @@ export default function SinglePage({
                 Archive
               </button>
             )}
-            {canRunExperiment && (
+            {canCreateAnalyses && experiment.archived && (
               <button
                 className="dropdown-item"
                 onClick={async (e) => {
@@ -526,7 +528,7 @@ export default function SinglePage({
                 Unarchive
               </button>
             )}
-            {canRunExperiment && (
+            {canCreateAnalyses && (
               <DeleteButton
                 className="dropdown-item text-danger"
                 useIcon={false}
@@ -548,10 +550,10 @@ export default function SinglePage({
         </div>
       </div>
       <div className="row align-items-center mb-4">
-        {(projects.length > 0 || projectIsOprhaned) && (
+        {(projects.length > 0 || projectIsDeReferenced) && (
           <div className="col-auto">
             Project:{" "}
-            {projectIsOprhaned ? (
+            {projectIsDeReferenced ? (
               <Tooltip
                 body={
                   <>

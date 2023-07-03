@@ -1174,6 +1174,17 @@ pre {
   }
 }
 
+.tooltip-experimentDateGraph {
+  td.won {
+    background-color: var(--win-background);
+    color: var(--alert-success-color);
+  }
+  td.lost {
+    background-color: var(--lose-background);
+    color: var(--alert-danger-color);
+  }
+}
+
 .fade-mask-1rem {
   mask-image: linear-gradient(
     to right,
@@ -1552,6 +1563,10 @@ li.metrics a span img {
   .testname {
     font-weight: 400;
     color: var(--text-color-main);
+
+    &:hover {
+      text-decoration: none;
+    }
   }
   .hypothesis {
     font-size: 1em;

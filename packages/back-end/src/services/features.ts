@@ -1,8 +1,10 @@
 import { webcrypto as crypto } from "node:crypto";
+import { createHash } from "crypto";
 import uniqid from "uniqid";
+import fetch from "node-fetch";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
-import { FeatureDefinition } from "../../types/api";
+import { FeatureDefinition, FeatureDefinitionRule } from "../../types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -16,7 +18,11 @@ import {
   replaceSavedGroupsInCondition,
 } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
-import { OrganizationInterface } from "../../types/organization";
+import {
+  OrganizationInterface,
+  SDKAttribute,
+  SDKAttributeSchema,
+} from "../../types/organization";
 import { getSDKPayload, updateSDKPayload } from "../models/SdkPayloadModel";
 import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
@@ -27,15 +33,21 @@ import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
+import { orgHasPremiumFeature } from "../util/organization.util";
+import { FASTLY_API_TOKEN, FASTLY_SERVICE_ID } from "../util/secrets";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
 
-function generatePayload(
-  features: FeatureInterface[],
-  environment: string,
-  groupMap: GroupMap
-): Record<string, FeatureDefinition> {
+function generatePayload({
+  features,
+  environment,
+  groupMap,
+}: {
+  features: FeatureInterface[];
+  environment: string;
+  groupMap: GroupMap;
+}): Record<string, FeatureDefinition> {
   const defs: Record<string, FeatureDefinition> = {};
   features.forEach((feature) => {
     const def = getFeatureDefinition({
@@ -56,11 +68,15 @@ export type VisualExperiment = {
   visualChangeset: VisualChangesetInterface;
 };
 
-function generateVisualExperimentsPayload(
-  visualExperiments: Array<VisualExperiment>,
-  _environment: string,
-  groupMap: GroupMap
-): SDKExperiment[] {
+function generateVisualExperimentsPayload({
+  visualExperiments,
+  // environment,
+  groupMap,
+}: {
+  visualExperiments: Array<VisualExperiment>;
+  // environment: string,
+  groupMap: GroupMap;
+}): SDKExperiment[] {
   const isValidSDKExperiment = (e: SDKExperiment | null): e is SDKExperiment =>
     !!e;
   const sdkExperiments: Array<SDKExperiment | null> = visualExperiments.map(
@@ -89,6 +105,7 @@ function generateVisualExperimentsPayload(
         status: e.status,
         variations: v.visualChanges.map((vc) => ({
           css: vc.css,
+          js: vc.js || "",
           domMutations: vc.domMutations,
         })),
         hashVersion: 2,
@@ -192,17 +209,17 @@ export async function refreshSDKPayloadCache(
 
     if (!projectFeatures.length && !projectExperiments.length) continue;
 
-    const featureDefinitions = generatePayload(
-      projectFeatures,
-      key.environment,
-      groupMap
-    );
+    const featureDefinitions = generatePayload({
+      features: projectFeatures,
+      environment: key.environment,
+      groupMap,
+    });
 
-    const experimentsDefinitions = generateVisualExperimentsPayload(
-      projectExperiments,
-      key.environment,
-      groupMap
-    );
+    const experimentsDefinitions = generateVisualExperimentsPayload({
+      visualExperiments: projectExperiments,
+      // environment: key.environment,
+      groupMap,
+    });
 
     promises.push(async () => {
       await updateSDKPayload({
@@ -223,11 +240,57 @@ export async function refreshSDKPayloadCache(
   // Batch the promises in chunks of 4 at a time to avoid overloading Mongo
   await promiseAllChunks(promises, 4);
 
+  // Purge CDN if used
+  // Do this before firing webhooks in case a webhook tries fetching the latest payload from the CDN
+  await purgeCDNCache(organization.id, payloadKeys);
+
   // After the SDK payloads are updated, fire any webhooks on the organization
   await queueWebhook(organization.id, payloadKeys, true);
 
   // Update any Proxy servers that are affected by this change
   await queueProxyUpdate(organization.id, payloadKeys);
+}
+
+export function getSurrogateKey(
+  orgId: string,
+  project: string,
+  environment: string
+) {
+  // Fill with default values if missing
+  project = project || "AllProjects";
+  environment = environment || "production";
+
+  const key = `${orgId}_${project}_${environment}`;
+
+  // Protect against environments or projects having unusual characters
+  return key.replace(/[^a-zA-Z0-9_-]/g, "");
+}
+
+export async function purgeCDNCache(
+  orgId: string,
+  payloadKeys: SDKPayloadKey[]
+): Promise<void> {
+  // Only purge when Fastly is used as the CDN (e.g. GrowthBook Cloud)
+  if (!FASTLY_SERVICE_ID || !FASTLY_API_TOKEN) return;
+
+  // Only purge the specific payloads that are affected
+  const surrogateKeys = payloadKeys.map((k) =>
+    getSurrogateKey(orgId, k.project, k.environment)
+  );
+  if (!surrogateKeys.length) return;
+
+  try {
+    await fetch(`https://api.fastly.com/service/${FASTLY_SERVICE_ID}/purge`, {
+      method: "POST",
+      headers: {
+        "Fastly-Key": FASTLY_API_TOKEN,
+        "surrogate-key": surrogateKeys.join(" "),
+        Accept: "application/json",
+      },
+    });
+  } catch (e) {
+    logger.error("Failed to purge cache for " + orgId);
+  }
 }
 
 export type FeatureDefinitionsResponseArgs = {
@@ -238,8 +301,9 @@ export type FeatureDefinitionsResponseArgs = {
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  attributes?: SDKAttributeSchema;
+  secureAttributeSalt?: string;
 };
-
 async function getFeatureDefinitionsResponse({
   features,
   experiments,
@@ -248,6 +312,8 @@ async function getFeatureDefinitionsResponse({
   includeVisualExperiments,
   includeDraftExperiments,
   includeExperimentNames,
+  attributes,
+  secureAttributeSalt,
 }: FeatureDefinitionsResponseArgs) {
   if (!includeDraftExperiments) {
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
@@ -261,6 +327,21 @@ async function getFeatureDefinitionsResponse({
         meta: exp.meta ? exp.meta.map((m) => omit(m, ["name"])) : undefined,
       };
     });
+  }
+
+  const hasSecureAttributes = attributes?.some((a) =>
+    ["secureString", "secureString[]"].includes(a.datatype)
+  );
+  if (attributes && hasSecureAttributes && secureAttributeSalt !== undefined) {
+    features = applyFeatureHashing(features, attributes, secureAttributeSalt);
+
+    if (experiments) {
+      experiments = applyExperimentHashing(
+        experiments,
+        attributes,
+        secureAttributeSalt
+      );
+    }
   }
 
   if (!encryptionKey) {
@@ -296,6 +377,7 @@ export type FeatureDefinitionArgs = {
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
+  hashSecureAttributes?: boolean;
 };
 
 export async function getFeatureDefinitions({
@@ -306,6 +388,7 @@ export async function getFeatureDefinitions({
   includeVisualExperiments,
   includeDraftExperiments,
   includeExperimentNames,
+  hashSecureAttributes,
 }: FeatureDefinitionArgs): Promise<{
   features: Record<string, FeatureDefinition>;
   experiments?: SDKExperiment[];
@@ -321,6 +404,15 @@ export async function getFeatureDefinitions({
       project: project || "",
     });
     if (cached) {
+      let attributes: SDKAttributeSchema | undefined = undefined;
+      let secureAttributeSalt: string | undefined = undefined;
+      if (hashSecureAttributes) {
+        const org = await getOrganizationById(organization);
+        if (org && orgHasPremiumFeature(org, "hash-secure-attributes")) {
+          secureAttributeSalt = org.settings?.secureAttributeSalt;
+          attributes = org.settings?.attributeSchema;
+        }
+      }
       const { features, experiments } = cached.contents;
       return await getFeatureDefinitionsResponse({
         features,
@@ -330,6 +422,8 @@ export async function getFeatureDefinitions({
         includeVisualExperiments,
         includeDraftExperiments,
         includeExperimentNames,
+        attributes,
+        secureAttributeSalt,
       });
     }
   } catch (e) {
@@ -337,6 +431,14 @@ export async function getFeatureDefinitions({
   }
 
   const org = await getOrganizationById(organization);
+  let attributes: SDKAttributeSchema | undefined = undefined;
+  let secureAttributeSalt: string | undefined = undefined;
+  if (hashSecureAttributes) {
+    if (org && orgHasPremiumFeature(org, "hash-secure-attributes")) {
+      secureAttributeSalt = org?.settings?.secureAttributeSalt;
+      attributes = org.settings?.attributeSchema;
+    }
+  }
   if (!org) {
     return await getFeatureDefinitionsResponse({
       features: {},
@@ -346,13 +448,20 @@ export async function getFeatureDefinitions({
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
+      attributes,
+      secureAttributeSalt,
     });
   }
 
   // Generate the feature definitions
   const features = await getAllFeatures(organization, project);
   const groupMap = await getSavedGroupMap(org);
-  const featureDefinitions = generatePayload(features, environment, groupMap);
+
+  const featureDefinitions = generatePayload({
+    features,
+    environment,
+    groupMap,
+  });
 
   const allVisualExperiments = await getAllVisualExperiments(
     organization,
@@ -360,11 +469,11 @@ export async function getFeatureDefinitions({
   );
 
   // Generate visual experiments
-  const experimentsDefinitions = generateVisualExperimentsPayload(
-    allVisualExperiments,
-    environment,
-    groupMap
-  );
+  const experimentsDefinitions = generateVisualExperimentsPayload({
+    visualExperiments: allVisualExperiments,
+    // environment: key.environment,
+    groupMap,
+  });
 
   // Cache in Mongo
   await updateSDKPayload({
@@ -383,6 +492,8 @@ export async function getFeatureDefinitions({
     includeVisualExperiments,
     includeDraftExperiments,
     includeExperimentNames,
+    attributes,
+    secureAttributeSalt,
   });
 }
 
@@ -589,4 +700,140 @@ export function getNextScheduledUpdate(
   }
 
   return new Date(sortedFutureDates[0]);
+}
+
+// Specific hashing entrypoint for Feature rules
+export function applyFeatureHashing(
+  features: Record<string, FeatureDefinition>,
+  attributes: SDKAttributeSchema,
+  salt: string
+): Record<string, FeatureDefinition> {
+  return Object.keys(features).reduce<Record<string, FeatureDefinition>>(
+    (acc, key) => {
+      const feature = features[key];
+      if (feature?.rules) {
+        feature.rules = feature.rules.map<FeatureDefinitionRule>((rule) => {
+          if (rule?.condition) {
+            rule.condition = hashStrings({
+              obj: rule.condition,
+              salt,
+              attributes,
+            });
+          }
+          return rule;
+        });
+      }
+      acc[key] = feature;
+      return acc;
+    },
+    {}
+  );
+}
+
+// Specific hashing entrypoint for Experiment conditions
+export function applyExperimentHashing(
+  experiments: SDKExperiment[],
+  attributes: SDKAttributeSchema,
+  salt: string
+): SDKExperiment[] {
+  return experiments.map((experiment) => {
+    if (experiment?.condition) {
+      experiment.condition = hashStrings({
+        obj: experiment.condition,
+        salt,
+        attributes,
+      });
+    }
+    return experiment;
+  });
+}
+
+interface hashStringsArgs {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  obj: any;
+  salt: string;
+  attributes: SDKAttributeSchema;
+  attribute?: SDKAttribute;
+  doHash?: boolean;
+}
+// General recursive entrypoint for hashing secure attributes within a set of targeting conditions:
+export function hashStrings({
+  obj,
+  salt,
+  attributes,
+  attribute,
+  doHash = false,
+}: hashStringsArgs): // eslint-disable-next-line @typescript-eslint/no-explicit-any
+any {
+  // Given an object of unknown type, determine whether to recurse into it or return it
+  if (Array.isArray(obj)) {
+    // loop over array elements, process them
+    const newObj = [];
+    for (let i = 0; i < obj.length; i++) {
+      newObj[i] = processVal({
+        obj: obj[i],
+        attribute,
+        doHash,
+      });
+    }
+    return newObj;
+  } else if (typeof obj === "object" && obj !== null) {
+    // loop over object entries, process them
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const newObj: any = {};
+    for (const key in obj) {
+      // check if a new attribute is referenced, and whether we need to hash it
+      // otherwise, inherit the previous attribute and hashing status
+      attribute = attributes.find((a) => a.property === key) ?? attribute;
+      doHash = attribute
+        ? !!(
+            attribute?.datatype &&
+            ["secureString", "secureString[]"].includes(
+              attribute?.datatype ?? ""
+            )
+          )
+        : doHash;
+
+      newObj[key] = processVal({
+        obj: obj[key],
+        attribute,
+        doHash,
+      });
+    }
+    return newObj;
+  } else {
+    return obj;
+  }
+
+  // Helper function for processing a value. Will either hash it, recurse into it, or skip (return) it.
+  function processVal({
+    obj,
+    attribute,
+    doHash = false,
+  }: {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    obj: any;
+    attribute?: SDKAttribute;
+    doHash?: boolean;
+  }): // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  any {
+    if (Array.isArray(obj)) {
+      // recurse array
+      return hashStrings({ obj, salt, attributes, attribute, doHash });
+    } else if (typeof obj === "object" && obj !== null) {
+      // recurse object
+      return hashStrings({ obj, salt, attributes, attribute, doHash });
+    } else if (typeof obj === "string") {
+      // hash string value
+      return doHash ? sha256(obj, salt) : obj;
+    } else {
+      return obj;
+    }
+  }
+}
+
+function sha256(str: string, salt: string): string {
+  return createHash("sha256")
+    .update(salt + str)
+    .digest("hex");
 }

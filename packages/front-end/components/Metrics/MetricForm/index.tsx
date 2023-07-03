@@ -41,6 +41,7 @@ import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import { GBCuped } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
+import { useCurrency } from "@/hooks/useCurrency";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -181,6 +182,8 @@ const MetricForm: FC<MetricFormProps> = ({
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
 
+  const displayCurrency = useCurrency();
+
   const {
     getMinSampleSizeForMetric,
     getMinPercentageChangeForMetric,
@@ -216,7 +219,7 @@ const MetricForm: FC<MetricFormProps> = ({
     {
       key: "revenue",
       display: "Revenue",
-      description: "How much money a user pays (in USD)",
+      description: `How much money a user pays (in ${displayCurrency})`,
       sub: "revenue per visitor, average order value, etc.",
     },
   ];
@@ -280,6 +283,7 @@ const MetricForm: FC<MetricFormProps> = ({
     userIdColumns: form.watch("userIdColumns"),
     userIdTypes: form.watch("userIdTypes"),
     denominator: form.watch("denominator"),
+    aggregation: form.watch("aggregation"),
     column: form.watch("column"),
     table: form.watch("table"),
     type,
@@ -355,12 +359,6 @@ const MetricForm: FC<MetricFormProps> = ({
       );
     }
   }
-  if (form.watch("aggregation")) {
-    regressionAdjustmentAvailableForMetric = false;
-    regressionAdjustmentAvailableForMetricReason = (
-      <>Not available for metrics with custom aggregations.</>
-    );
-  }
 
   let table = "Table";
   let column = "Column";
@@ -432,6 +430,10 @@ const MetricForm: FC<MetricFormProps> = ({
       : value.regressionAdjustmentDays < 7
       ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
       : "";
+
+  const customAggregationWarningMsg = value.aggregation
+    ? "When using a custom aggregation, it is safest to COALESCE values in your SQL so that the `value` column has no NULL values."
+    : "";
 
   const requiredColumns = useMemo(() => {
     const set = new Set(["timestamp", ...value.userIdTypes]);
@@ -673,14 +675,20 @@ const MetricForm: FC<MetricFormProps> = ({
                     </div>
                   </div>
                   {value.type !== "binomial" && (
-                    <Field
-                      label="User Value Aggregation"
-                      placeholder="SUM(value)"
-                      textarea
-                      minRows={1}
-                      {...form.register("aggregation")}
-                      helpText="When there are multiple metric rows for a user"
-                    />
+                    <div className="mb-2">
+                      <Field
+                        label="User Value Aggregation"
+                        placeholder="SUM(value)"
+                        textarea
+                        minRows={1}
+                        containerClassName="mb-0"
+                        {...form.register("aggregation")}
+                        helpText="When there are multiple metric rows for a user"
+                      />
+                      {customAggregationWarningMsg && (
+                        <small>{customAggregationWarningMsg}</small>
+                      )}
+                    </div>
                   )}
                   <SelectField
                     label="Denominator"
@@ -1061,7 +1069,6 @@ const MetricForm: FC<MetricFormProps> = ({
                     ? metricDefaults.minimumSampleSize
                     : formatConversionRate(
                         value.type,
-                        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'number | undefined' is not assig... Remove this comment to see the full error message
                         metricDefaults.minimumSampleSize
                       )}
                   )
@@ -1075,7 +1082,6 @@ const MetricForm: FC<MetricFormProps> = ({
                 {...form.register("maxPercentChange", { valueAsNumber: true })}
                 helpText={`An experiment that changes the metric by more than this percent will
             be flagged as suspicious (default ${
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               metricDefaults.maxPercentageChange * 100
             })`}
               />
@@ -1087,7 +1093,6 @@ const MetricForm: FC<MetricFormProps> = ({
                 {...form.register("minPercentChange", { valueAsNumber: true })}
                 helpText={`An experiment that changes the metric by less than this percent will be
             considered a draw (default ${
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               metricDefaults.minPercentageChange * 100
             })`}
               />
