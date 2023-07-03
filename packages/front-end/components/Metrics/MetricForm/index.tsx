@@ -963,8 +963,8 @@ const MetricForm: FC<MetricFormProps> = ({
           {capSupported &&
             ["count", "duration", "revenue"].includes(value.type) && (
               <div className="form-group">
-                <label>Cap User Values?</label>
                 <SelectField
+                  label="Cap User Values?"
                   value={form.watch("capping")}
                   onChange={(v: MetricCappingType) => {
                     form.setValue("capping", v);
@@ -989,7 +989,7 @@ const MetricForm: FC<MetricFormProps> = ({
                     min="0"
                     max={form.watch("capping") === "percentile" ? "1" : ""}
                     className="form-control"
-                    {...form.register("capValue")}
+                    {...form.register("capValue", { valueAsNumber: true })}
                   />
                   <small className="text-muted">
                     {form.watch("capping") === "absolute"

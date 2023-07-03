@@ -987,7 +987,8 @@ describe("experiments utils", () => {
         expect(result.minPercentChange).toEqual(1);
         expect(result.maxPercentChange).toEqual(50);
         expect(result.minSampleSize).toEqual(200);
-        expect(result.cap).toEqual(1337);
+        expect(result.capping).toEqual("absolute");
+        expect(result.capValue).toEqual(1337);
         expect(result.conversionWindowHours).toEqual(40);
         expect(result.conversionDelayHours).toEqual(10);
         expect(result.column).toEqual("signed_up");

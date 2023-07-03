@@ -1041,17 +1041,15 @@ export function postMetricApiPayloadIsValid(
       return {
         valid: false,
         error:
-          "Must specify both `behavior.capping` and `behavior.capValue or neither.",
+          "Must specify both `behavior.capping` and `behavior.capValue` or neither.",
       };
     }
-    if (capping && capValue && capping === "percentile") {
-      if (capValue > 1) {
-        return {
-          valid: false,
-          error:
-            "When using percentile capping, `behavior.capValue` must be between 0 and 1.",
-        };
-      }
+    if (capping === "percentile" && (capValue || 0) > 1) {
+      return {
+        valid: false,
+        error:
+          "When using percentile capping, `behavior.capValue` must be between 0 and 1.",
+      };
     }
   }
 
@@ -1190,6 +1188,26 @@ export function putMetricApiPayloadIsValid(
           error:
             "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`",
         };
+    }
+
+    // Check capping args + capping values
+    const { capping, capValue } = behavior;
+
+    const cappingExists = typeof capping !== "undefined";
+    const capValueExists = typeof capValue !== "undefined";
+    if (cappingExists !== capValueExists) {
+      return {
+        valid: false,
+        error:
+          "Must specify both `behavior.capping` and `behavior.capValue` or neither.",
+      };
+    }
+    if (capping === "percentile" && (capValue || 0) > 1) {
+      return {
+        valid: false,
+        error:
+          "When using percentile capping, `behavior.capValue` must be between 0 and 1.",
+      };
     }
   }
 
@@ -1405,8 +1423,14 @@ export function putMetricApiPayloadToMetricInterface(
       metric.inverse = behavior.goal === "decrease";
     }
 
-    if (typeof behavior.cap !== "undefined") {
-      metric.cap = behavior.cap;
+    if (typeof behavior.capping !== "undefined") {
+      metric.capping = behavior.capping;
+      metric.capValue = behavior.capValue;
+    }
+    // handle old post requests
+    else if (typeof behavior.cap !== "undefined" && behavior.cap) {
+      metric.capping = "absolute";
+      metric.capValue = behavior.cap;
     }
 
     if (typeof behavior.conversionWindowStart !== "undefined") {
