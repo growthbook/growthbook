@@ -244,7 +244,12 @@ export default function SinglePage({
     userIds: string[];
   }>(`/experiment/${experiment.id}/watchers`);
   const orgSettings = useOrgSettings();
-  const { organization, users, hasCommercialFeature } = useUser();
+  const {
+    organization,
+    users,
+    getUserDisplay,
+    hasCommercialFeature,
+  } = useUser();
 
   const { data: sdkConnectionsData } = useSDKConnections();
 
@@ -252,6 +257,8 @@ export default function SinglePage({
   const project = getProjectById(experiment.project || "");
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
+
+  const ownerName = getUserDisplay(experiment.owner, false) || "";
 
   const { settings: scopedSettings } = getScopedSettings({
     organization,
@@ -627,7 +634,7 @@ export default function SinglePage({
               )}
             </div>
           )}
-          <div className="col-auto pr-3">
+          <div className="col-auto pr-3 ml-2">
             Tags:{" "}
             {experiment.tags?.length > 0 ? (
               <SortedTags tags={experiment.tags} skipFirstMargin={true} />
@@ -646,6 +653,14 @@ export default function SinglePage({
                 <GBEdit />
               </a>
             )}
+          </div>
+          <div className="col-auto pr-3 ml-2">
+            Owner:{" "}
+            {ownerName ? (
+              <strong>{ownerName}</strong>
+            ) : (
+              <em className="text-muted">None</em>
+            )}{" "}
           </div>
           {numLinkedChanges > 0 ? (
             <div
