@@ -1346,6 +1346,17 @@ export default abstract class SqlIntegration
   getSchemaFormatConfig(schemaFormat: SchemaFormat): SchemaFormatConfig {
     switch (schemaFormat) {
       // Segment & Rudderstack
+      case "ga4": {
+        return {
+          trackedEventTableName: "events_",
+          eventColumn: "event_name",
+          timestampColumn: "event_timestamp",
+          userIdColumn: "user_id",
+          anonymousIdColumn: "user_pseudo_id",
+          includesPagesTable: false,
+          includesScreensTable: false,
+        };
+      }
       default: {
         return {
           trackedEventTableName: "tracks",
