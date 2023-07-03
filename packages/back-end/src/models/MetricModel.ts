@@ -262,7 +262,10 @@ export async function removeProjectFromMetrics(
 ) {
   await MetricModel.updateMany(
     { organization, projects: project },
-    { $pull: { projects: project } }
+    {
+      $pull: { projects: project },
+      $set: { dateUpdated: new Date() },
+    }
   );
 }
 
@@ -308,7 +311,12 @@ export async function updateMetric(
 
     await MetricModel.updateOne(
       { id, organization },
-      { $set: updates },
+      {
+        $set: {
+          dateUpdated: new Date(),
+          ...updates,
+        },
+      },
       { upsert: true }
     );
     return;
@@ -325,7 +333,10 @@ export async function updateMetric(
       organization,
     },
     {
-      $set: updates,
+      $set: {
+        dateUpdated: new Date(),
+        ...updates,
+      },
     }
   );
 
@@ -349,7 +360,10 @@ export async function updateMetricsByQuery(
     await MetricModel.updateMany(
       query,
       {
-        $set: updates,
+        $set: {
+          dateUpdated: new Date(),
+          ...updates,
+        },
       },
       {
         upsert: true,
@@ -359,7 +373,10 @@ export async function updateMetricsByQuery(
   }
 
   await MetricModel.updateMany(query, {
-    $set: updates,
+    $set: {
+      dateUpdated: new Date(),
+      ...updates,
+    },
   });
 }
 
@@ -369,6 +386,7 @@ export async function removeTagInMetrics(organization: string, tag: string) {
   }
   const query = { organization, tags: tag };
   await MetricModel.updateMany(query, {
+    $set: { dateUpdated: new Date() },
     $pull: { tags: tag },
   });
   return;
