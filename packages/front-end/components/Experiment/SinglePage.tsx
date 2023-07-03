@@ -45,6 +45,8 @@ import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
+import { phaseSummary } from "@/services/utils";
+import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -220,6 +222,7 @@ export default function SinglePage({
   );
 
   const phases = experiment.phases || [];
+  const phase = phases[phaseIndex || 0];
   const startDate = phases?.[0]?.dateStarted
     ? date(phases[0].dateStarted)
     : null;
@@ -229,6 +232,15 @@ export default function SinglePage({
         ? date(phases[phases.length - 1].dateEnded ?? "")
         : "now"
       : null;
+  const hasNamespace = phase.namespace && phase.namespace.enabled;
+  const namespaceRange = hasNamespace
+    ? phase.namespace.range[1] - phase.namespace.range[0]
+    : 1;
+
+  const percentFormatter = new Intl.NumberFormat(undefined, {
+    style: "percent",
+    maximumFractionDigits: 2,
+  });
 
   const [reportSettingsOpen, setReportSettingsOpen] = useState(false);
   const [editNameOpen, setEditNameOpen] = useState(false);
@@ -898,6 +910,77 @@ export default function SinglePage({
               setVisualEditorModal={setVisualEditorModal}
               newUi={true}
             />
+          </div>
+
+          <div className="mx-4 mb-4">
+            <div className="h3 mb-2">
+              Targeting and Traffic
+              {editPhase ? (
+                <a
+                  role="button"
+                  className="ml-1"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    editPhase(phaseIndex);
+                  }}
+                >
+                  <GBEdit />
+                </a>
+              ) : null}
+            </div>
+            {phase ? (
+              <div className="appbox px-4 py-3">
+                <div className="mb-1">
+                  Phase {phaseIndex + 1}:{" "}
+                  <span className="font-weight-bold">{phase.name}</span>
+                  {phases.length > 1 && (
+                    <span className="ml-1 text-muted">
+                      ({phases.length} total)
+                    </span>
+                  )}
+                </div>
+                <div className="small">
+                  {date(phase.dateStarted ?? "")} —{" "}
+                  {phase.dateEnded ? date(phase.dateEnded) : "now"}
+                </div>
+                <div className="mt-3">
+                  <div className="h5 mb-0">Traffic split</div>
+                  {phaseSummary(phase)}
+                </div>
+                {phase.condition && phase.condition !== "{}" ? (
+                  <div className="mt-3">
+                    <div className="h5 mb-0">Targeting</div>
+                    <div>
+                      <ConditionDisplay condition={phase.condition} />
+                    </div>
+                  </div>
+                ) : null}
+                {hasNamespace ? (
+                  <div className="mt-3">
+                    <div className="h5 mb-0">Namespace</div>
+                    <div>
+                      {phase.namespace.name} (
+                      {percentFormatter.format(namespaceRange)})
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="">
+                <p className="alert alert-info mb-1">
+                  No targeting or traffic allocation set.
+                  {newPhase && (
+                    <a
+                      role="button"
+                      className="text-link ml-2"
+                      onClick={newPhase}
+                    >
+                      Edit targeting
+                    </a>
+                  )}
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="mx-4 pb-3">
