@@ -637,7 +637,9 @@ export default function SinglePage({
           <div className="col-auto pr-3 ml-2">
             Tags:{" "}
             {experiment.tags?.length > 0 ? (
-              <SortedTags tags={experiment.tags} skipFirstMargin={true} />
+              <span className="d-inline-block" style={{ maxWidth: 250 }}>
+                <SortedTags tags={experiment.tags} skipFirstMargin={true} />
+              </span>
             ) : (
               <em className="text-muted">None</em>
             )}{" "}
