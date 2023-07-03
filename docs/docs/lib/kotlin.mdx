@@ -17,7 +17,7 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.growthbook.sdk:GrowthBook:1.0.3'
+    implementation 'io.growthbook.sdk:GrowthBook:1.1.33'
 }
 ```
 
@@ -32,17 +32,18 @@ attrs.put("id", "123")
 attrs.put("env", "dev")
 attrs.put("betaUser", true)
 
-val gb = GBSDKBuilder(
+val gb = GBSDKBuilderApp(
   // Fetch and cache feature definitions from GrowthBook API
   // If self-hosting, we recommend using a CDN in production
-  apiKey = "key_123abc",
-  hostURL = "https://cdn.growthbook.io/",
-  // Provide the encryption key of type <String?> if you intend to use data encryption
-  encryptionKey = "key_123adbc",
-  attributes = attrs,
-  trackingCallback = { gbExperiment, gbExperimentResult ->
+  "key_123abc",
+  "https://cdn.growthbook.io/",
+  attrs,
+  { gbExperiment, gbExperimentResult ->
     // TODO: track in your analytics system
-  }
+  },
+  // Provide the encryption key of type String if you intend to use data encryption,
+  // otherwise you can pass null
+  "key_123adbc"
 ).initialize()
 
 if (gb.feature("my-feature").on) {
