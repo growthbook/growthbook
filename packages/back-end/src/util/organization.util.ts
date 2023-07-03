@@ -30,6 +30,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "visual-editor",
     "cloud-proxy",
     "hash-secure-attributes",
+    "livechat",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -42,6 +43,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "visual-editor",
     "cloud-proxy",
     "hash-secure-attributes",
+    "livechat",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
@@ -56,6 +58,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "cloud-proxy",
     "hash-secure-attributes",
     "json-validation",
+    "livechat",
   ]),
 };
 export function getAccountPlan(org: OrganizationInterface): AccountPlan {
