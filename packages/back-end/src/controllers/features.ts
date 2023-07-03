@@ -53,10 +53,10 @@ import { addTagsDiff } from "../models/TagModel";
 import { FASTLY_SERVICE_ID, IS_CLOUD } from "../util/secrets";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 
-class ApiKeyError extends Error {
+class UnrecoverableApiError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "ApiKeyError";
+    this.name = "UnrecoverableApiError";
   }
 }
 
@@ -79,7 +79,7 @@ async function getPayloadParamsFromApiKey(
   if (key.match(/^sdk-/)) {
     const connection = await findSDKConnectionByKey(key);
     if (!connection) {
-      throw new ApiKeyError("Invalid API Key");
+      throw new UnrecoverableApiError("Invalid API Key");
     }
 
     // If this is the first time the SDK Connection is being used, mark it as successfully connected
@@ -120,10 +120,10 @@ async function getPayloadParamsFromApiKey(
       encryptionKey,
     } = await lookupOrganizationByApiKey(key);
     if (!organization) {
-      throw new ApiKeyError("Invalid API Key");
+      throw new UnrecoverableApiError("Invalid API Key");
     }
     if (secret) {
-      throw new ApiKeyError(
+      throw new UnrecoverableApiError(
         "Must use a Publishable API key to get feature definitions"
       );
     }
@@ -147,7 +147,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     const { key } = req.params;
 
     if (!key) {
-      throw new ApiKeyError("Missing API key in request");
+      throw new UnrecoverableApiError("Missing API key in request");
     }
 
     const {
@@ -205,8 +205,11 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     // We don't want to expose internal errors like Mongo Connections to users, so default to a generic message
     let error = "Failed to get features";
 
-    // Some specific error messages we whitelist to provide more detailed feedback to users
-    if (e instanceof ApiKeyError) {
+    // These errors are unrecoverable and can thus be cached by a CDN despite a 400 response code
+    // Set this header, which our CDN can pick up and apply caching rules for
+    // Also, use the more detailed error message since these are explicitly set by us
+    if (e instanceof UnrecoverableApiError) {
+      res.set("x-unrecoverable", "1");
       error = e.message;
     }
 
