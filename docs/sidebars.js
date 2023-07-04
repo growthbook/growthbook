@@ -130,6 +130,11 @@ const sidebars = {
                   id: "app/event-trackers/snowplow",
                   label: "Snowplow",
                 },
+                {
+                  type: "doc",
+                  id: "app/event-trackers/custom",
+                  label: "Custom Data Sources",
+                },
               ],
             },
             {
