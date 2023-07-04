@@ -42,7 +42,7 @@ const Dropdown: FC<{
     setOpen = _setOpen;
   }
 
-  useGlobalMenu(`.${uuid}`, () => setOpen(false));
+  useGlobalMenu(`.${uuid}`, () => setOpen?.(false));
 
   const content = Children.map(children, (child) => {
     if (!isValidElement(child)) return null;
@@ -51,7 +51,7 @@ const Dropdown: FC<{
       return cloneElement(child, {
         onClick: () => {
           child.props.onClick();
-          setOpen(false);
+          setOpen?.(false);
         },
       });
     }
@@ -69,7 +69,7 @@ const Dropdown: FC<{
         className={clsx({ "dropdown-toggle": caret })}
         onClick={(e) => {
           e.preventDefault();
-          setOpen(!open);
+          setOpen?.(!open);
         }}
         style={{ cursor: "pointer" }}
       >

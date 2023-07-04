@@ -12,7 +12,11 @@ function hashFnv32a(str: string): number {
   return hval >>> 0;
 }
 
-export function hash(seed: string, value: string, version: number): number {
+export function hash(
+  seed: string,
+  value: string,
+  version: number
+): number | null {
   // New unbiased hashing algorithm
   if (version === 2) {
     return (hashFnv32a(hashFnv32a(seed + value) + "") % 10000) / 10000;
@@ -23,7 +27,7 @@ export function hash(seed: string, value: string, version: number): number {
   }
 
   // Unknown hash version
-  return -1;
+  return null;
 }
 
 export function getEqualWeights(n: number): number[] {
@@ -40,6 +44,7 @@ export function inNamespace(
   namespace: [string, number, number]
 ): boolean {
   const n = hash("__" + namespace[0], hashValue, 1);
+  if (n === null) return false;
   return n >= namespace[1] && n < namespace[2];
 }
 
@@ -244,4 +249,58 @@ export function isIncluded(include: () => boolean) {
     console.error(e);
     return false;
   }
+}
+
+const base64ToBuf = (b: string) =>
+  Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
+
+export async function decrypt(
+  encryptedString: string,
+  decryptionKey?: string,
+  subtle?: SubtleCrypto
+): Promise<string> {
+  decryptionKey = decryptionKey || "";
+  subtle = subtle || (globalThis.crypto && globalThis.crypto.subtle);
+  if (!subtle) {
+    throw new Error("No SubtleCrypto implementation found");
+  }
+  try {
+    const key = await subtle.importKey(
+      "raw",
+      base64ToBuf(decryptionKey),
+      { name: "AES-CBC", length: 128 },
+      true,
+      ["encrypt", "decrypt"]
+    );
+    const [iv, cipherText] = encryptedString.split(".");
+    const plainTextBuffer = await subtle.decrypt(
+      { name: "AES-CBC", iv: base64ToBuf(iv) },
+      key,
+      base64ToBuf(cipherText)
+    );
+
+    return new TextDecoder().decode(plainTextBuffer);
+  } catch (e) {
+    throw new Error("Failed to decrypt");
+  }
+}
+
+export function paddedVersionString(input: string): string {
+  // Remove build info and leading `v` if any
+  // Split version into parts (both core version numbers and pre-release tags)
+  // "v1.2.3-rc.1+build123" -> ["1","2","3","rc","1"]
+  const parts = input.replace(/(^v|\+.*$)/g, "").split(/[-.]/);
+
+  // If it's SemVer without a pre-release, add `~` to the end
+  // ["1","0","0"] -> ["1","0","0","~"]
+  // "~" is the largest ASCII character, so this will make "1.0.0" greater than "1.0.0-beta" for example
+  if (parts.length === 3) {
+    parts.push("~");
+  }
+
+  // Left pad each numeric part with spaces so string comparisons will work ("9">"10", but " 9"<"10")
+  // Then, join back together into a single string
+  return parts
+    .map((v) => (v.match(/^[0-9]+$/) ? v.padStart(5, " ") : v))
+    .join("-");
 }

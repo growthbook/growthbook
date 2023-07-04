@@ -6,6 +6,8 @@ properties:
     type: string
   css:
     type: string
+  js:
+    type: string
   variation:
     type: string
   domMutations:
@@ -25,4 +27,8 @@ properties:
         attribute:
           type: string
         value:
+          type: string
+        parentSelector:
+          type: string
+        insertBeforeSelector:
           type: string

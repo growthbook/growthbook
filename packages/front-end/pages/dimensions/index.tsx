@@ -3,8 +3,8 @@ import { FaPencilAlt } from "react-icons/fa";
 import { DimensionInterface } from "back-end/types/dimension";
 import clsx from "clsx";
 import Link from "next/link";
+import { ago } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { ago } from "@/services/dates";
 import Button from "@/components/Button";
 import DimensionForm from "@/components/Dimensions/DimensionForm";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -177,6 +177,7 @@ const DimensionsPage: FC = () => {
                           expandable={true}
                         />
                       </td>
+                      {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | null' is not assignable t... Remove this comment to see the full error message */}
                       {!hasFileConfig() && <td>{ago(s.dateUpdated)}</td>}
                       {!hasFileConfig() && permissions.createDimensions && (
                         <td>

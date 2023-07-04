@@ -41,7 +41,7 @@ export default function SDKsPage() {
             These legacy tools will continue to work just as before if you are
             unable to migrate at this time.
           </div>
-          <SDKEndpoints keys={data?.keys} mutate={mutate} />
+          <SDKEndpoints keys={data?.keys || []} mutate={mutate} />
           <div className="mt-5">
             <h1>SDK Webhooks</h1>
             <Webhooks />

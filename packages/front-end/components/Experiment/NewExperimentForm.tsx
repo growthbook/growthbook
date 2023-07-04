@@ -6,11 +6,11 @@ import {
   Variation,
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
+import { getValidDate } from "shared/dates";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getValidDate } from "@/services/dates";
 import { getExposureQuery } from "@/services/datasources";
 import { getEqualWeights } from "@/services/utils";
 import { generateVariationId, useAttributeSchema } from "@/services/features";
@@ -111,7 +111,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       datasource: initialValue?.datasource || datasources?.[0]?.id || "",
       exposureQueryId:
         getExposureQuery(
-          getDatasourceById(initialValue?.datasource)?.settings,
+          initialValue?.datasource
+            ? getDatasourceById(initialValue.datasource)?.settings
+            : undefined,
           initialValue?.exposureQueryId,
           initialValue?.userIdType
         )?.id || "",
@@ -134,10 +136,12 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         initialValue
           ? {
               coverage: initialValue.phases?.[0].coverage || 1,
-              dateStarted: getValidDate(initialValue.phases?.[0]?.dateStarted)
+              dateStarted: getValidDate(
+                initialValue.phases?.[0]?.dateStarted ?? ""
+              )
                 .toISOString()
                 .substr(0, 16),
-              dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded)
+              dateEnded: getValidDate(initialValue.phases?.[0]?.dateEnded ?? "")
                 .toISOString()
                 .substr(0, 16),
               name: initialValue.phases?.[0].name || "Main",
@@ -162,14 +166,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     },
   });
 
-  const datasource = getDatasourceById(form.watch("datasource"));
+  const datasource = form.watch("datasource")
+    ? getDatasourceById(form.watch("datasource") ?? "")
+    : null;
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
 
   const { apiCall } = useAuth();
 
   const onSubmit = form.handleSubmit(async (value) => {
     // Make sure there's an experiment name
-    if (value.name.length < 1) {
+    if ((value.name?.length ?? 0) < 1) {
       setStep(0);
       throw new Error("Experiment Name must not be empty");
     }
@@ -178,7 +184,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
     const data = { ...value };
 
-    if (data.status !== "stopped") {
+    if (data.status !== "stopped" && data.phases?.[0]) {
       data.phases[0].dateEnded = "";
     }
 
@@ -206,13 +212,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
 
     track("Create Experiment", {
       source,
-      numTags: data.tags.length,
-      numMetrics: data.metrics.length,
-      numVariations: data.variations.length,
+      numTags: data.tags?.length || 0,
+      numMetrics: data.metrics?.length || 0,
+      numVariations: data.variations?.length || 0,
     });
     refreshWatching();
 
-    refreshTags(data.tags);
+    data.tags && refreshTags(data.tags);
     if (onCreate) {
       onCreate(res.experiment.id);
     } else {
@@ -259,7 +265,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         <div className="form-group">
           <label>Tags</label>
           <TagsInput
-            value={form.watch("tags")}
+            value={form.watch("tags") ?? []}
             onChange={(tags) => form.setValue("tags", tags)}
           />
         </div>
@@ -275,7 +281,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           <div className="form-group">
             <label>Description</label>
             <MarkdownInput
-              value={form.watch("description")}
+              value={form.watch("description") ?? ""}
               setValue={(val) => form.setValue("description", val)}
             />
           </div>
@@ -292,7 +298,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               const status = v as ExperimentStatus;
               form.setValue("status", status);
             }}
-            value={form.watch("status")}
+            value={form.watch("status") ?? ""}
           />
         )}
         {status !== "draft" && (
@@ -323,7 +329,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
               .map((s) => ({ label: s.property, value: s.property }))}
-            value={form.watch("hashAttribute")}
+            value={form.watch("hashAttribute") ?? ""}
             onChange={(v) => {
               form.setValue("hashAttribute", v);
             }}
@@ -349,7 +355,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 return {
                   // default values
                   name: "",
-                  value: i,
                   screenshots: [],
                   // overwrite defaults
                   ...data,
@@ -363,14 +368,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               v.map((v) => v.weight)
             );
           }}
-          variations={form.watch("variations").map((v, i) => {
-            return {
-              value: v.key || "",
-              name: v.name,
-              weight: form.watch(`phases.0.variationWeights.${i}`),
-              id: v.id,
-            };
-          })}
+          variations={
+            form.watch("variations")?.map((v, i) => {
+              return {
+                value: v.key || "",
+                name: v.name,
+                weight: form.watch(`phases.0.variationWeights.${i}`),
+                id: v.id,
+              };
+            }) ?? []
+          }
           coverageTooltip={
             isNewExperiment
               ? "This can be changed later"
@@ -406,7 +413,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <SelectField
               label="Data Source"
               labelClassName="font-weight-bold"
-              value={form.watch("datasource")}
+              value={form.watch("datasource") ?? ""}
               onChange={(v) => form.setValue("datasource", v)}
               initialOption="Manual"
               options={datasources.map((d) => ({
@@ -420,7 +427,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             <SelectField
               label="Experiment Assignment Table"
               labelClassName="font-weight-bold"
-              value={form.watch("exposureQueryId")}
+              value={form.watch("exposureQueryId") ?? ""}
               onChange={(v) => form.setValue("exposureQueryId", v)}
               initialOption="Choose..."
               required
@@ -438,7 +445,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               Metrics you are trying to improve with this experiment.
             </div>
             <MetricsSelector
-              selected={form.watch("metrics")}
+              selected={form.watch("metrics") ?? []}
               onChange={(metrics) => form.setValue("metrics", metrics)}
               datasource={datasource?.id}
             />
@@ -450,7 +457,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
               improve.
             </div>
             <MetricsSelector
-              selected={form.watch("guardrails")}
+              selected={form.watch("guardrails") ?? []}
               onChange={(metrics) => form.setValue("guardrails", metrics)}
               datasource={datasource?.id}
             />

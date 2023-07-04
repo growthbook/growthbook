@@ -8,7 +8,7 @@ const CopyToClipboard: FC<{
 }> = ({ text, label, action = "Copy to Clipboard", className }) => {
   const [supported, setSupported] = useState(false);
   const [success, setSuccess] = useState(false);
-  const ref = useRef(null);
+  const ref = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (document.queryCommandSupported("copy")) {
@@ -65,7 +65,7 @@ const CopyToClipboard: FC<{
             <button
               className="btn btn-secondary"
               onClick={(e) => {
-                ref.current.select();
+                ref.current?.select();
                 document.execCommand("copy");
                 (e.target as HTMLButtonElement).focus();
                 setSuccess(true);

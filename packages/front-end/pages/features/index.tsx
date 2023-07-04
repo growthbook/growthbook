@@ -3,9 +3,9 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { useFeature } from "@growthbook/growthbook-react";
 import { FaExclamationTriangle } from "react-icons/fa";
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
+import { ago, datetime } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import { ago, datetime } from "@/services/dates";
 import { GBAddCircle } from "@/components/Icons";
 import FeatureModal from "@/components/Features/FeatureModal";
 import ValueDisplay from "@/components/Features/ValueDisplay";
@@ -142,7 +142,7 @@ export default function FeaturesPage() {
               features: [...features, feature],
             });
           }}
-          featureToDuplicate={featureToDuplicate}
+          featureToDuplicate={featureToDuplicate || undefined}
         />
       )}
       <div className="row mb-3">
@@ -261,7 +261,7 @@ export default function FeaturesPage() {
             </thead>
             <tbody>
               {items.slice(start, end).map((feature) => {
-                let rules = [];
+                let rules: FeatureRule[] = [];
                 environments.forEach(
                   (e) => (rules = rules.concat(getRules(feature, e.id)))
                 );
@@ -280,6 +280,12 @@ export default function FeaturesPage() {
                 let version = feature.revision?.version || 1;
                 if (isDraft) version++;
 
+                const projectId = feature.project;
+                const projectName = projectId
+                  ? getProjectById(projectId)?.name || null
+                  : null;
+                const projectIsDeReferenced = projectId && !projectName;
+
                 return (
                   <tr
                     key={feature.id}
@@ -294,13 +300,27 @@ export default function FeaturesPage() {
                     </td>
                     <td>
                       <Link href={`/features/${feature.id}`}>
-                        <a className={feature.archived ? "text-muted" : null}>
+                        <a className={feature.archived ? "text-muted" : ""}>
                           {feature.id}
                         </a>
                       </Link>
                     </td>
                     {showProjectColumn && (
-                      <td>{getProjectById(feature.project)?.name || ""}</td>
+                      <td>
+                        {projectIsDeReferenced ? (
+                          <Tooltip
+                            body={
+                              <>
+                                Project <code>{feature.project}</code> not found
+                              </>
+                            }
+                          >
+                            <span className="text-danger">Invalid project</span>
+                          </Tooltip>
+                        ) : (
+                          projectName ?? <em>All Projects</em>
+                        )}
+                      </td>
                     )}
                     <td>
                       <SortedTags tags={feature?.tags || []} />
@@ -316,7 +336,7 @@ export default function FeaturesPage() {
                     ))}
                     <td>
                       <ValueDisplay
-                        value={getFeatureDefaultValue(feature)}
+                        value={getFeatureDefaultValue(feature) || ""}
                         type={feature.valueType}
                         full={false}
                       />

@@ -38,6 +38,7 @@ interface SDKExperiment {
 
 interface VisualExperimentVariation {
   css: string;
+  js: string;
   domMutations: DOMMutation[];
 }
 
@@ -45,7 +46,9 @@ interface DOMMutation {
   selector: string;
   action: "append" | "set" | "remove";
   attribute: string;
-  value: string;
+  value?: string;
+  parentSelector?: string;
+  insertBeforeSelector?: string;
 }
 
 interface VariationMeta {

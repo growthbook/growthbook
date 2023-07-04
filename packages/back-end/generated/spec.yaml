@@ -13,7 +13,10 @@ info:
 
     We support both the HTTP Basic and Bearer authentication schemes for convenience.
 
-    You first need to generate a new Secret Key in GrowthBook by going to `Settings -> API Keys`.
+    You first need to generate a new API Key in GrowthBook. Different keys have different permissions:
+
+    - **Personal Access Tokens**: These are sensitive and provide the same level of access as the user has to an organization. These can be created by going to `Personal Access Tokens` under the your user menu.
+    - **Secret Keys**: These are sensitive and provide the level of access for the role, which currently is either `admin` or `readonly`. Only Admins with the `manageApiKeys` permission can manage Secret Keys on behalf of an organization. These can be created by going to `Settings -> API Keys`
 
     If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank:
 
@@ -81,6 +84,9 @@ tags:
   - name: visual-changesets
     x-displayName: Visual Changesets
     description: Groups of visual changes made by the visual editor to a single page
+  - name: saved-groups
+    x-displayName: Saved Groups
+    description: Defined sets of attribute values which can be used with feature rules for targeting features at particular users.
   - name: DataSource_model
     x-displayName: DataSource
     description: <SchemaDefinition schemaRef="#/components/schemas/DataSource" />
@@ -129,6 +135,9 @@ tags:
   - name: Project_model
     x-displayName: Project
     description: <SchemaDefinition schemaRef="#/components/schemas/Project" />
+  - name: SavedGroup_model
+    x-displayName: SavedGroup
+    description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroup" />
   - name: SdkConnection_model
     x-displayName: SdkConnection
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
@@ -859,6 +868,206 @@ paths:
                 properties:
                   metric:
                     $ref: '#/components/schemas/Metric'
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - metrics
+      summary: Update a metric
+      operationId: putMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -XPUT https://api.growthbook.io/api/v1/metrics/met_123abc \
+              -u secret_abc123DEF456 \
+              -H "Content-Type: application/json" \
+              -d '{"name": "net revenue", "description":"revenue minus lacroix spend"}'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                owner:
+                  type: string
+                  description: Name of the person who owns this metric
+                name:
+                  type: string
+                  description: Name of the metric
+                description:
+                  type: string
+                  description: Description of the metric
+                type:
+                  type: string
+                  description: 'Type of metric. See [Metrics documentation](/app/metrics)'
+                  enum:
+                    - binomial
+                    - count
+                    - duration
+                    - revenue
+                tags:
+                  type: array
+                  description: List of tags
+                  items:
+                    type: string
+                projects:
+                  type: array
+                  description: List of project IDs for projects that can access this metric
+                  items:
+                    type: string
+                archived:
+                  type: boolean
+                behavior:
+                  type: object
+                  required: []
+                  properties:
+                    goal:
+                      type: string
+                      enum:
+                        - increase
+                        - decrease
+                    cap:
+                      type: number
+                      description: This should be non-negative
+                      minimum: 0
+                    conversionWindowStart:
+                      type: number
+                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                    conversionWindowEnd:
+                      type: number
+                      description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                    riskThresholdSuccess:
+                      type: number
+                      description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                      minimum: 0
+                    riskThresholdDanger:
+                      type: number
+                      description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                      minimum: 0
+                    minPercentChange:
+                      type: number
+                      description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
+                      minimum: 0
+                    maxPercentChange:
+                      type: number
+                      description: 'Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)'
+                      minimum: 0
+                    minSampleSize:
+                      type: number
+                      minimum: 0
+                sql:
+                  type: object
+                  description: 'Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed.'
+                  properties:
+                    identifierTypes:
+                      type: array
+                      items:
+                        type: string
+                    conversionSQL:
+                      type: string
+                    userAggregationSQL:
+                      type: string
+                      description: 'Custom user level aggregation for your metric (default: `SUM(value)`)'
+                    denominatorMetricId:
+                      type: string
+                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)'
+                sqlBuilder:
+                  type: object
+                  description: 'An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed'
+                  properties:
+                    identifierTypeColumns:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - identifierType
+                          - columnName
+                        properties:
+                          identifierType:
+                            type: string
+                          columnName:
+                            type: string
+                    tableName:
+                      type: string
+                    valueColumnName:
+                      type: string
+                    timestampColumnName:
+                      type: string
+                    conditions:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - column
+                          - operator
+                          - value
+                        properties:
+                          column:
+                            type: string
+                          operator:
+                            type: string
+                          value:
+                            type: string
+                mixpanel:
+                  type: object
+                  description: 'Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed.'
+                  properties:
+                    eventName:
+                      type: string
+                    eventValue:
+                      type: string
+                    userAggregation:
+                      type: string
+                    conditions:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - property
+                          - operator
+                          - value
+                        properties:
+                          property:
+                            type: string
+                          operator:
+                            type: string
+                          value:
+                            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - updatedId
+                properties:
+                  updatedId:
+                    type: string
+    delete:
+      summary: Deletes a metric
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - metrics
+      operationId: deleteMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/metrics/met_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
   '/experiments/{id}/visual-changesets':
     get:
       summary: Get all visual changesets
@@ -986,7 +1195,7 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -XPOST https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change/vch_abc123 \
+            curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change/vch_abc123 \
               -u secret_abc123DEF456 \
               -H "Content-Type: application/json" \
               -d '{"variation": "v_123abc", "domMutations":"[]"}'
@@ -1001,6 +1210,175 @@ paths:
                 properties:
                   nModified:
                     type: number
+  /saved-groups:
+    get:
+      summary: Get all saved group
+      tags:
+        - saved-groups
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      operationId: listSavedGroups
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/saved-groups \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    required:
+                      - savedGroups
+                    properties:
+                      savedGroups:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SavedGroup'
+                  - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - saved-groups
+      summary: Create a single saved group
+      operationId: postSavedGroup
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
+              -H "Content-Type: application/json" \
+              -u secret_abc123DEF456: \
+              -d '{"name": "interal-users", "values": ["userId-123", "userId-345", "userId-678"], "attributeKey": "userId", "owner": ""}'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - values
+                - attributeKey
+              properties:
+                name:
+                  type: string
+                  description: The display name of the Saved Group
+                values:
+                  type: array
+                  items:
+                    type: string
+                  description: 'An array of values to target (Ex: a list of userIds).'
+                attributeKey:
+                  type: string
+                  description: 'The parameter you want to target users with. Ex: userId, orgId, ...'
+                owner:
+                  type: string
+                  description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - savedGroup
+                properties:
+                  savedGroup:
+                    $ref: '#/components/schemas/SavedGroup'
+  '/saved-groups/{id}':
+    get:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - saved-groups
+      summary: Get a single saved group
+      operationId: getSavedGroup
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl https://api.growthbook.io/api/v1/saved-groups/ds_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - savedGroup
+                properties:
+                  savedGroup:
+                    $ref: '#/components/schemas/SavedGroup'
+    post:
+      summary: Partially update a single saved group
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - saved-groups
+      operationId: updateSavedGroup
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
+              -H "Content-Type: application/json" \
+              -u secret_abc123DEF456: \
+              -d '{"values": [ "userId-123", "userId-345" ]}'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: []
+              properties:
+                name:
+                  type: string
+                  description: The display name of the Saved Group
+                values:
+                  type: array
+                  items:
+                    type: string
+                  description: 'An array of values to target (Ex: a list of userIds).'
+                owner:
+                  type: string
+                  description: 'The person or team that owns this Saved Group. If no owner, you can pass an empty string.'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - savedGroup
+                properties:
+                  savedGroup:
+                    $ref: '#/components/schemas/SavedGroup'
+    delete:
+      summary: Deletes a single saved group
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - saved-groups
+      operationId: deleteSavedGroup
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/saved-groups/grp_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
 components:
   parameters:
     id:
@@ -1286,6 +1664,13 @@ components:
         dateUpdated:
           type: string
           format: date-time
+        description:
+          type: string
+        settings:
+          type: object
+          properties:
+            statsEngine:
+              type: string
     Segment:
       type: object
       required:
@@ -1623,6 +2008,8 @@ components:
           type: boolean
         includeDraftExperiments:
           type: boolean
+        includeExperimentNames:
+          type: boolean
         key:
           type: string
         proxyEnabled:
@@ -1631,6 +2018,10 @@ components:
           type: string
         proxySigningKey:
           type: string
+        sseEnabled:
+          type: boolean
+        hashSecureAttributes:
+          type: boolean
     Experiment:
       type: object
       required:
@@ -2107,6 +2498,8 @@ components:
                 type: string
               css:
                 type: string
+              js:
+                type: string
               variation:
                 type: string
               domMutations:
@@ -2130,6 +2523,10 @@ components:
                       type: string
                     value:
                       type: string
+                    parentSelector:
+                      type: string
+                    insertBeforeSelector:
+                      type: string
     VisualChange:
       type: object
       required:
@@ -2138,6 +2535,8 @@ components:
         description:
           type: string
         css:
+          type: string
+        js:
           type: string
         variation:
           type: string
@@ -2162,6 +2561,38 @@ components:
                 type: string
               value:
                 type: string
+              parentSelector:
+                type: string
+              insertBeforeSelector:
+                type: string
+    SavedGroup:
+      type: object
+      required:
+        - id
+        - dateCreated
+        - dateUpdated
+        - name
+        - attributeKey
+        - values
+      properties:
+        id:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        dateUpdated:
+          type: string
+          format: date-time
+        name:
+          type: string
+        owner:
+          type: string
+        attributeKey:
+          type: string
+        values:
+          type: array
+          items:
+            type: string
   securitySchemes:
     bearerAuth:
       type: http
@@ -2207,6 +2638,7 @@ x-tagGroups:
       - segments
       - sdk-connections
       - visual-changesets
+      - saved-groups
   - name: Models
     tags:
       - DataSource_model
@@ -2225,6 +2657,7 @@ x-tagGroups:
       - Metric_model
       - PaginationFields_model
       - Project_model
+      - SavedGroup_model
       - SdkConnection_model
       - Segment_model
       - VisualChange_model

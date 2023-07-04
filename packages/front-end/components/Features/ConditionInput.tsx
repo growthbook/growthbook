@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { some } from "lodash";
+import { FaExclamationCircle } from "react-icons/fa";
 import {
   condToJson,
   jsonToConds,
@@ -29,8 +31,8 @@ export default function ConditionInput(props: Props) {
   );
   const [simpleAllowed, setSimpleAllowed] = useState(false);
   const [value, setValue] = useState(props.defaultValue);
-  const [conds, setConds] = useState(() =>
-    jsonToConds(props.defaultValue, attributes)
+  const [conds, setConds] = useState(
+    () => jsonToConds(props.defaultValue, attributes) || []
   );
 
   const attributeSchema = useAttributeSchema();
@@ -57,6 +59,11 @@ export default function ConditionInput(props: Props) {
   ];
 
   if (advanced || !attributes.size || !simpleAllowed) {
+    const hasSecureAttributes = some(
+      [...attributes].filter(([_, a]) =>
+        ["secureString", "secureString[]"].includes(a.datatype)
+      )
+    );
     return (
       <div className="mb-3">
         <CodeTextArea
@@ -66,26 +73,34 @@ export default function ConditionInput(props: Props) {
           value={value}
           setValue={setValue}
           helpText={
-            <div className="d-flex">
-              <div>JSON format using MongoDB query syntax.</div>
-              {simpleAllowed && attributes.size && (
-                <div className="ml-auto">
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      const newConds = jsonToConds(value, attributes);
-                      // TODO: show error
-                      if (newConds === null) return;
-                      setConds(newConds);
-                      setAdvanced(false);
-                    }}
-                  >
-                    switch to simple mode
-                  </a>
+            <>
+              <div className="d-flex">
+                <div>JSON format using MongoDB query syntax.</div>
+                {simpleAllowed && attributes.size && (
+                  <div className="ml-auto">
+                    <a
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const newConds = jsonToConds(value, attributes);
+                        // TODO: show error
+                        if (newConds === null) return;
+                        setConds(newConds);
+                        setAdvanced(false);
+                      }}
+                    >
+                      switch to simple mode
+                    </a>
+                  </div>
+                )}
+              </div>
+              {hasSecureAttributes && (
+                <div className="mt-1 text-warning-orange">
+                  <FaExclamationCircle /> Secure attribute hashing not
+                  guaranteed to work for complicated rules
                 </div>
               )}
-            </div>
+            </>
           }
         />
       </div>
@@ -155,14 +170,14 @@ export default function ConditionInput(props: Props) {
             };
 
             const operatorOptions =
-              attribute.datatype === "boolean"
+              attribute?.datatype === "boolean"
                 ? [
                     { label: "is true", value: "$true" },
                     { label: "is false", value: "$false" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : attribute.array
+                : attribute?.array
                 ? [
                     { label: "includes", value: "$includes" },
                     { label: "does not include", value: "$notIncludes" },
@@ -171,7 +186,7 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : attribute.enum?.length > 0
+                : attribute?.enum?.length || 0 > 0
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -180,16 +195,34 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : attribute.datatype === "string"
+                : attribute?.datatype === "string"
                 ? [
-                    { label: "is equal to", value: "$eq" },
-                    { label: "is not equal to", value: "$ne" },
+                    {
+                      label: "is equal to",
+                      value: attribute?.format === "version" ? "$veq" : "$eq",
+                    },
+                    {
+                      label: "is not equal to",
+                      value: attribute?.format === "version" ? "$vne" : "$ne",
+                    },
                     { label: "matches regex", value: "$regex" },
                     { label: "does not match regex", value: "$notRegex" },
-                    { label: "is greater than", value: "$gt" },
-                    { label: "is greater than or equal to", value: "$gte" },
-                    { label: "is less than", value: "$lt" },
-                    { label: "is less than or equal to", value: "$lte" },
+                    {
+                      label: "is greater than",
+                      value: attribute?.format === "version" ? "$vgt" : "$gt",
+                    },
+                    {
+                      label: "is greater than or equal to",
+                      value: attribute?.format === "version" ? "$vgte" : "$gte",
+                    },
+                    {
+                      label: "is less than",
+                      value: attribute?.format === "version" ? "$vlt" : "$lt",
+                    },
+                    {
+                      label: "is less than or equal to",
+                      value: attribute?.format === "version" ? "$vlte" : "$lte",
+                    },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
                     { label: "exists", value: "$exists" },
@@ -198,7 +231,19 @@ export default function ConditionInput(props: Props) {
                       ? savedGroupOperators
                       : []),
                   ]
-                : attribute.datatype === "number"
+                : attribute?.datatype === "secureString"
+                ? [
+                    { label: "is equal to", value: "$eq" },
+                    { label: "is not equal to", value: "$ne" },
+                    { label: "is in the list", value: "$in" },
+                    { label: "is not in the list", value: "$nin" },
+                    { label: "exists", value: "$exists" },
+                    { label: "does not exist", value: "$notExists" },
+                    ...(savedGroupOptions.length > 0
+                      ? savedGroupOperators
+                      : []),
+                  ]
+                : attribute?.datatype === "number"
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -240,10 +285,13 @@ export default function ConditionInput(props: Props) {
 
                         const newAttribute = attributes.get(value);
                         const hasAttrChanged =
+                          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                           newAttribute.datatype !== attribute.datatype ||
+                          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                           newAttribute.array !== attribute.array;
                         if (hasAttrChanged) {
                           newConds[i]["operator"] = getDefaultOperator(
+                            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'AttributeData | undefined' is no... Remove this comment to see the full error message
                             newAttribute
                           );
                           newConds[i]["value"] = newConds[i]["value"] || "";
@@ -257,6 +305,7 @@ export default function ConditionInput(props: Props) {
                       value={operator}
                       name="operator"
                       options={operatorOptions}
+                      sort={false}
                       onChange={(v) => {
                         onSelectFieldChange(v, "operator");
                       }}
@@ -296,8 +345,10 @@ export default function ConditionInput(props: Props) {
                       helpText="separate values by comma"
                       required
                     />
-                  ) : attribute.enum.length ? (
+                  ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  attribute.enum.length ? (
                     <SelectField
+                      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                       options={attribute.enum.map((v) => ({
                         label: v,
                         value: v,
@@ -311,7 +362,8 @@ export default function ConditionInput(props: Props) {
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
-                  ) : attribute.datatype === "number" ? (
+                  ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  attribute.datatype === "number" ? (
                     <Field
                       type="number"
                       step="any"
@@ -322,7 +374,8 @@ export default function ConditionInput(props: Props) {
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
-                  ) : attribute.datatype === "string" ? (
+                  ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                  ["string", "secureString"].includes(attribute.datatype) ? (
                     <Field
                       value={value}
                       onChange={onChange}

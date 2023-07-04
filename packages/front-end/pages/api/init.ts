@@ -61,8 +61,9 @@ export default function handler(req: NextApiRequest, res: NextApiResponse) {
     cloud: !!IS_CLOUD,
     config: hasConfigFile ? "file" : "db",
     build,
-    defaultConversionWindowHours:
-      parseInt(DEFAULT_CONVERSION_WINDOW_HOURS) || 72,
+    defaultConversionWindowHours: DEFAULT_CONVERSION_WINDOW_HOURS
+      ? parseInt(DEFAULT_CONVERSION_WINDOW_HOURS)
+      : 72,
     telemetry:
       DISABLE_TELEMETRY === "debug"
         ? "debug"

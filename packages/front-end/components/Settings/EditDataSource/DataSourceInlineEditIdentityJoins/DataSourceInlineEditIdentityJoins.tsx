@@ -79,6 +79,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
     (idx: number) => async () => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
 
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       copy.settings.queries.identityJoins.splice(idx, 1);
 
       await onSave(copy);
@@ -89,6 +90,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
   const handleSave = useCallback(
     (idx: number) => async (identityJoin: IdentityJoinQuery) => {
       const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       copy.settings.queries.identityJoins[idx] = identityJoin;
       await onSave(copy);
     },

@@ -1,5 +1,10 @@
 import { promisify } from "util";
 import { PythonShell } from "python-shell";
+import {
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
+import { getSnapshotAnalysis } from "shared/util";
 import { APP_ORIGIN } from "../util/secrets";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
 import { getExperimentById } from "../models/ExperimentModel";
@@ -44,7 +49,8 @@ export async function generateExperimentNotebook(
   if (!snapshot.queries?.length) {
     throw new Error("Snapshot does not have queries");
   }
-  if (!snapshot.results?.[0]?.variations?.[0]) {
+  const analysis = getSnapshotAnalysis(snapshot);
+  if (!analysis || !analysis.results?.[0]?.variations?.[0]) {
     throw new Error("Snapshot does not have data");
   }
 
@@ -60,7 +66,7 @@ export async function generateExperimentNotebook(
   return generateNotebook(
     organization,
     snapshot.queries,
-    reportArgsFromSnapshot(experiment, snapshot),
+    reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
     `/experiment/${experiment.id}`,
     experiment.name,
     experiment.hypothesis || ""
@@ -119,6 +125,7 @@ export async function generateNotebook(
       .filter(Boolean),
     url: `${APP_ORIGIN}${url}`,
     hypothesis: description,
+    dimension: args.dimension ?? "",
     name,
     var_id_map,
     var_names: args.variations.map((v) => v.name),
@@ -126,6 +133,14 @@ export async function generateNotebook(
     run_query: datasource.settings.notebookRunQuery,
   }).replace(/\\/g, "\\\\");
 
+  const statsEngine = args.statsEngine ?? DEFAULT_STATS_ENGINE;
+  const configString =
+    statsEngine === "frequentist" && (args.sequentialTestingEnabled ?? false)
+      ? `{'sequential': True, 'sequential_tuning_parameter': ${
+          args.sequentialTestingTuningParameter ??
+          DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
+        }}`
+      : "{}";
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gen_notebook import create_notebook
@@ -150,16 +165,18 @@ print(create_notebook(
     metrics=metrics,
     url=data['url'],
     hypothesis=data['hypothesis'],
+    dimension=data['dimension'],
     name=data['name'],
     var_id_map=data['var_id_map'],
     var_names=data['var_names'],
     weights=data['weights'],
     run_query=data['run_query'],
     stats_engine=${
-      (args.statsEngine ?? "bayesian") === "frequentist"
+      statsEngine === "frequentist"
         ? "StatsEngine.FREQUENTIST"
         : "StatsEngine.BAYESIAN"
-    }
+    },
+    engine_config=${configString}
 ))`,
     {}
   );

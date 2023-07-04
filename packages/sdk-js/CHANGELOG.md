@@ -1,5 +1,23 @@
 # Changelog
 
+## **0.27.0** - May 23, 2023
+
+- SemVer targeting conditions support (and other SemVer-like version strings)
+- Make targeting condition `$in` and `$nin` operators work with arrays
+- Support for custom JS injection as part of the visual editor
+- Fix bug - localStorage cache not getting updated TTL when features are refreshed
+
+## **0.26.0** - May 1, 2023
+
+- Update GrowthBook test suite to v0.4.2
+- Fix bug when targeting condition value is null
+- Fix bug when an improper hashVersion is specified
+- Bump dom-mutator to v0.5.0 to support re-arranging page elements
+
+## **0.25.0** - Apr 4, 2023
+
+- More graceful EventSource connection handling with exponential backoff
+
 ## **0.24.0** - Mar 30, 2023
 
 - Support for the new GrowthBook Visual Editor
@@ -7,6 +25,7 @@
 
 ## **0.23.0** - Feb 27, 2023
 
+- Update GrowthBook test suite to v0.4.0
 - Support for holdout groups
 - Experiment dependencies (e.g. only run this experiment if user is in Variation B of another experiment)
 - Ability to force re-randomization when making changes in the middle of an experiment

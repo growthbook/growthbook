@@ -20,6 +20,7 @@ type ModalProps = {
   cta?: string;
   closeCta?: string;
   ctaEnabled?: boolean;
+  disabledMessage?: string;
   docSection?: DocSection;
   error?: string;
   size?: "md" | "lg" | "max" | "fill";
@@ -46,6 +47,7 @@ const Modal: FC<ModalProps> = ({
   cta = "Submit",
   ctaEnabled = true,
   closeCta = "Cancel",
+  disabledMessage,
   inline = false,
   size = "md",
   sizeY,
@@ -69,10 +71,10 @@ const Modal: FC<ModalProps> = ({
   }
 
   useEffect(() => {
-    setError(externalError);
+    setError(externalError || null);
   }, [externalError]);
 
-  const bodyRef = useRef<HTMLDivElement>();
+  const bodyRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setTimeout(() => {
       if (!autoFocusSelector) return;
@@ -94,8 +96,8 @@ const Modal: FC<ModalProps> = ({
     <div
       className={`modal-content ${className}`}
       style={{
-        height: sizeY === "max" ? "93vh" : null,
-        maxHeight: sizeY ? null : size === "fill" ? "" : "93vh",
+        height: sizeY === "max" ? "93vh" : "",
+        maxHeight: sizeY ? "" : size === "fill" ? "" : "93vh",
       }}
     >
       {loading && <LoadingOverlay />}
@@ -173,13 +175,19 @@ const Modal: FC<ModalProps> = ({
           )}
           {secondaryCTA}
           {submit && !isSuccess ? (
-            <button
-              className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
-              type="submit"
-              disabled={!ctaEnabled}
+            <Tooltip
+              body={disabledMessage || ""}
+              shouldDisplay={!ctaEnabled && !!disabledMessage}
+              tipPosition="top"
             >
-              {cta}
-            </button>
+              <button
+                className={`btn btn-${ctaEnabled ? submitColor : "secondary"}`}
+                type="submit"
+                disabled={!ctaEnabled}
+              >
+                {cta}
+              </button>
+            </Tooltip>
           ) : (
             ""
           )}
@@ -205,7 +213,7 @@ const Modal: FC<ModalProps> = ({
     ? {
         opacity: 1,
       }
-    : null;
+    : {};
 
   const modalHtml = (
     <div
@@ -223,7 +231,7 @@ const Modal: FC<ModalProps> = ({
             ? { width: "95vw", maxWidth: 1400, margin: "2vh auto" }
             : size === "fill"
             ? { width: "100%", maxWidth: "100%" }
-            : null
+            : {}
         }
       >
         {submit && !isSuccess ? (

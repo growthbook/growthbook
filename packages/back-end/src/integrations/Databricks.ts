@@ -6,6 +6,8 @@ import SqlIntegration from "./SqlIntegration";
 
 export default class Databricks extends SqlIntegration {
   params!: DatabricksConnectionParams;
+  requiresDatabase = false;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<DatabricksConnectionParams>(
       encryptedParams
@@ -35,6 +37,9 @@ export default class Databricks extends SqlIntegration {
   }
   formatDate(col: string) {
     return `date_format(${col}, 'y-MM-dd')`;
+  }
+  formatDateTimeString(col: string) {
+    return `date_format(${col}, 'y-MM-dd H:m:s.S')`;
   }
   castToString(col: string): string {
     return `cast(${col} as string)`;

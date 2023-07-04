@@ -94,7 +94,9 @@ export default function ProjectRolesSelector({
                 e.preventDefault();
                 if (!newProject) return;
                 setProjectRoles([
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ProjectMemberRole | { role?: MemberRole | un... Remove this comment to see the full error message
                   ...projectRoles,
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ role?: MemberRole | undefined; limitAccess... Remove this comment to see the full error message
                   cloneDeep({
                     project: newProject,
                     ...settings.defaultRole,

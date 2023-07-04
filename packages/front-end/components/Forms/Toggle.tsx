@@ -24,6 +24,7 @@ export default function Toggle({
 }) {
   const TooltipWrapper = ({ children }) =>
     disabledMessage ? (
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | false' is not assignable to type 's... Remove this comment to see the full error message
       <Tooltip body={disabled && disabledMessage}>{children}</Tooltip>
     ) : (
       children

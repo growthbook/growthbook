@@ -198,12 +198,15 @@ export type DOMMutation = {
   selector: string;
   action: string;
   attribute: string;
-  value: string;
+  value?: string;
+  parentSelector?: string;
+  insertBeforeSelector?: string;
 };
 
 export type AutoExperimentVariation = {
   domMutations?: DOMMutation[];
   css?: string;
+  js?: string;
 };
 
 export type FeatureDefinitions = Record<string, FeatureDefinition>;

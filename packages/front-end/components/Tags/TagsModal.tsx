@@ -54,6 +54,7 @@ export default function TagsModal({
       <div className="colorpicker tagmodal">
         {!existing?.id && (
           <Field
+            // @ts-expect-error TS(2783) If you come across this, please fix it!: 'name' is specified more than once, so this usage ... Remove this comment to see the full error message
             name="Name"
             label="Name"
             minLength={2}
@@ -88,6 +89,7 @@ export default function TagsModal({
           </div>
         </div>
         <Field
+          // @ts-expect-error TS(2783) If you come across this, please fix it!: 'name' is specified more than once, so this usage ... Remove this comment to see the full error message
           name="Name"
           label="Description"
           textarea

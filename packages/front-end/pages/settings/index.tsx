@@ -1,14 +1,22 @@
 import React, { useEffect, useState } from "react";
 import {
+  FaExclamationCircle,
   FaExclamationTriangle,
   FaPencilAlt,
   FaQuestionCircle,
 } from "react-icons/fa";
 import { useForm } from "react-hook-form";
-import { OrganizationSettings } from "back-end/types/organization";
 import isEqual from "lodash/isEqual";
 import cronstrue from "cronstrue";
 import { AttributionModel } from "back-end/types/experiment";
+import { PValueCorrection } from "back-end/types/stats";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  DEFAULT_STATS_ENGINE,
+} from "shared/constants";
+import { OrganizationSettings } from "@/../back-end/types/organization";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -19,16 +27,195 @@ import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import TempMessage from "@/components/TempMessage";
 import Button from "@/components/Button";
 import { DocLink } from "@/components/DocLink";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import {
+  OrganizationSettingsWithMetricDefaults,
+  useOrganizationMetricDefaults,
+} from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
 import usePermissions from "@/hooks/usePermissions";
-import { GBPremiumBadge } from "@/components/Icons";
+import { GBCuped, GBPremiumBadge, GBSequential } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import EditLicenseModal from "@/components/Settings/EditLicenseModal";
 import Toggle from "@/components/Forms/Toggle";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { AttributionModelTooltip } from "@/components/Experiment/AttributionModelTooltip";
+import Tab from "@/components/Tabs/Tab";
+import ControlledTabs from "@/components/Tabs/ControlledTabs";
+import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
+import { useCurrency } from "@/hooks/useCurrency";
+
+export const supportedCurrencies = {
+  AED: "UAE Dirham (AED)",
+  AFN: "Afghani (AFN)",
+  ALL: "Lek (ALL)",
+  AMD: "Armenian Dram (AMD)",
+  ANG: "Netherlands Antillean Guilder (ANG)",
+  AOA: "Kwanza (AOA)",
+  ARS: "Argentine Peso (ARS)",
+  AUD: "Australian Dollar (AUD)",
+  AWG: "Aruban Florin (AWG)",
+  AZN: "Azerbaijan Manat (AZN)",
+  BAM: "Convertible Mark (BAM)",
+  BBD: "Barbados Dollar (BBD)",
+  BDT: "Taka (BDT)",
+  BGN: "Bulgarian Lev (BGN)",
+  BHD: "Bahraini Dinar (BHD)",
+  BIF: "Burundi Franc (BIF)",
+  BMD: "Bermudian Dollar (BMD)",
+  BND: "Brunei Dollar (BND)",
+  BOB: "Boliviano (BOB)",
+  BOV: "Mvdol (BOV)",
+  BRL: "Brazilian Real (BRL)",
+  BSD: "Bahamian Dollar (BSD)",
+  BTN: "Ngultrum (BTN)",
+  BWP: "Pula (BWP)",
+  BYN: "Belarusian Ruble (BYN)",
+  BZD: "Belize Dollar (BZD)",
+  CAD: "Canadian Dollar (CAD)",
+  CDF: "Congolese Franc (CDF)",
+  CHE: "WIR Euro (CHE)",
+  CHF: "Swiss Franc (CHF)",
+  CHW: "WIR Franc (CHW)",
+  CLF: "Unidad de Fomento (CLF)",
+  CLP: "Chilean Peso (CLP)",
+  CNY: "Yuan Renminbi (CNY)",
+  COP: "Colombian Peso (COP)",
+  COU: "Unidad de Valor Real (COU)",
+  CRC: "Costa Rican Colon (CRC)",
+  CUC: "Peso Convertible (CUC)",
+  CUP: "Cuban Peso (CUP)",
+  CVE: "Cabo Verde Escudo (CVE)",
+  CZK: "Czech Koruna (CZK)",
+  DJF: "Djibouti Franc (DJF)",
+  DKK: "Danish Krone (DKK)",
+  DOP: "Dominican Peso (DOP)",
+  DZD: "Algerian Dinar (DZD)",
+  EGP: "Egyptian Pound (EGP)",
+  ERN: "Nakfa (ERN)",
+  ETB: "Ethiopian Birr (ETB)",
+  EUR: "Euro (EUR)",
+  FJD: "Fiji Dollar (FJD)",
+  FKP: "Falkland Islands Pound (FKP)",
+  GBP: "Pound Sterling (GBP)",
+  GEL: "Lari (GEL)",
+  GHS: "Ghana Cedi (GHS)",
+  GIP: "Gibraltar Pound (GIP)",
+  GMD: "Dalasi (GMD)",
+  GNF: "Guinean Franc (GNF)",
+  GTQ: "Quetzal (GTQ)",
+  GYD: "Guyana Dollar (GYD)",
+  HKD: "Hong Kong Dollar (HKD)",
+  HNL: "Lempira (HNL)",
+  HTG: "Gourde (HTG)",
+  HUF: "Forint (HUF)",
+  IDR: "Rupiah (IDR)",
+  ILS: "New Israeli Sheqel (ILS)",
+  INR: "Indian Rupee (INR)",
+  IQD: "Iraqi Dinar (IQD)",
+  IRR: "Iranian Rial (IRR)",
+  ISK: "Iceland Krona (ISK)",
+  JMD: "Jamaican Dollar (JMD)",
+  JOD: "Jordanian Dinar (JOD)",
+  JPY: "Yen (JPY)",
+  KES: "Kenyan Shilling (KES)",
+  KGS: "Som (KGS)",
+  KHR: "Riel (KHR)",
+  KMF: "Comorian Franc (KMF)",
+  KPW: "North Korean Won (KPW)",
+  KRW: "Won (KRW)",
+  KWD: "Kuwaiti Dinar (KWD)",
+  KYD: "Cayman Islands Dollar (KYD)",
+  KZT: "Tenge (KZT)",
+  LAK: "Lao Kip (LAK)",
+  LBP: "Lebanese Pound (LBP)",
+  LKR: "Sri Lanka Rupee (LKR)",
+  LRD: "Liberian Dollar (LRD)",
+  LSL: "Loti (LSL)",
+  LYD: "Libyan Dinar (LYD)",
+  MAD: "Moroccan Dirham (MAD)",
+  MDL: "Moldovan Leu (MDL)",
+  MGA: "Malagasy Ariary (MGA)",
+  MKD: "Denar (MKD)",
+  MMK: "Kyat (MMK)",
+  MNT: "Tugrik (MNT)",
+  MOP: "Pataca (MOP)",
+  MRU: "Ouguiya (MRU)",
+  MUR: "Mauritius Rupee (MUR)",
+  MVR: "Rufiyaa (MVR)",
+  MWK: "Malawi Kwacha (MWK)",
+  MXN: "Mexican Peso (MXN)",
+  MXV: "Mexican Unidad de Inversion (UDI) (MXV)",
+  MYR: "Malaysian Ringgit (MYR)",
+  MZN: "Mozambique Metical (MZN)",
+  NAD: "Namibia Dollar (NAD)",
+  NGN: "Naira (NGN)",
+  NIO: "Cordoba Oro (NIO)",
+  NOK: "Norwegian Krone (NOK)",
+  NPR: "Nepalese Rupee (NPR)",
+  NZD: "New Zealand Dollar (NZD)",
+  OMR: "Rial Omani (OMR)",
+  PAB: "Balboa (PAB)",
+  PEN: "Sol (PEN)",
+  PGK: "Kina (PGK)",
+  PHP: "Philippine Peso (PHP)",
+  PKR: "Pakistan Rupee (PKR)",
+  PLN: "Zloty (PLN)",
+  PYG: "Guarani (PYG)",
+  QAR: "Qatari Rial (QAR)",
+  RON: "Romanian Leu (RON)",
+  RSD: "Serbian Dinar (RSD)",
+  RUB: "Russian Ruble (RUB)",
+  RWF: "Rwanda Franc (RWF)",
+  SAR: "Saudi Riyal (SAR)",
+  SBD: "Solomon Islands Dollar (SBD)",
+  SCR: "Seychelles Rupee (SCR)",
+  SDG: "Sudanese Pound (SDG)",
+  SEK: "Swedish Krona (SEK)",
+  SGD: "Singapore Dollar (SGD)",
+  SHP: "Saint Helena Pound (SHP)",
+  SLE: "Leone (SLE)",
+  SLL: "Leone (SLL)",
+  SOS: "Somali Shilling (SOS)",
+  SRD: "Surinam Dollar (SRD)",
+  SSP: "South Sudanese Pound (SSP)",
+  STN: "Dobra (STN)",
+  SVC: "El Salvador Colon (SVC)",
+  SYP: "Syrian Pound (SYP)",
+  SZL: "Lilangeni (SZL)",
+  THB: "Baht (THB)",
+  TJS: "Somoni (TJS)",
+  TMT: "Turkmenistan New Manat (TMT)",
+  TND: "Tunisian Dinar (TND)",
+  TOP: "Pa’anga (TOP)",
+  TRY: "Turkish Lira (TRY)",
+  TTD: "Trinidad and Tobago Dollar (TTD)",
+  TWD: "New Taiwan Dollar (TWD)",
+  TZS: "Tanzanian Shilling (TZS)",
+  UAH: "Hryvnia (UAH)",
+  UGX: "Uganda Shilling (UGX)",
+  USD: "US Dollar (USD)",
+  UYI: "Uruguay Peso en Unidades Indexadas (UI) (UYI)",
+  UYU: "Peso Uruguayo (UYU)",
+  UYW: "Unidad Previsional (UYW)",
+  UZS: "Uzbekistan Sum (UZS)",
+  VED: "Bolívar Soberano (VED)",
+  VES: "Bolívar Soberano (VES)",
+  VND: "Dong (VND)",
+  VUV: "Vatu (VUV)",
+  WST: "Tala (WST)",
+  XAF: "CFA Franc BEAC (XAF)",
+  XCD: "East Caribbean Dollar (XCD)",
+  XDR: "SDR (Special Drawing Right) (XDR)",
+  XOF: "CFA Franc BCEAO (XOF)",
+  XPF: "CFP Franc (XPF)",
+  XSU: "Sucre (XSU)",
+  XUA: "ADB Unit of Account (XUA)",
+  YER: "Yemeni Rial (YER)",
+  ZAR: "Rand (ZAR)",
+  ZMW: "Zambian Kwacha (ZMW)",
+  ZWL: "Zimbabwe Dollar (ZWL)",
+};
 
 function hasChanges(
   value: OrganizationSettings,
@@ -52,16 +239,30 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const [editLicenseOpen, setEditLicenseOpen] = useState(false);
   const [saveMsg, setSaveMsg] = useState(false);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
+  const [statsEngineTab, setStatsEngineTab] = useState<string>(
+    settings.statsEngine || DEFAULT_STATS_ENGINE
+  );
+  const displayCurrency = useCurrency();
+
+  const currencyOptions = Object.entries(
+    supportedCurrencies
+  ).map(([value, label]) => ({ value, label }));
 
   const permissions = usePermissions();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
+  const hasSequentialTestingFeature = hasCommercialFeature(
+    "sequential-testing"
+  );
+  const hasSecureAttributesFeature = hasCommercialFeature(
+    "hash-secure-attributes"
+  );
 
   const { metricDefaults } = useOrganizationMetricDefaults();
 
   const [upgradeModal, setUpgradeModal] = useState(false);
-  const showUpgradeButton = ["oss", "starter"].includes(accountPlan);
+  const showUpgradeButton = ["oss", "starter"].includes(accountPlan || "");
   const licensePlanText =
     (accountPlan === "enterprise"
       ? "Enterprise"
@@ -71,7 +272,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       ? "Pro + SSO"
       : "Starter") + (license && license.trial ? " (trial)" : "");
 
-  const form = useForm<OrganizationSettings>({
+  const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
       visualEditorEnabled: false,
       pastExperimentsMinLength: 6,
@@ -103,10 +304,16 @@ const GeneralSettingsPage = (): React.ReactElement => {
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
       pValueThreshold: 0.05,
-      statsEngine: "bayesian",
-      regressionAdjustmentEnabled: false,
-      regressionAdjustmentDays: 14,
+      pValueCorrection: null,
+      statsEngine: DEFAULT_STATS_ENGINE,
+      regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+      regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+      sequentialTestingEnabled: false,
+      sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       attributionModel: "firstExposure",
+      displayCurrency,
+      secureAttributeSalt: "",
+      killswitchConfirmation: false,
     },
   });
   const { apiCall } = useAuth();
@@ -131,16 +338,20 @@ const GeneralSettingsPage = (): React.ReactElement => {
     statsEngine: form.watch("statsEngine"),
     confidenceLevel: form.watch("confidenceLevel"),
     pValueThreshold: form.watch("pValueThreshold"),
+    pValueCorrection: form.watch("pValueCorrection"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
+    sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
+    sequentialTestingTuningParameter: form.watch(
+      "sequentialTestingTuningParameter"
+    ),
     attributionModel: form.watch("attributionModel"),
+    displayCurrency: form.watch("displayCurrency"),
+    secureAttributeSalt: form.watch("secureAttributeSalt"),
+    killswitchConfirmation: form.watch("killswitchConfirmation"),
   };
 
   const [cronString, setCronString] = useState("");
-  const [showAdvancedOptions, setShowAdvancedOptions] = useState(
-    (settings?.confidenceLevel && settings?.confidenceLevel !== 0.95) ||
-      (settings?.pValueThreshold && settings?.pValueThreshold !== 0.05)
-  );
 
   function updateCronString(cron?: string) {
     cron = cron || value.updateSchedule?.cron || "";
@@ -174,7 +385,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
               newVal.metricDefaults.minPercentageChange * 100,
           };
         }
+        // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
         if (k === "confidenceLevel" && newVal?.confidenceLevel <= 1) {
+          // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
           newVal.confidenceLevel = newVal.confidenceLevel * 100;
         }
       });
@@ -194,6 +407,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
         minPercentageChange: value.metricDefaults.minPercentageChange / 100,
       },
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       confidenceLevel: value.confidenceLevel / 100,
     };
 
@@ -210,24 +424,31 @@ const GeneralSettingsPage = (): React.ReactElement => {
   });
 
   const highlightColor =
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     value.confidenceLevel < 70
       ? "#c73333"
-      : value.confidenceLevel < 80
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.confidenceLevel < 80
       ? "#e27202"
-      : value.confidenceLevel < 90
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.confidenceLevel < 90
       ? "#B39F01"
       : "";
 
   const pHighlightColor =
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     value.pValueThreshold > 0.3
       ? "#c73333"
-      : value.pValueThreshold > 0.2
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.pValueThreshold > 0.2
       ? "#e27202"
-      : value.pValueThreshold > 0.1
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.pValueThreshold > 0.1
       ? "#B39F01"
       : "";
 
   const regressionAdjustmentDaysHighlightColor =
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     value.regressionAdjustmentDays > 28 || value.regressionAdjustmentDays < 7
       ? "#e27202"
       : "";
@@ -235,34 +456,49 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const warningMsg =
     value.confidenceLevel === 70
       ? "This is as low as it goes"
-      : value.confidenceLevel < 75
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.confidenceLevel < 75
       ? "Confidence thresholds this low are not recommended"
-      : value.confidenceLevel < 80
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.confidenceLevel < 80
       ? "Confidence thresholds this low are not recommended"
-      : value.confidenceLevel < 90
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.confidenceLevel < 90
       ? "Use caution with values below 90%"
-      : value.confidenceLevel >= 99
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.confidenceLevel >= 99
       ? "Confidence levels 99% and higher can take lots of data to achieve"
       : "";
 
   const pWarningMsg =
     value.pValueThreshold === 0.5
       ? "This is as high as it goes"
-      : value.pValueThreshold > 0.25
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.pValueThreshold > 0.25
       ? "P-value thresholds this high are not recommended"
-      : value.pValueThreshold > 0.2
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.pValueThreshold > 0.2
       ? "P-value thresholds this high are not recommended"
-      : value.pValueThreshold > 0.1
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.pValueThreshold > 0.1
       ? "Use caution with values above 0.1"
-      : value.pValueThreshold <= 0.01
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.pValueThreshold <= 0.01
       ? "Threshold values of 0.01 and lower can take lots of data to achieve"
       : "";
 
   const regressionAdjustmentDaysWarningMsg =
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     value.regressionAdjustmentDays > 28
       ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
-      : value.regressionAdjustmentDays < 7
+      : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      value.regressionAdjustmentDays < 7
       ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
+      : "";
+
+  const metricAnalysisDaysWarningMsg =
+    value.metricAnalysisDays && value.metricAnalysisDays > 365
+      ? "Using more historical data will slow down metric analysis queries"
       : "";
 
   if (!permissions.organizationSettings) {
@@ -286,17 +522,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
       )}
 
       <div className="container-fluid pagecontents">
-        {saveMsg && (
-          <TempMessage
-            close={() => {
-              setSaveMsg(false);
-            }}
-          >
-            Settings saved
-          </TempMessage>
-        )}
         {editOpen && (
           <EditOrganizationModal
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
             name={organization.name}
             close={() => setEditOpen(false)}
             mutate={refreshOrganization}
@@ -363,7 +591,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                           </>
                         ) : (
                           <>
-                            Upgrade to Pro <GBPremiumBadge />
+                            Try Pro <GBPremiumBadge />
                           </>
                         )}
                       </button>
@@ -511,7 +739,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
               </div>
 
               <div className="col-sm-9">
-                <div className="form-inline flex-column align-items-start">
+                <div className="form-inline flex-column align-items-start mb-4">
                   <Field
                     label="Minimum experiment length (in days) when importing past
                   experiments"
@@ -536,6 +764,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     max="1"
                     className="ml-2"
                     containerClassName="mb-3"
+                    append="%"
+                    style={{
+                      width: "80px",
+                    }}
                     disabled={hasFileConfig()}
                     helpText={<span className="ml-2">from 0 to 1</span>}
                     {...form.register("multipleExposureMinPercent", {
@@ -551,10 +783,13 @@ const GeneralSettingsPage = (): React.ReactElement => {
                         </AttributionModelTooltip>
                       }
                       className="ml-2"
+                      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
                       value={form.watch("attributionModel")}
                       onChange={(value) => {
-                        const model = value as AttributionModel;
-                        form.setValue("attributionModel", model);
+                        form.setValue(
+                          "attributionModel",
+                          value as AttributionModel
+                        );
                       }}
                       options={[
                         {
@@ -627,221 +862,309 @@ const GeneralSettingsPage = (): React.ReactElement => {
                       </div>
                     )}
                   </div>
-                  <div className="form-group">
-                    <div className="form-group mb-2 mr-2">
+                  <StatsEngineSelect
+                    label="Default Statistics Engine"
+                    allowUndefined={false}
+                    value={form.watch("statsEngine")}
+                    onChange={(value) => {
+                      setStatsEngineTab(value);
+                      form.setValue("statsEngine", value);
+                    }}
+                  />
+                </div>
+
+                <h4>Stats Engine Settings</h4>
+
+                <ControlledTabs
+                  newStyle={true}
+                  className="mt-3"
+                  buttonsClassName="px-5"
+                  tabContentsClassName="border"
+                  // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'Dispatch<SetStateAction<string>>' is not ass... Remove this comment to see the full error message
+                  setActive={setStatsEngineTab}
+                  active={statsEngineTab}
+                >
+                  <Tab id="bayesian" display="Bayesian">
+                    <h4 className="mb-4 text-purple">Bayesian Settings</h4>
+
+                    <div className="form-group mb-2 mr-2 form-inline">
                       <Field
-                        label="Statistics Engine"
+                        label="Chance to win threshold"
+                        type="number"
+                        step="any"
+                        min="70"
+                        max="99"
+                        style={{
+                          width: "80px",
+                          borderColor: highlightColor,
+                          backgroundColor: highlightColor
+                            ? highlightColor + "15"
+                            : "",
+                        }}
+                        className={`ml-2`}
+                        containerClassName="mb-3"
+                        append="%"
+                        disabled={hasFileConfig()}
+                        helpText={
+                          <>
+                            <span className="ml-2">(95% is default)</span>
+                            <div
+                              className="ml-2"
+                              style={{
+                                color: highlightColor,
+                                flexBasis: "100%",
+                              }}
+                            >
+                              {warningMsg}
+                            </div>
+                          </>
+                        }
+                        {...form.register("confidenceLevel", {
+                          valueAsNumber: true,
+                        })}
+                      />
+                    </div>
+                  </Tab>
+
+                  <Tab id="frequentist" display="Frequentist">
+                    <h4 className="mb-4 text-purple">Frequentist Settings</h4>
+
+                    <div className="form-group mb-2 mr-2 form-inline">
+                      <Field
+                        label="P-value threshold"
+                        type="number"
+                        step="0.001"
+                        max="0.5"
+                        min="0.001"
+                        style={{
+                          borderColor: pHighlightColor,
+                          backgroundColor: pHighlightColor
+                            ? pHighlightColor + "15"
+                            : "",
+                        }}
+                        className={`ml-2`}
+                        containerClassName="mb-3"
+                        append=""
+                        disabled={hasFileConfig()}
+                        helpText={
+                          <>
+                            <span className="ml-2">(0.05 is default)</span>
+                            <div
+                              className="ml-2"
+                              style={{
+                                color: pHighlightColor,
+                                flexBasis: "100%",
+                              }}
+                            >
+                              {pWarningMsg}
+                            </div>
+                          </>
+                        }
+                        {...form.register("pValueThreshold", {
+                          valueAsNumber: true,
+                        })}
+                      />
+                    </div>
+                    <div className="mb-3  form-inline flex-column align-items-start">
+                      <SelectField
+                        label={"Multiple comparisons correction to use: "}
                         className="ml-2"
+                        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | null' is not assignable to type 'st... Remove this comment to see the full error message
+                        value={form.watch("pValueCorrection") ?? null}
+                        onChange={(value) =>
+                          form.setValue(
+                            "pValueCorrection",
+                            value as PValueCorrection
+                          )
+                        }
+                        sort={false}
                         options={[
                           {
-                            display: "Bayesian",
-                            value: "bayesian",
+                            label: "None",
+                            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'string'.
+                            value: null,
                           },
                           {
-                            display: "Frequentist",
-                            value: "frequentist",
+                            label: "Holm-Bonferroni (Control FWER)",
+                            value: "holm-bonferroni",
+                          },
+                          {
+                            label: "Benjamini-Hochberg (Control FDR)",
+                            value: "benjamini-hochberg",
                           },
                         ]}
-                        {...form.register("statsEngine")}
                       />
                     </div>
-                  </div>
-                </div>
-
-                <div className="p-3 my-3 border rounded">
-                  <h5 className="font-weight-bold mb-1">
-                    <PremiumTooltip commercialFeature="regression-adjustment">
-                      Regression Adjustment (CUPED)
-                    </PremiumTooltip>
-                  </h5>
-                  <div className="mb-3">
-                    <small className="d-inline-block mb-2 text-muted">
-                      Only applicable to frequentist analyses
-                    </small>
-                  </div>
-                  <div className="form-group mb-0 mr-2">
-                    <div className="d-flex">
-                      <label
-                        className="mr-1"
-                        htmlFor="toggle-regressionAdjustmentEnabled"
-                      >
-                        Apply regression adjustment by default
-                      </label>
-                      <Toggle
-                        id={"toggle-regressionAdjustmentEnabled"}
-                        value={!!form.watch("regressionAdjustmentEnabled")}
-                        setValue={(value) => {
-                          form.setValue("regressionAdjustmentEnabled", value);
-                        }}
-                        disabled={
-                          !hasRegressionAdjustmentFeature || hasFileConfig()
-                        }
-                      />
-                    </div>
-                    {form.watch("regressionAdjustmentEnabled") &&
-                      form.watch("statsEngine") === "bayesian" && (
-                        <div className="d-flex">
-                          <small className="mb-1 text-warning-orange">
-                            <FaExclamationTriangle /> Your organization uses
-                            Bayesian statistics by default and regression
-                            adjustment is not implemented for the Bayesian
-                            engine.
-                          </small>
-                        </div>
-                      )}
-                  </div>
-                  <div
-                    className="form-group mt-3 mb-0 mr-2 form-inline"
-                    style={{
-                      opacity: form.watch("regressionAdjustmentEnabled")
-                        ? "1"
-                        : "0.5",
-                    }}
-                  >
-                    <Field
-                      label="Pre-exposure lookback period (days)"
-                      type="number"
-                      style={{
-                        borderColor: regressionAdjustmentDaysHighlightColor,
-                        backgroundColor: regressionAdjustmentDaysHighlightColor
-                          ? regressionAdjustmentDaysHighlightColor + "15"
-                          : "",
-                      }}
-                      className={`ml-2`}
-                      containerClassName="mb-0"
-                      append="days"
-                      min="0"
-                      max="100"
-                      disabled={
-                        !hasRegressionAdjustmentFeature || hasFileConfig()
-                      }
-                      helpText={
-                        <>
-                          <span className="ml-2">(14 is default)</span>
-                        </>
-                      }
-                      {...form.register("regressionAdjustmentDays", {
-                        valueAsNumber: true,
-                        validate: (v) => {
-                          return !(v <= 0 || v > 100);
-                        },
-                      })}
-                    />
-                    {regressionAdjustmentDaysWarningMsg && (
-                      <small
-                        style={{
-                          color: regressionAdjustmentDaysHighlightColor,
-                        }}
-                      >
-                        {regressionAdjustmentDaysWarningMsg}
-                      </small>
-                    )}
-                  </div>
-                </div>
-
-                <div className="form-check mb-2 mt-2">
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    name="advanced-options"
-                    checked={showAdvancedOptions}
-                    onChange={(e) => {
-                      setShowAdvancedOptions(!!e.target?.checked);
-                    }}
-                    id="checkbox-advanced"
-                  />
-
-                  <label
-                    htmlFor="checkbox-advanced"
-                    className="form-check-label"
-                  >
-                    Show Advanced Options
-                  </label>
-                </div>
-                {showAdvancedOptions && (
-                  <div className="bg-light p-3 my-3 border rounded">
-                    <div>
+                    <div className="p-3 my-3 border rounded">
                       <h5 className="font-weight-bold mb-4">
-                        Advanced Options - use caution
+                        <PremiumTooltip commercialFeature="regression-adjustment">
+                          <GBCuped /> Regression Adjustment (CUPED)
+                        </PremiumTooltip>
                       </h5>
-                    </div>
-                    <div>
-                      <div className="form-group mb-2 mr-2 form-inline flex-wrap">
+                      <div className="form-group mb-0 mr-2">
+                        <div className="d-flex">
+                          <label
+                            className="mr-1"
+                            htmlFor="toggle-regressionAdjustmentEnabled"
+                          >
+                            Apply regression adjustment by default
+                          </label>
+                          <Toggle
+                            id={"toggle-regressionAdjustmentEnabled"}
+                            value={!!form.watch("regressionAdjustmentEnabled")}
+                            setValue={(value) => {
+                              form.setValue(
+                                "regressionAdjustmentEnabled",
+                                value
+                              );
+                            }}
+                            disabled={
+                              !hasRegressionAdjustmentFeature || hasFileConfig()
+                            }
+                          />
+                        </div>
+                        {form.watch("regressionAdjustmentEnabled") &&
+                          form.watch("statsEngine") === "bayesian" && (
+                            <div className="d-flex">
+                              <small className="mb-1 text-warning-orange">
+                                <FaExclamationTriangle /> Your organization uses
+                                Bayesian statistics by default and regression
+                                adjustment is not implemented for the Bayesian
+                                engine.
+                              </small>
+                            </div>
+                          )}
+                      </div>
+                      <div
+                        className="form-group mt-3 mb-0 mr-2 form-inline"
+                        style={{
+                          opacity: form.watch("regressionAdjustmentEnabled")
+                            ? "1"
+                            : "0.5",
+                        }}
+                      >
                         <Field
-                          label="Bayesian chance to win threshold"
+                          label="Pre-exposure lookback period (days)"
                           type="number"
-                          step="any"
-                          min="70"
-                          max="99"
                           style={{
-                            width: "80px",
-                            borderColor: highlightColor,
-                            backgroundColor: highlightColor
-                              ? highlightColor + "15"
+                            borderColor: regressionAdjustmentDaysHighlightColor,
+                            backgroundColor: regressionAdjustmentDaysHighlightColor
+                              ? regressionAdjustmentDaysHighlightColor + "15"
                               : "",
                           }}
                           className={`ml-2`}
-                          containerClassName="mb-3"
-                          append="%"
-                          disabled={hasFileConfig()}
+                          containerClassName="mb-0"
+                          append="days"
+                          min="0"
+                          max="100"
+                          disabled={
+                            !hasRegressionAdjustmentFeature || hasFileConfig()
+                          }
                           helpText={
                             <>
-                              <span className="ml-2">(95% is default)</span>
-                              <div
-                                className="ml-2"
-                                style={{
-                                  color: highlightColor,
-                                  flexBasis: "100%",
-                                }}
-                              >
-                                {warningMsg}
-                              </div>
+                              <span className="ml-2">
+                                ({DEFAULT_REGRESSION_ADJUSTMENT_DAYS} is
+                                default)
+                              </span>
                             </>
                           }
-                          {...form.register("confidenceLevel", {
+                          {...form.register("regressionAdjustmentDays", {
                             valueAsNumber: true,
+                            validate: (v) => {
+                              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                              return !(v <= 0 || v > 100);
+                            },
                           })}
                         />
+                        {regressionAdjustmentDaysWarningMsg && (
+                          <small
+                            style={{
+                              color: regressionAdjustmentDaysHighlightColor,
+                            }}
+                          >
+                            {regressionAdjustmentDaysWarningMsg}
+                          </small>
+                        )}
                       </div>
-                      <div className="form-group mb-2 mr-2 form-inline">
+                    </div>
+
+                    <div className="p-3 my-3 border rounded">
+                      <h5 className="font-weight-bold mb-4">
+                        <PremiumTooltip commercialFeature="sequential-testing">
+                          <GBSequential /> Sequential Testing
+                        </PremiumTooltip>
+                      </h5>
+                      <div className="form-group mb-0 mr-2">
+                        <div className="d-flex">
+                          <label
+                            className="mr-1"
+                            htmlFor="toggle-sequentialTestingEnabled"
+                          >
+                            Apply sequential testing by default
+                          </label>
+                          <Toggle
+                            id={"toggle-sequentialTestingEnabled"}
+                            value={!!form.watch("sequentialTestingEnabled")}
+                            setValue={(value) => {
+                              form.setValue("sequentialTestingEnabled", value);
+                            }}
+                            disabled={
+                              !hasSequentialTestingFeature || hasFileConfig()
+                            }
+                          />
+                        </div>
+                        {form.watch("sequentialTestingEnabled") &&
+                          form.watch("statsEngine") === "bayesian" && (
+                            <div className="d-flex">
+                              <small className="mb-1 text-warning-orange">
+                                <FaExclamationTriangle /> Your organization uses
+                                Bayesian statistics by default and sequential
+                                testing is not implemented for the Bayesian
+                                engine.
+                              </small>
+                            </div>
+                          )}
+                      </div>
+                      <div
+                        className="form-group mt-3 mb-0 mr-2 form-inline"
+                        style={{
+                          opacity: form.watch("sequentialTestingEnabled")
+                            ? "1"
+                            : "0.5",
+                        }}
+                      >
                         <Field
-                          label="Frequentist p-value threshold"
+                          label="Tuning parameter"
                           type="number"
-                          step="0.001"
-                          max="0.5"
-                          min="0.001"
-                          style={{
-                            borderColor: pHighlightColor,
-                            backgroundColor: pHighlightColor
-                              ? pHighlightColor + "15"
-                              : "",
-                          }}
                           className={`ml-2`}
-                          containerClassName="mb-3"
-                          append=""
-                          disabled={hasFileConfig()}
+                          containerClassName="mb-0"
+                          min="0"
+                          disabled={
+                            !hasSequentialTestingFeature || hasFileConfig()
+                          }
                           helpText={
                             <>
-                              <span className="ml-2">(0.05 is default)</span>
-                              <div
-                                className="ml-2"
-                                style={{
-                                  color: pHighlightColor,
-                                  flexBasis: "100%",
-                                }}
-                              >
-                                {pWarningMsg}
-                              </div>
+                              <span className="ml-2">
+                                ({DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}{" "}
+                                is default)
+                              </span>
                             </>
                           }
-                          {...form.register("pValueThreshold", {
-                            valueAsNumber: true,
-                          })}
+                          {...form.register(
+                            "sequentialTestingTuningParameter",
+                            {
+                              valueAsNumber: true,
+                              validate: (v) => {
+                                // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+                                return !(v <= 0);
+                              },
+                            }
+                          )}
                         />
                       </div>
                     </div>
-                  </div>
-                )}
+                  </Tab>
+                </ControlledTabs>
               </div>
             </div>
 
@@ -854,21 +1177,26 @@ const GeneralSettingsPage = (): React.ReactElement => {
               <div className="col-sm-9">
                 <div className="form-inline">
                   <Field
-                    label="Amount of historical data to include when analyzing metrics"
+                    label="Amount of historical data to use on metric analysis page"
+                    type="number"
                     append="days"
                     className="ml-2"
-                    containerClassName="mb-3"
+                    containerClassName="mb-0"
                     disabled={hasFileConfig()}
-                    options={[7, 14, 30, 90, 180, 365]}
                     {...form.register("metricAnalysisDays", {
                       valueAsNumber: true,
                     })}
                   />
+                  {metricAnalysisDaysWarningMsg && (
+                    <small className="text-danger">
+                      {metricAnalysisDaysWarningMsg}
+                    </small>
+                  )}
                 </div>
 
                 {/* region Metrics Behavior Defaults */}
                 <>
-                  <h5 className="mt-3">Metrics Behavior Defaults</h5>
+                  <h5 className="mt-4">Metrics Behavior Defaults</h5>
                   <p>
                     These are the pre-configured default values that will be
                     used when configuring metrics. You can always change these
@@ -953,29 +1281,131 @@ const GeneralSettingsPage = (): React.ReactElement => {
                   {/* endregion Minimum Percentage Change */}
                 </>
                 {/* endregion Metrics Behavior Defaults */}
+                <>
+                  <SelectField
+                    label="Display Currency"
+                    value={form.watch("displayCurrency") || "USD"}
+                    options={currencyOptions}
+                    onChange={(v: string) =>
+                      form.setValue("displayCurrency", v)
+                    }
+                    required
+                    placeholder="Select currency..."
+                    helpText="This should match what is stored in the data source and controls what currency symbol is displayed."
+                  />
+                </>
               </div>
             </div>
-            <div className="divider border-bottom mb-5 mt-3" />
 
-            <div
-              className="row position-sticky p-4 bg-white"
-              style={{ bottom: 0 }}
-            >
-              <div className="col-12">
-                <div className="d-flex flex-row-reverse pr-4">
-                  <Button
-                    color={"primary"}
-                    disabled={!ctaEnabled}
-                    onClick={async () => {
-                      if (!ctaEnabled) return;
-                      await saveSettings();
-                    }}
+            <div className="divider border-bottom mb-3 mt-3" />
+
+            <div className="row">
+              <div className="col-sm-3">
+                <h4>Features Settings</h4>
+              </div>
+              <div className="col-sm-9">
+                <div className="form-inline">
+                  <Field
+                    label={
+                      <PremiumTooltip
+                        commercialFeature={"hash-secure-attributes"}
+                        body={
+                          <>
+                            <p>
+                              Feature targeting conditions referencing{" "}
+                              <code>secureString</code> attributes will be
+                              anonymized via SHA-256 hashing. When evaluating
+                              feature flags in a public or insecure environment
+                              (such as a browser), hashing provides an
+                              additional layer of security through obfuscation.
+                              This allows you to target users based on sensitive
+                              attributes.
+                            </p>
+                            <p>
+                              You must enable this feature in your SDK
+                              Connection for it to take effect.
+                            </p>
+                            <p>
+                              You may add a cryptographic salt string (a random
+                              string of your choosing) to the hashing algorithm,
+                              which helps defend against hash lookup
+                              vulnerabilities.
+                            </p>
+                            <p className="mb-0 text-warning-orange small">
+                              <FaExclamationCircle /> When using an insecure
+                              environment, do not rely exclusively on hashing as
+                              a means of securing highly sensitive data. Hashing
+                              is an obfuscation technique that makes it very
+                              difficult, but not impossible, to extract
+                              sensitive data.
+                            </p>
+                          </>
+                        }
+                      >
+                        Salt string for secure attributes <FaQuestionCircle />
+                      </PremiumTooltip>
+                    }
+                    disabled={!hasSecureAttributesFeature}
+                    className="ml-2"
+                    containerClassName="mb-3"
+                    type="string"
+                    {...form.register("secureAttributeSalt")}
+                  />
+                </div>
+
+                <div>
+                  <label
+                    className="mr-1"
+                    htmlFor="toggle-killswitchConfirmation"
                   >
-                    Save
-                  </Button>
+                    Require confirmation when changing an environment kill
+                    switch
+                  </label>
+                </div>
+                <div>
+                  <Toggle
+                    id={"toggle-killswitchConfirmation"}
+                    value={!!form.watch("killswitchConfirmation")}
+                    setValue={(value) => {
+                      form.setValue("killswitchConfirmation", value);
+                    }}
+                  />
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="bg-main-color position-sticky w-100 py-3 border-top"
+        style={{ bottom: 0, height: 70 }}
+      >
+        <div className="container-fluid pagecontents d-flex">
+          <div className="flex-grow-1 mr-4">
+            {saveMsg && (
+              <TempMessage
+                className="mb-0 py-2"
+                close={() => {
+                  setSaveMsg(false);
+                }}
+              >
+                Settings saved
+              </TempMessage>
+            )}
+          </div>
+          <div>
+            <Button
+              style={{ marginRight: "4rem" }}
+              color={"primary"}
+              disabled={!ctaEnabled}
+              onClick={async () => {
+                if (!ctaEnabled) return;
+                await saveSettings();
+              }}
+            >
+              Save
+            </Button>
           </div>
         </div>
       </div>

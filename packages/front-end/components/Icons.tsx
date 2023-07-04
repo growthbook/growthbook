@@ -434,7 +434,7 @@ export function GBPremiumBadge({
   shouldDisplay = true,
   prependsText = false,
   size = "large",
-}): GBPremiumBadge {
+}) {
   if (!shouldDisplay) return null;
   return (
     <svg
@@ -483,7 +483,7 @@ export function GBPremiumBadge({
 
 export function GBCuped({
   className = "",
-  size = 16,
+  size = 20,
   ...otherProps
 }): React.ReactElement {
   return (
@@ -533,6 +533,73 @@ export function GBCuped({
         }}
         d="M 0.75 12.056 C 0.75 12.056 2.916 12.09 4.132 9.615 C 5.197 7.448 6.534 6.703 8.244 6.644 C 9.807 6.59 11.373 8.126 12.276 9.782 C 13.489 12.007 15.614 11.977 15.614 11.977"
       ></path>
+    </svg>
+  );
+}
+
+export function GBSequential({
+  className = "",
+  size = 20,
+  ...otherProps
+}): React.ReactElement {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 16 13"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...otherProps}
+    >
+      <path
+        style={{
+          strokeWidth: 0.8,
+          stroke: "rgb(61,106,153)",
+        }}
+        d="m.4,10.1s.72-.15,2.36-4.77c.89-2.51,2.38-2.58,3.2.08,1.42,4.57,2.78,4.74,2.78,4.74"
+      />
+      <path
+        style={{
+          strokeWidth: 1,
+          stroke: "rgb(61,130,204)",
+        }}
+        d="m2.66,9.52s.88-.17,2.72-5.37c1-2.83,2.67-2.91,3.6.09,1.6,5.14,3.12,5.33,3.12,5.33"
+      />
+      <path
+        style={{
+          strokeWidth: 1.2,
+          stroke: "rgb(51,150,255)",
+        }}
+        d="m4.88,8.94s1.03-.19,3.08-5.96c1.11-3.14,2.97-3.23,4.01.1,1.78,5.71,3.47,5.92,3.47,5.92"
+      />
+    </svg>
+  );
+}
+
+export function GBHashLock({
+  className = "",
+  size = 15,
+  ...otherProps
+}): React.ReactElement {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 448 512"
+      fill="currentColor"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      {...otherProps}
+    >
+      <polygon points="173.9,391.6 244.3,389.2 263.5,313.1 192.9,316.6" />
+      <path
+        d="M400,194h-24v-42C376,68.2,307.8,0,224,0S72,68.2,72,152v42H48c-26.5,0-48,21.5-48,48v222
+		c0,26.5,21.5,48,48,48h352c26.5,0,48-21.5,48-48V242C448,215.5,426.5,194,400,194z M152,152c0-39.7,32.3-72,72-72s72,32.3,72,72v42
+		H152V152z M344.1,309.1l-35.4,1.8l-19.4,76.8l37-1.3l-11.3,38l-35.4,1.8l-9.7,38.4l-44.9,0.9l9.3-37l-70.6,3.5l-8.8,34.9l-44.9,0.9
+		l8.5-33.5l-37.1,1.8l11.3-41.5l36.1-1.3l18.8-74.3l-37.1,1.8l11.3-40.6l36-1.4l9.1-36.1l44.9-0.9l-8.9,35.3l70.4-2.7l8.6-34
+		l44.9-0.9l-8.4,33.1l37-1.4L344.1,309.1z"
+      />
     </svg>
   );
 }

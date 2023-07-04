@@ -32,7 +32,7 @@ const Button: FC<Props> = ({
   ...otherProps
 }) => {
   const [_internalLoading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState<boolean | null>(false);
   const loading = _externalLoading || _internalLoading;
 
   return (

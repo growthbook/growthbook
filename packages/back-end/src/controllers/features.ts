@@ -22,6 +22,7 @@ import {
   getDraftRules,
   discardDraft,
   updateDraft,
+  setJsonSchema,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
@@ -29,6 +30,7 @@ import {
   addIdsToRules,
   arrayMove,
   getFeatureDefinitions,
+  getSurrogateKey,
   verifyDraftsAreEqual,
 } from "../services/features";
 import { ensureWatching } from "../services/experiments";
@@ -48,13 +50,13 @@ import {
 } from "../models/SdkConnectionModel";
 import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
-import { IS_CLOUD } from "../util/secrets";
+import { FASTLY_SERVICE_ID, IS_CLOUD } from "../util/secrets";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 
-class ApiKeyError extends Error {
+class UnrecoverableApiError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "ApiKeyError";
+    this.name = "UnrecoverableApiError";
   }
 }
 
@@ -70,12 +72,14 @@ async function getPayloadParamsFromApiKey(
   sseEnabled?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
+  includeExperimentNames?: boolean;
+  hashSecureAttributes?: boolean;
 }> {
   // SDK Connection key
   if (key.match(/^sdk-/)) {
     const connection = await findSDKConnectionByKey(key);
     if (!connection) {
-      throw new ApiKeyError("Invalid API Key");
+      throw new UnrecoverableApiError("Invalid API Key");
     }
 
     // If this is the first time the SDK Connection is being used, mark it as successfully connected
@@ -96,6 +100,8 @@ async function getPayloadParamsFromApiKey(
       sseEnabled: connection.sseEnabled,
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
+      includeExperimentNames: connection.includeExperimentNames,
+      hashSecureAttributes: connection.hashSecureAttributes,
     };
   }
   // Old, legacy API Key
@@ -114,10 +120,10 @@ async function getPayloadParamsFromApiKey(
       encryptionKey,
     } = await lookupOrganizationByApiKey(key);
     if (!organization) {
-      throw new ApiKeyError("Invalid API Key");
+      throw new UnrecoverableApiError("Invalid API Key");
     }
     if (secret) {
-      throw new ApiKeyError(
+      throw new UnrecoverableApiError(
         "Must use a Publishable API key to get feature definitions"
       );
     }
@@ -141,7 +147,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     const { key } = req.params;
 
     if (!key) {
-      throw new ApiKeyError("Missing API key in request");
+      throw new UnrecoverableApiError("Missing API key in request");
     }
 
     const {
@@ -153,16 +159,20 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       sseEnabled,
       includeVisualExperiments,
       includeDraftExperiments,
+      includeExperimentNames,
+      hashSecureAttributes,
     } = await getPayloadParamsFromApiKey(key, req);
 
-    const defs = await getFeatureDefinitions(
+    const defs = await getFeatureDefinitions({
       organization,
       environment,
       project,
-      encrypted ? encryptionKey : "",
+      encryptionKey: encrypted ? encryptionKey : "",
       includeVisualExperiments,
-      includeDraftExperiments
-    );
+      includeDraftExperiments,
+      includeExperimentNames,
+      hashSecureAttributes,
+    });
 
     // Cache for 30 seconds, serve stale up to 1 hour (10 hours if origin is down)
     res.set(
@@ -176,6 +186,17 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       res.set("Access-Control-Expose-Headers", "x-sse-support");
     }
 
+    // If using Fastly, add surrogate key header for cache purging
+    if (FASTLY_SERVICE_ID) {
+      // Purge by org, API Key, or payload contents
+      const surrogateKeys = [
+        organization,
+        key,
+        getSurrogateKey(organization, project, environment),
+      ];
+      res.set("Surrogate-Key", surrogateKeys.join(" "));
+    }
+
     res.status(200).json({
       status: 200,
       ...defs,
@@ -184,8 +205,11 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     // We don't want to expose internal errors like Mongo Connections to users, so default to a generic message
     let error = "Failed to get features";
 
-    // Some specific error messages we whitelist to provide more detailed feedback to users
-    if (e instanceof ApiKeyError) {
+    // These errors are unrecoverable and can thus be cached by a CDN despite a 400 response code
+    // Set this header, which our CDN can pick up and apply caching rules for
+    // Also, use the more detailed error message since these are explicitly set by us
+    if (e instanceof UnrecoverableApiError) {
+      res.set("x-unrecoverable", "1");
       error = e.message;
     }
 
@@ -251,6 +275,11 @@ export async function postFeatures(
         email,
         name: userName,
       },
+    },
+    jsonSchema: {
+      schema: "",
+      date: new Date(),
+      enabled: false,
     },
   };
 
@@ -454,6 +483,44 @@ export async function postFeatureDefaultValue(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   await setDefaultValue(org, res.locals.eventAudit, feature, defaultValue);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeatureSchema(
+  req: AuthRequest<{ schema: string; enabled: boolean }, { id: string }>,
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { schema, enabled } = req.body;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+  req.checkPermissions("createFeatureDrafts", feature.project);
+
+  const updatedFeature = await setJsonSchema(
+    org,
+    res.locals.eventAudit,
+    feature,
+    schema,
+    enabled
+  );
+
+  await req.audit({
+    event: "feature.update",
+    entity: {
+      object: "feature",
+      id: feature.id,
+    },
+    details: auditDetailsUpdate(feature, updatedFeature),
+  });
 
   res.status(200).json({
     status: 200,

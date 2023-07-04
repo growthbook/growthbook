@@ -1,6 +1,7 @@
 import fs from "fs";
 import dotenv from "dotenv";
 import { IssuerMetadata } from "openid-client";
+import trimEnd from "lodash/trimEnd";
 import { SSOConnectionInterface } from "../../types/sso-connection";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
@@ -23,11 +24,17 @@ export const UPLOAD_METHOD = (() => {
   return "local";
 })();
 
-export const MONGODB_URI =
+export let MONGODB_URI =
   process.env.MONGODB_URI ??
-  (prod ? "" : "mongodb://root:password@localhost:27017/");
+  (prod ? "" : "mongodb://root:password@localhost:27017/test?authSource=admin");
 if (!MONGODB_URI) {
   throw new Error("Missing MONGODB_URI environment variable");
+}
+
+// For backwards compatibility, if no dbname is explicitly set, use "test" and add the authSource db.
+// This matches the default behavior of the MongoDB driver 3.X, which changed when we updated to 4.X
+if (MONGODB_URI.match(/:27017(\/)?$/)) {
+  MONGODB_URI = trimEnd(MONGODB_URI, "/") + "/test?authSource=admin";
 }
 
 export const APP_ORIGIN = process.env.APP_ORIGIN || "http://localhost:3000";
@@ -82,8 +89,8 @@ export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 const testConn = process.env.POSTGRES_TEST_CONN;
 export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};
 
-export const AWS_CLOUDFRONT_DISTRIBUTION_ID =
-  process.env.AWS_CLOUDFRONT_DISTRIBUTION_ID || "";
+export const FASTLY_API_TOKEN = process.env.FASTLY_API_TOKEN || "";
+export const FASTLY_SERVICE_ID = process.env.FASTLY_SERVICE_ID || "";
 
 // Update results every X hours
 export const EXPERIMENT_REFRESH_FREQUENCY =
@@ -170,6 +177,42 @@ if ((prod || !isLocalhost) && secretAPIKey === "dev") {
   );
 }
 export const SECRET_API_KEY = secretAPIKey;
+// This is typically used for the Proxy Server, which only requires readonly access
+export const SECRET_API_KEY_ROLE =
+  process.env.SECRET_API_KEY_ROLE || "readonly";
 export const PROXY_ENABLED = !!process.env.PROXY_ENABLED;
 export const PROXY_HOST_INTERNAL = process.env.PROXY_HOST_INTERNAL || "";
 export const PROXY_HOST_PUBLIC = process.env.PROXY_HOST_PUBLIC || "";
+
+/**
+ * Allows custom configuration of the trust proxy settings as
+ * described in the docs: https://expressjs.com/en/5x/api.html#trust.proxy.options.table
+ *
+ * Supports true/false for boolean values.
+ * Supports integer values to trust the nth hop from the front-facing proxy server as the client.
+ * All other truthy values will be used verbatim.
+ */
+const getTrustProxyConfig = (): boolean | string | number => {
+  const value = process.env.EXPRESS_TRUST_PROXY_OPTS;
+
+  // If no value set, return false
+  if (!value) {
+    return false;
+  }
+
+  // Lower-cased value to enable easier boolean config
+  const lowerCasedValue = value.toLowerCase();
+  if (lowerCasedValue === "true") return true;
+  if (lowerCasedValue === "false") return false;
+
+  // Check for nth hop config
+  //    Trust the nth hop from the front-facing proxy server as the client.
+  if (value.match(/^[0-9]+$/)) {
+    return parseInt(value);
+  }
+
+  // If not a recognized boolean format or a valid integer, return value verbatim
+  return value;
+};
+
+export const EXPRESS_TRUST_PROXY_OPTS = getTrustProxyConfig();

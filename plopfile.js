@@ -103,8 +103,15 @@ module.exports = function (plop) {
         type: "add",
         skipIfExists: true,
         path:
-          "./packages/back-end/src/api/{{kebabCase object}}s/put{{pascalCase object}}.ts",
-        templateFile: "./plop-templates/back-end/api/put.hbs",
+          "./packages/back-end/src/api/{{kebabCase object}}s/update{{pascalCase object}}.ts",
+        templateFile: "./plop-templates/back-end/api/update.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/{{kebabCase object}}s/delete{{pascalCase object}}.ts",
+        templateFile: "./plop-templates/back-end/api/delete.hbs",
       },
       {
         type: "add",
@@ -131,8 +138,8 @@ module.exports = function (plop) {
         type: "add",
         skipIfExists: true,
         path:
-          "./packages/back-end/src/api/openapi/paths/put{{pascalCase object}}.yaml",
-        templateFile: "./plop-templates/back-end/api/openapi_put.hbs",
+          "./packages/back-end/src/api/openapi/paths/update{{pascalCase object}}.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_update.hbs",
       },
       {
         type: "add",
@@ -140,6 +147,13 @@ module.exports = function (plop) {
         path:
           "./packages/back-end/src/api/openapi/paths/get{{pascalCase object}}.yaml",
         templateFile: "./plop-templates/back-end/api/openapi_get.hbs",
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/back-end/src/api/openapi/paths/delete{{pascalCase object}}.yaml",
+        templateFile: "./plop-templates/back-end/api/openapi_delete.hbs",
       },
       {
         type: "append",
@@ -161,8 +175,10 @@ module.exports = function (plop) {
   /{{kebabCase object}}s/{id}:
     get:
       $ref: "./paths/get{{pascalCase object}}.yaml"
-    put:
-      $ref: "./paths/put{{pascalCase object}}.yaml"`,
+    post:
+      $ref: "./paths/update{{pascalCase object}}.yaml"
+    delete:
+      $ref: "./paths/delete{{pascalCase object}}.yaml"`,
       },
     ],
   });

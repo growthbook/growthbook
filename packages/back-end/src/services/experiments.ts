@@ -3,14 +3,25 @@ import cronParser from "cron-parser";
 import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
+import { isEqual } from "lodash";
+import {
+  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
+  DEFAULT_STATS_ENGINE,
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+} from "shared/constants";
+import { getValidDate } from "shared/dates";
+import { getScopedSettings } from "shared/settings";
+import { getSnapshotAnalysis } from "shared/util";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
+  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
+  MetricForSnapshot,
   SnapshotVariation,
 } from "../../types/experiment-snapshot";
 import {
   getMetricsByIds,
-  getMetricsByOrganization,
   insertMetric,
   updateMetric,
 } from "../models/MetricModel";
@@ -37,7 +48,6 @@ import { ExperimentInterface, MetricOverride } from "../../types/experiment";
 import { PastExperiment } from "../../types/past-experiments";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
-import { getValidDate } from "../util/dates";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { findSegmentById } from "../models/SegmentModel";
 import {
@@ -49,7 +59,6 @@ import {
   OrganizationInterface,
   OrganizationSettings,
 } from "../../types/organization";
-import { StatsEngine } from "../../types/stats";
 import { logger } from "../util/logger";
 import { DataSourceInterface } from "../../types/datasource";
 import {
@@ -59,11 +68,13 @@ import {
   ApiMetric,
 } from "../../types/openapi";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
-import { postMetricValidator } from "../validators/openapi";
+import { postMetricValidator, putMetricValidator } from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
+import { VisualChangesetInterface } from "../../types/visual-changeset";
+import { findProjectById } from "../models/ProjectModel";
 import {
+  getMetricForSnapsot,
   getReportVariations,
-  reportArgsFromSnapshot,
   startExperimentAnalysis,
 } from "./reports";
 import { getMetricValue, QueryMap, startRun } from "./queries";
@@ -163,7 +174,7 @@ export async function refreshMetric(
     }
 
     let days = metricAnalysisDays;
-    if (days < 1 || days > 400) {
+    if (days < 1) {
       days = DEFAULT_METRIC_ANALYSIS_DAYS;
     }
 
@@ -237,15 +248,10 @@ export async function getManualSnapshotData(
   users: number[],
   metrics: {
     [key: string]: MetricStats[];
-  }
+  },
+  metricMap: Map<string, MetricInterface>
 ) {
   const phase = experiment.phases[phaseIndex];
-
-  const metricMap = new Map<string, MetricInterface>();
-  const allMetrics = await getMetricsByOrganization(experiment.organization);
-  allMetrics.forEach((m) => {
-    metricMap.set(m.id, m);
-  });
 
   // Default variation values, override from SQL results if available
   const variations: SnapshotVariation[] = experiment.variations.map((v, i) => ({
@@ -279,8 +285,7 @@ export async function getManualSnapshotData(
         const res = await analyzeExperimentMetric(
           getReportVariations(experiment, phase),
           metric,
-          rows,
-          20
+          rows
         );
         const data = res.dimensions[0];
         if (!data) return;
@@ -300,6 +305,67 @@ export async function getManualSnapshotData(
   };
 }
 
+export function getSnapshotSettings({
+  experiment,
+  phaseIndex,
+  settings,
+  metricRegressionAdjustmentStatuses,
+  metricMap,
+}: {
+  experiment: ExperimentInterface;
+  phaseIndex: number;
+  settings: ExperimentSnapshotAnalysisSettings;
+  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
+  metricMap: Map<string, MetricInterface>;
+}): ExperimentSnapshotSettings {
+  const phase = experiment.phases[phaseIndex];
+  if (!phase) {
+    throw new Error("Invalid snapshot phase");
+  }
+
+  const metricSettings = [
+    // Combine goals, guardrails, and activation metric and de-dupe the list
+    ...new Set([
+      ...experiment.metrics,
+      ...(experiment.guardrails || []),
+      ...(experiment.activationMetric ? [experiment.activationMetric] : []),
+    ]),
+  ]
+    .map((m) =>
+      getMetricForSnapsot(
+        m,
+        metricMap,
+        metricRegressionAdjustmentStatuses,
+        experiment.metricOverrides
+      )
+    )
+    .filter(Boolean) as MetricForSnapshot[];
+
+  return {
+    manual: !experiment.datasource,
+    activationMetric: experiment.activationMetric || null,
+    attributionModel: experiment.attributionModel || "firstExposure",
+    skipPartialData: !!experiment.skipPartialData,
+    segment: experiment.segment || "",
+    queryFilter: experiment.queryFilter || "",
+    datasourceId: experiment.datasource || "",
+    dimensions: settings.dimensions.map((id) => ({ id })),
+    startDate: phase.dateStarted,
+    endDate: phase.dateEnded || new Date(),
+    experimentId: experiment.trackingKey || experiment.id,
+    goalMetrics: experiment.metrics,
+    guardrailMetrics: experiment.guardrails || [],
+    regressionAdjustmentEnabled:
+      settings.statsEngine === "frequentist" && !!settings.regressionAdjusted,
+    exposureQueryId: experiment.exposureQueryId,
+    metricSettings: metricSettings,
+    variations: experiment.variations.map((v, i) => ({
+      id: v.key || i + "",
+      weight: phase.variationWeights[i] || 0,
+    })),
+  };
+}
+
 export async function createManualSnapshot(
   experiment: ExperimentInterface,
   phaseIndex: number,
@@ -307,13 +373,15 @@ export async function createManualSnapshot(
   metrics: {
     [key: string]: MetricStats[];
   },
-  statsEngine?: StatsEngine
+  settings: ExperimentSnapshotAnalysisSettings,
+  metricMap: Map<string, MetricInterface>
 ) {
   const { srm, variations } = await getManualSnapshotData(
     experiment,
     phaseIndex,
     users,
-    metrics
+    metrics,
+    metricMap
   );
 
   const data: ExperimentSnapshotInterface = {
@@ -325,15 +393,30 @@ export async function createManualSnapshot(
     queries: [],
     runStarted: new Date(),
     dateCreated: new Date(),
-    manual: true,
-    results: [
+    status: "success",
+    settings: getSnapshotSettings({
+      experiment,
+      phaseIndex,
+      settings,
+      metricRegressionAdjustmentStatuses: [],
+      metricMap,
+    }),
+    unknownVariations: [],
+    multipleExposures: 0,
+    analyses: [
       {
-        name: "All",
-        srm,
-        variations,
+        dateCreated: new Date(),
+        status: "success",
+        settings: settings,
+        results: [
+          {
+            name: "All",
+            srm,
+            variations,
+          },
+        ],
       },
     ],
-    statsEngine,
   };
 
   const snapshot = await createExperimentSnapshotModel(data);
@@ -342,7 +425,7 @@ export async function createManualSnapshot(
 }
 
 export async function parseDimensionId(
-  dimension: string | undefined,
+  dimension: string | null | undefined,
   organization: string
 ): Promise<Dimension | null> {
   if (dimension) {
@@ -397,21 +480,26 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   return new Date(Date.now() + hours * 60 * 60 * 1000);
 }
 
-export async function createSnapshot(
-  experiment: ExperimentInterface,
-  user: EventAuditUser,
-  phaseIndex: number,
-  organization: OrganizationInterface,
-  dimensionId: string | null,
-  useCache: boolean = false,
-  statsEngine: StatsEngine | undefined,
-  regressionAdjustmentEnabled: boolean,
-  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[]
-) {
-  const phase = experiment.phases[phaseIndex];
-  if (!phase) {
-    throw new Error("Invalid snapshot phase");
-  }
+export async function createSnapshot({
+  experiment,
+  organization,
+  user = null,
+  phaseIndex,
+  useCache = false,
+  analysisSettings,
+  metricRegressionAdjustmentStatuses,
+  metricMap,
+}: {
+  experiment: ExperimentInterface;
+  organization: OrganizationInterface;
+  user?: EventAuditUser;
+  phaseIndex: number;
+  useCache?: boolean;
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
+  metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
+  metricMap: Map<string, MetricInterface>;
+}) {
+  const dimension = analysisSettings.dimensions[0] || null;
 
   const data: ExperimentSnapshotInterface = {
     id: uniqid("snp_"),
@@ -421,23 +509,19 @@ export async function createSnapshot(
     error: "",
     dateCreated: new Date(),
     phase: phaseIndex,
-    manual: false,
     queries: [],
-    hasRawQueries: true,
-    queryLanguage: "sql",
-    dimension: dimensionId,
-    results: undefined,
+    dimension: dimension || null,
+    settings: getSnapshotSettings({
+      experiment,
+      phaseIndex,
+      settings: analysisSettings,
+      metricRegressionAdjustmentStatuses,
+      metricMap,
+    }),
     unknownVariations: [],
     multipleExposures: 0,
-    activationMetric: experiment.activationMetric || "",
-    segment: experiment.segment || "",
-    queryFilter: experiment.queryFilter || "",
-    skipPartialData: experiment.skipPartialData || false,
-    statsEngine:
-      statsEngine || organization.settings?.statsEngine || "bayesian",
-    regressionAdjustmentEnabled: regressionAdjustmentEnabled,
-    metricRegressionAdjustmentStatuses:
-      metricRegressionAdjustmentStatuses || [],
+    analyses: [],
+    status: "running",
   };
 
   const nextUpdate =
@@ -455,17 +539,39 @@ export async function createSnapshot(
     },
   });
 
-  const { queries, results } = await startExperimentAnalysis(
+  const { queries, results } = await startExperimentAnalysis({
     organization,
-    reportArgsFromSnapshot(experiment, data),
-    useCache
-  );
+    useCache,
+    analysisSettings,
+    snapshotSettings: data.settings,
+    variationNames: experiment.variations.map((v) => v.name),
+    metricMap,
+  });
 
   data.queries = queries;
-  data.results = results?.dimensions;
-  data.unknownVariations = results?.unknownVariations || [];
-  data.multipleExposures = results?.multipleExposures || 0;
-  data.hasCorrectedStats = true;
+
+  // Already finished (cached)
+  if (results?.dimensions) {
+    data.analyses.push({
+      dateCreated: new Date(),
+      results: results.dimensions,
+      settings: analysisSettings,
+      status: "success",
+    });
+    data.unknownVariations = results.unknownVariations;
+    data.multipleExposures = results.multipleExposures;
+    data.status = "success";
+  }
+  // Still running
+  else {
+    data.analyses.push({
+      dateCreated: new Date(),
+      results: [],
+      settings: analysisSettings,
+      status: "running",
+    });
+    data.status = "running";
+  }
 
   const snapshot = await createExperimentSnapshotModel(data);
 
@@ -630,10 +736,20 @@ function getExperimentMetric(
   return ret;
 }
 
-export function toExperimentApiInterface(
+export async function toExperimentApiInterface(
   organization: OrganizationInterface,
   experiment: ExperimentInterface
-): ApiExperiment {
+): Promise<ApiExperiment> {
+  let project = null;
+  if (experiment.project) {
+    project = await findProjectById(experiment.project, organization.id);
+  }
+  const { settings: scopedSettings } = getScopedSettings({
+    organization,
+    project: project ?? undefined,
+    // todo: experiment settings
+  });
+
   const activationMetric = experiment.activationMetric;
   return {
     id: experiment.id,
@@ -683,7 +799,7 @@ export function toExperimentApiInterface(
       queryFilter: experiment.queryFilter || "",
       inProgressConversions: experiment.skipPartialData ? "exclude" : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
-      statsEngine: organization.settings?.statsEngine || "bayesian",
+      statsEngine: scopedSettings.statsEngine.value || DEFAULT_STATS_ENGINE,
       goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
       guardrails: (experiment.guardrails || []).map((m) =>
         getExperimentMetric(experiment, m)
@@ -731,17 +847,21 @@ export function toSnapshotApiInterface(
 
   const phase = experiment.phases[snapshot.phase];
 
+  const activationMetric =
+    snapshot.settings.activationMetric || experiment.activationMetric;
+
   const metricIds = new Set([
     ...experiment.metrics,
     ...(experiment.guardrails || []),
   ]);
-  if (experiment.activationMetric) {
-    metricIds.add(experiment.activationMetric);
+  if (activationMetric) {
+    metricIds.add(activationMetric);
   }
 
-  const activationMetric = experiment.activationMetric;
-
   const variationIds = experiment.variations.map((v) => v.id);
+
+  // Get the default analysis
+  const analysis = getSnapshotAnalysis(snapshot);
 
   return {
     id: snapshot.id,
@@ -758,11 +878,13 @@ export function toSnapshotApiInterface(
       datasourceId: experiment.datasource || "",
       assignmentQueryId: experiment.exposureQueryId || "",
       experimentId: experiment.trackingKey,
-      segmentId: snapshot.segment || "",
-      queryFilter: snapshot.queryFilter || "",
-      inProgressConversions: snapshot.skipPartialData ? "exclude" : "include",
+      segmentId: snapshot.settings.segment,
+      queryFilter: snapshot.settings.queryFilter,
+      inProgressConversions: snapshot.settings.skipPartialData
+        ? "exclude"
+        : "include",
       attributionModel: experiment.attributionModel || "firstExposure",
-      statsEngine: snapshot.statsEngine || "bayesian",
+      statsEngine: analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
       goals: experiment.metrics.map((m) => getExperimentMetric(experiment, m)),
       guardrails: (experiment.guardrails || []).map((m) =>
         getExperimentMetric(experiment, m)
@@ -774,7 +896,7 @@ export function toSnapshotApiInterface(
         : null),
     },
     queryIds: snapshot.queries.map((q) => q.query),
-    results: (snapshot.results || []).map((s) => {
+    results: (analysis?.results || []).map((s) => {
       return {
         dimension: s.name,
         totalUsers: s.variations.reduce((sum, v) => sum + v.users, 0),
@@ -789,7 +911,8 @@ export function toSnapshotApiInterface(
               variationId: variationIds[i],
               analyses: [
                 {
-                  engine: snapshot.statsEngine || "bayesian",
+                  engine:
+                    analysis?.settings?.statsEngine || DEFAULT_STATS_ENGINE,
                   numerator: data?.value || 0,
                   denominator: data?.denominator || data?.users || 0,
                   mean: data?.stats?.mean || 0,
@@ -954,6 +1077,138 @@ export function postMetricApiPayloadIsValid(
   };
 }
 
+export function putMetricApiPayloadIsValid(
+  payload: z.infer<typeof putMetricValidator.bodySchema>
+): { valid: true } | { valid: false; error: string } {
+  const { type, sql, sqlBuilder, mixpanel, behavior } = payload;
+
+  // Validate query format: sql, sqlBuilder, mixpanel
+  let queryFormatCount = 0;
+  if (sqlBuilder) {
+    queryFormatCount++;
+  }
+  if (sql) {
+    queryFormatCount++;
+  }
+  if (mixpanel) {
+    queryFormatCount++;
+  }
+  if (queryFormatCount > 1) {
+    return {
+      valid: false,
+      error: "Can only specify one of: sql, sqlBuilder, mixpanel",
+    };
+  }
+
+  // Validate behavior
+  if (behavior) {
+    const { riskThresholdDanger, riskThresholdSuccess } = behavior;
+
+    // Enforce that both and riskThresholdSuccess exist, or neither
+    const riskDangerExists = typeof riskThresholdDanger !== "undefined";
+    const riskSuccessExists = typeof riskThresholdSuccess !== "undefined";
+    if (riskDangerExists !== riskSuccessExists)
+      return {
+        valid: false,
+        error:
+          "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
+      };
+
+    // We have both. Make sure they're valid
+    if (riskDangerExists && riskSuccessExists) {
+      // Enforce riskThresholdDanger must be higher than riskThresholdSuccess
+      if (riskThresholdDanger < riskThresholdSuccess)
+        return {
+          valid: false,
+          error: "riskThresholdDanger must be higher than riskThresholdSuccess",
+        };
+    }
+
+    // Validate conversion window
+    const { conversionWindowEnd, conversionWindowStart } = behavior;
+    const conversionWindowEndExists =
+      typeof conversionWindowEnd !== "undefined";
+    const conversionWindowStartExists =
+      typeof conversionWindowStart !== "undefined";
+    if (conversionWindowEndExists !== conversionWindowStartExists) {
+      return {
+        valid: false,
+        error:
+          "Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither",
+      };
+    }
+
+    if (conversionWindowEndExists && conversionWindowStartExists) {
+      // Enforce conversion window end is greater than start
+      if (conversionWindowEnd <= conversionWindowStart)
+        return {
+          valid: false,
+          error:
+            "`behavior.conversionWindowEnd` must be greater than `behavior.conversionWindowStart`",
+        };
+    }
+
+    // Min/max percentage change
+    const { maxPercentChange, minPercentChange } = behavior;
+    const maxPercentExists = typeof maxPercentChange !== "undefined";
+    const minPercentExists = typeof minPercentChange !== "undefined";
+    // Enforce both max/min percent or neither
+    if (maxPercentExists !== minPercentExists)
+      return {
+        valid: false,
+        error:
+          "Must specify both `behavior.maxPercentChange` and `behavior.minPercentChange` or neither",
+      };
+
+    if (maxPercentExists && minPercentExists) {
+      // Enforce max is greater than min
+      if (maxPercentChange <= minPercentChange)
+        return {
+          valid: false,
+          error:
+            "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`",
+        };
+    }
+  }
+
+  // Validate for payload.sql
+  if (sql) {
+    // Validate binomial metrics
+    if (type === "binomial" && typeof sql.userAggregationSQL !== "undefined")
+      return {
+        valid: false,
+        error: "Binomial metrics cannot have userAggregationSQL",
+      };
+  }
+
+  // Validate payload.mixpanel
+  if (mixpanel) {
+    // Validate binomial metrics
+    if (type === "binomial" && typeof mixpanel.eventValue !== "undefined")
+      return {
+        valid: false,
+        error: "Binomial metrics cannot have an eventValue",
+      };
+  }
+
+  // Validate payload.sqlBuilder
+  if (sqlBuilder) {
+    // Validate binomial metrics
+    if (
+      type === "binomial" &&
+      typeof sqlBuilder.valueColumnName !== "undefined"
+    )
+      return {
+        valid: false,
+        error: "Binomial metrics cannot have a valueColumnName",
+      };
+  }
+
+  return {
+    valid: true,
+  };
+}
+
 /**
  * Converts the OpenAPI POST /metric payload to a {@link MetricInterface}
  * @param payload
@@ -1080,6 +1335,154 @@ export function postMetricApiPayloadToMetricInterface(
     metric.aggregation = mixpanel.userAggregation;
     metric.table = mixpanel.eventName;
     metric.column = mixpanel.eventValue;
+  }
+
+  return metric;
+}
+
+/**
+ * Converts the OpenAPI PUT /metric payload to a {@link MetricInterface}
+ * @param payload
+ * @param organization
+ * @param datasource
+ */
+export function putMetricApiPayloadToMetricInterface(
+  payload: z.infer<typeof putMetricValidator.bodySchema>
+): Partial<MetricInterface> {
+  const {
+    behavior,
+    sql,
+    sqlBuilder,
+    mixpanel,
+    description,
+    name,
+    owner,
+    tags,
+    projects,
+    type,
+  } = payload;
+
+  const metric: Partial<MetricInterface> = {
+    ...(typeof description !== "undefined" ? { description } : {}),
+    ...(typeof name !== "undefined" ? { name } : {}),
+    ...(typeof owner !== "undefined" ? { owner } : {}),
+    ...(typeof tags !== "undefined" ? { tags } : {}),
+    ...(typeof projects !== "undefined" ? { projects } : {}),
+    ...(typeof type !== "undefined" ? { type } : {}),
+  };
+
+  // Assign all undefined behavior fields to the metric
+  if (behavior) {
+    if (typeof behavior.goal !== "undefined") {
+      metric.inverse = behavior.goal === "decrease";
+    }
+
+    if (typeof behavior.cap !== "undefined") {
+      metric.cap = behavior.cap;
+    }
+
+    if (typeof behavior.conversionWindowStart !== "undefined") {
+      // The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the Conversion Delay
+      metric.conversionDelayHours = behavior.conversionWindowStart;
+    }
+
+    if (
+      typeof behavior.conversionWindowEnd !== "undefined" &&
+      typeof behavior.conversionWindowStart !== "undefined"
+    ) {
+      // The end of a Conversion Window relative to the exposure date, in hours.
+      // This is equivalent to the Conversion Delay + Conversion Window Hours settings in the UI. In other words,
+      // if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and
+      // conversionWindowEnd to 72 (24+48).
+      metric.conversionWindowHours =
+        behavior.conversionWindowEnd - behavior.conversionWindowStart;
+    }
+
+    if (typeof behavior.maxPercentChange !== "undefined") {
+      metric.maxPercentChange = behavior.maxPercentChange;
+    }
+
+    if (typeof behavior.minPercentChange !== "undefined") {
+      metric.minPercentChange = behavior.minPercentChange;
+    }
+
+    if (typeof behavior.minSampleSize !== "undefined") {
+      metric.minSampleSize = behavior.minSampleSize;
+    }
+
+    if (typeof behavior.riskThresholdDanger !== "undefined") {
+      metric.loseRisk = behavior.riskThresholdDanger;
+    }
+
+    if (typeof behavior.riskThresholdSuccess !== "undefined") {
+      metric.winRisk = behavior.riskThresholdSuccess;
+    }
+  }
+
+  if (sqlBuilder) {
+    metric.queryFormat = "builder";
+  } else if (sql) {
+    metric.queryFormat = "sql";
+  }
+
+  // Conditions
+  if (mixpanel?.conditions) {
+    metric.conditions = mixpanel.conditions.map(
+      ({ operator, property, value }) => ({
+        column: property,
+        operator: operator as Operator,
+        value: value,
+      })
+    );
+  } else if (sqlBuilder?.conditions) {
+    metric.conditions = sqlBuilder.conditions as Condition[];
+  }
+
+  if (sqlBuilder) {
+    if (typeof sqlBuilder.tableName !== "undefined") {
+      metric.table = sqlBuilder.tableName;
+    }
+    if (typeof sqlBuilder.timestampColumnName !== "undefined") {
+      metric.timestampColumn = sqlBuilder.timestampColumnName;
+    }
+    if (typeof sqlBuilder.valueColumnName !== "undefined") {
+      metric.column = sqlBuilder.valueColumnName;
+    }
+    if (typeof sqlBuilder.identifierTypeColumns !== "undefined") {
+      metric.userIdColumns = (sqlBuilder?.identifierTypeColumns || []).reduce<
+        Record<string, string>
+      >((acc, { columnName, identifierType }) => {
+        acc[columnName] = identifierType;
+        return acc;
+      }, {});
+    }
+  }
+
+  if (sql) {
+    if (typeof sql.userAggregationSQL !== "undefined") {
+      metric.aggregation = sql.userAggregationSQL;
+    }
+    if (typeof sql.denominatorMetricId !== "undefined") {
+      metric.denominator = sql.denominatorMetricId;
+    }
+    if (typeof sql.identifierTypes !== "undefined") {
+      metric.userIdTypes = sql.identifierTypes;
+    }
+    if (typeof sql.conversionSQL !== "undefined") {
+      metric.sql = sql.conversionSQL;
+    }
+  }
+
+  if (mixpanel) {
+    if (typeof mixpanel.userAggregation !== "undefined") {
+      metric.aggregation = mixpanel.userAggregation;
+    }
+    if (typeof mixpanel.eventName !== "undefined") {
+      metric.table = mixpanel.eventName;
+    }
+    if (typeof mixpanel.eventValue !== "undefined") {
+      metric.column = mixpanel.eventValue;
+    }
   }
 
   return metric;
@@ -1212,9 +1615,11 @@ export async function getRegressionAdjustmentInfo(
     const {
       metricRegressionAdjustmentStatus,
     } = getRegressionAdjustmentsForMetric({
-      metric: metric,
-      denominatorMetrics: denominatorMetrics,
-      experimentRegressionAdjustmentEnabled: !!experiment.regressionAdjustmentEnabled,
+      metric: metric as MetricInterface,
+      denominatorMetrics: denominatorMetrics as MetricInterface[],
+      experimentRegressionAdjustmentEnabled:
+        experiment.regressionAdjustmentEnabled ??
+        DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
       organizationSettings: organization.settings,
       metricOverrides: experiment.metricOverrides,
     });
@@ -1249,7 +1654,7 @@ export function getRegressionAdjustmentsForMetric({
 
   // start with default RA settings
   let regressionAdjustmentEnabled = true;
-  let regressionAdjustmentDays = 14;
+  let regressionAdjustmentDays = DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
   let reason = "";
 
   // get RA settings from organization
@@ -1266,7 +1671,8 @@ export function getRegressionAdjustmentsForMetric({
   // get RA settings from metric
   if (metric?.regressionAdjustmentOverride) {
     regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
-    regressionAdjustmentDays = metric?.regressionAdjustmentDays ?? 14;
+    regressionAdjustmentDays =
+      metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
     if (!regressionAdjustmentEnabled) {
       reason = "disabled in metric settings";
     }
@@ -1320,4 +1726,33 @@ export function getRegressionAdjustmentsForMetric({
       reason,
     },
   };
+}
+
+export function visualChangesetsHaveChanges({
+  oldVisualChangeset,
+  newVisualChangeset,
+}: {
+  oldVisualChangeset: VisualChangesetInterface;
+  newVisualChangeset: VisualChangesetInterface;
+}): boolean {
+  // If there are visual change differences
+  const oldVisualChanges = oldVisualChangeset.visualChanges.map(
+    ({ css, domMutations }) => ({ css, domMutations })
+  );
+  const newVisualChanges = newVisualChangeset.visualChanges.map(
+    ({ css, domMutations }) => ({ css, domMutations })
+  );
+  if (!isEqual(oldVisualChanges, newVisualChanges)) {
+    return true;
+  }
+
+  // If there are URL targeting differences
+  if (
+    !isEqual(oldVisualChangeset.urlPatterns, newVisualChangeset.urlPatterns)
+  ) {
+    return true;
+  }
+
+  // Otherwise, there are no meaningful changes
+  return false;
 }

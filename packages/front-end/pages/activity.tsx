@@ -52,7 +52,9 @@ const Activity: FC = () => {
                 showName={true}
                 showType={true}
                 itemName={
-                  nameMap.has(event.entity.id) && nameMap.get(event.entity.id)
+                  nameMap.has(event.entity.id)
+                    ? nameMap.get(event.entity.id)
+                    : undefined
                 }
                 url={
                   event.entity.object === "feature"

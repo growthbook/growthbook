@@ -80,7 +80,7 @@ const TeamPage: FC = () => {
           <div>You can now invite more team members to your account.</div>
         </div>
       )}
-      <SSOSettings ssoConnection={ssoConnection} />
+      <SSOSettings ssoConnection={ssoConnection || null} />
       <h1>Team Members</h1>
       {projects.length > 0 && (
         <div className="row align-items-center">
@@ -99,21 +99,31 @@ const TeamPage: FC = () => {
         </div>
       )}
       {isCloud() && <AutoApproveMembersToggle mutate={refreshOrganization} />}
-      <MemberList mutate={refreshOrganization} project={currentProject} />
-      {organization?.pendingMembers?.length > 0 && (
-        <PendingMemberList
-          pendingMembers={organization.pendingMembers}
-          mutate={refreshOrganization}
-          project={currentProject}
-        />
-      )}
-      {organization.invites.length > 0 && (
-        <InviteList
-          invites={organization.invites}
-          mutate={refreshOrganization}
-          project={currentProject}
-        />
-      )}
+      <MemberList
+        mutate={refreshOrganization}
+        project={currentProject}
+        canEditRoles={true}
+        canDeleteMembers={true}
+        canInviteMembers={true}
+      />
+      {organization &&
+        organization.pendingMembers &&
+        organization.pendingMembers.length > 0 && (
+          <PendingMemberList
+            pendingMembers={organization.pendingMembers}
+            mutate={refreshOrganization}
+            project={currentProject}
+          />
+        )}
+      {organization &&
+        organization.invites &&
+        organization.invites.length > 0 && (
+          <InviteList
+            invites={organization.invites}
+            mutate={refreshOrganization}
+            project={currentProject}
+          />
+        )}
 
       <OrphanedUsersList
         mutateUsers={refreshOrganization}

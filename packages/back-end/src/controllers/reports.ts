@@ -1,25 +1,32 @@
 import { Response } from "express";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { getValidDate } from "shared/dates";
+import { getSnapshotAnalysis } from "shared/util";
 import { ReportInterface } from "../../types/report";
 import {
   getExperimentById,
   getExperimentsByIds,
 } from "../models/ExperimentModel";
 import { findSnapshotById } from "../models/ExperimentSnapshotModel";
+import { getMetricMap } from "../models/MetricModel";
 import {
   createReport,
-  getReportById,
-  updateReport,
-  getReportsByOrg,
-  getReportsByExperimentId,
   deleteReportById,
+  getReportById,
+  getReportsByExperimentId,
+  getReportsByOrg,
+  updateReport,
 } from "../models/ReportModel";
 import { generateReportNotebook } from "../services/notebook";
 import { getOrgFromReq } from "../services/organizations";
 import { cancelRun, getStatusEndpoint } from "../services/queries";
-import { runReport, reportArgsFromSnapshot } from "../services/reports";
+import {
+  getSnapshotSettingsFromReportArgs,
+  reportArgsFromSnapshot,
+  runReport,
+} from "../services/reports";
 import { analyzeExperimentResults } from "../services/stats";
 import { AuthRequest } from "../types/AuthRequest";
-import { getValidDate } from "../util/dates";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -46,16 +53,21 @@ export async function postReportFromSnapshot(
     throw new Error("Unknown experiment phase");
   }
 
+  const analysis = getSnapshotAnalysis(snapshot);
+  if (!analysis) {
+    throw new Error("Missing analysis settings");
+  }
+
   const doc = await createReport(org.id, {
     experimentId: experiment.id,
     userId: req.userId,
     title: `New Report - ${experiment.name}`,
     description: ``,
     type: "experiment",
-    args: reportArgsFromSnapshot(experiment, snapshot),
-    results: snapshot.results
+    args: reportArgsFromSnapshot(experiment, snapshot, analysis.settings),
+    results: analysis.results
       ? {
-          dimensions: snapshot.results,
+          dimensions: analysis.results,
           unknownVariations: snapshot.unknownVariations || [],
           multipleExposures: snapshot.multipleExposures || 0,
         }
@@ -192,15 +204,19 @@ export async function refreshReport(
 
   const useCache = !req.query["force"];
 
-  report.args.statsEngine =
-    report.args?.statsEngine || org.settings?.statsEngine || "bayesian";
-  report.args.regressionAdjustmentEnabled = !!report.args
-    ?.regressionAdjustmentEnabled;
+  const statsEngine = report.args?.statsEngine || DEFAULT_STATS_ENGINE;
+
+  report.args.statsEngine = statsEngine;
+  report.args.regressionAdjustmentEnabled =
+    statsEngine === "frequentist"
+      ? !!report.args?.regressionAdjustmentEnabled
+      : false;
 
   await runReport(org, report, useCache);
 
   return res.status(200).json({
     status: 200,
+    report,
   });
 }
 
@@ -227,16 +243,19 @@ export async function putReport(
       ...req.body.args,
     };
 
+    const statsEngine = updates.args?.statsEngine || DEFAULT_STATS_ENGINE;
+
     updates.args.startDate = getValidDate(updates.args.startDate);
     if (!updates.args.endDate) {
       delete updates.args.endDate;
     } else {
       updates.args.endDate = getValidDate(updates.args.endDate || new Date());
     }
-    updates.args.statsEngine =
-      updates.args?.statsEngine || org.settings?.statsEngine || "bayesian";
-    updates.args.regressionAdjustmentEnabled = !!updates.args
-      ?.regressionAdjustmentEnabled;
+    updates.args.statsEngine = statsEngine;
+    updates.args.regressionAdjustmentEnabled =
+      statsEngine === "frequentist"
+        ? !!updates.args?.regressionAdjustmentEnabled
+        : false;
     updates.args.metricRegressionAdjustmentStatuses =
       updates.args?.metricRegressionAdjustmentStatuses || [];
 
@@ -248,19 +267,17 @@ export async function putReport(
 
   await updateReport(org.id, req.params.id, updates);
 
+  const updatedReport: ReportInterface = {
+    ...report,
+    ...updates,
+  };
   if (needsRun) {
-    await runReport(
-      org,
-      {
-        ...report,
-        ...updates,
-      },
-      true
-    );
+    await runReport(org, updatedReport, true);
   }
 
   return res.status(200).json({
     status: 200,
+    updatedReport,
   });
 }
 
@@ -277,15 +294,22 @@ export async function getReportStatus(
   const result = await getStatusEndpoint(
     report,
     org.id,
-    (queryData) => {
+    async (queryData) => {
       if (report.type === "experiment") {
-        return analyzeExperimentResults(
-          org.id,
-          report.args.variations,
-          report.args.dimension || undefined,
+        const metricMap = await getMetricMap(org.id);
+
+        const {
+          snapshotSettings,
+          analysisSettings,
+        } = getSnapshotSettingsFromReportArgs(report.args, metricMap);
+
+        return analyzeExperimentResults({
+          variationNames: report.args.variations.map((v) => v.name),
           queryData,
-          report.args.statsEngine || org.settings?.statsEngine
-        );
+          metricMap,
+          snapshotSettings,
+          analysisSettings,
+        });
       }
       throw new Error("Unsupported report type");
     },

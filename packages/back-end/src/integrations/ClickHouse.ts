@@ -5,8 +5,10 @@ import SqlIntegration from "./SqlIntegration";
 
 export default class ClickHouse extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   params: ClickHouseConnectionParams;
+  requiresDatabase = false;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<ClickHouseConnectionParams>(
       encryptedParams
@@ -74,10 +76,20 @@ export default class ClickHouse extends SqlIntegration {
   formatDate(col: string): string {
     return `formatDateTime(${col}, '%F')`;
   }
+  formatDateTimeString(col: string): string {
+    return `formatDateTime(${col}, '%Y-%m-%d %H:%i:%S.%f')`;
+  }
   ifElse(condition: string, ifTrue: string, ifFalse: string) {
     return `if(${condition}, ${ifTrue}, ${ifFalse})`;
   }
   castToString(col: string): string {
     return `toString(${col})`;
+  }
+  getInformationSchemaWhereClause(): string {
+    if (!this.params.database)
+      throw new Error(
+        "No database name provided in ClickHouse connection. Please add a database by editing the connection settings."
+      );
+    return `table_schema IN ('${this.params.database}')`;
   }
 }

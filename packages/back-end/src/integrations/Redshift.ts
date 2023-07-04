@@ -6,7 +6,7 @@ import SqlIntegration from "./SqlIntegration";
 
 export default class Redshift extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   params: PostgresConnectionParams;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PostgresConnectionParams>(
@@ -28,7 +28,13 @@ export default class Redshift extends SqlIntegration {
   formatDate(col: string) {
     return `to_char(${col}, 'YYYY-MM-DD')`;
   }
+  formatDateTimeString(col: string) {
+    return `to_char(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`;
+  }
   ensureFloat(col: string): string {
     return `${col}::float`;
+  }
+  getInformationSchemaTable(): string {
+    return "SVV_COLUMNS";
   }
 }

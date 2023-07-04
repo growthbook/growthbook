@@ -25,7 +25,13 @@ export type Operator =
   | "$all"
   | "$not"
   | "$type"
-  | "$exists";
+  | "$exists"
+  | "$vgt"
+  | "$vgte"
+  | "$vlt"
+  | "$vlte"
+  | "$vne"
+  | "$veq";
 export type VarType =
   | "string"
   | "number"
@@ -60,7 +66,8 @@ export type ConditionValue =
   // eslint-disable-next-line
   | Array<any>
   // eslint-disable-next-line
-  | Record<string, any>;
+  | Record<string, any>
+  | null;
 
 export type OperatorCondition = {
   [key: string]: ConditionValue;

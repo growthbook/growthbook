@@ -1,10 +1,17 @@
-import { FC, useState, useEffect, CSSProperties } from "react";
+import {
+  FC,
+  useState,
+  useEffect,
+  CSSProperties,
+  ReactElement,
+  isValidElement,
+} from "react";
 import { FaTrash } from "react-icons/fa";
 import clsx from "clsx";
 import Modal from "../Modal";
 
 const DeleteButton: FC<{
-  onClick: () => Promise<void>;
+  onClick: () => void | Promise<void>;
   className?: string;
   iconClassName?: string;
   style?: CSSProperties;
@@ -14,9 +21,9 @@ const DeleteButton: FC<{
   text?: string;
   title?: string;
   useIcon?: boolean;
-  deleteMessage?: string;
-  additionalMessage?: string;
-  getConfirmationContent?: () => Promise<string | React.ReactElement>;
+  deleteMessage?: ReactElement | null | string;
+  additionalMessage?: ReactElement | null | string;
+  getConfirmationContent?: () => Promise<string | ReactElement | null>;
   canDelete?: boolean;
 }> = ({
   onClick,
@@ -36,7 +43,7 @@ const DeleteButton: FC<{
 }) => {
   const [confirming, setConfirming] = useState(false);
   const [dynamicContent, setDynamicContent] = useState<
-    string | React.ReactElement
+    string | ReactElement | null
   >("");
 
   useEffect(() => {
@@ -58,8 +65,19 @@ const DeleteButton: FC<{
           submit={onClick}
           ctaEnabled={canDelete}
         >
-          {dynamicContent ? dynamicContent : <p>{deleteMessage}</p>}
-          {additionalMessage && <p>{additionalMessage}</p>}
+          {dynamicContent ? (
+            dynamicContent
+          ) : isValidElement(deleteMessage) ? (
+            deleteMessage
+          ) : (
+            <p>{deleteMessage}</p>
+          )}
+          {additionalMessage &&
+            (isValidElement(additionalMessage) ? (
+              additionalMessage
+            ) : (
+              <p>{additionalMessage}</p>
+            ))}
         </Modal>
       ) : (
         ""

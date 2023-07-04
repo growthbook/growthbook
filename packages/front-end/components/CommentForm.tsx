@@ -60,7 +60,7 @@ const CommentForm: FC<{
         autofocus={autofocus}
         cta={cta}
         onCancel={onCancel}
-        error={formError}
+        error={formError || ""}
       />
     </form>
   );

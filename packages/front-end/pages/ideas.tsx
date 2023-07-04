@@ -3,9 +3,9 @@ import Link from "next/link";
 import { IdeaInterface } from "back-end/types/idea";
 import { FaPlus, FaRegCheckSquare, FaRegSquare } from "react-icons/fa";
 import clsx from "clsx";
+import { date } from "shared/dates";
 import useApi from "../hooks/useApi";
 import LoadingOverlay from "../components/LoadingOverlay";
-import { date } from "../services/dates";
 import IdeaForm from "../components/Ideas/IdeaForm";
 import { useSearch } from "../services/search";
 import { useDefinitions } from "../services/DefinitionsContext";
@@ -22,7 +22,7 @@ const IdeasPage = (): React.ReactElement => {
     ideas: IdeaInterface[];
   }>(`/ideas?project=${project || ""}`);
 
-  const [current, setCurrent] = useState<Partial<IdeaInterface>>(null);
+  const [current, setCurrent] = useState<Partial<IdeaInterface> | null>(null);
 
   const { getUserDisplay, permissions } = useUser();
 
@@ -171,7 +171,9 @@ const IdeasPage = (): React.ReactElement => {
                           <div className="date mb-1">
                             By{" "}
                             <strong className="mr-1">
-                              {getUserDisplay(idea.userId) || idea.userName}
+                              {idea.userId
+                                ? getUserDisplay(idea.userId)
+                                : idea.userName}
                             </strong>
                             on <strong>{date(idea.dateCreated)}</strong>
                           </div>

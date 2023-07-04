@@ -3,7 +3,7 @@ import { QueryInterface } from "back-end/types/query";
 import { formatDistanceStrict } from "date-fns";
 import { FaCircle, FaExclamationTriangle, FaCheck } from "react-icons/fa";
 import clsx from "clsx";
-import { getValidDate } from "@/services/dates";
+import { getValidDate } from "shared/dates";
 import Code from "../SyntaxHighlighting/Code";
 
 const ExpandableQuery: FC<{
@@ -64,6 +64,7 @@ const ExpandableQuery: FC<{
                     return (
                       <tr key={i}>
                         <th>{i}</th>
+                        {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
                         {Object.keys(query.rawResult[0]).map((k) => {
                           return (
                             <td key={k}>
@@ -92,6 +93,7 @@ const ExpandableQuery: FC<{
             Took{" "}
             {formatDistanceStrict(
               getValidDate(query.startedAt),
+              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | undefined' is not assigna... Remove this comment to see the full error message
               getValidDate(query.finishedAt)
             )}
           </em>

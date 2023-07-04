@@ -7,6 +7,7 @@ import pandas as pd
 from gbstats.gbstats import (
     base_statistic_from_metric_row,
     detect_unknown_variations,
+    diff_for_daily_time_series,
     reduce_dimensionality,
     analyze_metric_df,
     get_metric_df,
@@ -18,7 +19,6 @@ from gbstats.shared.constants import StatsEngine
 from gbstats.shared.models import (
     RegressionAdjustedStatistic,
     SampleMeanStatistic,
-    ProportionStatistic,
 )
 
 DECIMALS = 9
@@ -193,6 +193,56 @@ RA_STATISTICS_DF = pd.DataFrame(
 ).assign(
     statistic_type="mean_ra", main_metric_type="count", covariate_metric_type="count"
 )
+
+
+class TestDiffDailyTS(TestCase):
+    def test_diff_works_as_expected(self):
+        dfc = MULTI_DIMENSION_STATISTICS_DF.copy()
+        dfc["dimension"].replace(
+            ["one", "two"], ["2022-01-01", "2022-01-02"], inplace=True
+        )
+        dfc = diff_for_daily_time_series(dfc)
+
+        target_df = pd.DataFrame(
+            [
+                {
+                    "dimension": "2022-01-01",
+                    "variation": "one",
+                    "main_sum": 300,
+                    "main_sum_squares": 869,
+                    "users": 120,
+                    "count": 120,
+                },
+                {
+                    "dimension": "2022-01-01",
+                    "variation": "zero",
+                    "main_sum": 270,
+                    "main_sum_squares": 848.79,
+                    "users": 100,
+                    "count": 100,
+                },
+                {
+                    "dimension": "2022-01-02",
+                    "variation": "one",
+                    "main_sum": 770.0 - 300,
+                    "main_sum_squares": 3571 - 869,
+                    "users": 220,
+                    "count": 220,
+                },
+                {
+                    "dimension": "2022-01-02",
+                    "variation": "zero",
+                    "main_sum": 740.0 - 270,
+                    "main_sum_squares": 3615.59 - 848.79,
+                    "users": 200,
+                    "count": 200,
+                },
+            ]
+        ).assign(statistic_type="mean", main_metric_type="count")
+        pd.testing.assert_frame_equal(
+            dfc.sort_values(["variation", "dimension"]).reset_index(drop=True),
+            target_df.sort_values(["variation", "dimension"]).reset_index(drop=True),
+        )
 
 
 class TestGetMetricDf(TestCase):
@@ -594,6 +644,45 @@ class TestAnalyzeMetricDfRegressionAdjustment(TestCase):
             analyze_metric_df(
                 df=df, weights=[0.5, 0.5], inverse=False, engine=StatsEngine.BAYESIAN
             )
+
+
+class TestAnalyzeMetricDfSequential(TestCase):
+    def test_analyze_metric_df_sequential(self):
+        rows = MULTI_DIMENSION_STATISTICS_DF
+        df = get_metric_df(
+            rows,
+            {"zero": 0, "one": 1},
+            ["zero", "one"],
+        )
+        result = analyze_metric_df(
+            df=df,
+            weights=[0.5, 0.5],
+            inverse=False,
+            engine=StatsEngine.FREQUENTIST,
+            engine_config={"sequential": True, "sequential_tuning_parameter": 600},
+        )
+
+        self.assertEqual(len(result.index), 2)
+        self.assertEqual(result.at[0, "dimension"], "one")
+        self.assertEqual(round_(result.at[0, "baseline_cr"]), 2.7)
+        self.assertEqual(result.at[0, "baseline_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_cr"]), 2.5)
+        self.assertEqual(result.at[0, "v1_risk"], None)
+        self.assertEqual(round_(result.at[0, "v1_expected"]), -0.074074074)
+        self.assertEqual(result.at[0, "v1_prob_beat_baseline"], None)
+        self.assertEqual(round_(result.at[0, "v1_p_value"]), 0.892332229)
+        self.assertEqual(round_(result.at[0, "v1_ci"][0]), -0.233322085)
+
+        result_bad_tuning = analyze_metric_df(
+            df=df,
+            weights=[0.5, 0.5],
+            inverse=False,
+            engine=StatsEngine.FREQUENTIST,
+            engine_config={"sequential": True, "sequential_tuning_parameter": 1},
+        )
+
+        # Wider CI with lower tuning parameter to test it passes through
+        self.assertTrue(result.at[0, "v1_ci"][0] > result_bad_tuning.at[0, "v1_ci"][0])
 
 
 class TestFormatResults(TestCase):

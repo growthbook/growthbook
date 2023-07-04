@@ -1,5 +1,7 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { omit } from "lodash";
+import { ApiSavedGroup } from "../../types/openapi";
 import { SavedGroupInterface } from "../../types/saved-group";
 import { usingFileConfig } from "../init/config";
 
@@ -22,7 +24,7 @@ const savedGroupSchema = new mongoose.Schema({
 
 type SavedGroupDocument = mongoose.Document & SavedGroupInterface;
 
-const SavedGroupModel = mongoose.model<SavedGroupDocument>(
+const SavedGroupModel = mongoose.model<SavedGroupInterface>(
   "savedGroup",
   savedGroupSchema
 );
@@ -36,6 +38,12 @@ type UpdateSavedGroupProps = Omit<
   SavedGroupInterface,
   "dateCreated" | "dateUpdated" | "id" | "organization" | "attributeKey"
 >;
+
+const toInterface = (doc: SavedGroupDocument): SavedGroupInterface =>
+  omit(
+    doc.toJSON<SavedGroupDocument>({ flattenMaps: true }),
+    ["__v", "_id"]
+  );
 
 export function parseSavedGroupString(list: string) {
   const values = list
@@ -55,13 +63,15 @@ export async function createSavedGroup(
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
-  return newGroup.toJSON();
+  return toInterface(newGroup);
 }
 
 export async function getAllSavedGroups(
   organization: string
 ): Promise<SavedGroupInterface[]> {
-  const savedGroups = await SavedGroupModel.find({ organization });
+  const savedGroups: SavedGroupDocument[] = await SavedGroupModel.find({
+    organization,
+  });
   return savedGroups.map((value) => value.toJSON()) || [];
 }
 
@@ -74,10 +84,10 @@ export async function getSavedGroupById(
     organization: organization,
   });
 
-  return savedGroup?.toJSON() || null;
+  return savedGroup ? toInterface(savedGroup) : null;
 }
 
-export async function updateSavedGroup(
+export async function updateSavedGroupById(
   savedGroupId: string,
   organization: string,
   group: UpdateSavedGroupProps
@@ -87,7 +97,7 @@ export async function updateSavedGroup(
     dateUpdated: new Date(),
   };
 
-  await SavedGroupModel.update(
+  await SavedGroupModel.updateOne(
     {
       id: savedGroupId,
       organization: organization,
@@ -107,4 +117,18 @@ export async function deleteSavedGroupById(id: string, organization: string) {
     id,
     organization,
   });
+}
+
+export function toSavedGroupApiInterface(
+  savedGroup: SavedGroupInterface
+): ApiSavedGroup {
+  return {
+    id: savedGroup.id,
+    values: savedGroup.values,
+    name: savedGroup.groupName,
+    attributeKey: savedGroup.attributeKey,
+    dateCreated: savedGroup.dateCreated.toISOString(),
+    dateUpdated: savedGroup.dateUpdated.toISOString(),
+    owner: savedGroup.owner || "",
+  };
 }

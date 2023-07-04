@@ -11,6 +11,7 @@ import Link from "next/link";
 import { ImpactEstimateInterface } from "back-end/types/impact-estimate";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
+import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -18,7 +19,6 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import DiscussionThread from "@/components/DiscussionThread";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import ImpactModal from "@/components/Ideas/ImpactModal";
-import { date } from "@/services/dates";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import ViewQueryButton from "@/components/Metrics/ViewQueryButton";
 import ImpactProjections from "@/components/Ideas/ImpactProjections";
@@ -66,7 +66,7 @@ const IdeaPage = (): ReactElement => {
     experiment?: Partial<ExperimentInterfaceStringDates>;
   }>(`/idea/${iid}`);
 
-  useSwitchOrg(data?.idea?.organization);
+  useSwitchOrg(data?.idea?.organization || null);
 
   const form = useForm<{
     text: string;
@@ -220,10 +220,12 @@ const IdeaPage = (): ReactElement => {
                 <FaExternalLinkAlt /> {data.experiment.name}
               </a>
             </Link>
-            <StatusIndicator
-              status={data.experiment.status}
-              archived={data.experiment.archived}
-            />
+            {data.experiment.status && (
+              <StatusIndicator
+                status={data.experiment.status}
+                archived={data.experiment.archived || false}
+              />
+            )}
           </div>
         </div>
       )}
@@ -316,7 +318,9 @@ const IdeaPage = (): ReactElement => {
                         <small>
                           Submitted by{" "}
                           <strong className="mr-1">
-                            {getUserDisplay(idea.userId) || idea.userName}
+                            {idea.userId
+                              ? getUserDisplay(idea.userId)
+                              : idea.userName}
                           </strong>
                           {idea.source && idea.source !== "web" && (
                             <span className="mr-1">via {idea.source}</span>
@@ -334,7 +338,9 @@ const IdeaPage = (): ReactElement => {
                         <small>
                           Project:{" "}
                           <span className="badge badge-secondary">
-                            {getProjectById(idea.project)?.name || "None"}
+                            {idea.project
+                              ? getProjectById(idea.project)?.name || "None"
+                              : "None"}
                           </span>
                         </small>
                       </div>
@@ -357,7 +363,7 @@ const IdeaPage = (): ReactElement => {
                   },
                 });
               }}
-              value={idea.details}
+              value={idea.details || ""}
               canCreate={canEdit}
               canEdit={canEdit}
               label="More Details"
@@ -440,7 +446,9 @@ const IdeaPage = (): ReactElement => {
                       {idea?.estimateParams?.numVariations || 2}
                     </RightRailSectionGroup>
                     <RightRailSectionGroup title="User Segment" type="badge">
-                      {getSegmentById(estimate?.segment)?.name || "Everyone"}
+                      {estimate?.segment
+                        ? getSegmentById(estimate?.segment)?.name || "Everyone"
+                        : "Everyone"}
                     </RightRailSectionGroup>
                     <RightRailSectionGroup
                       title="Expected Metric Change"
@@ -452,7 +460,7 @@ const IdeaPage = (): ReactElement => {
                 </div>
               )}
 
-              {estimate?.query?.length > 0 && (
+              {estimate && (estimate.query?.length || 0) > 0 && (
                 <div>
                   <hr />
                   <ViewQueryButton

@@ -1174,6 +1174,17 @@ pre {
   }
 }
 
+.tooltip-experimentDateGraph {
+  td.won {
+    background-color: var(--win-background);
+    color: var(--alert-success-color);
+  }
+  td.lost {
+    background-color: var(--lose-background);
+    color: var(--alert-danger-color);
+  }
+}
+
 .fade-mask-1rem {
   mask-image: linear-gradient(
     to right,
@@ -1320,6 +1331,9 @@ pre {
 }
 .bg-muted-yellow {
   background: var(--alert-warn-background);
+}
+.bg-main-color {
+  background: var(--background-color);
 }
 
 .change-bar {
@@ -1549,6 +1563,10 @@ li.metrics a span img {
   .testname {
     font-weight: 400;
     color: var(--text-color-main);
+
+    &:hover {
+      text-decoration: none;
+    }
   }
   .hypothesis {
     font-size: 1em;
@@ -2301,7 +2319,13 @@ td.disabled {
     }
   }
 }
-
+.form-control:disabled {
+  cursor: not-allowed;
+  background-color: var(--disabled-background) !important;
+}
+input:disabled {
+  cursor: not-allowed;
+}
 .form-group.metric-override {
   .form-control::placeholder {
     font-style: italic;

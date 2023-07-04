@@ -73,7 +73,7 @@ const HeaderResult: FC<{
       {status === "secondary" && <FaQuestionCircle className="mr-1" />}
       <Tooltip body={<MetricTooltipBody metric={metric} />} tipPosition="right">
         <Link href={`/metric/${metric.id}`}>
-          <a className="text-dark font-weight-bold">{metric.name}</a>
+          <a className="text-black-50 font-weight-bold">{metric.name}</a>
         </Link>
       </Tooltip>
     </div>
@@ -91,7 +91,7 @@ const PValueGuardrailResults: FC<{
     return variations.map((v, i) => {
       const stats = data[i]?.metrics?.[metric.id];
       const expectedDirection = isExpectedDirection(stats, metric);
-      const statSig = isStatSig(stats, pValueThreshold);
+      const statSig = isStatSig(stats?.pValue ?? 1, pValueThreshold);
       const users = data[i].users;
       const name = v.name;
       return {
@@ -161,7 +161,9 @@ const PValueGuardrailResults: FC<{
                     >
                       {r.expectedDirection ? "Better" : "Worse"}{" "}
                       {`(${
-                        pValueFormatter(r.stats?.pValue) || "P-value missing"
+                        r.stats?.pValue !== undefined
+                          ? pValueFormatter(r.stats?.pValue)
+                          : "P-value missing"
                       })`}
                     </td>
                   ) : (

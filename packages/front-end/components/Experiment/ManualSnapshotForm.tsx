@@ -1,6 +1,7 @@
 import { FC, useState, useEffect } from "react";
 import {
   ExperimentSnapshotInterface,
+  ExperimentSnapshotAnalysis,
   SnapshotVariation,
 } from "back-end/types/experiment-snapshot";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -12,6 +13,7 @@ import {
   formatConversionRate,
   getMetricConversionTitle,
 } from "@/services/metrics";
+import { trackSnapshot } from "@/services/track";
 import Modal from "../Modal";
 import Field from "../Forms/Field";
 import { SRM_THRESHOLD } from "./SRMWarning";
@@ -25,11 +27,12 @@ const ManualSnapshotForm: FC<{
   experiment: ExperimentInterfaceStringDates;
   close: () => void;
   success: () => void;
-  lastSnapshot?: ExperimentSnapshotInterface;
+  lastAnalysis?: ExperimentSnapshotAnalysis;
   phase: number;
-}> = ({ experiment, close, success, lastSnapshot, phase }) => {
+}> = ({ experiment, close, success, lastAnalysis, phase }) => {
   const { metrics, getMetricById } = useDefinitions();
   const { apiCall } = useAuth();
+  const { getDatasourceById } = useDefinitions();
 
   const filteredMetrics: MetricInterface[] = [];
 
@@ -55,8 +58,8 @@ const ManualSnapshotForm: FC<{
       [key: string]: Omit<MetricStats, "users">[];
     };
   } = { users: Array(experiment.variations.length).fill(0), metrics: {} };
-  if (lastSnapshot?.results?.[0]) {
-    initialValue.users = lastSnapshot.results[0].variations.map((v) => v.users);
+  if (lastAnalysis?.results?.[0]) {
+    initialValue.users = lastAnalysis.results[0].variations.map((v) => v.users);
   }
   filteredMetrics.forEach(({ id, type }) => {
     initialValue.metrics[id] = Array(experiment.variations.length).fill({
@@ -64,9 +67,9 @@ const ManualSnapshotForm: FC<{
       mean: 0,
       stddev: 0,
     });
-    if (lastSnapshot?.results?.[0]) {
+    if (lastAnalysis?.results?.[0]) {
       for (let i = 0; i < experiment.variations.length; i++) {
-        const variation = lastSnapshot.results[0].variations[i];
+        const variation = lastAnalysis.results[0].variations[i];
         if (variation?.metrics[id]) {
           let count =
             variation.metrics[id].stats?.count || variation.metrics[id].value;
@@ -77,7 +80,7 @@ const ManualSnapshotForm: FC<{
           // Make sure binomial metrics have count = conversions
           // In the past, we stored it as count = conversions and mean = 1
           // Now, we store it as count = users, mean = conversions/count
-          // So if we multiple mean * count, it works for both cases
+          // So if we multiply mean * count, it works for both cases
           if (type === "binomial") {
             count = Math.round(mean * count);
           }
@@ -91,11 +94,11 @@ const ManualSnapshotForm: FC<{
       }
     }
   });
-  const [hash, setHash] = useState(null);
+  const [hash, setHash] = useState<string | null>(null);
   const form = useForm({
     defaultValues: initialValue,
   });
-  const [preview, setPreview] = useState<SnapshotPreview>(null);
+  const [preview, setPreview] = useState<SnapshotPreview | null>(null);
 
   const values = {
     metrics: form.watch("metrics"),
@@ -107,7 +110,7 @@ const ManualSnapshotForm: FC<{
     Object.keys(values.metrics).forEach((key) => {
       const m = getMetricById(key);
       ret[key] = values.metrics[key].map((v, i) => {
-        if (m.type === "binomial") {
+        if (m?.type === "binomial") {
           // Use the normal approximation for a bernouli variable to calculate stddev
           const p = v.count / values.users[i];
           return {
@@ -116,15 +119,14 @@ const ManualSnapshotForm: FC<{
             mean: p,
             stddev: Math.sqrt(p * (1 - p)),
           };
-        } else if (isRatio(m)) {
-          // For ratio metrics, the count (denominator) may be different from the number of users
+        } else if (m && isRatio(m)) {
           return {
             users: values.users[i],
             count: v.count,
             mean: v.mean,
             stddev: v.stddev,
           };
-        } else if (m.ignoreNulls || m.denominator) {
+        } else if (m?.ignoreNulls || m?.denominator) {
           // When ignoring nulls (or using a funnel metric)
           // Limit the users to only ones who converted
           return {
@@ -199,16 +201,23 @@ const ManualSnapshotForm: FC<{
   }, [hash]);
 
   const onSubmit = form.handleSubmit(async (values) => {
-    await apiCall<{ status: number; message: string }>(
-      `/experiment/${experiment.id}/snapshot`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          phase,
-          users: values.users,
-          metrics: getStats(),
-        }),
-      }
+    const res = await apiCall<{
+      status: number;
+      message: string;
+      snapshot: ExperimentSnapshotInterface;
+    }>(`/experiment/${experiment.id}/snapshot`, {
+      method: "POST",
+      body: JSON.stringify({
+        phase,
+        users: values.users,
+        metrics: getStats(),
+      }),
+    });
+    trackSnapshot(
+      "create",
+      "ManualSnapshotForm",
+      getDatasourceById(experiment.datasource)?.type || null,
+      res.snapshot
     );
 
     success();
@@ -337,10 +346,8 @@ const ManualSnapshotForm: FC<{
                           preview &&
                           preview.variations[i].metrics[m.id] &&
                           parseFloat(
-                            (
-                              preview.variations[i].metrics[m.id].chanceToWin *
-                              100
-                            ).toFixed(2)
+                            // prettier-ignore
+                            ((preview.variations[i].metrics[m.id].chanceToWin ?? 0) * 100).toFixed(2)
                           ) + "%"}
                       </td>
                     </tr>

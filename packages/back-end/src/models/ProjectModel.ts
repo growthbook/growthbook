@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { omit } from "lodash";
 import { ApiProject } from "../../types/openapi";
-import { ProjectInterface } from "../../types/project";
+import { ProjectInterface, ProjectSettings } from "../../types/project";
 
 const projectSchema = new mongoose.Schema({
   id: {
@@ -13,16 +15,20 @@ const projectSchema = new mongoose.Schema({
     index: true,
   },
   name: String,
+  description: String,
   dateCreated: Date,
   dateUpdated: Date,
+  settings: {},
 });
 
 type ProjectDocument = mongoose.Document & ProjectInterface;
 
-const ProjectModel = mongoose.model<ProjectDocument>("Project", projectSchema);
+const ProjectModel = mongoose.model<ProjectInterface>("Project", projectSchema);
 
 function toInterface(doc: ProjectDocument): ProjectInterface {
-  return doc.toJSON();
+  const ret = doc.toJSON<ProjectDocument>();
+  ret.settings = ret.settings || {};
+  return omit(ret, ["__v", "_id"]);
 }
 
 export async function createProject(
@@ -71,11 +77,35 @@ export async function updateProject(
   );
 }
 
+export async function updateProjectSettings(
+  id: string,
+  organization: string,
+  settings: Partial<ProjectSettings>
+) {
+  const update = {
+    $set: {
+      dateUpdated: new Date(),
+      settings,
+    },
+  };
+  await ProjectModel.updateOne(
+    {
+      id,
+      organization,
+    },
+    update
+  );
+}
+
 export function toProjectApiInterface(project: ProjectInterface): ApiProject {
   return {
     id: project.id,
     name: project.name,
+    description: project.description || "",
     dateCreated: project.dateCreated.toISOString(),
     dateUpdated: project.dateUpdated.toISOString(),
+    settings: {
+      statsEngine: project.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+    },
   };
 }

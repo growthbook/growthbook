@@ -5,11 +5,13 @@ import { evalCondition } from "../src/mongrule";
 import { VariationRange } from "../src/types/growthbook";
 import {
   chooseVariation,
+  decrypt,
   getBucketRanges,
   getEqualWeights,
   getQueryStringOverride,
   hash,
   inNamespace,
+  paddedVersionString,
 } from "../src/util";
 import cases from "./cases.json";
 
@@ -37,11 +39,26 @@ type Cases = {
   inNamespace: [string, string, [string, number, number], boolean][];
   // numVariations, result
   getEqualWeights: [number, number[]][];
+  // name, encryptedString, key, result
+  decrypt: [string, string, string, string | null][];
+  versionCompare: {
+    // version, version, meets condition
+    lt: [string, string, boolean][];
+    gt: [string, string, boolean][];
+    eq: [string, string, boolean][];
+  };
 };
 
 const round = (n: number) => Math.floor(n * 1e8) / 1e8;
 const roundArray = (arr: number[]) => arr.map((n) => round(n));
 const roundArrayArray = (arr: number[][]) => arr.map((a) => roundArray(a));
+
+/* eslint-disable */
+const { webcrypto } = require("node:crypto");
+import { TextEncoder, TextDecoder } from "util";
+global.TextEncoder = TextEncoder;
+(global as any).TextDecoder = TextDecoder;
+/* eslint-enable */
 
 describe("json test suite", () => {
   it.each((cases as Cases).feature)(
@@ -130,4 +147,69 @@ describe("json test suite", () => {
       growthbook.destroy();
     }
   );
+
+  it.each((cases as Cases).decrypt)(
+    "decrypt[%#] %s",
+    async (name, encryptedString, key, expected) => {
+      let result: string | null = null;
+
+      try {
+        result = await decrypt(encryptedString, key, webcrypto.subtle);
+      } catch (e) {
+        // If we were expecting an actual value, that's a bug
+        if (expected) {
+          throw e;
+        }
+      }
+      expect(result).toEqual(expected);
+    }
+  );
+
+  describe("version strings", () => {
+    describe("equality", () => {
+      it.each((cases as Cases).versionCompare.eq)(
+        "versionCompare.eq[%#] %s === %s",
+        (version, otherVersion, expected) => {
+          expect(
+            paddedVersionString(version) === paddedVersionString(otherVersion)
+          ).toBe(expected);
+          expect(
+            paddedVersionString(version) !== paddedVersionString(otherVersion)
+          ).toBe(!expected);
+          expect(
+            paddedVersionString(version) >= paddedVersionString(otherVersion)
+          ).toBe(expected);
+          expect(
+            paddedVersionString(version) <= paddedVersionString(otherVersion)
+          ).toBe(expected);
+        }
+      );
+    });
+
+    describe("comparisons", () => {
+      it.each((cases as Cases).versionCompare.gt)(
+        "versionCompare.gt[%#] %s > %s",
+        (version, otherVersion, expected) => {
+          expect(
+            paddedVersionString(version) >= paddedVersionString(otherVersion)
+          ).toBe(expected);
+          expect(
+            paddedVersionString(version) > paddedVersionString(otherVersion)
+          ).toBe(expected);
+        }
+      );
+
+      it.each((cases as Cases).versionCompare.lt)(
+        "versionCompare.lt[%#] %s < %s",
+        (version, otherVersion, expected) => {
+          expect(
+            paddedVersionString(version) < paddedVersionString(otherVersion)
+          ).toBe(expected);
+          expect(
+            paddedVersionString(version) <= paddedVersionString(otherVersion)
+          ).toBe(expected);
+        }
+      );
+    });
+  });
 });

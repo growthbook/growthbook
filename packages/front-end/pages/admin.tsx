@@ -67,8 +67,12 @@ const Admin: FC = () => {
                   href="#"
                   onClick={(e) => {
                     e.preventDefault();
-                    setOrgId(o.id);
-                    setSpecialOrg(o);
+                    if (setOrgId) {
+                      setOrgId(o.id);
+                    }
+                    if (setSpecialOrg) {
+                      setSpecialOrg(o);
+                    }
                   }}
                 >
                   {o.name}

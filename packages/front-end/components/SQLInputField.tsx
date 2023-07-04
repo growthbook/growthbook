@@ -31,6 +31,8 @@ type Props = {
   queryType: "segment" | "dimension" | "metric" | "experiment-assignment";
   className?: string;
   setCursorData?: (data: CursorData) => void;
+  showTestButton?: boolean;
+  showHeadline?: boolean;
 };
 
 export default function SQLInputField({
@@ -41,10 +43,12 @@ export default function SQLInputField({
   showPreview,
   placeholder = "",
   helpText,
-  identityTypes,
+  identityTypes = [],
   queryType,
   className,
   setCursorData,
+  showTestButton = true,
+  showHeadline = true,
 }: Props) {
   const [
     testQueryResults,
@@ -167,41 +171,45 @@ export default function SQLInputField({
 
   return (
     <div className={className}>
-      <label className="font-weight-bold mb-1">SQL Query</label>
+      {showHeadline && (
+        <label className="font-weight-bold mb-1">SQL Query</label>
+      )}
       <div className="row flex-column-reverse flex-md-row">
         <div
           className={
             queryType === "experiment-assignment" ? "col-md-8" : "col-12"
           }
         >
-          <div className="d-flex justify-content-between align-items-center p-1 border rounded">
-            <button
-              className="btn btn-sm btn-primary m-1"
-              onClick={(e) => {
-                e.preventDefault();
-                handleTestQuery();
-              }}
-            >
-              <span className="pr-2">
-                <FaPlay />
-              </span>
-              Test Query
-            </button>
-            {queryType === "experiment-assignment" ? (
-              <div className="d-flex m-1">
-                <label className="mr-2 mb-0" htmlFor="exposure-query-toggle">
-                  Use Name Columns
-                </label>
-                <input
-                  type="checkbox"
-                  id="exposure-query-toggle"
-                  className="form-check-input "
-                  {...form.register("hasNameCol")}
-                />
-                <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
-              </div>
-            ) : null}
-          </div>
+          {showTestButton && (
+            <div className="d-flex justify-content-between align-items-center p-1 border rounded">
+              <button
+                className="btn btn-sm btn-primary m-1"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleTestQuery();
+                }}
+              >
+                <span className="pr-2">
+                  <FaPlay />
+                </span>
+                Test Query
+              </button>
+              {queryType === "experiment-assignment" ? (
+                <div className="d-flex m-1">
+                  <label className="mr-2 mb-0" htmlFor="exposure-query-toggle">
+                    Use Name Columns
+                  </label>
+                  <input
+                    type="checkbox"
+                    id="exposure-query-toggle"
+                    className="form-check-input "
+                    {...form.register("hasNameCol")}
+                  />
+                  <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
+                </div>
+              ) : null}
+            </div>
+          )}
           {showPreview ? (
             <Code language="sql" code={userEnteredQuery} />
           ) : (
@@ -224,9 +232,9 @@ export default function SQLInputField({
             <DisplayTestQueryResults
               duration={parseInt(testQueryResults.duration || "0")}
               requiredColumns={[...requiredColumns]}
-              results={testQueryResults.results}
+              results={testQueryResults.results || []}
               error={testQueryResults.error}
-              sql={testQueryResults.sql}
+              sql={testQueryResults.sql || ""}
               suggestions={suggestions}
             />
           )}

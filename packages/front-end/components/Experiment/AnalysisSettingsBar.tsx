@@ -7,8 +7,12 @@ import {
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { StatsEngine } from "back-end/types/stats";
+import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
+import { OrganizationSettings } from "back-end/types/organization";
+import { ago, datetime } from "shared/dates";
+import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
+import { getSnapshotAnalysis } from "shared/util";
 import { useAuth } from "@/services/auth";
-import { ago, datetime } from "@/services/dates";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import Toggle from "@/components/Forms/Toggle";
@@ -16,6 +20,8 @@ import { GBCuped } from "@/components/Icons";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import { trackSnapshot } from "@/services/track";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import DimensionChooser from "../Dimensions/DimensionChooser";
@@ -25,33 +31,54 @@ import ResultMoreMenu from "./ResultMoreMenu";
 import PhaseSelector from "./PhaseSelector";
 import { useSnapshot } from "./SnapshotProvider";
 
-function isDifferent(val1?: string | boolean, val2?: string | boolean) {
+function isDifferent(
+  val1?: string | boolean | null,
+  val2?: string | boolean | null
+) {
   if (!val1 && !val2) return false;
   return val1 !== val2;
 }
 
 function isOutdated(
-  experiment: ExperimentInterfaceStringDates,
-  snapshot: ExperimentSnapshotInterface,
+  experiment: ExperimentInterfaceStringDates | undefined,
+  snapshot: ExperimentSnapshotInterface | undefined,
+  orgSettings: OrganizationSettings,
   statsEngine: StatsEngine,
-  hasRegressionAdjustmentFeature: boolean
-) {
-  if (!snapshot) return false;
-  if (isDifferent(experiment.activationMetric, snapshot.activationMetric)) {
-    return true;
+  hasRegressionAdjustmentFeature: boolean,
+  hasSequentialFeature: boolean
+): { outdated: boolean; reason: string } {
+  const snapshotSettings = snapshot?.settings;
+  const analysisSettings = snapshot
+    ? getSnapshotAnalysis(snapshot)?.settings
+    : null;
+
+  if (!experiment || !snapshotSettings || !analysisSettings) {
+    return { outdated: false, reason: "" };
   }
-  if (isDifferent(experiment.segment, snapshot.segment)) {
-    return true;
+  if (isDifferent(analysisSettings.statsEngine, statsEngine)) {
+    return { outdated: true, reason: "Stats engine changed" };
   }
-  if (isDifferent(experiment.queryFilter, snapshot.queryFilter)) {
-    return true;
+  if (
+    isDifferent(experiment.activationMetric, snapshotSettings.activationMetric)
+  ) {
+    return { outdated: true, reason: "Activation metric changed" };
   }
-  if (experiment.datasource && !("skipPartialData" in snapshot)) {
-    return true;
+  if (isDifferent(experiment.segment, snapshotSettings.segment)) {
+    return { outdated: true, reason: "Segment changed" };
   }
-  if (isDifferent(experiment.skipPartialData, snapshot.skipPartialData)) {
-    return true;
+  if (isDifferent(experiment.queryFilter, snapshotSettings.queryFilter)) {
+    return { outdated: true, reason: "Query filter changed" };
   }
+  if (
+    isDifferent(experiment.skipPartialData, snapshotSettings.skipPartialData)
+  ) {
+    return {
+      outdated: true,
+      reason: "In-progress conversion behavior changed",
+    };
+  }
+  // todo: attribution model? (which doesn't live in the snapshot currently)
+
   const experimentRegressionAdjustmentEnabled =
     statsEngine !== "frequentist" || !hasRegressionAdjustmentFeature
       ? false
@@ -59,13 +86,35 @@ function isOutdated(
   if (
     isDifferent(
       experimentRegressionAdjustmentEnabled,
-      !!snapshot.regressionAdjustmentEnabled
-    )
+      !!analysisSettings?.regressionAdjusted
+    ) &&
+    statsEngine === "frequentist"
   ) {
-    return true;
+    return { outdated: true, reason: "CUPED settings changed" };
   }
 
-  return false;
+  const experimentSequentialEnabled =
+    statsEngine !== "frequentist" || !hasSequentialFeature
+      ? false
+      : experiment.sequentialTestingEnabled ??
+        !!orgSettings.sequentialTestingEnabled;
+  const experimentSequentialTuningParameter: number =
+    experiment.sequentialTestingTuningParameter ??
+    orgSettings.sequentialTestingTuningParameter ??
+    DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+  if (
+    (isDifferent(
+      experimentSequentialEnabled,
+      !!analysisSettings?.sequentialTesting
+    ) ||
+      (experimentSequentialEnabled &&
+        experimentSequentialTuningParameter !==
+          analysisSettings?.sequentialTestingTuningParameter)) &&
+    statsEngine === "frequentist"
+  ) {
+    return { outdated: true, reason: "Sequential testing settings changed" };
+  }
+  return { outdated: false, reason: "" };
 }
 
 export default function AnalysisSettingsBar({
@@ -77,6 +126,7 @@ export default function AnalysisSettingsBar({
   statsEngine,
   regressionAdjustmentAvailable,
   regressionAdjustmentEnabled,
+  regressionAdjustmentHasValidMetrics,
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
 }: {
@@ -85,9 +135,10 @@ export default function AnalysisSettingsBar({
   editPhases?: () => void;
   variations: ExperimentReportVariation[];
   alwaysShowPhaseSelector?: boolean;
-  statsEngine?: StatsEngine;
+  statsEngine: StatsEngine;
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
+  regressionAdjustmentHasValidMetrics?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
 }) {
@@ -95,6 +146,7 @@ export default function AnalysisSettingsBar({
     experiment,
     snapshot,
     latest,
+    analysis,
     dimension,
     mutateSnapshot: mutate,
     phase,
@@ -102,19 +154,24 @@ export default function AnalysisSettingsBar({
   } = useSnapshot();
 
   const { getDatasourceById } = useDefinitions();
-  const settings = useOrgSettings();
-  const datasource = getDatasourceById(experiment.datasource);
+  const orgSettings = useOrgSettings();
+  const datasource = experiment
+    ? getDatasourceById(experiment.datasource)
+    : null;
 
   const { hasCommercialFeature } = useUser();
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment"
   );
+  const hasSequentialFeature = hasCommercialFeature("sequential-testing");
 
-  const outdated = isOutdated(
+  const { outdated, reason } = isOutdated(
     experiment,
     snapshot,
-    settings.statsEngine || "bayesian",
-    hasRegressionAdjustmentFeature
+    orgSettings,
+    statsEngine,
+    hasRegressionAdjustmentFeature,
+    hasSequentialFeature
   );
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -124,13 +181,13 @@ export default function AnalysisSettingsBar({
 
   const status = getQueryStatus(latest?.queries || [], latest?.error);
 
-  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
+  const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
   const [refreshError, setRefreshError] = useState("");
 
   return (
     <div>
-      {modalOpen && (
+      {modalOpen && experiment && (
         <AnalysisForm
           cancel={() => setModalOpen(false)}
           experiment={experiment}
@@ -138,96 +195,188 @@ export default function AnalysisSettingsBar({
           phase={phase}
         />
       )}
-      <div className="row align-items-center p-3">
-        {experiment.phases &&
-          (alwaysShowPhaseSelector || experiment.phases.length > 1) && (
-            <div className="col-auto form-inline">
-              <PhaseSelector
-                mutateExperiment={mutateExperiment}
-                editPhases={editPhases}
-              />
-            </div>
-          )}
-        <div className="col-auto form-inline">
-          <DimensionChooser
-            value={dimension}
-            setValue={setDimension}
-            activationMetric={!!experiment.activationMetric}
-            datasourceId={experiment.datasource}
-            exposureQueryId={experiment.exposureQueryId}
-            userIdType={experiment.userIdType}
-            labelClassName="mr-2"
-          />
-        </div>
-        <div style={{ flex: 1 }} />
-        <div className="col-auto">
-          {regressionAdjustmentAvailable && (
-            <PremiumTooltip
-              commercialFeature="regression-adjustment"
-              className="form-inline"
-            >
-              <label
-                htmlFor={"toggle-experiment-regression-adjustment"}
-                className={`d-flex btn btn-outline-${
-                  !hasRegressionAdjustmentFeature
-                    ? "teal-disabled"
-                    : regressionAdjustmentEnabled
-                    ? "teal"
-                    : "teal-off"
-                } my-0 pl-2 pr-1 py-1 form-inline`}
-              >
-                <GBCuped />
-                <span className="mx-1 font-weight-bold">CUPED</span>
-                <Toggle
-                  id="toggle-experiment-regression-adjustment"
-                  value={regressionAdjustmentEnabled}
-                  setValue={(value) => {
-                    if (
-                      onRegressionAdjustmentChange &&
-                      hasRegressionAdjustmentFeature
-                    ) {
-                      onRegressionAdjustmentChange(value);
-                    }
-                  }}
-                  className={`teal m-0`}
-                  style={{ transform: "scale(0.8)" }}
-                  disabled={!hasRegressionAdjustmentFeature}
+      {experiment && (
+        <div className="row align-items-center p-3">
+          {experiment.phases &&
+            (alwaysShowPhaseSelector || experiment.phases.length > 1) && (
+              <div className="col-auto form-inline">
+                <PhaseSelector
+                  mutateExperiment={mutateExperiment}
+                  editPhases={editPhases}
                 />
-              </label>
-            </PremiumTooltip>
-          )}
-        </div>
-        <div className="col-auto">
-          {hasData &&
-            (outdated && status !== "running" ? (
-              <div
-                className="badge badge-warning d-block py-1"
-                style={{ width: 100, marginBottom: 3 }}
-              >
-                Out of Date
               </div>
-            ) : (
-              <div
-                className="text-muted text-right"
-                style={{ width: 100, fontSize: "0.8em" }}
-                title={datetime(snapshot.dateCreated)}
-              >
-                <div className="font-weight-bold" style={{ lineHeight: 1.5 }}>
-                  last updated
-                </div>
-                <div className="d-inline-block" style={{ lineHeight: 1 }}>
-                  {ago(snapshot.dateCreated)}
-                </div>
-              </div>
-            ))}
-        </div>
-        {permissions.check("runQueries", "") && experiment.metrics.length > 0 && (
+            )}
+          <div className="col-auto form-inline">
+            <DimensionChooser
+              value={dimension}
+              setValue={setDimension}
+              activationMetric={!!experiment.activationMetric}
+              datasourceId={experiment.datasource}
+              exposureQueryId={experiment.exposureQueryId}
+              userIdType={experiment.userIdType}
+              labelClassName="mr-2"
+            />
+          </div>
+          <div style={{ flex: 1 }} />
           <div className="col-auto">
-            {experiment.datasource && latest && latest.queries?.length > 0 ? (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  apiCall(`/experiment/${experiment.id}/snapshot`, {
+            {regressionAdjustmentAvailable && (
+              <PremiumTooltip
+                commercialFeature="regression-adjustment"
+                className="form-inline"
+              >
+                <label
+                  htmlFor={"toggle-experiment-regression-adjustment"}
+                  className={`d-flex btn btn-outline-${
+                    !hasRegressionAdjustmentFeature
+                      ? "teal-disabled"
+                      : regressionAdjustmentEnabled
+                      ? "teal"
+                      : "teal-off"
+                  } my-0 pl-2 pr-1 py-1 form-inline`}
+                >
+                  <GBCuped />
+                  <span className="mx-1 font-weight-bold">CUPED</span>
+                  <Toggle
+                    id="toggle-experiment-regression-adjustment"
+                    value={!!regressionAdjustmentEnabled}
+                    setValue={(value) => {
+                      if (
+                        onRegressionAdjustmentChange &&
+                        hasRegressionAdjustmentFeature
+                      ) {
+                        onRegressionAdjustmentChange(value);
+                      }
+                    }}
+                    className={`teal m-0`}
+                    style={{ transform: "scale(0.8)" }}
+                    disabled={!hasRegressionAdjustmentFeature}
+                  />
+                  {!regressionAdjustmentHasValidMetrics && (
+                    <Tooltip
+                      popperClassName="text-left"
+                      body={
+                        <>
+                          <p>
+                            This experiment does not have any metrics suitable
+                            for CUPED regression adjustment.
+                          </p>
+                          <p className="mb-0">
+                            Please check your metric defintions, as well as any
+                            experiment-level metric overrides.
+                          </p>
+                        </>
+                      }
+                    >
+                      <div
+                        className="text-warning-orange position-absolute p-1"
+                        style={{ top: -11, right: 2 }}
+                      >
+                        <FaExclamationCircle />
+                      </div>
+                    </Tooltip>
+                  )}
+                </label>
+              </PremiumTooltip>
+            )}
+          </div>
+          <div className="col-auto">
+            {hasData &&
+              (outdated && status !== "running" ? (
+                <Tooltip body={reason}>
+                  <div
+                    className="badge badge-warning d-block py-1"
+                    style={{ width: 100, marginBottom: 3 }}
+                  >
+                    Out of Date <FaInfoCircle />
+                  </div>
+                </Tooltip>
+              ) : (
+                <div
+                  className="text-muted text-right"
+                  style={{ width: 100, fontSize: "0.8em" }}
+                  title={datetime(snapshot?.dateCreated ?? "")}
+                >
+                  <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
+                    last updated
+                  </div>
+                  <div className="d-inline-block" style={{ lineHeight: 1 }}>
+                    {ago(snapshot?.dateCreated ?? "")}
+                  </div>
+                </div>
+              ))}
+          </div>
+          {permissions.check("runQueries", "") &&
+            experiment.metrics.length > 0 && (
+              <div className="col-auto">
+                {experiment.datasource &&
+                latest &&
+                latest.queries?.length > 0 ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+                        `/experiment/${experiment.id}/snapshot`,
+                        {
+                          method: "POST",
+                          body: JSON.stringify({
+                            phase,
+                            dimension,
+                            statsEngine,
+                            regressionAdjustmentEnabled,
+                            metricRegressionAdjustmentStatuses,
+                          }),
+                        }
+                      )
+                        .then((res) => {
+                          trackSnapshot(
+                            "create",
+                            "RunQueriesButton",
+                            datasource?.type || null,
+                            res.snapshot
+                          );
+                          mutate();
+                          setRefreshError("");
+                        })
+                        .catch((e) => {
+                          setRefreshError(e.message);
+                        });
+                    }}
+                  >
+                    <RunQueriesButton
+                      cta="Update Data"
+                      initialStatus={status}
+                      statusEndpoint={`/snapshot/${latest.id}/status`}
+                      cancelEndpoint={`/snapshot/${latest.id}/cancel`}
+                      onReady={() => {
+                        mutate();
+                      }}
+                      icon="refresh"
+                      color="outline-primary"
+                    />
+                  </form>
+                ) : (
+                  <RefreshSnapshotButton
+                    mutate={mutate}
+                    phase={phase}
+                    experiment={experiment}
+                    lastAnalysis={analysis}
+                    dimension={dimension}
+                    statsEngine={statsEngine}
+                    regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                    metricRegressionAdjustmentStatuses={
+                      metricRegressionAdjustmentStatuses
+                    }
+                  />
+                )}
+              </div>
+            )}
+          <div className="col-auto">
+            <ResultMoreMenu
+              id={snapshot?.id || ""}
+              forceRefresh={async () => {
+                await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+                  `/experiment/${experiment.id}/snapshot?force=true`,
+                  {
                     method: "POST",
                     body: JSON.stringify({
                       phase,
@@ -236,87 +385,40 @@ export default function AnalysisSettingsBar({
                       regressionAdjustmentEnabled,
                       metricRegressionAdjustmentStatuses,
                     }),
-                  })
-                    .then(() => {
-                      mutate();
-                      setRefreshError("");
-                    })
-                    .catch((e) => {
-                      setRefreshError(e.message);
-                    });
-                }}
-              >
-                <RunQueriesButton
-                  cta="Update Data"
-                  initialStatus={status}
-                  statusEndpoint={`/snapshot/${latest.id}/status`}
-                  cancelEndpoint={`/snapshot/${latest.id}/cancel`}
-                  onReady={() => {
+                  }
+                )
+                  .then((res) => {
+                    trackSnapshot(
+                      "create",
+                      "ForceRerunQueriesButton",
+                      datasource?.type || null,
+                      res.snapshot
+                    );
                     mutate();
-                  }}
-                  icon="refresh"
-                  color="outline-primary"
-                />
-              </form>
-            ) : (
-              <RefreshSnapshotButton
-                mutate={mutate}
-                phase={phase}
-                experiment={experiment}
-                lastSnapshot={snapshot}
-                dimension={dimension}
-                statsEngine={statsEngine}
-                regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                metricRegressionAdjustmentStatuses={
-                  metricRegressionAdjustmentStatuses
-                }
-              />
-            )}
+                  })
+                  .catch((e) => {
+                    console.error(e);
+                  });
+              }}
+              configure={() => setModalOpen(true)}
+              editMetrics={editMetrics}
+              notebookUrl={`/experiments/notebook/${snapshot?.id}`}
+              notebookFilename={experiment.trackingKey}
+              generateReport={true}
+              queries={snapshot?.queries}
+              queryError={snapshot?.error}
+              supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
+              hasData={hasData}
+              metrics={experiment.metrics}
+              results={analysis?.results}
+              variations={variations}
+              trackingKey={experiment.trackingKey}
+              dimension={dimension}
+              project={experiment.project}
+            />
           </div>
-        )}
-        <div className="col-auto">
-          <ResultMoreMenu
-            id={snapshot?.id || ""}
-            forceRefresh={async () => {
-              await apiCall(
-                `/experiment/${experiment.id}/snapshot?force=true`,
-                {
-                  method: "POST",
-                  body: JSON.stringify({
-                    phase,
-                    dimension,
-                    statsEngine,
-                    regressionAdjustmentEnabled,
-                    metricRegressionAdjustmentStatuses,
-                  }),
-                }
-              )
-                .then(() => {
-                  mutate();
-                })
-                .catch((e) => {
-                  console.error(e);
-                });
-            }}
-            configure={() => setModalOpen(true)}
-            editMetrics={editMetrics}
-            notebookUrl={`/experiments/notebook/${snapshot?.id}`}
-            notebookFilename={experiment.trackingKey}
-            generateReport={true}
-            queries={snapshot?.queries}
-            queryError={snapshot?.error}
-            hasUserQuery={snapshot && !("skipPartialData" in snapshot)}
-            supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-            hasData={hasData}
-            metrics={experiment.metrics}
-            results={snapshot?.results}
-            variations={variations}
-            trackingKey={experiment.trackingKey}
-            dimension={dimension}
-            project={experiment.project}
-          />
         </div>
-      </div>
+      )}
       {permissions.check("runQueries", "") && datasource && (
         <div className="px-3">
           {refreshError && (

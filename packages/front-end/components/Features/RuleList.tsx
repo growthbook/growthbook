@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useAuth } from "@/services/auth";
-import { getRules } from "@/services/features";
+import { getRules, isRuleFullyCovered } from "@/services/features";
 import usePermissions from "@/hooks/usePermissions";
 import { Rule, SortableRule } from "./Rule";
 
@@ -35,6 +35,7 @@ export default function RuleList({
   setRuleModal: ({ environment: string, i: number }) => void;
 }) {
   const { apiCall } = useAuth();
+  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
   const [activeId, setActiveId] = useState<string>(null);
   const [items, setItems] = useState(getRules(feature, environment));
   const permissions = usePermissions();
@@ -65,6 +66,17 @@ export default function RuleList({
     return -1;
   }
 
+  // detect unreachable rules, and get the first rule that is at 100%.
+  let unreachableIndex = 0;
+  items.forEach((item, i) => {
+    if (unreachableIndex) return;
+
+    // if this rule covers 100% of traffic, no additional rules are reachable.
+    if (isRuleFullyCovered(item)) {
+      unreachableIndex = i + 1;
+    }
+  });
+
   const activeRule = activeId ? items[getRuleIndex(activeId)] : null;
 
   const canEdit =
@@ -77,12 +89,15 @@ export default function RuleList({
       collisionDetection={closestCenter}
       onDragEnd={async ({ active, over }) => {
         if (!canEdit) {
+          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
           setActiveId(null);
           return;
         }
 
+        // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
         if (active.id !== over.id) {
           const oldIndex = getRuleIndex(active.id);
+          // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
           const newIndex = getRuleIndex(over.id);
 
           if (oldIndex === -1 || newIndex === -1) return;
@@ -100,6 +115,7 @@ export default function RuleList({
           });
           mutate();
         }
+        // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'null' is not assignable to param... Remove this comment to see the full error message
         setActiveId(null);
       }}
       onDragStart={({ active }) => {
@@ -120,6 +136,8 @@ export default function RuleList({
             mutate={mutate}
             experiments={experiments}
             setRuleModal={setRuleModal}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'null' is not assignable to type 'boolean | u... Remove this comment to see the full error message
+            unreachable={unreachableIndex && i >= unreachableIndex}
           />
         ))}
       </SortableContext>

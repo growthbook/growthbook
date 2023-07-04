@@ -1,11 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { RxDesktop } from "react-icons/rx";
 import { useRouter } from "next/router";
 import { useGrowthBook } from "@growthbook/growthbook-react";
-import useApi from "@/hooks/useApi";
+import { datetime, ago } from "shared/dates";
+import Link from "next/link";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
-import { datetime, ago } from "@/services/dates";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import WatchButton from "@/components/WatchButton";
@@ -24,6 +24,8 @@ import Toggle from "@/components/Forms/Toggle";
 import AddExperimentModal from "@/components/Experiment/AddExperimentModal";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import { AppFeatures } from "@/types/app-features";
+import { useExperiments } from "@/hooks/useExperiments";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const NUM_PER_PAGE = 20;
 
@@ -32,9 +34,12 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const { ready, project, getMetricById, getProjectById } = useDefinitions();
 
-  const { data, error, mutate } = useApi<{
-    experiments: ExperimentInterfaceStringDates[];
-  }>(`/experiments?project=${project || ""}`);
+  const {
+    experiments: allExperiments,
+    error,
+    mutateExperiments,
+    loading,
+  } = useExperiments(project);
 
   const [tab, setTab] = useAnchor(["running", "drafts", "stopped", "archived"]);
 
@@ -47,25 +52,33 @@ const ExperimentsPage = (): React.ReactElement => {
   const [currentPage, setCurrentPage] = useState(1);
 
   const experiments = useAddComputedFields(
-    data?.experiments,
-    (exp) => ({
-      ownerName: getUserDisplay(exp.owner, false) || "",
-      metricNames: exp.metrics
-        .map((m) => getMetricById(m)?.name)
-        .filter(Boolean),
-      projectName: getProjectById(exp.project)?.name || "",
-      tab: exp.archived
-        ? "archived"
-        : exp.status === "draft"
-        ? "drafts"
-        : exp.status,
-      date:
-        (exp.status === "running"
-          ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
-          : exp.status === "stopped"
-          ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
-          : exp.dateCreated) ?? "",
-    }),
+    allExperiments,
+    (exp) => {
+      const projectId = exp.project;
+      const projectName = projectId ? getProjectById(projectId)?.name : "";
+      const projectIsDeReferenced = projectId && !projectName;
+
+      return {
+        ownerName: getUserDisplay(exp.owner, false) || "",
+        metricNames: exp.metrics
+          .map((m) => getMetricById(m)?.name)
+          .filter(Boolean),
+        projectId,
+        projectName,
+        projectIsDeReferenced,
+        tab: exp.archived
+          ? "archived"
+          : exp.status === "draft"
+          ? "drafts"
+          : exp.status,
+        date:
+          (exp.status === "running"
+            ? exp.phases?.[exp.phases?.length - 1]?.dateStarted
+            : exp.status === "stopped"
+            ? exp.phases?.[exp.phases?.length - 1]?.dateEnded
+            : exp.dateCreated) ?? "",
+      };
+    },
     [getMetricById, getProjectById]
   );
 
@@ -128,7 +141,7 @@ const ExperimentsPage = (): React.ReactElement => {
       </div>
     );
   }
-  if (!data || !ready) {
+  if (loading || !ready) {
     return <LoadingOverlay />;
   }
 
@@ -145,7 +158,10 @@ const ExperimentsPage = (): React.ReactElement => {
           data source and defining metrics.
         </p>
         <NewFeatureExperiments />
-        <ExperimentsGetStarted experiments={experiments} mutate={mutate} />
+        <ExperimentsGetStarted
+          experiments={experiments}
+          mutate={mutateExperiments}
+        />
       </div>
     );
   }
@@ -292,8 +308,18 @@ const ExperimentsPage = (): React.ReactElement => {
                       data-title="Experiment name:"
                     >
                       <div className="d-flex flex-column">
-                        <div>
-                          <span className="testname">{e.name}</span>
+                        <div className="d-flex">
+                          <Link href={`/experiment/${e.id}`}>
+                            <a className="testname">{e.name}</a>
+                          </Link>
+                          {e.hasVisualChangesets ? (
+                            <Tooltip
+                              className="d-flex align-items-center ml-2"
+                              body="Visual experiment"
+                            >
+                              <RxDesktop className="text-blue" />
+                            </Tooltip>
+                          ) : null}
                         </div>
                         {isFiltered && e.trackingKey && (
                           <span
@@ -307,7 +333,19 @@ const ExperimentsPage = (): React.ReactElement => {
                     </td>
                     {showProjectColumn && (
                       <td className="nowrap" data-title="Project:">
-                        {e.projectName}
+                        {e.projectIsDeReferenced ? (
+                          <Tooltip
+                            body={
+                              <>
+                                Project <code>{e.project}</code> not found
+                              </>
+                            }
+                          >
+                            <span className="text-danger">Invalid project</span>
+                          </Tooltip>
+                        ) : (
+                          e.projectName ?? <em>All Projects</em>
+                        )}
                       </td>
                     )}
                     <td className="nowrap" data-title="Tags:">
@@ -328,7 +366,7 @@ const ExperimentsPage = (): React.ReactElement => {
                     </td>
                     {tab === "stopped" && (
                       <td className="nowrap" data-title="Results:">
-                        <ResultsIndicator results={e.results} />
+                        {e.results && <ResultsIndicator results={e.results} />}
                       </td>
                     )}
                     {tab === "archived" && (
@@ -350,7 +388,7 @@ const ExperimentsPage = (): React.ReactElement => {
         </div>
       </div>
       {openNewExperimentModal &&
-        (growthbook.isOn("new-experiment-modal") ? (
+        (growthbook?.isOn("new-experiment-modal") ? (
           <AddExperimentModal
             onClose={() => setOpenNewExperimentModal(false)}
             source="experiment-list"

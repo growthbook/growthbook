@@ -52,7 +52,7 @@ async function getUserFromJWT(token: IdToken): Promise<null | UserInterface> {
   }
   const user = await getUserByEmail(String(token.email));
   if (!user) return null;
-  return user.toJSON();
+  return user.toJSON<UserInterface>();
 }
 function getInitialDataFromJWT(user: IdToken): JWTInfo {
   return {
@@ -116,7 +116,7 @@ export async function processJWT(
   // Throw error if permissions don't pass
   req.checkPermissions = (
     permission: Permission,
-    project?: string | string[],
+    project?: string | (string | undefined)[] | undefined,
     envs?: string[] | Set<string>
   ) => {
     let checkProjects: (string | undefined)[];
@@ -125,7 +125,7 @@ export async function processJWT(
     } else {
       checkProjects = [project];
     }
-    for (const p in checkProjects) {
+    for (const p of checkProjects) {
       if (!hasPermission(permission, p, envs ? [...envs] : undefined)) {
         throw new Error("You do not have permission to complete that action.");
       }

@@ -104,6 +104,7 @@ const SnowplowSchema: SchemaInterface = {
     "os",
   ],
   getExperimentSQL: (tablePrefix, userId, options) => {
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     const actionName = options.actionName || "Experiment Viewed";
     const userCol = userId === "user_id" ? "user_id" : "domain_userid";
 
@@ -182,6 +183,7 @@ const AmplitudeSchema: SchemaInterface = {
   experimentDimensions: ["country", "device", "os", "paying"],
   getExperimentSQL: (tablePrefix, userId, options) => {
     const userCol = userId === "user_id" ? "user_id" : "$amplitude_id";
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     const eventType = options.eventType || "Experiment Viewed";
 
     return `SELECT
@@ -456,6 +458,48 @@ FROM
   },
 };
 
+const FullStorySchema: SchemaInterface = {
+  experimentDimensions: ["source"],
+  getExperimentSQL: (tablePrefix, userId) => {
+    // const exposureTableName =
+    //   camelToUnderscore(options?.exposureTableName) || "experiment_viewed";
+    return `
+-- Modify the below query to match your exported data
+SELECT
+  ${userId},
+  TIMESTAMP_MICROS(event_time) as timestamp,
+  experiment_id_param.value.string_value AS experiment_id,
+  variation_id_param.value.int_value AS variation_id,
+  source_type as source
+FROM
+  ${tablePrefix}\`events_ *\`,
+  UNNEST(event_properties) AS exp_event_properties,
+  UNNEST(exp_event_properties.event_properties) AS experiment_id_param
+  UNNEST(exp_event_properties.event_properties) AS variation_id_param
+WHERE
+  _TABLE_SUFFIX BETWEEN '{{startYear}}{{startMonth}}{{startDay}}' AND '{{endYear}}{{endMonth}}{{endDay}}'
+  AND event_type = 'custom'
+  AND exp_event_properties.event_name = 'experiment_viewed'  
+  AND experiment_id_param.key = 'experiment_id'
+  AND variation_id_param.key = 'variation_id'
+  AND ${userId} is not null
+  `;
+  },
+  getIdentitySQL: () => {
+    return [];
+  },
+  userIdTypes: ["device_id"],
+  getMetricSQL: (name, type, tablePrefix) => {
+    return `SELECT
+  device_id,
+  TIMESTAMP_MICROS(event_time) as timestamp${
+    type === "binomial" ? "" : ",\n  value as value"
+  }
+  FROM
+    ${tablePrefix}${safeTableName(name)}`;
+  },
+};
+
 function getSchemaObject(type?: SchemaFormat) {
   if (type === "ga4" || type === "firebase") {
     return GA4Schema;
@@ -480,6 +524,9 @@ function getSchemaObject(type?: SchemaFormat) {
   }
   if (type === "rudderstack") {
     return RudderstackSchema;
+  }
+  if (type === "fullstory") {
+    return FullStorySchema;
   }
 
   return CustomSchema;

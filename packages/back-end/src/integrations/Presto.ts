@@ -10,8 +10,9 @@ type Row = any;
 
 export default class Presto extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   params: PrestoConnectionParams;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<PrestoConnectionParams>(
       encryptedParams
@@ -93,6 +94,9 @@ export default class Presto extends SqlIntegration {
   formatDate(col: string): string {
     return `substr(to_iso8601(${col}),1,10)`;
   }
+  formatDateTimeString(col: string): string {
+    return `to_iso8601(${col})`;
+  }
   dateDiff(startCol: string, endCol: string) {
     return `date_diff('day', ${startCol}, ${endCol})`;
   }
@@ -101,5 +105,8 @@ export default class Presto extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
+  }
+  getDefaultDatabase() {
+    return this.params.catalog || "";
   }
 }

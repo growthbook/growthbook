@@ -27,7 +27,7 @@ const PresentPage = (): React.ReactElement => {
     }[];
   }>(`/presentation/${pid}`);
 
-  useSwitchOrg(pdata?.presentation?.organization);
+  useSwitchOrg(pdata?.presentation?.organization || null);
 
   if (error) {
     return <div className="alert alert-danger">An error occurred</div>;

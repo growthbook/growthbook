@@ -2,12 +2,14 @@ import crypto from "crypto";
 import { webcrypto } from "node:crypto";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import omit from "lodash/omit";
 import {
   ApiKeyInterface,
   PublishableApiKey,
   SecretApiKey,
 } from "../../types/apikey";
-import { IS_CLOUD, SECRET_API_KEY } from "../util/secrets";
+import { IS_CLOUD, SECRET_API_KEY, SECRET_API_KEY_ROLE } from "../util/secrets";
+import { roleForApiKey } from "../util/api-key.util";
 import { findAllOrganizations } from "./OrganizationModel";
 
 const apiKeySchema = new mongoose.Schema({
@@ -24,11 +26,32 @@ const apiKeySchema = new mongoose.Schema({
   encryptSDK: Boolean,
   encryptionKey: String,
   secret: Boolean,
+  role: {
+    type: String,
+    required: false,
+  },
+  userId: {
+    type: String,
+    required: false,
+  },
 });
 
 type ApiKeyDocument = mongoose.Document & ApiKeyInterface;
 
-const ApiKeyModel = mongoose.model<ApiKeyDocument>("ApiKey", apiKeySchema);
+const ApiKeyModel = mongoose.model<ApiKeyInterface>("ApiKey", apiKeySchema);
+
+const toInterface = (doc: ApiKeyDocument): ApiKeyInterface => {
+  const asJson = omit(
+    doc.toJSON<ApiKeyDocument>({ flattenMaps: true }),
+    ["__v", "_id"]
+  );
+  const role = roleForApiKey(asJson) || undefined;
+
+  return {
+    ...asJson,
+    role,
+  };
+};
 
 export async function generateEncryptionKey(): Promise<string> {
   const key = await webcrypto.subtle.generateKey(
@@ -62,13 +85,86 @@ export function generateSigningKey(prefix: string = "", bytes = 32): string {
   );
 }
 
-export async function createApiKey({
+export async function createOrganizationApiKey({
+  organizationId,
+  description,
+  role = "readonly",
+}: {
+  organizationId: string;
+  description: string;
+  role: "admin" | "readonly";
+}): Promise<ApiKeyInterface> {
+  return await createApiKey({
+    organization: organizationId,
+    secret: true,
+    encryptSDK: false,
+    description,
+    environment: "",
+    project: "",
+    role,
+  });
+}
+
+export async function createUserPersonalAccessApiKey({
+  userId,
+  organizationId,
+  description,
+}: {
+  userId: string;
+  organizationId: string;
+  description: string;
+}): Promise<ApiKeyInterface> {
+  return await createApiKey({
+    organization: organizationId,
+    userId,
+    secret: true,
+    environment: "",
+    project: "",
+    encryptSDK: false,
+    description,
+    role: "user",
+  });
+}
+
+/**
+ * @deprecated
+ */
+export async function createLegacySdkKey({
+  organizationId,
+  environment,
+  project,
+  encryptSDK,
+  description,
+}: {
+  organizationId: string;
+  environment: string;
+  project: string;
+  encryptSDK: boolean;
+  description: string;
+}): Promise<ApiKeyInterface> {
+  return await createApiKey({
+    organization: organizationId,
+    secret: false,
+    environment,
+    project,
+    encryptSDK,
+    description,
+  });
+}
+
+/**
+ * This lower-level function should not be exported.
+ * Use either {@link createOrganizationApiKey} with role 'readonly' | 'admin' or {@link createLegacySdkKey}
+ */
+async function createApiKey({
   environment,
   project,
   organization,
   description,
   secret,
   encryptSDK,
+  userId,
+  role,
 }: {
   environment: string;
   project: string;
@@ -76,12 +172,20 @@ export async function createApiKey({
   description: string;
   secret: boolean;
   encryptSDK: boolean;
+  userId?: string;
+  role?: string;
 }): Promise<ApiKeyInterface> {
+  // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
   if (!secret && !environment) {
     throw new Error("SDK Endpoints must have an environment set");
   }
 
-  const prefix = secret ? "secret_" : `${getShortEnvName(environment)}_`;
+  const prefix = prefixForApiKey({
+    environment,
+    secret,
+    userId,
+    role,
+  });
   const key = generateSigningKey(prefix);
 
   const id = uniqid("key_");
@@ -95,12 +199,41 @@ export async function createApiKey({
     secret,
     id,
     encryptSDK,
+    userId,
+    role,
     encryptionKey: encryptSDK ? await generateEncryptionKey() : null,
     dateCreated: new Date(),
   });
 
-  return doc.toJSON();
+  return toInterface(doc);
 }
+
+const prefixForApiKey = ({
+  environment,
+  secret,
+  userId,
+  role,
+}: {
+  environment: string;
+  secret: boolean;
+  userId?: string;
+  role?: string;
+}): string => {
+  // Non-secret keys are SDK keys and use the environment prefix
+  if (!secret) {
+    return `${getShortEnvName(environment)}_`;
+  }
+
+  // Secret keys either have the user or role prefix
+  let prefix = "secret_";
+  if (userId) {
+    prefix += "user_";
+  } else if (role) {
+    prefix += `${role}_`;
+  }
+
+  return prefix;
+};
 
 export async function deleteApiKeyById(organization: string, id: string) {
   await ApiKeyModel.deleteOne({
@@ -126,7 +259,7 @@ export async function getApiKeyByIdOrKey(
   const doc = await ApiKeyModel.findOne(
     id ? { organization, id } : { organization, key }
   );
-  return doc ? doc.toJSON() : null;
+  return doc ? toInterface(doc) : null;
 }
 
 export async function lookupOrganizationByApiKey(
@@ -141,6 +274,7 @@ export async function lookupOrganizationByApiKey(
         key: SECRET_API_KEY,
         secret: true,
         organization: orgs[0].id,
+        role: SECRET_API_KEY_ROLE,
       };
     }
   }
@@ -150,20 +284,20 @@ export async function lookupOrganizationByApiKey(
   });
 
   if (!doc || !doc.organization) return {};
-  return doc.toJSON();
+  return toInterface(doc);
 }
 
 export async function getAllApiKeysByOrganization(
   organization: string
 ): Promise<ApiKeyInterface[]> {
-  const docs = await ApiKeyModel.find(
+  const docs: ApiKeyDocument[] = await ApiKeyModel.find(
     {
       organization,
     },
     { encryptionKey: 0 }
   );
   return docs.map((k) => {
-    const json = k.toJSON();
+    const json = toInterface(k);
     if (json.secret) {
       json.key = "";
     }
@@ -188,7 +322,7 @@ export async function getFirstPublishableApiKey(
 
   if (!doc) return null;
 
-  return doc.toJSON() as PublishableApiKey;
+  return toInterface(doc) as PublishableApiKey;
 }
 
 export async function getUnredactedSecretKey(
@@ -200,5 +334,5 @@ export async function getUnredactedSecretKey(
     id,
   });
   if (!doc) return null;
-  return doc.toJSON() as SecretApiKey;
+  return toInterface(doc) as SecretApiKey;
 }

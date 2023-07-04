@@ -1,5 +1,6 @@
 import * as React from "react";
-import * as ReactDOM from "react-dom";
+import { act } from "react-dom/test-utils";
+import { cleanup, render } from "@testing-library/react";
 import {
   GrowthBook,
   GrowthBookProvider,
@@ -8,7 +9,11 @@ import {
   WithRunExperimentProps,
   useGrowthBook,
   useFeatureIsOn,
+  useFeatureValue,
+  FeaturesReady,
 } from "../src";
+
+afterEach(cleanup);
 
 const TestedComponent = () => {
   const { value } = useExperiment({
@@ -33,88 +38,156 @@ const TestedClassComponent = withRunExperiment(
 describe("GrowthBookProvider", () => {
   it("renders without crashing and doesn't add additional html", () => {
     const growthbook = new GrowthBook({ user: { id: "1" } });
-    const div = document.createElement("div");
-    ReactDOM.render(
+
+    const { container } = render(
       <GrowthBookProvider growthbook={growthbook}>
         <h1>Hello World</h1>
-      </GrowthBookProvider>,
-      div
+      </GrowthBookProvider>
     );
-    expect(div.innerHTML).toEqual("<h1>Hello World</h1>");
-    ReactDOM.unmountComponentAtNode(div);
+    expect(container.innerHTML).toEqual("<h1>Hello World</h1>");
     growthbook.destroy();
   });
 
   it("runs an experiment with the useExperiment hook", () => {
     const growthbook = new GrowthBook({ user: { id: "1" } });
-    const div = document.createElement("div");
 
-    ReactDOM.render(
+    const { container } = render(
       <GrowthBookProvider growthbook={growthbook}>
         <TestedComponent />
-      </GrowthBookProvider>,
-      div
+      </GrowthBookProvider>
     );
-    expect(div.innerHTML).toEqual("<h1>1</h1>");
-    ReactDOM.unmountComponentAtNode(div);
+    expect(container.innerHTML).toEqual("<h1>1</h1>");
     growthbook.destroy();
   });
 
   it("works using the withRunExperiment HoC", () => {
     const growthbook = new GrowthBook({ user: { id: "1" } });
-    const div = document.createElement("div");
 
-    ReactDOM.render(
+    const { container } = render(
       <GrowthBookProvider growthbook={growthbook}>
         <TestedClassComponent />
-      </GrowthBookProvider>,
-      div
+      </GrowthBookProvider>
     );
-    expect(div.innerHTML).toEqual("<h1>1</h1>");
-    ReactDOM.unmountComponentAtNode(div);
+    expect(container.innerHTML).toEqual("<h1>1</h1>");
     growthbook.destroy();
   });
 
   it("returns the control when there is no user", () => {
-    const div = document.createElement("div");
-
     const growthbook = new GrowthBook({});
 
-    ReactDOM.render(
+    const { container } = render(
       <GrowthBookProvider growthbook={growthbook}>
         <TestedComponent />
-      </GrowthBookProvider>,
-      div
+      </GrowthBookProvider>
     );
-    expect(div.innerHTML).toEqual("<h1>0</h1>");
-    ReactDOM.unmountComponentAtNode(div);
+    expect(container.innerHTML).toEqual("<h1>0</h1>");
     growthbook.destroy();
   });
 
   it("returns the control when there is no growthbook instance", () => {
-    const div = document.createElement("div");
-
-    ReactDOM.render(
+    const { container } = render(
       <GrowthBookProvider>
         <TestedComponent />
-      </GrowthBookProvider>,
-      div
+      </GrowthBookProvider>
     );
-    expect(div.innerHTML).toEqual("<h1>0</h1>");
-    ReactDOM.unmountComponentAtNode(div);
+    expect(container.innerHTML).toEqual("<h1>0</h1>");
+  });
+
+  describe("FeaturesReady", () => {
+    it("renders immediately if ready", async () => {
+      const growthbook = new GrowthBook({
+        features: {
+          feature: {
+            defaultValue: "actual value",
+          },
+        },
+      });
+
+      const Fallback = () => <div>loading fallback</div>;
+      const FeatureComponent = () => {
+        const val = useFeatureValue("feature", "inline fallback");
+        return <div>{val}</div>;
+      };
+
+      const { container } = render(
+        <GrowthBookProvider growthbook={growthbook}>
+          <FeaturesReady fallback={<Fallback />}>
+            <FeatureComponent />
+          </FeaturesReady>
+        </GrowthBookProvider>
+      );
+      expect(container.innerHTML).toEqual("<div>actual value</div>");
+
+      growthbook.destroy();
+    });
+
+    it("re-renders when features set and no timeout", async () => {
+      const growthbook = new GrowthBook({});
+
+      const Fallback = () => <div>loading fallback</div>;
+      const FeatureComponent = () => {
+        const val = useFeatureValue("feature", "inline fallback");
+        return <div>{val}</div>;
+      };
+
+      const { container } = render(
+        <GrowthBookProvider growthbook={growthbook}>
+          <FeaturesReady fallback={<Fallback />}>
+            <FeatureComponent />
+          </FeaturesReady>
+        </GrowthBookProvider>
+      );
+      expect(container.innerHTML).toEqual("<div>loading fallback</div>");
+
+      act(() => {
+        growthbook.setFeatures({
+          feature: {
+            defaultValue: "actual value",
+          },
+        });
+      });
+      expect(container.innerHTML).toEqual("<div>actual value</div>");
+
+      growthbook.destroy();
+    });
+
+    it("re-renders when timeout is hit", async () => {
+      const growthbook = new GrowthBook({});
+
+      const Fallback = () => <div>loading fallback</div>;
+      const FeatureComponent = () => {
+        const val = useFeatureValue("feature", "inline fallback");
+        return <div>{val}</div>;
+      };
+
+      const { container } = render(
+        <GrowthBookProvider growthbook={growthbook}>
+          <FeaturesReady fallback={<Fallback />} timeout={100}>
+            <FeatureComponent />
+          </FeaturesReady>
+        </GrowthBookProvider>
+      );
+      expect(container.innerHTML).toEqual("<div>loading fallback</div>");
+
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+      });
+      expect(container.innerHTML).toEqual("<div>inline fallback</div>");
+
+      act(() => {
+        growthbook.setFeatures({
+          feature: {
+            defaultValue: "actual value",
+          },
+        });
+      });
+      expect(container.innerHTML).toEqual("<div>actual value</div>");
+
+      growthbook.destroy();
+    });
   });
 
   describe("with typed features", () => {
-    let div = document.createElement("div");
-
-    beforeEach(() => {
-      div = document.createElement("div");
-    });
-
-    afterEach(() => {
-      ReactDOM.unmountComponentAtNode(div);
-    });
-
     type SampleAppFeatures = {
       foo: number;
       bar: boolean;
@@ -153,14 +226,13 @@ describe("GrowthBookProvider", () => {
         );
       };
 
-      ReactDOM.render(
+      const { container } = render(
         <GrowthBookProvider growthbook={providedGrowthBook}>
           <ComponentThatCallsUseGrowthBookWithTypes />
-        </GrowthBookProvider>,
-        div
+        </GrowthBookProvider>
       );
 
-      expect(div.innerHTML).toEqual(
+      expect(container.innerHTML).toEqual(
         "<h1>foo = 1337, bar = true, baz = hello world</h1>"
       );
     });
@@ -174,14 +246,13 @@ describe("GrowthBookProvider", () => {
         return <h1>is on = {text}</h1>;
       };
 
-      ReactDOM.render(
+      const { container } = render(
         <GrowthBookProvider growthbook={providedGrowthBook}>
           <ComponentThatCallsUseFeatureIsOn />
-        </GrowthBookProvider>,
-        div
+        </GrowthBookProvider>
       );
 
-      expect(div.innerHTML).toEqual("<h1>is on = Yes</h1>");
+      expect(container.innerHTML).toEqual("<h1>is on = Yes</h1>");
     });
 
     describe("useFeatureIsOn untyped", () => {
@@ -194,14 +265,13 @@ describe("GrowthBookProvider", () => {
           return <h1>is on = {text}</h1>;
         };
 
-        ReactDOM.render(
+        const { container } = render(
           <GrowthBookProvider growthbook={providedGrowthBook}>
             <ComponentThatCallsUseFeatureIsOn />
-          </GrowthBookProvider>,
-          div
+          </GrowthBookProvider>
         );
 
-        expect(div.innerHTML).toEqual("<h1>is on = Yes</h1>");
+        expect(container.innerHTML).toEqual("<h1>is on = Yes</h1>");
       });
     });
 
@@ -221,14 +291,13 @@ describe("GrowthBookProvider", () => {
           );
         };
 
-        ReactDOM.render(
+        const { container } = render(
           <GrowthBookProvider growthbook={providedGrowthBook}>
             <ComponentThatCallsUseGrowthBookWithTypes />
-          </GrowthBookProvider>,
-          div
+          </GrowthBookProvider>
         );
 
-        expect(div.innerHTML).toEqual(
+        expect(container.innerHTML).toEqual(
           "<h1>foo = 1337, bar = true, baz = hello world</h1>"
         );
       });

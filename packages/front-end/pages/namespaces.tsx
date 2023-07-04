@@ -23,7 +23,7 @@ const NamespacesPage: FC = () => {
   const canEdit = permissions.manageNamespaces;
 
   const { refreshOrganization } = useUser();
-  const { namespaces } = useOrgSettings();
+  const { namespaces = [] } = useOrgSettings();
   const [modalOpen, setModalOpen] = useState(false);
   const [editNamespace, setEditNamespace] = useState<{
     namespace: Namespaces;
@@ -60,10 +60,10 @@ const NamespacesPage: FC = () => {
       <h1>Experiment Namespaces</h1>
       <p>
         Namespaces allow you to run mutually exclusive experiments.{" "}
-        {namespaces?.length > 0 &&
+        {namespaces.length > 0 &&
           "Click a namespace below to see more details about it's current usage."}
       </p>
-      {namespaces?.length > 0 && (
+      {namespaces.length > 0 && (
         <table className="table appbox gbtable table-hover">
           <thead>
             <tr>

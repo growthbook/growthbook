@@ -52,6 +52,7 @@ import {
 } from "../models/SegmentModel";
 import { getAllExperiments } from "../models/ExperimentModel";
 import { LegacyExperimentPhase } from "../../types/experiment";
+import { addTags } from "../models/TagModel";
 import { markInstalled } from "./auth";
 import {
   encryptParams,
@@ -618,6 +619,9 @@ export async function importConfig(
               organization: organization.id,
             });
           }
+          if (m.tags && organization.id) {
+            await addTags(organization.id, m.tags);
+          }
         } catch (e) {
           throw new Error(`Metric ${k}: ${e.message}`);
         }
@@ -778,11 +782,11 @@ export async function addMemberFromSSOConnection(
   if (!req.userId) return null;
 
   const ssoConnection = req.loginMethod;
-  if (!ssoConnection || !ssoConnection.emailDomain) return null;
+  if (!ssoConnection || !ssoConnection?.emailDomains?.length) return null;
 
   // Check if the user's email domain is allowed by the SSO connection
   const emailDomain = req.email.split("@").pop()?.toLowerCase() || "";
-  if (emailDomain !== ssoConnection.emailDomain) {
+  if (!ssoConnection?.emailDomains?.includes(emailDomain)) {
     return null;
   }
 

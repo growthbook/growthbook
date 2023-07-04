@@ -7,14 +7,14 @@ import { useSnapshot } from "./SnapshotProvider";
 
 export interface Props {
   mutateExperiment: () => void;
-  editResult: () => void;
+  editResult?: () => void;
 }
 
 export default function StatusBanner({ mutateExperiment, editResult }: Props) {
   const { experiment } = useSnapshot();
   const { apiCall } = useAuth();
 
-  if (experiment.status === "stopped") {
+  if (experiment?.status === "stopped") {
     const result = experiment.results;
 
     const winningVariation =
@@ -84,7 +84,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
             </div>
           )}
         </div>
-        {experiment.analysis && (
+        {experiment?.analysis && (
           <div className="card text-dark mt-2">
             <div className="card-body">
               <Markdown className="card-text">{experiment.analysis}</Markdown>
@@ -95,7 +95,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
     );
   }
 
-  if (experiment.status === "running") {
+  if (experiment?.status === "running") {
     return (
       <div className={clsx("alert mb-0 alert-info")}>
         {editResult && (
@@ -115,7 +115,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
     );
   }
 
-  if (experiment.status === "draft") {
+  if (experiment?.status === "draft") {
     return (
       <div className={clsx("alert mb-0 alert-warning")}>
         {editResult && (
@@ -124,7 +124,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
             className="alert-link float-right ml-2 p-0"
             onClick={async () => {
               // Already has a phase, just update the status
-              await apiCall(`/experiment/${experiment.id}/status`, {
+              await apiCall(`/experiment/${experiment?.id}/status`, {
                 method: "POST",
                 body: JSON.stringify({
                   status: "running",
@@ -140,4 +140,6 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
       </div>
     );
   }
+
+  return null;
 }

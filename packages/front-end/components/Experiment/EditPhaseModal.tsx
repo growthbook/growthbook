@@ -26,9 +26,9 @@ export default function EditPhaseModal({
   const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       ...experiment.phases[i],
-      dateStarted: experiment.phases[i].dateStarted.substr(0, 16),
+      dateStarted: (experiment.phases[i].dateStarted ?? "").substr(0, 16),
       dateEnded: experiment.phases[i].dateEnded
-        ? experiment.phases[i].dateEnded.substr(0, 16)
+        ? (experiment.phases[i].dateEnded ?? "").substr(0, 16)
         : "",
     },
   });

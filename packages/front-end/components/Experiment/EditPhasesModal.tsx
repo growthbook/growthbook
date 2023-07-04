@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { date, datetime } from "@/services/dates";
+import { date, datetime } from "shared/dates";
 import { phaseSummary } from "@/services/utils";
 import { useAuth } from "@/services/auth";
 import Modal from "../Modal";
@@ -71,11 +71,11 @@ export default function EditPhasesModal({
               <td>{i + 1}</td>
               <td>{phase.name}</td>
               <td>
-                <strong title={datetime(phase.dateStarted)}>
-                  {date(phase.dateStarted)}
+                <strong title={datetime(phase.dateStarted ?? "")}>
+                  {date(phase.dateStarted ?? "")}
                 </strong>{" "}
                 to{" "}
-                <strong title={datetime(phase.dateEnded)}>
+                <strong title={datetime(phase.dateEnded ?? "")}>
                   {phase.dateEnded ? date(phase.dateEnded) : "now"}
                 </strong>
               </td>

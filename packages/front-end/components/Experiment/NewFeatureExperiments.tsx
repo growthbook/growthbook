@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { ago } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ago } from "@/services/dates";
 import usePermissions from "@/hooks/usePermissions";
 import NewExperimentForm from "./NewExperimentForm";
 
@@ -61,7 +61,7 @@ export default function NewFeatureExperiments() {
           source="feature-rule"
           isImport={true}
           msg="We've prefilled the form with values from the the feature."
-          initialValue={expDef}
+          initialValue={expDef || undefined}
           fromFeature={true}
         />
       )}

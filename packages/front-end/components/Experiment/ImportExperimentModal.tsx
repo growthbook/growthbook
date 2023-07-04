@@ -10,7 +10,7 @@ const ImportExperimentModal: FC<{
   onClose: () => void;
   initialValue?: Partial<ExperimentInterfaceStringDates>;
   importMode?: boolean;
-  source?: string;
+  source: string;
   fromFeature?: boolean;
 }> = ({
   onClose,
@@ -23,15 +23,17 @@ const ImportExperimentModal: FC<{
   const [
     selected,
     setSelected,
-  ] = useState<null | Partial<ExperimentInterfaceStringDates>>(initialValue);
+  ] = useState<null | Partial<ExperimentInterfaceStringDates>>(
+    initialValue ?? null
+  );
   const [importModal, setImportModal] = useState<boolean>(importMode);
   const [datasourceId, setDatasourceId] = useState(() => {
     if (!datasources) return null;
     return (
-      datasources.filter((d) => d.properties.pastExperiments)[0]?.id ?? null
+      datasources.filter((d) => d?.properties?.pastExperiments)?.[0]?.id ?? null
     );
   });
-  const [importId, setImportId] = useState(null);
+  const [importId, setImportId] = useState<string | null>(null);
 
   const { apiCall } = useAuth();
 
@@ -59,7 +61,7 @@ const ImportExperimentModal: FC<{
   if (selected || !importModal || !datasourceId) {
     return (
       <NewExperimentForm
-        initialValue={selected}
+        initialValue={selected ?? undefined}
         onClose={() => onClose()}
         source={source}
         isImport={!!selected}

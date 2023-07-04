@@ -7,8 +7,10 @@ import SqlIntegration from "./SqlIntegration";
 
 export default class Mysql extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   params: MysqlConnectionParams;
+  requiresDatabase = false;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<MysqlConnectionParams>(
       encryptedParams
@@ -62,10 +64,20 @@ export default class Mysql extends SqlIntegration {
   formatDate(col: string): string {
     return `DATE_FORMAT(${col}, "%Y-%m-%d")`;
   }
+  formatDateTimeString(col: string): string {
+    return `DATE_FORMAT(${col}, "%Y-%m-%d %H:%i:%S")`;
+  }
   castToString(col: string): string {
     return `cast(${col} as char)`;
   }
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
+  }
+  getInformationSchemaWhereClause(): string {
+    if (!this.params.database)
+      throw new Error(
+        `No database name provided in MySql connection. Please add a database by editing the connection settings.`
+      );
+    return `table_schema IN ('${this.params.database}')`;
   }
 }

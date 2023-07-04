@@ -6,8 +6,9 @@ import SqlIntegration from "./SqlIntegration";
 
 export default class Athena extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore
+  // @ts-expect-error
   params: AthenaConnectionParams;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<AthenaConnectionParams>(
       encryptedParams
@@ -36,6 +37,9 @@ export default class Athena extends SqlIntegration {
   formatDate(col: string): string {
     return `substr(to_iso8601(${col}),1,10)`;
   }
+  formatDateTimeString(col: string): string {
+    return `to_iso8601(${col})`;
+  }
   dateDiff(startCol: string, endCol: string) {
     return `date_diff('day', ${startCol}, ${endCol})`;
   }
@@ -44,5 +48,8 @@ export default class Athena extends SqlIntegration {
   }
   ensureFloat(col: string): string {
     return `1.0*${col}`;
+  }
+  getDefaultDatabase() {
+    return this.params.catalog || "";
   }
 }

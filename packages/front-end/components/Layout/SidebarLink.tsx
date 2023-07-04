@@ -32,14 +32,14 @@ export type SidebarLinkProps = {
 };
 
 const SidebarLink: FC<SidebarLinkProps> = (props) => {
-  const growthbook = useGrowthBook<AppFeatures>();
-
   const { permissions, admin, accountPlan } = useUser();
   const router = useRouter();
 
   const path = router.route.substr(1);
   const selected = props.path.test(path);
   const showSubMenuIcons = true;
+
+  const growthbook = useGrowthBook<AppFeatures>();
 
   const [open, setOpen] = useState(selected);
 
@@ -50,6 +50,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
     }
   }, [selected]);
 
+  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   if (props.feature && !growthbook.isOn(props.feature)) {
     return null;
   }
@@ -130,6 +131,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
         >
           {props.subLinks
             .filter(
+              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
               (subLink) => !subLink.feature || growthbook.isOn(subLink.feature)
             )
             .map((l) => {
@@ -148,6 +150,7 @@ const SidebarLink: FC<SidebarLinkProps> = (props) => {
               if (l.selfHostedOnly && isCloud()) {
                 return null;
               }
+              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'AccountPlan | undefined' is not ... Remove this comment to see the full error message
               if (l.accountPlans && !l.accountPlans.includes(accountPlan)) {
                 return null;
               }

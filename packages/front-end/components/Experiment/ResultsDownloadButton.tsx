@@ -33,39 +33,40 @@ export default function ResultsDownloadButton({
   trackingKey,
   dimension,
 }: {
-  results?: ExperimentReportResultDimension[];
-  metrics: string[];
-  variations: ExperimentReportVariation[];
-  trackingKey: string;
-  dimension: string;
+  results: ExperimentReportResultDimension[];
+  metrics?: string[];
+  variations?: ExperimentReportVariation[];
+  trackingKey?: string;
+  dimension?: string;
 }) {
   const { getMetricById, getDimensionById, ready } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
 
-  const dimensionName =
-    getDimensionById(dimension)?.name ||
-    dimension?.split(":")?.[1] ||
-    dimension ||
-    null;
+  const dimensionName = dimension
+    ? getDimensionById(dimension)?.name ||
+      dimension?.split(":")?.[1] ||
+      dimension
+    : null;
 
   const getRows = () => {
     const csvRows: CsvRow[] = [];
 
-    if (!results || !variations || !ready) return [];
+    if (!variations || !ready) return [];
 
     const resultsCopy = [...results];
 
-    if (dimension === "pre:date") {
+    if (dimension?.substring(0, 8) === "pre:date") {
       // Sort the results by date to make csv cleaner
       resultsCopy.sort((a, b) => a.name.localeCompare(b.name));
     }
 
     resultsCopy.forEach((result) => {
-      metrics.forEach((m) => {
+      metrics?.forEach((m) => {
         result.variations.forEach((variation, index) => {
           const metric = getMetricById(m);
+          if (!metric) return;
           const row: ExperimentTableRow = {
-            label: metric?.name,
+            label: metric.name,
             metric: metric,
             rowClass: metric?.inverse ? "inverse" : "",
             variations: result.variations.map((v) => {
@@ -73,7 +74,7 @@ export default function ResultsDownloadButton({
             }),
           };
           const stats = variation.metrics[m];
-          if (!stats) return [];
+          if (!stats) return;
           const { relativeRisk } = getRisk(index, row, metricDefaults);
           csvRows.push({
             ...(dimensionName && { [dimensionName]: result.name }),
@@ -83,7 +84,7 @@ export default function ResultsDownloadButton({
             users: stats.users,
             totalValue: stats.value,
             perUserValue: stats.cr,
-            perUserValueStdDev: stats.stats.stddev || null,
+            perUserValueStdDev: stats.stats?.stddev || null,
             chanceToBeatControl: stats.chanceToWin ?? null,
             percentChange: stats.expected || null,
             percentChangePValue: stats.pValue ?? null,

@@ -1,5 +1,4 @@
 import fs from "fs";
-
 import { DataSourceInterface, DataSourceType } from "../../types/datasource";
 import {
   AttributionModel,
@@ -12,6 +11,8 @@ import { SegmentInterface } from "../../types/segment";
 import { Dimension } from "../../src/types/Integration";
 import { MetricInterface, MetricType } from "../../types/metric";
 import { getSourceIntegrationObject } from "../../src/services/datasource";
+import { getSnapshotSettings } from "../../src/services/experiments";
+import metricConfigData from "./metrics.json";
 
 const currentDate = new Date();
 const endDateString = "2022-02-01T00:00:00"; // premature end date to ensure some filter
@@ -24,7 +25,12 @@ const OUTPUT_DIR = "/tmp/json";
 
 // import experimentConfigs
 import experimentConfigData from "./experiments.json";
-type DimensionType = "user" | "experiment" | "date" | "activation";
+type DimensionType =
+  | "user"
+  | "experiment"
+  | "date"
+  | "datecumulative"
+  | "activation";
 type TestExperimentConfig = {
   id: string;
   dimensionType?: DimensionType;
@@ -48,7 +54,6 @@ const experimentConfigs = experimentConfigData as TestExperimentConfig[];
 // },
 
 // import metricConfigs
-import metricConfigData from "./metrics.json";
 type TestMetricConfig = {
   id: string;
   type: MetricType;
@@ -218,6 +223,8 @@ function buildDimension(
     return { type: "activation" };
   } else if (exp.dimensionType == "date") {
     return { type: "date" };
+  } else if (exp.dimensionType == "datecumulative") {
+    return { type: "datecumulative" };
   } else {
     throw "invalid dimensionType and or dimensionMetric specified";
   }
@@ -235,8 +242,7 @@ function buildSegment(
       datasource: "",
       userIdType: USER_ID_TYPE,
       name: exp.segment,
-      // TODO: fake date trunc just to avoid exporting dateTrunc from SqlIntegration
-      sql: `SELECT DISTINCT\nuserId as user_id,DATE('2022-01-01') as date\nFROM ${
+      sql: `SELECT DISTINCT\nuserId as user_id,CAST('2022-01-01' AS DATE) as date\nFROM ${
         engine === "bigquery" ? "sample." : ""
       }experiment_viewed\nWHERE browser = 'Chrome'`,
       dateCreated: currentDate,
@@ -252,6 +258,10 @@ function addDatabaseToMetric(metric: MetricInterface): MetricInterface {
   newMetric.sql = newMetric.sql?.replace("FROM ", "FROM sample.");
   return newMetric;
 }
+
+const metricMap = new Map<string, MetricInterface>();
+analysisMetrics.forEach((m) => metricMap.set(m.id, m));
+allActivationMetrics.forEach((m) => metricMap.set(m.id, m));
 
 engines.forEach((engine) => {
   // TODO: get integration object
@@ -296,16 +306,53 @@ engines.forEach((engine) => {
         engine
       );
 
+      let dimensionId = "";
+      if (dimension) {
+        if (dimension.type === "experiment") {
+          dimensionId = "exp:" + dimension.id;
+        } else if (dimension.type === "activation") {
+          dimensionId = "pre:activation";
+        } else if (dimension.type === "date") {
+          dimensionId = "pre:date";
+        } else if (dimension.type === "datecumulative") {
+          dimensionId = "pre:datecumulative";
+        } else if (dimension.type === "datedaily") {
+          dimensionId = "pre:datedaily";
+        } else {
+          dimensionId = dimension.dimension.id;
+        }
+      }
+
+      const snapshotSettings = getSnapshotSettings({
+        experiment,
+        phaseIndex: 0,
+        settings: {
+          dimensions: dimensionId ? [dimensionId] : [],
+          statsEngine: "frequentist",
+          pValueCorrection: null,
+          regressionAdjusted: metric.regressionAdjustmentEnabled ?? false,
+          sequentialTesting: false,
+          sequentialTestingTuningParameter: 0,
+        },
+        metricRegressionAdjustmentStatuses: [
+          {
+            metric: metric.id,
+            reason: "",
+            regressionAdjustmentEnabled:
+              metric.regressionAdjustmentEnabled ?? false,
+            regressionAdjustmentDays: metric.regressionAdjustmentDays ?? 0,
+          },
+        ],
+        metricMap,
+      });
+
       const sql = integration.getExperimentMetricQuery({
-        experiment: experiment,
-        phase: baseExperimentPhase,
+        settings: snapshotSettings,
         metric: metric,
         activationMetrics: activationMetrics,
         denominatorMetrics: denominatorMetrics,
         dimension: dimension,
         segment: segment,
-        regressionAdjustmentEnabled:
-          metric.regressionAdjustmentEnabled || false,
       });
 
       testCases.push({

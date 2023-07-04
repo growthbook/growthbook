@@ -3,11 +3,13 @@ import Link from "next/link";
 import React from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
-import { ago, datetime } from "@/services/dates";
+import { ago, datetime } from "shared/dates";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
 import { useUser } from "@/services/UserContext";
+import { trackReport } from "@/services/track";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import Button from "../Button";
 import { GBAddCircle } from "../Icons";
@@ -17,12 +19,13 @@ export default function ExperimentReportsList({
   experiment,
 }: {
   experiment: ExperimentInterfaceStringDates;
-}): React.ReactElement {
+}) {
   const router = useRouter();
   const { apiCall } = useAuth();
   const permissions = usePermissions();
   const { userId, users } = useUser();
-  const { snapshot } = useSnapshot();
+  const { snapshot, analysis } = useSnapshot();
+  const { getDatasourceById } = useDefinitions();
 
   const { data, error, mutate } = useApi<{
     reports: ReportInterface[];
@@ -43,13 +46,9 @@ export default function ExperimentReportsList({
     return null;
   }
 
-  const hasData = snapshot?.results?.[0]?.variations?.length > 0;
-  const hasUserQuery = snapshot && !("skipPartialData" in snapshot);
+  const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
   const canCreateReports =
-    hasData &&
-    snapshot?.queries &&
-    !hasUserQuery &&
-    permissions.check("createAnalyses", "");
+    hasData && snapshot?.queries && permissions.check("createAnalyses", "");
 
   return (
     <div>
@@ -73,6 +72,12 @@ export default function ExperimentReportsList({
                 if (!res.report) {
                   throw new Error("Failed to create report");
                 }
+                trackReport(
+                  "create",
+                  "NewCustomReportButton",
+                  getDatasourceById(res.report.args.datasource)?.type || null,
+                  res.report
+                );
 
                 await router.push(`/report/${res.report.id}`);
               }}
@@ -97,7 +102,7 @@ export default function ExperimentReportsList({
         </thead>
         <tbody>
           {reports.map((report) => {
-            const user = users.get(report.userId);
+            const user = report.userId ? users.get(report.userId) : null;
             const name = user ? user.name : "";
             return (
               <tr key={report.id} className="">
@@ -148,6 +153,13 @@ export default function ExperimentReportsList({
                               method: "DELETE",
                               //body: JSON.stringify({ id: report.id }),
                             }
+                          );
+                          trackReport(
+                            "delete",
+                            "ExperimentReportsList",
+                            getDatasourceById(report.args.datasource)?.type ||
+                              null,
+                            report
                           );
                           mutate();
                         }}

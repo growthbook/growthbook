@@ -65,12 +65,14 @@ export default function RuleModal({
   };
 
   const [scheduleToggleEnabled, setScheduleToggleEnabled] = useState(
+    // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     defaultValues.scheduleRules.some(
       (scheduleRule) => scheduleRule.timestamp !== null
     )
   );
 
   const form = useForm({
+    // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '{ type: "force"; value: string; description:... Remove this comment to see the full error message
     defaultValues,
   });
   const { apiCall } = useAuth();
@@ -128,8 +130,9 @@ export default function RuleModal({
         const rule = values as FeatureRule;
 
         try {
-          const newRule = validateFeatureRule(rule, feature.valueType);
+          const newRule = validateFeatureRule(rule, feature);
           if (newRule) {
+            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'FeatureRule' is not assignable t... Remove this comment to see the full error message
             form.reset(newRule);
             throw new Error(
               "We fixed some errors in the rule. If it looks correct, submit again."
@@ -141,6 +144,7 @@ export default function RuleModal({
             ruleIndex: i,
             environment,
             type: values.type,
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             hasCondition: rule.condition.length > 2,
             hasDescription: rule.description.length > 0,
           });
@@ -160,6 +164,7 @@ export default function RuleModal({
             ruleIndex: i,
             environment,
             type: rule.type,
+            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             hasCondition: rule.condition.length > 2,
             hasDescription: rule.description.length > 0,
             error: e.message,
@@ -193,6 +198,7 @@ export default function RuleModal({
           if (existingCondition && existingCondition !== "{}") {
             newVal.condition = existingCondition;
           }
+          // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '{ description: string; type: "fo... Remove this comment to see the full error message
           form.reset(newVal);
         }}
         options={[
@@ -221,6 +227,7 @@ export default function RuleModal({
           valueType={feature.valueType}
         />
       )}
+      {/* @ts-expect-error TS(2367) If you come across this, please fix it!: This condition will always return 'false' since th... Remove this comment to see the full error message */}
       {type === "rollout" && (
         <div>
           <FeatureValueField
@@ -231,8 +238,10 @@ export default function RuleModal({
             valueType={feature.valueType}
           />
           <RolloutPercentInput
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'readonly (string | boolean | ScheduleRule | ... Remove this comment to see the full error message
             value={form.watch("coverage")}
             setValue={(coverage) => {
+              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '"coverage"' is not assignable to... Remove this comment to see the full error message
               form.setValue("coverage", coverage);
             }}
           />
@@ -241,8 +250,10 @@ export default function RuleModal({
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
               .map((s) => ({ label: s.property, value: s.property }))}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'readonly (string | boolean | ScheduleRule | ... Remove this comment to see the full error message
             value={form.watch("hashAttribute")}
             onChange={(v) => {
+              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '"hashAttribute"' is not assignab... Remove this comment to see the full error message
               form.setValue("hashAttribute", v);
             }}
             helpText={
@@ -251,10 +262,12 @@ export default function RuleModal({
           />
         </div>
       )}
+      {/* @ts-expect-error TS(2367) If you come across this, please fix it!: This condition will always return 'false' since th... Remove this comment to see the full error message */}
       {type === "experiment" && (
         <div>
           <Field
             label="Tracking Key"
+            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '"trackingKey"' is not assignable... Remove this comment to see the full error message
             {...form.register(`trackingKey`)}
             placeholder={feature.id}
             helpText="Unique identifier for this experiment, used to track impressions and analyze results"
@@ -264,8 +277,10 @@ export default function RuleModal({
             options={attributeSchema
               .filter((s) => !hasHashAttributes || s.hashAttribute)
               .map((s) => ({ label: s.property, value: s.property }))}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'readonly (string | boolean | ScheduleRule | ... Remove this comment to see the full error message
             value={form.watch("hashAttribute")}
             onChange={(v) => {
+              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '"hashAttribute"' is not assignab... Remove this comment to see the full error message
               form.setValue("hashAttribute", v);
             }}
             helpText={
@@ -275,14 +290,19 @@ export default function RuleModal({
           <FeatureVariationsInput
             defaultValue={getFeatureDefaultValue(feature)}
             valueType={feature.valueType}
+            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'readonly (string | boolean | ScheduleRule | ... Remove this comment to see the full error message
             coverage={form.watch("coverage")}
+            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '"coverage"' is not assignable to... Remove this comment to see the full error message
             setCoverage={(coverage) => form.setValue("coverage", coverage)}
             setWeight={(i, weight) =>
+              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '`values.${number}.weight`' is no... Remove this comment to see the full error message
               form.setValue(`values.${i}.weight`, weight)
             }
             variations={
               form
+                // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
                 .watch("values")
+                // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '(v: ExperimentValue & {    id?: ... Remove this comment to see the full error message
                 .map((v: ExperimentValue & { id?: string }) => {
                   return {
                     value: v.value || "",
@@ -292,11 +312,14 @@ export default function RuleModal({
                   };
                 }) || []
             }
+            // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '"values"' is not assignable to p... Remove this comment to see the full error message
             setVariations={(variations) => form.setValue("values", variations)}
           />
+          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
           {namespaces?.length > 0 && (
             <NamespaceSelector
               form={form}
+              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'readonly (string | boolean | ScheduleRule | ... Remove this comment to see the full error message
               trackingKey={form.watch("trackingKey") || feature.id}
               featureId={feature.id}
               formPrefix=""
@@ -305,6 +328,7 @@ export default function RuleModal({
         </div>
       )}
       <ScheduleInputs
+        // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ScheduleRule[] | undefined' is not assignabl... Remove this comment to see the full error message
         defaultValue={defaultValues.scheduleRules}
         onChange={(value) => form.setValue("scheduleRules", value)}
         scheduleToggleEnabled={scheduleToggleEnabled}

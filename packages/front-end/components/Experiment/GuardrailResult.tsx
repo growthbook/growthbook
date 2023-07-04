@@ -44,7 +44,7 @@ const GuardrailResults: FC<{
         return -1;
       }
 
-      return 1 - v.metrics[metric.id]?.chanceToWin;
+      return 1 - (v.metrics[metric.id]?.chanceToWin ?? 0);
     })
   );
   if (maxChance < 0) {
@@ -74,7 +74,7 @@ const GuardrailResults: FC<{
           tipPosition="right"
         >
           <Link href={`/metric/${metric.id}`}>
-            <a className="text-dark font-weight-bold">{metric.name}</a>
+            <a className="text-black-50 font-weight-bold">{metric.name}</a>
           </Link>
         </Tooltip>
       </div>

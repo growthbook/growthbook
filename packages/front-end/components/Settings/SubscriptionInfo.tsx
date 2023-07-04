@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
 import { redirectWithTimeout, useAuth } from "@/services/auth";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import LoadingOverlay from "../LoadingOverlay";
@@ -19,6 +20,7 @@ export default function SubscriptionInfo() {
     dateToBeCanceled,
     cancelationDate,
     subscriptionStatus,
+    hasPaymentMethod,
     pendingCancelation,
     quote,
     loading,
@@ -41,6 +43,12 @@ export default function SubscriptionInfo() {
       )}
       <div className="col-auto mb-3">
         <strong>Current Plan:</strong> {planName}
+        {subscriptionStatus === "trialing" && (
+          <>
+            {" "}
+            <em>(trial)</em>
+          </>
+        )}
       </div>
       <div className="col-md-12 mb-3">
         <strong>Number Of Seats:</strong> {quote?.activeAndInvitedUsers || 0}
@@ -57,8 +65,44 @@ export default function SubscriptionInfo() {
       )}
       {subscriptionStatus !== "canceled" && !pendingCancelation && (
         <div className="col-md-12 mb-3">
-          <strong>Next Bill Date: </strong>
-          {nextBillDate}
+          <div>
+            <strong>Next Bill Date: </strong>
+            {nextBillDate}
+          </div>
+          {hasPaymentMethod === true ? (
+            <div
+              className="mt-3 px-3 py-2 alert alert-success row"
+              style={{ maxWidth: 650 }}
+            >
+              <div className="col-auto px-1">
+                <FaCheckCircle />
+              </div>
+              <div className="col">
+                You have a valid payment method on file. You will be billed
+                automatically on this date.
+              </div>
+            </div>
+          ) : hasPaymentMethod === false ? (
+            <div
+              className="mt-3 px-3 py-2 alert alert-warning row"
+              style={{ maxWidth: 550 }}
+            >
+              <div className="col-auto px-1">
+                <FaExclamationTriangle />
+              </div>
+              <div className="col">
+                <p>
+                  You do not have a valid payment method on file. Your
+                  subscription will be cancelled on this date unless you add a
+                  valid payment method.
+                </p>
+                <p className="mb-0">
+                  Click <strong>Manage Subscription</strong> below to add a
+                  payment method.
+                </p>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
       {pendingCancelation && dateToBeCanceled && (
@@ -73,7 +117,7 @@ export default function SubscriptionInfo() {
           Your plan was canceled on {` ${cancelationDate}.`}
         </div>
       )}
-      <div className="col-md-12 mb-3 d-flex flex-row">
+      <div className="col-md-12 mt-4 mb-3 d-flex flex-row px-0">
         <div className="col-auto">
           <Button
             color="primary"
@@ -110,13 +154,16 @@ export default function SubscriptionInfo() {
           </div>
         )}
       </div>
+      {/* @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'. */}
       {quote.currentSeatsPaidFor !== activeAndInvitedUsers && (
         <div className="col-md-12 mb-3 alert alert-warning">
           {`You have recently ${
+            // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
             activeAndInvitedUsers - quote.currentSeatsPaidFor > 0
               ? "added"
               : "removed"
           } ${Math.abs(
+            // @ts-expect-error TS(2531) If you come across this, please fix it!: Object is possibly 'null'.
             activeAndInvitedUsers - quote.currentSeatsPaidFor
           )} seats. `}
           These changes will be applied to your subscription soon.

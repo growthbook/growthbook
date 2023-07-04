@@ -126,7 +126,7 @@ if ($growthbook->isOn(${JSON.stringify(featureId)})) {
       <Code
         language="python"
         code={`
-if gb.isOn(${JSON.stringify(featureId)}):
+if gb.is_on(${JSON.stringify(featureId)}):
   print("Feature is enabled!")
             `.trim()}
       />

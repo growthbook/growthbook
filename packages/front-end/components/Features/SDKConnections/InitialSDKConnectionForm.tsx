@@ -38,6 +38,7 @@ export default function InitialSDKConnectionForm({
   const [currentConnection, setCurrentConnection] = useState(null);
 
   useEffect(() => {
+    // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type '() => SDKConnectionInterface | n... Remove this comment to see the full error message
     setCurrentConnection(() => {
       if (connections && connections[0]) {
         return connections[0];
@@ -99,8 +100,10 @@ export default function InitialSDKConnectionForm({
           name: value.name,
           languages: value.languages,
           encryptPayload: false,
+          hashSecureAttributes: false,
           includeVisualExperiments: false,
           includeDraftExperiments: false,
+          includeExperimentNames: false,
           environment: environments[0]?.id || "production",
           project: "",
           proxyEnabled: false,

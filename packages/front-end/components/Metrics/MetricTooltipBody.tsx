@@ -37,6 +37,7 @@ const MetricTooltipBody = ({
       body: metric.type,
     },
     {
+      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       show: metric.tags?.length > 0,
       label: "Tags",
       body: <SortedTags tags={metric.tags} />,
@@ -44,6 +45,7 @@ const MetricTooltipBody = ({
     {
       show: !isNullUndefinedOrEmpty(metric.cap) && metric.cap !== 0,
       label: "Cap",
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
       body: metric.cap,
     },
     {
@@ -51,11 +53,13 @@ const MetricTooltipBody = ({
         !isNullUndefinedOrEmpty(metric.conversionDelayHours) &&
         metric.conversionDelayHours !== 0,
       label: "Conversion Delay Hours",
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
       body: metric.conversionDelayHours,
     },
     {
       show: !isNullUndefinedOrEmpty(metric.conversionWindowHours),
       label: "Conversion Window Hours",
+      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
       body: metric.conversionWindowHours,
     },
   ];

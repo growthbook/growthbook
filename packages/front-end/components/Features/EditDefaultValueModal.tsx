@@ -31,8 +31,8 @@ export default function EditDefaultValueModal({
       header="Edit Default Value"
       submit={form.handleSubmit(async (value) => {
         const newDefaultValue = validateFeatureValue(
-          feature.valueType,
-          value.defaultValue,
+          feature,
+          value?.defaultValue ?? "",
           ""
         );
         if (newDefaultValue !== value.defaultValue) {
