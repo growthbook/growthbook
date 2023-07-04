@@ -151,8 +151,6 @@ export async function queueProxyUpdate(
 }
 
 function connectionSupportsProxyUpdate(connection: SDKConnectionInterface) {
-  // note: sseEnabled indicates that we are using Cloud Proxy behind the scenes
-  if (IS_CLOUD) return !!connection.sseEnabled;
-
+  if (IS_CLOUD) return true;
   return !!(connection.proxy.enabled && connection.proxy.host);
 }

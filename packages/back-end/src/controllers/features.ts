@@ -1,11 +1,14 @@
 import { Request, Response } from "express";
+import { GrowthBook } from "@growthbook/growthbook";
+import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
+import { AppFeatures } from "front-end/types/app-features";
 import {
   FeatureDraftChanges,
   FeatureInterface,
   FeatureRule,
 } from "../../types/feature";
 import { AuthRequest } from "../types/AuthRequest";
-import { getOrgFromReq } from "../services/organizations";
+import { getOrganizationById, getOrgFromReq } from "../services/organizations";
 import {
   addFeatureRule,
   createFeature,
@@ -31,6 +34,7 @@ import {
   arrayMove,
   getFeatureDefinitions,
   getSurrogateKey,
+  sha256,
   verifyDraftsAreEqual,
 } from "../services/features";
 import { ensureWatching } from "../services/experiments";
@@ -52,6 +56,7 @@ import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
 import { FASTLY_SERVICE_ID, IS_CLOUD } from "../util/secrets";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { getAccountPlan } from "../util/organization.util";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -69,7 +74,6 @@ async function getPayloadParamsFromApiKey(
   environment: string;
   encrypted: boolean;
   encryptionKey?: string;
-  sseEnabled?: boolean;
   includeVisualExperiments?: boolean;
   includeDraftExperiments?: boolean;
   includeExperimentNames?: boolean;
@@ -97,7 +101,6 @@ async function getPayloadParamsFromApiKey(
       project: connection.project,
       encrypted: connection.encryptPayload,
       encryptionKey: connection.encryptionKey,
-      sseEnabled: connection.sseEnabled,
       includeVisualExperiments: connection.includeVisualExperiments,
       includeDraftExperiments: connection.includeDraftExperiments,
       includeExperimentNames: connection.includeExperimentNames,
@@ -143,6 +146,20 @@ async function getPayloadParamsFromApiKey(
 }
 
 export async function getFeaturesPublic(req: Request, res: Response) {
+  // Cloud only: Invoke GB for SSE rollout rules
+  let growthbook: GrowthBook | null = null;
+  if (IS_CLOUD) {
+    growthbook = new GrowthBook<AppFeatures>({
+      apiHost: "https://cdn.growthbook.io",
+      clientKey:
+        process.env.NODE_ENV === "production"
+          ? "sdk-ueFMOgZ2daLa0M"
+          : "sdk-UmQ03OkUDAu7Aox",
+      enableDevMode: true,
+    });
+    await growthbook.loadFeatures({ autoRefresh: false });
+  }
+
   try {
     const { key } = req.params;
 
@@ -156,12 +173,31 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       encrypted,
       project,
       encryptionKey,
-      sseEnabled,
       includeVisualExperiments,
       includeDraftExperiments,
       includeExperimentNames,
       hashSecureAttributes,
     } = await getPayloadParamsFromApiKey(key, req);
+
+    if (growthbook) {
+      const currentOrg = await getOrganizationById(organization);
+      const hashedOrganizationId = sha256(
+        organization,
+        GROWTHBOOK_SECURE_ATTRIBUTE_SALT
+      );
+      const accountPlan = currentOrg
+        ? getAccountPlan(currentOrg) || "unknown"
+        : "unknown";
+
+      growthbook.setAttributes({
+        company: currentOrg?.name || "",
+        organizationId: hashedOrganizationId,
+        cloud: IS_CLOUD,
+        accountPlan: accountPlan,
+        freeSeats: currentOrg?.freeSeats || 3,
+        discountCode: currentOrg?.discountCode || "",
+      });
+    }
 
     const defs = await getFeatureDefinitions({
       organization,
@@ -180,8 +216,7 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       "public, max-age=30, stale-while-revalidate=3600, stale-if-error=36000"
     );
 
-    const setSseHeaders = IS_CLOUD ? sseEnabled ?? false : false;
-    if (setSseHeaders) {
+    if (IS_CLOUD && growthbook?.isOn("proxy-cloud-sse")) {
       res.set("x-sse-support", "enabled");
       res.set("Access-Control-Expose-Headers", "x-sse-support");
     }

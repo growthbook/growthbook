@@ -832,7 +832,7 @@ any {
   }
 }
 
-function sha256(str: string, salt: string): string {
+export function sha256(str: string, salt: string): string {
   return createHash("sha256")
     .update(salt + str)
     .digest("hex");

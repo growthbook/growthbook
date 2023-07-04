@@ -43,7 +43,6 @@ export type CommercialFeature =
   | "sequential-testing"
   | "audit-logging"
   | "visual-editor"
-  | "cloud-proxy"
   | "hash-secure-attributes"
   | "livechat"
   | "json-validation";

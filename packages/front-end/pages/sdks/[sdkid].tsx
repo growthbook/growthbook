@@ -10,6 +10,7 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { BsArrowRepeat, BsLightningFill } from "react-icons/bs";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCircleArrowLeft, GBEdit, GBHashLock } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -26,8 +27,8 @@ import ProxyTestButton from "@/components/Features/SDKConnections/ProxyTestButto
 import Button from "@/components/Button";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { AppFeatures } from "@/types/app-features";
 
 function ConnectionDot({ left }: { left: boolean }) {
   return (
@@ -118,6 +119,8 @@ function ConnectionStatus({
 }
 
 export default function SDKConnectionPage() {
+  const growthbook = useGrowthBook<AppFeatures>();
+
   const router = useRouter();
   const { sdkid } = router.query;
 
@@ -156,7 +159,7 @@ export default function SDKConnectionPage() {
 
   const hasProxy =
     !isCloud() && connection.proxy.enabled && connection.proxy.host;
-  const hasCloudProxyForSSE = isCloud() && connection.sseEnabled;
+  const hasCloudProxyForSSE = isCloud() && growthbook?.isOn("proxy-cloud-sse");
 
   const projectId = connection.project;
   const projectName = getProjectById(projectId)?.name || null;
@@ -388,42 +391,16 @@ export default function SDKConnectionPage() {
         <div className="row mb-5 align-items-center">
           <div className="flex-1"></div>
           <div className="col-auto">
-            <PremiumTooltip
-              commercialFeature="cloud-proxy"
+            <Tooltip
               body={
                 <div style={{ lineHeight: 1.5 }}>
-                  <p>
+                  <p className="mb-0">
                     <BsLightningFill className="text-warning" />
                     <strong>Streaming Updates</strong> allow you to instantly
                     update any subscribed SDKs when you make any feature changes
                     in GrowthBook. For front-end SDKs, active users will see the
                     changes immediately without having to refresh the page.
                   </p>
-                  <p>
-                    Streaming updates are currently{" "}
-                    <strong>
-                      {hasCloudProxyForSSE ? "enabled" : "disabled"}
-                    </strong>{" "}
-                    for this connection. You may{" "}
-                    {hasCloudProxyForSSE ? "disable" : "enable"} Streaming
-                    Updates by editing this connection.
-                  </p>
-
-                  <div className="mt-4" style={{ lineHeight: 1.2 }}>
-                    <p className="mb-1">
-                      <span className="badge badge-purple text-uppercase mr-2">
-                        Beta
-                      </span>
-                      <span className="text-purple">
-                        This is an opt-in beta feature.
-                      </span>
-                    </p>
-                    <p className="text-muted small mb-0">
-                      While in beta, we cannot guarantee 100% reliability of
-                      streaming updates. However, using this feature poses no
-                      risk to any other SDK functionality.
-                    </p>
-                  </div>
                 </div>
               }
             >
@@ -436,7 +413,7 @@ export default function SDKConnectionPage() {
               >
                 What is this? <FaInfoCircle />
               </div>
-            </PremiumTooltip>
+            </Tooltip>
           </div>
         </div>
       )}

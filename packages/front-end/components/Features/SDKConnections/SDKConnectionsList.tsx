@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { BsLightningFill } from "react-icons/bs";
 import { RxDesktop } from "react-icons/rx";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBAddCircle, GBHashLock } from "@/components/Icons";
@@ -11,11 +12,14 @@ import usePermissions from "@/hooks/usePermissions";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
 import { isCloud } from "@/services/env";
+import { AppFeatures } from "@/types/app-features";
 import Tooltip from "../../Tooltip/Tooltip";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
 
 export default function SDKConnectionsList() {
+  const growthbook = useGrowthBook<AppFeatures>();
+
   const { data, mutate, error } = useSDKConnections();
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -61,7 +65,8 @@ export default function SDKConnectionsList() {
             {connections.map((connection) => {
               const hasProxy =
                 !isCloud() && connection.proxy.enabled && connection.proxy.host;
-              const hasCloudProxyForSSE = isCloud() && connection.sseEnabled;
+              const hasCloudProxyForSSE =
+                isCloud() && growthbook?.isOn("proxy-cloud-sse");
               const connected =
                 connection.connected &&
                 (!hasProxy || connection.proxy.connected);

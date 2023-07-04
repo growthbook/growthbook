@@ -44,7 +44,6 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeDraftExperiments: Boolean,
   includeExperimentNames: Boolean,
   connected: Boolean,
-  sseEnabled: Boolean,
   key: {
     type: String,
     unique: true,
@@ -118,7 +117,6 @@ export const createSDKConnectionValidator = z
     includeExperimentNames: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
-    sseEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -157,7 +155,6 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
       version: "",
       error: "",
     }),
-    sseEnabled: false,
   };
 
   if (connection.proxy.enabled && connection.proxy.host) {
@@ -184,7 +181,6 @@ export const editSDKConnectionValidator = z
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
-    sseEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -405,6 +401,5 @@ export function toApiSDKConnectionInterface(
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,
     proxySigningKey: connection.proxy.signingKey,
-    sseEnabled: connection.sseEnabled,
   };
 }
