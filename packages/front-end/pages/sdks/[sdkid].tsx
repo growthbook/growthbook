@@ -155,7 +155,7 @@ export default function SDKConnectionPage() {
   );
 
   const hasProxy =
-    !isCloud() && connection.proxy.enabled && connection.proxy.host;
+    connection.proxy.enabled && connection.proxy.host;
   const hasCloudProxyForSSE = isCloud() && connection.sseEnabled;
 
   const projectId = connection.project;

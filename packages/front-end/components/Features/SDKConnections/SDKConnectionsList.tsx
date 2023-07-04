@@ -10,7 +10,6 @@ import { GBAddCircle, GBHashLock } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import StatusCircle from "@/components/Helpers/StatusCircle";
-import { isCloud } from "@/services/env";
 import Tooltip from "../../Tooltip/Tooltip";
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import SDKConnectionForm from "./SDKConnectionForm";
@@ -60,8 +59,7 @@ export default function SDKConnectionsList() {
           <tbody>
             {connections.map((connection) => {
               const hasProxy =
-                !isCloud() && connection.proxy.enabled && connection.proxy.host;
-              const hasCloudProxyForSSE = isCloud() && connection.sseEnabled;
+                connection.proxy.enabled && connection.proxy.host;
               const connected =
                 connection.connected &&
                 (!hasProxy || connection.proxy.connected);
@@ -155,18 +153,6 @@ export default function SDKConnectionsList() {
                           <>
                             <BsLightningFill className="text-warning" />
                             <strong>GB Proxy</strong> is enabled
-                          </>
-                        }
-                      >
-                        <BsLightningFill className="mx-1 text-warning" />
-                      </Tooltip>
-                    )}
-                    {hasCloudProxyForSSE && (
-                      <Tooltip
-                        body={
-                          <>
-                            <BsLightningFill className="text-warning" />
-                            <strong>Streaming Updates</strong> are enabled
                           </>
                         }
                       >
