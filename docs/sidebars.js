@@ -85,11 +85,6 @@ const sidebars = {
                 },
                 {
                   type: "doc",
-                  id: "app/event-trackers/GA-universal-analytics",
-                  label: "Google Analytics",
-                },
-                {
-                  type: "doc",
                   id: "app/event-trackers/GA4-google-analytics",
                   label: "Google Analytics (GA4)",
                 },
@@ -160,11 +155,6 @@ const sidebars = {
                   type: "doc",
                   id: "app/data-source-types/databricks",
                   label: "Databricks",
-                },
-                {
-                  type: "doc",
-                  id: "app/data-source-types/google-analytics",
-                  label: "Google Analytics",
                 },
                 {
                   type: "doc",
