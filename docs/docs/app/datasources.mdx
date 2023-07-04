@@ -18,8 +18,8 @@ Data Sources are how GrowthBook connects to your data warehouse so that it can p
 
 When adding a new Data Source in Growthbook from /datasources page we first guide you to select what event tracker software you use, or you can choose custom if you don't use any of the popular third party event trackers that we support. Telling us which event tracker you use, gives us an idea on the likely shape of your data. This will help us generate the correct sql to extract out the aggregated statistics from your site with as little modification on your end as possible. Here is Growthbook's current list of event trackers that we support with links for more details on how to set them up with GrowthBook:
 
-- Amplitude
-- CleverTap
+- [Amplitude](/app/event-trackers/amplitude)
+- [CleverTap](/app/event-trackers/clevertap)
 - Firebase
 - Freshpaint
 - Fullstory
@@ -180,110 +180,6 @@ def runQuery(sql):
 ```
 
 **Note:** This python source is stored as plain text in the database. Do not hard-code passwords or sensitive info. Use environment variables (shown above) or another credential store instead.
-
-### Mixpanel
-
-We have a detailed guide on how to set up [Mixpanel with GrowthBook](/app/data-source-types/mixpanel).
-
-We query Mixpanel using JQL. We have sensible defaults for the event and property names, but you can change them if you need to.
-
-- Experiments
-  - **View Experiments Event** - The name of the event you are firing when a user is put into a variation
-  - **Experiment Id Property** - The property name that stores the experiment tracking key
-  - **Variation Id Property** - The property name that stores the variation the user was assigned
-  - **Extra UserId Property** - _(optional)_ An additional event property to add to the groupBy (`distinct_id` is always included)
-
-Below is an example of what your Mixpanel tracking call would look like in Javascript using our default settings:
-
-```js
-// Tracking Callback for GrowthBook SDK
-const growthbook = new GrowthBook({
-  ...,
-  trackingCallback: function(experiment, result) {
-    mixpanel.track("$experiment_started", {
-      "Experiment name": experiment.key,
-      "Variant name":  result.variationId,
-      "$source": "growthbook",
-    })
-  }
-})
-```
-
-When we query Mixpanel, we group users by `distinct_id`. We recommend passing this into the GrowthBook SDK as the user attribute `id`. This varies by platform, but below is a javascript example:
-
-```js
-// Can only get the distinct_id after Mixpanel fully loads
-mixpanel.init("YOUR PROJECT TOKEN", {
-  loaded: function (mixpanel) {
-    growthbook.setAttributes({
-      ...growthbook.getAttributes(),
-      id: mixpanel.get_distinct_id(),
-    });
-  },
-});
-```
-
-## Connection Info
-
-Connection info is encrypted twice - once within the app and again by the database when persisting to disk.
-
-GrowthBook only runs `SELECT` queries (or the equivalent for non-SQL data sources). We still always recommend creating read-only users with as few permissions as possible.
-
-If you are using GrowthBook Cloud (https://app.growthbook.io), make sure to whitelist the ip address `52.70.79.40` if applicable.
-
-Most data sources have straight forward connection parameters like host, port, username, password. A few of the data sources, documented below, require some extra work to connect.
-
-### AWS Athena
-
-Unlike other database engines with their own user management system, Athena uses IAM for authentication.
-
-We recommend creating a new role with readonly permissions for GrowthBook. The managed [Quick Sight Policy](https://docs.aws.amazon.com/athena/latest/ug/awsquicksightathenaaccess-managed-policy.html) is a good starting point.
-
-For the S3 results url, we recommend naming your bucket with the prefix `aws-athena-query-results-`
-
-There are two ways to provide AWS credentials to GrowthBook:
-
-1. Auto-discovery from environment variables or instance metadata (only available when self-hosting)
-2. Enter the accessKeyId and secretAccessKey in the GrowthBook UI when connecting to the data source
-
-### BigQuery
-
-We have a detailed page on how to set up [BiqQuery with GrowthBook](/app/data-source-types/bigquery).
-
-The quick guide:
-
-You must first create a Service Account in Google with the following roles:
-
-- Data Viewer
-- Metadata Viewer
-- Job User
-
-There are two ways to provide credentials to GrowthBook:
-
-1. Auto-discovery from environment variables or GCP metadata (only available when self-hosting)
-2. Upload a JSON key file for the service account
-
-### Snowflake
-
-We support multiple [account identifier](https://docs.snowflake.com/en/user-guide/admin-account-identifier.html) formats when connecting to Snowflake. An example account identifier is `xy12345.us-east-2.aws`.
-
-If you are self-hosting GrowthBook, you can send queries to Snowflake through an Authenticated Proxy.
-
-To enable this, set a `SNOWFLAKE_PROXY` environment variable in your GrowthBook container. Here is an example:
-
-```
-SNOWFLAKE_PROXY=http://username:password@proxyserver.company.com:80
-```
-
-### Mixpanel
-
-You must first create a Service Account in Mixpanel under your [Project Settings](https://mixpanel.com/settings/project#serviceaccounts).
-
-To add the datasource in GrowthBook, you will need:
-
-1.  The service account username
-2.  The service account secret
-3.  Your project id (found on the Project Settings Overview page)
 
 ## Schema Browser
 

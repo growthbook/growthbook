@@ -46,35 +46,160 @@ const sidebars = {
         id: "app/index",
       },
       items: [
-        { type: "category", 
+        {
+          type: "category",
           link: {
             type: "doc",
-            id: "app/data-sources"
-          }, 
-          label: "Data Sources", 
+            id: "app/data-sources",
+          },
+          label: "Data Sources",
           items: [
-            { type: "category", label: "Event Trackers", items: [
-              { type: "doc", id: "app/event-trackers/GA-universal-analytics", label: "Google Analytics" },
-              { type: "doc", id: "app/event-trackers/GA4-google-analytics", label: "Google Analytics (GA4)" },
-              { type: "doc", id: "app/event-trackers/matomo", label: "Matomo" },
-              { type: "doc", id: "app/event-trackers/mixpanel", label: "Mixpanel" },
-              { type: "doc", id: "app/event-trackers/rudderstack", label: "Rudderstack" },
-            ]},
-            { type: "category", label: "Data Warehouses", items: [
-              { type: "doc", id: "app/data-source-types/athena", label: "Athena" },
-              { type: "doc", id: "app/data-source-types/bigquery", label: "BigQuery" },
-              { type: "doc", id: "app/data-source-types/clickhouse", label: "Clickhouse" },
-              { type: "doc", id: "app/data-source-types/databricks", label: "Databricks" },
-              { type: "doc", id: "app/data-source-types/google-analytics", label: "Google Analytics" },
-              { type: "doc", id: "app/data-source-types/mixpanel", label: "Mixpanel" },
-              { type: "doc", id: "app/data-source-types/ms-sql-or-sql-server", label: "MS SQL or SQL server" },
-              { type: "doc", id: "app/data-source-types/mysql-or-mariadb", label: "MySQL or MariaDB" },
-              { type: "doc", id: "app/data-source-types/postgres", label: "Postgres" },
-              { type: "doc", id: "app/data-source-types/prestodb-or-trino", label: "PrestoDB or Trino"},
-              { type: "doc", id: "app/data-source-types/redshift", label: "Redshift" },
-              { type: "doc", id: "app/data-source-types/snowflake", label: "Snowflake" },
-            ]},
-        ]},
+            {
+              type: "category",
+              label: "Event Trackers",
+              items: [
+                {
+                  type: "doc",
+                  id: "app/event-trackers/amplitude",
+                  label: "Amplitude",
+                },
+                {
+                  type: "doc",
+                  id: "app/event-trackers/clevertap",
+                  label: "CleverTap",
+                },
+                {
+                  type: "doc",
+                  id: "app/event-trackers/firebase",
+                  label: "Firebase",
+                },
+                {
+                  type: "doc",
+                  id: "app/event-trackers/freshpaint",
+                  label: "Freshpaint",
+                },
+                {
+                  type: "doc",
+                  id: "app/event-trackers/fullstory",
+                  label: "Fullstory",
+                },
+                {
+                  type: "doc",
+                  id: "app/event-trackers/GA-universal-analytics",
+                  label: "Google Analytics",
+                },
+                {
+                  type: "doc",
+                  id: "app/event-trackers/GA4-google-analytics",
+                  label: "Google Analytics (GA4)",
+                },
+                { type: "doc", id: "app/event-trackers/heap", label: "Heap" },
+                { type: "doc", id: "app/event-trackers/jitsu", label: "Jitsu" },
+                {
+                  type: "doc",
+                  id: "app/event-trackers/keenio",
+                  label: "KeenIO",
+                },
+                {
+                  type: "doc",
+                  id: "app/event-trackers/matomo",
+                  label: "Matomo",
+                },
+                {
+                  type: "doc",
+                  id: "app/event-trackers/mixpanel",
+                  label: "Mixpanel",
+                },
+                {
+                  type: "doc",
+                  id: "app/event-trackers/mparticle",
+                  label: "MParticle",
+                },
+                {
+                  type: "doc",
+                  id: "app/event-trackers/rudderstack",
+                  label: "Rudderstack",
+                },
+                {
+                  type: "doc",
+                  id: "app/event-trackers/segment",
+                  label: "Segment",
+                },
+                {
+                  type: "doc",
+                  id: "app/event-trackers/snowplow",
+                  label: "Snowplow",
+                },
+              ],
+            },
+            {
+              type: "category",
+              label: "Data Warehouses",
+              items: [
+                {
+                  type: "doc",
+                  id: "app/data-source-types/athena",
+                  label: "Athena",
+                },
+                {
+                  type: "doc",
+                  id: "app/data-source-types/bigquery",
+                  label: "BigQuery",
+                },
+                {
+                  type: "doc",
+                  id: "app/data-source-types/clickhouse",
+                  label: "Clickhouse",
+                },
+                {
+                  type: "doc",
+                  id: "app/data-source-types/databricks",
+                  label: "Databricks",
+                },
+                {
+                  type: "doc",
+                  id: "app/data-source-types/google-analytics",
+                  label: "Google Analytics",
+                },
+                {
+                  type: "doc",
+                  id: "app/data-source-types/mixpanel",
+                  label: "Mixpanel",
+                },
+                {
+                  type: "doc",
+                  id: "app/data-source-types/ms-sql-or-sql-server",
+                  label: "MS SQL or SQL server",
+                },
+                {
+                  type: "doc",
+                  id: "app/data-source-types/mysql-or-mariadb",
+                  label: "MySQL or MariaDB",
+                },
+                {
+                  type: "doc",
+                  id: "app/data-source-types/postgres",
+                  label: "Postgres",
+                },
+                {
+                  type: "doc",
+                  id: "app/data-source-types/prestodb-or-trino",
+                  label: "PrestoDB or Trino",
+                },
+                {
+                  type: "doc",
+                  id: "app/data-source-types/redshift",
+                  label: "Redshift",
+                },
+                {
+                  type: "doc",
+                  id: "app/data-source-types/snowflake",
+                  label: "Snowflake",
+                },
+              ],
+            },
+          ],
+        },
         { type: "doc", id: "app/metrics", label: "Metrics" },
         { type: "doc", id: "app/features", label: "Features" },
         { type: "doc", id: "app/experiments", label: "Experiments" },
