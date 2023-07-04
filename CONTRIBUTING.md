@@ -4,14 +4,6 @@ Interested in making GrowthBook better? So are we! This guide should help get yo
 
 If you just want to contribute a client library in a new language and not make changes to the app itself, you can skip the instructions here and view https://docs.growthbook.io/lib/build-your-own instead.
 
-## Quickstart
-
-The fastest way to start contributing to GrowthBook is by using our pre configured devcontainer. A dev container is a Docker container that is specifically configured to provide a full-featured development environment.
-
-1. Install the vscode extension [Remote - Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers). Launch VS code Quick Open `Ctrl + P` then paste the following command `ext install ms-vscode-remote.remote-containers` and press enter.
-2. If you do not have Docker installed follow these instructions [Docker](https://docs.docker.com/engine/install/)
-3. Open the Command Palette `Ctrl + Shift + P` then paste the following command `Remote-Containers: Reopen in Container` and press enter.
-
 ## Requirements
 
 - MacOS or Linux (Windows may work too, but we haven't tested it)
