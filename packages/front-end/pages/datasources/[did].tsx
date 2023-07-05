@@ -44,7 +44,6 @@ const DataSourcePage: FC = () => {
 
   const {
     getDatasourceById,
-    project,
     mutateDefinitions,
     ready,
     error,
