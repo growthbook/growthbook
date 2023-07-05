@@ -12,7 +12,6 @@ import Modal from "../components/Modal";
 import HistoryTable from "../components/HistoryTable";
 import { useSearch } from "../services/search";
 import Field from "../components/Forms/Field";
-import Tooltip from "../components/Tooltip/Tooltip";
 import MoreMenu from "../components/Dropdown/MoreMenu";
 import DeleteButton from "../components/DeleteButton/DeleteButton";
 import { useFeaturesList } from "../services/features";
@@ -106,19 +105,11 @@ export default function SavedGroupsPage() {
           current={savedGroupForm}
         />
       )}
-      <div className="row mb-3">
-        <div className="col-auto d-flex">
-          <h1>Saved Groups</h1>
-          {savedGroups.length > 0 && (
-            <Tooltip
-              className="pt-1 ml-2"
-              body="Saved Groups are defined sets of attribute values which can be
-            used with feature rules for targeting features at particular
-            users."
-            />
-          )}
+      <div className="row align-items-center mb-1">
+        <div className="col-auto">
+          <h1 className="mb-0">Saved Groups</h1>
         </div>
-        <div style={{ flex: 1 }}></div>
+        <div className="flex-1"></div>
         {savedGroups.length > 0 && (
           <div
             className="col-auto ml-2"
@@ -143,14 +134,16 @@ export default function SavedGroupsPage() {
                 setSavedGroupForm({});
               }}
             >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>{" "}
-              New Saved Group
+              <GBAddCircle /> Add Saved Group
             </Button>
           </div>
         )}
       </div>
+      <p className="text-gray mb-3">
+        Saved Groups are predefined sets of attribute values which can be
+        referenced within feature targeting rules.
+      </p>
+
       {error && (
         <div className="alert alert-danger">
           There was an error loading the list of groups.
@@ -197,7 +190,7 @@ export default function SavedGroupsPage() {
                         </td>
                         <td>{ago(s.dateUpdated)}</td>
                         {permissions.manageSavedGroups && (
-                          <td>
+                          <td style={{ width: 30 }}>
                             <MoreMenu>
                               <a
                                 href="#"

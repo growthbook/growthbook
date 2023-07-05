@@ -2,8 +2,14 @@ import Link from "next/link";
 import { useState } from "react";
 import clsx from "clsx";
 import { useRouter } from "next/router";
-import { BsFlag, BsClipboardCheck, BsLightbulb, BsPlug } from "react-icons/bs";
+import {
+  BsFlag,
+  BsClipboardCheck,
+  BsLightbulb,
+  BsCodeSlash,
+} from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
+import { FiDatabase } from "react-icons/fi";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "../../hooks/useOrgSettings";
@@ -28,53 +34,21 @@ const navlinks: SidebarLinkProps[] = [
     name: "Features",
     href: "/features",
     Icon: BsFlag,
-    path: /^(features|attributes|namespaces|environments|saved-groups|sdks)/,
-    autoClose: true,
-    subLinks: [
-      {
-        name: "All Features",
-        href: "/features",
-        path: /^features/,
-      },
-      {
-        name: "SDKs",
-        href: "/sdks",
-        path: /^sdks/,
-      },
-      {
-        name: "Attributes",
-        href: "/attributes",
-        path: /^attributes/,
-      },
-      {
-        name: "Namespaces",
-        href: "/namespaces",
-        path: /^namespaces/,
-      },
-      {
-        name: "Environments",
-        href: "/environments",
-        path: /^environments/,
-      },
-      {
-        name: "Saved Groups",
-        href: "/saved-groups",
-        path: /^saved-groups/,
-      },
-    ],
+    path: /^features/,
   },
   {
-    name: "Analysis",
+    name: "Experiments",
     href: "/experiments",
+    path: /^experiment/,
     Icon: GBExperiment,
-    path: /^(experiment|metric|segment|dimension|datasources)/,
+  },
+  {
+    name: "Metrics and Data",
+    href: "/metrics",
+    path: /^(metric|segment|dimension|datasources)/,
     autoClose: true,
+    Icon: FiDatabase,
     subLinks: [
-      {
-        name: "Experiments",
-        href: "/experiments",
-        path: /^experiment/,
-      },
       {
         name: "Metrics",
         href: "/metrics",
@@ -122,18 +96,36 @@ const navlinks: SidebarLinkProps[] = [
     ],
   },
   {
-    name: "Integrations",
-    href: "/integrations",
-    Icon: BsPlug,
-    path: /^(integrations)/,
+    name: "SDK Configuration",
+    href: "/sdks",
+    path: /^(attributes|namespaces|environments|saved-groups|sdks)/,
     autoClose: true,
-    feature: "slack-integration",
+    Icon: BsCodeSlash,
     subLinks: [
       {
-        name: "Slack",
-        href: "/integrations/slack",
-        path: /^integrations\/slack/,
-        feature: "slack-integration",
+        name: "SDK Connections",
+        href: "/sdks",
+        path: /^sdks/,
+      },
+      {
+        name: "Attributes",
+        href: "/attributes",
+        path: /^attributes/,
+      },
+      {
+        name: "Namespaces",
+        href: "/namespaces",
+        path: /^namespaces/,
+      },
+      {
+        name: "Environments",
+        href: "/environments",
+        path: /^environments/,
+      },
+      {
+        name: "Saved Groups",
+        href: "/saved-groups",
+        path: /^saved-groups/,
       },
     ],
   },
@@ -141,7 +133,7 @@ const navlinks: SidebarLinkProps[] = [
     name: "Settings",
     href: "/settings",
     Icon: GBSettings,
-    path: /^(settings|admin|projects)/,
+    path: /^(settings|admin|projects|integrations)/,
     autoClose: true,
     permissions: [
       "organizationSettings",
@@ -193,6 +185,12 @@ const navlinks: SidebarLinkProps[] = [
         href: "/events",
         path: /^events/,
         permissions: ["viewEvents"],
+      },
+      {
+        name: "Slack",
+        href: "/integrations/slack",
+        path: /^integrations\/slack/,
+        feature: "slack-integration",
       },
       {
         name: "Billing",
