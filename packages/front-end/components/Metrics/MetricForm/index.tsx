@@ -154,6 +154,12 @@ function getAggregateSQLPreview({ type, column }: Partial<MetricInterface>) {
   return `MAX(value)`;
 }
 
+const toMetricCappingType = (cappingType: string | null): MetricCappingType => {
+  if (cappingType === "percentile") return "percentile";
+  if (cappingType === "absolute") return "absolute";
+  return null;
+};
+
 const MetricForm: FC<MetricFormProps> = ({
   current,
   edit,
@@ -239,7 +245,7 @@ const MetricForm: FC<MetricFormProps> = ({
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       queryFormat: current.queryFormat || (current.sql ? "sql" : "builder"),
-      capping: current.capping || null,
+      capping: current.capping || "",
       capValue: current.capValue || 0,
       conversionWindowHours:
         current.conversionWindowHours || getDefaultConversionWindowHours(),
@@ -332,17 +338,17 @@ const MetricForm: FC<MetricFormProps> = ({
   const cappingOptions = [
     {
       value: "",
-      label: `No`,
+      label: "No",
     },
     {
       value: "absolute",
-      label: `Absolute capping`,
+      label: "Absolute capping",
     },
   ];
   if (datasourceType !== "mixpanel") {
     cappingOptions.push({
       value: "percentile",
-      label: `Percentile capping`,
+      label: "Percentile capping",
     });
   }
   // TODO: eventually make each of these their own independent properties
@@ -393,6 +399,7 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk,
       maxPercentChange,
       minPercentChange,
+      capping,
       ...otherValues
     } = value;
 
@@ -402,6 +409,7 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
       minPercentChange: minPercentChange / 100,
+      capping: toMetricCappingType(capping),
     };
 
     if (value.loseRisk < value.winRisk) return;
@@ -965,9 +973,9 @@ const MetricForm: FC<MetricFormProps> = ({
               <div className="form-group">
                 <SelectField
                   label="Cap User Values?"
-                  value={form.watch("capping") ?? ""}
+                  value={form.watch("capping")}
                   onChange={(v: string) => {
-                    form.setValue("capping", (v as MetricCappingType) || null);
+                    form.setValue("capping", v);
                   }}
                   sort={false}
                   options={cappingOptions}
