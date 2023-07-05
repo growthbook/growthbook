@@ -2,19 +2,12 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import React, { FC, useCallback, useState } from "react";
 import {
-  FaArchive,
-  FaChevronRight,
   FaDatabase,
   FaExclamationTriangle,
   FaExternalLinkAlt,
   FaKey,
-  FaPlus,
-  FaRegCopy,
 } from "react-icons/fa";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
-import { MetricInterface } from "@/../back-end/types/metric";
-import { ago, datetime } from "@/../shared/dates";
-import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -34,11 +27,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import { GBCircleArrowLeft } from "@/components/Icons";
-import useApi from "@/hooks/useApi";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import MetricForm from "@/components/Metrics/MetricForm";
-import { checkMetricProjectPermissions } from "@/services/metrics";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import DataSourceMetrics from "@/components/Settings/EditDataSource/DataSourceMetrics";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -49,15 +38,9 @@ function quotePropertyName(name: string) {
 
 const DataSourcePage: FC = () => {
   const permissions = usePermissions();
-  const [metricsOpen, setMetricsOpen] = useState(false);
   const [editConn, setEditConn] = useState(false);
   const [viewSchema, setViewSchema] = useState(false);
   const router = useRouter();
-  const [modalData, setModalData] = useState<{
-    current: Partial<MetricInterface>;
-    edit: boolean;
-    duplicate: boolean;
-  } | null>(null);
 
   const {
     getDatasourceById,
@@ -75,26 +58,6 @@ const DataSourcePage: FC = () => {
       checkDatasourceProjectPermissions(d, permissions, "createDatasources") &&
       !hasFileConfig()) ||
     false;
-
-  const { data, mutate } = useApi<{
-    metrics: MetricInterface[];
-  }>(`/datasource/${did}/metrics`);
-
-  const metrics: MetricInterface[] | undefined = data?.metrics;
-
-  const filteredMetrics = metrics?.filter((m) => {
-    if (!project) return true;
-    if (!m?.projects?.length) return true;
-    return m?.projects?.includes(project);
-  });
-
-  const editMetricsPermissions: { [id: string]: boolean } = {};
-  filteredMetrics?.forEach((m) => {
-    editMetricsPermissions[m.id] = checkMetricProjectPermissions(
-      m,
-      permissions
-    );
-  });
 
   /**
    * Update the data source provided.
@@ -152,17 +115,6 @@ const DataSourcePage: FC = () => {
 
   return (
     <div className="container pagecontents">
-      {modalData ? (
-        <MetricForm
-          {...modalData}
-          onClose={() => setModalData(null)}
-          onSuccess={() => {
-            mutateDefinitions();
-            mutate();
-          }}
-          source="datasource-detail"
-        />
-      ) : null}
       <div className="mb-2">
         <Link href="/datasources">
           <a>
@@ -358,209 +310,11 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 />
               </div>
               <div className="my-3 p-3 rounded border bg-white">
-                <div className="d-flex flex-row align-items-center justify-content-between">
-                  <div>
-                    <h2>
-                      Metrics{" "}
-                      <span className="badge badge-purple mx-2 my-0">
-                        {metrics && metrics.length > 0 ? metrics.length : "0"}
-                      </span>
-                    </h2>
-                    <p className="m-0">
-                      Metrics are what your experiments are trying to improve
-                      (or at least not hurt). Below are the metrics defined from
-                      this data source.{" "}
-                      <DocLink docSection="metrics">Learn more.</DocLink>
-                    </p>
-                  </div>
-                  <div className="d-flex flex-row pl-3">
-                    {permissions.check("createMetrics", project) &&
-                      !hasFileConfig() && (
-                        <button
-                          className="btn btn-outline-primary font-weight-bold text-nowrap"
-                          onClick={() =>
-                            setModalData({
-                              current: { datasource: d.id },
-                              edit: false,
-                              duplicate: false,
-                            })
-                          }
-                        >
-                          <FaPlus className="mr-1" /> Add
-                        </button>
-                      )}
-                    <button
-                      className="btn text-dark"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setMetricsOpen(!metricsOpen);
-                      }}
-                    >
-                      <FaChevronRight
-                        style={{
-                          transform: `rotate(${
-                            metricsOpen ? "90deg" : "0deg"
-                          })`,
-                        }}
-                      />
-                    </button>
-                  </div>
-                </div>
-                {metricsOpen ? (
-                  <div className="my-3">
-                    {metrics && metrics?.length > 0 ? (
-                      <div>
-                        {metrics.map((metric) => {
-                          return (
-                            <div
-                              key={metric.id}
-                              className="card p-3 mb-3 bg-light"
-                            >
-                              <Link href={`/metric/${metric.id}`}>
-                                <div
-                                  className="d-flex flex-row align-items-center justify-content-between"
-                                  role="button"
-                                >
-                                  <div className="pr-3">
-                                    <div className="mr-5 w-100">
-                                      <h4
-                                        className={
-                                          metric.status === "archived"
-                                            ? "text-muted"
-                                            : ""
-                                        }
-                                      >
-                                        {metric.name}
-                                      </h4>
-                                      <div className="d-flex flex-row align-items-center">
-                                        <div className="pr-3">
-                                          <strong
-                                            className={
-                                              metric.status === "archived"
-                                                ? "text-muted"
-                                                : ""
-                                            }
-                                          >
-                                            Type:{" "}
-                                          </strong>
-                                          <code
-                                            className={
-                                              metric.status === "archived"
-                                                ? "text-muted"
-                                                : ""
-                                            }
-                                          >
-                                            {metric.type}
-                                          </code>
-                                        </div>
-                                        <div
-                                          className={clsx(
-                                            metric.status === "archived"
-                                              ? "text-muted"
-                                              : "",
-                                            "pr-3"
-                                          )}
-                                        >
-                                          <strong>Owner: </strong>
-                                          {metric.owner}
-                                        </div>
-                                        {!hasFileConfig() && (
-                                          <div
-                                            title={datetime(
-                                              metric.dateUpdated || ""
-                                            )}
-                                            className={clsx(
-                                              metric.status === "archived"
-                                                ? "text-muted"
-                                                : "",
-                                              "d-none d-md-table-cell"
-                                            )}
-                                          >
-                                            <strong>Last Updated: </strong>
-                                            {ago(metric.dateUpdated || "")}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                  <div className="d-flex flex-row align-items-center">
-                                    <div className="text-muted px-2">
-                                      {metric.status === "archived" ? (
-                                        <Tooltip
-                                          body={"Archived"}
-                                          innerClassName="p-2"
-                                          tipMinWidth="auto"
-                                        >
-                                          <FaArchive />
-                                        </Tooltip>
-                                      ) : null}
-                                    </div>
-                                    <MoreMenu className="px-2">
-                                      {!hasFileConfig() &&
-                                      editMetricsPermissions[metric.id] ? (
-                                        <>
-                                          <button
-                                            className="btn dropdown-item py-2"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                              e.preventDefault();
-                                              setModalData({
-                                                current: {
-                                                  ...metric,
-                                                  name: metric.name + " (copy)",
-                                                },
-                                                edit: false,
-                                                duplicate: true,
-                                              });
-                                            }}
-                                          >
-                                            <FaRegCopy /> Duplicate
-                                          </button>
-                                          <button
-                                            className="btn dropdown-item py-2"
-                                            color=""
-                                            onClick={async () => {
-                                              const newStatus =
-                                                metric.status === "archived"
-                                                  ? "active"
-                                                  : "archived";
-                                              await apiCall(
-                                                `/metric/${metric.id}`,
-                                                {
-                                                  method: "PUT",
-                                                  body: JSON.stringify({
-                                                    status: newStatus,
-                                                  }),
-                                                }
-                                              );
-                                              mutateDefinitions({});
-                                              mutate();
-                                            }}
-                                          >
-                                            <FaArchive />{" "}
-                                            {metric.status === "archived"
-                                              ? "Unarchive"
-                                              : "Archive"}
-                                          </button>
-                                        </>
-                                      ) : null}
-                                    </MoreMenu>
-                                  </div>
-                                </div>
-                              </Link>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="alert alert-info">
-                        No metrics have been defined from this data source.
-                        Click the <strong>Add</strong> button to create your
-                        first.
-                      </div>
-                    )}
-                  </div>
-                ) : null}
+                <DataSourceMetrics
+                  datasource={d}
+                  permissions={permissions}
+                  project={project}
+                />
               </div>
 
               <div className="my-3 p-3 rounded border bg-white">
