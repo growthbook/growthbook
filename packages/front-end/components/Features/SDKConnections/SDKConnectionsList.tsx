@@ -241,7 +241,7 @@ export default function SDKConnectionsList() {
                 <GBAddCircle /> Create New SDK Connection
               </button>
             </div>
-          ) : null }
+          ) : null}
         </>
       )}
     </div>
