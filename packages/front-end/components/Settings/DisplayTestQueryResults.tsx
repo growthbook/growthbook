@@ -1,4 +1,4 @@
-import React, { ReactElement, useMemo } from "react";
+import React from "react";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import Code from "../SyntaxHighlighting/Code";
 
@@ -6,8 +6,6 @@ export type Props = {
   results: Record<string, unknown>[];
   duration: number;
   error?: string;
-  suggestions?: ReactElement[];
-  requiredColumns: string[];
   sql: string;
 };
 
@@ -15,15 +13,9 @@ export default function DisplayTestQueryResults({
   results,
   duration,
   error,
-  suggestions,
-  requiredColumns,
   sql,
 }: Props) {
   const cols = Object.keys(results?.[0] || {});
-  const missingColumns = useMemo(() => {
-    if (!results?.length) return [];
-    return requiredColumns.filter((col) => !(col in results[0]));
-  }, [requiredColumns, results]);
 
   if (error) {
     return (
@@ -83,31 +75,6 @@ export default function DisplayTestQueryResults({
           </tbody>
         </table>
       </div>
-      {missingColumns?.length > 0 && (
-        <div className="alert alert-danger">
-          <FaExclamationTriangle /> <strong>Error</strong>: You are missing the
-          following required columns:{" "}
-          {missingColumns.map((col, i) => (
-            <>
-              {i > 0 && ", "}
-              <span key={col}>
-                <code>{col}</code>
-              </span>
-            </>
-          ))}
-        </div>
-      )}
-      {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-      {suggestions?.length > 0 && (
-        <div className="mb-2">
-          <strong>Suggestions:</strong>
-        </div>
-      )}
-      {suggestions?.map((suggestion, i) => (
-        <div className="alert alert-info mb-3" key={i}>
-          {suggestion}
-        </div>
-      ))}
     </>
   );
 }

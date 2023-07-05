@@ -1,4 +1,4 @@
-import React, { FC, ReactElement, useMemo, useState } from "react";
+import React, { FC, useMemo, useState } from "react";
 import {
   DataSourceInterfaceWithParams,
   ExposureQuery,
@@ -31,7 +31,6 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onCancel,
 }) => {
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
-  const [suggestions, setSuggestions] = useState<ReactElement[]>([]);
   const [sqlOpen, setSqlOpen] = useState(false);
   const modalTitle =
     mode === "add"
@@ -121,23 +120,24 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
           save={async (userEnteredQuery) => {
             form.setValue("query", userEnteredQuery);
           }}
-          suggestions={suggestions}
           validateResponse={(result) => {
             if (!result) return;
-
-            const suggestions: ReactElement[] = [];
 
             const namedCols = ["experiment_name", "variation_name"];
             const userIdTypes = identityTypes?.map(
               (type) => type.userIdType || []
             );
 
+            const requiredColumnsArray = Array.from(requiredColumns);
             const returnedColumns = new Set<string>(Object.keys(result));
             const optionalColumns = [...returnedColumns].filter(
               (col) =>
                 !requiredColumns.has(col) &&
                 !namedCols.includes(col) &&
                 !userIdTypes?.includes(col)
+            );
+            let missingColumns = requiredColumnsArray.filter(
+              (col) => !(col in result)
             );
 
             // Check if `hasNameCol` should be enabled
@@ -151,54 +151,46 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
               }
               // Only selected `experiment_name`, add warning
               else if (returnedColumns.has("experiment_name")) {
-                suggestions.push(
-                  <>
-                    Add <code>variation_name</code> to your SELECT clause to
-                    enable GrowthBook to populate names automatically.
-                  </>
+                throw new Error(
+                  "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name."
                 );
               }
               // Only selected `variation_name`, add warning
               else if (returnedColumns.has("variation_name")) {
-                suggestions.push(
-                  <>
-                    Add <code>experiment_name</code> to your SELECT clause to
-                    enable GrowthBook to populate names automatically.
-                  </>
+                throw new Error(
+                  "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name."
+                );
+              }
+            } else {
+              // If `hasNameCol` is enabled, make sure both name columns are selected
+              if (
+                !returnedColumns.has("experiment_name") ||
+                !returnedColumns.has("variation_name")
+              ) {
+                form.setValue("hasNameCol", false);
+                missingColumns = missingColumns.filter(
+                  (column) =>
+                    column !== "experiment_name" && column !== "variation_name"
                 );
               }
             }
 
-            // Prompt to add optional columns as dimensions
-            if (optionalColumns.length > 0) {
-              suggestions.push(
-                <>
-                  The following columns were returned, but will be ignored. Add
-                  them as dimensions or disregard this message.
-                  <ul className="mb-0 pb-0">
-                    {optionalColumns.map((col) => (
-                      <li key={col}>
-                        <code>{col}</code> -{" "}
-                        <a
-                          href="#"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            form.setValue("dimensions", [
-                              ...userEnteredDimensions,
-                              col,
-                            ]);
-                          }}
-                        >
-                          add as dimension
-                        </a>
-                      </li>
-                    ))}
-                  </ul>
-                </>
+            if (missingColumns.length > 0) {
+              throw new Error(
+                ` You are missing the following required column${
+                  missingColumns.length > 1 ? "s" : ""
+                }: ${missingColumns.join(", ")}`
               );
             }
 
-            setSuggestions(suggestions);
+            // Add optional columns as dimensions
+            if (optionalColumns.length > 0) {
+              {
+                optionalColumns.forEach((col) => {
+                  form.setValue("dimensions", [...userEnteredDimensions, col]);
+                });
+              }
+            }
           }}
         />
       )}

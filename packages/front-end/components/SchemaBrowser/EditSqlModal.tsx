@@ -1,4 +1,4 @@
-import { useState, ReactElement } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
@@ -22,7 +22,6 @@ export interface Props {
   requiredColumns: Set<string>;
   placeholder?: string;
   validateResponse?: (response: TestQueryResults) => void;
-  suggestions?: ReactElement[];
 }
 
 type TestQueryResults = {
@@ -40,7 +39,6 @@ export default function EditSqlModal({
   placeholder = "",
   datasourceId,
   validateResponse,
-  suggestions = [],
 }: Props) {
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
   const form = useForm({
@@ -177,11 +175,9 @@ export default function EditSqlModal({
               <div className="" style={{ flex: 1 }}>
                 <DisplayTestQueryResults
                   duration={parseInt(testQueryResults.duration || "0")}
-                  requiredColumns={[...requiredColumns]}
                   results={testQueryResults.results || []}
                   error={testQueryResults.error}
                   sql={testQueryResults.sql || ""}
-                  suggestions={suggestions}
                 />
               </div>
             )}
