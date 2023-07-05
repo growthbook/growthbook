@@ -54,9 +54,6 @@ export default function DataSourceMetrics({ datasource, permissions }: Props) {
       permissions
     );
   });
-
-  console.log("editMetricsPermissions", editMetricsPermissions);
-
   const createMetricsPermissions = () => {
     let anyProjectsIncludeCreatePermissions = false;
 
@@ -106,7 +103,10 @@ export default function DataSourceMetrics({ datasource, permissions }: Props) {
               className="btn btn-outline-primary font-weight-bold text-nowrap"
               onClick={() =>
                 setModalData({
-                  current: { datasource: datasource.id },
+                  current: {
+                    datasource: datasource.id,
+                    projects: datasource.projects || [],
+                  },
                   edit: false,
                   duplicate: false,
                 })

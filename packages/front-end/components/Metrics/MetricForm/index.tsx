@@ -253,7 +253,11 @@ const MetricForm: FC<MetricFormProps> = ({
       timestampColumn: current.timestampColumn || "",
       tags: current.tags || [],
       projects:
-        edit || duplicate ? current.projects || [] : project ? [project] : [],
+        current.projects || edit || duplicate
+          ? current.projects || []
+          : project
+          ? [project]
+          : [],
       winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
       loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
