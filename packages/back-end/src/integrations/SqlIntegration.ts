@@ -90,7 +90,11 @@ export default abstract class SqlIntegration
   }
 
   isAutoGeneratingMetricsSupported(): boolean {
-    const supportedEventTrackers: SchemaFormat[] = ["segment", "rudderstack"];
+    const supportedEventTrackers: SchemaFormat[] = [
+      "segment",
+      "rudderstack",
+      "ga4",
+    ];
 
     if (
       this.settings.schemaFormat &&
@@ -1348,7 +1352,7 @@ export default abstract class SqlIntegration
       // Segment & Rudderstack
       case "ga4": {
         return {
-          trackedEventTableName: "events_",
+          trackedEventTableName: "events_*",
           eventColumn: "event_name",
           timestampColumn: "event_timestamp",
           userIdColumn: "user_id",
@@ -1465,6 +1469,13 @@ export default abstract class SqlIntegration
       currentDateTime.valueOf() - 7 * 60 * 60 * 24 * 1000
     );
 
+    // WHERE ${timestampColumn} < '${currentDateTime
+    //   .toISOString()
+    //   .slice(
+    //     0,
+    //     10
+    //   )}' AND ${timestampColumn} > '${SevenDaysAgo.toISOString().slice(0, 10)}'
+
     const sql = `
         SELECT
           ${eventColumn} as event,
@@ -1474,14 +1485,11 @@ export default abstract class SqlIntegration
           MAX(${timestampColumn}) as lastTrackedAt
         FROM
           ${this.generateTablePath(trackedEventTableName)}
-          WHERE received_at < '${currentDateTime
-            .toISOString()
-            .slice(
-              0,
-              10
-            )}' AND received_at > '${SevenDaysAgo.toISOString().slice(0, 10)}'
-          AND event NOT IN ('experiment_viewed', 'experiment_started')
+          WHERE ${timestampColumn} < ${currentDateTime.valueOf()} AND ${timestampColumn} > ${SevenDaysAgo.valueOf()}
+          AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
           GROUP BY event, ${timestampColumn}, displayName`;
+
+    console.log("sql", sql);
 
     const results = await this.runQuery(format(sql, this.getFormatDialect()));
 
@@ -1495,12 +1503,7 @@ export default abstract class SqlIntegration
            MAX(${timestampColumn}) as lastTrackedAt
         FROM
            ${this.generateTablePath("pages")}
-        WHERE received_at < '${currentDateTime
-          .toISOString()
-          .slice(0, 10)}' AND received_at > '${SevenDaysAgo.toISOString().slice(
-        0,
-        10
-      )}'`;
+        WHERE received_at < '${currentDateTime.valueOf()}' AND received_at > '${SevenDaysAgo.valueOf()}'`;
 
       try {
         const pageViewedResults = await this.runQuery(
