@@ -292,7 +292,7 @@ export function getMetricForSnapshot(
       datasource: metric.datasource,
       type: metric.type,
       aggregation: metric.aggregation || undefined,
-      capping: metric.capping || "",
+      capping: metric.capping || null,
       capValue: metric.capValue || undefined,
       denominator: metric.denominator || undefined,
       sql: metric.sql || undefined,

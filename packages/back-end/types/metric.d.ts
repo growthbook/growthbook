@@ -3,7 +3,7 @@ import { Queries } from "./query";
 export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=" | "=>";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";
 export type MetricStatus = "active" | "archived";
-export type MetricCappingType = "" | "absolute" | "percentile";
+export type MetricCappingType = null | "absolute" | "percentile";
 export interface MetricStats {
   users: number;
   count: number;

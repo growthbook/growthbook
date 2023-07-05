@@ -38,20 +38,16 @@ properties:
         enum:
           - increase
           - decrease
-      cap:
-        type: number
-        deprecated: true
-        description: (deprecated, use capping and capValue fields instead) This should be non-negative
-        minimum: 0
       capping:
         type: string
-        description: 'Used in conjunction with `capValue` to set the capping (winsorization). Do not specify for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/> Must specify both `behavior.capping` and `behavior.capValue` or neither.'
+        nullable: true
+        description: 'Used in conjunction with `capValue` to set the capping (winsorization). Set to null to turn capping off. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/> If `behavior.capping` is non-null, you must specify `behavior.capValue`.'
         enum:
           - absolute
           - percentile
       capValue:
         type: number
-        description: This should be non-negative. <br/> Ensure specify both `behavior.capping` and `behavior.capValue` or neither.
+        description: This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
         minimum: 0
       conversionWindowStart:
         type: number

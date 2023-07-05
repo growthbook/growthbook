@@ -239,7 +239,7 @@ const MetricForm: FC<MetricFormProps> = ({
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       queryFormat: current.queryFormat || (current.sql ? "sql" : "builder"),
-      capping: current.capping || ("" as MetricCappingType),
+      capping: current.capping || null,
       capValue: current.capValue || 0,
       conversionWindowHours:
         current.conversionWindowHours || getDefaultConversionWindowHours(),
@@ -965,9 +965,9 @@ const MetricForm: FC<MetricFormProps> = ({
               <div className="form-group">
                 <SelectField
                   label="Cap User Values?"
-                  value={form.watch("capping")}
-                  onChange={(v: MetricCappingType) => {
-                    form.setValue("capping", v);
+                  value={form.watch("capping") ?? ""}
+                  onChange={(v: string) => {
+                    form.setValue("capping", (v as MetricCappingType) || null);
                   }}
                   sort={false}
                   options={cappingOptions}

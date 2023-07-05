@@ -1035,13 +1035,13 @@ export function postMetricApiPayloadIsValid(
     // Check capping args + capping values
     const { capping, capValue } = behavior;
 
-    const cappingExists = typeof capping !== "undefined";
+    const cappingExists = typeof capping !== "undefined" && capping !== null;
     const capValueExists = typeof capValue !== "undefined";
     if (cappingExists !== capValueExists) {
       return {
         valid: false,
         error:
-          "Must specify both `behavior.capping` and `behavior.capValue` or neither.",
+          "Must specify both `behavior.capping` (as non-null) and `behavior.capValue` or neither.",
       };
     }
     if (capping === "percentile" && (capValue || 0) > 1) {
@@ -1193,13 +1193,13 @@ export function putMetricApiPayloadIsValid(
     // Check capping args + capping values
     const { capping, capValue } = behavior;
 
-    const cappingExists = typeof capping !== "undefined";
+    const cappingExists = typeof capping !== "undefined" && capping !== null;
     const capValueExists = typeof capValue !== "undefined";
     if (cappingExists !== capValueExists) {
       return {
         valid: false,
         error:
-          "Must specify both `behavior.capping` and `behavior.capValue` or neither.",
+          "Must specify `behavior.capping` (as non-null) and `behavior.capValue` or neither.",
       };
     }
     if (capping === "percentile" && (capValue || 0) > 1) {
@@ -1425,12 +1425,9 @@ export function putMetricApiPayloadToMetricInterface(
 
     if (typeof behavior.capping !== "undefined") {
       metric.capping = behavior.capping;
-      metric.capValue = behavior.capValue;
-    }
-    // handle old post requests
-    else if (typeof behavior.cap !== "undefined" && behavior.cap) {
-      metric.capping = "absolute";
-      metric.capValue = behavior.cap;
+      if (behavior.capping !== null) {
+        metric.capValue = behavior.capValue;
+      }
     }
 
     if (typeof behavior.conversionWindowStart !== "undefined") {

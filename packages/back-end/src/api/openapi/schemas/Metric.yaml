@@ -65,8 +65,8 @@ properties:
         type: number
       capping:
         type: string
+        nullable: true
         enum:
-          - 
           - absolute
           - percentile
       capValue:
