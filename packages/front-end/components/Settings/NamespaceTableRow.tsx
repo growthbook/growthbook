@@ -81,7 +81,7 @@ export default function NamespaceTableRow({
                   onEdit();
                 }}
               >
-                edit
+                Edit
               </a>
               <a
                 href="#"
@@ -91,14 +91,14 @@ export default function NamespaceTableRow({
                   await onArchive();
                 }}
               >
-                {namespace?.status === "inactive" ? "enable" : "disable"}
+                {namespace?.status === "inactive" ? "Enable" : "Disable"}
               </a>
               {experiments.length === 0 && (
                 <DeleteButton
                   displayName="Namespace"
                   className="dropdown-item text-danger"
                   useIcon={false}
-                  text="delete"
+                  text="Delete"
                   title="Delete Namespace"
                   onClick={onDelete}
                 />

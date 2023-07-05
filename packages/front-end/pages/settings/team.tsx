@@ -1,6 +1,4 @@
-import Link from "next/link";
 import { FC, useEffect, useState } from "react";
-import { FaAngleLeft } from "react-icons/fa";
 import { useRouter } from "next/router";
 import InviteList from "@/components/Settings/Team/InviteList";
 import MemberList from "@/components/Settings/Team/MemberList";
@@ -67,13 +65,6 @@ const TeamPage: FC = () => {
 
   return (
     <div className="container-fluid pagecontents">
-      <div className="mb-2">
-        <Link href="/settings">
-          <a>
-            <FaAngleLeft /> All Settings
-          </a>
-        </Link>
-      </div>
       {justSubscribed && (
         <div className="alert alert-success mb-4">
           <h3>Welcome to GrowthBook Pro!</h3>

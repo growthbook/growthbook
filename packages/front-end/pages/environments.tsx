@@ -1,6 +1,5 @@
 import Link from "next/link";
 import React, { useState, FC } from "react";
-import { FaAngleLeft } from "react-icons/fa";
 import { Environment } from "back-end/types/organization";
 import DeleteButton from "../components/DeleteButton/DeleteButton";
 import EnvironmentModal from "../components/Settings/EnvironmentModal";
@@ -36,15 +35,29 @@ const EnvironmentsPage: FC = () => {
           }}
         />
       )}
-      <div className="mb-2">
-        <Link href="/settings">
-          <a>
-            <FaAngleLeft /> All Settings
-          </a>
-        </Link>
+      <div className="row align-items-center mb-1">
+        <div className="col-auto">
+          <h1 className="mb-0">Environments</h1>
+        </div>
+        {canCreate && (
+          <div className="col-auto ml-auto">
+            <button
+              className="btn btn-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                setModalOpen({});
+              }}
+            >
+              <GBAddCircle /> Add Environment
+            </button>
+          </div>
+        )}
       </div>
-      <h1>Environments</h1>
-      <p>Manage what environments are available for your feature flags.</p>
+
+      <p className="text-gray mb-3">
+        Manage which environments are available for your feature flags.
+      </p>
+
       {environments.length > 0 ? (
         <table className="table mb-3 appbox gbtable table-hover">
           <thead>
@@ -129,7 +142,7 @@ const EnvironmentsPage: FC = () => {
                           <DeleteButton
                             deleteMessage="Are you you want to delete this environment?"
                             displayName={e.id}
-                            className="dropdown-item"
+                            className="dropdown-item text-danger"
                             text="Delete"
                             useIcon={false}
                             onClick={async () => {
@@ -160,27 +173,10 @@ const EnvironmentsPage: FC = () => {
       ) : (
         <p>You don&apos;t have any environments defined yet.</p>
       )}
-      <div className="mb-5">
-        {canCreate && (
-          <button
-            className="btn btn-primary"
-            onClick={(e) => {
-              e.preventDefault();
-              setModalOpen({});
-            }}
-          >
-            <span className="h4 pr-2 m-0 d-inline-block">
-              <GBAddCircle />
-            </span>{" "}
-            Create New Environment
-          </button>
-        )}
-      </div>
+
       <div className="alert alert-info">
-        Looking for SDK Endpoints? They have moved to the new{" "}
-        <Link href="/sdks">SDKs</Link> tab. Also, make sure to check out the new{" "}
-        <strong>SDK Connections</strong>, which makes it easier to configure and
-        test your integrations.
+        Looking for SDK Endpoints? They have moved to the{" "}
+        <Link href="/sdks">SDK Connections</Link> page.
       </div>
     </div>
   );
