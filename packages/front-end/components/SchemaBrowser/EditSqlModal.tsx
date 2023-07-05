@@ -1,4 +1,4 @@
-import { useState, ReactElement, useEffect } from "react";
+import { useState, ReactElement } from "react";
 import { useForm } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import { TestQueryRow } from "back-end/src/types/Integration";
@@ -43,9 +43,6 @@ export default function EditSqlModal({
   suggestions = [],
 }: Props) {
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
-  const [autoCloseOnSubmit, setAutoCloseOnSubmit] = useState(
-    validateResponse ? false : true
-  );
   const form = useForm({
     defaultValues: {
       sql: value,
@@ -62,28 +59,29 @@ export default function EditSqlModal({
   const [cursorData, setCursorData] = useState<null | CursorData>(null);
   const [testingQuery, setTestingQuery] = useState(false);
 
+  const runTestQuery = async (sql: string) => {
+    validateSQL(sql, []);
+    const res: TestQueryResults = await apiCall("/query/test", {
+      method: "POST",
+      body: JSON.stringify({
+        query: sql,
+        datasourceId: datasourceId,
+      }),
+    });
+
+    if (res.results?.length && validateResponse) {
+      validateResponse(res.results[0]);
+    }
+
+    return res;
+  };
+
   const handleTestQuery = async () => {
-    const sql = form.getValues("sql");
     setTestQueryResults(null);
+    setTestingQuery(true);
     try {
-      validateSQL(sql, []);
-      setTestingQuery(true);
-      const res: TestQueryResults = await apiCall("/query/test", {
-        method: "POST",
-        body: JSON.stringify({
-          query: sql,
-          datasourceId: datasourceId,
-        }),
-      });
-
-      if (res.results?.length && validateResponse) {
-        validateResponse(res.results[0]);
-      }
-
-      if (!res.error && !suggestions.length) {
-        setAutoCloseOnSubmit(true);
-      }
-
+      const sql = form.getValues("sql");
+      const res = await runTestQuery(sql);
       setTestQueryResults(res);
     } catch (e) {
       setTestQueryResults({ error: e.message });
@@ -94,23 +92,16 @@ export default function EditSqlModal({
   const supportsSchemaBrowser =
     datasource?.properties?.supportsInformationSchema;
 
-  useEffect(() => {
-    setAutoCloseOnSubmit(!testQueryBeforeSaving);
-  }, [autoCloseOnSubmit, testQueryBeforeSaving]);
-
-  useEffect(() => {
-    if (testQueryResults && !testQueryResults.error && !suggestions.length) {
-      setAutoCloseOnSubmit(true);
-    }
-  }, [suggestions.length, testQueryResults]);
-
   return (
     <Modal
       open
       header="Edit SQL"
       submit={form.handleSubmit(async (value) => {
         if (testQueryBeforeSaving) {
-          await handleTestQuery();
+          const res = await runTestQuery(value.sql);
+          if (res.error) {
+            throw new Error(res.error);
+          }
         }
 
         await save(value.sql);
@@ -120,7 +111,6 @@ export default function EditSqlModal({
       bodyClassName="p-0"
       cta="Save"
       closeCta="Back"
-      autoCloseOnSubmit={autoCloseOnSubmit}
       secondaryCTA={
         <label>
           <input
