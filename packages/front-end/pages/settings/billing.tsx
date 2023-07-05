@@ -1,6 +1,4 @@
-import Link from "next/link";
 import { FC, useState } from "react";
-import { FaAngleLeft } from "react-icons/fa";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import SubscriptionInfo from "@/components/Settings/SubscriptionInfo";
 import { isCloud } from "@/services/env";
@@ -47,13 +45,6 @@ const BillingPage: FC = () => {
         />
       )}
 
-      <div className="mb-2">
-        <Link href="/settings">
-          <a>
-            <FaAngleLeft /> All Settings
-          </a>
-        </Link>
-      </div>
       <h1>Billing Settings</h1>
       <div className=" bg-white p-3 border">
         {subscriptionStatus ? (

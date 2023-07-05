@@ -43,7 +43,26 @@ export default function SDKConnectionsList() {
           edit={false}
         />
       )}
-      <h1>SDK Connections</h1>
+
+      <div className="row align-items-center mb-4">
+        <div className="col-auto">
+          <h1 className="mb-0">SDK Connections</h1>
+        </div>
+        {connections.length > 0 ? (
+          <div className="col-auto ml-auto">
+            <button
+              className="btn btn-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                setModalOpen(true);
+              }}
+            >
+              <GBAddCircle /> Add SDK Connection
+            </button>
+          </div>
+        ) : null}
+      </div>
+
       {connections.length > 0 && (
         <table className="table mb-3 appbox gbtable table-hover">
           <thead>
@@ -222,17 +241,7 @@ export default function SDKConnectionsList() {
                 <GBAddCircle /> Create New SDK Connection
               </button>
             </div>
-          ) : (
-            <button
-              className="btn btn-primary"
-              onClick={(e) => {
-                e.preventDefault();
-                setModalOpen(true);
-              }}
-            >
-              <GBAddCircle /> Create New SDK Connection
-            </button>
-          )}
+          ) : null}
         </>
       )}
     </div>
