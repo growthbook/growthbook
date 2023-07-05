@@ -103,7 +103,7 @@ const navlinks: SidebarLinkProps[] = [
     Icon: BsCodeSlash,
     subLinks: [
       {
-        name: "Client Keys",
+        name: "SDK Connections",
         href: "/sdks",
         path: /^sdks/,
       },

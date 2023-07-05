@@ -16,11 +16,7 @@ export default function SDKsPage() {
         <Tab
           anchor="connections"
           id="connections"
-          display={
-            <>
-              SDK Connections <span className="badge badge-warning">new</span>
-            </>
-          }
+          display={<>SDK Connections</>}
           padding={false}
         >
           <SDKConnectionsList />
