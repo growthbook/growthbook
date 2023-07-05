@@ -160,6 +160,31 @@ export async function deleteMetricById(
   });
 }
 
+/**
+ * Deletes metrics where the provided project is the only project for that metric
+ * @param projectId
+ * @param organization
+ * @param user
+ */
+export async function deleteAllMetricsForAProject({
+  projectId,
+  organization,
+  user,
+}: {
+  projectId: string;
+  organization: OrganizationInterface;
+  user: EventAuditUser;
+}) {
+  const metricsToDelete = await MetricModel.find({
+    organization: organization.id,
+    projects: [projectId],
+  });
+
+  for (const metric of metricsToDelete) {
+    await deleteMetricById(metric.id, organization, user);
+  }
+}
+
 export async function getMetricMap(organization: string) {
   const metricMap = new Map<string, MetricInterface>();
   const allMetrics = await getMetricsByOrganization(organization);

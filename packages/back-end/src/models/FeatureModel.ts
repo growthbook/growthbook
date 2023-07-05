@@ -139,6 +139,31 @@ export async function deleteFeature(
 }
 
 /**
+ * Deletes all features where the provided project is the only project for that feature
+ * @param projectId
+ * @param organization
+ * @param user
+ */
+export async function deleteAllFeaturesForAProject({
+  projectId,
+  organization,
+  user,
+}: {
+  projectId: string;
+  organization: OrganizationInterface;
+  user: EventAuditUser;
+}) {
+  const featuresToDelete = await FeatureModel.find({
+    organization: organization.id,
+    project: projectId,
+  });
+
+  for (const feature of featuresToDelete) {
+    await deleteFeature(organization, user, feature);
+  }
+}
+
+/**
  * Given the common {@link FeatureInterface} for both previous and next states, and the organization,
  * will log an update event in the events collection
  * @param organization

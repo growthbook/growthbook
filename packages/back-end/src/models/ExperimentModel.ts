@@ -712,6 +712,32 @@ export async function deleteExperimentByIdForOrganization(
 }
 
 /**
+ * Delete experiments where the provided project is the only project for that experiment
+ * @param projectId
+ * @param organization
+ * @param user
+ */
+export async function deleteAllExperimentsForAProject({
+  projectId,
+  organization,
+  user,
+}: {
+  projectId: string;
+  organization: OrganizationInterface;
+  user: EventAuditUser;
+}) {
+  const experimentsToDelete = await ExperimentModel.find({
+    organization: organization.id,
+    project: projectId,
+  });
+
+  for (const experiment of experimentsToDelete) {
+    await experiment.delete();
+    await onExperimentDelete(organization, user, experiment);
+  }
+}
+
+/**
  * Removes the tag from any experiments that have it
  * and logs the experiment.updated event
  * @param organization
