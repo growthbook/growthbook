@@ -244,7 +244,7 @@ export type CacheSettings = {
 
 export type ApiHost = string;
 export type ClientKey = string;
-export type RepositoryKey = `${ApiHost}||${ClientKey}`;
+export type RepositoryKey = string;
 
 export type LoadFeaturesOptions = {
   autoRefresh?: boolean;
