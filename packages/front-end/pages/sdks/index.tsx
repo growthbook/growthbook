@@ -16,7 +16,7 @@ export default function SDKsPage() {
         <Tab
           anchor="connections"
           id="connections"
-          display={<>SDK Connections</>}
+          display="SDK Connections"
           padding={false}
         >
           <SDKConnectionsList />
