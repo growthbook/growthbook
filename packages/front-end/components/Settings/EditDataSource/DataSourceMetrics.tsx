@@ -43,9 +43,16 @@ export default function DataSourceMetrics({
 
   const metrics: MetricInterface[] | undefined = data?.metrics;
 
+  console.log("metrics", metrics);
+
   const filteredMetrics = metrics?.filter((m) => {
-    if (!datasource?.projects?.length) return true;
+    // If no project is selected, show all metrics
+    if (!project) return true;
+    // If a project is selected, but the datasource & metric don't have any projects, show metric
+    if (!datasource?.projects?.length && !m?.projects?.length) return true;
+    // If a project is selected, & the datasource has projects, but the metric doesn't, show the metric
     if (!m?.projects?.length) return true;
+    // If a project is selected & the datasource & metrics have projects, only show the metric if the current project is in the metric's projects
     return m?.projects?.includes(project);
   });
 
@@ -91,7 +98,9 @@ export default function DataSourceMetrics({
           <h2>
             Metrics{" "}
             <span className="badge badge-purple mx-2 my-0">
-              {metrics && metrics.length > 0 ? metrics.length : "0"}
+              {filteredMetrics && filteredMetrics.length > 0
+                ? filteredMetrics.length
+                : "0"}
             </span>
           </h2>
           <p className="m-0">
@@ -132,9 +141,9 @@ export default function DataSourceMetrics({
       </div>
       {metricsOpen ? (
         <div className="my-3">
-          {metrics && metrics?.length > 0 ? (
+          {filteredMetrics && filteredMetrics?.length > 0 ? (
             <div>
-              {metrics.map((metric) => {
+              {filteredMetrics.map((metric) => {
                 return (
                   <div key={metric.id} className="card p-3 mb-3 bg-light">
                     <Link href={`/metric/${metric.id}`}>
