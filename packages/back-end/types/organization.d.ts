@@ -45,6 +45,7 @@ export type CommercialFeature =
   | "visual-editor"
   | "cloud-proxy"
   | "hash-secure-attributes"
+  | "livechat"
   | "json-validation";
 export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
 
