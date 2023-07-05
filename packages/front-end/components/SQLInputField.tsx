@@ -1,5 +1,5 @@
 import { UserIdType } from "back-end/types/datasource";
-import React, { ReactElement, useEffect, useState } from "react";
+import React, { ReactElement, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import type { TestQueryRow } from "back-end/src/types/Integration";
@@ -43,7 +43,6 @@ export default function SQLInputField({
   showPreview,
   placeholder = "",
   helpText,
-  identityTypes = [],
   queryType,
   className,
   setCursorData,
@@ -54,101 +53,11 @@ export default function SQLInputField({
     testQueryResults,
     setTestQueryResults,
   ] = useState<TestQueryResults | null>(null);
-  const [suggestions, setSuggestions] = useState<ReactElement[]>([]);
   const { apiCall } = useAuth();
 
   // These will only be defined in Experiment Assignment Queries
   const userEnteredHasNameCol = form.watch("hasNameCol");
   const userEnteredDimensions = form.watch("dimensions");
-
-  // We do some one-off logic for Experiment Assignment queries
-  useEffect(() => {
-    if (queryType === "experiment-assignment") {
-      const result = testQueryResults?.results?.[0];
-      if (!result) return;
-
-      const suggestions: ReactElement[] = [];
-
-      const namedCols = ["experiment_name", "variation_name"];
-      const userIdTypes = identityTypes.map((type) => type.userIdType || []);
-
-      const returnedColumns = new Set<string>(Object.keys(result));
-      const optionalColumns = [...returnedColumns].filter(
-        (col) =>
-          !requiredColumns.has(col) &&
-          !namedCols.includes(col) &&
-          !userIdTypes.includes(col)
-      );
-
-      // Check if `hasNameCol` should be enabled
-      if (!userEnteredHasNameCol) {
-        // Selected both required columns, turn on `hasNameCol` automatically
-        if (
-          returnedColumns.has("experiment_name") &&
-          returnedColumns.has("variation_name")
-        ) {
-          form.setValue("hasNameCol", true);
-        }
-        // Only selected `experiment_name`, add warning
-        else if (returnedColumns.has("experiment_name")) {
-          suggestions.push(
-            <>
-              Add <code>variation_name</code> to your SELECT clause to enable
-              GrowthBook to populate names automatically.
-            </>
-          );
-        }
-        // Only selected `variation_name`, add warning
-        else if (returnedColumns.has("variation_name")) {
-          suggestions.push(
-            <>
-              Add <code>experiment_name</code> to your SELECT clause to enable
-              GrowthBook to populate names automatically.
-            </>
-          );
-        }
-      }
-
-      // Prompt to add optional columns as dimensions
-      if (optionalColumns.length > 0) {
-        suggestions.push(
-          <>
-            The following columns were returned, but will be ignored. Add them
-            as dimensions or disregard this message.
-            <ul className="mb-0 pb-0">
-              {optionalColumns.map((col) => (
-                <li key={col}>
-                  <code>{col}</code> -{" "}
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      form.setValue("dimensions", [
-                        ...userEnteredDimensions,
-                        col,
-                      ]);
-                    }}
-                  >
-                    add as dimension
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </>
-        );
-      }
-
-      setSuggestions(suggestions);
-    }
-  }, [
-    requiredColumns,
-    testQueryResults,
-    userEnteredDimensions,
-    identityTypes,
-    userEnteredHasNameCol,
-    form,
-    queryType,
-  ]);
 
   const handleTestQuery = async () => {
     setTestQueryResults(null);
@@ -231,11 +140,9 @@ export default function SQLInputField({
           {testQueryResults && (
             <DisplayTestQueryResults
               duration={parseInt(testQueryResults.duration || "0")}
-              requiredColumns={[...requiredColumns]}
               results={testQueryResults.results || []}
               error={testQueryResults.error}
               sql={testQueryResults.sql || ""}
-              suggestions={suggestions}
             />
           )}
         </div>
