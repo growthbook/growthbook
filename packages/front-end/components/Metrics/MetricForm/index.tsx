@@ -344,13 +344,16 @@ const MetricForm: FC<MetricFormProps> = ({
       value: "absolute",
       label: "Absolute capping",
     },
+    ...(datasourceType !== "mixpanel"
+      ? [
+          {
+            value: "percentile",
+            label: "Percentile capping",
+          },
+        ]
+      : []),
   ];
-  if (datasourceType !== "mixpanel") {
-    cappingOptions.push({
-      value: "percentile",
-      label: "Percentile capping",
-    });
-  }
+
   // TODO: eventually make each of these their own independent properties
   const conditionsSupported = capSupported;
   const ignoreNullsSupported = capSupported;
