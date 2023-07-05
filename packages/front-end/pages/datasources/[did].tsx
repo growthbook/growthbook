@@ -310,11 +310,7 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 />
               </div>
               <div className="my-3 p-3 rounded border bg-white">
-                <DataSourceMetrics
-                  datasource={d}
-                  permissions={permissions}
-                  project={project}
-                />
+                <DataSourceMetrics datasource={d} permissions={permissions} />
               </div>
 
               <div className="my-3 p-3 rounded border bg-white">

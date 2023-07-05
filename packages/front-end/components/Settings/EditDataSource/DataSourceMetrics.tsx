@@ -16,18 +16,14 @@ import MetricForm from "@/components/Metrics/MetricForm";
 import { checkMetricProjectPermissions } from "@/services/metrics";
 import { PermissionFunctions } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import ProjectBadges from "@/components/ProjectBadges";
 
 type Props = {
   datasource: DataSourceInterfaceWithParams;
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
-  project: string;
 };
 
-export default function DataSourceMetrics({
-  datasource,
-  permissions,
-  project,
-}: Props) {
+export default function DataSourceMetrics({ datasource, permissions }: Props) {
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [modalData, setModalData] = useState<{
     current: Partial<MetricInterface>;
@@ -43,17 +39,12 @@ export default function DataSourceMetrics({
 
   const metrics: MetricInterface[] | undefined = data?.metrics;
 
-  console.log("metrics", metrics);
-
   const filteredMetrics = metrics?.filter((m) => {
-    // If no project is selected, show all metrics
-    if (!project) return true;
-    // If a project is selected, but the datasource & metric don't have any projects, show metric
-    if (!datasource?.projects?.length && !m?.projects?.length) return true;
-    // If a project is selected, & the datasource has projects, but the metric doesn't, show the metric
-    if (!m?.projects?.length) return true;
-    // If a project is selected & the datasource & metrics have projects, only show the metric if the current project is in the metric's projects
-    return m?.projects?.includes(project);
+    if (!m.projects?.length) return true;
+
+    if (!datasource?.projects?.length) return true;
+
+    return m.projects?.some((p) => datasource.projects?.includes(p));
   });
 
   const editMetricsPermissions: { [id: string]: boolean } = {};
@@ -63,6 +54,8 @@ export default function DataSourceMetrics({
       permissions
     );
   });
+
+  console.log("editMetricsPermissions", editMetricsPermissions);
 
   const createMetricsPermissions = () => {
     let anyProjectsIncludeCreatePermissions = false;
@@ -98,9 +91,7 @@ export default function DataSourceMetrics({
           <h2>
             Metrics{" "}
             <span className="badge badge-purple mx-2 my-0">
-              {filteredMetrics && filteredMetrics.length > 0
-                ? filteredMetrics.length
-                : "0"}
+              {metrics && metrics.length > 0 ? metrics.length : "0"}
             </span>
           </h2>
           <p className="m-0">
@@ -141,9 +132,9 @@ export default function DataSourceMetrics({
       </div>
       {metricsOpen ? (
         <div className="my-3">
-          {filteredMetrics && filteredMetrics?.length > 0 ? (
+          {metrics && metrics?.length > 0 ? (
             <div>
-              {filteredMetrics.map((metric) => {
+              {metrics.map((metric) => {
                 return (
                   <div key={metric.id} className="card p-3 mb-3 bg-light">
                     <Link href={`/metric/${metric.id}`}>
@@ -192,6 +183,24 @@ export default function DataSourceMetrics({
                                 <strong>Owner: </strong>
                                 {metric.owner}
                               </div>
+                              <div
+                                className={clsx(
+                                  metric.status === "archived"
+                                    ? "text-muted"
+                                    : "",
+                                  "pr-3"
+                                )}
+                              >
+                                <strong>Projects: </strong>
+                                {!metric?.projects?.length ? (
+                                  <ProjectBadges className="badge-ellipsis align-middle" />
+                                ) : (
+                                  <ProjectBadges
+                                    projectIds={metric.projects}
+                                    className="badge-ellipsis align-middle"
+                                  />
+                                )}
+                              </div>
                               {!hasFileConfig() && (
                                 <div
                                   title={datetime(metric.dateUpdated || "")}
@@ -221,53 +230,51 @@ export default function DataSourceMetrics({
                               </Tooltip>
                             ) : null}
                           </div>
-                          <MoreMenu className="px-2">
-                            {!hasFileConfig() &&
-                            editMetricsPermissions[metric.id] ? (
-                              <>
-                                <button
-                                  className="btn dropdown-item py-2"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    e.preventDefault();
-                                    setModalData({
-                                      current: {
-                                        ...metric,
-                                        name: metric.name + " (copy)",
-                                      },
-                                      edit: false,
-                                      duplicate: true,
-                                    });
-                                  }}
-                                >
-                                  <FaRegCopy /> Duplicate
-                                </button>
-                                <button
-                                  className="btn dropdown-item py-2"
-                                  color=""
-                                  onClick={async () => {
-                                    const newStatus =
-                                      metric.status === "archived"
-                                        ? "active"
-                                        : "archived";
-                                    await apiCall(`/metric/${metric.id}`, {
-                                      method: "PUT",
-                                      body: JSON.stringify({
-                                        status: newStatus,
-                                      }),
-                                    });
-                                    mutateDefinitions({});
-                                    mutate();
-                                  }}
-                                >
-                                  <FaArchive />{" "}
-                                  {metric.status === "archived"
-                                    ? "Unarchive"
-                                    : "Archive"}
-                                </button>
-                              </>
-                            ) : null}
-                          </MoreMenu>
+                          {!hasFileConfig() &&
+                          editMetricsPermissions[metric.id] ? (
+                            <MoreMenu className="px-2">
+                              <button
+                                className="btn dropdown-item py-2"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  setModalData({
+                                    current: {
+                                      ...metric,
+                                      name: metric.name + " (copy)",
+                                    },
+                                    edit: false,
+                                    duplicate: true,
+                                  });
+                                }}
+                              >
+                                <FaRegCopy /> Duplicate
+                              </button>
+                              <button
+                                className="btn dropdown-item py-2"
+                                color=""
+                                onClick={async () => {
+                                  const newStatus =
+                                    metric.status === "archived"
+                                      ? "active"
+                                      : "archived";
+                                  await apiCall(`/metric/${metric.id}`, {
+                                    method: "PUT",
+                                    body: JSON.stringify({
+                                      status: newStatus,
+                                    }),
+                                  });
+                                  mutateDefinitions({});
+                                  mutate();
+                                }}
+                              >
+                                <FaArchive />{" "}
+                                {metric.status === "archived"
+                                  ? "Unarchive"
+                                  : "Archive"}
+                              </button>
+                            </MoreMenu>
+                          ) : null}
                         </div>
                       </div>
                     </Link>
