@@ -13,7 +13,9 @@ import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
-import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
+import EditSqlModal, {
+  TestQueryResults,
+} from "../../../SchemaBrowser/EditSqlModal";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -31,6 +33,10 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
   onCancel,
 }) => {
   const [showAdvancedMode, setShowAdvancedMode] = useState(false);
+  const [
+    testQueryResults,
+    setTestQueryResults,
+  ] = useState<TestQueryResults | null>(null);
   const [sqlOpen, setSqlOpen] = useState(false);
   const modalTitle =
     mode === "add"
@@ -114,6 +120,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
       {sqlOpen && dataSource && (
         <EditSqlModal
           close={() => setSqlOpen(false)}
+          testQueryResults={testQueryResults}
+          setTestQueryResults={setTestQueryResults}
           datasourceId={dataSource.id || ""}
           requiredColumns={requiredColumns}
           value={userEnteredQuery}
@@ -122,6 +130,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
           }}
           validateResponse={(result) => {
             if (!result) return;
+            let error;
 
             const namedCols = ["experiment_name", "variation_name"];
             const userIdTypes = identityTypes?.map(
@@ -151,15 +160,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
               }
               // Only selected `experiment_name`, add warning
               else if (returnedColumns.has("experiment_name")) {
-                throw new Error(
-                  "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name."
-                );
+                error =
+                  "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name.";
               }
               // Only selected `variation_name`, add warning
               else if (returnedColumns.has("variation_name")) {
-                throw new Error(
-                  "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name."
-                );
+                error =
+                  "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name.";
               }
             } else {
               // `hasNameCol` is enabled, make sure both name columns are selected
@@ -176,16 +183,14 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 returnedColumns.has("experiment_name") &&
                 !returnedColumns.has("variation_name")
               ) {
-                throw new Error(
-                  "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name."
-                );
+                error =
+                  "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name.";
               } else if (
                 returnedColumns.has("variation_name") &&
                 !returnedColumns.has("experiment_name")
               ) {
-                throw new Error(
-                  "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name."
-                );
+                error =
+                  "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name.";
               }
             }
 
@@ -211,11 +216,8 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
 
               // Now, if missingColumns still has a length, throw an error
               if (missingColumns.length > 0) {
-                throw new Error(
-                  `You are missing the following columns: ${missingColumns.join(
-                    ", "
-                  )}`
-                );
+                error =
+                  "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name.";
               }
             }
 
@@ -226,6 +228,11 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                   form.setValue("dimensions", [...userEnteredDimensions, col]);
                 });
               }
+            }
+
+            if (error) {
+              setTestQueryResults({ error });
+              throw new Error(error);
             }
           }}
         />

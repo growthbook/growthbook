@@ -14,6 +14,13 @@ import Button from "../Button";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
+export type TestQueryResults = {
+  duration?: string;
+  error?: string;
+  results?: TestQueryRow[];
+  sql?: string;
+};
+
 export interface Props {
   value: string;
   datasourceId: string;
@@ -22,14 +29,9 @@ export interface Props {
   requiredColumns: Set<string>;
   placeholder?: string;
   validateResponse?: (response: TestQueryResults) => void;
+  testQueryResults: TestQueryResults | null;
+  setTestQueryResults: (results: TestQueryResults | null) => void;
 }
-
-type TestQueryResults = {
-  duration?: string;
-  error?: string;
-  results?: TestQueryRow[];
-  sql?: string;
-};
 
 export default function EditSqlModal({
   value,
@@ -39,6 +41,8 @@ export default function EditSqlModal({
   placeholder = "",
   datasourceId,
   validateResponse,
+  testQueryResults,
+  setTestQueryResults,
 }: Props) {
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
   const form = useForm({
@@ -46,10 +50,6 @@ export default function EditSqlModal({
       sql: value,
     },
   });
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
   const { getDatasourceById } = useDefinitions();
 
   const { apiCall } = useAuth();
@@ -100,7 +100,7 @@ export default function EditSqlModal({
           setTestQueryResults(null);
           const res = await runTestQuery(value.sql);
           if (res.error) {
-            throw new Error(res.error);
+            setTestQueryResults({ error: res.error });
           }
         }
 
