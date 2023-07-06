@@ -1,8 +1,7 @@
 import React from "react";
 import { NextPage } from "next";
-import { useGrowthBook } from "@growthbook/growthbook-react";
-import { ImportFromLaunchDarklyContainer } from "@/components/importing/ImportFromLaunchDarkly/ImportFromLaunchDarkly";
-import { AppFeatures } from "@/types/app-features";
+import { ImportYourData } from "@/components/ImportYourData/ImportYourData";
+import { useFeatureDisabledRedirect } from "@/hooks/useFeatureDisabledRedirect";
 
 /**
  * A page to host all "Import from X" sections. To start, since we only have one,
@@ -10,9 +9,7 @@ import { AppFeatures } from "@/types/app-features";
  * it may make sense to nest each service on its own page.
  */
 const ImportingFromExternalServicesPage: NextPage = () => {
-  const growthbook = useGrowthBook<AppFeatures>();
-  const shouldRender =
-    growthbook?.getFeatureValue("import-from-x", false) || false;
+  const { shouldRender } = useFeatureDisabledRedirect("import-from-x");
 
   if (!shouldRender) {
     return null;
@@ -20,7 +17,7 @@ const ImportingFromExternalServicesPage: NextPage = () => {
 
   return (
     <div className="contents container pagecontents">
-      <ImportFromLaunchDarklyContainer />
+      <ImportYourData />
     </div>
   );
 };

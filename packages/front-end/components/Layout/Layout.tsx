@@ -195,6 +195,7 @@ const navlinks: SidebarLinkProps[] = [
         name: "Import your data",
         href: "/importing",
         path: /^importing/,
+        feature: "import-from-x",
         permissions: ["manageFeatures", "manageEnvironments", "manageProjects"],
       },
       {
