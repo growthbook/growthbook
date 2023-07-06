@@ -109,7 +109,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             className="mx-2"
           >
             {title}
-            {unreachable && (
+            {unreachable ? (
               <Tooltip
                 body={
                   "A rule above this one will serve to 100% of the traffic, and this rule will never be reached."
@@ -121,7 +121,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   is not reachable
                 </span>
               </Tooltip>
-            )}
+            ) : null}
           </div>
           <RuleStatusPill
             rule={rule}

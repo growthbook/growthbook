@@ -2,7 +2,12 @@ import mongoose, { FilterQuery } from "mongoose";
 import { MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
+import { OrganizationInterface } from "../../types/organization";
+import { EventAuditUser } from "../events/event-types";
 import { queriesSchema } from "./QueryModel";
+import { ImpactEstimateModel } from "./ImpactEstimateModel";
+import { removeMetricFromExperiments } from "./ExperimentModel";
+import { addTagsDiff } from "./TagModel";
 
 export const ALLOWED_METRIC_TYPES = [
   "binomial",
@@ -127,13 +132,31 @@ export async function insertMetrics(
   return (await MetricModel.insertMany(metrics)).map(toInterface);
 }
 
-export async function deleteMetricById(id: string, organization: string) {
+export async function deleteMetricById(
+  id: string,
+  org: OrganizationInterface,
+  user: EventAuditUser
+) {
   if (usingFileConfig()) {
     throw new Error("Cannot delete. Metrics managed by config.yml");
   }
+
+  // delete references:
+  // ideas (impact estimate)
+  await ImpactEstimateModel.updateMany(
+    {
+      metric: id,
+      organization: org.id,
+    },
+    { metric: "" }
+  );
+
+  // Experiments
+  await removeMetricFromExperiments(id, org, user);
+
   await MetricModel.deleteOne({
     id,
-    organization,
+    organization: org.id,
   });
 }
 
@@ -239,7 +262,10 @@ export async function removeProjectFromMetrics(
 ) {
   await MetricModel.updateMany(
     { organization, projects: project },
-    { $pull: { projects: project } }
+    {
+      $pull: { projects: project },
+      $set: { dateUpdated: new Date() },
+    }
   );
 }
 
@@ -261,7 +287,7 @@ export async function getMetricsUsingSegment(
   return docs.map(toInterface);
 }
 
-const ALLOWED_UPDATE_FIELDS = [
+const FILE_CONFIG_UPDATEABLE_FIELDS = [
   "analysis",
   "analysisError",
   "queries",
@@ -276,25 +302,29 @@ export async function updateMetric(
   if (usingFileConfig()) {
     // Trying to update unsupported properties
     if (
-      Object.keys(updates).filter((k) => !ALLOWED_UPDATE_FIELDS.includes(k))
-        .length > 0
+      Object.keys(updates).filter(
+        (k) => !FILE_CONFIG_UPDATEABLE_FIELDS.includes(k)
+      ).length > 0
     ) {
       throw new Error("Cannot update. Metrics managed by config.yml");
     }
 
     await MetricModel.updateOne(
+      { id, organization },
       {
-        id,
-        organization,
+        $set: {
+          dateUpdated: new Date(),
+          ...updates,
+        },
       },
-      {
-        $set: updates,
-      },
-      {
-        upsert: true,
-      }
+      { upsert: true }
     );
     return;
+  }
+
+  const metric = await getMetricById(id, organization);
+  if (!metric) {
+    throw new Error("Could not find metric");
   }
 
   await MetricModel.updateOne(
@@ -303,9 +333,14 @@ export async function updateMetric(
       organization,
     },
     {
-      $set: updates,
+      $set: {
+        dateUpdated: new Date(),
+        ...updates,
+      },
     }
   );
+
+  await addTagsDiff(organization, metric.tags || [], updates.tags || []);
 }
 
 export async function updateMetricsByQuery(
@@ -315,8 +350,9 @@ export async function updateMetricsByQuery(
   if (usingFileConfig()) {
     // Trying to update unsupported properties
     if (
-      Object.keys(updates).filter((k) => !ALLOWED_UPDATE_FIELDS.includes(k))
-        .length > 0
+      Object.keys(updates).filter(
+        (k) => !FILE_CONFIG_UPDATEABLE_FIELDS.includes(k)
+      ).length > 0
     ) {
       throw new Error("Cannot update. Metrics managed by config.yml");
     }
@@ -324,7 +360,10 @@ export async function updateMetricsByQuery(
     await MetricModel.updateMany(
       query,
       {
-        $set: updates,
+        $set: {
+          dateUpdated: new Date(),
+          ...updates,
+        },
       },
       {
         upsert: true,
@@ -334,7 +373,10 @@ export async function updateMetricsByQuery(
   }
 
   await MetricModel.updateMany(query, {
-    $set: updates,
+    $set: {
+      dateUpdated: new Date(),
+      ...updates,
+    },
   });
 }
 
@@ -344,6 +386,7 @@ export async function removeTagInMetrics(organization: string, tag: string) {
   }
   const query = { organization, tags: tag };
   await MetricModel.updateMany(query, {
+    $set: { dateUpdated: new Date() },
     $pull: { tags: tag },
   });
   return;

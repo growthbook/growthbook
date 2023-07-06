@@ -138,6 +138,10 @@ export interface paths {
   "/metrics/{id}": {
     /** Get a single metric */
     get: operations["getMetric"];
+    /** Update a metric */
+    put: operations["putMetric"];
+    /** Deletes a metric */
+    delete: operations["deleteMetric"];
   };
   "/experiments/{id}/visual-changesets": {
     /** Get all visual changesets */
@@ -2294,6 +2298,118 @@ export interface operations {
       };
     };
   };
+  putMetric: {
+    /** Update a metric */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Name of the person who owns this metric */
+          owner?: string;
+          /** @description Name of the metric */
+          name?: string;
+          /** @description Description of the metric */
+          description?: string;
+          /**
+           * @description Type of metric. See [Metrics documentation](/app/metrics) 
+           * @enum {string}
+           */
+          type?: "binomial" | "count" | "duration" | "revenue";
+          /** @description List of tags */
+          tags?: (string)[];
+          /** @description List of project IDs for projects that can access this metric */
+          projects?: (string)[];
+          archived?: boolean;
+          behavior?: {
+            /** @enum {string} */
+            goal?: "increase" | "decrease";
+            /** @description This should be non-negative */
+            cap?: number;
+            /** @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
+            conversionWindowStart?: number;
+            /** @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
+            conversionWindowEnd?: number;
+            /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
+            riskThresholdSuccess?: number;
+            /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
+            riskThresholdDanger?: number;
+            /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
+            minPercentChange?: number;
+            /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
+            maxPercentChange?: number;
+            minSampleSize?: number;
+          };
+          /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
+          sql?: {
+            identifierTypes?: (string)[];
+            conversionSQL?: string;
+            /** @description Custom user level aggregation for your metric (default: `SUM(value)`) */
+            userAggregationSQL?: string;
+            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics) */
+            denominatorMetricId?: string;
+          };
+          /** @description An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed */
+          sqlBuilder?: {
+            identifierTypeColumns?: ({
+                identifierType: string;
+                columnName: string;
+              })[];
+            tableName?: string;
+            valueColumnName?: string;
+            timestampColumnName?: string;
+            conditions?: ({
+                column: string;
+                operator: string;
+                value: string;
+              })[];
+          };
+          /** @description Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
+          mixpanel?: {
+            eventName?: string;
+            eventValue?: string;
+            userAggregation?: string;
+            conditions?: ({
+                property: string;
+                operator: string;
+                value: string;
+              })[];
+          };
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            updatedId: string;
+          };
+        };
+      };
+    };
+  };
+  deleteMetric: {
+    /** Deletes a metric */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
+          };
+        };
+      };
+    };
+  };
   listVisualChangesets: {
     /** Get all visual changesets */
     parameters: {
@@ -2717,6 +2833,8 @@ export type GetExperimentResultsResponse = operations["getExperimentResults"]["r
 export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
 export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["content"]["application/json"];
 export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
+export type PutMetricResponse = operations["putMetric"]["responses"]["200"]["content"]["application/json"];
+export type DeleteMetricResponse = operations["deleteMetric"]["responses"]["200"]["content"]["application/json"];
 export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetVisualChangesetResponse = operations["getVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];
