@@ -3,9 +3,11 @@ import { FaAngleRight } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
+import { FeatureInterface } from "back-end/types/feature";
 
 type Props = {
   changeType: "flag" | "visual";
+  feature?: FeatureInterface;
   page?: string;
   changes?: string[];
   open: boolean;
@@ -14,6 +16,7 @@ type Props = {
 
 export default function LinkedChange({
   changeType,
+  feature,
   page,
   changes,
   open,
@@ -31,17 +34,32 @@ export default function LinkedChange({
               <>
                 <div
                   className="col-auto text-uppercase d-flex align-items-center"
-                  style={{ width: 150 }}
+                  style={{ width: 170 }}
                 >
                   <BsFlag />
                   <div className="ml-1 small">Feature Flag</div>
+                </div>
+                <div
+                  className="col-3 d-flex align-items-center"
+                  style={{ minWidth: 200 }}
+                >
+                  <span className="text-muted hover-label">Key:</span>{" "}
+                  <span className="ml-1 d-inline-block text-ellipsis text-body hover-label">
+                    {feature?.id}
+                  </span>
+                </div>
+                <div className="col-3 pl-3">
+                  <span className="text-muted hover-label">Type:</span>{" "}
+                  <span className="ml-1 text-body hover-label">
+                    {feature?.valueType}
+                  </span>
                 </div>
               </>
             ) : (
               <>
                 <div
                   className="col-auto text-uppercase d-flex align-items-center"
-                  style={{ width: 150 }}
+                  style={{ width: 170 }}
                 >
                   <RxDesktop />
                   <div className="ml-1 small">Visual Editor</div>

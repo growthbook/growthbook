@@ -73,7 +73,7 @@ const drawChange = ({
   return (
     <div
       className={clsx({
-        "mt-2": i !== 0,
+        "mt-2": newUi || i !== 0,
         "pb-3": newUi,
         "appbox bg-light mx-3 mb-4 py-2": !newUi,
       })}

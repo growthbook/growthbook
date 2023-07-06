@@ -27,6 +27,7 @@ import { DiscussionInterface } from "back-end/types/discussion";
 import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
+import { FeatureInterface } from "back-end/types/feature";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -47,6 +48,7 @@ import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTab
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import { phaseSummary } from "@/services/utils";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
+import LinkedChange from "@/components/Experiment/LinkedChange";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -219,6 +221,9 @@ export default function SinglePage({
   }>(`/experiment/${experiment.id}/reports`);
   const { data: discussionData } = useApi<{ discussion: DiscussionInterface }>(
     `/discussion/experiment/${experiment.id}`
+  );
+  const { data: featuresData } = useApi<{ features: FeatureInterface[] }>(
+    `/feature`
   );
 
   const phases = experiment.phases || [];
@@ -405,8 +410,27 @@ export default function SinglePage({
   const ignoreConversionEnd =
     experiment.attributionModel === "experimentDuration";
 
+  let legacyLinkedFeatures = [] as FeatureInterface[];
+  if (featuresData) {
+    legacyLinkedFeatures = featuresData.features.filter((feature) => {
+      if (feature.id === experiment.trackingKey) return true;
+      for (const [, envSetting] of Object.entries(
+        feature.environmentSettings
+      )) {
+        for (const rule of envSetting?.rules || []) {
+          if (
+            rule.type === "experiment" &&
+            rule.trackingKey === experiment.trackingKey
+          ) {
+            return true;
+          }
+        }
+      }
+      return false;
+    });
+  }
   const numLinkedVisualEditorChanges = visualChangesets.length || 0;
-  const numLinkedFeatureFlagChanges = 0;
+  const numLinkedFeatureFlagChanges = legacyLinkedFeatures.length || 0;
   const numLinkedChanges =
     numLinkedVisualEditorChanges + numLinkedFeatureFlagChanges;
 
@@ -693,10 +717,7 @@ export default function SinglePage({
                             Feature Flags:
                           </span>{" "}
                           {numLinkedFeatureFlagChanges} change
-                          {
-                            // @ts-expect-error - numLinkedFeatureFlagChanges is always 0, but not for long...
-                            numLinkedFeatureFlagChanges === 1 ? "" : "s"
-                          }
+                          {numLinkedFeatureFlagChanges === 1 ? "" : "s"}
                         </div>
                       }
                     >
@@ -1007,6 +1028,18 @@ export default function SinglePage({
               </>
             ) : (
               <>
+                {legacyLinkedFeatures.map((feature, i) => (
+                  <LinkedChange
+                    key={i}
+                    changeType={"flag"}
+                    feature={feature}
+                    open={experiment.status === "draft"}
+                  >
+                    <div className="mt-2 pb-3 px-3">
+                      <Link href={`/features/${feature.id}`}>Manage rule</Link>
+                    </div>
+                  </LinkedChange>
+                ))}
                 <VisualChangesetTable
                   experiment={experiment}
                   visualChangesets={visualChangesets}
