@@ -337,7 +337,7 @@ const sidebars = {
     {
       type: "category",
       label: "Tools",
-      collapsed: false,
+      collapsed: true,
       items: [
         {
           type: "doc",
@@ -360,7 +360,7 @@ const sidebars = {
     {
       type: "category",
       label: "Integrations",
-      collapsed: false,
+      collapsed: true,
       items: [
         {
           type: "doc",
