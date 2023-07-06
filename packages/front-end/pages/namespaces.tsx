@@ -57,11 +57,28 @@ const NamespacesPage: FC = () => {
           }}
         />
       )}
-      <h1>Experiment Namespaces</h1>
-      <p>
+      <div className="row align-items-center mb-1">
+        <div className="col-auto">
+          <h1 className="mb-0">Experiment Namespaces</h1>
+        </div>
+        {canEdit && (
+          <div className="col-auto ml-auto">
+            <button
+              className="btn btn-primary"
+              onClick={(e) => {
+                e.preventDefault();
+                setModalOpen(true);
+              }}
+            >
+              <GBAddCircle /> Add Namespace
+            </button>
+          </div>
+        )}
+      </div>
+      <p className="text-gray mb-3">
         Namespaces allow you to run mutually exclusive experiments.{" "}
         {namespaces.length > 0 &&
-          "Click a namespace below to see more details about it's current usage."}
+          "Click a namespace below to see more details about its current usage."}
       </p>
       {namespaces.length > 0 && (
         <table className="table appbox gbtable table-hover">
@@ -113,17 +130,6 @@ const NamespacesPage: FC = () => {
             })}
           </tbody>
         </table>
-      )}
-      {canEdit && (
-        <button
-          className="btn btn-primary"
-          onClick={(e) => {
-            e.preventDefault();
-            setModalOpen(true);
-          }}
-        >
-          <GBAddCircle /> Create Namespace
-        </button>
       )}
     </div>
   );
