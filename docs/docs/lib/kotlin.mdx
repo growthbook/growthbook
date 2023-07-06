@@ -17,13 +17,14 @@ repositories {
 }
 
 dependencies {
-    implementation 'io.growthbook.sdk:GrowthBook:1.1.33'
+    implementation 'io.growthbook.sdk:GrowthBook:1.1.34'
 }
 ```
 
 ## Quick Usage
 
 To create a GrowthBook SDK instance, use `GBSDKBuilder`. Then, you can evaluate feature flags or run experiments.
+In 1.1.34 version of the library named parameters for GBSDKBuilder are available.
 
 ```kotlin
 // User attributes for targeting and assigning users to experiment variations
@@ -32,18 +33,21 @@ attrs.put("id", "123")
 attrs.put("env", "dev")
 attrs.put("betaUser", true)
 
-val gb = GBSDKBuilderApp(
+val gb = GBSDKBuilder(
   // Fetch and cache feature definitions from GrowthBook API
   // If self-hosting, we recommend using a CDN in production
-  "key_123abc",
-  "https://cdn.growthbook.io/",
-  attrs,
-  { gbExperiment, gbExperimentResult ->
+  apiKey = "key_123abc",
+  hostURL = "https://cdn.growthbook.io/",
+  attributes = attrs,
+  trackingCallback = { gbExperiment, gbExperimentResult ->
     // TODO: track in your analytics system
+    print("Viewed Experiment")
+    print("Experiment Id: " + gbExperiment.key)
+    print("Variation Id: " + gbExperimentResult.variationId)
   },
   // Provide the encryption key of type String if you intend to use data encryption,
   // otherwise you can pass null
-  "key_123adbc"
+  encryptionKey = "key_123adbc"
 ).initialize()
 
 if (gb.feature("my-feature").on) {
