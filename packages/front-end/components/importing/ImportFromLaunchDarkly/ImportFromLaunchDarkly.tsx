@@ -1,11 +1,13 @@
 import React, { FC, FormEvent, ReactNode, useCallback } from "react";
 import { FaUpload } from "react-icons/fa";
 import { BsCheck, BsX } from "react-icons/bs";
+import Link from "next/link";
 import {
   ImportTaskResults,
   useImportFromLaunchDarkly,
 } from "@/components/importing/ImportFromLaunchDarkly/useImportFromLaunchDarkly";
 import LoadingSpinner from "@/components/LoadingSpinner";
+import { GBCircleArrowLeft } from "@/components/Icons";
 
 type ImportFromLaunchDarklyProps = {
   status: "idle" | "pending" | "completed";
@@ -34,6 +36,14 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
 
   return (
     <div className="">
+      <div className="mb-4">
+        <Link href="/importing">
+          <a>
+            <GBCircleArrowLeft /> Back to Importing
+          </a>
+        </Link>
+      </div>
+
       <h1>Import from LaunchDarkly</h1>
       <p>
         Import your data from LaunchDarkly. Just provide a LaunchDarkly API key

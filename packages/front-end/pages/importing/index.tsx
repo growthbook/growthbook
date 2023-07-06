@@ -1,6 +1,6 @@
 import React from "react";
 import { NextPage } from "next";
-import { ImportYourData } from "@/components/ImportYourData/ImportYourData";
+import { ImportYourData } from "@/components/importing/ImportYourData/ImportYourData";
 import { useFeatureDisabledRedirect } from "@/hooks/useFeatureDisabledRedirect";
 
 /**
