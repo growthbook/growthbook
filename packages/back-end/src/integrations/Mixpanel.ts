@@ -77,8 +77,8 @@ export default class Mixpanel implements SourceIntegrationInterface {
     ${destVar} = !${destVar}.length ? 0 : (
       (values => ${this.getMetricAggregationExpression(metric)})(${destVar})
     );${
-      metric.cap && metric.cap > 0
-        ? `\n${destVar} = ${destVar} && Math.min(${destVar}, ${metric.cap});`
+      metric.capping === "absolute" && metric.capValue
+        ? `\n${destVar} = ${destVar} && Math.min(${destVar}, ${metric.capValue});`
         : ""
     }
     `;
