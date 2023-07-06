@@ -9,11 +9,10 @@ import {
   BsCodeSlash,
 } from "react-icons/bs";
 import { FaArrowRight } from "react-icons/fa";
-import { FiDatabase } from "react-icons/fi";
 import { getGrowthBookBuild } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "../../hooks/useOrgSettings";
-import { GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
+import { GBDatabase, GBExperiment, GBPremiumBadge, GBSettings } from "../Icons";
 import { inferDocUrl } from "../DocLink";
 import UpgradeModal from "../Settings/UpgradeModal";
 import ProjectSelector from "./ProjectSelector";
@@ -47,7 +46,7 @@ const navlinks: SidebarLinkProps[] = [
     href: "/metrics",
     path: /^(metric|segment|dimension|datasources)/,
     autoClose: true,
-    Icon: FiDatabase,
+    Icon: GBDatabase,
     subLinks: [
       {
         name: "Metrics",
