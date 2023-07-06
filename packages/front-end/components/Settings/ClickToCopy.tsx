@@ -1,18 +1,26 @@
 import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
+import clsx from "clsx";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "../SimpleTooltip/SimpleTooltip";
 
 type Props = {
   compact?: boolean;
   children: string;
+  className?: string;
 };
 
-export default function ClickToCopy({ compact, children }: Props) {
+export default function ClickToCopy({
+  compact,
+  children,
+  className = "",
+}: Props) {
   const { performCopy, copySuccess, copySupported } = useCopyToClipboard({
     timeout: 800,
   });
   return (
-    <div className="d-flex align-items-center position-relative">
+    <div
+      className={clsx("d-flex align-items-center position-relative", className)}
+    >
       {copySupported ? (
         <button
           className="btn p-0"

@@ -48,7 +48,7 @@ import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTab
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import { phaseSummary } from "@/services/utils";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
-import LinkedChange from "@/components/Experiment/LinkedChange";
+import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -222,9 +222,9 @@ export default function SinglePage({
   const { data: discussionData } = useApi<{ discussion: DiscussionInterface }>(
     `/discussion/experiment/${experiment.id}`
   );
-  const { data: featuresData } = useApi<{ features: FeatureInterface[] }>(
-    `/feature`
-  );
+  const { data: featuresData } = useApi<{
+    features: FeatureInterface[];
+  }>(`/feature`);
 
   const phases = experiment.phases || [];
   const phase = phases[phaseIndex || 0];
@@ -722,7 +722,7 @@ export default function SinglePage({
                       }
                     >
                       <div className="d-inline-block">
-                        <BsFlag />{" "}
+                        <BsFlag style={{ marginLeft: 2 }} />{" "}
                         <span className="">{numLinkedFeatureFlagChanges}</span>
                       </div>
                     </Tooltip>
@@ -742,7 +742,7 @@ export default function SinglePage({
                     }
                   >
                     <div className="d-inline-block">
-                      <RxDesktop />{" "}
+                      <RxDesktop style={{ marginLeft: 2 }} />{" "}
                       <span className="">{numLinkedVisualEditorChanges}</span>
                     </div>
                   </Tooltip>
@@ -1029,16 +1029,11 @@ export default function SinglePage({
             ) : (
               <>
                 {legacyLinkedFeatures.map((feature, i) => (
-                  <LinkedChange
-                    key={i}
-                    changeType={"flag"}
+                  <LinkedFeatureFlag
                     feature={feature}
-                    open={experiment.status === "draft"}
-                  >
-                    <div className="mt-2 pb-3 px-3">
-                      <Link href={`/features/${feature.id}`}>Manage rule</Link>
-                    </div>
-                  </LinkedChange>
+                    experiment={experiment}
+                    key={i}
+                  />
                 ))}
                 <VisualChangesetTable
                   experiment={experiment}
