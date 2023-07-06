@@ -1,18 +1,12 @@
 import {
   FaCheckCircle,
   FaExclamationTriangle,
-  FaExternalLinkAlt,
   FaTimesCircle,
 } from "react-icons/fa";
 import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
-import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import LinkedChange from "@/components/Experiment/LinkedChange";
-import {
-  getFeatureDefaultValue,
-  getRules,
-  useEnvironments,
-} from "@/services/features";
+import { getRules, useEnvironments } from "@/services/features";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import ForceSummary from "@/components/Features/ForceSummary";
 
@@ -31,25 +25,13 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
       open={experiment.status === "draft"}
     >
       <div className="mt-2 pb-3 px-3">
-        <div className="mb-3 d-flex align-items-center">
+        <div className="mb-3">
+          Feature key:
           <ClickToCopy className="h4 mb-0">{feature.id}</ClickToCopy>
-          <Link href={`/features/${feature.id}`}>
-            <a className="ml-4">
-              manage feature <FaExternalLinkAlt />
-            </a>
-          </Link>
         </div>
 
-        <div className="font-weight-bold mb-2">Default value</div>
-        <div className="mb-4 px-3 py-2 ml-3 card">
-          <ForceSummary
-            value={getFeatureDefaultValue(feature)}
-            feature={feature}
-          />
-        </div>
-
-        <div className="font-weight-bold mb-2">Feature rules summary</div>
-        <div className="mb-2 ml-3">
+        <div className="font-weight-bold mb-2">Rules summary</div>
+        <div className="mb-2">
           {environments.map((en) => {
             const rules = getRules(feature, en.id);
             const experimentRules = rules.filter(

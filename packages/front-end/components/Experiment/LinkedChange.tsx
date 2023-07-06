@@ -1,5 +1,5 @@
 import React, { ReactNode } from "react";
-import { FaAngleRight } from "react-icons/fa";
+import { FaAngleRight, FaExternalLinkAlt } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
@@ -53,6 +53,18 @@ export default function LinkedChange({
                   <span className="ml-1 text-body hover-label">
                     {feature?.valueType}
                   </span>
+                </div>
+                <div className="flex-1"></div>
+                <div className="col-auto">
+                  <a
+                    href={`/features/${feature?.id}`}
+                    target="_blank"
+                    className="ml-4"
+                    onClick={(e) => e.stopPropagation()}
+                    rel="noreferrer"
+                  >
+                    manage feature <FaExternalLinkAlt />
+                  </a>
                 </div>
               </>
             ) : (
