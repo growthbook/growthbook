@@ -174,9 +174,11 @@ export type ExperimentMetricQueryResponse = {
   count: number;
   statistic_type: "ratio" | "mean" | "mean_ra";
   main_metric_type: MetricType;
+  main_cap_value?: number;
   main_sum: number;
   main_sum_squares: number;
   denominator_metric_type?: MetricType;
+  denominator_cap_value?: number;
   denominator_sum?: number;
   denominator_sum_squares?: number;
   main_denominator_sum_product?: number;
