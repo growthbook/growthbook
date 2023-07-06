@@ -248,14 +248,11 @@ Capping (also known as winsorization) works by ensuring that all aggregate unit 
 
 There are two ways to cap metric values in GrowthBook:
 
-- Absolute
-- Percentile (SQL datasources only)
+**1. Absolute capping** - if set above zero, all aggregated user values will be capped at exactly this value. For example, if the cap is $100 on total revenue per user, then after we sum all of a users orders up, any user with an aggregate sum of greater than $100 will be set to $100.
 
-**Absolute capping** - if set above zero, all aggregated user values will be capped at exactly this value. For example, if the cap is $100 on total revenue per user, then after we sum all of a users orders up, any user with an aggregate sum of greater than $100 will be set to $100.
+**2. Percentile capping** - when this is set to between 0 and 1, it uses that percentile to select a cap based on the data in your experiment so far. This cap is therefore specific to each experiment and specific to each analysis run in that experiment if new data has come in. It works like so: after we calculate the unit-level aggregate values for all units (e.g. users) during an experiment analysis, we find the specified percentile of these unit-level aggregates and then cap these aggregated values at this percentile. Using the above example, if you were to specify percentile capping with a value of `0.95`, then we find the 95th percentile of total revenue per users (say this turns out to be $135). We then cap those user-level aggregates at $135.
 
-**Percentile capping** - when this is set to between 0 and 1, it uses that percentile to select a cap based on the data in your experiment so far. This cap is therefore specific to each experiment and specific to each analysis run in that experiment if new data has come in. It works like so: after we calculate the unit-level aggregate values for all units (e.g. users) during an experiment analysis, we find the specified percentile of these unit-level aggregates and then cap these aggregated values at this percentile. Using the above example, if you were to specify percentile capping with a value of `0.95`, then we find the 95th percentile of total revenue per users (say this turns out to be $135). We then cap those user-level aggregates at $135.
-
-Because the percentile cap depends on the data in your experiment, it can change. To find out what value was actually used for capping you can do the following: on the Experiment Results tab, click the three dot menu in the top right and select "View Queries". Each percentile capped metric will have a column with the `main_cap_value` that was used to cap that metric and represents the computed percentile of unit-level aggregate values.
+Because the percentile cap depends on the data in your experiment, it can be different from experiment to experiment, or even analysis to analysis. To find out what value was actually used for capping you can do the following: on the Experiment Results tab, click the three dot menu in the top right and select "View Queries". Each percentile capped metric will have a column with the `main_cap_value` that was used to cap that metric and represents the computed percentile of unit-level aggregate values.
 
 ### Conversion Delay
 
