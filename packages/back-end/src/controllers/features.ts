@@ -146,20 +146,6 @@ async function getPayloadParamsFromApiKey(
 }
 
 export async function getFeaturesPublic(req: Request, res: Response) {
-  // Cloud only: Invoke GB for SSE rollout rules
-  let growthbook: GrowthBook | null = null;
-  if (IS_CLOUD) {
-    growthbook = new GrowthBook<AppFeatures>({
-      apiHost: "https://cdn.growthbook.io",
-      clientKey:
-        process.env.NODE_ENV === "production"
-          ? "sdk-ueFMOgZ2daLa0M"
-          : "sdk-UmQ03OkUDAu7Aox",
-      enableDevMode: true,
-    });
-    await growthbook.loadFeatures({ autoRefresh: false });
-  }
-
   try {
     const { key } = req.params;
 
@@ -179,21 +165,18 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       hashSecureAttributes,
     } = await getPayloadParamsFromApiKey(key, req);
 
-    if (growthbook) {
+    const gb = req.app.locals.growthbook as GrowthBook<AppFeatures> | undefined;
+    if (gb) {
       const currentOrg = await getOrganizationById(organization);
-      const hashedOrganizationId = sha256(
-        organization,
-        GROWTHBOOK_SECURE_ATTRIBUTE_SALT
-      );
-      const accountPlan = currentOrg
-        ? getAccountPlan(currentOrg) || "unknown"
-        : "unknown";
 
-      growthbook.setAttributes({
+      // Manually set the attributes. Only a subset of standard attributes are readily available.
+      gb.setAttributes({
         company: currentOrg?.name || "",
-        organizationId: hashedOrganizationId,
+        organizationId: sha256(organization, GROWTHBOOK_SECURE_ATTRIBUTE_SALT),
         cloud: IS_CLOUD,
-        accountPlan: accountPlan,
+        accountPlan: currentOrg
+          ? getAccountPlan(currentOrg) || "unknown"
+          : "unknown",
         freeSeats: currentOrg?.freeSeats || 3,
         discountCode: currentOrg?.discountCode || "",
       });
@@ -216,7 +199,8 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       "public, max-age=30, stale-while-revalidate=3600, stale-if-error=36000"
     );
 
-    if (IS_CLOUD && growthbook?.isOn("proxy-cloud-sse")) {
+    // SSE support behind FF staged rollout
+    if (IS_CLOUD && gb?.isOn("proxy-cloud-sse")) {
       res.set("x-sse-support", "enabled");
       res.set("Access-Control-Expose-Headers", "x-sse-support");
     }

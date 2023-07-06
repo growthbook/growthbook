@@ -94,7 +94,7 @@ import { projectRouter } from "./routers/project/project.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
-import growthbookMiddleware from "./middleware/growthbookMiddleware";
+import * as gbCloudSdkMiddleware from "./services/GBCloudSDKService/middleware";
 
 const app = express();
 
@@ -150,6 +150,8 @@ app.get("/", (req, res) => {
 });
 
 app.use(httpLogger);
+
+app.use(gbCloudSdkMiddleware.initializeSdk);
 
 // Initialize db connections
 app.use(async (req, res, next) => {
@@ -272,6 +274,8 @@ app.use(auth.middleware);
 // Add logged in user props to the request
 app.use(processJWT);
 
+app.use(gbCloudSdkMiddleware.setAttributes);
+
 // Add logged in user props to the logger
 app.use(
   (req: AuthRequest, res: Response & { log: AuthRequest["log"] }, next) => {
@@ -299,8 +303,6 @@ app.use(
     next();
   })
 );
-
-app.use(growthbookMiddleware);
 
 // Organization and Settings
 app.use(organizationsRouter);

@@ -379,6 +379,13 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   hashSecureAttributes?: boolean;
 };
+export type FeatureDefinitionSDKPayload = {
+  features: Record<string, FeatureDefinition>;
+  experiments?: SDKExperiment[];
+  dateUpdated: Date | null;
+  encryptedFeatures?: string;
+  encryptedExperiments?: string;
+};
 
 export async function getFeatureDefinitions({
   organization,
@@ -389,13 +396,7 @@ export async function getFeatureDefinitions({
   includeDraftExperiments,
   includeExperimentNames,
   hashSecureAttributes,
-}: FeatureDefinitionArgs): Promise<{
-  features: Record<string, FeatureDefinition>;
-  experiments?: SDKExperiment[];
-  dateUpdated: Date | null;
-  encryptedFeatures?: string;
-  encryptedExperiments?: string;
-}> {
+}: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
   // Return cached payload from Mongo if exists
   try {
     const cached = await getSDKPayload({
