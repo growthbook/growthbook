@@ -60,6 +60,7 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
             type="text"
             name="api_token"
             id="api_token"
+            required
           />
         </div>
         <button className="btn btn-primary" type="submit">
