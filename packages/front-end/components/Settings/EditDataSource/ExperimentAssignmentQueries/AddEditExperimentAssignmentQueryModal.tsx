@@ -162,9 +162,9 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                 );
               }
             } else {
-              // If `hasNameCol` is enabled, make sure both name columns are selected
+              // `hasNameCol` is enabled, make sure both name columns are selected
               if (
-                !returnedColumns.has("experiment_name") ||
+                !returnedColumns.has("experiment_name") &&
                 !returnedColumns.has("variation_name")
               ) {
                 form.setValue("hasNameCol", false);
@@ -172,15 +172,51 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
                   (column) =>
                     column !== "experiment_name" && column !== "variation_name"
                 );
+              } else if (
+                returnedColumns.has("experiment_name") &&
+                !returnedColumns.has("variation_name")
+              ) {
+                throw new Error(
+                  "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name."
+                );
+              } else if (
+                returnedColumns.has("variation_name") &&
+                !returnedColumns.has("experiment_name")
+              ) {
+                throw new Error(
+                  "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name."
+                );
               }
             }
 
             if (missingColumns.length > 0) {
-              throw new Error(
-                ` You are missing the following required column${
-                  missingColumns.length > 1 ? "s" : ""
-                }: ${missingColumns.join(", ")}`
-              );
+              // Check if any of the missing columns are dimensions
+              const missingDimensions = missingColumns.map((column) => {
+                if (userEnteredDimensions.includes(column)) {
+                  return column;
+                }
+              });
+
+              // If so, remove them from as a userEnteredDimension & remove from missingColumns
+              if (missingDimensions.length > 0) {
+                missingColumns = missingColumns.filter(
+                  (column) => !missingDimensions.includes(column)
+                );
+
+                const newUserEnteredDimensions = userEnteredDimensions.filter(
+                  (column) => !missingDimensions.includes(column)
+                );
+                form.setValue("dimensions", newUserEnteredDimensions);
+              }
+
+              // Now, if missingColumns still has a length, throw an error
+              if (missingColumns.length > 0) {
+                throw new Error(
+                  `You are missing the following columns: ${missingColumns.join(
+                    ", "
+                  )}`
+                );
+              }
             }
 
             // Add optional columns as dimensions

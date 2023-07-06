@@ -5,28 +5,15 @@ import Code from "../SyntaxHighlighting/Code";
 export type Props = {
   results: Record<string, unknown>[];
   duration: number;
-  error?: string;
   sql: string;
 };
 
 export default function DisplayTestQueryResults({
   results,
   duration,
-  error,
   sql,
 }: Props) {
   const cols = Object.keys(results?.[0] || {});
-
-  if (error) {
-    return (
-      <>
-        <div className="alert alert-danger mt-3">
-          {error}
-          {sql && <Code language="sql" code={sql} expandable={true} />}
-        </div>
-      </>
-    );
-  }
 
   if (!results?.length) {
     return (

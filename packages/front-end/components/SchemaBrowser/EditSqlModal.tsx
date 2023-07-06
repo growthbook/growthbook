@@ -96,6 +96,8 @@ export default function EditSqlModal({
       header="Edit SQL"
       submit={form.handleSubmit(async (value) => {
         if (testQueryBeforeSaving) {
+          // Reset test query results to avoid serving outdated errors/results
+          setTestQueryResults(null);
           const res = await runTestQuery(value.sql);
           if (res.error) {
             throw new Error(res.error);
@@ -105,6 +107,7 @@ export default function EditSqlModal({
         await save(value.sql);
       })}
       close={close}
+      error={testQueryResults?.error}
       size="max"
       bodyClassName="p-0"
       cta="Save"
@@ -171,12 +174,11 @@ export default function EditSqlModal({
                 onCtrlEnter={handleTestQuery}
               />
             </div>
-            {testQueryResults && (
+            {testQueryResults && !testQueryResults?.error && (
               <div className="" style={{ flex: 1 }}>
                 <DisplayTestQueryResults
                   duration={parseInt(testQueryResults.duration || "0")}
                   results={testQueryResults.results || []}
-                  error={testQueryResults.error}
                   sql={testQueryResults.sql || ""}
                 />
               </div>
