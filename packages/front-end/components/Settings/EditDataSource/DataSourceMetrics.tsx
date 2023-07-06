@@ -4,8 +4,6 @@ import { FaArchive, FaChevronRight, FaPlus, FaRegCopy } from "react-icons/fa";
 import Link from "next/link";
 import { ago, datetime } from "@/../shared/dates";
 import clsx from "clsx";
-import { GlobalPermission } from "@/../back-end/types/organization";
-import { DataSourceInterfaceWithParams } from "@/../back-end/types/datasource";
 import { DocLink } from "@/components/DocLink";
 import { hasFileConfig } from "@/services/env";
 import { useAuth } from "@/services/auth";
@@ -14,16 +12,21 @@ import MoreMenu from "@/components/Dropdown/MoreMenu";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricForm from "@/components/Metrics/MetricForm";
 import { checkMetricProjectPermissions } from "@/services/metrics";
-import { PermissionFunctions } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
+import usePermissions from "@/hooks/usePermissions";
+import { DataSourceQueryEditingModalBaseProps } from "./types";
 
-type Props = {
-  datasource: DataSourceInterfaceWithParams;
-  permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
-};
+type DataSourceMetricsProps = Omit<
+  DataSourceQueryEditingModalBaseProps,
+  "onSave" | "onCancel"
+>;
 
-export default function DataSourceMetrics({ datasource, permissions }: Props) {
+export default function DataSourceMetrics({
+  dataSource,
+  canEdit,
+}: DataSourceMetricsProps) {
+  const permissions = usePermissions();
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [modalData, setModalData] = useState<{
     current: Partial<MetricInterface>;
@@ -35,50 +38,17 @@ export default function DataSourceMetrics({ datasource, permissions }: Props) {
 
   const { data, mutate } = useApi<{
     metrics: MetricInterface[];
-  }>(`/datasource/${datasource.id}/metrics`);
+  }>(`/datasource/${dataSource.id}/metrics`);
 
   const metrics: MetricInterface[] | undefined = data?.metrics;
 
-  const filteredMetrics = metrics?.filter((m) => {
-    if (!m.projects?.length) return true;
-
-    if (!datasource?.projects?.length) return true;
-
-    return m.projects?.some((p) => datasource.projects?.includes(p));
-  });
-
   const editMetricsPermissions: { [id: string]: boolean } = {};
-  filteredMetrics?.forEach((m) => {
+  metrics?.forEach((m) => {
     editMetricsPermissions[m.id] = checkMetricProjectPermissions(
       m,
       permissions
     );
   });
-  const projectsWithCreatePermissions = () => {
-    const projects: string[] = [];
-    datasource.projects?.forEach((project) => {
-      if (permissions.check("createMetrics", project)) {
-        projects.push(project);
-      }
-    });
-    return projects;
-  };
-  const canCreateMetrics = () => {
-    if (
-      !datasource?.projects?.length &&
-      permissions.check("createMetrics", undefined)
-    ) {
-      return true;
-    }
-
-    datasource?.projects?.forEach((project) => {
-      if (permissions.check("createMetrics", project)) {
-        return true;
-      }
-    });
-
-    return false;
-  };
 
   return (
     <>
@@ -108,14 +78,14 @@ export default function DataSourceMetrics({ datasource, permissions }: Props) {
           </p>
         </div>
         <div className="d-flex flex-row pl-3">
-          {canCreateMetrics() && !hasFileConfig() ? (
+          {canEdit && !hasFileConfig() ? (
             <button
               className="btn btn-outline-primary font-weight-bold text-nowrap"
               onClick={() =>
                 setModalData({
                   current: {
-                    datasource: datasource.id,
-                    projects: projectsWithCreatePermissions() || [],
+                    datasource: dataSource.id,
+                    projects: dataSource.projects || [],
                   },
                   edit: false,
                   duplicate: false,
@@ -240,7 +210,8 @@ export default function DataSourceMetrics({ datasource, permissions }: Props) {
                               </Tooltip>
                             ) : null}
                           </div>
-                          {!hasFileConfig() && canCreateMetrics() ? (
+                          {!hasFileConfig() &&
+                          editMetricsPermissions[metric.id] ? (
                             <MoreMenu className="px-2">
                               <button
                                 className="btn dropdown-item py-2"
@@ -251,8 +222,6 @@ export default function DataSourceMetrics({ datasource, permissions }: Props) {
                                     current: {
                                       ...metric,
                                       name: metric.name + " (copy)",
-                                      projects:
-                                        projectsWithCreatePermissions() || [],
                                     },
                                     edit: false,
                                     duplicate: true,
