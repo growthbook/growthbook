@@ -2,14 +2,13 @@
 title: Connecting to your data warehouse
 description: This document outlines the steps needed to connect GrowthBook to your data warehouse.
 sidebar_label: Connecting to Your Data Warehouse
-slug: connecting-to-your-datawarehouse
 ---
 
 # Connecting to your data warehouse
 
 ## Overview
 
-One of the great advantages of Growthbook is that all of your data stays in your data warehouse and only the aggregated statistics reaches GrowthBook (or your self-hosted) servers.
+One of the major benefits of Growthbook is that your data remains securely stored in your data warehouse, and only the aggregated statistics are transmitted to GrowthBook servers or your self-hosted environment.
 
 ## Preparing your data warehouse
 
@@ -21,19 +20,19 @@ If you are using GrowthBook Cloud (https://app.growthbook.io), make sure to whit
 ## Saving your connection configuration on Growthbook Cloud or your self hosted server
 
 The data source connection info is encrypted twice - once within the app and again by the database when persisting to disk.
-Most data sources have straight forward connection parameters like host, port, username, and password. However are slightly
+Most data sources have straight forward connection parameters like host, port, username, and password. However some are slightly
 more involved and is convered in the guides below.
 
 ## Connection guides
 
-- [AWS Athena](/app/data-source-types/athena)
-- [BigQuery](/app/data-source-types/bigquery)
-- [ClickHouse](/app/data-source-types/clickhouse)
-- [Databricks](/app/data-source-types/databricks)
-- [Mixpanel](/app/data-source-types/mixpanel)
-- [MsSQL/SQL Server](/app/data-source-types/ms-sql-or-sql-server)
-- [MySQL/MariaDB](/app/data-source-types/mysql-or-mariadb)
-- [Postgres](/app/data-source-types/postgres)
-- [PrestoDB or Trino](/app/data-source-types/prestodb-or-trino)
-- [Redshift](/app/data-source-types/redshift)
-- [Snowflake](/app/data-source-types/snowflake)
+- [AWS Athena](/experimentation-analysis/connecting-to-your-data-warehouse/athena)
+- [BigQuery](/experimentation-analysis/connecting-to-your-data-warehouse/bigquery)
+- [ClickHouse](/experimentation-analysis/connecting-to-your-data-warehouse/clickhouse)
+- [Databricks](/experimentation-analysis/connecting-to-your-data-warehouse/databricks)
+- [Mixpanel](/experimentation-analysis/connecting-to-your-data-warehouse/mixpanel)
+- [MsSQL/SQL Server](/experimentation-analysis/connecting-to-your-data-warehouse/ms-sql-or-sql-server)
+- [MySQL/MariaDB](/experimentation-analysis/connecting-to-your-data-warehouse/mysql-or-mariadb)
+- [Postgres](/experimentation-analysis/connecting-to-your-data-warehouse/postgres)
+- [PrestoDB or Trino](/experimentation-analysis/connecting-to-your-data-warehouse/prestodb-or-trino)
+- [Redshift](/experimentation-analysis/connecting-to-your-data-warehouse/redshift)
+- [Snowflake](/experimentation-analysis/connecting-to-your-data-warehouse/snowflake)
