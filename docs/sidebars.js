@@ -26,7 +26,7 @@ const sidebars = {
     {
       type: "category",
       label: "Self-Hosting Guide",
-      collapsed: false,
+      collapsed: true,
       link: {
         type: "doc",
         id: "self-host/index",
@@ -40,7 +40,7 @@ const sidebars = {
     {
       type: "category",
       label: "SDKs",
-      collapsed: false,
+      collapsed: true,
       link: {
         type: "doc",
         id: "lib/index",
@@ -65,11 +65,12 @@ const sidebars = {
     {
       type: "category",
       label: "Experimentation Analysis",
-      collapsed: false,
+      collapsed: true,
       items: [
         {
           type: "category",
           label: "Connecting to Your Data Warehouse",
+          collapsed: true,
           link: {
             type: "doc",
             id:
@@ -146,6 +147,7 @@ const sidebars = {
         },
         {
           type: "category",
+          collapsed: true,
           link: {
             type: "doc",
             id: "experimentation-analysis/data-source-configuration/index",
@@ -259,7 +261,7 @@ const sidebars = {
         {
           type: "category",
           label: "Statistics",
-          collapsed: false,
+          collapsed: true,
           items: [
             {
               type: "doc",
@@ -303,7 +305,7 @@ const sidebars = {
     {
       type: "category",
       label: "How to Guides",
-      collapsed: false,
+      collapsed: true,
       link: {
         type: "doc",
         id: "guide/index",
