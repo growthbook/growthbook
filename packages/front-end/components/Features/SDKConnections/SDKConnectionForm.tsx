@@ -398,7 +398,10 @@ export default function SDKConnectionForm({
 
       {/*{isCloud() && gb?.isOn("proxy-cloud") && (*/}
       {isCloud() && (
-        <div className="d-flex mt-3 mb-3 align-top" style={{justifyContent: "space-between"}}>
+        <div
+          className="d-flex mt-3 mb-3 align-top"
+          style={{ justifyContent: "space-between" }}
+        >
           <div className="">
             <label htmlFor="sdk-connection-proxy-toggle">
               Use GrowthBook Proxy
@@ -426,7 +429,7 @@ export default function SDKConnectionForm({
                 placeholder="https://"
                 type="url"
                 containerClassName="mt-3"
-                style={{width: 400}}
+                style={{ width: 400 }}
                 {...form.register("proxyHost")}
               />
             </div>
