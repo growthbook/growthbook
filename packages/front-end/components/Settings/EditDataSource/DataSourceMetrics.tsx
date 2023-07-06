@@ -54,20 +54,30 @@ export default function DataSourceMetrics({ datasource, permissions }: Props) {
       permissions
     );
   });
-  const createMetricsPermissions = () => {
-    let anyProjectsIncludeCreatePermissions = false;
-
-    if (!datasource?.projects?.length) {
+  const projectsWithCreatePermissions = () => {
+    const projects: string[] = [];
+    datasource.projects?.forEach((project) => {
+      if (permissions.check("createMetrics", project)) {
+        projects.push(project);
+      }
+    });
+    return projects;
+  };
+  const canCreateMetrics = () => {
+    if (
+      !datasource?.projects?.length &&
+      permissions.check("createMetrics", undefined)
+    ) {
       return true;
     }
 
-    datasource.projects.forEach((project) => {
+    datasource?.projects?.forEach((project) => {
       if (permissions.check("createMetrics", project)) {
-        anyProjectsIncludeCreatePermissions = true;
+        return true;
       }
     });
 
-    return anyProjectsIncludeCreatePermissions;
+    return false;
   };
 
   return (
@@ -98,14 +108,14 @@ export default function DataSourceMetrics({ datasource, permissions }: Props) {
           </p>
         </div>
         <div className="d-flex flex-row pl-3">
-          {createMetricsPermissions() && !hasFileConfig() ? (
+          {canCreateMetrics() && !hasFileConfig() ? (
             <button
               className="btn btn-outline-primary font-weight-bold text-nowrap"
               onClick={() =>
                 setModalData({
                   current: {
                     datasource: datasource.id,
-                    projects: datasource.projects || [],
+                    projects: projectsWithCreatePermissions() || [],
                   },
                   edit: false,
                   duplicate: false,
@@ -230,8 +240,7 @@ export default function DataSourceMetrics({ datasource, permissions }: Props) {
                               </Tooltip>
                             ) : null}
                           </div>
-                          {!hasFileConfig() &&
-                          editMetricsPermissions[metric.id] ? (
+                          {!hasFileConfig() && canCreateMetrics() ? (
                             <MoreMenu className="px-2">
                               <button
                                 className="btn dropdown-item py-2"
@@ -242,6 +251,8 @@ export default function DataSourceMetrics({ datasource, permissions }: Props) {
                                     current: {
                                       ...metric,
                                       name: metric.name + " (copy)",
+                                      projects:
+                                        projectsWithCreatePermissions() || [],
                                     },
                                     edit: false,
                                     duplicate: true,
