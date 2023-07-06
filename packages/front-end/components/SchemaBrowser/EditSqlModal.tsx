@@ -59,6 +59,7 @@ export default function EditSqlModal({
 
   const runTestQuery = async (sql: string) => {
     validateSQL(sql, []);
+    setTestQueryResults(null);
     const res: TestQueryResults = await apiCall("/query/test", {
       method: "POST",
       body: JSON.stringify({
@@ -75,7 +76,6 @@ export default function EditSqlModal({
   };
 
   const handleTestQuery = async () => {
-    setTestQueryResults(null);
     setTestingQuery(true);
     try {
       const sql = form.getValues("sql");

@@ -152,13 +152,13 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
               // Only selected `experiment_name`, add warning
               else if (returnedColumns.has("experiment_name")) {
                 throw new Error(
-                  "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name."
+                  "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name."
                 );
               }
               // Only selected `variation_name`, add warning
               else if (returnedColumns.has("variation_name")) {
                 throw new Error(
-                  "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name."
+                  "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name."
                 );
               }
             } else {
