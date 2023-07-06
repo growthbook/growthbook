@@ -3,16 +3,13 @@
   "configurations": [
     {
       "name": "Debug Back-end",
-      "type": "node",
+      "type": "node-terminal",
       "request": "launch",
-      "runtimeExecutable": "yarn",
-      "args": ["debug"],
+      "command": ". $(cd ../../packages/stats && poetry env info --path)/bin/activate && yarn nodemon -e ts --exec node -r ts-node/register src/server.ts",
       "cwd": "${workspaceFolder}/packages/back-end",
-      "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": ["<node_internals>/**"],
       "sourceMaps": true,
-      "restart": true,
       "presentation": {
         "hidden": true
       }

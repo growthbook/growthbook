@@ -9,7 +9,6 @@
     "build:emails": "mkdir -p dist/templates && cp -r src/templates/* dist/templates",
     "build:clean": "rimraf -rf dist",
     "build:typescript": "tsc",
-    "debug": ". $(cd ../../packages/stats && poetry env info --path)/bin/activate && yarn nodemon -e ts --exec node -r ts-node/register src/server.ts",
     "dev": "yarn build:clean && concurrently \"yarn watch-compile\" \"yarn watch-dev | yarn pino-pretty\"",
     "build": "yarn build:clean && yarn build:typescript && yarn build:emails",
     "start": "node dist/server.js",
