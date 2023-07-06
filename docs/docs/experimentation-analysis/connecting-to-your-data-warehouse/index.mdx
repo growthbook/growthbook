@@ -1,0 +1,39 @@
+---
+title: Connecting to your data warehouse
+description: This document outlines the steps needed to connect GrowthBook to your data warehouse.
+sidebar_label: Connecting to Your Data Warehouse
+slug: connecting-to-your-datawarehouse
+---
+
+# Connecting to your data warehouse
+
+## Overview
+
+One of the great advantages of Growthbook is that all of your data stays in your data warehouse and only the aggregated statistics reaches GrowthBook (or your self-hosted) servers.
+
+## Preparing your data warehouse
+
+Your data should be safe from modification as GrowthBook only runs `SELECT` queries (or the equivalent for non-SQL data sources).
+Still we still always recommend creating read-only users with as few permissions as possible - ideally just read permissions on the tables with the data that needs to be aggregated.
+
+If you are using GrowthBook Cloud (https://app.growthbook.io), make sure to whitelist the ip address `52.70.79.40` if applicable.
+
+## Saving your connection configuration on Growthbook Cloud or your self hosted server
+
+The data source connection info is encrypted twice - once within the app and again by the database when persisting to disk.
+Most data sources have straight forward connection parameters like host, port, username, and password. However are slightly
+more involved and is convered in the guides below.
+
+## Connection guides
+
+- [AWS Athena](/app/data-source-types/athena)
+- [BigQuery](/app/data-source-types/bigquery)
+- [ClickHouse](/app/data-source-types/clickhouse)
+- [Databricks](/app/data-source-types/databricks)
+- [Mixpanel](/app/data-source-types/mixpanel)
+- [MsSQL/SQL Server](/app/data-source-types/ms-sql-or-sql-server)
+- [MySQL/MariaDB](/app/data-source-types/mysql-or-mariadb)
+- [Postgres](/app/data-source-types/postgres)
+- [PrestoDB or Trino](/app/data-source-types/prestodb-or-trino)
+- [Redshift](/app/data-source-types/redshift)
+- [Snowflake](/app/data-source-types/snowflake)

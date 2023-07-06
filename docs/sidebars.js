@@ -39,175 +39,267 @@ const sidebars = {
     },
     {
       type: "category",
-      label: "Platform",
+      label: "SDKs",
       collapsed: false,
       link: {
         type: "doc",
-        id: "app/index",
+        id: "lib/index",
       },
       items: [
+        { type: "doc", id: "lib/js", label: "Javascript" },
+        { type: "doc", id: "lib/react", label: "React" },
+        { type: "doc", id: "lib/vue", label: "Vue.js" },
+        { type: "doc", id: "lib/php", label: "PHP)" },
+        { type: "doc", id: "lib/ruby", label: "Ruby" },
+        { type: "doc", id: "lib/python", label: "Python" },
+        { type: "doc", id: "lib/java", label: "Java", className: "pill-new" },
+        { type: "doc", id: "lib/csharp", label: "C#", className: "pill-new" },
+        { type: "doc", id: "lib/go", label: "Go" },
+        { type: "doc", id: "lib/kotlin", label: "Kotlin (Android)" },
+        { type: "doc", id: "lib/flutter", label: "Flutter" },
+        { type: "doc", id: "lib/swift", label: "Swift (iOS)" },
+        { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
+      ],
+    },
+    { type: "doc", id: "features", label: "Feature Flags" },
+    {
+      type: "category",
+      label: "Experimentation Analysis",
+      collapsed: false,
+      items: [
+        {
+          type: "category",
+          label: "Connecting to Your Data Warehouse",
+          link: {
+            type: "doc",
+            id:
+              "experimentation-analysis/connecting-to-your-data-warehouse/index",
+          },
+          items: [
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/connecting-to-your-data-warehouse/athena",
+              label: "Athena",
+            },
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/connecting-to-your-data-warehouse/bigquery",
+              label: "BigQuery",
+            },
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/connecting-to-your-data-warehouse/clickhouse",
+              label: "Clickhouse",
+            },
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/connecting-to-your-data-warehouse/databricks",
+              label: "Databricks",
+            },
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/connecting-to-your-data-warehouse/mixpanel",
+              label: "Mixpanel",
+            },
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/connecting-to-your-data-warehouse/ms-sql-or-sql-server",
+              label: "MS SQL or SQL server",
+            },
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/connecting-to-your-data-warehouse/mysql-or-mariadb",
+              label: "MySQL or MariaDB",
+            },
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/connecting-to-your-data-warehouse/postgres",
+              label: "Postgres",
+            },
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/connecting-to-your-data-warehouse/prestodb-or-trino",
+              label: "PrestoDB or Trino",
+            },
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/connecting-to-your-data-warehouse/redshift",
+              label: "Redshift",
+            },
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/connecting-to-your-data-warehouse/snowflake",
+              label: "Snowflake",
+            },
+          ],
+        },
         {
           type: "category",
           link: {
             type: "doc",
-            id: "app/data-sources",
+            id: "experimentation-analysis/data-source-configuration/index",
           },
-          label: "Data Sources",
+          label: "Data Source Configuration",
           items: [
             {
-              type: "category",
-              label: "Event Trackers",
-              items: [
-                {
-                  type: "doc",
-                  id: "app/event-trackers/amplitude",
-                  label: "Amplitude",
-                },
-                {
-                  type: "doc",
-                  id: "app/event-trackers/clevertap",
-                  label: "CleverTap",
-                },
-                {
-                  type: "doc",
-                  id: "app/event-trackers/firebase",
-                  label: "Firebase",
-                },
-                {
-                  type: "doc",
-                  id: "app/event-trackers/freshpaint",
-                  label: "Freshpaint",
-                },
-                {
-                  type: "doc",
-                  id: "app/event-trackers/fullstory",
-                  label: "Fullstory",
-                },
-                {
-                  type: "doc",
-                  id: "app/event-trackers/GA4-google-analytics",
-                  label: "Google Analytics (GA4)",
-                },
-                { type: "doc", id: "app/event-trackers/heap", label: "Heap" },
-                { type: "doc", id: "app/event-trackers/jitsu", label: "Jitsu" },
-                {
-                  type: "doc",
-                  id: "app/event-trackers/keenio",
-                  label: "KeenIO",
-                },
-                {
-                  type: "doc",
-                  id: "app/event-trackers/matomo",
-                  label: "Matomo",
-                },
-                {
-                  type: "doc",
-                  id: "app/event-trackers/mixpanel",
-                  label: "Mixpanel",
-                },
-                {
-                  type: "doc",
-                  id: "app/event-trackers/mparticle",
-                  label: "MParticle",
-                },
-                {
-                  type: "doc",
-                  id: "app/event-trackers/rudderstack",
-                  label: "Rudderstack",
-                },
-                {
-                  type: "doc",
-                  id: "app/event-trackers/segment",
-                  label: "Segment",
-                },
-                {
-                  type: "doc",
-                  id: "app/event-trackers/snowplow",
-                  label: "Snowplow",
-                },
-                {
-                  type: "doc",
-                  id: "app/event-trackers/custom",
-                  label: "Custom Data Sources",
-                },
-              ],
+              type: "doc",
+              id:
+                "experimentation-analysis/data-source-configuration/amplitude",
+              label: "Amplitude",
             },
             {
-              type: "category",
-              label: "Data Warehouses",
-              items: [
-                {
-                  type: "doc",
-                  id: "app/data-source-types/athena",
-                  label: "Athena",
-                },
-                {
-                  type: "doc",
-                  id: "app/data-source-types/bigquery",
-                  label: "BigQuery",
-                },
-                {
-                  type: "doc",
-                  id: "app/data-source-types/clickhouse",
-                  label: "Clickhouse",
-                },
-                {
-                  type: "doc",
-                  id: "app/data-source-types/databricks",
-                  label: "Databricks",
-                },
-                {
-                  type: "doc",
-                  id: "app/data-source-types/mixpanel",
-                  label: "Mixpanel",
-                },
-                {
-                  type: "doc",
-                  id: "app/data-source-types/ms-sql-or-sql-server",
-                  label: "MS SQL or SQL server",
-                },
-                {
-                  type: "doc",
-                  id: "app/data-source-types/mysql-or-mariadb",
-                  label: "MySQL or MariaDB",
-                },
-                {
-                  type: "doc",
-                  id: "app/data-source-types/postgres",
-                  label: "Postgres",
-                },
-                {
-                  type: "doc",
-                  id: "app/data-source-types/prestodb-or-trino",
-                  label: "PrestoDB or Trino",
-                },
-                {
-                  type: "doc",
-                  id: "app/data-source-types/redshift",
-                  label: "Redshift",
-                },
-                {
-                  type: "doc",
-                  id: "app/data-source-types/snowflake",
-                  label: "Snowflake",
-                },
-              ],
+              type: "doc",
+              id:
+                "experimentation-analysis/data-source-configuration/clevertap",
+              label: "CleverTap",
+            },
+            {
+              type: "doc",
+              id: "experimentation-analysis/data-source-configuration/firebase",
+              label: "Firebase",
+            },
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/data-source-configuration/freshpaint",
+              label: "Freshpaint",
+            },
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/data-source-configuration/fullstory",
+              label: "Fullstory",
+            },
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/data-source-configuration/GA4-google-analytics",
+              label: "Google Analytics (GA4)",
+            },
+            {
+              type: "doc",
+              id: "experimentation-analysis/data-source-configuration/heap",
+              label: "Heap",
+            },
+            {
+              type: "doc",
+              id: "experimentation-analysis/data-source-configuration/jitsu",
+              label: "Jitsu",
+            },
+            {
+              type: "doc",
+              id: "experimentation-analysis/data-source-configuration/keenio",
+              label: "KeenIO",
+            },
+            {
+              type: "doc",
+              id: "experimentation-analysis/data-source-configuration/matomo",
+              label: "Matomo",
+            },
+            {
+              type: "doc",
+              id: "experimentation-analysis/data-source-configuration/mixpanel",
+              label: "Mixpanel",
+            },
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/data-source-configuration/mparticle",
+              label: "MParticle",
+            },
+            {
+              type: "doc",
+              id:
+                "experimentation-analysis/data-source-configuration/rudderstack",
+              label: "Rudderstack",
+            },
+            {
+              type: "doc",
+              id: "experimentation-analysis/data-source-configuration/segment",
+              label: "Segment",
+            },
+            {
+              type: "doc",
+              id: "experimentation-analysis/data-source-configuration/snowplow",
+              label: "Snowplow",
+            },
+            {
+              type: "doc",
+              id: "experimentation-analysis/data-source-configuration/custom",
+              label: "Custom Data Sources",
             },
           ],
         },
-        { type: "doc", id: "app/metrics", label: "Metrics" },
-        { type: "doc", id: "app/features", label: "Features" },
-        { type: "doc", id: "app/experiments", label: "Experiments" },
-        { type: "doc", id: "app/dimensions", label: "Dimensions" },
         {
           type: "doc",
-          id: "app/visual-editor",
-          label: "Visual Editor",
+          id: "experimentation-analysis/metrics",
+          label: "Metrics",
         },
-        { type: "doc", id: "app/api", label: "API" },
-        { type: "doc", id: "app/webhooks", label: "Webhooks" },
+        {
+          type: "doc",
+          id: "experimentation-analysis/experiments",
+          label: "Experiments",
+        },
+        {
+          type: "doc",
+          id: "experimentation-analysis/dimensions",
+          label: "Dimensions",
+        },
+        {
+          type: "category",
+          label: "Statistics",
+          collapsed: false,
+          items: [
+            {
+              type: "doc",
+              id: "statistics/overview",
+              label: "Statistics Overview",
+            },
+            {
+              type: "doc",
+              id: "statistics/cuped",
+              label: "Regression Adjustment (CUPED)",
+              className: "pill-new",
+            },
+            {
+              type: "doc",
+              id: "statistics/multiple-corrections",
+              label: "Multiple Testing Corrections",
+              className: "pill-new",
+            },
+            {
+              type: "doc",
+              id: "statistics/sequential",
+              label: "Sequential Testing",
+              className: "pill-new",
+            },
+            {
+              type: "doc",
+              id: "statistics/aggregation",
+              label: "Aggregate Data",
+            },
+          ],
+        },
       ],
     },
+    {
+      type: "doc",
+      id: "experimentation-analysis/visual-editor",
+      label: "Visual Editor",
+    },
+    { type: "doc", id: "experimentation-analysis/api", label: "API" },
+    { type: "doc", id: "experimentation-analysis/webhooks", label: "Webhooks" },
     {
       type: "category",
       label: "How to Guides",
@@ -242,30 +334,6 @@ const sidebars = {
     },
     {
       type: "category",
-      label: "SDKs",
-      collapsed: false,
-      link: {
-        type: "doc",
-        id: "lib/index",
-      },
-      items: [
-        { type: "doc", id: "lib/js", label: "Javascript" },
-        { type: "doc", id: "lib/react", label: "React" },
-        { type: "doc", id: "lib/vue", label: "Vue.js" },
-        { type: "doc", id: "lib/php", label: "PHP)" },
-        { type: "doc", id: "lib/ruby", label: "Ruby" },
-        { type: "doc", id: "lib/python", label: "Python" },
-        { type: "doc", id: "lib/java", label: "Java", className: "pill-new" },
-        { type: "doc", id: "lib/csharp", label: "C#", className: "pill-new" },
-        { type: "doc", id: "lib/go", label: "Go" },
-        { type: "doc", id: "lib/kotlin", label: "Kotlin (Android)" },
-        { type: "doc", id: "lib/flutter", label: "Flutter" },
-        { type: "doc", id: "lib/swift", label: "Swift (iOS)" },
-        { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
-      ],
-    },
-    {
-      type: "category",
       label: "Tools",
       collapsed: false,
       items: [
@@ -284,41 +352,6 @@ const sidebars = {
           id: "tools/cli",
           className: "pill-new",
           label: "Command Line Interface (CLI)",
-        },
-      ],
-    },
-    {
-      type: "category",
-      label: "Statistics",
-      collapsed: false,
-      items: [
-        {
-          type: "doc",
-          id: "statistics/overview",
-          label: "Statistics Overview",
-        },
-        {
-          type: "doc",
-          id: "statistics/cuped",
-          label: "Regression Adjustment (CUPED)",
-          className: "pill-new",
-        },
-        {
-          type: "doc",
-          id: "statistics/multiple-corrections",
-          label: "Multiple Testing Corrections",
-          className: "pill-new",
-        },
-        {
-          type: "doc",
-          id: "statistics/sequential",
-          label: "Sequential Testing",
-          className: "pill-new",
-        },
-        {
-          type: "doc",
-          id: "statistics/aggregation",
-          label: "Aggregate Data",
         },
       ],
     },

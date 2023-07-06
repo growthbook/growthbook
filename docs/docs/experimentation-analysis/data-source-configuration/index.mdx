@@ -1,64 +1,37 @@
 ---
-title: Data Sources
-description: Learn about data sources supported by GrowthBook
-sidebar_label: Data Sources
-id: data-sources
-slug: datasources
+title: Data Source Configuration
+description: This document outlines how to configure data source
+sidebar_label: Data Source Configuration
+slug: data-source-configuration
 ---
 
-# Data Sources
+# Data Source Configuration
 
 ## Overview
 
-One of the great advantages of Growthbook is that all of your data stays in your data warehouse and only the aggregated statistics reaches GrowthBook servers.
+Data Sources are how GrowthBook connects to your data warehouse so that it can pull those aggregated statistics in order to compute metrics and experiment results. Each Data Source defines how to connect to your data, what version of SQL to use when querying your data, and can provide templates for what the SQL to connect to your Data Source should look like depending upon which event tracker software you use. GrowthBook works with your existing SQL data, no matter where it is located and no matter what shape or format it is in, whether you have a strongly normalized schema, a single “events” table with JSON fields, or something in between.
 
-Data Sources are how GrowthBook connects to your data warehouse so that it can pull those aggregated statistics in order to compute metrics and experiment results (You do not need to set one if all you are going to use is Growthbook Feature Flagging). Each Data Source defines how to connect to your data, what version of SQL to use when querying your data, and can provide templates for what the SQL to connect to your Data Source should look like depending upon which event tracker software you use. GrowthBook works with your existing SQL data, no matter where it is located and no matter what shape or format it is in, whether you have a strongly normalized schema, a single “events” table with JSON fields, or something in between.
-
-## Event Trackers
+## Supported Event Schemas
 
 When adding a new Data Source in Growthbook from /datasources page we first guide you to select what event tracker software you use, or you can choose custom if you don't use any of the popular third party event trackers that we support. Telling us which event tracker you use, gives us an idea on the likely shape of your data. This will help us generate the correct sql to extract out the aggregated statistics from your site with as little modification on your end as possible. Here is Growthbook's current list of event trackers that we support with links for more details on how to set them up with GrowthBook:
 
-- [Amplitude](/app/event-trackers/amplitude)
-- [CleverTap](/app/event-trackers/clevertap)
-- [Firebase](/app/event-trackers/firebase)
-- [Freshpaint](/app/event-trackers/freshpaint)
-- [Fullstory](/app/event-trackers/fullstory)
-- [Google Analytics 4 (BigQuery only)](/app/event-trackers/GA4-google-analytics)
-- [Heap Analytics](/app/event-trackers/heap)
-- [Jitsu](/app/event-trackers/jitsu)
-- [Keen IO](/app/event-trackers/keenio)
-- [Matomo](/app/event-trackers/matomo)
-- [Mixpanel](/app/event-trackers/mixpanel)
-- [MParticle](/app/event-trackers/mparticle)
-- [RudderStack](/app/event-trackers/rudderstack)
-- [Segment](/app/event-trackers/segment)
-- [Snowplow](/app/event-trackers/snowplow)
+- [Amplitude](/experimentation-analysis/data-source-configuration/amplitude)
+- [CleverTap](/experimentation-analysis/data-source-configuration/clevertap)
+- [Firebase](/experimentation-analysis/data-source-configuration/firebase)
+- [Freshpaint](/experimentation-analysis/data-source-configuration/freshpaint)
+- [Fullstory](/experimentation-analysis/data-source-configuration/fullstory)
+- [Google Analytics 4 (BigQuery only)](/experimentation-analysis/data-source-configuration/GA4-google-analytics)
+- [Heap Analytics](/experimentation-analysis/data-source-configuration/heap)
+- [Jitsu](/experimentation-analysis/data-source-configuration/jitsu)
+- [Keen IO](/experimentation-analysis/data-source-configuration/keenio)
+- [Matomo](/experimentation-analysis/data-source-configuration/matomo)
+- [Mixpanel](/experimentation-analysis/data-source-configuration/mixpanel)
+- [MParticle](/experimentation-analysis/data-source-configuration/mparticle)
+- [RudderStack](/experimentation-analysis/data-source-configuration/rudderstack)
+- [Segment](/experimentation-analysis/data-source-configuration/segment)
+- [Snowplow](/experimentation-analysis/data-source-configuration/snowplow)
 
 If you do not use any of those you choose [Custom Data Source](/app/event-trackers/custom) and define some of the sql yourself.
-
-## Data Source Types
-
-Each Data Source has a Data Source Type which corresponds to the data warehouse where your data actually lives.
-Most data sources have straight forward connection parameters like host, port, username, and password.
-Below are Growthbook's currently supported Data Sources Types, with links to our guides on how to set them up to allow GrowthBook access to the aggregated data:
-
-- [AWS Athena](/app/data-source-types/athena)
-- [BigQuery](/app/data-source-types/bigquery)
-- [ClickHouse](/app/data-source-types/clickhouse)
-- [Databricks](/app/data-source-types/databricks)
-- [Mixpanel](/app/data-source-types/mixpanel)
-- [MsSQL/SQL Server](/app/data-source-types/ms-sql-or-sql-server)
-- [MySQL/MariaDB](/app/data-source-types/mysql-or-mariadb)
-- [Postgres](/app/data-source-types/postgres)
-- [PrestoDB or Trino](/app/data-source-types/prestodb-or-trino)
-- [Redshift](/app/data-source-types/redshift)
-- [Snowflake](/app/data-source-types/snowflake)
-
-### Your Data's Security
-
-The data source connection info is encrypted twice - once within the app and again by the database when persisting to disk. Your data should be safe from modification as GrowthBook only runs `SELECT` queries (or the equivalent for non-SQL data sources). Still we still always recommend creating read-only users with as few permissions as possible, ideally just read permissions on the tables with the data that needs to be aggregated.
-
-If you are using GrowthBook Cloud (https://app.growthbook.io), make sure to whitelist the ip address `52.70.79.40` if applicable.
 
 ## Configuration Settings
 
