@@ -73,74 +73,62 @@ const sidebars = {
           collapsed: true,
           link: {
             type: "doc",
-            id:
-              "experimentation-analysis/connecting-to-your-data-warehouse/index",
+            id: "experimentation-analysis/connecting-to-your-data-warehouse",
           },
           items: [
             {
               type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/athena",
+              id: "warehouses/athena",
               label: "Athena",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/bigquery",
+              id: "warehouses/bigquery",
               label: "BigQuery",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/clickhouse",
+              id: "warehouses/clickhouse",
               label: "Clickhouse",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/databricks",
+              id: "warehouses/databricks",
               label: "Databricks",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/mixpanel",
+              id: "warehouses/mixpanel",
               label: "Mixpanel",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/ms-sql-or-sql-server",
+              id: "warehouses/ms-sql-or-sql-server",
               label: "MS SQL or SQL server",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/mysql-or-mariadb",
+              id: "warehouses/mysql-or-mariadb",
               label: "MySQL or MariaDB",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/postgres",
+              id: "warehouses/postgres",
               label: "Postgres",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/prestodb-or-trino",
+              id: "warehouses/prestodb-or-trino",
               label: "PrestoDB or Trino",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/redshift",
+              id: "warehouses/redshift",
               label: "Redshift",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/snowflake",
+              id: "warehouses/snowflake",
               label: "Snowflake",
             },
           ],
@@ -150,95 +138,88 @@ const sidebars = {
           collapsed: true,
           link: {
             type: "doc",
-            id: "experimentation-analysis/data-source-configuration/index",
+            id: "experimentation-analysis/data-source-configuration",
           },
           label: "Data Source Configuration",
           items: [
             {
               type: "doc",
-              id:
-                "experimentation-analysis/data-source-configuration/amplitude",
+              id: "event-trackers/amplitude",
               label: "Amplitude",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/data-source-configuration/clevertap",
+              id: "event-trackers/clevertap",
               label: "CleverTap",
             },
             {
               type: "doc",
-              id: "experimentation-analysis/data-source-configuration/firebase",
+              id: "event-trackers/firebase",
               label: "Firebase",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/data-source-configuration/freshpaint",
+              id: "event-trackers/freshpaint",
               label: "Freshpaint",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/data-source-configuration/fullstory",
+              id: "event-trackers/fullstory",
               label: "Fullstory",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/data-source-configuration/GA4-google-analytics",
+              id: "event-trackers/GA4-google-analytics",
               label: "Google Analytics (GA4)",
             },
             {
               type: "doc",
-              id: "experimentation-analysis/data-source-configuration/heap",
+              id: "event-trackers/heap",
               label: "Heap",
             },
             {
               type: "doc",
-              id: "experimentation-analysis/data-source-configuration/jitsu",
+              id: "event-trackers/jitsu",
               label: "Jitsu",
             },
             {
               type: "doc",
-              id: "experimentation-analysis/data-source-configuration/keenio",
+              id: "event-trackers/keenio",
               label: "KeenIO",
             },
             {
               type: "doc",
-              id: "experimentation-analysis/data-source-configuration/matomo",
+              id: "event-trackers/matomo",
               label: "Matomo",
             },
             {
               type: "doc",
-              id: "experimentation-analysis/data-source-configuration/mixpanel",
+              id: "event-trackers/mixpanel",
               label: "Mixpanel",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/data-source-configuration/mparticle",
+              id: "event-trackers/mparticle",
               label: "MParticle",
             },
             {
               type: "doc",
-              id:
-                "experimentation-analysis/data-source-configuration/rudderstack",
+              id: "event-trackers/rudderstack",
               label: "Rudderstack",
             },
             {
               type: "doc",
-              id: "experimentation-analysis/data-source-configuration/segment",
+              id: "event-trackers/segment",
               label: "Segment",
             },
             {
               type: "doc",
-              id: "experimentation-analysis/data-source-configuration/snowplow",
+              id: "event-trackers/snowplow",
               label: "Snowplow",
             },
             {
               type: "doc",
-              id: "experimentation-analysis/data-source-configuration/custom",
+              id: "event-trackers/custom",
               label: "Custom Data Sources",
             },
           ],
@@ -297,11 +278,11 @@ const sidebars = {
     },
     {
       type: "doc",
-      id: "experimentation-analysis/visual-editor",
+      id: "visual-editor",
       label: "Visual Editor",
     },
-    { type: "doc", id: "experimentation-analysis/api", label: "API" },
-    { type: "doc", id: "experimentation-analysis/webhooks", label: "Webhooks" },
+    { type: "doc", id: "api-overview", label: "API" },
+    { type: "doc", id: "webhooks", label: "Webhooks" },
     {
       type: "category",
       label: "How to Guides",

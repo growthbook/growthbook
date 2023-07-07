@@ -11,9 +11,9 @@ import ButtonCard from '@site/src/components/ButtonCard'
 
 GrowthBook is a modular platform. You can use it for either Feature Flags, Experiment Analysis, or both.
 
-[**Feature Flags**](/features) you create in the GrowthBook UI are published to our API as a JSON file. Pass this JSON into our SDKs and use the feature flags throughout your code. If a feature is running as part of an A/B test, we'll fire a tracking callback in the SDK so you can record that event in your data warehouse or analytics platform for later analysis.
+[**Feature Flags**](/app/features) you create in the GrowthBook UI are published to our API as a JSON file. Pass this JSON into our SDKs and use the feature flags throughout your code. If a feature is running as part of an A/B test, we'll fire a tracking callback in the SDK so you can record that event in your data warehouse or analytics platform for later analysis.
 
-[**Experiment Analysis**](/experimentation-analysis/experiments) queries your data warehouse for raw experiment data and runs it through our stats engine to produce a report. No raw user-level events or PII are ever sent to GrowthBook. We only get back aggregate info instead (sums, sums of squares, etc.).
+[**Experiment Analysis**](/app/experiments) queries your data warehouse for raw experiment data and runs it through our stats engine to produce a report. No raw user-level events or PII are ever sent to GrowthBook. We only get back aggregate info instead (sums, sums of squares, etc.).
 
 <div style={{textAlign: 'center'}}>
 
@@ -23,7 +23,7 @@ GrowthBook is a modular platform. You can use it for either Feature Flags, Exper
 
 ## Feature Flags
 
-[Feature flags](/features) are a very powerful developer tool. They give you deep control over how and when new functionality is released to your users.
+[Feature flags](/app/features) are a very powerful developer tool. They give you deep control over how and when new functionality is released to your users.
 
 GrowthBook supports 4 types of features:
 
@@ -52,9 +52,9 @@ You can also change the value of a feature with **Override Rules**. The followin
 - **Percentage Rollout** - Use random sampling to roll out a new feature value to a percent of users
 - **A/B Experiment** - Run a controlled A/B test between 2 or more feature values
 
-All features for an environment are packaged together into a single JSON file. All you need to do is pass this into our [SDKs](/lib) along with [user targeting attributes](/features#targeting-attributes).
+All features for an environment are packaged together into a single JSON file. All you need to do is pass this into our [SDKs](/lib) along with [user targeting attributes](/app/features#targeting-attributes).
 
-Read more about [features here](/features).
+Read more about [features here](/app/features).
 
 ## Experiment Analysis
 
@@ -62,7 +62,7 @@ GrowthBook needs to connect to your [Data Source](/experimentation-analysis/conn
 
 ![Data warehouses supported by GrowthBook](/images/GrowthBook-supported-DB-766.png)
 
-Once connected to a data source, you need to build a re-usable library of [Metrics](/experimentation-analysis/metrics). Metrics are what your experiments are trying to improve. Metrics are defined via SQL (if your data source supports it) or a simple query builder. The following types are supported:
+Once connected to a data source, you need to build a re-usable library of [Metrics](/app/metrics). Metrics are what your experiments are trying to improve. Metrics are defined via SQL (if your data source supports it) or a simple query builder. The following types are supported:
 
 - **binomial** - simple yes/no conversion metrics (e.g. `started trial`, `bounce rate`, `purchased`)
 - **count** - when the number or magnitude of conversions matters (e.g. `downloads per user`, `points earned`)
@@ -73,9 +73,9 @@ Once these are metrics are set up, you can import experiments and start analyzin
 
 ![Results Table](/images/results-table.png)
 
-Your data team can drill down into results by custom [dimensions](/experimentation-analysis/dimensions), view the raw SQL that GrowthBook is running on your data warehouse, and export results to a Jupyter notebook for even deeper analysis.
+Your data team can drill down into results by custom [dimensions](/app/dimensions), view the raw SQL that GrowthBook is running on your data warehouse, and export results to a Jupyter notebook for even deeper analysis.
 
-Read more about [experiments here](/experimentation-analysis/experiments).
+Read more about [experiments here](/app/experiments).
 
 ## Use Cases
 
