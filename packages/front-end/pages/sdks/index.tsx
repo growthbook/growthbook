@@ -12,15 +12,11 @@ export default function SDKsPage() {
 
   return (
     <div className="container py-4">
-      <Tabs defaultTab="connections" newStyle>
+      <Tabs defaultTab="connections" newStyle={true}>
         <Tab
           anchor="connections"
           id="connections"
-          display={
-            <>
-              SDK Connections <span className="badge badge-warning">new</span>
-            </>
-          }
+          display="SDK Connections"
           padding={false}
         >
           <SDKConnectionsList />
