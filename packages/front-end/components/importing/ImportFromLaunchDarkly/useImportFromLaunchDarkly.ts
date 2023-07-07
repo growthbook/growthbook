@@ -550,13 +550,23 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
 
               case "fail":
               case "retry":
-                dispatch({
-                  type: "add-import-feature-result",
-                  data: {
-                    status: "failed",
-                    message: `Failed to import feature ${id} with error: ${result.error}`,
-                  },
-                });
+                if (result.error === "duplicate") {
+                  dispatch({
+                    type: "add-import-feature-result",
+                    data: {
+                      status: "ignored",
+                      message: `Feature ${id} already exists and was not imported`,
+                    },
+                  });
+                } else {
+                  dispatch({
+                    type: "add-import-feature-result",
+                    data: {
+                      status: "failed",
+                      message: `Failed to import feature ${id} with error: ${result.error}`,
+                    },
+                  });
+                }
                 break;
             }
           },
