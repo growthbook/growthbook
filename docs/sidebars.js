@@ -26,7 +26,7 @@ const sidebars = {
     {
       type: "category",
       label: "Self-Hosting Guide",
-      collapsed: true,
+      collapsed: false,
       link: {
         type: "doc",
         id: "self-host/index",
@@ -39,8 +39,77 @@ const sidebars = {
     },
     {
       type: "category",
+      label: "Platform",
+      collapsed: false,
+      link: {
+        type: "doc",
+        id: "app/index",
+      },
+      items: [
+        { type: "doc", id: "app/data-sources", label: "Data Sources" },
+        { type: "doc", id: "app/metrics", label: "Metrics" },
+        { type: "doc", id: "app/features", label: "Features" },
+        { type: "doc", id: "app/experiments", label: "Experiments" },
+        { type: "doc", id: "app/dimensions", label: "Dimensions" },
+        {
+          type: "doc",
+          id: "app/visual-editor",
+          label: "Visual Editor",
+        },
+        { type: "doc", id: "app/api", label: "API" },
+        { type: "doc", id: "app/webhooks", label: "Webhooks" },
+      ],
+    },
+    {
+      type: "category",
+      label: "How to Guides",
+      collapsed: false,
+      link: {
+        type: "doc",
+        id: "guide/index",
+      },
+      items: [
+        { type: "doc", id: "guide/nextjs-and-growthbook", label: "Next.js" },
+        {
+          type: "doc",
+          id: "guide/create-react-app-and-growthbook",
+          label: "Create React App",
+        },
+        {
+          type: "doc",
+          id: "guide/GA4-google-analytics",
+          label: "Google Analytics (GA4)",
+        },
+        {
+          type: "doc",
+          id: "guide/GA-universal-analytics",
+          label: "Google Analytics (UA)",
+        },
+        {
+          type: "doc",
+          id: "guide/google-tag-manager-and-growthbook",
+          label: "Google Tag Manager (GTM)",
+        },
+        { type: "doc", id: "guide/mixpanel", label: "Mixpanel" },
+        { type: "doc", id: "guide/matomo", label: "Matomo" },
+        { type: "doc", id: "guide/bigquery", label: "BigQuery" },
+        { type: "doc", id: "guide/rudderstack", label: "Rudderstack" },
+        {
+          type: "doc",
+          id: "guide/rudderstack-and-nextjs-with-growthbook",
+          label: "Rudderstack + Next.js",
+        },
+        {
+          type: "link",
+          href: "https://docs.growthbook.io/open-guide-to-ab-testing.v1.0.pdf",
+          label: "Guide to A/B Testing",
+        },
+      ],
+    },
+    {
+      type: "category",
       label: "SDKs",
-      collapsed: true,
+      collapsed: false,
       link: {
         type: "doc",
         id: "lib/index",
@@ -61,283 +130,10 @@ const sidebars = {
         { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
       ],
     },
-    { type: "doc", id: "features", label: "Feature Flags" },
-    {
-      type: "category",
-      label: "Experimentation Analysis",
-      collapsed: true,
-      items: [
-        {
-          type: "category",
-          label: "Connecting to Your Data Warehouse",
-          collapsed: true,
-          link: {
-            type: "doc",
-            id:
-              "experimentation-analysis/connecting-to-your-data-warehouse/index",
-          },
-          items: [
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/athena",
-              label: "Athena",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/bigquery",
-              label: "BigQuery",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/clickhouse",
-              label: "Clickhouse",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/databricks",
-              label: "Databricks",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/mixpanel",
-              label: "Mixpanel",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/ms-sql-or-sql-server",
-              label: "MS SQL or SQL server",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/mysql-or-mariadb",
-              label: "MySQL or MariaDB",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/postgres",
-              label: "Postgres",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/prestodb-or-trino",
-              label: "PrestoDB or Trino",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/redshift",
-              label: "Redshift",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/connecting-to-your-data-warehouse/snowflake",
-              label: "Snowflake",
-            },
-          ],
-        },
-        {
-          type: "category",
-          collapsed: true,
-          link: {
-            type: "doc",
-            id: "experimentation-analysis/data-source-configuration/index",
-          },
-          label: "Data Source Configuration",
-          items: [
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/data-source-configuration/amplitude",
-              label: "Amplitude",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/data-source-configuration/clevertap",
-              label: "CleverTap",
-            },
-            {
-              type: "doc",
-              id: "experimentation-analysis/data-source-configuration/firebase",
-              label: "Firebase",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/data-source-configuration/freshpaint",
-              label: "Freshpaint",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/data-source-configuration/fullstory",
-              label: "Fullstory",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/data-source-configuration/GA4-google-analytics",
-              label: "Google Analytics (GA4)",
-            },
-            {
-              type: "doc",
-              id: "experimentation-analysis/data-source-configuration/heap",
-              label: "Heap",
-            },
-            {
-              type: "doc",
-              id: "experimentation-analysis/data-source-configuration/jitsu",
-              label: "Jitsu",
-            },
-            {
-              type: "doc",
-              id: "experimentation-analysis/data-source-configuration/keenio",
-              label: "KeenIO",
-            },
-            {
-              type: "doc",
-              id: "experimentation-analysis/data-source-configuration/matomo",
-              label: "Matomo",
-            },
-            {
-              type: "doc",
-              id: "experimentation-analysis/data-source-configuration/mixpanel",
-              label: "Mixpanel",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/data-source-configuration/mparticle",
-              label: "MParticle",
-            },
-            {
-              type: "doc",
-              id:
-                "experimentation-analysis/data-source-configuration/rudderstack",
-              label: "Rudderstack",
-            },
-            {
-              type: "doc",
-              id: "experimentation-analysis/data-source-configuration/segment",
-              label: "Segment",
-            },
-            {
-              type: "doc",
-              id: "experimentation-analysis/data-source-configuration/snowplow",
-              label: "Snowplow",
-            },
-            {
-              type: "doc",
-              id: "experimentation-analysis/data-source-configuration/custom",
-              label: "Custom Data Sources",
-            },
-          ],
-        },
-        {
-          type: "doc",
-          id: "experimentation-analysis/metrics",
-          label: "Metrics",
-        },
-        {
-          type: "doc",
-          id: "experimentation-analysis/experiments",
-          label: "Experiments",
-        },
-        {
-          type: "doc",
-          id: "experimentation-analysis/dimensions",
-          label: "Dimensions",
-        },
-        {
-          type: "category",
-          label: "Statistics",
-          collapsed: true,
-          items: [
-            {
-              type: "doc",
-              id: "statistics/overview",
-              label: "Statistics Overview",
-            },
-            {
-              type: "doc",
-              id: "statistics/cuped",
-              label: "Regression Adjustment (CUPED)",
-              className: "pill-new",
-            },
-            {
-              type: "doc",
-              id: "statistics/multiple-corrections",
-              label: "Multiple Testing Corrections",
-              className: "pill-new",
-            },
-            {
-              type: "doc",
-              id: "statistics/sequential",
-              label: "Sequential Testing",
-              className: "pill-new",
-            },
-            {
-              type: "doc",
-              id: "statistics/aggregation",
-              label: "Aggregate Data",
-            },
-          ],
-        },
-      ],
-    },
-    {
-      type: "doc",
-      id: "experimentation-analysis/visual-editor",
-      label: "Visual Editor",
-    },
-    { type: "doc", id: "experimentation-analysis/api", label: "API" },
-    { type: "doc", id: "experimentation-analysis/webhooks", label: "Webhooks" },
-    {
-      type: "category",
-      label: "How to Guides",
-      collapsed: true,
-      link: {
-        type: "doc",
-        id: "guide/index",
-      },
-      items: [
-        { type: "doc", id: "guide/nextjs-and-growthbook", label: "Next.js" },
-        {
-          type: "doc",
-          id: "guide/create-react-app-and-growthbook",
-          label: "Create React App",
-        },
-        {
-          type: "doc",
-          id: "guide/google-tag-manager-and-growthbook",
-          label: "Google Tag Manager (GTM)",
-        },
-        {
-          type: "doc",
-          id: "guide/rudderstack-and-nextjs-with-growthbook",
-          label: "Rudderstack + Next.js",
-        },
-        {
-          type: "link",
-          href: "https://docs.growthbook.io/open-guide-to-ab-testing.v1.0.pdf",
-          label: "Guide to A/B Testing",
-        },
-      ],
-    },
     {
       type: "category",
       label: "Tools",
-      collapsed: true,
+      collapsed: false,
       items: [
         {
           type: "doc",
@@ -359,8 +155,43 @@ const sidebars = {
     },
     {
       type: "category",
+      label: "Statistics",
+      collapsed: false,
+      items: [
+        {
+          type: "doc",
+          id: "statistics/overview",
+          label: "Statistics Overview",
+        },
+        {
+          type: "doc",
+          id: "statistics/cuped",
+          label: "Regression Adjustment (CUPED)",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "statistics/multiple-corrections",
+          label: "Multiple Testing Corrections",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "statistics/sequential",
+          label: "Sequential Testing",
+          className: "pill-new",
+        },
+        {
+          type: "doc",
+          id: "statistics/aggregation",
+          label: "Aggregate Data",
+        },
+      ],
+    },
+    {
+      type: "category",
       label: "Integrations",
-      collapsed: true,
+      collapsed: false,
       items: [
         {
           type: "doc",
@@ -371,6 +202,169 @@ const sidebars = {
       ],
     },
     { type: "doc", id: "faq", label: "FAQ" },
+
+    //     href: "/self-host",
+    //     name: "Self-Host",
+    //     links: [
+    //       {
+    //         href: "/self-host/env",
+    //         name: "Environment Variables",
+    //       },
+    //       {
+    //         href: "/self-host/config",
+    //         name: "Config.yml",
+    //       },
+    //     ],
+    //   },
+    //   {
+    //     href: "/app",
+    //     name: "Platform",
+    //     links: [
+    //       {
+    //         href: "/app/datasources",
+    //         name: "Data Sources",
+    //       },
+    //       {
+    //         href: "/app/metrics",
+    //         name: "Metrics",
+    //       },
+    //       {
+    //         href: "/app/features",
+    //         name: "Features",
+    //       },
+    //       {
+    //         href: "/app/experiments",
+    //         name: "Experiments",
+    //       },
+    //       {
+    //         href: "/app/dimensions",
+    //         name: "Dimensions",
+    //       },
+    //       {
+    //         href: "/app/visual",
+    //         name: "Visual Editor",
+    //         beta: true,
+    //       },
+    //       {
+    //         href: "/app/api",
+    //         name: "API",
+    //       },
+    //       {
+    //         href: "/app/webhooks",
+    //         name: "Webhooks",
+    //       },
+    //     ],
+    //   },
+    //   {
+    //     href: "/guide",
+    //     name: "How to",
+    //     links: [
+    //       {
+    //         href: "/guide/nextjs-and-growthbook",
+    //         name: "Next.js",
+    //       },
+    //       {
+    //         href: "/guide/create-react-app-and-growthbook",
+    //         name: "Create React App",
+    //       },
+    //       {
+    //         href: "/guide/GA-universal-analytics",
+    //         name: "Google Analytics - UA",
+    //       },
+    //       {
+    //         href: "/guide/mixpanel",
+    //         name: "Mixpanel",
+    //       },
+    //       {
+    //         href: "/guide/matomo",
+    //         name: "Matomo",
+    //       },
+    //       {
+    //         href: "/guide/bigquery",
+    //         name: "BigQuery",
+    //       },
+    //       {
+    //         href: "/guide/rudderstack",
+    //         name: "Rudderstack",
+    //       },
+    //       {
+    //         href: "/guide/rudderstack-and-nextjs-with-growthbook",
+    //         name: "Rudderstack + Next.js",
+    //       },
+    //     ],
+    //   },
+    //   {
+    //     href: "/lib",
+    //     name: "SDKs",
+    //     links: [
+    //       {
+    //         href: "/lib/js",
+    //         name: "Javascript",
+    //       },
+    //       {
+    //         href: "/lib/react",
+    //         name: "React",
+    //       },
+    //       {
+    //         href: "/lib/php",
+    //         name: "PHP",
+    //       },
+    //       {
+    //         href: "/lib/ruby",
+    //         name: "Ruby",
+    //       },
+    //       {
+    //         href: "/lib/python",
+    //         name: "Python",
+    //       },
+    //       {
+    //         href: "/lib/go",
+    //         name: "Go",
+    //       },
+    //       {
+    //         href: "/lib/kotlin",
+    //         name: "Kotlin (Android)",
+    //       },
+    //       {
+    //         href: "/lib/flutter",
+    //         name: "Flutter",
+    //       },
+    //       {
+    //         href: "/lib/build-your-own",
+    //         name: "Build Your Own",
+    //       },
+    //     ],
+    //   },
+    //   {
+    //     href: "/integrations",
+    //     name: "Integrations",
+    //     links: [
+    //       {
+    //         href: "/integrations/vercel",
+    //         name: "Vercel",
+    //       },
+    //     ],
+    //   },
+    //   {
+    //     href: "/faq",
+    //     name: "FAQ",
+    //   },
+    //   {
+    //     href: "/statistics",
+    //     name: "Statistics",
+    //   },
+    // ];
+    // ],
+    // // But you can create a sidebar manually
+    // /*
+    // tutorialSidebar: [
+    //   'intro',
+    //   'hello',
+    //   {
+    //     type: 'category',
+    //     label: 'Tutorial',
+    //     items: ['tutorial-basics/create-a-document'],
+    //   },
   ],
 };
 
