@@ -7,9 +7,9 @@ import { FC } from "react";
 import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
+import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
-import {trafficSplitPercentages} from "@/services/utils";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
