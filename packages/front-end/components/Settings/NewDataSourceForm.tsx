@@ -617,9 +617,7 @@ const NewDataSourceForm: FC<{
                           const res = await apiCall<{
                             trackedEvents: TrackedEventData[];
                             message?: string;
-                          }>(`/datasource/${dataSourceId}/auto-metrics`, {
-                            method: "POST",
-                          });
+                          }>(`/metrics/tracked-events/${dataSourceId}`);
                           if (res.message) {
                             track("Generate Auto Metrics Error", {
                               error: res.message,

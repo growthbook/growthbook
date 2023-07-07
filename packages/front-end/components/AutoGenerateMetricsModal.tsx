@@ -102,9 +102,7 @@ export default function AutoGenerateMetricsModal({
       const res = await apiCall<{
         trackedEvents: TrackedEventData[];
         message?: string;
-      }>(`/datasource/${datasourceObj.id}/auto-metrics`, {
-        method: "POST",
-      });
+      }>(`/metrics/tracked-events/${datasourceObj.id}`);
       setLoading(false);
       if (res.message) {
         track("Generate Auto Metrics Error", {

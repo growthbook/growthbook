@@ -1483,9 +1483,7 @@ export default abstract class SqlIntegration
     type: MetricType,
     sql: string
   ): string {
-    const existingMetric = existingMetrics.find(
-      (metric) => metric.type === type && metric.sql === sql
-    );
+    const existingMetric = existingMetrics.find((metric) => metric.sql === sql);
     return existingMetric?.id || "";
   }
   getMetricsToCreate(
