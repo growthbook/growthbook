@@ -14,7 +14,7 @@ import Button from "../Button";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
-export type TestQueryResults = {
+type TestQueryResults = {
   duration?: string;
   error?: string;
   results?: TestQueryRow[];
@@ -29,8 +29,6 @@ export interface Props {
   requiredColumns: Set<string>;
   placeholder?: string;
   validateResponse?: (response: TestQueryResults) => void;
-  testQueryResults: TestQueryResults | null;
-  setTestQueryResults: (results: TestQueryResults | null) => void;
 }
 
 export default function EditSqlModal({
@@ -41,9 +39,11 @@ export default function EditSqlModal({
   placeholder = "",
   datasourceId,
   validateResponse,
-  testQueryResults,
-  setTestQueryResults,
 }: Props) {
+  const [
+    testQueryResults,
+    setTestQueryResults,
+  ] = useState<TestQueryResults | null>(null);
   const [testQueryBeforeSaving, setTestQueryBeforeSaving] = useState(true);
   const form = useForm({
     defaultValues: {
@@ -80,7 +80,7 @@ export default function EditSqlModal({
     try {
       const sql = form.getValues("sql");
       const res = await runTestQuery(sql);
-      setTestQueryResults(res);
+      setTestQueryResults({ ...res, error: "" });
     } catch (e) {
       setTestQueryResults({ error: e.message });
     }
@@ -96,8 +96,6 @@ export default function EditSqlModal({
       header="Edit SQL"
       submit={form.handleSubmit(async (value) => {
         if (testQueryBeforeSaving) {
-          // Reset test query results to avoid serving outdated errors/results
-          setTestQueryResults(null);
           const res = await runTestQuery(value.sql);
           if (res.error) {
             setTestQueryResults({ error: res.error });

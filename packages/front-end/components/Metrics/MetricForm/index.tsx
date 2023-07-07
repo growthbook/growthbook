@@ -37,9 +37,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Toggle from "@/components/Forms/Toggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
-import EditSqlModal, {
-  TestQueryResults,
-} from "@/components/SchemaBrowser/EditSqlModal";
+import EditSqlModal from "@/components/SchemaBrowser/EditSqlModal";
 import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import { GBCuped } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
@@ -183,10 +181,6 @@ const MetricForm: FC<MetricFormProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
 
   const displayCurrency = useCurrency();
 
@@ -485,8 +479,6 @@ const MetricForm: FC<MetricFormProps> = ({
           requiredColumns={requiredColumns}
           value={value.sql}
           save={async (sql) => form.setValue("sql", sql)}
-          testQueryResults={testQueryResults}
-          setTestQueryResults={setTestQueryResults}
         />
       )}
       <PagedModal

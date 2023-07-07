@@ -9,7 +9,7 @@ import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import useMembers from "@/hooks/useMembers";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import EditSqlModal, { TestQueryResults } from "../SchemaBrowser/EditSqlModal";
+import EditSqlModal from "../SchemaBrowser/EditSqlModal";
 import Code from "../SyntaxHighlighting/Code";
 
 export type CursorData = {
@@ -41,10 +41,6 @@ const SegmentForm: FC<{
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
 
   const userIdType = form.watch("userIdType");
 
@@ -69,8 +65,6 @@ const SegmentForm: FC<{
           requiredColumns={requiredColumns}
           value={sql}
           save={async (sql) => form.setValue("sql", sql)}
-          testQueryResults={testQueryResults}
-          setTestQueryResults={setTestQueryResults}
         />
       )}
       <Modal

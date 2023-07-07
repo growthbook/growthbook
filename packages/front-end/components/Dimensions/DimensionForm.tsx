@@ -9,17 +9,13 @@ import Modal from "@/components/Modal";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import useMembers from "@/hooks/useMembers";
-import EditSqlModal, { TestQueryResults } from "../SchemaBrowser/EditSqlModal";
+import EditSqlModal from "../SchemaBrowser/EditSqlModal";
 import Code from "../SyntaxHighlighting/Code";
 
 const DimensionForm: FC<{
   close: () => void;
   current: Partial<DimensionInterface>;
 }> = ({ close, current }) => {
-  const [
-    testQueryResults,
-    setTestQueryResults,
-  ] = useState<TestQueryResults | null>(null);
   const { apiCall } = useAuth();
   const { memberUsernameOptions } = useMembers();
   const {
@@ -63,8 +59,6 @@ const DimensionForm: FC<{
           requiredColumns={requiredColumns}
           value={sql}
           save={async (sql) => form.setValue("sql", sql)}
-          testQueryResults={testQueryResults}
-          setTestQueryResults={setTestQueryResults}
         />
       )}
       <Modal
