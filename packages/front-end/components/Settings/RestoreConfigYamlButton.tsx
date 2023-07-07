@@ -72,7 +72,7 @@ export default function RestoreConfigYamlButton({
 
   function parseConfig(json) {
     try {
-      // Only include relevent objects in original value
+      // Only include relevant objects in original value
       // Merge original value to new value to backfill missing properties
       const origConfig = cloneDeep(config);
       const newConfig = cloneDeep(json);
@@ -111,6 +111,18 @@ export default function RestoreConfigYamlButton({
             // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             const o = origConfig.metrics[k];
             const n = newConfig.metrics[k];
+
+            // Error for deprecated fields
+            if (n.cap) {
+              throw new Error(`
+                \`cap\` is a deprecated field in metric definitions.
+                Instead use \`capping: 'absolute'\` and \`capValue: ${n.cap}\``);
+            }
+            if (n.userIdType || n.anonymousIdType) {
+              throw new Error(`
+                \`userIdType\` and \`anonymousIdType\` have been deprecated. 
+                Please use \`userIdTypes\` instead.`);
+            }
 
             newConfig.metrics[k] = {
               ...o,
