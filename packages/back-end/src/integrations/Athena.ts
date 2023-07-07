@@ -49,6 +49,16 @@ export default class Athena extends SqlIntegration {
   ensureFloat(col: string): string {
     return `1.0*${col}`;
   }
+  percentileCapSelectClause(
+    capPercentile: number,
+    metricTable: string
+  ): string {
+    return `
+      SELECT APPROX_PERCENTILE(value, ${capPercentile}) AS cap_value
+      FROM ${metricTable}
+      WHERE value IS NOT NULL
+    `;
+  }
   getDefaultDatabase() {
     return this.params.catalog || "";
   }
