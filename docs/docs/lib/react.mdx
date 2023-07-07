@@ -378,8 +378,8 @@ Then, use the `useGrowthBookSSR` hook to enable server side rendering:
 ```jsx
 // pages/server.jsx
 import MyComponent from "../components/MyComponent";
-import { generateGrowthBookSSRProps } from "../util/gb-server";
-import { useGrowthBookSSR } from "@growthbook/growthbook-react";
+import { getServerSideGrowthBookContext } from "../util/gb-server";
+import { useGrowthBookSSR, getGrowthBookSSRData, } from "@growthbook/growthbook-react";
 
 
 export const getServerSideProps = async (context) => {

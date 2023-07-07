@@ -507,6 +507,10 @@ export default abstract class SqlIntegration
           main_covariate_sum_product:
             parseFloat(row.main_covariate_sum_product) || 0,
         }),
+        ...(row.main_cap_value && { main_cap_value: row.main_cap_value }),
+        ...(row.denominator_cap_value && {
+          denominator_cap_value: row.denominator_cap_value,
+        }),
       };
     });
   }
@@ -830,8 +834,7 @@ export default abstract class SqlIntegration
       settings.regressionAdjustmentEnabled &&
       (metric.regressionAdjustmentDays ?? 0) > 0 &&
       !!metric.regressionAdjustmentEnabled &&
-      !isRatio &&
-      !metric.aggregation;
+      !isRatio;
 
     const regressionAdjustmentHours = isRegressionAdjusted
       ? (metric.regressionAdjustmentDays ?? 0) * 24
@@ -839,6 +842,26 @@ export default abstract class SqlIntegration
 
     const ignoreConversionEnd =
       settings.attributionModel === "experimentDuration";
+
+    // Get capping settings and final coalesce statement
+    const isPercentileCapped =
+      metric.capping === "percentile" && metric.capValue && metric.capValue < 1;
+    const denominatorIsPercentileCapped =
+      denominator &&
+      denominator.capping === "percentile" &&
+      denominator.capValue &&
+      denominator.capValue < 1;
+    const capCoalesceMetric = this.capCoalesceValue("m.value", metric, "cap");
+    const capCoalesceDenominator = this.capCoalesceValue(
+      "d.value",
+      denominator,
+      "capd"
+    );
+    const capCoalesceCovariate = this.capCoalesceValue(
+      "c.value",
+      metric,
+      "cap"
+    );
 
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = activationMetrics
@@ -1125,6 +1148,18 @@ export default abstract class SqlIntegration
           ${baseIdType}
       )
       ${
+        isPercentileCapped
+          ? `
+        , __capValue AS (
+            ${this.percentileCapSelectClause(
+              metric.capValue ?? 1,
+              "__userMetricAgg"
+            )}
+        )
+        `
+          : ""
+      }
+      ${
         isRatio
           ? `, __userDenominatorAgg AS (
               SELECT
@@ -1158,7 +1193,19 @@ export default abstract class SqlIntegration
                 d.dimension,
                 ${cumulativeDate ? `dr.day,` : ""}
                 d.${baseIdType}
-            )`
+            )
+            ${
+              denominatorIsPercentileCapped
+                ? `
+              , __capValueDenominator AS (
+                ${this.percentileCapSelectClause(
+                  denominator.capValue ?? 1,
+                  "__userDenominatorAgg"
+                )}
+              )
+              `
+                : ""
+            }`
           : ""
       }
       ${
@@ -1188,7 +1235,7 @@ export default abstract class SqlIntegration
       }
       -- One row per variation/dimension with aggregations
       SELECT
-        m.variation,
+        m.variation AS variation,
         ${
           cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
         } AS dimension,
@@ -1198,15 +1245,25 @@ export default abstract class SqlIntegration
           isRegressionAdjusted
         )}' as statistic_type,
         '${metric.type}' as main_metric_type,
-        SUM(COALESCE(m.value, 0)) AS main_sum,
-        SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
+        ${
+          isPercentileCapped
+            ? "MAX(COALESCE(cap.cap_value, 0)) as main_cap_value,"
+            : ""
+        }
+        SUM(${capCoalesceMetric}) AS main_sum,
+        SUM(POWER(${capCoalesceMetric}, 2)) AS main_sum_squares
         ${
           isRatio
             ? `,
           '${denominator?.type}' as denominator_metric_type,
-          SUM(COALESCE(d.value, 0)) AS denominator_sum,
-          SUM(POWER(COALESCE(d.value, 0), 2)) AS denominator_sum_squares,
-          SUM(COALESCE(d.value, 0) * COALESCE(m.value, 0)) AS main_denominator_sum_product
+          ${
+            denominatorIsPercentileCapped
+              ? "MAX(COALESCE(capd.cap_value, 0)) as denominator_cap_value,"
+              : ""
+          }
+          SUM(${capCoalesceDenominator}) AS denominator_sum,
+          SUM(POWER(${capCoalesceDenominator}, 2)) AS denominator_sum_squares,
+          SUM(${capCoalesceDenominator} * ${capCoalesceMetric}) AS main_denominator_sum_product
         `
             : ""
         }
@@ -1214,9 +1271,9 @@ export default abstract class SqlIntegration
           isRegressionAdjusted
             ? `,
           '${metric.type}' as covariate_metric_type,
-          SUM(COALESCE(c.value, 0)) AS covariate_sum,
-          SUM(POWER(COALESCE(c.value, 0), 2)) AS covariate_sum_squares,
-          SUM(COALESCE(m.value, 0) * COALESCE(c.value, 0)) AS main_covariate_sum_product
+          SUM(${capCoalesceCovariate}) AS covariate_sum,
+          SUM(POWER(${capCoalesceCovariate}, 2)) AS covariate_sum_squares,
+          SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS main_covariate_sum_product
           `
             : ""
         }
@@ -1228,7 +1285,12 @@ export default abstract class SqlIntegration
               d.${baseIdType} = m.${baseIdType}
               ${ratioIsFunnel ? "AND d.value != 0" : ""}
               ${cumulativeDate ? "AND d.day = m.day" : ""}
-            )`
+            )
+            ${
+              denominatorIsPercentileCapped
+                ? "CROSS JOIN __capValueDenominator capd"
+                : ""
+            }`
           : ""
       }
       ${
@@ -1239,6 +1301,7 @@ export default abstract class SqlIntegration
           `
           : ""
       }
+      ${isPercentileCapped ? `CROSS JOIN __capValue cap` : ""}
       ${metric.ignoreNulls ? `WHERE m.value != 0` : ""}
       GROUP BY
         m.variation,
@@ -1246,6 +1309,37 @@ export default abstract class SqlIntegration
     `,
       this.getFormatDialect()
     );
+  }
+  percentileCapSelectClause(capPercentile: number, metricTable: string) {
+    return `
+      SELECT
+        PERCENTILE_CONT(${capPercentile}) WITHIN GROUP (ORDER BY value) AS cap_value
+      FROM ${metricTable}
+      WHERE value IS NOT NULL
+      `;
+  }
+  private capCoalesceValue(
+    valueCol: string,
+    metric: MetricInterface,
+    capTablePrefix: string = "c"
+  ): string {
+    if (metric?.capping === "absolute" && metric.capValue) {
+      return `LEAST(
+        ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
+        ${metric.capValue}
+      )`;
+    }
+    if (
+      metric?.capping === "percentile" &&
+      metric.capValue &&
+      metric.capValue < 1
+    ) {
+      return `LEAST(
+        ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
+        ${capTablePrefix}.cap_value
+      )`;
+    }
+    return `COALESCE(${valueCol}, 0)`;
   }
   getExperimentResultsQuery(): string {
     throw new Error("Not implemented");
@@ -1830,14 +1924,6 @@ export default abstract class SqlIntegration
     `;
   }
 
-  private capValue(cap: number | undefined, value: string) {
-    if (!cap) {
-      return value;
-    }
-
-    return `LEAST(${cap}, ${value})`;
-  }
-
   private addCaseWhenTimeFilter(
     col: string,
     ignoreConversionEnd: boolean,
@@ -1851,9 +1937,7 @@ export default abstract class SqlIntegration
           cumulativeDate ? `AND ${this.dateTrunc("m.timestamp")} <= dr.day` : ""
         }
       `,
-      // The coalesce treats conversions that exist but have a NULL `value` as 0,
-      // reserving NULL for users with no matching metric rows in conversion window
-      `COALESCE(${col}, 0)`,
+      `${col}`,
       `NULL`
     )}`;
   }
@@ -1868,36 +1952,32 @@ export default abstract class SqlIntegration
     if (this.getMetricQueryFormat(metric) === "sql") {
       // Custom aggregation that's a hardcoded number (e.g. "1")
       if (metric.aggregation && Number(metric.aggregation)) {
-        // If value is NULL than user reliably has no conversion rows in the window
+        // Note that if user has conversion row but value IS NULL, this will
+        // return 0 for that user rather than `metric.aggregation`
         return this.ifElse("value IS NOT NULL", metric.aggregation, "0");
       }
       // Other custom aggregation
       else if (metric.aggregation) {
-        // prePostTimeFilter (and regression adjustment) not implemented for
-        // custom aggregate metrics
-        return this.capValue(
-          metric.cap,
-          replaceCountStar(metric.aggregation, `value`)
-        );
+        return replaceCountStar(metric.aggregation, `value`);
       }
       // Standard aggregation (SUM)
       else {
-        return this.capValue(metric.cap, `SUM(COALESCE(value, 0))`);
+        return `SUM(COALESCE(value, 0))`;
       }
     }
     // Query builder
     else {
       // Count metrics that specify a distinct column to count
       if (metric.type === "count" && metric.column) {
-        return this.capValue(metric.cap, `COUNT(DISTINCT (value))`);
+        return `COUNT(DISTINCT (value))`;
       }
       // Count metrics just do a simple count of rows by default
       else if (metric.type === "count") {
-        return this.capValue(metric.cap, `COUNT(value)`);
+        return `COUNT(value)`;
       }
       // Revenue and duration metrics use MAX by default
       else {
-        return this.capValue(metric.cap, `MAX(COALESCE(value, 0))`);
+        return `MAX(COALESCE(value, 0))`;
       }
     }
   }

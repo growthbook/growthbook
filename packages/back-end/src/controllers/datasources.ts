@@ -78,7 +78,7 @@ export async function postSampleData(
       description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
       type: "binomial",
       organization: orgId,
-      userIdType: "anonymous",
+      userIdTypes: ["anonymous"],
     };
     await insertMetric(metric1);
   }
@@ -99,7 +99,7 @@ export async function postSampleData(
       description: `Part of the GrowthBook sample data set. Feel free to delete when finished exploring.`,
       type: "revenue",
       organization: orgId,
-      userIdType: "anonymous",
+      userIdTypes: ["anonymous"],
     };
     await insertMetric(metric2);
   }
