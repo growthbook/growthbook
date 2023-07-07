@@ -59,6 +59,17 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
         <li>Feature flags</li>
       </ul>
       <p>Duplicate items will not be imported.</p>
+      <p>
+        Read the{" "}
+        <a
+          target="_blank"
+          href="https://docs.growthbook.io/guide/importing"
+          rel="noreferrer"
+        >
+          documentation
+        </a>{" "}
+        for more info.
+      </p>
 
       <form className="mt-4" onSubmit={handleSubmit}>
         <div className="form-group">
