@@ -80,7 +80,7 @@ export default function EditSqlModal({
     try {
       const sql = form.getValues("sql");
       const res = await runTestQuery(sql);
-      setTestQueryResults({ ...res, error: "" });
+      setTestQueryResults({ ...res, error: res.error ? res.error : "" });
     } catch (e) {
       setTestQueryResults({ error: e.message });
     }
@@ -98,7 +98,7 @@ export default function EditSqlModal({
         if (testQueryBeforeSaving) {
           const res = await runTestQuery(value.sql);
           if (res.error) {
-            setTestQueryResults({ error: res.error });
+            throw new Error(res.error);
           }
         }
 
