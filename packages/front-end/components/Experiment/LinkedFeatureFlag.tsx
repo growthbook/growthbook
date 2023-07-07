@@ -28,20 +28,21 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
         <div className="font-weight-bold mb-2">Feature values</div>
         {environments.map((en) => {
           const rules = getRules(feature, en.id);
+          console.log(rules);
           const experimentRules = rules.filter(
-            (r) =>
-              r.type === "experiment" &&
-              r.trackingKey === experiment.trackingKey
+            (rule) =>
+              rule.type === "experiment" &&
+              experiment.trackingKey === (rule.trackingKey || feature.id)
           ) as ExperimentRule[];
           const indexOfLastExperimentRule = rules.indexOf(
             experimentRules[experimentRules.length - 1]
           );
           const rulesAboveExperiment = rules.filter(
-            (r, i) =>
+            (rule, i) =>
               i < indexOfLastExperimentRule &&
               !(
-                r.type === "experiment" &&
-                r.trackingKey === experiment.trackingKey
+                rule.type === "experiment" &&
+                rule.trackingKey === experiment.trackingKey
               )
           );
 

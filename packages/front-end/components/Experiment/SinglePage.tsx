@@ -421,7 +421,7 @@ export default function SinglePage({
         for (const rule of envSetting?.rules || []) {
           if (
             rule.type === "experiment" &&
-            rule.trackingKey === experiment.trackingKey
+            experiment.trackingKey === (rule.trackingKey || feature.id)
           ) {
             return true;
           }
@@ -1006,21 +1006,26 @@ export default function SinglePage({
               ) : null}
             </div>
             {phase ? (
-              <div className="appbox px-3 py-3">
+              <div className="appbox px-3 py-2">
+                {lastPhase.coverage !== undefined ? (
+                  <div className="my-2">
+                    <span className="font-weight-bold">Traffic coverage:</span>{" "}
+                    {Math.floor(lastPhase.coverage * 100)}%
+                  </div>
+                ) : null}
                 {lastPhase.condition && lastPhase.condition !== "{}" ? (
-                  <div className="mt-0">
+                  <div className="my-2">
+                    <div className="font-weight-bold">Conditions:</div>
                     <ConditionDisplay condition={lastPhase.condition} />
                   </div>
                 ) : (
-                  <div className="text-muted">No targeting conditions</div>
+                  <div className="my-2 text-muted">No targeting conditions</div>
                 )}
                 {hasNamespace ? (
-                  <div className="mt-3">
-                    <div className="h5 mb-0">Namespace</div>
-                    <div>
-                      {lastPhase.namespace.name} (
-                      {percentFormatter.format(namespaceRange)})
-                    </div>
+                  <div className="my-2">
+                    <span className="font-weight-bold">Namespace:</span>{" "}
+                    {lastPhase.namespace.name} (
+                    {percentFormatter.format(namespaceRange)})
                   </div>
                 ) : null}
               </div>
@@ -1042,32 +1047,13 @@ export default function SinglePage({
             )}
           </div>
 
-          <div className="d-flex mx-4 mb-1 align-items-center justify-content-between">
-            <HeaderWithEdit
-              edit={editVariations ?? undefined}
-              className="h3 mt-1 mb-2"
-              containerClassName=""
-            >
-              Variations
-            </HeaderWithEdit>
-            {lastPhase?.coverage !== undefined ? (
-              <div className="text-muted">
-                Traffic coverage: {Math.floor(lastPhase.coverage * 100)}%
-                {editPhase ? (
-                  <a
-                    role="button"
-                    className="ml-1"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      editPhase(lastPhaseIndex);
-                    }}
-                  >
-                    <GBEdit />
-                  </a>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
+          <HeaderWithEdit
+            edit={editVariations ?? undefined}
+            className="h3 mt-1 mb-2"
+            containerClassName="mx-4 mb-1"
+          >
+            Variations
+          </HeaderWithEdit>
           <div className="mx-1 mb-3">
             <VariationsTable
               experiment={experiment}
