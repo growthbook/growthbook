@@ -27,7 +27,7 @@ import { checkMetricProjectPermissions } from "@/services/metrics";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { useAuth } from "@/services/auth";
 import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
-import DiscoverMetricsButton from "@/components/DiscoverMetricsButton";
+import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
 
 const MetricsPage = (): React.ReactElement => {
   const [modalData, setModalData] = useState<{
@@ -180,7 +180,7 @@ const MetricsPage = (): React.ReactElement => {
         )}
         {permissions.check("createMetrics", project) && !hasFileConfig() && (
           <>
-            <DiscoverMetricsButton
+            <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
               size="lg"
             />
@@ -241,7 +241,7 @@ const MetricsPage = (): React.ReactElement => {
         <div style={{ flex: 1 }} />
         {permissions.check("createMetrics", project) && !hasFileConfig() && (
           <div className="col-auto">
-            <DiscoverMetricsButton
+            <AutoGenerateMetricsButton
               setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
             />
             <button

@@ -9,7 +9,7 @@ type Props = {
   size?: "lg";
 };
 
-export default function DiscoverMetricsButton({
+export default function AutoGenerateMetricsButton({
   setShowAutoGenerateMetricsModal,
   datasource,
   size,
