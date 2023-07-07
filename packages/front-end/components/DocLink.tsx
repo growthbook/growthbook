@@ -40,6 +40,7 @@ const docSections = {
   visual_editor: "/app/visual",
   encryptedSDKEndpoints: "/lib/js#loading-features",
   hashSecureAttributes: "/lib/js#secure-attributes",
+  autoMetrics: "/app/metrics/#auto-generate-metrics",
 };
 
 export type DocSection = keyof typeof docSections;

@@ -173,7 +173,7 @@ export default function AutoGenerateMetricsModal({
         <p>
           Select a datasource below to see if we&apos;re able to generate
           metrics for you automatically, based on your tracked events.{" "}
-          <DocLink docSection={"metrics"}>Learn More</DocLink>
+          <DocLink docSection={"autoMetrics"}>Learn More</DocLink>
         </p>
         <SelectField
           label="Select A Data Source"
