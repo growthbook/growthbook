@@ -28,7 +28,6 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
         <div className="font-weight-bold mb-2">Feature values</div>
         {environments.map((en) => {
           const rules = getRules(feature, en.id);
-          console.log(rules);
           const experimentRules = rules.filter(
             (rule) =>
               rule.type === "experiment" &&
