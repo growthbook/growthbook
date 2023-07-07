@@ -73,7 +73,7 @@ import { EventAuditUser } from "../events/event-types";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
 import {
-  getMetricForSnapsot,
+  getMetricForSnapshot,
   getReportVariations,
   startExperimentAnalysis,
 } from "./reports";
@@ -332,7 +332,7 @@ export function getSnapshotSettings({
     ]),
   ]
     .map((m) =>
-      getMetricForSnapsot(
+      getMetricForSnapshot(
         m,
         metricMap,
         metricRegressionAdjustmentStatuses,
@@ -1031,6 +1031,26 @@ export function postMetricApiPayloadIsValid(
             "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`",
         };
     }
+
+    // Check capping args + capping values
+    const { capping, capValue } = behavior;
+
+    const cappingExists = typeof capping !== "undefined" && capping !== null;
+    const capValueExists = typeof capValue !== "undefined";
+    if (cappingExists !== capValueExists) {
+      return {
+        valid: false,
+        error:
+          "Must specify both `behavior.capping` (as non-null) and `behavior.capValue` or neither.",
+      };
+    }
+    if (capping === "percentile" && (capValue || 0) > 1) {
+      return {
+        valid: false,
+        error:
+          "When using percentile capping, `behavior.capValue` must be between 0 and 1.",
+      };
+    }
   }
 
   // Validate for payload.sql
@@ -1169,6 +1189,26 @@ export function putMetricApiPayloadIsValid(
             "`behavior.maxPercentChange` must be greater than `behavior.minPercentChange`",
         };
     }
+
+    // Check capping args + capping values
+    const { capping, capValue } = behavior;
+
+    const cappingExists = typeof capping !== "undefined" && capping !== null;
+    const capValueExists = typeof capValue !== "undefined";
+    if (cappingExists !== capValueExists) {
+      return {
+        valid: false,
+        error:
+          "Must specify `behavior.capping` (as non-null) and `behavior.capValue` or neither.",
+      };
+    }
+    if (capping === "percentile" && (capValue || 0) > 1) {
+      return {
+        valid: false,
+        error:
+          "When using percentile capping, `behavior.capValue` must be between 0 and 1.",
+      };
+    }
   }
 
   // Validate for payload.sql
@@ -1257,8 +1297,14 @@ export function postMetricApiPayloadToMetricInterface(
 
   // Assign all undefined behavior fields to the metric
   if (behavior) {
-    if (typeof behavior.cap !== "undefined") {
-      metric.cap = behavior.cap;
+    if (typeof behavior.capping !== "undefined") {
+      metric.capping = behavior.capping;
+      metric.capValue = behavior.capValue;
+    }
+    // handle old post requests
+    else if (typeof behavior.cap !== "undefined" && behavior.cap) {
+      metric.capping = "absolute";
+      metric.capValue = behavior.cap;
     }
 
     if (typeof behavior.conversionWindowStart !== "undefined") {
@@ -1377,8 +1423,11 @@ export function putMetricApiPayloadToMetricInterface(
       metric.inverse = behavior.goal === "decrease";
     }
 
-    if (typeof behavior.cap !== "undefined") {
-      metric.cap = behavior.cap;
+    if (typeof behavior.capping !== "undefined") {
+      metric.capping = behavior.capping;
+      if (behavior.capping !== null) {
+        metric.capValue = behavior.capValue;
+      }
     }
 
     if (typeof behavior.conversionWindowStart !== "undefined") {
@@ -1517,7 +1566,8 @@ export function toMetricApiInterface(
     type: metric.type,
     behavior: {
       goal: metric.inverse ? "decrease" : "increase",
-      cap: metric.cap || 0,
+      capping: metric.capping,
+      capValue: metric.capValue || 0,
       minPercentChange:
         metric.minPercentChange ?? metricDefaults?.minPercentageChange ?? 0.005,
       maxPercentChange:
@@ -1544,9 +1594,7 @@ export function toMetricApiInterface(
         })),
       };
     } else if (datasource.type !== "google_analytics") {
-      const identifierTypes = metric.userIdTypes ?? [
-        metric.userIdType ?? "user_id",
-      ];
+      const identifierTypes = metric.userIdTypes ?? ["user_id"];
       obj.sql = {
         identifierTypes,
         // TODO: if builder mode is selected, use that to generate the SQL here
@@ -1559,14 +1607,7 @@ export function toMetricApiInterface(
         obj.sqlBuilder = {
           identifierTypeColumns: identifierTypes.map((t) => ({
             identifierType: t,
-            columnName:
-              metric.userIdColumns?.[t] ||
-              (t === "user_id"
-                ? metric.userIdColumn
-                : t === "anonymous_id"
-                ? metric.anonymousIdColumn
-                : t) ||
-              t,
+            columnName: metric.userIdColumns?.[t] || t,
           })),
           tableName: metric.table || "",
           valueColumnName: metric.column || "",

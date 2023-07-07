@@ -82,6 +82,19 @@ export default class BigQuery extends SqlIntegration {
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
+  percentileCapSelectClause(
+    capPercentile: number,
+    metricTable: string
+  ): string {
+    return `
+    SELECT 
+      APPROX_QUANTILES(value, 100000)[OFFSET(${Math.trunc(
+        100000 * capPercentile
+      )})] AS cap_value
+    FROM ${metricTable}
+    WHERE value IS NOT NULL
+  `;
+  }
   getDefaultDatabase() {
     return this.params.projectId || "";
   }

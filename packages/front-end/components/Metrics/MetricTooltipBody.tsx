@@ -43,10 +43,10 @@ const MetricTooltipBody = ({
       body: <SortedTags tags={metric.tags} />,
     },
     {
-      show: !isNullUndefinedOrEmpty(metric.cap) && metric.cap !== 0,
-      label: "Cap",
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
-      body: metric.cap,
+      show:
+        !isNullUndefinedOrEmpty(metric.capping) && (metric.capValue ?? 0) !== 0,
+      label: `Capping (${metric.capping})`,
+      body: metric.capValue ?? 0,
     },
     {
       show:
