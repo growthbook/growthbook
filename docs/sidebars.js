@@ -265,30 +265,30 @@ const sidebars = {
           items: [
             {
               type: "doc",
-              id: "statistics/overview",
+              id: "experimentation-analysis/statistics/overview",
               label: "Statistics Overview",
             },
             {
               type: "doc",
-              id: "statistics/cuped",
+              id: "experimentation-analysis/statistics/cuped",
               label: "Regression Adjustment (CUPED)",
               className: "pill-new",
             },
             {
               type: "doc",
-              id: "statistics/multiple-corrections",
+              id: "experimentation-analysis/statistics/multiple-corrections",
               label: "Multiple Testing Corrections",
               className: "pill-new",
             },
             {
               type: "doc",
-              id: "statistics/sequential",
+              id: "experimentation-analysis/statistics/sequential",
               label: "Sequential Testing",
               className: "pill-new",
             },
             {
               type: "doc",
-              id: "statistics/aggregation",
+              id: "experimentation-analysis/statistics/aggregation",
               label: "Aggregate Data",
             },
           ],
@@ -297,11 +297,11 @@ const sidebars = {
     },
     {
       type: "doc",
-      id: "experimentation-analysis/visual-editor",
+      id: "visual-editor",
       label: "Visual Editor",
     },
-    { type: "doc", id: "experimentation-analysis/api", label: "API" },
-    { type: "doc", id: "experimentation-analysis/webhooks", label: "Webhooks" },
+    { type: "doc", id: "api-overview", label: "API" },
+    { type: "doc", id: "webhooks", label: "Webhooks" },
     {
       type: "category",
       label: "How to Guides",

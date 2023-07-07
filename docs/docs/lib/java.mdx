@@ -104,7 +104,7 @@ For complete examples, see the [Examples](#code-examples) section below.
 The features JSON is equivalent to the `features` property that is returned from the SDK Endpoint for the specified environment. You can find your endpoint on the [Environments &rarr; SDK Endpoints page <ExternalLink/>](https://app.growthbook.io/environments).
 
 - You can read more [about features here](/features)
-- You can see an [example features JSON here](/experimentation-analysis/api#the-sdk-endpoint)
+- You can see an [example features JSON here](/api-overview#the-sdk-endpoint)
 
 #### Attributes
 
@@ -228,7 +228,7 @@ You can subscribe with as many callbacks as you like:
 
 ### Working with Encrypted features
 
-As of version 0.3.0, the Java SDK supports decrypting encrypted features. You can learn more about [SDK Connection Endpoint Encryption](/experimentation-analysis/api#encryption).
+As of version 0.3.0, the Java SDK supports decrypting encrypted features. You can learn more about [SDK Connection Endpoint Encryption](/api-overview#encryption).
 
 The main difference is you create a `GBContext` by passing an encryption key (`.encryptionKey()` when using the builder) and using the encrypted payload as the features JSON (`.featuresJson()` for the builder).
 

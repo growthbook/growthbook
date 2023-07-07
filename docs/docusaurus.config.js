@@ -203,7 +203,70 @@ const config = {
         //... other Algolia params
       },
     },
-  plugins: ["docusaurus-plugin-sass"],
+  plugins: [
+    "docusaurus-plugin-sass",
+    [
+      "@docusaurus/plugin-client-redirects",
+      {
+        redirects: [
+          {
+            to:
+              "/experimentation-analysis/connecting-to-your-data-warehouse/bigquery",
+            from: "/guide/bigquery",
+          },
+          {
+            to: "/experimentation-analysis/data-source-configuration/mixpanel",
+            from: "/guide/mixpanel",
+          },
+          {
+            to:
+              "/experimentation-analysis/data-source-configuration/rudderstack",
+            from: "/guide/rudderstack",
+          },
+          {
+            to: "/experimentation-analysis/data-source-configuration/matomo",
+            from: "/guide/matomo",
+          },
+          {
+            to: "/experimentation-analysis/data-source-configuration/",
+            from: "/app/datasources",
+          },
+          {
+            to: "/features",
+            from: "/app/features",
+          },
+          {
+            to: "/api-overview",
+            from: "/app/api",
+          },
+          {
+            to: "/webhooks",
+            from: "/app/webhooks",
+          },
+          {
+            to: "/visual-editor",
+            from: "/app/visual-editor",
+          },
+        ],
+        createRedirects(existingPath) {
+          if (existingPath.includes("/app")) {
+            // Redirect from /docs/team/X to /community/X and /docs/support/X to /community/X
+            return [existingPath.replace("/app", "/experimentation-analysis")];
+          }
+          if (existingPath.includes("/statistics")) {
+            // Redirect from /docs/team/X to /community/X and /docs/support/X to /community/X
+            return [
+              existingPath.replace(
+                "/statistics",
+                "/experimentation-analysis/statistics"
+              ),
+            ];
+          }
+          return undefined; // Return a falsy value: no redirect created
+        },
+      },
+    ],
+  ],
 
   stylesheets: [
     {
