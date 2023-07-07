@@ -815,7 +815,8 @@ describe("experiments utils", () => {
         expect(result.minPercentChange).toEqual(1);
         expect(result.maxPercentChange).toEqual(50);
         expect(result.minSampleSize).toEqual(200);
-        expect(result.cap).toEqual(1337);
+        expect(result.capping).toEqual("absolute");
+        expect(result.capValue).toEqual(1337);
         expect(result.conversionWindowHours).toEqual(40);
         expect(result.conversionDelayHours).toEqual(10);
         expect(result.column).toEqual("signed_up");
@@ -940,7 +941,8 @@ describe("experiments utils", () => {
             goal: "decrease",
             conversionWindowStart: 10,
             conversionWindowEnd: 50,
-            cap: 1337,
+            capping: "absolute",
+            capValue: 1337,
             riskThresholdSuccess: 5,
             riskThresholdDanger: 0.5,
             minPercentChange: 1,
@@ -986,7 +988,8 @@ describe("experiments utils", () => {
         expect(result.minPercentChange).toEqual(1);
         expect(result.maxPercentChange).toEqual(50);
         expect(result.minSampleSize).toEqual(200);
-        expect(result.cap).toEqual(1337);
+        expect(result.capping).toEqual("absolute");
+        expect(result.capValue).toEqual(1337);
         expect(result.conversionWindowHours).toEqual(40);
         expect(result.conversionDelayHours).toEqual(10);
         expect(result.column).toEqual("signed_up");

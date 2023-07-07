@@ -73,6 +73,25 @@ export default class Mysql extends SqlIntegration {
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }
+  // From https://rpbouman.blogspot.com/2008/07/calculating-nth-percentile-in-mysql.html
+  // One pass, but builds a long string of all values and then cuts it at the right
+  // percentile
+  percentileCapSelectClause(
+    capPercentile: number,
+    metricTable: string
+  ): string {
+    return `
+    SELECT DISTINCT FIRST_VALUE(value) OVER (
+      ORDER BY CASE WHEN p <= ${capPercentile} THEN p END DESC
+    ) AS cap_value
+    FROM (
+      SELECT
+        value,
+        PERCENT_RANK() OVER (ORDER BY value) p
+      FROM ${metricTable}
+      WHERE value IS NOT NULL
+    ) t`;
+  }
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)
       throw new Error(
