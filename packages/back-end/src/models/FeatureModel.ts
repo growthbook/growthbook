@@ -139,7 +139,7 @@ export async function deleteFeature(
 }
 
 /**
- * Deletes all features where the provided project is the only project for that feature
+ * Deletes all features belonging to a project
  * @param projectId
  * @param organization
  * @param user

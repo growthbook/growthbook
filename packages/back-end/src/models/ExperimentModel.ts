@@ -712,7 +712,7 @@ export async function deleteExperimentByIdForOrganization(
 }
 
 /**
- * Delete experiments where the provided project is the only project for that experiment
+ * Delete experiments belonging to a project
  * @param projectId
  * @param organization
  * @param user
