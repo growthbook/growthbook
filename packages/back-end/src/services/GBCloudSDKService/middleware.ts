@@ -7,7 +7,6 @@ import { AuthRequest } from "../../types/AuthRequest";
 import { getAccountPlan } from "../../util/organization.util";
 import { sha256 } from "../features";
 import { getLicense } from "../../init/license";
-import { getGbCloudSdkPayload } from "./index";
 
 export async function initializeSdk(
   req: Request,
@@ -31,19 +30,8 @@ export async function initializeSdk(
     gb.destroy();
   });
 
-  try {
-    if (IS_CLOUD) {
-      const payload = await getGbCloudSdkPayload();
-      gb.setFeatures(payload.features);
-      // @ts-expect-error AutoExperiment[] is not exported
-      gb.setExperiments(payload.experiments || []);
-    } else {
-      // Do not subscribe individual SDK instances to streaming updates
-      await gb.loadFeatures({ autoRefresh: false });
-    }
-  } catch (e) {
-    req.log.error(e, "Failed to load features from GrowthBook");
-  }
+  // Do not subscribe individual SDK instances to streaming updates
+  await gb.loadFeatures({ autoRefresh: false });
 
   next();
 }

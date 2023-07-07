@@ -151,8 +151,6 @@ app.get("/", (req, res) => {
 
 app.use(httpLogger);
 
-app.use(gbCloudSdkMiddleware.initializeSdk);
-
 // Initialize db connections
 app.use(async (req, res, next) => {
   try {
@@ -216,6 +214,9 @@ app.options(
     res.send(200);
   }
 );
+
+// Initialize GBCloudSDK for standard and apiRouter routes
+app.use(gbCloudSdkMiddleware.initializeSdk);
 
 // Secret API routes (no JWT or CORS)
 app.use(

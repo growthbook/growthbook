@@ -1,14 +1,11 @@
 import { Request, Response } from "express";
-import { GrowthBook } from "@growthbook/growthbook";
-import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { AppFeatures } from "front-end/types/app-features";
 import {
   FeatureDraftChanges,
   FeatureInterface,
   FeatureRule,
 } from "../../types/feature";
 import { AuthRequest } from "../types/AuthRequest";
-import { getOrganizationById, getOrgFromReq } from "../services/organizations";
+import { getOrgFromReq } from "../services/organizations";
 import {
   addFeatureRule,
   createFeature,
@@ -34,7 +31,6 @@ import {
   arrayMove,
   getFeatureDefinitions,
   getSurrogateKey,
-  sha256,
   verifyDraftsAreEqual,
 } from "../services/features";
 import { ensureWatching } from "../services/experiments";
@@ -54,10 +50,8 @@ import {
 } from "../models/SdkConnectionModel";
 import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
-import { FASTLY_SERVICE_ID, IS_CLOUD } from "../util/secrets";
+import { FASTLY_SERVICE_ID } from "../util/secrets";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
-import { getAccountPlan } from "../util/organization.util";
-import { getLicense } from "../init/license";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -166,26 +160,6 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       hashSecureAttributes,
     } = await getPayloadParamsFromApiKey(key, req);
 
-    const gb = req.app.locals.growthbook as GrowthBook<AppFeatures> | undefined;
-    if (gb) {
-      const currentOrg = await getOrganizationById(organization);
-
-      // Manually set the attributes. Only a subset of standard attributes are readily available.
-      gb.setAttributes({
-        company: currentOrg?.name || "",
-        organizationId: sha256(organization, GROWTHBOOK_SECURE_ATTRIBUTE_SALT),
-        cloud: IS_CLOUD,
-        accountPlan: currentOrg
-          ? getAccountPlan(currentOrg) || "unknown"
-          : "unknown",
-        hasLicenseKey: IS_CLOUD
-          ? currentOrg && getAccountPlan(currentOrg) !== "starter"
-          : !!getLicense(),
-        freeSeats: currentOrg?.freeSeats || 3,
-        discountCode: currentOrg?.discountCode || "",
-      });
-    }
-
     const defs = await getFeatureDefinitions({
       organization,
       environment,
@@ -203,11 +177,11 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       "public, max-age=30, stale-while-revalidate=3600, stale-if-error=36000"
     );
 
-    // SSE support behind FF staged rollout
-    if (IS_CLOUD && gb?.isOn("proxy-cloud-sse")) {
-      res.set("x-sse-support", "enabled");
-      res.set("Access-Control-Expose-Headers", "x-sse-support");
-    }
+    // todo: enable this after SSE rollout & metering is complete
+    // if (IS_CLOUD) {
+    //   res.set("x-sse-support", "enabled");
+    //   res.set("Access-Control-Expose-Headers", "x-sse-support");
+    // }
 
     // If using Fastly, add surrogate key header for cache purging
     if (FASTLY_SERVICE_ID) {
