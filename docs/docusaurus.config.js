@@ -245,7 +245,7 @@ const config = {
           },
           {
             to: "/visual-editor",
-            from: "/app/visual-editor",
+            from: "/app/visual",
           },
         ],
         createRedirects(existingPath) {
