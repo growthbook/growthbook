@@ -35,6 +35,7 @@ export async function initializeSdk(
     if (IS_CLOUD) {
       const payload = await getGbCloudSdkPayload();
       gb.setFeatures(payload.features);
+      // @ts-expect-error AutoExperiment[] is not exported
       gb.setExperiments(payload.experiments || []);
     } else {
       // Do not subscribe individual SDK instances to streaming updates
