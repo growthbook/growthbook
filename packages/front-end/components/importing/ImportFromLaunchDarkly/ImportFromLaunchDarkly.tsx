@@ -58,6 +58,7 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
         <li>Environments</li>
         <li>Feature flags</li>
       </ul>
+      <p>Duplicate items will not be imported.</p>
 
       <form className="mt-4" onSubmit={handleSubmit}>
         <div className="form-group">
