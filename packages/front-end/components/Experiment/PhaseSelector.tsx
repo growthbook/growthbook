@@ -6,9 +6,14 @@ import { useSnapshot } from "./SnapshotProvider";
 export interface Props {
   mutateExperiment?: () => void;
   editPhases?: () => void;
+  newUi?: boolean;
 }
 
-export default function PhaseSelector({ mutateExperiment, editPhases }: Props) {
+export default function PhaseSelector({
+  mutateExperiment,
+  editPhases,
+  newUi,
+}: Props) {
   const { phase, setPhase, experiment } = useSnapshot();
 
   const phaseOptions = experiment?.phases?.map((phase, i) => ({
@@ -49,8 +54,10 @@ export default function PhaseSelector({ mutateExperiment, editPhases }: Props) {
         setPhase(parseInt(value) || 0);
       }}
       sort={false}
-      label="Phase"
+      label={newUi ? undefined : "Phase"}
       labelClassName="mr-2"
+      className={newUi ? "phase-selector-clean" : undefined}
+      isSearchable={false}
       formatOptionLabel={({ value, label }) => {
         if (value === "edit") {
           return <div className="cursor-pointer">{label}</div>;
@@ -59,6 +66,18 @@ export default function PhaseSelector({ mutateExperiment, editPhases }: Props) {
         const phaseIndex = parseInt(value) || 0;
         const phase = experiment?.phases?.[phaseIndex];
         if (!phase) return value;
+
+        if (newUi) {
+          return (
+            <div className="small text-gray">
+              <div className="phase-label">Phase {phaseIndex + 1}:</div>
+              <div className="date-label font-weight-bold">
+                {date(phase.dateStarted ?? "")} —{" "}
+                {phase.dateEnded ? date(phase.dateEnded) : "now"}
+              </div>
+            </div>
+          );
+        }
 
         return (
           <div className="d-flex">
