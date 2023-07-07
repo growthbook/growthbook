@@ -67,6 +67,17 @@ export default class Mssql extends SqlIntegration {
   formatDateTimeString(col: string): string {
     return `CONVERT(VARCHAR(25), ${col}, 121)`;
   }
+  percentileCapSelectClause(
+    capPercentile: number,
+    metricTable: string
+  ): string {
+    return `
+      SELECT 
+        APPROX_PERCENTILE_CONT(${capPercentile}) WITHIN GROUP (ORDER BY value) AS cap_value
+      FROM ${metricTable}
+      WHERE value IS NOT NULL
+    `;
+  }
   getDefaultDatabase() {
     return this.params.database;
   }

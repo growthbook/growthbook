@@ -62,7 +62,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   setModalData(v.property);
                 }}
               >
-                Edit Attribute
+                Edit
               </button>
             )}
             <button
@@ -98,6 +98,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
             </button>
             <DeleteButton
               displayName="Attribute"
+              className="dropdown-item text-danger"
               onClick={async () => {
                 const newAttributeSchema = attributeSchema.filter(
                   (attribute) => attribute.property !== v.property
@@ -110,8 +111,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 });
                 await refreshOrganization();
               }}
-              text="Delete Attribute"
-              className="dropdown-item"
+              text="Delete"
               useIcon={false}
             />
           </MoreMenu>
@@ -127,7 +127,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <div className="row mb-3 align-items-center">
             <div className="col">
               <div className="d-flex">
-                <h3>Targeting Attributes</h3>
+                <h1>Targeting Attributes</h1>
                 {permissions.manageTargetingAttributes && (
                   <div className="ml-auto">
                     <button

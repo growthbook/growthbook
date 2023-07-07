@@ -1,6 +1,5 @@
-import Link from "next/link";
 import React, { useState, FC } from "react";
-import { FaAngleLeft, FaPencilAlt } from "react-icons/fa";
+import { FaPencilAlt } from "react-icons/fa";
 import { TagInterface } from "back-end/types/tag";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
@@ -46,13 +45,6 @@ const TagsPage: FC = () => {
           onSuccess={() => mutateDefinitions()}
         />
       )}
-      <div className="mb-2">
-        <Link href="/settings">
-          <a>
-            <FaAngleLeft /> All Settings
-          </a>
-        </Link>
-      </div>
       <h1>Tags</h1>
       <p>Organize features, experiments, metrics, and more with tags.</p>
       {tags?.length > 0 ? (
