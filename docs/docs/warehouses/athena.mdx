@@ -1,0 +1,17 @@
+---
+title: Setting up Athena as a data source
+description: This document outlines the steps needed to add your Athena database to GrowthBook.
+sidebar_label: Athena
+slug: athena
+---
+
+Unlike other database engines with their own user management system, Athena uses IAM for authentication.
+
+We recommend creating a new role with readonly permissions for GrowthBook. The managed [Quick Sight Policy](https://docs.aws.amazon.com/athena/latest/ug/awsquicksightathenaaccess-managed-policy.html) is a good starting point.
+
+For the S3 results url, we recommend naming your bucket with the prefix `aws-athena-query-results-`
+
+There are two ways to provide AWS credentials to GrowthBook:
+
+1. Auto-discovery from environment variables or instance metadata (only available when self-hosting)
+2. Enter the accessKeyId and secretAccessKey in the GrowthBook UI when connecting to the data source
