@@ -1,6 +1,6 @@
 import React, { FC, FormEvent, ReactNode, useCallback } from "react";
 import { FaUpload } from "react-icons/fa";
-import { BsCheck, BsX } from "react-icons/bs";
+import { BsCheck, BsDash, BsX } from "react-icons/bs";
 import Link from "next/link";
 import {
   ImportTaskResults,
@@ -148,13 +148,15 @@ export const ImportFromLaunchDarkly: FC<ImportFromLaunchDarklyProps> = ({
 };
 
 const getIconForTaskResultState = (
-  state: "failed" | "completed"
+  state: "failed" | "completed" | "ignored"
 ): ReactNode => {
   switch (state) {
     case "completed":
       return <BsCheck className="d-block text-success" />;
     case "failed":
       return <BsX className="d-block text-danger" />;
+    case "ignored":
+      return <BsDash className="d-block text-muted" />;
     default:
       return null;
   }

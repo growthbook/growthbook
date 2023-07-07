@@ -1,4 +1,11 @@
-import { Reducer, useCallback, useEffect, useReducer, useState } from "react";
+import {
+  Reducer,
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useState,
+} from "react";
 import { ProjectInterface } from "back-end/types/project";
 import { Environment } from "back-end/types/organization";
 import { FeatureInterface } from "back-end/types/feature";
@@ -15,12 +22,13 @@ import {
 } from "@/services/importing";
 import { enqueueTasks, QueueTask, TaskResult } from "@/services/async-queue";
 import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 /**
  * User-friendly result message with status
  */
 export type LDOperationResult = {
-  status: "completed" | "failed";
+  status: "completed" | "failed" | "ignored";
   message: string;
 };
 
@@ -263,6 +271,12 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
     "idle"
   );
 
+  const { projects } = useDefinitions();
+  const existingProjectNames = useMemo(
+    () => (projects || []).map((project) => (project.name || "").toLowerCase()),
+    [projects]
+  );
+
   const [state, dispatch] = useReducer(importFromLDReducer, initialState);
 
   const { apiCall } = useAuth();
@@ -382,13 +396,23 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
 
                 case "retry":
                 case "fail":
-                  dispatch({
-                    type: "add-import-environment-result",
-                    data: {
-                      status: "failed",
-                      message: `Failed to import environment ${id} with error: ${result.error}`,
-                    },
-                  });
+                  if (result.error === "duplicate") {
+                    dispatch({
+                      type: "add-import-environment-result",
+                      data: {
+                        status: "ignored",
+                        message: `Environment ${id} already exists and was not imported.`,
+                      },
+                    });
+                  } else {
+                    dispatch({
+                      type: "add-import-environment-result",
+                      data: {
+                        status: "failed",
+                        message: `Failed to import environment ${id} with error: ${result.error}`,
+                      },
+                    });
+                  }
                   break;
               }
             },
@@ -404,18 +428,30 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
                   }),
                 });
 
-                if (response.status !== 200) {
+                if (response.status == 200) {
                   return {
-                    status: "fail",
-                    error: response.message || "unknown error",
+                    status: "success",
+                    data,
                   };
                 }
 
+                if (response.message?.includes("already exists")) {
+                  return {
+                    status: "fail",
+                    error: "duplicate",
+                  };
+                }
                 return {
-                  status: "success",
-                  data,
+                  status: "fail",
+                  error: response.message || "unknown error",
                 };
               } catch (e) {
+                if (e.message?.includes("already exists")) {
+                  return {
+                    status: "fail",
+                    error: "duplicate",
+                  };
+                }
                 return {
                   status: "fail",
                   error: e.message || "unknown error",
@@ -540,18 +576,30 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
                 body: JSON.stringify(data),
               });
 
-              if (response.status !== 200) {
+              if (response.status == 200) {
                 return {
-                  status: "fail",
-                  error: response.message || "unknown error",
+                  status: "success",
+                  data: response.feature,
                 };
               }
 
+              if (response.message?.includes("already exists")) {
+                return {
+                  status: "fail",
+                  error: "duplicate",
+                };
+              }
               return {
-                status: "success",
-                data: response.feature,
+                status: "fail",
+                error: response.message || "unknown error",
               };
             } catch (e) {
+              if (e.message?.includes("already exists")) {
+                return {
+                  status: "fail",
+                  error: "duplicate",
+                };
+              }
               return {
                 status: "fail",
                 error: e.message || "unknown error",
@@ -625,17 +673,34 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
 
               case "retry":
               case "fail":
-                dispatch({
-                  type: "add-import-project-result",
-                  data: {
-                    status: "failed",
-                    message: `Failed to import project ${id} with error: ${result.error}`,
-                  },
-                });
+                if (result.error === "duplicate") {
+                  dispatch({
+                    type: "add-import-project-result",
+                    data: {
+                      status: "ignored",
+                      message: `Project ${id} already exists and was not imported`,
+                    },
+                  });
+                } else {
+                  dispatch({
+                    type: "add-import-project-result",
+                    data: {
+                      status: "failed",
+                      message: `Failed to import project ${id} with error: ${result.error}`,
+                    },
+                  });
+                }
                 break;
             }
           },
           async perform(data): Promise<TaskResult<ProjectInterface>> {
+            if (existingProjectNames.includes(data.name.toLowerCase())) {
+              return {
+                status: "fail",
+                error: "duplicate",
+              };
+            }
+
             try {
               const response = await apiCall<{
                 project?: ProjectInterface;
@@ -670,7 +735,7 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
 
       perform();
     },
-    [state.gbProjects, apiToken, apiCall]
+    [state.gbProjects, apiToken, apiCall, existingProjectNames]
   );
 
   return {
