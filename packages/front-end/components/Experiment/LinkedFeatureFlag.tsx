@@ -1,10 +1,7 @@
-import {
-  FaCheckCircle,
-  FaExclamationTriangle,
-  FaTimesCircle,
-} from "react-icons/fa";
+import { FaInfoCircle, FaTimesCircle } from "react-icons/fa";
 import { ExperimentRule, FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import clsx from "clsx";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import { getRules, useEnvironments } from "@/services/features";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
@@ -24,117 +21,107 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
       feature={feature}
       open={experiment.status === "draft"}
     >
-      <div className="mt-2 pb-3 px-3">
-        <div className="mb-3">
-          Feature key:
-          <ClickToCopy className="h4 mb-0">{feature.id}</ClickToCopy>
-        </div>
+      <div className="mt-2 pb-1 px-3">
+        <div className="font-weight-bold">Feature key</div>
+        <ClickToCopy className="mb-3">{feature.id}</ClickToCopy>
 
-        <div className="font-weight-bold mb-2">Rules summary</div>
-        <div className="mb-2">
-          {environments.map((en) => {
-            const rules = getRules(feature, en.id);
-            const experimentRules = rules.filter(
-              (r) =>
+        <div className="font-weight-bold mb-2">Feature values</div>
+        {environments.map((en) => {
+          const rules = getRules(feature, en.id);
+          const experimentRules = rules.filter(
+            (r) =>
+              r.type === "experiment" &&
+              r.trackingKey === experiment.trackingKey
+          ) as ExperimentRule[];
+          const indexOfLastExperimentRule = rules.indexOf(
+            experimentRules[experimentRules.length - 1]
+          );
+          const rulesAboveExperiment = rules.filter(
+            (r, i) =>
+              i < indexOfLastExperimentRule &&
+              !(
                 r.type === "experiment" &&
                 r.trackingKey === experiment.trackingKey
-            ) as ExperimentRule[];
-            const indexOfLastExperimentRule = rules.indexOf(
-              experimentRules[experimentRules.length - 1]
-            );
-            const rulesAboveExperiment = rules.filter(
-              (r, i) =>
-                i < indexOfLastExperimentRule &&
-                !(
-                  r.type === "experiment" &&
-                  r.trackingKey === experiment.trackingKey
-                )
-            );
+              )
+          );
 
-            return (
-              <div className="mb-3 card px-3 py-2" key={en.id}>
-                <div className="mb-2 pt-1 pb-2 border-bottom">
-                  <span className="d-inline-block mr-3">Environment:</span>
-                  <span className="font-weight-bold">{en.id}</span>
+          const disabledReasons: string[] = [];
+          if (experimentRules.length === 0) {
+            disabledReasons.push("no experiment rules");
+          }
+          if (!feature.environmentSettings?.[en.id]?.enabled) {
+            disabledReasons.push("flag disabled");
+          }
+
+          return (
+            <div
+              className={clsx(`mb-3 card px-3 py-2`, {
+                "bg-disabled": disabledReasons.length > 0,
+              })}
+              key={en.id}
+            >
+              <div className="my-2">
+                <span className="mr-3 uppercase-title">Environment:</span>
+                <span className="font-weight-bold">{en.id}</span>
+              </div>
+
+              {disabledReasons.length > 0 ? (
+                <div className="ml-1 mt-1 mb-2 text-warning-orange">
+                  <FaTimesCircle />
+                  <span className="text-uppercase ml-2">Disabled</span>
+                  <span className="ml-2">({disabledReasons.join(", ")})</span>
                 </div>
-                <div className="mb-2">
-                  <span className="d-inline-block mr-3">Status:</span>
-                  {feature.environmentSettings?.[en.id]?.enabled ? (
-                    <span className="text-success text-uppercase small">
-                      <FaCheckCircle /> enabled
-                    </span>
-                  ) : (
-                    <span className="text-muted text-uppercase small">
-                      <FaTimesCircle /> disabled
-                    </span>
-                  )}
-                </div>
-                <div className="mb-1">
-                  <div>
-                    <span className="d-inline-block mr-3">Feature rules:</span>
-                    <span>
-                      <span className="font-weight-bold">{rules.length}</span>
-                      {experimentRules.length > 0 ? (
-                        <>
+              ) : null}
+
+              {disabledReasons.length === 0 ? (
+                <div className="mt-1 mb-2">
+                  {experimentRules.map((rule, i) => (
+                    <div className="mt-1 mb-2" key={i}>
+                      <div className="mt-2 mb-1">
+                        {experimentRules.length > 1 ? (
                           <span className="text-muted ml-2">
-                            ({experimentRules.length || 0} experiment)
+                            (Rule {i + 1} of {experimentRules.length})
                           </span>
-                          {experimentRules.map((rule, i) => (
-                            <div className="mt-1 mb-2" key={i}>
-                              <div className="mt-2 mb-1">
-                                <span className="font-weight-bold">
-                                  Experiment rule values
+                        ) : null}
+                      </div>
+                      <table className="table-sm table-bordered">
+                        <tbody>
+                          {rule.values.map((v, j) => (
+                            <tr key={j}>
+                              <td
+                                className={`px-3 variation with-variation-label with-variation-right-shadow variation${j}`}
+                              >
+                                <span className="name font-weight-bold">
+                                  Variation {j}
                                 </span>
-                                {experimentRules.length > 1 ? (
-                                  <span className="text-muted ml-2">
-                                    (Rule {i + 1} of {experimentRules.length})
-                                  </span>
-                                ) : null}
-                              </div>
-                              <table className="table-sm table-bordered">
-                                <tbody>
-                                  {rule.values.map((v, j) => (
-                                    <tr key={j}>
-                                      <td
-                                        className={`px-3 variation with-variation-right-shadow variation${j}`}
-                                      >
-                                        Variation {j}
-                                      </td>
-                                      <td className="px-3">
-                                        <ForceSummary
-                                          value={v.value}
-                                          feature={feature}
-                                        />
-                                      </td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
+                              </td>
+                              <td className="px-3">
+                                <ForceSummary
+                                  value={v.value}
+                                  feature={feature}
+                                />
+                              </td>
+                            </tr>
                           ))}
-                        </>
-                      ) : (
-                        <span className="text-muted ml-2">
-                          (No experiment rules)
-                        </span>
-                      )}
-                    </span>
-                  </div>
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
                   {rulesAboveExperiment.length > 0 ? (
-                    <div className="mt-4 mb-2 alert alert-info px-3 py-2">
-                      <FaExclamationTriangle className="mr-2" />
+                    <div className="mt-3 mb-1 alert alert-info px-3 py-2">
+                      <FaInfoCircle className="mr-2" />
                       There {rulesAboveExperiment.length === 1
                         ? "is"
                         : "are"}{" "}
-                      {rulesAboveExperiment.length || 0} rules above the
-                      experiment rule.
+                      {rulesAboveExperiment.length || 0} feature rules above the
+                      experiment, so some users may not be included.
                     </div>
                   ) : null}
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
     </LinkedChange>
   );
