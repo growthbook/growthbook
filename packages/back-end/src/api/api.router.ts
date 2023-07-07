@@ -6,6 +6,7 @@ import bodyParser from "body-parser";
 import authenticateApiRequestMiddleware from "../middleware/authenticateApiRequestMiddleware";
 import { getBuild } from "../util/handler";
 import { ApiRequestLocals } from "../../types/api";
+import * as gbCloudSdkMiddleware from "../services/GBCloudSDKService/middleware";
 import featuresRouter from "./features/features.router";
 import experimentsRouter from "./experiments/experiments.router";
 import metricsRouter from "./metrics/metrics.router";
@@ -66,6 +67,9 @@ router.get("/", (req, res) => {
     build: getBuild(),
   });
 });
+
+// Set attributes for GBCloud SDK
+router.use(gbCloudSdkMiddleware.setAttributes);
 
 // API endpoints
 router.use("/features", featuresRouter);

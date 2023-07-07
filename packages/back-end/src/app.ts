@@ -274,8 +274,6 @@ app.use(auth.middleware);
 // Add logged in user props to the request
 app.use(processJWT);
 
-app.use(gbCloudSdkMiddleware.setAttributes);
-
 // Add logged in user props to the logger
 app.use(
   (req: AuthRequest, res: Response & { log: AuthRequest["log"] }, next) => {
@@ -286,6 +284,9 @@ app.use(
 
 // Validate self hosted license key if present
 app.use(verifyLicenseMiddleware);
+
+// Set attributes for GBCloudSDK once logged in
+app.use(gbCloudSdkMiddleware.setAttributes);
 
 // Logged-in auth requests
 if (!useSSO) {
