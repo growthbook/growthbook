@@ -119,7 +119,7 @@ export default function AutoGenerateMetricsModal({
       // Before we setMetricsToCreate, we need to add a "shouldCreate" boolean property to each metric
       res.trackedEvents.forEach((event: TrackedEventData) => {
         event.metricsToCreate.forEach((metric) => {
-          metric.shouldCreate = true;
+          metric.shouldCreate = metric.exists ? false : true;
         });
       });
       setTrackedEvents(res.trackedEvents);
@@ -220,7 +220,9 @@ export default function AutoGenerateMetricsModal({
                       );
                       updates.forEach((event) => {
                         event.metricsToCreate.forEach((metric) => {
-                          metric.shouldCreate = true;
+                          if (!metric.exists) {
+                            metric.shouldCreate = true;
+                          }
                         });
                       });
                       setTrackedEvents(updates);
@@ -236,7 +238,9 @@ export default function AutoGenerateMetricsModal({
                       );
                       updates.forEach((event) => {
                         event.metricsToCreate.forEach((metric) => {
-                          metric.shouldCreate = false;
+                          if (!metric.exists) {
+                            metric.shouldCreate = false;
+                          }
                         });
                       });
                       setTrackedEvents(updates);

@@ -147,7 +147,7 @@ export type TrackedEventData = {
     sql: string;
     type: MetricType;
     shouldCreate?: boolean;
-    id?: string;
+    exists?: boolean;
   }[];
 };
 

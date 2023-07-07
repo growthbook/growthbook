@@ -66,11 +66,11 @@ export default function AutoMetricCard({
                   event.metricsToCreate[binomialIndex].shouldCreate || false
                 }
                 disabled={
-                  event.metricsToCreate[binomialIndex].id ? true : false
+                  event.metricsToCreate[binomialIndex].exists ? true : false
                 }
                 disabledMessage="This metric has already been created."
                 style={
-                  event.metricsToCreate[binomialIndex].id
+                  event.metricsToCreate[binomialIndex].exists
                     ? { opacity: 0.5 }
                     : {}
                 }
@@ -104,10 +104,14 @@ export default function AutoMetricCard({
               <Toggle
                 value={event.metricsToCreate[countIndex].shouldCreate || false}
                 id={`${event}-${event.metricsToCreate[countIndex].name}`}
-                disabled={event.metricsToCreate[countIndex].id ? true : false}
+                disabled={
+                  event.metricsToCreate[countIndex].exists ? true : false
+                }
                 disabledMessage="This metric has already been created."
                 style={
-                  event.metricsToCreate[countIndex].id ? { opacity: 0.5 } : {}
+                  event.metricsToCreate[countIndex].exists
+                    ? { opacity: 0.5 }
+                    : {}
                 }
                 setValue={(value) => {
                   const updatedTrackedEvents = cloneDeep(trackedEvents);
