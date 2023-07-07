@@ -11,6 +11,7 @@ import {
 } from "../events/base-types";
 import { logger } from "../util/logger";
 import { errorStringFromZodResult } from "../util/validation";
+import { OrganizationInterface } from "../../types/organization";
 
 const slackIntegrationSchema = new mongoose.Schema({
   id: {
@@ -333,6 +334,29 @@ export const deleteSlackIntegration = async ({
   });
 
   return result.deletedCount === 1;
+};
+
+/**
+ * Deletes Slack integrations where the provided project is the only project for that Slack integration
+ * @param projectId
+ * @param organization
+ * @param user
+ */
+export const deleteAllSlackIntegrationsForAProject = async ({
+  projectId,
+  organization,
+}: {
+  projectId: string;
+  organization: OrganizationInterface;
+}): Promise<void> => {
+  const slackIntegrationsToDelete = await SlackIntegrationModel.find({
+    organization: organization.id,
+    projects: [projectId],
+  });
+
+  for (const slackIntegration of slackIntegrationsToDelete) {
+    await slackIntegration.delete();
+  }
 };
 
 type RemoveTagOptions = {
