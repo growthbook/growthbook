@@ -24,7 +24,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import EditDOMMutatonsModal from "@/components/Experiment/EditDOMMutationsModal";
 import LinkedChange from "@/components/Experiment/LinkedChange";
-import {getApiHost} from "@/services/env";
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;
@@ -52,7 +51,6 @@ const drawChange = ({
   onlySimpleRules,
   regexUrlPatterns,
   newUi,
-  apiHost,
 }: {
   i: number;
   vc: VisualChangesetInterface;
@@ -71,7 +69,6 @@ const drawChange = ({
   onlySimpleRules: boolean;
   regexUrlPatterns: VisualChangesetURLPattern[];
   newUi?: boolean;
-  apiHost: string;
 }) => {
   return (
     <div
@@ -187,11 +184,7 @@ const drawChange = ({
                   editorUrl = "http://" + editorUrl;
                 }
                 editorUrl = appendQueryParamsToURL(editorUrl, {
-                  "vc-id": vc.id,
-                  "v-idx": 1,
-                  "exp-url": encodeURIComponent(window.location.href),
-                  "api-host": encodeURIComponent(apiHost),
-                  [experiment.trackingKey]: j
+                  [experiment.trackingKey]: j,
                 });
 
                 return (
@@ -225,11 +218,7 @@ const drawChange = ({
                         {numChanges === 1 ? "" : "s"}
                       </div>
                       <div>
-                        <a
-                          target="_blank"
-                          rel="noreferrer"
-                          href={editorUrl}
-                        >
+                        <a target="_blank" rel="noreferrer" href={editorUrl}>
                           Preview
                         </a>
                       </div>
@@ -271,7 +260,6 @@ export const VisualChangesetTable: FC<Props> = ({
 }: Props) => {
   const { variations } = experiment;
   const { apiCall } = useAuth();
-  const apiHost = getApiHost();
 
   const { hasCommercialFeature } = useUser();
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
@@ -380,7 +368,6 @@ export const VisualChangesetTable: FC<Props> = ({
           onlySimpleRules,
           regexUrlPatterns,
           newUi,
-          apiHost,
         });
 
         const visualChangeTypesSet: Set<string> = new Set();
