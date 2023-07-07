@@ -9,6 +9,7 @@ import { useAuth } from "@/services/auth";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
+import {trafficSplitPercentages} from "@/services/utils";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -94,10 +95,12 @@ const VariationsTable: FC<Props> = ({
   newUi,
 }) => {
   const { variations } = experiment;
-  // const { phase: phaseIndex } = useSnapshot();
-  // const weights = experiment?.phases?.[phaseIndex]?.variationWeights ?? null;
-  // const percentages =
-  //   (weights?.length || 0) > 0 ? trafficSplitPercentages(weights) : null;
+  const phases = experiment.phases || [];
+  const lastPhaseIndex = phases.length - 1;
+  const lastPhase = phases[lastPhaseIndex];
+  const weights = lastPhase?.variationWeights ?? null;
+  const percentages =
+    (weights?.length || 0) > 0 ? trafficSplitPercentages(weights) : null;
 
   const visualChangesets = _visualChangesets || [];
 
@@ -125,13 +128,13 @@ const VariationsTable: FC<Props> = ({
                 <th
                   key={i}
                   className={`variation with-variation-label variation${i} ${
-                    !(hasDescriptions || hasUniqueIDs)
+                    !(hasDescriptions || hasUniqueIDs || newUi)
                       ? "with-variation-border-bottom"
                       : "pb-2"
                   }`}
                   style={{
                     borderBottom:
-                      hasDescriptions || hasUniqueIDs ? 0 : undefined,
+                      hasDescriptions || hasUniqueIDs || newUi ? 0 : undefined,
                   }}
                 >
                   <span className="label">{i}</span>
@@ -139,7 +142,7 @@ const VariationsTable: FC<Props> = ({
                 </th>
               ))}
             </tr>
-            {hasDescriptions || hasUniqueIDs ? (
+            {hasDescriptions || hasUniqueIDs || newUi ? (
               <tr>
                 {variations.map((v, i) => (
                   <td
@@ -151,6 +154,11 @@ const VariationsTable: FC<Props> = ({
                     {hasDescriptions ? <div>{v.description}</div> : null}
                     {hasUniqueIDs ? (
                       <code className="small">ID: {v.key}</code>
+                    ) : null}
+                    {newUi && percentages?.[i] !== undefined ? (
+                      <div className="text-right text-muted">
+                        Split: {percentages[i].toFixed(0)}%
+                      </div>
                     ) : null}
                   </td>
                 ))}

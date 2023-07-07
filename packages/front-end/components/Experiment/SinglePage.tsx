@@ -46,7 +46,6 @@ import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
-import { phaseSummary } from "@/services/utils";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import MoreMenu from "../Dropdown/MoreMenu";
@@ -227,19 +226,21 @@ export default function SinglePage({
   }>(`/feature`);
 
   const phases = experiment.phases || [];
+  const lastPhaseIndex = phases.length - 1;
+  const lastPhase = phases[lastPhaseIndex];
   const phase = phases[phaseIndex || 0];
   const startDate = phases?.[0]?.dateStarted
     ? date(phases[0].dateStarted)
     : null;
   const endDate =
     phases.length > 0
-      ? phases?.[phases.length - 1]?.dateEnded
-        ? date(phases[phases.length - 1].dateEnded ?? "")
+      ? lastPhase?.dateEnded
+        ? date(lastPhase.dateEnded ?? "")
         : "now"
       : null;
-  const hasNamespace = phase.namespace && phase.namespace.enabled;
+  const hasNamespace = lastPhase.namespace && lastPhase.namespace.enabled;
   const namespaceRange = hasNamespace
-    ? phase.namespace.range[1] - phase.namespace.range[0]
+    ? lastPhase.namespace.range[1] - lastPhase.namespace.range[0]
     : 1;
 
   const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -821,6 +822,83 @@ export default function SinglePage({
         )}
       </div>
 
+      {experimentPendingWithVisualChanges && visualChangesets.length === 0 ? (
+        <div className="alert-cool-1 text-center mb-4 px-3 py-4 position-relative">
+          <p className="h4 mb-4">
+            Use our Visual Editor to make changes to your site without deploying
+            code
+          </p>
+          {hasVisualEditorFeature ? (
+            <button
+              className="btn btn-primary btn-lg mb-3"
+              onClick={() => {
+                setVisualEditorModal(true);
+                track("Open visual editor modal", {
+                  source: "visual-editor-ui",
+                  action: "add",
+                });
+              }}
+            >
+              Open Visual Editor
+            </button>
+          ) : (
+            <div className="mb-3">
+              <PremiumTooltip commercialFeature={"visual-editor"}>
+                <div className="btn btn-primary btn-lg disabled">
+                  Open Visual Editor
+                </div>
+              </PremiumTooltip>
+            </div>
+          )}
+
+          <div
+            className="position-absolute text-center mr-4 mb-4"
+            style={{ right: 0, bottom: 0 }}
+          >
+            <p className="mb-1">Want to skip this step?</p>
+            <Button
+              color=""
+              className="btn btn-outline-primary"
+              onClick={async () => {
+                await apiCall(`/experiment/${experiment.id}/status`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    status: "running",
+                  }),
+                });
+                await mutate();
+                track("Start experiment", {
+                  source: "visual-editor-ui",
+                  action: "bypass visual editor",
+                });
+              }}
+            >
+              Start Experiment <MdRocketLaunch />
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {experimentPendingWithVisualChanges &&
+      visualChangesets.length > 0 &&
+      !hasSomeVisualChanges ? (
+        <div className="alert mb-4 py-4 text-center alert-info">
+          Click the{" "}
+          <div
+            className="d-inline-block btn btn-sm btn-outline-primary"
+            style={{
+              pointerEvents: "none",
+              verticalAlign: 1,
+              padding: "3px 6px",
+            }}
+          >
+            Open Visual Editor <FaExternalLinkAlt />
+          </div>{" "}
+          button in the <strong>Linked Changes</strong> section below and add at
+          least one change to your experiment before you start
+        </div>
+      ) : null}
+
       <div className="mb-4 pt-3 appbox">
         <Collapsible
           trigger={
@@ -833,116 +911,94 @@ export default function SinglePage({
           onTriggerClosing={() => setMetaInfoOpen(false)}
           transitionTime={150}
         >
-          <div className="mx-4 pt-3 border-top">
-            <div className="mb-4">
-              <MarkdownInlineEdit
-                value={experiment.description ?? ""}
-                save={async (description) => {
-                  await apiCall(`/experiment/${experiment.id}`, {
-                    method: "POST",
-                    body: JSON.stringify({ description }),
-                  });
-                  mutate();
-                }}
-                canCreate={canEditExperiment}
-                canEdit={canEditExperiment}
-                className="mb-3"
-                containerClassName="mb-1"
-                label="description"
-                header="Description"
-                headerClassName="h4"
-              />
+          <div className="mx-4 mb-3 pt-3 border-top">
+            <MarkdownInlineEdit
+              value={experiment.description ?? ""}
+              save={async (description) => {
+                await apiCall(`/experiment/${experiment.id}`, {
+                  method: "POST",
+                  body: JSON.stringify({ description }),
+                });
+                mutate();
+              }}
+              canCreate={canEditExperiment}
+              canEdit={canEditExperiment}
+              className="mb-3"
+              containerClassName="mb-1"
+              label="description"
+              header="Description"
+              headerClassName="h4"
+            />
 
-              <MarkdownInlineEdit
-                value={experiment.hypothesis ?? ""}
-                save={async (hypothesis) => {
-                  await apiCall(`/experiment/${experiment.id}`, {
-                    method: "POST",
-                    body: JSON.stringify({ hypothesis }),
-                  });
-                  mutate();
-                }}
-                canCreate={canEditExperiment}
-                canEdit={canEditExperiment}
-                label="hypothesis"
-                header={
-                  <>
-                    <FaRegLightbulb /> Hypothesis
-                  </>
-                }
-                headerClassName="h4"
-                className="mb-3"
-                containerClassName="mb-1"
-              />
+            <MarkdownInlineEdit
+              value={experiment.hypothesis ?? ""}
+              save={async (hypothesis) => {
+                await apiCall(`/experiment/${experiment.id}`, {
+                  method: "POST",
+                  body: JSON.stringify({ hypothesis }),
+                });
+                mutate();
+              }}
+              canCreate={canEditExperiment}
+              canEdit={canEditExperiment}
+              label="hypothesis"
+              header={
+                <>
+                  <FaRegLightbulb /> Hypothesis
+                </>
+              }
+              headerClassName="h4"
+              className="mb-3"
+              containerClassName="mb-1"
+            />
 
-              {idea && (
-                <div className="mb-3">
-                  <div className="d-flex align-items-center">
-                    <div className="mr-1">Idea:</div>
-                    <div>
-                      {idea.impactScore > 0 && (
-                        <div
-                          className="badge badge-primary mr-1"
-                          title="Impact Score"
-                        >
-                          {idea.impactScore}
-                          <small>/100</small>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+            {idea && (
+              <div className="mb-3">
+                <div className="d-flex align-items-center">
+                  <div className="mr-1">Idea:</div>
                   <div>
-                    <Link href={`/idea/${idea.id}`}>
-                      <a
-                        style={{
-                          maxWidth: 200,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          display: "inline-block",
-                          whiteSpace: "nowrap",
-                          verticalAlign: "middle",
-                        }}
-                        title={idea.text}
+                    {idea.impactScore > 0 && (
+                      <div
+                        className="badge badge-primary mr-1"
+                        title="Impact Score"
                       >
-                        <FaExternalLinkAlt /> {idea.text}
-                      </a>
-                    </Link>
+                        {idea.impactScore}
+                        <small>/100</small>
+                      </div>
+                    )}
                   </div>
                 </div>
-              )}
-            </div>
-          </div>
-
-          <HeaderWithEdit
-            edit={editVariations ?? undefined}
-            className="h3 mt-1 mb-2"
-            containerClassName="mx-4 mb-1"
-          >
-            Variations
-          </HeaderWithEdit>
-
-          <div className="mx-1 mb-3">
-            <VariationsTable
-              experiment={experiment}
-              visualChangesets={visualChangesets}
-              mutate={mutate}
-              canEditExperiment={canEditExperiment}
-              canEditVisualChangesets={hasVisualEditorPermission}
-              setVisualEditorModal={setVisualEditorModal}
-              newUi={true}
-            />
+                <div>
+                  <Link href={`/idea/${idea.id}`}>
+                    <a
+                      style={{
+                        maxWidth: 200,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        display: "inline-block",
+                        whiteSpace: "nowrap",
+                        verticalAlign: "middle",
+                      }}
+                      title={idea.text}
+                    >
+                      <FaExternalLinkAlt /> {idea.text}
+                    </a>
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="mx-4 mb-4">
             <div className="h3 mb-2">
-              Targeting and Traffic
+              Targeting
               {editPhase ? (
                 <a
                   role="button"
                   className="ml-1"
                   onClick={(e) => {
                     e.preventDefault();
-                    editPhase(phaseIndex);
+                    editPhase(lastPhaseIndex);
                   }}
                 >
                   <GBEdit />
@@ -950,37 +1006,19 @@ export default function SinglePage({
               ) : null}
             </div>
             {phase ? (
-              <div className="appbox px-4 py-3">
-                <div className="mb-1">
-                  Phase {phaseIndex + 1}:{" "}
-                  <span className="font-weight-bold">{phase.name}</span>
-                  {phases.length > 1 && (
-                    <span className="ml-1 text-muted">
-                      ({phases.length} total)
-                    </span>
-                  )}
-                </div>
-                <div className="small">
-                  {date(phase.dateStarted ?? "")} —{" "}
-                  {phase.dateEnded ? date(phase.dateEnded) : "now"}
-                </div>
-                <div className="mt-3">
-                  <div className="h5 mb-0">Traffic split</div>
-                  {phaseSummary(phase)}
-                </div>
-                {phase.condition && phase.condition !== "{}" ? (
-                  <div className="mt-3">
-                    <div className="h5 mb-0">Targeting</div>
-                    <div>
-                      <ConditionDisplay condition={phase.condition} />
-                    </div>
+              <div className="appbox px-3 py-3">
+                {lastPhase.condition && lastPhase.condition !== "{}" ? (
+                  <div className="mt-0">
+                    <ConditionDisplay condition={lastPhase.condition} />
                   </div>
-                ) : null}
+                ) : (
+                  <div className="text-muted">No targeting conditions</div>
+                )}
                 {hasNamespace ? (
                   <div className="mt-3">
                     <div className="h5 mb-0">Namespace</div>
                     <div>
-                      {phase.namespace.name} (
+                      {lastPhase.namespace.name} (
                       {percentFormatter.format(namespaceRange)})
                     </div>
                   </div>
@@ -1002,6 +1040,44 @@ export default function SinglePage({
                 </p>
               </div>
             )}
+          </div>
+
+          <div className="d-flex mx-4 mb-1 align-items-center justify-content-between">
+            <HeaderWithEdit
+              edit={editVariations ?? undefined}
+              className="h3 mt-1 mb-2"
+              containerClassName=""
+            >
+              Variations
+            </HeaderWithEdit>
+            {lastPhase?.coverage !== undefined ? (
+              <div className="text-muted">
+                Traffic coverage: {Math.floor(lastPhase.coverage * 100)}%
+                {editPhase ? (
+                  <a
+                    role="button"
+                    className="ml-1"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      editPhase(lastPhaseIndex);
+                    }}
+                  >
+                    <GBEdit />
+                  </a>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+          <div className="mx-1 mb-3">
+            <VariationsTable
+              experiment={experiment}
+              visualChangesets={visualChangesets}
+              mutate={mutate}
+              canEditExperiment={canEditExperiment}
+              canEditVisualChangesets={hasVisualEditorPermission}
+              setVisualEditorModal={setVisualEditorModal}
+              newUi={true}
+            />
           </div>
 
           <div className="mx-4 pb-3">
@@ -1049,119 +1125,56 @@ export default function SinglePage({
         </Collapsible>
       </div>
 
-      {experimentPendingWithVisualChanges ? (
-        <>
-          {visualChangesets.length > 0 ? (
-            <div className="mb-4">
-              {!hasSomeVisualChanges ? (
-                <div className="alert py-4 text-center alert-info">
-                  Open the Visual Editor above and add at least one change to
-                  your experiment before you start
-                </div>
-              ) : hasSDKWithVisualExperimentsEnabled ? (
-                <div className="alert-cool-1 text-center px-3 py-4">
-                  <p className="h4 mb-4">Done setting everything up?</p>
-                  <Button
-                    color="primary"
-                    className="btn-lg"
-                    onClick={async () => {
-                      await apiCall(`/experiment/${experiment.id}/status`, {
-                        method: "POST",
-                        body: JSON.stringify({
-                          status: "running",
-                        }),
-                      });
-                      await mutate();
-                      track("Start experiment", {
-                        source: "visual-editor-ui",
-                        action: "main CTA",
-                      });
-                    }}
-                  >
-                    Start Experiment <MdRocketLaunch />
-                  </Button>{" "}
-                  <Button
-                    className="ml-2"
-                    color="link"
-                    onClick={async () => {
-                      if (editPhase) editPhase(experiment.phases.length - 1);
-                      track("Edit phase", { source: "visual-editor-ui" });
-                    }}
-                  >
-                    Edit Targeting
-                  </Button>
-                </div>
-              ) : (
-                <div className="w-100 mt-2 mb-0 alert alert-warning">
-                  <div className="mb-2">
-                    <strong>
-                      <FaExclamationTriangle /> You must configure one of your
-                      SDK Connections to include Visual Experiments before
-                      starting
-                    </strong>
-                  </div>
-                  Go to <Link href="/sdks">SDK Connections</Link>
-                </div>
-              )}
+      {experimentPendingWithVisualChanges &&
+      visualChangesets.length > 0 &&
+      hasSomeVisualChanges ? (
+        hasSDKWithVisualExperimentsEnabled ? (
+          <div className="alert-cool-1 mb-4 text-center px-3 py-4">
+            <p className="h4 mb-4">Done setting everything up?</p>
+            <Button
+              color="primary"
+              className="btn-lg"
+              onClick={async () => {
+                await apiCall(`/experiment/${experiment.id}/status`, {
+                  method: "POST",
+                  body: JSON.stringify({
+                    status: "running",
+                  }),
+                });
+                await mutate();
+                track("Start experiment", {
+                  source: "visual-editor-ui",
+                  action: "main CTA",
+                });
+              }}
+            >
+              Start Experiment <MdRocketLaunch />
+            </Button>{" "}
+            <Button
+              className="ml-2"
+              color="link"
+              onClick={async () => {
+                if (editPhase) editPhase(experiment.phases.length - 1);
+                track("Edit phase", { source: "visual-editor-ui" });
+              }}
+            >
+              Edit Targeting
+            </Button>
+          </div>
+        ) : (
+          <div className="w-100 mt-2 mb-0 alert alert-warning">
+            <div className="mb-2">
+              <strong>
+                <FaExclamationTriangle /> You must configure one of your SDK
+                Connections to include Visual Experiments before starting
+              </strong>
             </div>
-          ) : (
-            <div className="alert-cool-1 text-center mb-4 px-3 py-4 position-relative">
-              <p className="h4 mb-4">
-                Use our Visual Editor to make changes to your site without
-                deploying code
-              </p>
-              {hasVisualEditorFeature ? (
-                <button
-                  className="btn btn-primary btn-lg mb-3"
-                  onClick={() => {
-                    setVisualEditorModal(true);
-                    track("Open visual editor modal", {
-                      source: "visual-editor-ui",
-                      action: "add",
-                    });
-                  }}
-                >
-                  Open Visual Editor
-                </button>
-              ) : (
-                <div className="mb-3">
-                  <PremiumTooltip commercialFeature={"visual-editor"}>
-                    <div className="btn btn-primary btn-lg disabled">
-                      Open Visual Editor
-                    </div>
-                  </PremiumTooltip>
-                </div>
-              )}
+            Go to <Link href="/sdks">SDK Connections</Link>
+          </div>
+        )
+      ) : null}
 
-              <div
-                className="position-absolute text-center mr-4 mb-4"
-                style={{ right: 0, bottom: 0 }}
-              >
-                <p className="mb-1">Want to skip this step?</p>
-                <Button
-                  color=""
-                  className="btn btn-outline-primary"
-                  onClick={async () => {
-                    await apiCall(`/experiment/${experiment.id}/status`, {
-                      method: "POST",
-                      body: JSON.stringify({
-                        status: "running",
-                      }),
-                    });
-                    await mutate();
-                    track("Start experiment", {
-                      source: "visual-editor-ui",
-                      action: "bypass visual editor",
-                    });
-                  }}
-                >
-                  Start Experiment <MdRocketLaunch />
-                </Button>
-              </div>
-            </div>
-          )}
-        </>
-      ) : !experimentHasPhases ? (
+      {!experimentPendingWithVisualChanges && !experimentHasPhases ? (
         <div className="alert-cool-1 text-center mb-4 px-3 py-4 position-relative text-center">
           <p className="h4 mb-3">Add an experiment phase to begin testing</p>
           <button
