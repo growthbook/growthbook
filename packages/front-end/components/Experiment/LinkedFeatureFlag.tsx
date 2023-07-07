@@ -55,20 +55,21 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
 
           return (
             <div
-              className={clsx(`mb-3 card px-3 py-2`, {
+              className={clsx(`mb-3 appbox px-3 py-2`, {
                 "bg-disabled": disabledReasons.length > 0,
+                "bg-transparent": disabledReasons.length === 0,
               })}
               key={en.id}
             >
-              <div className="my-2">
+              <div className="my-1">
                 <span className="mr-3 uppercase-title">Environment:</span>
                 <span className="font-weight-bold">{en.id}</span>
               </div>
 
               {disabledReasons.length > 0 ? (
-                <div className="ml-1 mt-1 mb-2 text-warning-orange">
+                <div className="ml-1 mt-2 mb-1 text-warning-orange">
                   <FaTimesCircle />
-                  <span className="text-uppercase ml-2">Disabled</span>
+                  <span className="text-uppercase ml-1">Disabled</span>
                   <span className="ml-2">({disabledReasons.join(", ")})</span>
                 </div>
               ) : null}
@@ -84,18 +85,18 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
                           </span>
                         ) : null}
                       </div>
-                      <table className="table-sm table-bordered">
+                      <table className="table table-sm table-bordered w-auto">
                         <tbody>
                           {rule.values.map((v, j) => (
                             <tr key={j}>
                               <td
-                                className={`px-3 variation with-variation-label with-variation-right-shadow variation${j}`}
+                                className={`px-3 variation with-variation-label with-variation-right-shadow border-right-0 variation${j}`}
                               >
                                 <span className="name font-weight-bold">
                                   Variation {j}
                                 </span>
                               </td>
-                              <td className="px-3">
+                              <td className="px-3 border-left-0">
                                 <ForceSummary
                                   value={v.value}
                                   feature={feature}
@@ -113,7 +114,7 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
                       There {rulesAboveExperiment.length === 1
                         ? "is"
                         : "are"}{" "}
-                      {rulesAboveExperiment.length || 0} feature rules above the
+                      {rulesAboveExperiment.length} feature rules above this
                       experiment, so some users may not be included.
                     </div>
                   ) : null}

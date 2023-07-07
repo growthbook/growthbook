@@ -44,15 +44,13 @@ export default function LinkedChange({
                   style={{ minWidth: 200 }}
                 >
                   <span className="text-muted hover-label">Key:</span>{" "}
-                  <span className="ml-1 d-inline-block text-ellipsis text-body hover-label">
+                  <span className="ml-1 d-inline-block text-ellipsis hover-label">
                     {feature?.id}
                   </span>
                 </div>
                 <div className="col-3 pl-3">
                   <span className="text-muted hover-label">Type:</span>{" "}
-                  <span className="ml-1 text-body hover-label">
-                    {feature?.valueType}
-                  </span>
+                  <span className="ml-1 hover-label">{feature?.valueType}</span>
                 </div>
                 <div className="flex-1"></div>
                 <div className="col-auto">
@@ -81,13 +79,13 @@ export default function LinkedChange({
                   style={{ minWidth: 200 }}
                 >
                   <span className="text-muted hover-label">Page:</span>{" "}
-                  <span className="ml-1 d-inline-block text-ellipsis text-body hover-label">
+                  <span className="ml-1 d-inline-block text-ellipsis hover-label">
                     {page}
                   </span>
                 </div>
                 <div className="col-3 pl-3">
                   <span className="text-muted hover-label">Changes:</span>{" "}
-                  <span className="text-body hover-label">
+                  <span className="hover-label">
                     {(changes?.length || 0) > 0 ? (
                       changes?.join(" + ")
                     ) : (

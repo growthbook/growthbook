@@ -623,9 +623,9 @@ pre {
 .Collapsible__trigger {
   &:hover {
     cursor: pointer;
-    color: colors.$primary-blue;
+    color: var(--text-link-color);
     .hover-label {
-      color: colors.$primary-blue !important;
+      color: var(--text-link-color) !important;
     }
   }
   .chevron {
