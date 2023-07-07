@@ -1,5 +1,5 @@
 import mongoose, { FilterQuery } from "mongoose";
-import { MetricInterface } from "../../types/metric";
+import { LegacyMetricInterface, MetricInterface } from "../../types/metric";
 import { getConfigMetrics, usingFileConfig } from "../init/config";
 import { upgradeMetricDoc } from "../util/migrations";
 import { OrganizationInterface } from "../../types/organization";
@@ -32,7 +32,8 @@ const metricSchema = new mongoose.Schema({
   earlyStart: Boolean,
   inverse: Boolean,
   ignoreNulls: Boolean,
-  cap: Number,
+  capping: String,
+  capValue: Number,
   denominator: String,
   conversionWindowHours: Number,
   conversionDelayHours: Number,
@@ -46,10 +47,7 @@ const metricSchema = new mongoose.Schema({
   regressionAdjustmentDays: Number,
   dateCreated: Date,
   dateUpdated: Date,
-  userIdColumn: String,
   segment: String,
-  anonymousIdColumn: String,
-  userIdType: String,
   userIdTypes: [String],
   userIdColumns: {},
   status: String,
@@ -98,9 +96,12 @@ const metricSchema = new mongoose.Schema({
   },
 });
 metricSchema.index({ id: 1, organization: 1 }, { unique: true });
-type MetricDocument = mongoose.Document & MetricInterface;
+type MetricDocument = mongoose.Document & LegacyMetricInterface;
 
-const MetricModel = mongoose.model<MetricInterface>("Metric", metricSchema);
+const MetricModel = mongoose.model<LegacyMetricInterface>(
+  "Metric",
+  metricSchema
+);
 
 function toInterface(doc: MetricDocument): MetricInterface {
   return upgradeMetricDoc(doc.toJSON());

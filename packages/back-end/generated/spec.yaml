@@ -718,7 +718,19 @@ paths:
                         - decrease
                     cap:
                       type: number
-                      description: This should be non-negative
+                      deprecated: true
+                      description: '(deprecated, use capping and capValue fields instead) This should be non-negative'
+                      minimum: 0
+                    capping:
+                      type: string
+                      nullable: true
+                      description: 'Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`.'
+                      enum:
+                        - absolute
+                        - percentile
+                    capValue:
+                      type: number
+                      description: This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
                       minimum: 0
                     conversionWindowStart:
                       type: number
@@ -927,9 +939,16 @@ paths:
                       enum:
                         - increase
                         - decrease
-                    cap:
+                    capping:
+                      type: string
+                      nullable: true
+                      description: 'Used in conjunction with `capValue` to set the capping (winsorization). Set to null to turn capping off. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/> If `behavior.capping` is non-null, you must specify `behavior.capValue`.'
+                      enum:
+                        - absolute
+                        - percentile
+                    capValue:
                       type: number
-                      description: This should be non-negative
+                      description: This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
                       minimum: 0
                     conversionWindowStart:
                       type: number
@@ -1527,7 +1546,6 @@ components:
           type: object
           required:
             - goal
-            - cap
             - conversionWindowStart
             - conversionWindowEnd
             - riskThresholdSuccess
@@ -1542,6 +1560,14 @@ components:
                 - increase
                 - decrease
             cap:
+              type: number
+            capping:
+              type: string
+              nullable: true
+              enum:
+                - absolute
+                - percentile
+            capValue:
               type: number
             conversionWindowStart:
               type: number
