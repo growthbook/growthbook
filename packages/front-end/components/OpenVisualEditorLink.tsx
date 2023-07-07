@@ -1,4 +1,4 @@
-import { FC, useMemo, useState } from "react";
+import { FC, useCallback, useMemo, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { getApiHost } from "@/services/env";
 import track from "@/services/track";
@@ -27,13 +27,33 @@ const OpenVisualEditorLink: FC<{
   const url = useMemo(() => {
     if (!visualEditorUrl) return "";
 
-    return appendQueryParamsToURL(visualEditorUrl, {
+    // Trim whitespace to prevent simple copy/paste errors
+    let url = visualEditorUrl.trim();
+
+    // Force all URLs to be absolute
+    if (!url.match(/^http(s)?:/)) {
+      // We could use https here, but then it would break for people testing on localhost
+      // Most sites redirect http to https, so this should work almost everywhere
+      url = "http://" + url;
+    }
+
+    url = appendQueryParamsToURL(url, {
       "vc-id": id,
       "v-idx": changeIndex,
       "exp-url": encodeURIComponent(window.location.href),
       "api-host": encodeURIComponent(apiHost),
     });
+
+    return url;
   }, [visualEditorUrl, id, changeIndex, apiHost]);
+
+  const navigate = useCallback(() => {
+    track("Open visual editor", {
+      source: "visual-editor-ui",
+      status: "success",
+    });
+    window.location.href = url;
+  }, [url]);
 
   return (
     <>
@@ -77,11 +97,7 @@ const OpenVisualEditorLink: FC<{
           }
 
           if (url) {
-            track("Open visual editor", {
-              source: "visual-editor-ui",
-              status: "success",
-            });
-            window.location.href = url;
+            navigate();
           }
         }}
       >
@@ -120,8 +136,14 @@ const OpenVisualEditorLink: FC<{
           }
         >
           {isChromeBrowser ? (
-            `You'll need to install the GrowthBook DevTools Chrome extension
-          to use the visual editor.`
+            <>
+              You&apos;ll need to install the GrowthBook DevTools Chrome
+              extension to use the visual editor.{" "}
+              <a href="#" onClick={navigate} target="_blank" rel="noreferrer">
+                Click here to proceed anyway
+              </a>
+              .
+            </>
           ) : (
             <>
               The Visual Editor is currently only supported in Chrome. We are

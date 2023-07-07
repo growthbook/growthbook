@@ -1,12 +1,5 @@
 type: object
-required:
-  - datasourceId
-  - name
-  - type
 properties:
-  datasourceId:
-    type: string
-    description:  ID for the [DataSource](#tag/DataSource_model)
   owner:
     type: string
     description: Name of the person who owns this metric
@@ -45,15 +38,10 @@ properties:
         enum:
           - increase
           - decrease
-      cap:
-        type: number
-        deprecated: true
-        description: (deprecated, use capping and capValue fields instead) This should be non-negative
-        minimum: 0
       capping:
         type: string
         nullable: true
-        description: 'Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`.'
+        description: 'Used in conjunction with `capValue` to set the capping (winsorization). Set to null to turn capping off. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/> If `behavior.capping` is non-null, you must specify `behavior.capValue`.'
         enum:
           - absolute
           - percentile
@@ -88,10 +76,7 @@ properties:
         minimum: 0
   sql:
     type: object
-    description: "Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified."
-    required:
-      - identifierTypes
-      - conversionSQL
+    description: "Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed."
     properties:
       identifierTypes:
         type: array
@@ -107,11 +92,7 @@ properties:
         description: "The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)"
   sqlBuilder:
     type: object
-    description: "An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified."
-    required:
-      - identifierTypeColumns
-      - tableName
-      - timestampColumnName
+    description: "An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed"
     properties:
       identifierTypeColumns:
         type: array
@@ -148,10 +129,7 @@ properties:
               type: string
   mixpanel:
     type: object
-    description: "Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed, and at least one must be specified."
-    required:
-      - eventName
-      - userAggregation
+    description: "Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed."
     properties:
       eventName:
         type: string
