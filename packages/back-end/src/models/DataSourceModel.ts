@@ -120,6 +120,28 @@ export async function deleteDatasourceById(id: string, organization: string) {
   });
 }
 
+/**
+ * Deletes data sources where the provided project is the only project of that data source.
+ * @param projectId
+ * @param organizationId
+ */
+export async function deleteAllDataSourcesForAProject({
+  projectId,
+  organizationId,
+}: {
+  projectId: string;
+  organizationId: string;
+}) {
+  if (usingFileConfig()) {
+    throw new Error("Cannot delete. Data sources managed by config.yml");
+  }
+
+  await DataSourceModel.deleteMany({
+    organization: organizationId,
+    projects: [projectId],
+  });
+}
+
 export async function createDataSource(
   organization: string,
   name: string,
