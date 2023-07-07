@@ -13,7 +13,9 @@ import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
-import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
+import EditSqlModal, {
+  TestQueryResults,
+} from "../../../SchemaBrowser/EditSqlModal";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -109,6 +111,109 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     return null;
   }
 
+  const validateResponse = (result: TestQueryResults) => {
+    if (!result) return;
+
+    const namedCols = ["experiment_name", "variation_name"];
+    const userIdTypes = identityTypes?.map((type) => type.userIdType || []);
+
+    const requiredColumnsArray = Array.from(requiredColumns);
+    const returnedColumns = new Set<string>(Object.keys(result));
+    const optionalColumns = [...returnedColumns].filter(
+      (col) =>
+        !requiredColumns.has(col) &&
+        !namedCols.includes(col) &&
+        !userIdTypes?.includes(col)
+    );
+    let missingColumns = requiredColumnsArray.filter((col) => !(col in result));
+
+    // Check if `hasNameCol` should be enabled
+    if (!userEnteredHasNameCol) {
+      // Selected both required columns, turn on `hasNameCol` automatically
+      if (
+        returnedColumns.has("experiment_name") &&
+        returnedColumns.has("variation_name")
+      ) {
+        form.setValue("hasNameCol", true);
+      }
+      // Only selected `experiment_name`, add warning
+      else if (returnedColumns.has("experiment_name")) {
+        throw new Error(
+          "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name."
+        );
+      }
+      // Only selected `variation_name`, add warning
+      else if (returnedColumns.has("variation_name")) {
+        throw new Error(
+          "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name."
+        );
+      }
+    } else {
+      // `hasNameCol` is enabled, make sure both name columns are selected
+      if (
+        !returnedColumns.has("experiment_name") &&
+        !returnedColumns.has("variation_name")
+      ) {
+        form.setValue("hasNameCol", false);
+        missingColumns = missingColumns.filter(
+          (column) =>
+            column !== "experiment_name" && column !== "variation_name"
+        );
+      } else if (
+        returnedColumns.has("experiment_name") &&
+        !returnedColumns.has("variation_name")
+      ) {
+        throw new Error(
+          "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name."
+        );
+      } else if (
+        returnedColumns.has("variation_name") &&
+        !returnedColumns.has("experiment_name")
+      ) {
+        throw new Error(
+          "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name."
+        );
+      }
+    }
+
+    if (missingColumns.length > 0) {
+      // Check if any of the missing columns are dimensions
+      const missingDimensions = missingColumns.map((column) => {
+        if (userEnteredDimensions.includes(column)) {
+          return column;
+        }
+      });
+
+      // If so, remove them from as a userEnteredDimension & remove from missingColumns
+      if (missingDimensions.length > 0) {
+        missingColumns = missingColumns.filter(
+          (column) => !missingDimensions.includes(column)
+        );
+
+        const newUserEnteredDimensions = userEnteredDimensions.filter(
+          (column) => !missingDimensions.includes(column)
+        );
+        form.setValue("dimensions", newUserEnteredDimensions);
+      }
+
+      // Now, if missingColumns still has a length, throw an error
+      if (missingColumns.length > 0) {
+        throw new Error(
+          `You are missing the following columns: ${missingColumns.join(", ")}`
+        );
+      }
+    }
+
+    // Add optional columns as dimensions
+    if (optionalColumns.length > 0) {
+      {
+        optionalColumns.forEach((col) => {
+          form.setValue("dimensions", [...userEnteredDimensions, col]);
+        });
+      }
+    }
+  };
+
   return (
     <>
       {sqlOpen && dataSource && (
@@ -120,114 +225,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
           save={async (userEnteredQuery) => {
             form.setValue("query", userEnteredQuery);
           }}
-          validateResponse={(result) => {
-            if (!result) return;
-
-            const namedCols = ["experiment_name", "variation_name"];
-            const userIdTypes = identityTypes?.map(
-              (type) => type.userIdType || []
-            );
-
-            const requiredColumnsArray = Array.from(requiredColumns);
-            const returnedColumns = new Set<string>(Object.keys(result));
-            const optionalColumns = [...returnedColumns].filter(
-              (col) =>
-                !requiredColumns.has(col) &&
-                !namedCols.includes(col) &&
-                !userIdTypes?.includes(col)
-            );
-            let missingColumns = requiredColumnsArray.filter(
-              (col) => !(col in result)
-            );
-
-            // Check if `hasNameCol` should be enabled
-            if (!userEnteredHasNameCol) {
-              // Selected both required columns, turn on `hasNameCol` automatically
-              if (
-                returnedColumns.has("experiment_name") &&
-                returnedColumns.has("variation_name")
-              ) {
-                form.setValue("hasNameCol", true);
-              }
-              // Only selected `experiment_name`, add warning
-              else if (returnedColumns.has("experiment_name")) {
-                throw new Error(
-                  "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name."
-                );
-              }
-              // Only selected `variation_name`, add warning
-              else if (returnedColumns.has("variation_name")) {
-                throw new Error(
-                  "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name."
-                );
-              }
-            } else {
-              // `hasNameCol` is enabled, make sure both name columns are selected
-              if (
-                !returnedColumns.has("experiment_name") &&
-                !returnedColumns.has("variation_name")
-              ) {
-                form.setValue("hasNameCol", false);
-                missingColumns = missingColumns.filter(
-                  (column) =>
-                    column !== "experiment_name" && column !== "variation_name"
-                );
-              } else if (
-                returnedColumns.has("experiment_name") &&
-                !returnedColumns.has("variation_name")
-              ) {
-                throw new Error(
-                  "Missing variation_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove experiment_name."
-                );
-              } else if (
-                returnedColumns.has("variation_name") &&
-                !returnedColumns.has("experiment_name")
-              ) {
-                throw new Error(
-                  "Missing experiment_name column. Please add it to your SELECT clause to enable GrowthBook to populate names automatically or remove variation_name."
-                );
-              }
-            }
-
-            if (missingColumns.length > 0) {
-              // Check if any of the missing columns are dimensions
-              const missingDimensions = missingColumns.map((column) => {
-                if (userEnteredDimensions.includes(column)) {
-                  return column;
-                }
-              });
-
-              // If so, remove them from as a userEnteredDimension & remove from missingColumns
-              if (missingDimensions.length > 0) {
-                missingColumns = missingColumns.filter(
-                  (column) => !missingDimensions.includes(column)
-                );
-
-                const newUserEnteredDimensions = userEnteredDimensions.filter(
-                  (column) => !missingDimensions.includes(column)
-                );
-                form.setValue("dimensions", newUserEnteredDimensions);
-              }
-
-              // Now, if missingColumns still has a length, throw an error
-              if (missingColumns.length > 0) {
-                throw new Error(
-                  `You are missing the following columns: ${missingColumns.join(
-                    ", "
-                  )}`
-                );
-              }
-            }
-
-            // Add optional columns as dimensions
-            if (optionalColumns.length > 0) {
-              {
-                optionalColumns.forEach((col) => {
-                  form.setValue("dimensions", [...userEnteredDimensions, col]);
-                });
-              }
-            }
-          }}
+          validateResponse={validateResponse}
         />
       )}
       <Modal

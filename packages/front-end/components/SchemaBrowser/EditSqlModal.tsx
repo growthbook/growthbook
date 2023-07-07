@@ -14,7 +14,7 @@ import Button from "../Button";
 import SchemaBrowser from "./SchemaBrowser";
 import styles from "./EditSqlModal.module.scss";
 
-type TestQueryResults = {
+export type TestQueryResults = {
   duration?: string;
   error?: string;
   results?: TestQueryRow[];
