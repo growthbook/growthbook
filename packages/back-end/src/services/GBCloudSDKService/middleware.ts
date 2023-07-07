@@ -35,7 +35,6 @@ export async function initializeSdk(
     if (IS_CLOUD) {
       const payload = await getGbCloudSdkPayload();
       gb.setFeatures(payload.features);
-      // @ts-expect-error AutoExperiment[] is not exported
       gb.setExperiments(payload.experiments || []);
     } else {
       // Do not subscribe individual SDK instances to streaming updates
@@ -68,7 +67,9 @@ export async function setAttributes(
       accountPlan: req?.organization
         ? getAccountPlan(req?.organization) || "unknown"
         : "unknown",
-      hasLicenseKey: !!getLicense(),
+      hasLicenseKey: IS_CLOUD
+        ? req.organization && getAccountPlan(req.organization) !== "starter"
+        : !!getLicense(),
       freeSeats: req?.organization?.freeSeats || 3,
       discountCode: req?.organization?.discountCode || "",
     };

@@ -57,6 +57,7 @@ import { addTagsDiff } from "../models/TagModel";
 import { FASTLY_SERVICE_ID, IS_CLOUD } from "../util/secrets";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { getAccountPlan } from "../util/organization.util";
+import { getLicense } from "../init/license";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -177,6 +178,9 @@ export async function getFeaturesPublic(req: Request, res: Response) {
         accountPlan: currentOrg
           ? getAccountPlan(currentOrg) || "unknown"
           : "unknown",
+        hasLicenseKey: IS_CLOUD
+          ? currentOrg && getAccountPlan(currentOrg) !== "starter"
+          : !!getLicense(),
         freeSeats: currentOrg?.freeSeats || 3,
         discountCode: currentOrg?.discountCode || "",
       });
