@@ -258,7 +258,11 @@ const MetricForm: FC<MetricFormProps> = ({
       timestampColumn: current.timestampColumn || "",
       tags: current.tags || [],
       projects:
-        edit || duplicate ? current.projects || [] : project ? [project] : [],
+        source === "datasource-detail" || edit || duplicate
+          ? current.projects || []
+          : project
+          ? [project]
+          : [],
       winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
       loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
@@ -598,7 +602,7 @@ const MetricForm: FC<MetricFormProps> = ({
             className="portal-overflow-ellipsis"
             name="datasource"
             initialOption="Manual"
-            disabled={edit}
+            disabled={edit || source === "datasource-detail"}
           />
           <div className="form-group">
             <label>Metric Type</label>
