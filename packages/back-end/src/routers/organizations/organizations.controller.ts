@@ -1,7 +1,8 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
-import licenseInit, {
+import {
+  licenseInit,
   accountFeatures,
   getAccountPlan,
   getLicense,
