@@ -291,14 +291,16 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                 />
               </div>
 
-              <div className="my-3 p-3 rounded border bg-white">
-                <DataSourceInlineEditIdentityJoins
-                  dataSource={d}
-                  onSave={updateDataSourceSettings}
-                  onCancel={() => undefined}
-                  canEdit={canEdit}
-                />
-              </div>
+              {d.settings?.userIdTypes && d.settings.userIdTypes.length > 1 ? (
+                <div className="my-3 p-3 rounded border bg-white">
+                  <DataSourceInlineEditIdentityJoins
+                    dataSource={d}
+                    onSave={updateDataSourceSettings}
+                    onCancel={() => undefined}
+                    canEdit={canEdit}
+                  />
+                </div>
+              ) : null}
 
               <div className="my-3 p-3 rounded border bg-white">
                 <ExperimentAssignmentQueries
