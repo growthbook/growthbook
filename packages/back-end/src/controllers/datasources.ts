@@ -621,3 +621,18 @@ export async function testLimitedQuery(
     error,
   });
 }
+
+export async function getDataSourceMetrics(
+  req: AuthRequest<null, { id: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  const metrics = await getMetricsByDatasource(id, org.id);
+
+  res.status(200).json({
+    status: 200,
+    metrics,
+  });
+}

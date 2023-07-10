@@ -34,6 +34,9 @@ export default function EditPhaseModal({
   });
   const { apiCall } = useAuth();
 
+  const isDraft = experiment.status === "draft";
+  const isMultiPhase = experiment.phases.length > 1;
+
   return (
     <Modal
       open={true}
@@ -54,33 +57,37 @@ export default function EditPhaseModal({
         type="datetime-local"
         {...form.register("dateStarted")}
       />
-      <Field
-        label="End Time (UTC)"
-        type="datetime-local"
-        {...form.register("dateEnded")}
-        helpText={
-          <>
-            Leave blank if still running.{" "}
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                form.setValue("dateEnded", "");
-              }}
-            >
-              Clear Input
-            </a>
-          </>
-        }
-      />
-      {form.watch("dateEnded") && (
-        <Field
-          label="Reason for Stopping"
-          textarea
-          {...form.register("reason")}
-          placeholder="(optional)"
-        />
-      )}
+      {!(isDraft && !isMultiPhase) ? (
+        <>
+          <Field
+            label="End Time (UTC)"
+            type="datetime-local"
+            {...form.register("dateEnded")}
+            helpText={
+              <>
+                Leave blank if still running.{" "}
+                <a
+                  href="#"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    form.setValue("dateEnded", "");
+                  }}
+                >
+                  Clear Input
+                </a>
+              </>
+            }
+          />
+          {form.watch("dateEnded") && (
+            <Field
+              label="Reason for Stopping"
+              textarea
+              {...form.register("reason")}
+              placeholder="(optional)"
+            />
+          )}
+        </>
+      ) : null}
 
       <ConditionInput
         defaultValue={form.watch("condition")}

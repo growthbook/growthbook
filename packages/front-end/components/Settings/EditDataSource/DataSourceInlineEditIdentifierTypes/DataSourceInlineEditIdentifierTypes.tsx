@@ -11,7 +11,6 @@ import usePermissions from "@/hooks/usePermissions";
 import { EditIdentifierType } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/EditIdentifierType";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import Tooltip from "@/components/Tooltip/Tooltip";
 
 type DataSourceInlineEditIdentifierTypesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -93,12 +92,9 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
   return (
     <div className="">
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <div className="d-flex align-items-center">
-          <h3 className="mb-0">Identifier Types</h3>
-          <Tooltip
-            className="ml-2"
-            body="The different units you use to split traffic in an experiment."
-          />
+        <div>
+          <h3>Identifier Types</h3>
+          <p>The different units you use to split traffic in an experiment.</p>
         </div>
 
         {canEdit && (
@@ -116,7 +112,7 @@ export const DataSourceInlineEditIdentifierTypes: FC<DataSourceInlineEditIdentif
       {userIdTypes.map(({ userIdType, description }, idx) => (
         <div
           style={{ marginBottom: -1 }}
-          className="d-flex justify-content-between align-items-center bg-white border p-2"
+          className="d-flex justify-content-between align-items-center bg-light border p-2 mb-3 rounded"
           key={userIdType}
         >
           {/* region Identity Type text */}

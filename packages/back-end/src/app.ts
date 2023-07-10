@@ -488,6 +488,7 @@ app.get("/datasource/:id", datasourcesController.getDataSource);
 app.post("/datasources", datasourcesController.postDataSources);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
+app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 
 // Information Schemas
 app.get(
