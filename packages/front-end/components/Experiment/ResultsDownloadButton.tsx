@@ -100,7 +100,7 @@ export default function ResultsDownloadButton({
   const href = useMemo(() => {
     try {
       const rows = getRows();
-      if (!rows) return "";
+      if (!rows || rows?.length < 1) return "";
 
       const json2csvParser = new Parser();
       const csv = json2csvParser.parse(rows);
