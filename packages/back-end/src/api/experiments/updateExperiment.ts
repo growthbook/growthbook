@@ -7,7 +7,7 @@ import { toExperimentApiInterface } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
 import { putExperimentValidator } from "../../validators/openapi";
 
-export const putExperiment = createApiRequestHandler(putExperimentValidator)(
+export const updateExperiment = createApiRequestHandler(putExperimentValidator)(
   async (req): Promise<PutExperimentResponse> => {
     const experiment = await getExperimentById(
       req.organization.id,

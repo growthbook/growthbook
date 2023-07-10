@@ -1,12 +1,4 @@
 type: object
-required:
-  - id
-  - name
-  - variations
-  - owner
-  - datasourceId
-  - trackingKey
-  - exposureQueryId
 properties:
   datasourceId:
     type: string
@@ -15,9 +7,6 @@ properties:
     type: string
   trackingKey:
     type: string
-  id:
-    type: string
-    description: ID for the experiment
   name:
     type: string
     description: Name of the experiment

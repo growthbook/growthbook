@@ -3,7 +3,7 @@ import { listVisualChangesets } from "../visual-changesets/listVisualChangesets"
 import { getExperimentResults } from "./getExperimentResults";
 import { getExperiment } from "./getExperiment";
 import { listExperiments } from "./listExperiments";
-import { putExperiment } from "./putExperiment";
+import { updateExperiment } from "./updateExperiment";
 import { postExperiment } from "./postExperiment";
 
 const router = Router();
