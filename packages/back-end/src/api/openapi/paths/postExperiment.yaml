@@ -1,7 +1,7 @@
 parameters: []
 tags:
   - experiments
-summary: Create or update a single experiment
+summary: Create a single experiment
 operationId: postExperiment
 x-codeSamples:
   - lang: 'cURL'
