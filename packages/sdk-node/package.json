@@ -1,0 +1,54 @@
+{
+  "name": "@growthbook/growthbook-node",
+  "version": "0.1.0",
+  "license": "MIT",
+  "main": "dist/cjs/index.js",
+  "module": "dist/esm/index.js",
+  "types": "dist/index.d.ts",
+  "typings": "dist/index.d.ts",
+  "exports": {
+    "require": "./dist/cjs/index.js",
+    "import": "./dist/esm/index.js",
+    "types": "./dist/index.d.ts"
+  },
+  "files": [
+    "dist",
+    "src"
+  ],
+  "engines": {
+    "node": ">=10"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/growthbook/growthbook",
+    "directory": "packages/sdk-node"
+  },
+  "scripts": {
+    "build:clean": "rimraf -rf dist",
+    "build:typescript": "tsc",
+    "build": "yarn build:clean && yarn build:typescript",
+    "test": "jest",
+    "type-check": "tsc --pretty --noEmit",
+    "size": "cat ./dist/esm/index.js ../sdk-js/dist/bundles/index.min.js | terser | gzip-size --include-original"
+  },
+  "author": "Jeremy Dorn",
+  "peerDependencies": {
+    "react": "^16.8.0-0 || ^17.0.0-0 || ^18.0.0-0"
+  },
+  "dependencies": {
+    "@growthbook/growthbook": "^0.27.0",
+    "eventsource": "^2.0.2"
+  },
+  "devDependencies": {
+    "@types/jest": "^27.0.1",
+    "gzip-size-cli": "^5.0.0",
+    "jest": "^27.1.1",
+    "npm-run-all": "^4.1.5",
+    "rimraf": "^3.0.2",
+    "ts-jest": "^27.0.5",
+    "typescript": "4.7.4"
+  },
+  "browserslist": [
+    "maintained node versions"
+  ]
+}
