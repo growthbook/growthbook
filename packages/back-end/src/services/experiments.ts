@@ -8,6 +8,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
@@ -68,7 +69,11 @@ import {
   ApiMetric,
 } from "../../types/openapi";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
-import { postMetricValidator, putMetricValidator } from "../validators/openapi";
+import {
+  postExperimentValidator,
+  postMetricValidator,
+  putMetricValidator,
+} from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
@@ -1619,6 +1624,75 @@ export function toMetricApiInterface(
   }
 
   return obj;
+}
+
+/**
+ * Converts the OpenAPI POST /experiment payload to a {@link ExperimentInterface}
+ * @param payload
+ * @param organization
+ * @param datasource
+ * @param userId
+ */
+export function postExperimentApiPayloadToExperimentInterface(
+  payload: z.infer<typeof postExperimentValidator.bodySchema>,
+  organization: OrganizationInterface,
+  datasource: DataSourceInterface,
+  userId?: string
+): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
+  return {
+    organization: organization.id,
+    datasource: datasource.id,
+    archived: payload.archived ?? false,
+    hashAttribute: payload.hashAttribute ?? "",
+    autoSnapshots: true,
+    project: payload.project,
+    owner: userId ?? "",
+    trackingKey: payload.trackingKey || "",
+    exposureQueryId: payload.exposureQueryId || "",
+    userIdType: "anonymous",
+    name: payload.name || "",
+    phases: [
+      {
+        coverage: 1,
+        dateStarted: new Date(),
+        name: "Main",
+        reason: "",
+        variationWeights: Array.from(payload.variations).map(
+          () => 1 / payload.variations.length
+        ),
+        condition: "",
+        namespace: {
+          enabled: false,
+          name: "",
+          range: [0, 1],
+        },
+      },
+    ],
+    tags: payload.tags || [],
+    description: payload.description || "",
+    hypothesis: payload.hypothesis || "",
+    metrics: payload.metrics || [],
+    metricOverrides: [],
+    guardrails: [],
+    activationMetric: "",
+    segment: "",
+    queryFilter: "",
+    skipPartialData: false,
+    attributionModel: "firstExposure",
+    // @ts-expect-error come back to this
+    variations: payload.variations || [],
+    implementation: payload.implementation || "code",
+    status: payload.status || "draft",
+    analysis: "",
+    releasedVariationId: "",
+    autoAssign: false,
+    previewURL: "",
+    targetURLRegex: "",
+    ideaSource: "",
+    sequentialTestingEnabled: !!organization?.settings
+      ?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  };
 }
 
 export async function getRegressionAdjustmentInfo(

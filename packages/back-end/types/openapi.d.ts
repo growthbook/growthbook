@@ -1807,8 +1807,8 @@ export interface operations {
         "application/json": {
           /** @description ID for the [DataSource](#tag/DataSource_model) */
           datasourceId: string;
-          exposureQueryId: string;
-          trackingKey: string;
+          exposureQueryId?: string;
+          trackingKey?: string;
           /** @description Name of the experiment */
           name: string;
           /** @description Project ID which the experiment belongs to */
@@ -1819,8 +1819,6 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           metrics?: (string)[];
-          /** @description Email of the person who owns this experiment */
-          owner: string;
           archived?: boolean;
           /** @enum {string} */
           status?: "draft" | "running" | "stopped";
@@ -1829,11 +1827,11 @@ export interface operations {
           /** @enum {string} */
           implementation: "visual" | "code" | "configuration" | "custom";
           variations: ({
-              id: string;
+              id?: string;
               key: string;
               name: string;
-              description: string;
-              screenshots: ({
+              description?: string;
+              screenshots?: ({
                   path: string;
                   width?: number;
                   height?: number;

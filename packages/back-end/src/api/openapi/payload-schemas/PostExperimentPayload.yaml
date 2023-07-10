@@ -2,15 +2,12 @@ type: object
 required:
   - name
   - variations
-  - owner
   - datasourceId
-  - trackingKey
-  - exposureQueryId
   - implementation
 properties:
   datasourceId:
     type: string
-    description:  ID for the [DataSource](#tag/DataSource_model)
+    description: ID for the [DataSource](#tag/DataSource_model)
   exposureQueryId:
     type: string
   trackingKey:
@@ -35,9 +32,6 @@ properties:
     type: array
     items:
       type: string
-  owner:
-    type: string
-    description: Email of the person who owns this experiment
   archived:
     type: boolean
   status:
@@ -63,11 +57,8 @@ properties:
     items:
       type: object
       required:
-        - id
         - key
         - name
-        - description
-        - screenshots
       properties:
         id:
           type: string

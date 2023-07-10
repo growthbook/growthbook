@@ -27,6 +27,7 @@ export type EventAuditUserLoggedIn = {
 export type EventAuditUserApiKey = {
   type: "api_key";
   apiKey: string;
+  userId?: string;
 };
 
 // endregion Audit
