@@ -1,22 +1,24 @@
-import { PutExperimentResponse } from "../../../types/openapi";
+import { UpdateExperimentResponse } from "../../../types/openapi";
 import {
-  updateExperiment,
+  updateExperiment as updateExperimentToDb,
   getExperimentById,
 } from "../../models/ExperimentModel";
 import { toExperimentApiInterface } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
-import { putExperimentValidator } from "../../validators/openapi";
+import { updateExperimentValidator } from "../../validators/openapi";
 
-export const updateExperiment = createApiRequestHandler(putExperimentValidator)(
-  async (req): Promise<PutExperimentResponse> => {
+export const updateExperiment = createApiRequestHandler(
+  updateExperimentValidator
+)(
+  async (req): Promise<UpdateExperimentResponse> => {
     const experiment = await getExperimentById(
       req.organization.id,
-      req.body.id
+      req.params.id
     );
     if (!experiment) {
       throw new Error("Could not find the experiment to update");
     }
-    const updatedExperiment = await updateExperiment({
+    const updatedExperiment = await updateExperimentToDb({
       organization: req.organization,
       experiment: experiment,
       user: req.eventAudit,
