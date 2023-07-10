@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { Stripe } from "stripe";
+import { isActiveSubscriptionStatus } from "enterprise";
 import {
   APP_ORIGIN,
   STRIPE_PRICE,
@@ -19,7 +20,6 @@ import {
   getStripeCustomerId,
 } from "../services/stripe";
 import { SubscriptionQuote } from "../../types/organization";
-import { isActiveSubscriptionStatus } from "../util/organization.util";
 import { sendStripeTrialWillEndEmail } from "../services/email";
 import { logger } from "../util/logger";
 
