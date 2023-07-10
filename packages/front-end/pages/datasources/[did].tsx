@@ -27,6 +27,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Modal from "@/components/Modal";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import { GBCircleArrowLeft } from "@/components/Icons";
+import DataSourceMetrics from "@/components/Settings/EditDataSource/DataSourceMetrics";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -49,7 +50,6 @@ const DataSourcePage: FC = () => {
   } = useDefinitions();
   const { did } = router.query as { did: string };
   const d = getDatasourceById(did);
-
   const { apiCall } = useAuth();
 
   const canEdit =
@@ -282,21 +282,17 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     structure.
                   </div>
                 )}
-
-              <h2 className="mt-4">Identifiers</h2>
-              <p>
-                The different units you use to split traffic in an experiment.
-              </p>
-
-              <div className="card py-3 px-3 mb-4">
+              <div className="my-3 p-3 rounded border bg-white">
                 <DataSourceInlineEditIdentifierTypes
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}
                   dataSource={d}
                   canEdit={canEdit}
                 />
+              </div>
 
-                <div className="mt-4">
+              {d.settings?.userIdTypes && d.settings.userIdTypes.length > 1 ? (
+                <div className="my-3 p-3 rounded border bg-white">
                   <DataSourceInlineEditIdentityJoins
                     dataSource={d}
                     onSave={updateDataSourceSettings}
@@ -304,9 +300,9 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                     canEdit={canEdit}
                   />
                 </div>
-              </div>
+              ) : null}
 
-              <div className="my-5">
+              <div className="my-3 p-3 rounded border bg-white">
                 <ExperimentAssignmentQueries
                   dataSource={d}
                   onSave={updateDataSourceSettings}
@@ -314,8 +310,11 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                   canEdit={canEdit}
                 />
               </div>
+              <div className="my-3 p-3 rounded border bg-white">
+                <DataSourceMetrics dataSource={d} canEdit={canEdit} />
+              </div>
 
-              <div className="my-5">
+              <div className="my-3 p-3 rounded border bg-white">
                 <DataSourceJupyterNotebookQuery
                   dataSource={d}
                   onSave={updateDataSourceSettings}

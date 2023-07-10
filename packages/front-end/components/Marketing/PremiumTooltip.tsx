@@ -1,7 +1,7 @@
 import { CommercialFeature } from "back-end/types/organization";
 import { ReactNode } from "react";
 import clsx from "clsx";
-import { useUser } from "../../services/UserContext";
+import { useUser } from "@/services/UserContext";
 import Tooltip from "../Tooltip/Tooltip";
 import { GBPremiumBadge } from "../Icons";
 

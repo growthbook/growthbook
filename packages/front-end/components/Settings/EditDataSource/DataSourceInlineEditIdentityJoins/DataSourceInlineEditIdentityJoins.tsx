@@ -12,7 +12,6 @@ import usePermissions from "@/hooks/usePermissions";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
-import Tooltip from "@/components/Tooltip/Tooltip";
 
 type DataSourceInlineEditIdentityJoinsProps = DataSourceQueryEditingModalBaseProps;
 
@@ -107,13 +106,12 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
       {/* region Heading */}
       {identityJoins.length > 0 || userIdTypes.length >= 2 ? (
         <div className="d-flex justify-content-between align-items-center mb-3">
-          <div className="d-flex mt-2">
+          <div>
             <h3>Join Tables</h3>
-            <Tooltip
-              className="ml-2"
-              body="Joins different identifier types together when needed during
-              experiment analysis."
-            />
+            <p>
+              Joins different identifier types together when needed during
+              experiment analysis.
+            </p>
           </div>
 
           {canEdit && (
@@ -139,7 +137,7 @@ export const DataSourceInlineEditIdentityJoins: FC<DataSourceInlineEditIdentityJ
             return (
               <div
                 style={{ marginBottom: -1 }}
-                className="bg-white border"
+                className="bg-light mb-3 rounded border"
                 key={`identity-join-${idx}`}
               >
                 <div className="d-flex justify-content-between">
