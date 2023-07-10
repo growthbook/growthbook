@@ -1,6 +1,12 @@
 import { Response } from "express";
 import { cloneDeep } from "lodash";
 import { freeEmailDomains } from "free-email-domains-typescript";
+import licenseInit, {
+  accountFeatures,
+  getAccountPlan,
+  getLicense,
+  setLicense,
+} from "enterprise";
 import {
   AuthRequest,
   ResponseWithStatusAndError,
@@ -82,14 +88,8 @@ import {
   getFirstPublishableApiKey,
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
-import {
-  accountFeatures,
-  getAccountPlan,
-  getDefaultRole,
-  getRoles,
-} from "../../util/organization.util";
+import { getDefaultRole, getRoles } from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
-import licenseInit, { getLicense, setLicense } from "../../init/license";
 import {
   getAllExperiments,
   getExperimentsForActivityFeed,
