@@ -14,7 +14,7 @@ router.get("/", listExperiments);
 router.post("/", postExperiment);
 router.get("/:id", getExperiment);
 router.get("/:id/results", getExperimentResults);
-router.put("/:id", putExperiment);
+router.post("/:id", updateExperiment);
 
 // VisualChangeset Endpoints
 router.get("/:id/visual-changesets", listVisualChangesets);
