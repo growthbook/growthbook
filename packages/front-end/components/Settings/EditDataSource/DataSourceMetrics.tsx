@@ -154,9 +154,9 @@ export default function DataSourceMetrics({
                               </div>
                               <div
                                 className={clsx(
-                                  metric.status === "archived"
-                                    ? "text-muted"
-                                    : "",
+                                  {
+                                    "text-muted": metric.status === "archived",
+                                  },
                                   "pr-3"
                                 )}
                               >
@@ -165,9 +165,9 @@ export default function DataSourceMetrics({
                               </div>
                               <div
                                 className={clsx(
-                                  metric.status === "archived"
-                                    ? "text-muted"
-                                    : "",
+                                  {
+                                    "text-muted": metric.status === "archived",
+                                  },
                                   "pr-3"
                                 )}
                               >
@@ -177,7 +177,13 @@ export default function DataSourceMetrics({
                                 ) : (
                                   <ProjectBadges
                                     projectIds={metric.projects}
-                                    className="badge-ellipsis align-middle"
+                                    className={clsx(
+                                      {
+                                        "text-muted":
+                                          metric.status === "archived",
+                                      },
+                                      "badge-ellipsis align-middle"
+                                    )}
                                   />
                                 )}
                               </div>
@@ -185,9 +191,10 @@ export default function DataSourceMetrics({
                                 <div
                                   title={datetime(metric.dateUpdated || "")}
                                   className={clsx(
-                                    metric.status === "archived"
-                                      ? "text-muted"
-                                      : "",
+                                    {
+                                      "text-muted":
+                                        metric.status === "archived",
+                                    },
                                     "d-none d-md-table-cell"
                                   )}
                                 >

@@ -253,7 +253,7 @@ const MetricForm: FC<MetricFormProps> = ({
       timestampColumn: current.timestampColumn || "",
       tags: current.tags || [],
       projects:
-        current.projects || edit || duplicate
+        source === "datasource-detail" || edit || duplicate
           ? current.projects || []
           : project
           ? [project]
