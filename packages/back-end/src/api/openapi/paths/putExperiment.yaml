@@ -14,7 +14,7 @@ requestBody:
   content:
     application/json:
       schema:
-        $ref: "../payload-schemas/PutExperimentPayload.yaml"
+        $ref: "../payload-schemas/UpdateExperimentPayload.yaml"
 responses:
   "200":
     content:
