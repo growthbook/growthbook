@@ -22,7 +22,18 @@ export const updateExperiment = createApiRequestHandler(
       organization: req.organization,
       experiment: experiment,
       user: req.eventAudit,
-      changes: { ...req.body },
+      changes: {
+        ...req.body,
+        phases: req.body.phases?.map((p) => ({
+          ...p,
+          dateStarted: new Date(p.dateStarted),
+          dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
+          namespace: {
+            ...p.namespace,
+            range: [p.namespace.range[0], p.namespace.range[1]],
+          },
+        })),
+      },
     });
 
     if (updatedExperiment === null) {

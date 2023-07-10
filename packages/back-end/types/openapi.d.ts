@@ -2065,6 +2065,12 @@ export interface operations {
   };
   updateExperiment: {
     /** Update a single experiment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
     requestBody: {
       content: {
         "application/json": {
@@ -2115,13 +2121,15 @@ export interface operations {
                   weight: number;
                 })[];
               namespace: {
+                name: string;
                 namespaceId: string;
                 range: (unknown)[];
+                enabled: boolean;
               };
               targetingCondition: string;
               reason: string;
               condition: string;
-              variationWeights?: (number)[];
+              variationWeights: (number)[];
             })[];
         };
       };

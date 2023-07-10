@@ -1,10 +1,11 @@
-parameters: []
+parameters:
+  - $ref: "../parameters.yaml#/id"
 tags:
   - experiments
 summary: Update a single experiment
 operationId: updateExperiment
 x-codeSamples:
-  - lang: 'cURL'
+  - lang: "cURL"
     source: |
       curl -X POST https://api.growthbook.io/api/v1/experiments/exp_1234 \
         -d '{ name: "test_experiment", "owner": "weijie.ou@example.com" ... }'

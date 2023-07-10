@@ -2,7 +2,7 @@ type: object
 properties:
   datasourceId:
     type: string
-    description:  ID for the [DataSource](#tag/DataSource_model)
+    description: ID for the [DataSource](#tag/DataSource_model)
   exposureQueryId:
     type: string
   trackingKey:
@@ -92,6 +92,7 @@ properties:
         - namespace
         - condition
         - reason
+        - variationWeights
       properties:
         name:
           type: string
@@ -124,13 +125,19 @@ properties:
           required:
             - namespaceId
             - range
+            - enabled
+            - name
           properties:
+            name:
+              type: string
             namespaceId:
               type: string
             range:
               type: array
               rangeStart: number
               rangeEnd: number
+            enabled:
+              type: boolean
         targetingCondition:
           type: string
         reason:

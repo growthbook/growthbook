@@ -766,7 +766,8 @@ paths:
                   experiment:
                     $ref: '#/components/schemas/Experiment'
     post:
-      parameters: []
+      parameters:
+        - $ref: '#/components/parameters/id'
       tags:
         - experiments
       summary: Update a single experiment
@@ -876,6 +877,7 @@ paths:
                       - namespace
                       - condition
                       - reason
+                      - variationWeights
                     properties:
                       name:
                         type: string
@@ -908,13 +910,19 @@ paths:
                         required:
                           - namespaceId
                           - range
+                          - enabled
+                          - name
                         properties:
+                          name:
+                            type: string
                           namespaceId:
                             type: string
                           range:
                             type: array
                             rangeStart: number
                             rangeEnd: number
+                          enabled:
+                            type: boolean
                       targetingCondition:
                         type: string
                       reason:
