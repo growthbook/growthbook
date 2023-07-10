@@ -1,48 +1,53 @@
 import { getAccountPlan } from "../src";
 
-describe("determines account plan from org", () => {
-  expect(getAccountPlan({})).toBe(false);
-  expect(
-    getAccountPlan({
-      enterprise: true,
-    })
-  ).toBe(true);
-  expect(
-    getAccountPlan({
-      restrictAuthSubPrefix: "something",
-    })
-  ).toBe(true);
-  expect(
-    getAccountPlan({
-      restrictLoginMethod: "something",
-    })
-  ).toBe(true);
-  expect(
-    getAccountPlan({
-      subscription: {
-        status: "canceled",
-      },
-    })
-  ).toBe(false);
-  expect(
-    getAccountPlan({
-      subscription: {
-        status: "active",
-      },
-    })
-  ).toBe(true);
-  expect(
-    getAccountPlan({
-      subscription: {
-        status: "trialing",
-      },
-    })
-  ).toBe(true);
-  expect(
-    getAccountPlan({
-      subscription: {
-        status: "past_due",
-      },
-    })
-  ).toBe(true);
+describe("Entitlements", () => {
+  it("Determines account plan", () => {
+    expect(getAccountPlan({})).toBe("oss");
+
+    process.env.IS_CLOUD = "true";
+    expect(getAccountPlan({})).toBe("starter");
+    expect(
+      getAccountPlan({
+        enterprise: true,
+      })
+    ).toBe("enterprise");
+    expect(
+      getAccountPlan({
+        restrictAuthSubPrefix: "something",
+      })
+    ).toBe("pro_sso");
+    expect(
+      getAccountPlan({
+        restrictLoginMethod: "something",
+      })
+    ).toBe("pro_sso");
+    expect(
+      getAccountPlan({
+        subscription: {
+          status: "canceled",
+        },
+      })
+    ).toBe("starter");
+    expect(
+      getAccountPlan({
+        subscription: {
+          status: "active",
+        },
+      })
+    ).toBe("pro");
+    expect(
+      getAccountPlan({
+        subscription: {
+          status: "trialing",
+        },
+      })
+    ).toBe("pro");
+    expect(
+      getAccountPlan({
+        subscription: {
+          status: "past_due",
+        },
+      })
+    ).toBe("pro");
+  });
 });

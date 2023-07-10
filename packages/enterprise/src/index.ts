@@ -48,8 +48,6 @@ export type LicenseData = {
   eat?: string;
 };
 
-const IS_CLOUD = !!process.env.IS_CLOUD;
-
 // Self-hosted commercial license key
 export const LICENSE_KEY = process.env.LICENSE_KEY || "";
 
@@ -57,7 +55,7 @@ export const LICENSE_KEY = process.env.LICENSE_KEY || "";
 function getSSOConfig() {
   if (!process.env.SSO_CONFIG) return null;
 
-  if (!IS_CLOUD && !LICENSE_KEY) {
+  if (!process.env.IS_CLOUD && !LICENSE_KEY) {
     throw new Error(
       "Must have a commercial License Key to use self-hosted SSO"
     );
@@ -88,7 +86,7 @@ function getSSOConfig() {
 
   // Sanity check for GrowthBook Cloud (to avoid misconfigurations)
   if (
-    IS_CLOUD &&
+    process.env.IS_CLOUD &&
     config?.metadata?.issuer !== "https://growthbook.auth0.com/"
   ) {
     throw new Error("Invalid SSO configuration for GrowthBook Cloud");
@@ -160,7 +158,7 @@ export function isActiveSubscriptionStatus(
 }
 
 export function getAccountPlan(org: MinimalOrganization): AccountPlan {
-  if (IS_CLOUD) {
+  if (process.env.IS_CLOUD) {
     if (org.enterprise) return "enterprise";
     if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
     if (isActiveSubscriptionStatus(org.subscription?.status)) return "pro";
