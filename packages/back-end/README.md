@@ -73,7 +73,7 @@ if (IS_CLOUD) {
 
 If you want to add a new commercial feature, you need to edit the `enterprise` package:
 
-- `packages/enterprise/index.ts` - Add to the `CommercialFeature` union type and edit the `accountFeatures` map, which defines which plans have access to which features
+- `packages/enterprise/src/license.ts` - Add to the `CommercialFeature` union type and edit the `accountFeatures` map, which defines which plans have access to which features
 
 ## Data Models
 
