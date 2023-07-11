@@ -1359,7 +1359,12 @@ export default abstract class SqlIntegration
     return "";
   }
 
-  generateTablePath(tableName: string, schema?: string, database?: string) {
+  generateTablePath(
+    tableName: string,
+    schema?: string,
+    database?: string,
+    event_name?: string
+  ) {
     let path = "";
     // Add database if required
     if (this.requiresDatabase) {
@@ -1384,7 +1389,9 @@ export default abstract class SqlIntegration
     }
 
     // Add table name
-    path += tableName;
+    // path += tableName;
+    //TODO: Refactor? Is there a better way?
+    path += event_name ? `${event_name}` : tableName;
     return this.requiresEscapingPath ? `\`${path}\`` : path;
   }
 
@@ -1480,15 +1487,24 @@ export default abstract class SqlIntegration
       timestampColumn,
       userIdColumn,
       anonymousIdColumn,
+      trackedEventTableName,
     } = this.getSchemaFormatConfig(schemaFormat);
+
+    //TODO: Figure out the abstraction layer here for the two types - one where each event tracker saves each event in its own table,
+    // and one where there is a singular _events table that contains all events - in the latter case, we need a where clause
 
     const sqlQuery = `
     SELECT
-    ${
-      hasUserId ? `${userIdColumn}, ` : ""
-    }${anonymousIdColumn} as anonymous_id, ${timestampColumn} as timestamp
+    ${hasUserId ? `${userIdColumn}, ` : ""}${anonymousIdColumn} as anonymous_id,
+    TIMESTAMP_MICROS(${timestampColumn}) as timestamp,
     ${type === "count" ? `, 1 as value` : ""}
-     FROM ${this.generateTablePath(event)}
+     FROM ${this.generateTablePath(
+       event,
+       undefined,
+       undefined,
+       schemaFormat === "ga4" ? trackedEventTableName : undefined
+     )}
+     WHERE event_name in ('${event}')
   `;
 
     return format(sqlQuery, this.getFormatDialect());
@@ -1563,13 +1579,35 @@ export default abstract class SqlIntegration
     const SevenDaysAgo = new Date(
       currentDateTime.valueOf() - 7 * 60 * 60 * 24 * 1000
     );
+    const startYear = SevenDaysAgo.getFullYear();
+    const startMonth = (SevenDaysAgo.getMonth() + 1)
+      .toString()
+      .padStart(2, "0");
+    const startDay = SevenDaysAgo.getDate().toString().padStart(2, "0");
 
-    // WHERE ${timestampColumn} < '${currentDateTime
-    //   .toISOString()
-    //   .slice(
-    //     0,
-    //     10
-    //   )}' AND ${timestampColumn} > '${SevenDaysAgo.toISOString().slice(0, 10)}'
+    const endYear = currentDateTime.getFullYear();
+    const endMonth = (currentDateTime.getMonth() + 1)
+      .toString()
+      .padStart(2, "0");
+    const endDay = currentDateTime.getDate().toString().padStart(2, "0");
+
+    //TODO: Figure out the abstraction layer here
+    // We need to figure out the abstraction for lastTrackedAt - GA4 needs the TIMESTAMP_MICROS
+    // The where clause for GA4 is different due to the dates
+    // The group by clause just needs "events" where Rudderstack/Segment need events, display_name, and timestamp
+
+    // const sql = `
+    //     SELECT
+    //       ${eventColumn} as event,
+    //       ${displayNameColumn ? displayNameColumn : eventColumn} as displayName,
+    //       (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
+    //       COUNT (*) as count,
+    //       MAX(${timestampColumn}) as lastTrackedAt
+    //     FROM
+    //       ${this.generateTablePath(trackedEventTableName)}
+    //       WHERE ${timestampColumn} < ${currentDateTime.valueOf()} AND ${timestampColumn} > ${SevenDaysAgo.valueOf()}
+    //       AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
+    //       GROUP BY event, ${timestampColumn}, displayName`;
 
     const sql = `
         SELECT
@@ -1577,14 +1615,13 @@ export default abstract class SqlIntegration
           ${displayNameColumn ? displayNameColumn : eventColumn} as displayName,
           (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
           COUNT (*) as count,
-          MAX(${timestampColumn}) as lastTrackedAt
+          MAX(TIMESTAMP_MICROS(${timestampColumn})) as lastTrackedAt
         FROM
           ${this.generateTablePath(trackedEventTableName)}
-          WHERE ${timestampColumn} < ${currentDateTime.valueOf()} AND ${timestampColumn} > ${SevenDaysAgo.valueOf()}
-          AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
-          GROUP BY event, ${timestampColumn}, displayName`;
-
-    console.log("sql", sql);
+        WHERE
+          _TABLE_SUFFIX BETWEEN '${startYear}${startMonth}${startDay}' AND '${endYear}${endMonth}${endDay}'
+        GROUP BY event
+    `;
 
     const results = await this.runQuery(format(sql, this.getFormatDialect()));
 
