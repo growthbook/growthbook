@@ -553,6 +553,13 @@ app.post("/file/upload/:filetype", discussionsController.postImageUploadUrl);
 app.get("/admin/organizations", adminController.getOrganizations);
 app.post("/admin/organization/:id/populate", adminController.addSampleData);
 
+// Meta info
+app.get("/meta/ai", (req, res) => {
+  res.json({
+    enabled: !process.env.OPENAI_API_KEY,
+  });
+});
+
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {
   res.status(404).json({

@@ -1,5 +1,6 @@
 import { FC, useCallback, useMemo, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import useApi from "@/hooks/useApi";
 import { getApiHost } from "@/services/env";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
@@ -18,6 +19,8 @@ const OpenVisualEditorLink: FC<{
   const apiHost = getApiHost();
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
+  const { data: aiFeatureMeta } = useApi<{ enabled: boolean }>(`/meta/ai`);
+  const hasAiEnabled = aiFeatureMeta?.enabled ?? false;
 
   const isChromeBrowser = useMemo(() => {
     const ua = navigator.userAgent;
@@ -42,10 +45,11 @@ const OpenVisualEditorLink: FC<{
       "v-idx": changeIndex,
       "exp-url": encodeURIComponent(window.location.href),
       "api-host": encodeURIComponent(apiHost),
+      "ai-enabled": hasAiEnabled ? "true" : "false",
     });
 
     return url;
-  }, [visualEditorUrl, id, changeIndex, apiHost]);
+  }, [visualEditorUrl, id, changeIndex, apiHost, hasAiEnabled]);
 
   const navigate = useCallback(() => {
     track("Open visual editor", {
