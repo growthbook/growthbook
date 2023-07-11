@@ -1807,8 +1807,9 @@ export interface operations {
         "application/json": {
           /** @description ID for the [DataSource](#tag/DataSource_model) */
           datasourceId: string;
-          exposureQueryId?: string;
-          trackingKey?: string;
+          /** @description The ID property of one of the assignment query objects associated with the datasource */
+          assignmentQueryId: string;
+          trackingKey: string;
           /** @description Name of the experiment */
           name: string;
           /** @description Project ID which the experiment belongs to */
@@ -1819,6 +1820,8 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           metrics?: (string)[];
+          /** @description Email of the person who owns this experiment */
+          owner: string;
           archived?: boolean;
           /** @enum {string} */
           status?: "draft" | "running" | "stopped";
@@ -1853,7 +1856,7 @@ export interface operations {
                 })[];
               namespace: {
                 namespaceId: string;
-                range: (unknown)[];
+                range: (number)[];
               };
               targetingCondition: string;
               reason: string;

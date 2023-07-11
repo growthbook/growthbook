@@ -2,14 +2,18 @@ type: object
 required:
   - name
   - variations
+  - owner
   - datasourceId
+  - trackingKey
+  - assignmentQueryId
   - implementation
 properties:
   datasourceId:
     type: string
     description: ID for the [DataSource](#tag/DataSource_model)
-  exposureQueryId:
+  assignmentQueryId:
     type: string
+    description: The ID property of one of the assignment query objects associated with the datasource
   trackingKey:
     type: string
   name:
@@ -32,6 +36,9 @@ properties:
     type: array
     items:
       type: string
+  owner:
+    type: string
+    description: Email of the person who owns this experiment
   archived:
     type: boolean
   status:
@@ -135,8 +142,10 @@ properties:
               type: string
             range:
               type: array
-              rangeStart: number
-              rangeEnd: number
+              items:
+                type: number
+              minItems: 2
+              maxItems: 2
         targetingCondition:
           type: string
         reason:

@@ -12,7 +12,7 @@ import {
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
-import { getSnapshotAnalysis } from "shared/util";
+import { getSnapshotAnalysis, generateVariationId } from "shared/util";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotAnalysisSettings,
@@ -1626,6 +1626,10 @@ export function toMetricApiInterface(
   return obj;
 }
 
+const toNamespaceRange = (raw: number[]): [number, number] => [
+  raw[0] ?? 0,
+  raw[1] ?? 1,
+];
 /**
  * Converts the OpenAPI POST /experiment payload to a {@link ExperimentInterface}
  * @param payload
@@ -1636,9 +1640,38 @@ export function toMetricApiInterface(
 export function postExperimentApiPayloadToExperimentInterface(
   payload: z.infer<typeof postExperimentValidator.bodySchema>,
   organization: OrganizationInterface,
-  datasource: DataSourceInterface,
-  userId?: string
+  datasource: DataSourceInterface
 ): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
+  const phases = payload.phases?.map((p) => ({
+    ...p,
+    dateStarted: new Date(p.dateStarted),
+    dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
+    namespace: {
+      enabled: false,
+      name: p.namespace.namespaceId || "",
+      range: toNamespaceRange(p.namespace.range),
+    },
+    variationWeights: payload.variations.map(
+      () => 1 / payload.variations.length
+    ),
+  })) || [
+    {
+      coverage: 1,
+      dateStarted: new Date(),
+      name: "Main",
+      reason: "",
+      variationWeights: payload.variations.map(
+        () => 1 / payload.variations.length
+      ),
+      condition: "",
+      namespace: {
+        enabled: false,
+        name: "",
+        range: [0, 1],
+      },
+    },
+  ];
+
   return {
     organization: organization.id,
     datasource: datasource.id,
@@ -1646,28 +1679,14 @@ export function postExperimentApiPayloadToExperimentInterface(
     hashAttribute: payload.hashAttribute ?? "",
     autoSnapshots: true,
     project: payload.project,
-    owner: userId ?? "",
+    owner: payload.owner || "",
     trackingKey: payload.trackingKey || "",
-    exposureQueryId: payload.exposureQueryId || "",
-    userIdType: "anonymous",
+    exposureQueryId:
+      payload.assignmentQueryId ||
+      datasource.settings.queries?.exposure?.[0]?.id ||
+      "",
     name: payload.name || "",
-    phases: [
-      {
-        coverage: 1,
-        dateStarted: new Date(),
-        name: "Main",
-        reason: "",
-        variationWeights: Array.from(payload.variations).map(
-          () => 1 / payload.variations.length
-        ),
-        condition: "",
-        namespace: {
-          enabled: false,
-          name: "",
-          range: [0, 1],
-        },
-      },
-    ],
+    phases,
     tags: payload.tags || [],
     description: payload.description || "",
     hypothesis: payload.hypothesis || "",
@@ -1679,8 +1698,12 @@ export function postExperimentApiPayloadToExperimentInterface(
     queryFilter: "",
     skipPartialData: false,
     attributionModel: "firstExposure",
-    // @ts-expect-error come back to this
-    variations: payload.variations || [],
+    variations:
+      payload.variations.map((v) => ({
+        ...v,
+        id: generateVariationId(),
+        screenshots: v.screenshots || [],
+      })) || [],
     implementation: payload.implementation || "code",
     status: payload.status || "draft",
     analysis: "",

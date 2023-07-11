@@ -16,7 +16,8 @@
     "type-check": "tsc --pretty --noEmit"
   },
   "dependencies": {
-    "date-fns": "^2.15.0"
+    "date-fns": "^2.15.0",
+    "uniqid": "^5.4.0"
   },
   "devDependencies": {
     "@swc/cli": "^0.1.57",
