@@ -1572,7 +1572,7 @@ export default abstract class SqlIntegration
 
     const currentDateTime = new Date();
     const sevenDaysAgo = new Date(
-      currentDateTime.valueOf() - 70 * 60 * 60 * 24 * 1000
+      currentDateTime.valueOf() - 7 * 60 * 60 * 24 * 1000
     );
     const startYear = sevenDaysAgo.getFullYear();
     const startMonth = (sevenDaysAgo.getMonth() + 1)
