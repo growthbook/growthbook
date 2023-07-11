@@ -6,6 +6,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getAffectedEnvsForExperiment, getSnapshotAnalysis } from "shared/util";
 import { getScopedSettings } from "shared/settings";
+import { orgHasPremiumFeature } from "enterprise";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
@@ -82,7 +83,6 @@ import { MetricRegressionAdjustmentStatus } from "../../types/report";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
-import { orgHasPremiumFeature } from "../util/organization.util";
 import { findProjectById } from "../models/ProjectModel";
 
 export async function getExperiments(
