@@ -1359,12 +1359,7 @@ export default abstract class SqlIntegration
     return "";
   }
 
-  generateTablePath(
-    tableName: string,
-    schema?: string,
-    database?: string,
-    event_name?: string
-  ) {
+  generateTablePath(tableName: string, schema?: string, database?: string) {
     let path = "";
     // Add database if required
     if (this.requiresDatabase) {
@@ -1389,9 +1384,7 @@ export default abstract class SqlIntegration
     }
 
     // Add table name
-    // path += tableName;
-    //TODO: Refactor? Is there a better way?
-    path += event_name ? `${event_name}` : tableName;
+    path += tableName;
     return this.requiresEscapingPath ? `\`${path}\`` : path;
   }
 
@@ -1451,18 +1444,20 @@ export default abstract class SqlIntegration
   }
   getSchemaFormatConfig(schemaFormat: SchemaFormat): SchemaFormatConfig {
     switch (schemaFormat) {
-      // Segment & Rudderstack
       case "ga4": {
         return {
           trackedEventTableName: "events_*",
           eventColumn: "event_name",
-          timestampColumn: "event_timestamp",
+          timestampColumn: "TIMESTAMP_MICROS(event_timestamp)",
           userIdColumn: "user_id",
           anonymousIdColumn: "user_pseudo_id",
           includesPagesTable: false,
           includesScreensTable: false,
+          groupByColumns: ["event"],
+          eventHasUniqueTable: false,
         };
       }
+      // Segment & Rudderstack
       default: {
         return {
           trackedEventTableName: "tracks",
@@ -1473,6 +1468,8 @@ export default abstract class SqlIntegration
           displayNameColumn: "event_text",
           includesPagesTable: true,
           includesScreensTable: true,
+          groupByColumns: ["event", "received_at", "displayName"],
+          eventHasUniqueTable: true,
         };
       }
     }
@@ -1487,25 +1484,21 @@ export default abstract class SqlIntegration
       timestampColumn,
       userIdColumn,
       anonymousIdColumn,
+      eventHasUniqueTable,
       trackedEventTableName,
     } = this.getSchemaFormatConfig(schemaFormat);
 
-    //TODO: Figure out the abstraction layer here for the two types - one where each event tracker saves each event in its own table,
-    // and one where there is a singular _events table that contains all events - in the latter case, we need a where clause
-
     const sqlQuery = `
-    SELECT
-    ${hasUserId ? `${userIdColumn}, ` : ""}${anonymousIdColumn} as anonymous_id,
-    TIMESTAMP_MICROS(${timestampColumn}) as timestamp,
-    ${type === "count" ? `, 1 as value` : ""}
-     FROM ${this.generateTablePath(
-       event,
-       undefined,
-       undefined,
-       schemaFormat === "ga4" ? trackedEventTableName : undefined
-     )}
-     WHERE event_name in ('${event}')
-  `;
+      SELECT
+        ${hasUserId ? `${userIdColumn}, ` : ""}
+        ${anonymousIdColumn} as anonymous_id,
+        ${timestampColumn} as timestamp
+        ${type === "count" ? `, 1 as value` : ""}
+      FROM ${this.generateTablePath(
+        eventHasUniqueTable ? event : trackedEventTableName
+      )}
+      ${eventHasUniqueTable ? "" : `WHERE event_name = '${event}'`}
+`;
 
     return format(sqlQuery, this.getFormatDialect());
   }
@@ -1573,11 +1566,13 @@ export default abstract class SqlIntegration
       displayNameColumn,
       includesPagesTable,
       includesScreensTable,
+      groupByColumns,
+      eventHasUniqueTable,
     } = this.getSchemaFormatConfig(schemaFormat);
 
     const currentDateTime = new Date();
     const SevenDaysAgo = new Date(
-      currentDateTime.valueOf() - 7 * 60 * 60 * 24 * 1000
+      currentDateTime.valueOf() - 70 * 60 * 60 * 24 * 1000
     );
     const startYear = SevenDaysAgo.getFullYear();
     const startMonth = (SevenDaysAgo.getMonth() + 1)
@@ -1591,36 +1586,31 @@ export default abstract class SqlIntegration
       .padStart(2, "0");
     const endDay = currentDateTime.getDate().toString().padStart(2, "0");
 
-    //TODO: Figure out the abstraction layer here
-    // We need to figure out the abstraction for lastTrackedAt - GA4 needs the TIMESTAMP_MICROS
-    // The where clause for GA4 is different due to the dates
-    // The group by clause just needs "events" where Rudderstack/Segment need events, display_name, and timestamp
-
-    // const sql = `
-    //     SELECT
-    //       ${eventColumn} as event,
-    //       ${displayNameColumn ? displayNameColumn : eventColumn} as displayName,
-    //       (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
-    //       COUNT (*) as count,
-    //       MAX(${timestampColumn}) as lastTrackedAt
-    //     FROM
-    //       ${this.generateTablePath(trackedEventTableName)}
-    //       WHERE ${timestampColumn} < ${currentDateTime.valueOf()} AND ${timestampColumn} > ${SevenDaysAgo.valueOf()}
-    //       AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
-    //       GROUP BY event, ${timestampColumn}, displayName`;
-
     const sql = `
         SELECT
           ${eventColumn} as event,
           ${displayNameColumn ? displayNameColumn : eventColumn} as displayName,
           (CASE WHEN COUNT(user_id) > 0 THEN 1 ELSE 0 END) as hasUserId,
           COUNT (*) as count,
-          MAX(TIMESTAMP_MICROS(${timestampColumn})) as lastTrackedAt
+          MAX(${timestampColumn}) as lastTrackedAt
         FROM
           ${this.generateTablePath(trackedEventTableName)}
         WHERE
-          _TABLE_SUFFIX BETWEEN '${startYear}${startMonth}${startDay}' AND '${endYear}${endMonth}${endDay}'
-        GROUP BY event
+          ${
+            eventHasUniqueTable
+              ? `received_at < '${currentDateTime
+                  .toISOString()
+                  .slice(
+                    0,
+                    10
+                  )}' AND received_at > '${SevenDaysAgo.toISOString().slice(
+                  0,
+                  10
+                )}'`
+              : `_TABLE_SUFFIX BETWEEN '${startYear}${startMonth}${startDay}' AND '${endYear}${endMonth}${endDay}'`
+          } 
+        AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
+        GROUP BY ${groupByColumns.join(", ")}
     `;
 
     const results = await this.runQuery(format(sql, this.getFormatDialect()));
