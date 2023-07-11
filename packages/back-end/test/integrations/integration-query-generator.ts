@@ -122,7 +122,10 @@ const baseExperiment: ExperimentInterface = {
 };
 
 // Pseudo-MetricInterface, missing the fields in TestMetricConfig
-const baseMetric = {
+const baseMetric: Omit<
+  MetricInterface,
+  "id" | "type" | "ignoreNulls" | "sql"
+> = {
   organization: "",
   owner: "",
   datasource: "",
