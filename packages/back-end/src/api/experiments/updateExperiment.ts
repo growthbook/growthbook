@@ -3,7 +3,10 @@ import {
   updateExperiment as updateExperimentToDb,
   getExperimentById,
 } from "../../models/ExperimentModel";
-import { toExperimentApiInterface } from "../../services/experiments";
+import {
+  toExperimentApiInterface,
+  toNamespaceRange,
+} from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
 import { updateExperimentValidator } from "../../validators/openapi";
 
@@ -30,7 +33,7 @@ export const updateExperiment = createApiRequestHandler(
           dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
           namespace: {
             ...p.namespace,
-            range: [p.namespace.range[0], p.namespace.range[1]],
+            range: toNamespaceRange(p.namespace.range),
           },
         })),
       },

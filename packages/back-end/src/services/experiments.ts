@@ -1626,7 +1626,7 @@ export function toMetricApiInterface(
   return obj;
 }
 
-const toNamespaceRange = (raw: number[]): [number, number] => [
+export const toNamespaceRange = (raw: number[]): [number, number] => [
   raw[0] ?? 0,
   raw[1] ?? 1,
 ];
