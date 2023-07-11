@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "clean": "rimraf node_modules && rm tsconfig.tsbuildinfo",
+    "clean": "rimraf node_modules && rimraf tsconfig.tsbuildinfo",
     "type-check": "tsc --pretty --noEmit",
     "unused-export-check": "npx ts-unused-exports tsconfig.json --findCompletelyUnusedFiles --allowUnusedTypes --showLineNumber --ignoreFiles=.*stories --excludePathsFromReport=pages;",
     "test": "jest --forceExit --verbose --detectOpenHandles",
