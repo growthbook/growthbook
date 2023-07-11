@@ -2,6 +2,7 @@ import Agenda, { Job } from "agenda";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
 import { getSnapshotAnalysis } from "shared/util";
+import { orgHasPremiumFeature } from "enterprise";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -31,7 +32,6 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
-import { orgHasPremiumFeature } from "../util/organization.util";
 import { findProjectById } from "../models/ProjectModel";
 
 // Time between experiment result updates (default 6 hours)
