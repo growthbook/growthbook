@@ -95,7 +95,9 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
                   <td
                     className={`px-3 variation with-variation-label with-variation-right-shadow border-right-0 variation${j}`}
                   >
-                    <span className="name font-weight-bold">Variation {j}</span>
+                    <span className="name font-weight-bold">
+                      {j}: {experiment.variations[j]?.name}
+                    </span>
                   </td>
                   <td className="px-3 border-left-0">
                     <ForceSummary value={v.value} feature={feature} />
