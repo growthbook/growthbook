@@ -64,9 +64,9 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
         state === "missing"
           ? "secondary"
           : state === "active"
-          ? "success"
+          ? "primary"
           : "warning",
-      disabled: state !== "active",
+      active: state === "active",
       tooltip:
         state === "active"
           ? "The experiment is active in this environment"
@@ -94,12 +94,8 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
         <div className="mb-3">
           {environmentInfo.map((env) => (
             <Tooltip body={env.tooltip} key={env.id}>
-              <span
-                className={`badge badge-${env.color} mr-2`}
-                style={env.disabled ? { opacity: 0.6 } : {}}
-              >
-                {env.disabled ? <FaExclamationTriangle /> : <FaCheck />}{" "}
-                {env.id}
+              <span className={`badge badge-${env.color} mr-2`}>
+                {env.active ? <FaCheck /> : <FaExclamationTriangle />} {env.id}
               </span>
             </Tooltip>
           ))}
