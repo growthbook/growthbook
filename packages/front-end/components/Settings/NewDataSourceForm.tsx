@@ -324,10 +324,7 @@ const NewDataSourceForm: FC<{
     }
   };
 
-  console.log("selectedSchema.options", selectedSchema?.options);
-
-  // const hasStep2 = !!selectedSchema?.options;
-  const hasStep2 = true;
+  const hasStep2 = !!selectedSchema?.options;
   const isFinalStep = step === 2 || (!hasStep2 && step === 1);
   const updateSettingsRequired = isFinalStep && dataSourceId && step !== 1;
 
