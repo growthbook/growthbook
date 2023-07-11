@@ -71,10 +71,9 @@ if (IS_CLOUD) {
 
 ### Adding new commercial features
 
-If you want to add a new commercial feature, there are a few files you'll need to edit on the back-end:
+If you want to add a new commercial feature, you need to edit the `enterprise` package:
 
-- `types/organization.d.ts` - Add to the `CommercialFeature` union type
-- `src/util/organizzation.util.ts` - Edit the `accountFeatures` map, which defines which plans have access to which features
+- `packages/enterprise/src/license.ts` - Add to the `CommercialFeature` union type and edit the `accountFeatures` map, which defines which plans have access to which features
 
 ## Data Models
 

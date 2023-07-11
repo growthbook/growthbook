@@ -32,23 +32,6 @@ export type Role = {
   permissions: Permission[];
 };
 
-export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
-export type CommercialFeature =
-  | "sso"
-  | "advanced-permissions"
-  | "encrypt-features-endpoint"
-  | "schedule-feature-flag"
-  | "override-metrics"
-  | "regression-adjustment"
-  | "sequential-testing"
-  | "audit-logging"
-  | "visual-editor"
-  | "cloud-proxy"
-  | "hash-secure-attributes"
-  | "livechat"
-  | "json-validation";
-export type CommercialFeaturesMap = Record<AccountPlan, Set<CommercialFeature>>;
-
 export interface MemberRoleInfo {
   role: MemberRole;
   limitAccessByEnvironment: boolean;
@@ -267,27 +250,3 @@ export type NamespaceUsage = Record<
     end: number;
   }[]
 >;
-
-export type LicenseData = {
-  // Unique id for the license key
-  ref: string;
-  // Name of organization on the license
-  sub: string;
-  // Organization ID (keys prior to 12/2022 do not contain this field)
-  org?: string;
-  // Max number of seats
-  qty: number;
-  // Date issued
-  iat: string;
-  // Expiration date
-  exp: string;
-  // If it's a trial or not
-  trial: boolean;
-  // The plan (pro, enterprise, etc.)
-  plan: AccountPlan;
-  /**
-   * Expiration date (old style)
-   * @deprecated
-   */
-  eat?: string;
-};
