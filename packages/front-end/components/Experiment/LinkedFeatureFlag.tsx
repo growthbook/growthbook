@@ -15,51 +15,70 @@ type Props = {
 export default function LinkedFeatureFlag({ feature, experiment }: Props) {
   const environments = useEnvironments();
 
-  let matchingRule: ExperimentRule | undefined = undefined;
-  let rulesAbove = false;
-  const uniqueValueMappings = new Set<string>();
-  const environmentInfo = environments.map((env) => {
-    const settings = feature.environmentSettings?.[env.id];
-
-    const rules = settings?.rules || [];
-    let firstMatch = -1;
-    for (let i = 0; i < rules.length; i++) {
-      const rule = rules[i];
+  // Get all rules in all environments for this experiment
+  const rules: {
+    environmentId: string;
+    i: number;
+    enabled: boolean;
+    rule: ExperimentRule;
+  }[] = [];
+  Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
+    settings?.rules?.forEach((rule, i) => {
       if (
         rule.type === "experiment" &&
         experiment.trackingKey === (rule.trackingKey || feature.id)
       ) {
-        if (firstMatch < 0) firstMatch = i;
-        uniqueValueMappings.add(
-          JSON.stringify(rule.values.map((v) => v.value))
-        );
+        rules.push({
+          environmentId: env,
+          enabled: settings?.enabled && rule.enabled !== false,
+          i,
+          rule,
+        });
       }
-    }
+    });
+  });
 
-    if (firstMatch >= 0) {
-      rulesAbove = rulesAbove || firstMatch >= 1;
-      matchingRule = rules[firstMatch] as ExperimentRule;
-    }
+  const activeRules = rules.filter(({ enabled }) => enabled);
+  const uniqueValueMappings = new Set(
+    rules.map(({ rule }) => JSON.stringify(rule.values))
+  );
+  const rulesAbove = activeRules.some(({ i }) => i > 0);
 
-    const state =
-      firstMatch >= 0 && settings?.enabled
-        ? "active"
-        : firstMatch >= 0
-        ? "disabled"
-        : "missing";
+  const environmentInfo = environments.map((env) => {
+    const firstMatch =
+      activeRules.find(({ environmentId }) => environmentId === env.id) ||
+      rules.find(({ environmentId }) => environmentId === env.id);
+
+    // Differentiate between enabled, different ways it can be disabled, and missing
+    const state = firstMatch?.enabled
+      ? "active"
+      : firstMatch?.rule?.enabled === false
+      ? "disabledRule"
+      : firstMatch
+      ? "disabledEnvironment"
+      : "missing";
 
     return {
       id: env.id,
-      color: state === "missing" ? "secondary" : "primary",
+      color:
+        state === "missing"
+          ? "secondary"
+          : state === "active"
+          ? "success"
+          : "warning",
       disabled: state !== "active",
       tooltip:
         state === "active"
           ? "The experiment is active in this environment"
-          : state === "disabled"
-          ? "The experiment is in this environment, but the environment is disabled for this feature"
+          : state === "disabledEnvironment"
+          ? "The environment is disabled for this feature, so the experiment is not active"
+          : state === "disabledRule"
+          ? "The experiment is disabled in this environment and is not active"
           : "The experiment does not exist in this environment",
     };
   });
+
+  const firstRule = activeRules[0] || rules[0];
 
   return (
     <LinkedChange
@@ -72,7 +91,7 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
         <ClickToCopy className="mb-3">{feature.id}</ClickToCopy>
 
         <div className="font-weight-bold">Environments</div>
-        <div className="mb-2">
+        <div className="mb-3">
           {environmentInfo.map((env) => (
             <Tooltip body={env.tooltip} key={env.id}>
               <span
@@ -87,10 +106,10 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
         </div>
 
         <div className="font-weight-bold mb-2">Feature values</div>
-        {matchingRule && (
+        {firstRule && (
           <table className="table table-sm table-bordered w-auto">
             <tbody>
-              {(matchingRule as ExperimentRule).values.map((v, j) => (
+              {firstRule.rule.values.map((v, j) => (
                 <tr key={j}>
                   <td
                     className={`px-3 variation with-variation-label with-variation-right-shadow border-right-0 variation${j}`}
@@ -111,7 +130,13 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
         {uniqueValueMappings.size > 1 && (
           <div className="alert alert-warning mt-2">
             <strong>Warning:</strong> This experiment is included multiple times
-            in this feature with different values.
+            with different values.{" "}
+            {firstRule && (
+              <>
+                The values above are from the first experiment in{" "}
+                <strong>{firstRule.environmentId}</strong>.
+              </>
+            )}
           </div>
         )}
 
