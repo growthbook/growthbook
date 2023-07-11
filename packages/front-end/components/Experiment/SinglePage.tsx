@@ -1,4 +1,7 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentPhaseStringDates,
+} from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { useMemo, useState } from "react";
 import { useRouter } from "next/router";
@@ -227,8 +230,12 @@ export default function SinglePage({
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
-  const lastPhase = phases[lastPhaseIndex];
-  const phase = phases[phaseIndex || 0];
+  const lastPhase = phases[lastPhaseIndex] as
+    | undefined
+    | ExperimentPhaseStringDates;
+  const phase = phases[phaseIndex || 0] as
+    | undefined
+    | ExperimentPhaseStringDates;
   const startDate = phases?.[0]?.dateStarted
     ? date(phases[0].dateStarted)
     : null;
@@ -238,7 +245,7 @@ export default function SinglePage({
         ? date(lastPhase.dateEnded ?? "")
         : "now"
       : null;
-  const hasNamespace = lastPhase.namespace && lastPhase.namespace.enabled;
+  const hasNamespace = lastPhase?.namespace && lastPhase.namespace.enabled;
   const namespaceRange = hasNamespace
     ? lastPhase.namespace.range[1] - lastPhase.namespace.range[0]
     : 1;
@@ -452,10 +459,10 @@ export default function SinglePage({
     )
   );
 
-  const experimentHasPhases = experiment.phases.length > 0;
+  const experimentHasPhases = phases.length > 0;
   const experimentPendingWithVisualChanges =
     experiment.status === "draft" &&
-    experiment.phases.length > 0 &&
+    phases.length > 0 &&
     hasVisualEditorPermission;
 
   return (
@@ -1007,13 +1014,13 @@ export default function SinglePage({
             </div>
             {phase ? (
               <div className="appbox px-3 py-2">
-                {lastPhase.coverage !== undefined ? (
+                {lastPhase?.coverage !== undefined ? (
                   <div className="my-2">
                     <span className="font-weight-bold">Traffic coverage:</span>{" "}
                     {Math.floor(lastPhase.coverage * 100)}%
                   </div>
                 ) : null}
-                {lastPhase.condition && lastPhase.condition !== "{}" ? (
+                {lastPhase?.condition && lastPhase.condition !== "{}" ? (
                   <div className="my-2">
                     <div className="font-weight-bold">Conditions:</div>
                     <ConditionDisplay condition={lastPhase.condition} />
@@ -1140,7 +1147,7 @@ export default function SinglePage({
               className="ml-2"
               color="link"
               onClick={async () => {
-                if (editPhase) editPhase(experiment.phases.length - 1);
+                if (editPhase) editPhase(phases.length - 1);
                 track("Edit phase", { source: "visual-editor-ui" });
               }}
             >
@@ -1179,7 +1186,7 @@ export default function SinglePage({
           buttonsClassName="px-5"
           tabContentsClassName={clsx(
             "px-3 pt-3",
-            resultsTab === "results" && (experiment.phases?.length || 0) === 0
+            resultsTab === "results" && (phases.length || 0) === 0
               ? "alert-cool-1 py-3 noborder"
               : "border"
           )}
@@ -1408,7 +1415,7 @@ export default function SinglePage({
                 canOpen={!!editPhases}
               >
                 <div className="appbox mb-0">
-                  {experiment.phases?.length > 0 ? (
+                  {phases.length > 0 ? (
                     <div>
                       {experiment.phases.map((phase, i) => (
                         <ExpandablePhaseSummary
