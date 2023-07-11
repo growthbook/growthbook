@@ -48,6 +48,7 @@ import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTab
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
+import { useFeaturesList } from "@/services/features";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -221,9 +222,8 @@ export default function SinglePage({
   const { data: discussionData } = useApi<{ discussion: DiscussionInterface }>(
     `/discussion/experiment/${experiment.id}`
   );
-  const { data: featuresData } = useApi<{
-    features: FeatureInterface[];
-  }>(`/feature`);
+
+  const { features } = useFeaturesList(false);
 
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -412,24 +412,16 @@ export default function SinglePage({
     experiment.attributionModel === "experimentDuration";
 
   let legacyLinkedFeatures = [] as FeatureInterface[];
-  if (featuresData) {
-    legacyLinkedFeatures = featuresData.features.filter((feature) => {
-      if (feature.id === experiment.trackingKey) return true;
-      for (const [, envSetting] of Object.entries(
-        feature.environmentSettings
-      )) {
-        for (const rule of envSetting?.rules || []) {
-          if (
-            rule.type === "experiment" &&
-            experiment.trackingKey === (rule.trackingKey || feature.id)
-          ) {
-            return true;
-          }
-        }
-      }
-      return false;
+  legacyLinkedFeatures = features.filter((feature) => {
+    return Object.values(feature.environmentSettings).some((env) => {
+      return env?.rules?.some((rule) => {
+        return (
+          rule.type === "experiment" &&
+          experiment.trackingKey === (rule.trackingKey || feature.id)
+        );
+      });
     });
-  }
+  });
   const numLinkedVisualEditorChanges = visualChangesets.length || 0;
   const numLinkedFeatureFlagChanges = legacyLinkedFeatures.length || 0;
   const numLinkedChanges =
