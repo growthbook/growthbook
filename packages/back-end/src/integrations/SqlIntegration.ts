@@ -1571,14 +1571,14 @@ export default abstract class SqlIntegration
     } = this.getSchemaFormatConfig(schemaFormat);
 
     const currentDateTime = new Date();
-    const SevenDaysAgo = new Date(
+    const sevenDaysAgo = new Date(
       currentDateTime.valueOf() - 70 * 60 * 60 * 24 * 1000
     );
-    const startYear = SevenDaysAgo.getFullYear();
-    const startMonth = (SevenDaysAgo.getMonth() + 1)
+    const startYear = sevenDaysAgo.getFullYear();
+    const startMonth = (sevenDaysAgo.getMonth() + 1)
       .toString()
       .padStart(2, "0");
-    const startDay = SevenDaysAgo.getDate().toString().padStart(2, "0");
+    const startDay = sevenDaysAgo.getDate().toString().padStart(2, "0");
 
     const endYear = currentDateTime.getFullYear();
     const endMonth = (currentDateTime.getMonth() + 1)
@@ -1603,10 +1603,9 @@ export default abstract class SqlIntegration
                   .slice(
                     0,
                     10
-                  )}' AND received_at > '${SevenDaysAgo.toISOString().slice(
-                  0,
-                  10
-                )}'`
+                  )}' AND received_at > '${sevenDaysAgo
+                  .toISOString()
+                  .slice(0, 10)}'`
               : `_TABLE_SUFFIX BETWEEN '${startYear}${startMonth}${startDay}' AND '${endYear}${endMonth}${endDay}'`
           } 
         AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
@@ -1625,7 +1624,7 @@ export default abstract class SqlIntegration
            MAX(${timestampColumn}) as lastTrackedAt
         FROM
            ${this.generateTablePath("pages")}
-        WHERE received_at < '${currentDateTime.valueOf()}' AND received_at > '${SevenDaysAgo.valueOf()}'`;
+        WHERE received_at < '${currentDateTime.valueOf()}' AND received_at > '${sevenDaysAgo.valueOf()}'`;
 
       try {
         const pageViewedResults = await this.runQuery(
@@ -1654,10 +1653,9 @@ export default abstract class SqlIntegration
            ${this.generateTablePath("screens")}
         WHERE received_at < '${currentDateTime
           .toISOString()
-          .slice(0, 10)}' AND received_at > '${SevenDaysAgo.toISOString().slice(
-        0,
-        10
-      )}'`;
+          .slice(0, 10)}' AND received_at > '${sevenDaysAgo
+        .toISOString()
+        .slice(0, 10)}'`;
 
       try {
         const screenViewedResults = await this.runQuery(
