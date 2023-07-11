@@ -97,14 +97,6 @@ properties:
       required:
         - name
         - dateStarted
-        - reasonForStopping
-        - seed
-        - coverage
-        - trafficSplit
-        - targetingCondition
-        - namespace
-        - condition
-        - reason
       properties:
         name:
           type: string
@@ -146,6 +138,8 @@ properties:
                 type: number
               minItems: 2
               maxItems: 2
+            enabled:
+              type: boolean
         targetingCondition:
           type: string
         reason:

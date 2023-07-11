@@ -1,11 +1,13 @@
 import { UpdateExperimentResponse } from "../../../types/openapi";
+import { getDataSourceById } from "../../models/DataSourceModel";
 import {
   updateExperiment as updateExperimentToDb,
   getExperimentById,
+  getExperimentByTrackingKey,
 } from "../../models/ExperimentModel";
 import {
   toExperimentApiInterface,
-  toNamespaceRange,
+  updateExperimentApiPayloadToInterface,
 } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
 import { updateExperimentValidator } from "../../validators/openapi";
@@ -21,23 +23,50 @@ export const updateExperiment = createApiRequestHandler(
     if (!experiment) {
       throw new Error("Could not find the experiment to update");
     }
+
     req.checkPermissions("createAnalyses", experiment.project);
+
+    const datasource = await getDataSourceById(
+      experiment.datasource,
+      req.organization.id
+    );
+    if (!datasource) {
+      throw new Error("No datasource for this experiment was found.");
+    }
+    // check for associated assignment query id
+    if (
+      req.body.assignmentQueryId != null &&
+      req.body.assignmentQueryId !== experiment.exposureQueryId &&
+      !datasource.settings.queries?.exposure?.some(
+        (q) => q.id === req.body.assignmentQueryId
+      )
+    ) {
+      throw new Error(
+        `Unrecognized assignment query ID: ${req.body.assignmentQueryId}`
+      );
+    }
+
+    // check if tracking key is unique
+    if (
+      req.body.trackingKey != null &&
+      req.body.trackingKey !== experiment.trackingKey
+    ) {
+      const existingByTrackingKey = await getExperimentByTrackingKey(
+        req.organization.id,
+        req.body.trackingKey
+      );
+      if (existingByTrackingKey) {
+        throw new Error(
+          `Experiment with tracking key already exists: ${req.body.trackingKey}`
+        );
+      }
+    }
+
     const updatedExperiment = await updateExperimentToDb({
       organization: req.organization,
       experiment: experiment,
       user: req.eventAudit,
-      changes: {
-        ...req.body,
-        phases: req.body.phases?.map((p) => ({
-          ...p,
-          dateStarted: new Date(p.dateStarted),
-          dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
-          namespace: {
-            ...p.namespace,
-            range: toNamespaceRange(p.namespace.range),
-          },
-        })),
-      },
+      changes: updateExperimentApiPayloadToInterface(req.body, experiment),
     });
 
     if (updatedExperiment === null) {

@@ -5,7 +5,7 @@ import {
 } from "../../models/ExperimentModel";
 import { getDataSourceById } from "../../models/DataSourceModel";
 import {
-  postExperimentApiPayloadToExperimentInterface,
+  postExperimentApiPayloadToInterface,
   toExperimentApiInterface,
 } from "../../services/experiments";
 import { createApiRequestHandler } from "../../util/handler";
@@ -49,7 +49,7 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
     }
 
     // transform into exp interface; set sane defaults
-    const newExperiment = postExperimentApiPayloadToExperimentInterface(
+    const newExperiment = postExperimentApiPayloadToInterface(
       req.body,
       req.organization,
       datasource

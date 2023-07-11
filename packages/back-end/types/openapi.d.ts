@@ -1847,20 +1847,21 @@ export interface operations {
               dateStarted: string;
               /** Format: date */
               dateEnded?: string;
-              reasonForStopping: string;
-              seed: string;
-              coverage: number;
-              trafficSplit: ({
+              reasonForStopping?: string;
+              seed?: string;
+              coverage?: number;
+              trafficSplit?: ({
                   variationId: string;
                   weight: number;
                 })[];
-              namespace: {
+              namespace?: {
                 namespaceId: string;
                 range: (number)[];
+                enabled?: boolean;
               };
-              targetingCondition: string;
-              reason: string;
-              condition: string;
+              targetingCondition?: string;
+              reason?: string;
+              condition?: string;
               variationWeights?: (number)[];
             })[];
         };
@@ -2077,9 +2078,7 @@ export interface operations {
     requestBody: {
       content: {
         "application/json": {
-          /** @description ID for the [DataSource](#tag/DataSource_model) */
-          datasourceId?: string;
-          exposureQueryId?: string;
+          assignmentQueryId?: string;
           trackingKey?: string;
           /** @description Name of the experiment */
           name?: string;
@@ -2099,11 +2098,11 @@ export interface operations {
           autoRefresh?: boolean;
           hashAttribute?: string;
           variations?: ({
-              id: string;
+              id?: string;
               key: string;
               name: string;
-              description: string;
-              screenshots: ({
+              description?: string;
+              screenshots?: ({
                   path: string;
                   width?: number;
                   height?: number;
@@ -2116,23 +2115,22 @@ export interface operations {
               dateStarted: string;
               /** Format: date */
               dateEnded?: string;
-              reasonForStopping: string;
-              seed: string;
-              coverage: number;
-              trafficSplit: ({
+              reasonForStopping?: string;
+              seed?: string;
+              coverage?: number;
+              trafficSplit?: ({
                   variationId: string;
                   weight: number;
                 })[];
-              namespace: {
-                name: string;
+              namespace?: {
                 namespaceId: string;
-                range: (unknown)[];
-                enabled: boolean;
+                range: (number)[];
+                enabled?: boolean;
               };
-              targetingCondition: string;
-              reason: string;
-              condition: string;
-              variationWeights: (number)[];
+              targetingCondition?: string;
+              reason?: string;
+              condition?: string;
+              variationWeights?: (number)[];
             })[];
         };
       };

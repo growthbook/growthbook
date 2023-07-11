@@ -1,9 +1,6 @@
 type: object
 properties:
-  datasourceId:
-    type: string
-    description: ID for the [DataSource](#tag/DataSource_model)
-  exposureQueryId:
+  assignmentQueryId:
     type: string
   trackingKey:
     type: string
@@ -48,11 +45,8 @@ properties:
     items:
       type: object
       required:
-        - id
         - key
         - name
-        - description
-        - screenshots
       properties:
         id:
           type: string
@@ -84,15 +78,6 @@ properties:
       required:
         - name
         - dateStarted
-        - reasonForStopping
-        - seed
-        - coverage
-        - trafficSplit
-        - targetingCondition
-        - namespace
-        - condition
-        - reason
-        - variationWeights
       properties:
         name:
           type: string
@@ -125,17 +110,15 @@ properties:
           required:
             - namespaceId
             - range
-            - enabled
-            - name
           properties:
-            name:
-              type: string
             namespaceId:
               type: string
             range:
               type: array
-              rangeStart: number
-              rangeEnd: number
+              items:
+                type: number
+              minItems: 2
+              maxItems: 2
             enabled:
               type: boolean
         targetingCondition:
