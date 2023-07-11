@@ -1,5 +1,6 @@
 import { NextFunction, Request, Response } from "express";
-import { IS_CLOUD, SSO_CONFIG } from "../../util/secrets";
+import { SSO_CONFIG } from "enterprise";
+import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { markUserAsVerified, UserModel } from "../../models/UserModel";
 import {
