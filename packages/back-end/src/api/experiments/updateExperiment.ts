@@ -21,6 +21,7 @@ export const updateExperiment = createApiRequestHandler(
     if (!experiment) {
       throw new Error("Could not find the experiment to update");
     }
+    req.checkPermissions("createAnalyses", experiment.project);
     const updatedExperiment = await updateExperimentToDb({
       organization: req.organization,
       experiment: experiment,
