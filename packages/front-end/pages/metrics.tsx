@@ -138,7 +138,7 @@ const MetricsPage = (): React.ReactElement => {
         )}
         {showAutoGenerateMetricsModal && (
           <AutoGenerateMetricsModal
-            source="datasource-detail-page"
+            source="metrics-index-page"
             setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
             mutate={mutate}
           />
@@ -219,7 +219,7 @@ const MetricsPage = (): React.ReactElement => {
       )}
       {showAutoGenerateMetricsModal && (
         <AutoGenerateMetricsModal
-          source="datasource-detail-page"
+          source="metric-index-page"
           setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
           mutate={mutate}
         />

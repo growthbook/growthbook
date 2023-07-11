@@ -1478,14 +1478,6 @@ export default abstract class SqlIntegration
 
     return format(sqlQuery, this.getFormatDialect());
   }
-  getExistingMetricId(
-    existingMetrics: MetricInterface[],
-    type: MetricType,
-    sql: string
-  ): string {
-    const existingMetric = existingMetrics.find((metric) => metric.sql === sql);
-    return existingMetric?.id || "";
-  }
   getMetricsToCreate(
     result: {
       event: string;
@@ -1519,13 +1511,7 @@ export default abstract class SqlIntegration
     metricsToCreate.push({
       name: result.displayName,
       type: "binomial",
-      exists: this.getExistingMetricId(
-        existingMetrics,
-        "binomial",
-        binomialSqlQuery
-      )
-        ? true
-        : false,
+      exists: existingMetrics.some((metric) => metric.sql === binomialSqlQuery),
       sql: binomialSqlQuery,
     });
 
@@ -1539,9 +1525,7 @@ export default abstract class SqlIntegration
     metricsToCreate.push({
       name: `Count of ${result.displayName}`,
       type: "count",
-      exists: this.getExistingMetricId(existingMetrics, "count", countSqlQuery)
-        ? true
-        : false,
+      exists: existingMetrics.some((metric) => metric.sql === countSqlQuery),
       sql: countSqlQuery,
     });
 
