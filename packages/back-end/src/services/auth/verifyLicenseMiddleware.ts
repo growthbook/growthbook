@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { getLicense } from "../../init/license";
+import { getLicense } from "enterprise";
 import { IS_CLOUD } from "../../util/secrets";
 
 export default function verifyLicenseMiddleware(
