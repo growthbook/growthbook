@@ -1,6 +1,6 @@
+import { licenseInit } from "enterprise";
 import { logger } from "../util/logger";
 import mongoInit from "./mongo";
-import licenseInit from "./license";
 import { queueInit } from "./queue";
 
 let initPromise: Promise<void>;

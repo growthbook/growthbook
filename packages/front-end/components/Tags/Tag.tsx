@@ -6,9 +6,10 @@ interface Props {
   tag: string;
   color?: string;
   description?: string;
+  skipMargin?: boolean;
 }
 
-export default function Tag({ tag, color, description }: Props) {
+export default function Tag({ tag, color, description, skipMargin }: Props) {
   const { getTagById } = useDefinitions();
   const fullTag = getTagById(tag);
 
@@ -20,6 +21,7 @@ export default function Tag({ tag, color, description }: Props) {
       className={"tag badge-primary"}
       title={displayTitle}
       content={tag}
+      skipMargin={skipMargin}
       style={{
         backgroundColor: displayColor,
         color: isLight(displayColor) ? "#000000" : "#ffffff",

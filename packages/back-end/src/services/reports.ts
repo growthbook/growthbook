@@ -102,7 +102,7 @@ export function getSnapshotSettingsFromReportArgs(
       .concat(args.guardrails || [])
       .concat(args.activationMetric ? [args.activationMetric] : [])
       .map((m) =>
-        getMetricForSnapsot(
+        getMetricForSnapshot(
           m,
           metricMap,
           args.metricRegressionAdjustmentStatuses,
@@ -143,7 +143,7 @@ export function getSnapshotSettingsFromReportArgs(
   return { snapshotSettings, analysisSettings };
 }
 
-export function getMetricForSnapsot(
+export function getMetricForSnapshot(
   id: string | null | undefined,
   metricMap: Map<string, MetricInterface>,
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[],
@@ -162,7 +162,8 @@ export function getMetricForSnapsot(
       datasource: metric.datasource,
       type: metric.type,
       aggregation: metric.aggregation || undefined,
-      cap: metric.cap || undefined,
+      capping: metric.capping || null,
+      capValue: metric.capValue || undefined,
       denominator: metric.denominator || undefined,
       sql: metric.sql || undefined,
       userIdTypes: metric.userIdTypes || undefined,

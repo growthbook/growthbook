@@ -58,7 +58,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
   );
 
   return (
-    <div className="mb-5">
+    <div className="mb-4">
       {open && canManageKeys && (
         <ApiKeysModal
           close={() => setOpen(false)}
@@ -68,9 +68,9 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
         />
       )}
 
-      <div className="mb-5">
+      <div>
         <h1>Secret API Keys</h1>
-        <p>
+        <p className="text-gray">
           Secret keys have access to your organization. They{" "}
           <strong>must not be exposed to users</strong>.
         </p>

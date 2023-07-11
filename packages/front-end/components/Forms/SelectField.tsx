@@ -80,6 +80,7 @@ const SelectField: FC<
     sort?: boolean;
     createable?: boolean;
     formatOptionLabel?: (value: SingleValue) => ReactNode;
+    isSearchable?: boolean;
   }
 > = ({
   value,
@@ -95,6 +96,7 @@ const SelectField: FC<
   className,
   createable = false,
   formatOptionLabel,
+  isSearchable = true,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -191,6 +193,7 @@ const SelectField: FC<
                 isValidNewOption={() => false}
                 value={selected}
                 formatOptionLabel={formatOptionLabel}
+                isSearchable={!!isSearchable}
               />
             ) : (
               <ReactSelect
@@ -207,6 +210,7 @@ const SelectField: FC<
                 value={selected}
                 placeholder={initialOption ?? placeholder}
                 formatOptionLabel={formatOptionLabel}
+                isSearchable={!!isSearchable}
               />
             )}
             {required && (

@@ -51,7 +51,8 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
           </div>
           {releasedVariation && (
             <div className="px-3">
-              {winningVariation !== releasedVariation && (
+              {(result === "won" || result === "lost") &&
+              winningVariation !== releasedVariation ? (
                 <>
                   <strong>
                     &quot;
@@ -60,7 +61,7 @@ export default function StatusBanner({ mutateExperiment, editResult }: Props) {
                   </strong>{" "}
                   won, but{" "}
                 </>
-              )}
+              ) : null}
               <strong>
                 &quot;
                 {releasedVariation}
