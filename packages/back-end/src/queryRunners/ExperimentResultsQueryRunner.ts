@@ -33,7 +33,6 @@ export type SnapshotResult = {
 export type ExperimentResultsQueryParams = {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
-  useCache?: boolean;
   variationNames: string[];
   metricMap: Map<string, MetricInterface>;
 };
@@ -50,8 +49,7 @@ export const startExperimentResultQueries = async (
     // eslint-disable-next-line
     process: (rows: any[]) => any,
     useExisting?: boolean
-  ) => Promise<QueryPointer>,
-  useCache: boolean = true
+  ) => Promise<QueryPointer>
 ): Promise<Queries> => {
   const snapshotSettings = params.snapshotSettings;
   const metricMap = params.metricMap;
@@ -111,8 +109,7 @@ export const startExperimentResultQueries = async (
         m.id,
         integration.getExperimentMetricQuery(params),
         (query) => integration.runExperimentMetricQuery(query),
-        (rows) => rows,
-        useCache
+        (rows) => rows
       )
     );
   });
@@ -129,10 +126,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   private variationNames: string[] = [];
   private metricMap: Map<string, MetricInterface> = new Map();
 
-  async startQueries(
-    params: ExperimentResultsQueryParams,
-    useCache: boolean = true
-  ): Promise<Queries> {
+  async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
 
@@ -143,11 +137,10 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         params,
         this.integration,
         this.model.organization,
-        this.startQuery.bind(this),
-        useCache
+        this.startQuery.bind(this)
       );
     } else {
-      return this.startLegacyQueries(params, useCache);
+      return this.startLegacyQueries(params);
     }
   }
 
@@ -226,8 +219,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   }
 
   private async startLegacyQueries(
-    params: ExperimentResultsQueryParams,
-    useCache: boolean = true
+    params: ExperimentResultsQueryParams
   ): Promise<Queries> {
     const snapshotSettings = params.snapshotSettings;
     const metricMap = params.metricMap;
@@ -283,8 +275,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
             // eslint-disable-next-line
             ) as Promise<any[]>,
         (rows: ExperimentQueryResponses) =>
-          this.processLegacyExperimentResultsResponse(snapshotSettings, rows),
-        useCache
+          this.processLegacyExperimentResultsResponse(snapshotSettings, rows)
       ),
     ];
   }

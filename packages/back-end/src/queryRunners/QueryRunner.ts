@@ -46,14 +46,20 @@ export abstract class QueryRunner<
   public status: RunnerStatus = "pending";
   public result: Result | null = null;
   public error = "";
+  private useCache: boolean;
 
-  public constructor(model: Model, integration: SourceIntegrationInterface) {
+  public constructor(
+    model: Model,
+    integration: SourceIntegrationInterface,
+    useCache = true
+  ) {
     this.model = model;
     this.integration = integration;
+    this.useCache = useCache;
     this.emitter = new EventEmitter();
   }
 
-  abstract startQueries(params: Params, useCache?: boolean): Promise<Queries>;
+  abstract startQueries(params: Params): Promise<Queries>;
 
   abstract runAnalysis(queryMap: QueryMap): Promise<Result>;
 
@@ -255,13 +261,12 @@ export abstract class QueryRunner<
     name: string,
     query: string,
     run: (query: string) => Promise<Rows>,
-    process: (rows: Rows) => ProcessedRows,
-    useExisting: boolean = true
+    process: (rows: Rows) => ProcessedRows
   ): Promise<QueryPointer> {
     logger.debug("Running query: " + name);
 
     // Re-use recent identical query
-    if (useExisting) {
+    if (this.useCache) {
       logger.debug("Trying to reuse existing query");
       try {
         const existing = await getRecentQuery(

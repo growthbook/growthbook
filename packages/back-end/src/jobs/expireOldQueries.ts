@@ -14,6 +14,7 @@ import {
 } from "../models/PastExperimentsModel";
 import { getStaleQueries } from "../models/QueryModel";
 import { findReportsByQueryId, updateReport } from "../models/ReportModel";
+import { logger } from "../util/logger";
 
 const JOB_NAME = "expireOldQueries";
 
@@ -31,10 +32,13 @@ export default async function (agenda: Agenda) {
     const queryIds = new Set(queries.map((q) => q.id));
     const orgIds = new Set(queries.map((q) => q.organization));
 
+    logger.info("Found " + queryIds.size + " stale queries");
+
     // Look for matching snapshots and update the status
     const snapshots = await findRunningSnapshotsByQueryId([...queryIds]);
     for (let i = 0; i < snapshots.length; i++) {
       const snapshot = snapshots[i];
+      logger.info("Updating status of snapshot " + snapshot.id);
       updateQueryStatus(snapshot.queries, queryIds);
       await updateSnapshot(snapshot.organization, snapshot.id, {
         error: "Queries were interupted. Please try updating results again.",
@@ -47,6 +51,7 @@ export default async function (agenda: Agenda) {
     const reports = await findReportsByQueryId([...queryIds]);
     for (let i = 0; i < reports.length; i++) {
       const report = reports[i];
+      logger.info("Updating status of report " + report.id);
       updateQueryStatus(report.queries, queryIds);
       await updateReport(report.organization, report.id, {
         error: "Queries were interupted. Please try updating results again.",
@@ -61,6 +66,7 @@ export default async function (agenda: Agenda) {
     );
     for (let i = 0; i < metrics.length; i++) {
       const metric = metrics[i];
+      logger.info("Updating status of metric " + metric.id);
       updateQueryStatus(metric.queries, queryIds);
       await updateMetric(
         metric.id,
@@ -80,6 +86,7 @@ export default async function (agenda: Agenda) {
     );
     for (let i = 0; i < pastExperiments.length; i++) {
       const pastExperiment = pastExperiments[i];
+      logger.info("Updating status of pastExperiment " + pastExperiment.id);
       updateQueryStatus(pastExperiment.queries, queryIds);
       await updatePastExperiments(pastExperiment, {
         queries: pastExperiment.queries,
@@ -89,6 +96,7 @@ export default async function (agenda: Agenda) {
   });
 
   const job = agenda.create(JOB_NAME, {});
+  job.unique({});
   job.repeatEvery("1 minute");
   await job.save();
 }

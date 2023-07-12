@@ -460,9 +460,12 @@ export async function createSnapshot({
     experiment.datasource
   );
 
-  const queryRunner = new ExperimentResultsQueryRunner(snapshot, integration);
+  const queryRunner = new ExperimentResultsQueryRunner(
+    snapshot,
+    integration,
+    useCache
+  );
   await queryRunner.startAnalysis({
-    useCache,
     analysisSettings,
     snapshotSettings: data.settings,
     variationNames: experiment.variations.map((v) => v.name),

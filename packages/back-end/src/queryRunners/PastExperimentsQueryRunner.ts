@@ -20,17 +20,13 @@ export class PastExperimentsQueryRunner extends QueryRunner<
   PastExperimentParams,
   PastExperiment[]
 > {
-  async startQueries(
-    params: PastExperimentParams,
-    useCache: boolean = true
-  ): Promise<Queries> {
+  async startQueries(params: PastExperimentParams): Promise<Queries> {
     return [
       await this.startQuery(
         "experiments",
         this.integration.getPastExperimentQuery(params),
         (query) => this.integration.runPastExperimentQuery(query),
-        (rows) => this.processPastExperimentQueryResponse(rows),
-        useCache
+        (rows) => this.processPastExperimentQueryResponse(rows)
       ),
     ];
   }

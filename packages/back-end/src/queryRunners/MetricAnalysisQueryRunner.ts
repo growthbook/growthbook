@@ -15,17 +15,13 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
   MetricValueParams,
   MetricAnalysis
 > {
-  async startQueries(
-    params: MetricValueParams,
-    useCache: boolean = true
-  ): Promise<Queries> {
+  async startQueries(params: MetricValueParams): Promise<Queries> {
     return [
       await this.startQuery(
         "metric",
         this.integration.getMetricValueQuery(params),
         (query) => this.integration.runMetricValueQuery(query),
-        (rows) => processMetricValueQueryResponse(rows),
-        useCache
+        (rows) => processMetricValueQueryResponse(rows)
       ),
     ];
   }

@@ -21,7 +21,6 @@ export type SnapshotResult = {
 export type ExperimentResultsQueryParams = {
   snapshotSettings: ExperimentSnapshotSettings;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
-  useCache?: boolean;
   variationNames: string[];
   metricMap: Map<string, MetricInterface>;
 };
@@ -33,18 +32,14 @@ export class ReportQueryRunner extends QueryRunner<
 > {
   private metricMap: Map<string, MetricInterface> = new Map();
 
-  async startQueries(
-    params: ExperimentResultsQueryParams,
-    useCache: boolean = true
-  ): Promise<Queries> {
+  async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
 
     return startExperimentResultQueries(
       params,
       this.integration,
       this.model.organization,
-      this.startQuery.bind(this),
-      useCache
+      this.startQuery.bind(this)
     );
   }
   async runAnalysis(queryMap: QueryMap): Promise<ExperimentReportResults> {

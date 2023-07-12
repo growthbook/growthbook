@@ -221,14 +221,13 @@ export async function refreshReport(
     org.id,
     report.args.datasource
   );
-  const queryRunner = new ReportQueryRunner(report, integration);
+  const queryRunner = new ReportQueryRunner(report, integration, useCache);
 
   const updatedReport = await queryRunner.startAnalysis({
     analysisSettings,
     snapshotSettings,
     metricMap,
     variationNames: report.args.variations.map((v) => v.name),
-    useCache,
   });
 
   return res.status(200).json({
