@@ -1575,7 +1575,7 @@ export default abstract class SqlIntegration
     } = this.getSchemaFormatConfig(schemaFormat);
 
     const today = formatDate(new Date(), dateFormat);
-    const sevenDaysAgo = formatDate(subDays(new Date(), 100), dateFormat);
+    const sevenDaysAgo = formatDate(subDays(new Date(), 7), dateFormat);
 
     const sql = `
         SELECT
