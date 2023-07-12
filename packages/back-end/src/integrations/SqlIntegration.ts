@@ -1,5 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { dateStringArrayBetweenDates, getValidDate } from "shared/dates";
+import { format as formatDate, subDays } from "date-fns";
 import { MetricInterface, MetricType } from "../../types/metric";
 import {
   DataSourceSettings,
@@ -1455,6 +1456,7 @@ export default abstract class SqlIntegration
           includesScreensTable: false,
           groupByColumns: ["event"],
           eventHasUniqueTable: false,
+          dateFormat: "yyyyMMdd",
         };
       }
       // Segment & Rudderstack
@@ -1470,6 +1472,7 @@ export default abstract class SqlIntegration
           includesScreensTable: true,
           groupByColumns: ["event", "received_at", "displayName"],
           eventHasUniqueTable: true,
+          dateFormat: "yyyy-MM-dd",
         };
       }
     }
@@ -1568,23 +1571,10 @@ export default abstract class SqlIntegration
       includesScreensTable,
       groupByColumns,
       eventHasUniqueTable,
+      dateFormat,
     } = this.getSchemaFormatConfig(schemaFormat);
 
-    const currentDateTime = new Date();
-    const sevenDaysAgo = new Date(
-      currentDateTime.valueOf() - 7 * 60 * 60 * 24 * 1000
-    );
-    const startYear = sevenDaysAgo.getFullYear();
-    const startMonth = (sevenDaysAgo.getMonth() + 1)
-      .toString()
-      .padStart(2, "0");
-    const startDay = sevenDaysAgo.getDate().toString().padStart(2, "0");
-
-    const endYear = currentDateTime.getFullYear();
-    const endMonth = (currentDateTime.getMonth() + 1)
-      .toString()
-      .padStart(2, "0");
-    const endDay = currentDateTime.getDate().toString().padStart(2, "0");
+    const lookbackDays = 7;
 
     const sql = `
         SELECT
@@ -1598,15 +1588,17 @@ export default abstract class SqlIntegration
         WHERE
           ${
             eventHasUniqueTable
-              ? `received_at < '${currentDateTime
-                  .toISOString()
-                  .slice(
-                    0,
-                    10
-                  )}' AND received_at > '${sevenDaysAgo
-                  .toISOString()
-                  .slice(0, 10)}'`
-              : `_TABLE_SUFFIX BETWEEN '${startYear}${startMonth}${startDay}' AND '${endYear}${endMonth}${endDay}'`
+              ? `received_at < '${formatDate(
+                  new Date(),
+                  dateFormat
+                )}' AND received_at > '${formatDate(
+                  subDays(new Date(), lookbackDays),
+                  dateFormat
+                )}'`
+              : `_TABLE_SUFFIX BETWEEN '${formatDate(
+                  subDays(new Date(), lookbackDays),
+                  dateFormat
+                )}' AND'${formatDate(new Date(), dateFormat)}'`
           } 
         AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
         GROUP BY ${groupByColumns.join(", ")}
@@ -1624,7 +1616,13 @@ export default abstract class SqlIntegration
            MAX(${timestampColumn}) as lastTrackedAt
         FROM
            ${this.generateTablePath("pages")}
-        WHERE received_at < '${currentDateTime.valueOf()}' AND received_at > '${sevenDaysAgo.valueOf()}'`;
+        WHERE received_at < '${formatDate(
+          new Date(),
+          dateFormat
+        )}' AND received_at > '${formatDate(
+        subDays(new Date(), lookbackDays),
+        dateFormat
+      )}'`;
 
       try {
         const pageViewedResults = await this.runQuery(
@@ -1651,11 +1649,13 @@ export default abstract class SqlIntegration
            MAX(${timestampColumn}) as lastTrackedAt
         FROM
            ${this.generateTablePath("screens")}
-        WHERE received_at < '${currentDateTime
-          .toISOString()
-          .slice(0, 10)}' AND received_at > '${sevenDaysAgo
-        .toISOString()
-        .slice(0, 10)}'`;
+        WHERE received_at < '${formatDate(
+          new Date(),
+          dateFormat
+        )}' AND received_at > '${formatDate(
+        subDays(new Date(), lookbackDays),
+        dateFormat
+      )}'`;
 
       try {
         const screenViewedResults = await this.runQuery(

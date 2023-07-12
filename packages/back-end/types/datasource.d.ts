@@ -94,6 +94,7 @@ export interface SchemaFormatConfig {
   includesScreensTable: boolean;
   groupByColumns: string[];
   eventHasUniqueTable: boolean;
+  dateFormat: string;
 }
 
 export interface DataSourceProperties {
