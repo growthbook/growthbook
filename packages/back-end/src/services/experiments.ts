@@ -8,10 +8,11 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
+  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
-import { getSnapshotAnalysis } from "shared/util";
+import { getSnapshotAnalysis, generateVariationId } from "shared/util";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotAnalysisSettings,
@@ -68,7 +69,12 @@ import {
   ApiMetric,
 } from "../../types/openapi";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
-import { postMetricValidator, putMetricValidator } from "../validators/openapi";
+import {
+  postExperimentValidator,
+  postMetricValidator,
+  putMetricValidator,
+  updateExperimentValidator,
+} from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
@@ -1619,6 +1625,176 @@ export function toMetricApiInterface(
   }
 
   return obj;
+}
+
+export const toNamespaceRange = (
+  raw: number[] | undefined
+): [number, number] => [raw?.[0] ?? 0, raw?.[1] ?? 1];
+/**
+ * Converts the OpenAPI POST /experiment payload to a {@link ExperimentInterface}
+ * @param payload
+ * @param organization
+ * @param datasource
+ * @param userId
+ */
+export function postExperimentApiPayloadToInterface(
+  payload: z.infer<typeof postExperimentValidator.bodySchema>,
+  organization: OrganizationInterface,
+  datasource: DataSourceInterface
+): Omit<ExperimentInterface, "dateCreated" | "dateUpdated" | "id"> {
+  const phases = payload.phases?.map((p) => ({
+    ...p,
+    dateStarted: new Date(p.dateStarted),
+    dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
+    reason: p.reason || "",
+    coverage: p.coverage != null ? p.coverage : 1,
+    condition: p.condition || "{}",
+    namespace: {
+      name: p.namespace?.namespaceId || "",
+      range: toNamespaceRange(p.namespace?.range),
+      enabled: p.namespace?.enabled != null ? p.namespace.enabled : false,
+    },
+    variationWeights:
+      p.variationWeights ||
+      payload.variations.map(() => 1 / payload.variations.length),
+  })) || [
+    {
+      coverage: 1,
+      dateStarted: new Date(),
+      name: "Main",
+      reason: "",
+      variationWeights: payload.variations.map(
+        () => 1 / payload.variations.length
+      ),
+      condition: "",
+      namespace: {
+        enabled: false,
+        name: "",
+        range: [0, 1],
+      },
+    },
+  ];
+
+  return {
+    organization: organization.id,
+    datasource: datasource.id,
+    archived: payload.archived ?? false,
+    hashAttribute: payload.hashAttribute ?? "",
+    autoSnapshots: true,
+    project: payload.project,
+    owner: payload.owner || "",
+    trackingKey: payload.trackingKey || "",
+    exposureQueryId:
+      payload.assignmentQueryId ||
+      datasource.settings.queries?.exposure?.[0]?.id ||
+      "",
+    name: payload.name || "",
+    phases,
+    tags: payload.tags || [],
+    description: payload.description || "",
+    hypothesis: payload.hypothesis || "",
+    metrics: payload.metrics || [],
+    metricOverrides: [],
+    guardrails: [],
+    activationMetric: "",
+    segment: "",
+    queryFilter: "",
+    skipPartialData: false,
+    attributionModel: "firstExposure",
+    variations:
+      payload.variations.map((v) => ({
+        ...v,
+        id: generateVariationId(),
+        screenshots: v.screenshots || [],
+      })) || [],
+    implementation: payload.implementation || "code",
+    status: payload.status || "draft",
+    analysis: "",
+    releasedVariationId: "",
+    autoAssign: false,
+    previewURL: "",
+    targetURLRegex: "",
+    ideaSource: "",
+    sequentialTestingEnabled: !!organization?.settings
+      ?.sequentialTestingEnabled,
+    sequentialTestingTuningParameter: DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  };
+}
+
+/**
+ * Converts the OpenAPI POST /experiment/:id payload to a {@link ExperimentInterface}
+ * @param payload
+ * @param organization
+ * @param datasource
+ * @param userId
+ */
+export function updateExperimentApiPayloadToInterface(
+  payload: z.infer<typeof updateExperimentValidator.bodySchema>,
+  experiment: ExperimentInterface
+): Partial<ExperimentInterface> {
+  const {
+    trackingKey,
+    project,
+    owner,
+    assignmentQueryId,
+    hashAttribute,
+    name,
+    tags,
+    description,
+    hypothesis,
+    metrics,
+    archived,
+    status,
+    phases,
+    variations,
+  } = payload;
+  return {
+    ...(trackingKey ? { trackingKey } : {}),
+    ...(project ? { project } : {}),
+    ...(owner ? { owner } : {}),
+    ...(assignmentQueryId ? { assignmentQueryId } : {}),
+    ...(hashAttribute ? { hashAttribute } : {}),
+    ...(name ? { name } : {}),
+    ...(tags ? { tags } : {}),
+    ...(description ? { description } : {}),
+    ...(hypothesis ? { hypothesis } : {}),
+    ...(metrics ? { metrics } : {}),
+    ...(archived ? { archived } : {}),
+    ...(status ? { status } : {}),
+    ...(variations
+      ? {
+          variations: variations?.map((v) => ({
+            id: generateVariationId(),
+            screenshots: [],
+            ...v,
+          })),
+        }
+      : {}),
+    ...(phases
+      ? {
+          phases: phases.map((p) => ({
+            ...p,
+            dateStarted: new Date(p.dateStarted),
+            dateEnded: p.dateEnded ? new Date(p.dateEnded) : undefined,
+            reason: p.reason || "",
+            coverage: p.coverage != null ? p.coverage : 1,
+            condition: p.condition || "{}",
+            namespace: {
+              name: p.namespace?.namespaceId || "",
+              range: toNamespaceRange(p.namespace?.range),
+              enabled:
+                p.namespace?.enabled != null ? p.namespace.enabled : false,
+            },
+            variationWeights:
+              p.variationWeights ||
+              (payload.variations || experiment.variations)?.map(
+                (_v, _i, arr) => 1 / arr.length
+              ),
+          })),
+        }
+      : {}),
+    dateUpdated: new Date(),
+  };
 }
 
 export async function getRegressionAdjustmentInfo(
