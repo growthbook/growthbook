@@ -151,6 +151,7 @@ export default function SDKConnectionForm({
           mutate();
         } else {
           track("Create SDK Connection", {
+            source: "SDKConnectionForm",
             languages: value.languages,
             encryptPayload: value.encryptPayload,
             hashSecureAttributes: value.hashSecureAttributes,
