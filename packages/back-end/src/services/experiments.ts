@@ -427,7 +427,14 @@ export async function createSnapshot({
     }),
     unknownVariations: [],
     multipleExposures: 0,
-    analyses: [],
+    analyses: [
+      {
+        dateCreated: new Date(),
+        results: [],
+        settings: analysisSettings,
+        status: "running",
+      },
+    ],
     status: "running",
   };
 

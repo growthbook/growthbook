@@ -3,6 +3,7 @@ import { QueryStatus, Queries } from "back-end/types/query";
 import clsx from "clsx";
 import { FaPlay } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
+import { getValidDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import LoadingSpinner from "../LoadingSpinner";
 
@@ -40,7 +41,7 @@ const RunQueriesButton: FC<{
   cta?: string;
   loadingText?: string;
   cancelEndpoint: string;
-  model: { queries: Queries; runStarted: Date | undefined | null };
+  model: { queries: Queries; runStarted: string | Date | undefined | null };
   mutate: () => Promise<unknown> | unknown;
   icon?: "run" | "refresh";
   color?: string;
@@ -57,7 +58,9 @@ const RunQueriesButton: FC<{
 }) => {
   const { apiCall } = useAuth();
 
-  const startTime = model.runStarted?.getTime();
+  const startTime = model.runStarted
+    ? getValidDate(model.runStarted).getTime()
+    : null;
   const elapsed = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
 
   // Used to refresh this component while query is running so we can show an elapsed timer

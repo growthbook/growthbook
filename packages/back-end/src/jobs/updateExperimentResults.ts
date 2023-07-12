@@ -186,6 +186,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
       metricMap,
+      useCache: true,
     });
     await queryRunner.waitForResults();
     const currentSnapshot = queryRunner.model;
