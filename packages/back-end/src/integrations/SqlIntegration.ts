@@ -1574,7 +1574,8 @@ export default abstract class SqlIntegration
       dateFormat,
     } = this.getSchemaFormatConfig(schemaFormat);
 
-    const lookbackDays = 7;
+    const today = formatDate(new Date(), dateFormat);
+    const sevenDaysAgo = formatDate(subDays(new Date(), 100), dateFormat);
 
     const sql = `
         SELECT
@@ -1588,17 +1589,8 @@ export default abstract class SqlIntegration
         WHERE
           ${
             eventHasUniqueTable
-              ? `received_at < '${formatDate(
-                  new Date(),
-                  dateFormat
-                )}' AND received_at > '${formatDate(
-                  subDays(new Date(), lookbackDays),
-                  dateFormat
-                )}'`
-              : `_TABLE_SUFFIX BETWEEN '${formatDate(
-                  subDays(new Date(), lookbackDays),
-                  dateFormat
-                )}' AND'${formatDate(new Date(), dateFormat)}'`
+              ? `received_at < '${today}' AND received_at > '${sevenDaysAgo}'`
+              : `_TABLE_SUFFIX BETWEEN '${sevenDaysAgo}' AND'${today}'`
           } 
         AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
         GROUP BY ${groupByColumns.join(", ")}
@@ -1616,13 +1608,7 @@ export default abstract class SqlIntegration
            MAX(${timestampColumn}) as lastTrackedAt
         FROM
            ${this.generateTablePath("pages")}
-        WHERE received_at < '${formatDate(
-          new Date(),
-          dateFormat
-        )}' AND received_at > '${formatDate(
-        subDays(new Date(), lookbackDays),
-        dateFormat
-      )}'`;
+        WHERE received_at < '${today}' AND received_at > '${sevenDaysAgo}'`;
 
       try {
         const pageViewedResults = await this.runQuery(
@@ -1649,13 +1635,7 @@ export default abstract class SqlIntegration
            MAX(${timestampColumn}) as lastTrackedAt
         FROM
            ${this.generateTablePath("screens")}
-        WHERE received_at < '${formatDate(
-          new Date(),
-          dateFormat
-        )}' AND received_at > '${formatDate(
-        subDays(new Date(), lookbackDays),
-        dateFormat
-      )}'`;
+        WHERE received_at < '${today}' AND received_at > '${sevenDaysAgo}'`;
 
       try {
         const screenViewedResults = await this.runQuery(
