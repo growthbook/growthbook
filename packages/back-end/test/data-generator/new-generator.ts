@@ -43,6 +43,7 @@ interface DataTables {
 
 interface SimulatorData {
   dataTables: DataTables;
+  messyData: boolean;
   startDate: Date;
   currentDate: Date;
 }
@@ -239,8 +240,8 @@ function viewItemPage(data: TableData, gb: GrowthBook, sim: SimulatorData) {
   let res = gb.run({
     key: "price-display",
     // Max qty purchased
-    variations: [7, 5],
-    condition: getDateRangeCondition(sim.startDate, 30, 60),
+    variations: [2, 1],
+    condition: getDateRangeCondition(sim.startDate, 30, 90),
   });
   trackExperiment(data, res, "price-display", sim);
   const qty = normalInt(1, res.value);
@@ -297,7 +298,7 @@ function viewCheckout(data: TableData, gb: GrowthBook, sim: SimulatorData) {
   trackExperiment(data, res, "checkout-layout", sim);
   // add second "error" exposure with different value
   // for 10% of users. Used to test multiple exposures.
-  if (Math.random() < 0.1) {
+  if (sim.messyData && Math.random() < 0.1) {
     trackExperiment(
       data,
       { inExperiment: true, variationId: 0 },
@@ -333,7 +334,7 @@ function purchase(
   );
   // Pretend we gift people items randomly and the price is then 0, but
   // we set it to NULL (just as a way to simulate NULL values in data)
-  if (Math.random() < 0.15) {
+  if (sim.messyData && Math.random() < 0.15) {
     price = null;
   }
   trackPurchase(
@@ -489,7 +490,8 @@ function writeCSV(
 function generateAndWriteData(
   startDate: Date,
   outputDir: string,
-  numUsers: number
+  numUsers: number,
+  messyData: boolean,
 ) {
   const sim: SimulatorData = {
     dataTables: {
@@ -500,6 +502,7 @@ function generateAndWriteData(
       events: [],
       userRetention: {},
     },
+    messyData: messyData,
     startDate: startDate,
     currentDate: new Date(startDate),
   };
@@ -535,5 +538,5 @@ function generateAndWriteData(
   });
 }
 
-generateAndWriteData(new Date(), "../../../../../sim_dat/", 10000);
 console.log("Generating dummy data...");
+generateAndWriteData(new Date(), "/tmp/csv", 10000, true);
