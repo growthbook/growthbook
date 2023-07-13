@@ -171,7 +171,7 @@ It assumes you have a method `current_user` that returns the currently-authentic
 How this works:
 
 1. With each request, the `init_feature_flags` method is called. This creates a new instance of `Growthbook::Context`
-2. When creating the context for the first time, features are fetched and cached in the Rails cached. Subsequent calls use the cached version until the cache expires.
+2. When creating the context for the first time, features are fetched and cached in the Rails cache. Subsequent calls use the cached version until the cache expires.
 3. Developers can call methods on `growthbook` in their controllers to use the GrowthBook SDK, e.g. `growthbook.on?(:dark_mode)`.
 
 You can see the Rails example linked in the [Code examples below](#code-examples).
