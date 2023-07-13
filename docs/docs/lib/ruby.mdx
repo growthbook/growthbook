@@ -55,7 +55,9 @@ end
 btn_color = gb.feature_value(:signup_btn_color, 'pink')
 ```
 
-## Track experiment impressions
+## Tracking
+
+### Track experiment impressions
 
 When a feature's value is determined by an experiment (A/B test), you typically want to track that assignment event for later analysis.
 
@@ -77,6 +79,34 @@ class MyImpressionListener
 end
 
 gb.listener = MyImpressionListener.new
+```
+
+### Track feature usage
+
+GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
+
+Provide a receiver that can receive `def on_feature_usage: (String _feature_key, FeatureResult _result) -> void`. There's a convenience class `FeatureUsageCallback` with a method you can override but you can provide your own.
+
+```rb
+class MyFeatureUsageCallback < FeatureUsageCallback
+  def on_feature_usage(feature_key, feature_result)
+    puts "on_feature_usage_called with key: #{feature_key} and result #{feature_result}"
+  end
+end
+
+on_feature_usage = MyFeatureUsageCallback.new
+
+# you can pass it into the context
+gb = Growthbook::Context.new({
+  attributes: {
+    id: 'user-abc123'
+  },
+  features: feature_repository.fetch || {},
+  on_feature_usage: on_feature_usage,
+})
+
+# or assign it afterwards
+gb.on_feature_usage = on_feature_usage
 ```
 
 ## Using with Rails
