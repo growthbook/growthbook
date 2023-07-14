@@ -16,6 +16,7 @@
     "build:app": "wsrun -p 'back-end' -p 'front-end' -c build",
     "build": "yarn build:deps && yarn build:app",
     "start": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start",
+    "start:with-tracing": "wsrun -p 'back-end' -p 'front-end' --no-prefix -c start:with-tracing",
     "setup": "yarn build:deps && wsrun -p 'stats' -c setup",
     "prepare": "husky install",
     "plop": "plop",
