@@ -46,7 +46,7 @@ export type LicenseData = {
 };
 
 // Self-hosted commercial license key
-export const LICENSE_KEY = process.env.LICENSE_KEY || "";
+const LICENSE_KEY = process.env.LICENSE_KEY || "";
 
 export const accountFeatures: CommercialFeaturesMap = {
   oss: new Set<CommercialFeature>([]),
