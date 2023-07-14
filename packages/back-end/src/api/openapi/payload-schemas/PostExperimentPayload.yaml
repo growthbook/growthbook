@@ -1,0 +1,152 @@
+type: object
+required:
+  - name
+  - variations
+  - owner
+  - datasourceId
+  - trackingKey
+  - assignmentQueryId
+  - implementation
+properties:
+  datasourceId:
+    type: string
+    description: ID for the [DataSource](#tag/DataSource_model)
+  assignmentQueryId:
+    type: string
+    description: The ID property of one of the assignment query objects associated with the datasource
+  trackingKey:
+    type: string
+  name:
+    type: string
+    description: Name of the experiment
+  project:
+    type: string
+    description: Project ID which the experiment belongs to
+  hypothesis:
+    type: string
+    description: Hypothesis of the experiment
+  description:
+    type: string
+    description: Description of the experiment
+  tags:
+    type: array
+    items:
+      type: string
+  metrics:
+    type: array
+    items:
+      type: string
+  owner:
+    type: string
+    description: Email of the person who owns this experiment
+  archived:
+    type: boolean
+  status:
+    type: string
+    enum:
+      - draft
+      - running
+      - stopped
+  autoRefresh:
+    type: boolean
+  hashAttribute:
+    type: string
+  implementation:
+    type: string
+    enum:
+      - visual
+      - code
+      - configuration
+      - custom
+  variations:
+    type: array
+    minItems: 2
+    items:
+      type: object
+      required:
+        - key
+        - name
+      properties:
+        id:
+          type: string
+        key:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        screenshots:
+          type: array
+          items:
+            type: object
+            required:
+              - path
+            properties:
+              path:
+                type: string
+              width:
+                type: number
+              height:
+                type: number
+              description:
+                type: string
+  phases:
+    type: array
+    items:
+      type: object
+      required:
+        - name
+        - dateStarted
+      properties:
+        name:
+          type: string
+        dateStarted:
+          type: string
+          format: date
+        dateEnded:
+          type: string
+          format: date
+        reasonForStopping:
+          type: string
+        seed:
+          type: string
+        coverage:
+          type: number
+        trafficSplit:
+          type: array
+          items:
+            type: object
+            required:
+              - variationId
+              - weight
+            properties:
+              variationId:
+                type: string
+              weight:
+                type: number
+        namespace:
+          type: object
+          required:
+            - namespaceId
+            - range
+          properties:
+            namespaceId:
+              type: string
+            range:
+              type: array
+              items:
+                type: number
+              minItems: 2
+              maxItems: 2
+            enabled:
+              type: boolean
+        targetingCondition:
+          type: string
+        reason:
+          type: string
+        condition:
+          type: string
+        variationWeights:
+          type: array
+          items:
+            type: number

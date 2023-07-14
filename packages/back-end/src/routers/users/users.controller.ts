@@ -1,4 +1,5 @@
 import { Response } from "express";
+import { getLicense } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
 import { usingOpenId } from "../../services/auth";
 import { createUser, getUserByEmail } from "../../services/users";
@@ -10,7 +11,6 @@ import {
   validateLoginMethod,
 } from "../../services/organizations";
 import { IS_CLOUD } from "../../util/secrets";
-import { getLicense } from "../../init/license";
 import { UserModel } from "../../models/UserModel";
 import { WatchModel } from "../../models/WatchModel";
 import { getFeature } from "../../models/FeatureModel";

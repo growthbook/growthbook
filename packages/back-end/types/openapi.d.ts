@@ -108,16 +108,14 @@ export interface paths {
   "/experiments": {
     /** Get all experiments */
     get: operations["listExperiments"];
+    /** Create a single experiment */
+    post: operations["postExperiment"];
   };
   "/experiments/{id}": {
     /** Get a single experiment */
     get: operations["getExperiment"];
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
+    /** Update a single experiment */
+    post: operations["updateExperiment"];
   };
   "/experiments/{id}/results": {
     /** Get results for an experiment */
@@ -1802,8 +1800,341 @@ export interface operations {
       };
     };
   };
+  postExperiment: {
+    /** Create a single experiment */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description ID for the [DataSource](#tag/DataSource_model) */
+          datasourceId: string;
+          /** @description The ID property of one of the assignment query objects associated with the datasource */
+          assignmentQueryId: string;
+          trackingKey: string;
+          /** @description Name of the experiment */
+          name: string;
+          /** @description Project ID which the experiment belongs to */
+          project?: string;
+          /** @description Hypothesis of the experiment */
+          hypothesis?: string;
+          /** @description Description of the experiment */
+          description?: string;
+          tags?: (string)[];
+          metrics?: (string)[];
+          /** @description Email of the person who owns this experiment */
+          owner: string;
+          archived?: boolean;
+          /** @enum {string} */
+          status?: "draft" | "running" | "stopped";
+          autoRefresh?: boolean;
+          hashAttribute?: string;
+          /** @enum {string} */
+          implementation: "visual" | "code" | "configuration" | "custom";
+          variations: ({
+              id?: string;
+              key: string;
+              name: string;
+              description?: string;
+              screenshots?: ({
+                  path: string;
+                  width?: number;
+                  height?: number;
+                  description?: string;
+                })[];
+            })[];
+          phases?: ({
+              name: string;
+              /** Format: date */
+              dateStarted: string;
+              /** Format: date */
+              dateEnded?: string;
+              reasonForStopping?: string;
+              seed?: string;
+              coverage?: number;
+              trafficSplit?: ({
+                  variationId: string;
+                  weight: number;
+                })[];
+              namespace?: {
+                namespaceId: string;
+                range: (number)[];
+                enabled?: boolean;
+              };
+              targetingCondition?: string;
+              reason?: string;
+              condition?: string;
+              variationWeights?: (number)[];
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experiment: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              project: string;
+              hypothesis: string;
+              description: string;
+              tags: (string)[];
+              owner: string;
+              archived: boolean;
+              status: string;
+              autoRefresh: boolean;
+              hashAttribute: string;
+              variations: ({
+                  variationId: string;
+                  key: string;
+                  name: string;
+                  description: string;
+                  screenshots: (string)[];
+                })[];
+              phases: ({
+                  name: string;
+                  dateStarted: string;
+                  dateEnded: string;
+                  reasonForStopping: string;
+                  seed: string;
+                  coverage: number;
+                  trafficSplit: ({
+                      variationId: string;
+                      weight: number;
+                    })[];
+                  namespace?: {
+                    namespaceId: string;
+                    range: (unknown)[];
+                  };
+                  targetingCondition: string;
+                })[];
+              settings: {
+                datasourceId: string;
+                assignmentQueryId: string;
+                experimentId: string;
+                segmentId: string;
+                queryFilter: string;
+                /** @enum {unknown} */
+                inProgressConversions: "include" | "exclude";
+                /** @enum {unknown} */
+                attributionModel: "firstExposure" | "experimentDuration";
+                /** @enum {unknown} */
+                statsEngine: "bayesian" | "frequentist";
+                goals: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                guardrails: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                activationMetric?: {
+                  metricId: string;
+                  overrides: {
+                    conversionWindowStart?: number;
+                    conversionWindowEnd?: number;
+                    winRiskThreshold?: number;
+                    loseRiskThreshold?: number;
+                  };
+                };
+              };
+              resultSummary?: {
+                status: string;
+                winner: string;
+                conclusions: string;
+                releasedVariationId: string;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
   getExperiment: {
     /** Get a single experiment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experiment: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              project: string;
+              hypothesis: string;
+              description: string;
+              tags: (string)[];
+              owner: string;
+              archived: boolean;
+              status: string;
+              autoRefresh: boolean;
+              hashAttribute: string;
+              variations: ({
+                  variationId: string;
+                  key: string;
+                  name: string;
+                  description: string;
+                  screenshots: (string)[];
+                })[];
+              phases: ({
+                  name: string;
+                  dateStarted: string;
+                  dateEnded: string;
+                  reasonForStopping: string;
+                  seed: string;
+                  coverage: number;
+                  trafficSplit: ({
+                      variationId: string;
+                      weight: number;
+                    })[];
+                  namespace?: {
+                    namespaceId: string;
+                    range: (unknown)[];
+                  };
+                  targetingCondition: string;
+                })[];
+              settings: {
+                datasourceId: string;
+                assignmentQueryId: string;
+                experimentId: string;
+                segmentId: string;
+                queryFilter: string;
+                /** @enum {unknown} */
+                inProgressConversions: "include" | "exclude";
+                /** @enum {unknown} */
+                attributionModel: "firstExposure" | "experimentDuration";
+                /** @enum {unknown} */
+                statsEngine: "bayesian" | "frequentist";
+                goals: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                guardrails: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                activationMetric?: {
+                  metricId: string;
+                  overrides: {
+                    conversionWindowStart?: number;
+                    conversionWindowEnd?: number;
+                    winRiskThreshold?: number;
+                    loseRiskThreshold?: number;
+                  };
+                };
+              };
+              resultSummary?: {
+                status: string;
+                winner: string;
+                conclusions: string;
+                releasedVariationId: string;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  updateExperiment: {
+    /** Update a single experiment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          assignmentQueryId?: string;
+          trackingKey?: string;
+          /** @description Name of the experiment */
+          name?: string;
+          /** @description Project ID which the experiment belongs to */
+          project?: string;
+          /** @description Hypothesis of the experiment */
+          hypothesis?: string;
+          /** @description Description of the experiment */
+          description?: string;
+          tags?: (string)[];
+          metrics?: (string)[];
+          /** @description Email of the person who owns this experiment */
+          owner?: string;
+          archived?: boolean;
+          /** @enum {string} */
+          status?: "draft" | "running" | "stopped";
+          autoRefresh?: boolean;
+          hashAttribute?: string;
+          variations?: ({
+              id?: string;
+              key: string;
+              name: string;
+              description?: string;
+              screenshots?: ({
+                  path: string;
+                  width?: number;
+                  height?: number;
+                  description?: string;
+                })[];
+            })[];
+          phases?: ({
+              name: string;
+              /** Format: date */
+              dateStarted: string;
+              /** Format: date */
+              dateEnded?: string;
+              reasonForStopping?: string;
+              seed?: string;
+              coverage?: number;
+              trafficSplit?: ({
+                  variationId: string;
+                  weight: number;
+                })[];
+              namespace?: {
+                namespaceId: string;
+                range: (number)[];
+                enabled?: boolean;
+              };
+              targetingCondition?: string;
+              reason?: string;
+              condition?: string;
+              variationWeights?: (number)[];
+            })[];
+        };
+      };
+    };
     responses: {
       200: {
         content: {
@@ -2855,7 +3186,9 @@ export type GetSdkConnectionResponse = operations["getSdkConnection"]["responses
 export type ListDataSourcesResponse = operations["listDataSources"]["responses"]["200"]["content"]["application/json"];
 export type GetDataSourceResponse = operations["getDataSource"]["responses"]["200"]["content"]["application/json"];
 export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];
+export type PostExperimentResponse = operations["postExperiment"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
+export type UpdateExperimentResponse = operations["updateExperiment"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
 export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
 export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["content"]["application/json"];
