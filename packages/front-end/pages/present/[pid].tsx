@@ -26,7 +26,7 @@ const PresentPage = (): React.ReactElement => {
       snapshot?: ExperimentSnapshotInterface;
     }[];
   }>(`/presentation/${pid}`);
-
+  console.log(pdata, error);
   useSwitchOrg(pdata?.presentation?.organization || null);
 
   if (error) {

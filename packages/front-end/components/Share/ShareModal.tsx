@@ -451,11 +451,17 @@ const ShareModal = ({
                       >
                         {ago(phase?.dateEnded ?? "")}
                       </td>
-                      {e?.results && (
-                        <td className="nowrap">
+                      <td className="nowrap">
+                        {e?.results ? (
                           <ResultsIndicator results={e?.results ?? null} />
-                        </td>
-                      )}
+                        ) : (
+                          <span className="text-muted font-italic">
+                            <Tooltip body="This experiment is has no results data">
+                              no results
+                            </Tooltip>
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}

@@ -59,7 +59,7 @@ const Presentation = ({
   >();
 
   experiments.forEach((e) => {
-    em.set(e.experiment.id, e);
+    em.set(e?.experiment?.id ?? "", e);
   });
 
   const expSlides: JSX.Element[] = [];
@@ -74,7 +74,6 @@ const Presentation = ({
   ).forEach((eid) => {
     // get the results in the right shape:
     const e = em.get(eid);
-
     // get the info on which variation to mark as winner/loser
     const variationExtra: JSX.Element[] = [];
     let sideExtra = <></>;
@@ -93,16 +92,16 @@ const Presentation = ({
     } else {
       // stopped:
       if (e?.experiment?.results) {
+        const winningVar = e?.experiment?.winner || 0;
         if (e.experiment.results === "won") {
           // if this is a two sided test, mark the winner:
-          variationExtra[e?.experiment?.winner || 0] = (
+          variationExtra[winningVar] = (
             <Appear>
               <Text className="result variation-result result-winner text-center p-2 m-0">
                 Winner!
               </Text>
             </Appear>
           );
-          const winningVar = e?.experiment?.winner || 0;
           resultsText =
             (e?.experiment?.variations[winningVar]?.name ?? "") +
             " beat the control and won";
@@ -153,8 +152,19 @@ const Presentation = ({
             {e?.experiment?.name ?? "Experiment"}
           </Heading>
           <Text className="text-center m-0 mb-4 p-2" fontSize={21}>
-            {e?.experiment?.hypothesis}
+            {e?.experiment?.hypothesis
+              ? "Hypothesis: " + e.experiment.hypothesis
+              : ""}
+            {e?.experiment?.metrics && (
+              <>
+                <br />
+                <span style={{ fontSize: "0.95rem" }}>
+                  Primary metrics: {e?.experiment?.metrics.join(", ")}
+                </span>
+              </>
+            )}
           </Text>
+
           <div className="row variations">
             {e?.experiment?.variations.map((v: Variation, j: number) => (
               <Text
@@ -169,6 +179,14 @@ const Presentation = ({
                   className="expimage border"
                   src={v.screenshots[0] && v.screenshots[0].path}
                 />
+                {v.description && (
+                  <div
+                    className={`text-center`}
+                    style={{ fontSize: "16px", opacity: 0.8 }}
+                  >
+                    {v.description}
+                  </div>
+                )}
                 {variationExtra[j]}
               </Text>
             ))}
@@ -215,7 +233,7 @@ const Presentation = ({
               overflowY: "auto",
               background: "#fff",
               maxHeight: "100%",
-              padding: "0 0",
+              padding: "10px 0 0",
               color: "#444",
               fontSize: "95%",
             }}
@@ -238,6 +256,15 @@ const Presentation = ({
                 };
               })}
             />
+          </div>
+        </Slide>
+      );
+    } else {
+      expSlides.push(
+        <Slide key={`s-${expSlides.length}`}>
+          <Heading className="m-0 p-0">Results</Heading>
+          <div className={clsx("alert", "alert-warning", "mt-3")}>
+            <strong>No data for this experiment</strong>
           </div>
         </Slide>
       );
