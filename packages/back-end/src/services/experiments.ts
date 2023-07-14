@@ -1707,7 +1707,7 @@ export function postExperimentApiPayloadToInterface(
         id: generateVariationId(),
         screenshots: v.screenshots || [],
       })) || [],
-    implementation: payload.implementation || "code",
+    implementation: "code",
     status: payload.status || "draft",
     analysis: "",
     releasedVariationId: "",
