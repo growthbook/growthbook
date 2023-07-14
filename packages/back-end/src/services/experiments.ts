@@ -1707,7 +1707,8 @@ export function postExperimentApiPayloadToInterface(
         id: generateVariationId(),
         screenshots: v.screenshots || [],
       })) || [],
-    implementation: payload.implementation || "code",
+    // Legacy field, no longer used when creating experiments
+    implementation: "code",
     status: payload.status || "draft",
     analysis: "",
     releasedVariationId: "",
