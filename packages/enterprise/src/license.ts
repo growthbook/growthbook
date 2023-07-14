@@ -45,6 +45,9 @@ export type LicenseData = {
   eat?: string;
 };
 
+// Self-hosted commercial license key
+export const LICENSE_KEY = process.env.LICENSE_KEY || "";
+
 export const accountFeatures: CommercialFeaturesMap = {
   oss: new Set<CommercialFeature>([]),
   starter: new Set<CommercialFeature>([]),
@@ -184,6 +187,13 @@ export async function getVerifiedLicenseData(key: string) {
   if (!decodedLicense.plan) {
     decodedLicense.plan = "enterprise";
   }
+  // Trying to use SSO, but the plan doesn't support it
+  if (
+    process.env.SSO_CONFIG &&
+    !planHasPremiumFeature(decodedLicense.plan, "sso")
+  ) {
+    throw new Error(`Your License Key does not support SSO.`);
+  }
 
   // If the public key failed to load, just assume the license is valid
   const publicKey = await getPublicKey();
@@ -215,20 +225,14 @@ export async function getVerifiedLicenseData(key: string) {
   return decodedLicense;
 }
 
-let licenseKey = "";
 let licenseData: LicenseData | null = null;
 
-export async function licenseInit(newKey?: string) {
-  const key = newKey || process.env.LICENSE_KEY;
+export async function licenseInit(licenseKey?: string) {
+  const key = licenseKey || LICENSE_KEY || null;
   if (!key) {
-    licenseKey = "";
     licenseData = null;
     return;
   }
-  // Key hasn't changed, no need to re-verify
-  if (key === licenseKey) return;
-
-  licenseKey = key;
   licenseData = await getVerifiedLicenseData(key);
 }
 

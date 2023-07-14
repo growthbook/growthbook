@@ -5,7 +5,6 @@ import cors from "cors";
 import asyncHandler from "express-async-handler";
 import compression from "compression";
 import * as Sentry from "@sentry/node";
-import { usingOpenId } from "enterprise";
 import { usingFileConfig } from "./init/config";
 import { AuthRequest } from "./types/AuthRequest";
 import {
@@ -22,7 +21,7 @@ import {
   getExperimentsScript,
 } from "./controllers/config";
 import { verifySlackRequestSignature } from "./services/slack";
-import { getAuthConnection, processJWT } from "./services/auth";
+import { getAuthConnection, processJWT, usingOpenId } from "./services/auth";
 import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 

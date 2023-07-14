@@ -7,7 +7,6 @@ import {
   getAccountPlan,
   getLicense,
   setLicense,
-  usingOpenId,
 } from "enterprise";
 import {
   AuthRequest,
@@ -77,6 +76,7 @@ import { findAllProjectsByOrganization } from "../../models/ProjectModel";
 import { ConfigFile } from "../../init/config";
 import { WebhookInterface } from "../../../types/webhook";
 import { ExperimentRule, NamespaceValue } from "../../../types/feature";
+import { usingOpenId } from "../../services/auth";
 import { getSSOConnectionSummary } from "../../models/SSOConnectionModel";
 import {
   createLegacySdkKey,

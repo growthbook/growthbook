@@ -1,5 +1,5 @@
 import { NextFunction, Request, Response } from "express";
-import { usingOpenId } from "enterprise";
+import { SSO_CONFIG } from "enterprise";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { markUserAsVerified, UserModel } from "../../models/UserModel";
@@ -260,4 +260,10 @@ export function isNewInstallation() {
 }
 export function markInstalled() {
   newInstallationPromise = new Promise((resolve) => resolve(false));
+}
+
+export function usingOpenId() {
+  if (IS_CLOUD) return true;
+  if (SSO_CONFIG) return true;
+  return false;
 }
