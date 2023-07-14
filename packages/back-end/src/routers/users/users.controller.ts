@@ -1,7 +1,6 @@
 import { Response } from "express";
-import { getLicense } from "enterprise";
+import { getLicense, usingOpenId } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
-import { usingOpenId } from "../../services/auth";
 import { createUser, getUserByEmail } from "../../services/users";
 import { findOrganizationsByMemberId } from "../../models/OrganizationModel";
 import {

@@ -8,7 +8,7 @@ import {
 } from "openid-client";
 import jwtExpress from "express-jwt";
 import jwks from "jwks-rsa";
-import { SSO_CONFIG } from "enterprise";
+import { getSSOConfig } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
 import { MemoryCache } from "../cache";
 import {
@@ -221,10 +221,12 @@ async function getConnectionFromRequest(req: Request) {
   let connection: SSOConnectionInterface;
   if (IS_CLOUD && ssoConnectionId) {
     connection = await ssoConnectionCache.get(ssoConnectionId);
-  } else if (SSO_CONFIG) {
-    connection = SSO_CONFIG;
   } else {
-    throw new Error("No SSO connection configured");
+    const connectionFromEnv = getSSOConfig();
+    if (!connectionFromEnv) {
+      throw new Error("No SSO connection configured");
+    }
+    connection = connectionFromEnv;
   }
 
   // Then, get the corresponding OpenID Client

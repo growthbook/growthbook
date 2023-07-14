@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { promisify } from "util";
 import uniqid from "uniqid";
+import { usingOpenId } from "enterprise";
 import { Request } from "express";
 import { UserDocument, UserModel } from "../models/UserModel";
 import { findOrganizationsByMemberId } from "../models/OrganizationModel";
@@ -8,7 +9,7 @@ import { UserLoginNotificationEvent } from "../events/notification-events";
 import { createEvent } from "../models/EventModel";
 import { UserLoginAuditableProperties } from "../events/event-types";
 import { logger } from "../util/logger";
-import { usingOpenId, validatePasswordFormat } from "./auth";
+import { validatePasswordFormat } from "./auth";
 
 const SALT_LEN = 16;
 const HASH_LEN = 64;

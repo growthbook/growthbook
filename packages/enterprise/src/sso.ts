@@ -1,18 +1,37 @@
 import type { IssuerMetadata } from "openid-client";
 import type { SSOConnectionInterface } from "../../back-end/types/sso-connection";
-import { LICENSE_KEY } from "./license";
+import { getLicense, planHasPremiumFeature } from "./license";
+
+let conn: SSOConnectionInterface | null = null;
+export function getSSOConfig() {
+  if (!process.env.SSO_CONFIG) return null;
+  if (!conn) {
+    conn = parseSSOConfigString(process.env.SSO_CONFIG);
+  }
+  return conn;
+}
+
+export function usingOpenId() {
+  if (process.env.IS_CLOUD) return true;
+  if (process.env.SSO_CONFIG) return true;
+  return false;
+}
 
 // Self-hosted SSO
-function getSSOConfig() {
-  if (!process.env.SSO_CONFIG) return null;
-
-  if (!process.env.IS_CLOUD && !LICENSE_KEY) {
-    throw new Error(
-      "Must have a commercial License Key to use self-hosted SSO"
-    );
+function parseSSOConfigString(ssoConfigString: string) {
+  if (!process.env.IS_CLOUD) {
+    const license = getLicense();
+    if (!license) {
+      throw new Error(
+        "Must have a commercial License Key to use self-hosted SSO"
+      );
+    }
+    if (!planHasPremiumFeature(license.plan, "sso")) {
+      throw new Error("Your license key does not support SSO");
+    }
   }
 
-  const config: SSOConnectionInterface = JSON.parse(process.env.SSO_CONFIG);
+  const config: SSOConnectionInterface = JSON.parse(ssoConfigString);
   // Must include clientId and specific metadata
   const requiredMetadataKeys: (keyof IssuerMetadata)[] = [
     "authorization_endpoint",
@@ -46,4 +65,3 @@ function getSSOConfig() {
   config.id = "";
   return config;
 }
-export const SSO_CONFIG = getSSOConfig();
