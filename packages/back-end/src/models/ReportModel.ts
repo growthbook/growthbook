@@ -29,7 +29,7 @@ const ReportModel = mongoose.model<ReportInterface>("Report", reportSchema);
 
 const toInterface = (doc: ReportDocument): ReportInterface => {
   const json = omit(doc.toJSON<ReportDocument>(), ["__v", "_id"]);
-  if ((json.args.attributionModel as string) === "allExposures") {
+  if ((json.args?.attributionModel as string) === "allExposures") {
     json.args.attributionModel = "experimentDuration";
   }
   return json;

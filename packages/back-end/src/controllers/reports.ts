@@ -292,11 +292,11 @@ export async function putReport(
     const {
       analysisSettings,
       snapshotSettings,
-    } = getSnapshotSettingsFromReportArgs(report.args, metricMap);
+    } = getSnapshotSettingsFromReportArgs(updatedReport.args, metricMap);
 
     const integration = await getIntegrationFromDatasourceId(
       org.id,
-      report.args.datasource
+      updatedReport.args.datasource
     );
     const queryRunner = new ReportQueryRunner(updatedReport, integration);
 
@@ -304,7 +304,7 @@ export async function putReport(
       analysisSettings,
       snapshotSettings,
       metricMap,
-      variationNames: report.args.variations.map((v) => v.name),
+      variationNames: updatedReport.args.variations.map((v) => v.name),
     });
   }
 
