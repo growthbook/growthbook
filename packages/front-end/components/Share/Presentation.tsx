@@ -151,7 +151,7 @@ const Presentation = ({
           <Heading className="m-0 pb-0">
             {e?.experiment?.name ?? "Experiment"}
           </Heading>
-          <Text className="text-center m-0 mb-4 p-2" fontSize={21}>
+          <Text className="text-center m-0 mb-4 p-2 px-5" fontSize={21}>
             {e?.experiment?.hypothesis
               ? "Hypothesis: " + e.experiment.hypothesis
               : ""}
@@ -175,10 +175,13 @@ const Presentation = ({
                 key={`v-${j}`}
               >
                 <h4>{v.name}</h4>
-                <img
-                  className="expimage border"
-                  src={v.screenshots[0] && v.screenshots[0].path}
-                />
+                {v?.screenshots[0]?.path && (
+                  <img
+                    className="expimage border"
+                    src={v.screenshots[0].path}
+                    alt={v.name}
+                  />
+                )}
                 {v.description && (
                   <div
                     className={`text-center`}
