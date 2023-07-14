@@ -1,4 +1,4 @@
-import { CommercialFeature } from "back-end/types/organization";
+import { CommercialFeature } from "enterprise";
 import { ReactNode } from "react";
 import clsx from "clsx";
 import { useUser } from "@/services/UserContext";

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AccountPlan } from "back-end/types/organization";
+import { AccountPlan } from "enterprise";
 import { useUser } from "@/services/UserContext";
 import useStripeSubscription from "../../../hooks/useStripeSubscription";
 import { redirectWithTimeout, useAuth } from "../../../services/auth";
