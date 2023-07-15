@@ -17,6 +17,7 @@ import {
 } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import CompactResults from "../Experiment/CompactResults";
 import Markdown from "../Markdown/Markdown";
 import { presentationThemes, defaultTheme } from "./ShareModal";
@@ -48,8 +49,7 @@ const Presentation = ({
   customTheme,
   preview = false,
 }: Props): ReactElement => {
-  // make sure experiments are in the right order - we know the order is
-  // right in the presentation object. This could be done in the API
+  const { getMetricById } = useDefinitions();
   const em = new Map<
     string,
     {
@@ -78,7 +78,9 @@ const Presentation = ({
     const variationExtra: JSX.Element[] = [];
     let sideExtra = <></>;
     const variationsPlural =
-      (e?.experiment?.variations?.length || 0) > 2 ? "variations" : "variation";
+      (e?.experiment?.variations?.length || 0) !== 1
+        ? "variations"
+        : "variation";
 
     e?.experiment?.variations?.forEach((v, i) => {
       variationExtra[i] = <Fragment key={`f-${i}`}></Fragment>;
@@ -158,8 +160,11 @@ const Presentation = ({
             {e?.experiment?.metrics && (
               <>
                 <br />
-                <span style={{ fontSize: "0.95rem" }}>
-                  Primary metrics: {e?.experiment?.metrics.join(", ")}
+                <span style={{ fontSize: "1rem" }}>
+                  Primary metrics:{" "}
+                  {e?.experiment?.metrics
+                    .map((m) => getMetricById(m)?.name ?? m)
+                    .join(", ")}
                 </span>
               </>
             )}
@@ -184,7 +189,7 @@ const Presentation = ({
                 )}
                 {v.description && (
                   <div
-                    className={`text-center`}
+                    className="text-center"
                     style={{ fontSize: "16px", opacity: 0.8 }}
                   >
                     {v.description}

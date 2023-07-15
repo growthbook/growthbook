@@ -263,7 +263,7 @@ const ShareModal = ({
       }
       if (onSuccess && typeof onSuccess === "function") onSuccess();
       setLoading(false);
-      if (refreshList) refreshList();
+      refreshList?.();
     } catch (e) {
       console.error(e);
       setSaveError(e.message);
