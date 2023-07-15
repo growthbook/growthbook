@@ -2,7 +2,6 @@ import crypto from "crypto";
 import fetch from "node-fetch";
 import type Stripe from "stripe";
 import pino from "pino";
-import { SSO_CONFIG } from "./sso";
 const logger = pino();
 
 export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
@@ -47,7 +46,7 @@ export type LicenseData = {
 };
 
 // Self-hosted commercial license key
-export const LICENSE_KEY = process.env.LICENSE_KEY || "";
+const LICENSE_KEY = process.env.LICENSE_KEY || "";
 
 export const accountFeatures: CommercialFeaturesMap = {
   oss: new Set<CommercialFeature>([]),
@@ -189,7 +188,10 @@ export async function getVerifiedLicenseData(key: string) {
     decodedLicense.plan = "enterprise";
   }
   // Trying to use SSO, but the plan doesn't support it
-  if (SSO_CONFIG && !planHasPremiumFeature(decodedLicense.plan, "sso")) {
+  if (
+    process.env.SSO_CONFIG &&
+    !planHasPremiumFeature(decodedLicense.plan, "sso")
+  ) {
     throw new Error(`Your License Key does not support SSO.`);
   }
 
