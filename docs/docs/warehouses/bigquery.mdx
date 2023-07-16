@@ -108,3 +108,9 @@ project name, and when expanded, find the dataset which has your experiment expo
 />
 
 When you click save, GrowthBook will test the connection to make sure the credentials are correct. If the connection is successful, you should see a success message on the next page.
+
+## Monitoring GrowthBook query cost
+
+Whenever we query your BigQuery database we add `{ integration: "growthbook" }` as a label to the query job to make it easy for you to monitor cost or filter GrowthBook query jobs by label for other use cases.
+
+Read more about how to [group by label value for a specific key here.](https://cloud.google.com/billing/docs/how-to/bq-examples#group_by_label_value_for_a_specific_key)
