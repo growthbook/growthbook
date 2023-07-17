@@ -282,6 +282,21 @@ export async function getMetricsByIds(ids: string[], organization: string) {
   return docs.map(toInterface);
 }
 
+export async function findRunningMetricsByQueryId(
+  orgIds: string[],
+  queryIds: string[]
+) {
+  const docs = await MetricModel.find({
+    // Query ids are globally unique, this filter is just for index performance
+    organization: { $in: orgIds },
+    queries: {
+      $elemMatch: { query: { $in: queryIds }, status: "running" },
+    },
+  });
+
+  return docs.map((doc) => toInterface(doc));
+}
+
 export async function removeProjectFromMetrics(
   project: string,
   organization: string
@@ -313,23 +328,49 @@ export async function getMetricsUsingSegment(
   return docs.map(toInterface);
 }
 
-const FILE_CONFIG_UPDATEABLE_FIELDS = [
+const FILE_CONFIG_UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
   "analysis",
   "analysisError",
   "queries",
   "runStarted",
 ];
 
+const FIELDS_NOT_REQUIRING_DATE_UPDATED: (keyof MetricInterface)[] = [
+  "analysis",
+  "analysisError",
+  "queries",
+  "runStarted",
+];
+
+function addDateUpdatedToUpdates(
+  updates: Partial<MetricInterface>
+): Partial<MetricInterface> {
+  // If any field requires dateUpdated to be set
+  if (
+    Object.keys(updates).some(
+      (k: keyof MetricInterface) =>
+        !FIELDS_NOT_REQUIRING_DATE_UPDATED.includes(k)
+    )
+  ) {
+    return { ...updates, dateUpdated: new Date() };
+  }
+
+  // Otherwise, just return the original updates
+  return updates;
+}
+
 export async function updateMetric(
   id: string,
   updates: Partial<MetricInterface>,
   organization: string
 ) {
+  updates = addDateUpdatedToUpdates(updates);
+
   if (usingFileConfig()) {
     // Trying to update unsupported properties
     if (
       Object.keys(updates).filter(
-        (k) => !FILE_CONFIG_UPDATEABLE_FIELDS.includes(k)
+        (k: keyof MetricInterface) => !FILE_CONFIG_UPDATEABLE_FIELDS.includes(k)
       ).length > 0
     ) {
       throw new Error("Cannot update. Metrics managed by config.yml");
@@ -338,10 +379,7 @@ export async function updateMetric(
     await MetricModel.updateOne(
       { id, organization },
       {
-        $set: {
-          dateUpdated: new Date(),
-          ...updates,
-        },
+        $set: updates,
       },
       { upsert: true }
     );
@@ -359,10 +397,7 @@ export async function updateMetric(
       organization,
     },
     {
-      $set: {
-        dateUpdated: new Date(),
-        ...updates,
-      },
+      $set: updates,
     }
   );
 
@@ -373,11 +408,13 @@ export async function updateMetricsByQuery(
   query: FilterQuery<MetricDocument>,
   updates: Partial<MetricInterface>
 ) {
+  updates = addDateUpdatedToUpdates(updates);
+
   if (usingFileConfig()) {
     // Trying to update unsupported properties
     if (
       Object.keys(updates).filter(
-        (k) => !FILE_CONFIG_UPDATEABLE_FIELDS.includes(k)
+        (k: keyof MetricInterface) => !FILE_CONFIG_UPDATEABLE_FIELDS.includes(k)
       ).length > 0
     ) {
       throw new Error("Cannot update. Metrics managed by config.yml");
@@ -386,10 +423,7 @@ export async function updateMetricsByQuery(
     await MetricModel.updateMany(
       query,
       {
-        $set: {
-          dateUpdated: new Date(),
-          ...updates,
-        },
+        $set: updates,
       },
       {
         upsert: true,
@@ -399,10 +433,7 @@ export async function updateMetricsByQuery(
   }
 
   await MetricModel.updateMany(query, {
-    $set: {
-      dateUpdated: new Date(),
-      ...updates,
-    },
+    $set: updates,
   });
 }
 
