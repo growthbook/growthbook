@@ -21,10 +21,7 @@ import { ReportQueryRunner } from "../queryRunners/ReportQueryRunner";
 import { getIntegrationFromDatasourceId } from "../services/datasource";
 import { generateReportNotebook } from "../services/notebook";
 import { getOrgFromReq } from "../services/organizations";
-import {
-  getSnapshotSettingsFromReportArgs,
-  reportArgsFromSnapshot,
-} from "../services/reports";
+import { reportArgsFromSnapshot } from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
 
 export async function postReportFromSnapshot(
@@ -212,10 +209,6 @@ export async function refreshReport(
       : false;
 
   const metricMap = await getMetricMap(org.id);
-  const {
-    analysisSettings,
-    snapshotSettings,
-  } = getSnapshotSettingsFromReportArgs(report.args, metricMap);
 
   const integration = await getIntegrationFromDatasourceId(
     org.id,
@@ -225,10 +218,7 @@ export async function refreshReport(
   const queryRunner = new ReportQueryRunner(report, integration, useCache);
 
   const updatedReport = await queryRunner.startAnalysis({
-    analysisSettings,
-    snapshotSettings,
     metricMap,
-    variationNames: report.args.variations.map((v) => v.name),
   });
 
   return res.status(200).json({
@@ -290,10 +280,6 @@ export async function putReport(
   };
   if (needsRun) {
     const metricMap = await getMetricMap(org.id);
-    const {
-      analysisSettings,
-      snapshotSettings,
-    } = getSnapshotSettingsFromReportArgs(updatedReport.args, metricMap);
 
     const integration = await getIntegrationFromDatasourceId(
       org.id,
@@ -303,10 +289,7 @@ export async function putReport(
     const queryRunner = new ReportQueryRunner(updatedReport, integration);
 
     await queryRunner.startAnalysis({
-      analysisSettings,
-      snapshotSettings,
       metricMap,
-      variationNames: updatedReport.args.variations.map((v) => v.name),
     });
   }
 

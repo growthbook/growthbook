@@ -1,15 +1,14 @@
-import {
-  ExperimentSnapshotAnalysis,
-  ExperimentSnapshotAnalysisSettings,
-  ExperimentSnapshotSettings,
-} from "../../types/experiment-snapshot";
+import { ExperimentSnapshotAnalysis } from "../../types/experiment-snapshot";
 import { MetricInterface } from "../../types/metric";
 import { Queries, QueryStatus } from "../../types/query";
 import { ExperimentReportResults, ReportInterface } from "../../types/report";
 import { getReportById, updateReport } from "../models/ReportModel";
 import { getSnapshotSettingsFromReportArgs } from "../services/reports";
 import { analyzeExperimentResults } from "../services/stats";
-import { startExperimentResultQueries } from "./ExperimentResultsQueryRunner";
+import {
+  ExperimentResultsQueryParams,
+  startExperimentResultQueries,
+} from "./ExperimentResultsQueryRunner";
 import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export type SnapshotResult = {
@@ -18,25 +17,34 @@ export type SnapshotResult = {
   analyses: ExperimentSnapshotAnalysis[];
 };
 
-export type ExperimentResultsQueryParams = {
-  snapshotSettings: ExperimentSnapshotSettings;
-  analysisSettings: ExperimentSnapshotAnalysisSettings;
-  variationNames: string[];
+export type ReportQueryParams = {
   metricMap: Map<string, MetricInterface>;
 };
 
 export class ReportQueryRunner extends QueryRunner<
   ReportInterface,
-  ExperimentResultsQueryParams,
+  ReportQueryParams,
   ExperimentReportResults
 > {
   private metricMap: Map<string, MetricInterface> = new Map();
 
-  async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
+  async startQueries(params: ReportQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
 
+    const {
+      analysisSettings,
+      snapshotSettings,
+    } = getSnapshotSettingsFromReportArgs(this.model.args, params.metricMap);
+
+    const experimentParams: ExperimentResultsQueryParams = {
+      metricMap: params.metricMap,
+      analysisSettings,
+      snapshotSettings,
+      variationNames: this.model.args.variations.map((v) => v.name),
+    };
+
     return startExperimentResultQueries(
-      params,
+      experimentParams,
       this.integration,
       this.model.organization,
       this.startQuery.bind(this)

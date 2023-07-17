@@ -93,7 +93,7 @@ export async function getIntegrationFromDatasourceId(
 ) {
   const datasource = await getDataSourceById(id, organization);
   if (!datasource) {
-    throw new Error("Could not load metric datasource");
+    throw new Error("Could not load data source");
   }
   return getSourceIntegrationObject(datasource, throwOnDecryptionError);
 }
