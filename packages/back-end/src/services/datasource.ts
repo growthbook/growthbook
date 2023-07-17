@@ -19,6 +19,7 @@ import {
 } from "../../types/datasource";
 import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
+import { getDataSourceById } from "../models/DataSourceModel";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string
@@ -85,7 +86,22 @@ function getIntegrationObj(
   }
 }
 
-export function getSourceIntegrationObject(datasource: DataSourceInterface) {
+export async function getIntegrationFromDatasourceId(
+  organization: string,
+  id: string,
+  throwOnDecryptionError: boolean = false
+) {
+  const datasource = await getDataSourceById(id, organization);
+  if (!datasource) {
+    throw new Error("Could not load data source");
+  }
+  return getSourceIntegrationObject(datasource, throwOnDecryptionError);
+}
+
+export function getSourceIntegrationObject(
+  datasource: DataSourceInterface,
+  throwOnDecryptionError: boolean = false
+) {
   const { type, params, settings } = datasource;
 
   const obj = getIntegrationObj(type, params, settings);
@@ -98,6 +114,12 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
   obj.organization = datasource.organization;
   obj.datasource = datasource.id;
   obj.type = datasource.type;
+
+  if (throwOnDecryptionError && obj.decryptionError) {
+    throw new Error(
+      "Could not decrypt data source credentials. View the data source settings for more info."
+    );
+  }
 
   return obj;
 }

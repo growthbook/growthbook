@@ -1,17 +1,12 @@
 import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
-import {
-  createMetric,
-  getMetricAnalysis,
-  refreshMetric,
-} from "../services/experiments";
-import { MetricAnalysis, MetricInterface } from "../../types/metric";
+import { createMetric, refreshMetric } from "../services/experiments";
+import { MetricInterface } from "../../types/metric";
 import {
   getRecentExperimentsUsingMetric,
   getExperimentsByMetric,
 } from "../models/ExperimentModel";
 import { getOrgFromReq } from "../services/organizations";
-import { getStatusEndpoint, cancelRun } from "../services/queries";
 import {
   deleteMetricById,
   getMetricsByOrganization,
@@ -29,6 +24,8 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { getIntegrationFromDatasourceId } from "../services/datasource";
+import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 
 /**
  * Fields on a metric that we allow users to update. Excluded fields are
@@ -168,35 +165,6 @@ export async function getMetricUsage(
   });
 }
 
-export async function getMetricAnalysisStatus(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-  const metric = await getMetricById(id, org.id, true);
-  if (!metric) {
-    throw new Error("Could not get query status");
-  }
-  const result = await getStatusEndpoint(
-    metric,
-    org.id,
-    (queryData) => getMetricAnalysis(metric, queryData),
-    async (updates, result?: MetricAnalysis, error?: string) => {
-      const metricUpdates: Partial<MetricInterface> = {
-        ...updates,
-        analysisError: error,
-      };
-      if (result) {
-        metricUpdates.analysis = result;
-      }
-
-      await updateMetric(id, metricUpdates, org.id);
-    },
-    metric.analysisError
-  );
-  return res.status(200).json(result);
-}
 export async function cancelMetricAnalysis(
   req: AuthRequest<null, { id: string }>,
   res: Response
@@ -209,18 +177,17 @@ export async function cancelMetricAnalysis(
   if (!metric) {
     throw new Error("Could not cancel query");
   }
-  res.status(200).json(
-    await cancelRun(metric, org.id, async () => {
-      await updateMetric(
-        id,
-        {
-          queries: [],
-          runStarted: null,
-        },
-        org.id
-      );
-    })
+
+  const integration = await getIntegrationFromDatasourceId(
+    org.id,
+    metric.datasource
   );
+  const queryRunner = new MetricAnalysisQueryRunner(metric, integration);
+  await queryRunner.cancelQueries();
+
+  res.status(200).json({
+    status: 200,
+  });
 }
 
 export async function postMetricAnalysis(
