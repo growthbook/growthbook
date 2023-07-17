@@ -256,7 +256,7 @@ export async function editSDKConnection(
     environment: connection.environment,
     project: connection.project,
   };
-  purgeCDNCache(connection.organization, [payloadKey]);
+  await purgeCDNCache(connection.organization, [payloadKey]);
 
   if (needsProxyUpdate) {
     await queueSingleProxyUpdate({
