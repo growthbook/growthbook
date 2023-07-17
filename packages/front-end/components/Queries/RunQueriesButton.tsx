@@ -3,8 +3,8 @@ import { QueryStatus, Queries } from "back-end/types/query";
 import clsx from "clsx";
 import { FaPlay } from "react-icons/fa";
 import { BsArrowRepeat } from "react-icons/bs";
+import { getValidDate } from "shared/dates";
 import { useAuth } from "@/services/auth";
-import useApi from "@/hooks/useApi";
 import LoadingSpinner from "../LoadingSpinner";
 
 function getTimeDisplay(seconds: number): string {
@@ -40,43 +40,41 @@ export function getQueryStatus(queries: Queries, error?: string): QueryStatus {
 const RunQueriesButton: FC<{
   cta?: string;
   loadingText?: string;
-  statusEndpoint: string;
   cancelEndpoint: string;
-  initialStatus: QueryStatus;
+  model: { queries: Queries; runStarted: string | Date | undefined | null };
+  mutate: () => Promise<unknown> | unknown;
   icon?: "run" | "refresh";
-  onReady: () => void;
   color?: string;
   position?: "left" | "right";
 }> = ({
   cta = "Run Queries",
   loadingText = "Running",
-  statusEndpoint,
   cancelEndpoint,
-  initialStatus,
-  onReady,
+  model,
+  mutate,
   icon = "run",
   color = "primary",
   position = "right",
 }) => {
-  const { data, error, mutate } = useApi<{
-    queryStatus: QueryStatus;
-    finished: number;
-    total: number;
-    elapsed: number;
-  }>(statusEndpoint);
-
   const { apiCall } = useAuth();
 
-  const [counter, setCounter] = useState(0);
+  const startTime = model.runStarted
+    ? getValidDate(model.runStarted).getTime()
+    : null;
+  const elapsed = startTime ? Math.floor((Date.now() - startTime) / 1000) : 0;
 
-  const status = data?.queryStatus || initialStatus;
+  // Used to refresh this component while query is running so we can show an elapsed timer
+  // eslint-disable-next-line
+  const [_, setCounter] = useState(0);
 
-  const timeoutLength = getTimeoutLength(data?.elapsed || 0);
+  const numFinished = model.queries.filter((q) => q.status === "succeeded")
+    .length;
+  const numQueries = model.queries.length;
 
-  useEffect(() => {
-    mutate();
-  }, [initialStatus]);
+  const status = getQueryStatus(model.queries || []);
+  const timeoutLength = getTimeoutLength(elapsed);
 
+  // Mutate periodically to check for updates
   useEffect(() => {
     if (status !== "running") return;
     if (!timeoutLength) return;
@@ -94,32 +92,16 @@ const RunQueriesButton: FC<{
     };
   }, [status, timeoutLength]);
 
-  useEffect(() => {
-    if (status === "succeeded") {
-      onReady();
-    }
-    if (status === "failed") {
-      onReady();
-    }
-  }, [status]);
-
+  // While query is running, refresh this component frequently to show an elapsed timer
   useEffect(() => {
     if (status !== "running") return;
 
     const timer = window.setInterval(() => {
-      setCounter((count) => {
-        return count + 1;
-      });
-    }, 1000);
+      setCounter((count) => count + 1);
+    }, 500);
 
-    return () => {
-      window.clearInterval(timer);
-    };
+    return () => window.clearInterval(timer);
   }, [status]);
-
-  useEffect(() => {
-    setCounter(data?.elapsed || 0);
-  }, [data?.elapsed]);
 
   let buttonIcon: ReactElement;
   if (status === "running") {
@@ -144,7 +126,7 @@ const RunQueriesButton: FC<{
               onClick={async (e) => {
                 e.preventDefault();
                 await apiCall(cancelEndpoint, { method: "POST" });
-                onReady();
+                await mutate();
               }}
             >
               cancel
@@ -162,16 +144,13 @@ const RunQueriesButton: FC<{
               {buttonIcon}
             </span>
             {status === "running"
-              ? `${loadingText} (${getTimeDisplay(counter)})...`
+              ? `${loadingText} (${getTimeDisplay(elapsed)})...`
               : cta}
           </button>
-          {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-          {status === "running" && data?.total > 0 && (
+          {status === "running" && numQueries > 0 && (
             <div
               style={{
-                width:
-                  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  Math.floor((100 * (data?.finished || 0)) / data?.total) + "%",
+                width: Math.floor((100 * numFinished) / numQueries) + "%",
                 height: 5,
               }}
               className="bg-info"
@@ -179,7 +158,6 @@ const RunQueriesButton: FC<{
           )}
         </div>
       </div>
-      {error && <div className="text-danger mt-2 mb-2">{error.message}</div>}
     </>
   );
 };
