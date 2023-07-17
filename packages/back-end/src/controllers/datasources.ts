@@ -21,7 +21,7 @@ import {
   createExperiment,
   getSampleExperiment,
 } from "../models/ExperimentModel";
-import { QueryModel } from "../models/QueryModel";
+import { getQueriesByIds } from "../models/QueryModel";
 import { findSegmentsByDataSource } from "../models/SegmentModel";
 import { createManualSnapshot } from "../services/experiments";
 import { findDimensionsByDataSource } from "../models/DimensionModel";
@@ -561,28 +561,10 @@ export async function getQueries(
   const { ids } = req.params;
   const queries = ids.split(",");
 
-  const docs = await QueryModel.find({
-    organization: org.id,
-    id: {
-      $in: queries,
-    },
-  });
+  const docs = await getQueriesByIds(org.id, queries);
 
   // Lookup table so we can return queries in the same order we received them
-  const map = new Map();
-  docs.forEach((doc) => {
-    // If we haven't gotten a heartbeat in a while, change the status to failed
-    if (
-      doc.status === "running" &&
-      Date.now() - doc.heartbeat.getTime() > 120000
-    ) {
-      doc.set("status", "failed");
-      doc.set("error", "Query aborted");
-      doc.save();
-    }
-
-    map.set(doc.id, doc);
-  });
+  const map = new Map(docs.map((d) => [d.id, d]));
 
   res.status(200).json({
     queries: queries.map((id) => map.get(id) || null),
