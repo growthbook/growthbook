@@ -263,8 +263,7 @@ const ShareModal = ({
       }
       if (onSuccess && typeof onSuccess === "function") onSuccess();
       setLoading(false);
-      // @ts-expect-error TS(2722) If you come across this, please fix it!: Cannot invoke an object which is possibly 'undefin... Remove this comment to see the full error message
-      refreshList();
+      refreshList?.();
     } catch (e) {
       console.error(e);
       setSaveError(e.message);
@@ -314,8 +313,7 @@ const ShareModal = ({
     title: form.watch("title"),
     description: form.watch("description"),
   };
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  value.slides.forEach((obj: PresentationSlide) => {
+  value?.slides?.forEach((obj: PresentationSlide) => {
     selectedExperiments.set(obj.id, byId.get(obj.id));
   });
 
@@ -325,10 +323,9 @@ const ShareModal = ({
     } else {
       selectedExperiments.set(exp.id, exp);
     }
-    const exps = [];
+    const exps: PresentationSlide[] = [];
     // once we add options, we'll have to make this merge in previous options per exp
     Array.from(selectedExperiments.keys()).forEach((e) => {
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'any' is not assignable to type 'never'.
       exps.push({ id: e, type: "experiment" });
     });
     form.setValue("slides", exps);
@@ -365,11 +362,10 @@ const ShareModal = ({
   });
   resetServerContext();
 
-  const tabContents = [];
+  const tabContents: JSX.Element[] = [];
 
   Object.entries(byStatus).forEach(([status]) => {
     tabContents.push(
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
       <Tab
         key={status}
         display={
@@ -449,14 +445,22 @@ const ShareModal = ({
                       <td className="nowrap">
                         {getUserDisplay(e.owner, false)}
                       </td>
-                      {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
-                      <td className="nowrap" title={datetime(phase.dateEnded)}>
-                        {/* @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message */}
-                        {ago(phase.dateEnded)}
+                      <td
+                        className="nowrap"
+                        title={datetime(phase?.dateEnded ?? "")}
+                      >
+                        {ago(phase?.dateEnded ?? "")}
                       </td>
                       <td className="nowrap">
-                        {/* @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'ExperimentResultsType | undefined' is not as... Remove this comment to see the full error message */}
-                        <ResultsIndicator results={e.results} />
+                        {e?.results ? (
+                          <ResultsIndicator results={e?.results ?? null} />
+                        ) : (
+                          <span className="text-muted font-italic">
+                            <Tooltip body="This experiment is has no results data">
+                              no results
+                            </Tooltip>
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -476,12 +480,11 @@ const ShareModal = ({
   // end tab contents
 
   let counter = 0;
-  const selectedList = [];
+  const selectedList: JSX.Element[] = [];
   //const expOptionsList = [];
 
   selectedExperiments.forEach((exp: ExperimentInterfaceStringDates, id) => {
     selectedList.push(
-      // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Element' is not assignable to pa... Remove this comment to see the full error message
       <Draggable key={id} draggableId={id} index={counter++}>
         {(provided, snapshot) => (
           <div
