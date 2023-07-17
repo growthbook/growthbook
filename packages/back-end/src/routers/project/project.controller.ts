@@ -1,6 +1,6 @@
 import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
-import { ApiErrorResponse } from "../../../types/api";
+import { ApiErrorResponse, PrivateApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
 import { ProjectInterface, ProjectSettings } from "../../../types/project";
 import {
@@ -32,6 +32,42 @@ import {
   removeProjectFromSlackIntegration,
 } from "../../models/SlackIntegrationModel";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
+
+// region GET /projects/:id
+
+type GetProjectRequest = AuthRequest<null, { id: string }>;
+
+type GetProjectResponse = {
+  status: 200;
+  project: ProjectInterface;
+};
+
+export const getProject = async (
+  req: GetProjectRequest,
+  res: Response<
+    GetProjectResponse | PrivateApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
+) => {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  const project = await findProjectById(id, org.id);
+
+  if (!project) {
+    return res.status(404).json({
+      status: 404,
+      message: "Project not found",
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
+    project,
+  });
+};
+
+// endregion GET /projects/:id
 
 // region POST /projects
 

@@ -8,6 +8,18 @@ const router = express.Router();
 
 const projectController = wrapController(rawProjectController);
 
+router.get(
+  "/:id",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+  }),
+  projectController.getProject
+);
+
 router.post(
   "/",
   validateRequestMiddleware({
