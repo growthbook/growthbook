@@ -191,6 +191,10 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     await queryRunner.waitForResults();
     const currentSnapshot = queryRunner.model;
 
+    logger.info(
+      "Successfully Refreshed Results for expeirment " + experimentId
+    );
+
     if (lastSnapshot) {
       await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
     }
