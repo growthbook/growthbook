@@ -84,13 +84,7 @@ If you are self hosting then in addition to the method above you can also pass t
 <img
   src="/images/guides/athena-extra-fields.png"
   alt="Extra Fields in Growthbook for setting up Athena"
-  style={{  margin: "0 auto" }}
+  style={{  margin: "0 0 20px 0" }}
 />
 
-`S3 Results URL` - This is the s3 URL where the results to Athena queries get saved. When setting up Athena for the S3 results url, we recommend naming your bucket with the prefix `aws-athena-query-results-`. If you have already set it up you can find it by clicking on the settings tab:
-
-<img
-  src="/images/guides/athena-results-url.png"
-  alt="Athena S3 Results Url"
-  style={{ width:500, margin: "0 auto" }}
-/>
+`S3 Results URL` - This is the s3 URL where the results to Athena queries get saved. When setting up Athena for the S3 results url, we recommend naming your bucket with the prefix `aws-athena-query-results-` as the AWSQuicksightAthenaAccess gives permission to write to any bucket with this prefix. If Growthbook warns you that it can not write to an s3 location other than the one you select here it is most likely because you have set the [workgroup to override client side settings](https://docs.aws.amazon.com/athena/latest/ug/workgroups-settings-override.html). If that is the case you would either need to change that setting or add the permissions for growthbook to also write to the s3 results url saved there.
