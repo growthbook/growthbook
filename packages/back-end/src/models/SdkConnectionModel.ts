@@ -20,6 +20,8 @@ import {
   PROXY_HOST_PUBLIC,
 } from "../util/secrets";
 import { errorStringFromZodResult } from "../util/validation";
+import { purgeCDNCache } from "../util/fastly.util";
+import { SDKPayloadKey } from "../../types/sdk-payload";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
@@ -249,6 +251,12 @@ export async function editSDKConnection(
       },
     }
   );
+
+  const payloadKey: SDKPayloadKey = {
+    environment: connection.environment,
+    project: connection.project,
+  };
+  purgeCDNCache(connection.organization, [payloadKey]);
 
   if (needsProxyUpdate) {
     await queueSingleProxyUpdate({
