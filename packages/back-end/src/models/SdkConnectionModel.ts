@@ -256,6 +256,8 @@ export async function editSDKConnection(
     environment: connection.environment,
     project: connection.project,
   };
+
+  // Purge CDN if used
   await purgeCDNCache(connection.organization, [payloadKey]);
 
   if (needsProxyUpdate) {
