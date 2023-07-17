@@ -73,7 +73,7 @@ export async function getImpactEstimate(
     segmentObj = null;
   }
 
-  const integration = getSourceIntegrationObject(datasource);
+  const integration = getSourceIntegrationObject(datasource, true);
 
   const conversionWindowHours =
     metricObj.conversionWindowHours || DEFAULT_CONVERSION_WINDOW_HOURS;

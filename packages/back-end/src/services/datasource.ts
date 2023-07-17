@@ -88,16 +88,20 @@ function getIntegrationObj(
 
 export async function getIntegrationFromDatasourceId(
   organization: string,
-  id: string
+  id: string,
+  throwOnDecryptionError: boolean = false
 ) {
   const datasource = await getDataSourceById(id, organization);
   if (!datasource) {
     throw new Error("Could not load metric datasource");
   }
-  return getSourceIntegrationObject(datasource);
+  return getSourceIntegrationObject(datasource, throwOnDecryptionError);
 }
 
-export function getSourceIntegrationObject(datasource: DataSourceInterface) {
+export function getSourceIntegrationObject(
+  datasource: DataSourceInterface,
+  throwOnDecryptionError: boolean = false
+) {
   const { type, params, settings } = datasource;
 
   const obj = getIntegrationObj(type, params, settings);
@@ -111,7 +115,7 @@ export function getSourceIntegrationObject(datasource: DataSourceInterface) {
   obj.datasource = datasource.id;
   obj.type = datasource.type;
 
-  if (obj.decryptionError) {
+  if (throwOnDecryptionError && obj.decryptionError) {
     throw new Error(
       "Could not decrypt data source credentials. View the data source settings for more info."
     );

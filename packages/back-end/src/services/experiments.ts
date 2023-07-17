@@ -95,7 +95,8 @@ export async function refreshMetric(
   if (metric.datasource) {
     const integration = await getIntegrationFromDatasourceId(
       metric.organization,
-      metric.datasource
+      metric.datasource,
+      true
     );
 
     let segment: SegmentInterface | undefined = undefined;
@@ -463,7 +464,8 @@ export async function createSnapshot({
 
   const integration = await getIntegrationFromDatasourceId(
     experiment.organization,
-    experiment.datasource
+    experiment.datasource,
+    true
   );
 
   const queryRunner = new ExperimentResultsQueryRunner(

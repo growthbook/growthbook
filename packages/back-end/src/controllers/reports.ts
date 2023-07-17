@@ -219,7 +219,8 @@ export async function refreshReport(
 
   const integration = await getIntegrationFromDatasourceId(
     org.id,
-    report.args.datasource
+    report.args.datasource,
+    true
   );
   const queryRunner = new ReportQueryRunner(report, integration, useCache);
 
@@ -296,7 +297,8 @@ export async function putReport(
 
     const integration = await getIntegrationFromDatasourceId(
       org.id,
-      updatedReport.args.datasource
+      updatedReport.args.datasource,
+      true
     );
     const queryRunner = new ReportQueryRunner(updatedReport, integration);
 

@@ -1945,7 +1945,7 @@ export async function postPastExperiments(
     datasourceObj?.projects?.length ? datasourceObj.projects : ""
   );
 
-  const integration = getSourceIntegrationObject(datasourceObj);
+  const integration = getSourceIntegrationObject(datasourceObj, true);
 
   let pastExperiments = await getPastExperimentsModelByDatasource(
     org.id,
