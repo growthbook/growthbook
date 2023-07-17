@@ -9,6 +9,7 @@ import { useAuth } from "@/services/auth";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
+import StringArrayField from "@/components/Forms/StringArrayField";
 import UpgradeModal from "../UpgradeModal";
 import RoleSelector from "./RoleSelector";
 import InviteModalSubscriptionInfo from "./InviteModalSubscriptionInfo";
@@ -26,11 +27,11 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const { accountPlan } = useUser();
 
   const form = useForm<{
-    email: string;
+    email: string[];
     roleInfo: MemberRoleWithProjects;
   }>({
     defaultValues: {
-      email: "",
+      email: [],
       roleInfo: {
         role: "admin",
         limitAccessByEnvironment: false,
@@ -82,7 +83,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   }
 
   const onSubmit = form.handleSubmit(async (value) => {
-    const inviteArr = value.email.split(",");
+    // const inviteArr = value.email.split(",");
 
     if (canSubscribe && activeAndInvitedUsers + inviteArr.length > freeSeats) {
       setShowUpgradeModal("Whoops! You reached your free seat limit.");
@@ -92,7 +93,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     const failed: InviteResult[] = [];
     const succeeded: InviteResult[] = [];
 
-    for (const email of inviteArr) {
+    for (const emailItem of value.email) {
       const resp = await apiCall<{
         emailSent: boolean;
         inviteUrl: string;
@@ -101,13 +102,13 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       }>(`/invite`, {
         method: "POST",
         body: JSON.stringify({
-          email: email,
+          email: emailItem,
           ...value.roleInfo,
         }),
       });
 
       const result: InviteResult = {
-        email,
+        email: emailItem,
         inviteUrl: resp.inviteUrl,
       };
       if (resp.emailSent) {
@@ -214,9 +215,19 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             label="Email Address"
             required
             type="email"
-            multiple={true}
+            multiple={tSrue}
             helpText="Enter a comma separated list of emails to invite multiple members at once."
             {...form.register("email")}
+          />
+          <StringArrayField
+            required
+            label="Email Address"
+            value={form.watch("email")}
+            onChange={(emails) => {
+              form.setValue("email", emails);
+            }}
+            helpText="Enter a comma separated list of emails to invite multiple members at once."
+            type="email"
           />
           <RoleSelector
             value={form.watch("roleInfo")}

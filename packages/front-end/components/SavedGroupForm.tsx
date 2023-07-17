@@ -8,6 +8,7 @@ import { useDefinitions } from "../services/DefinitionsContext";
 import Modal from "./Modal";
 import Field from "./Forms/Field";
 import SelectField from "./Forms/SelectField";
+import StringArrayField from "./Forms/StringArrayField";
 
 const SavedGroupForm: FC<{
   close: () => void;
@@ -25,7 +26,7 @@ const SavedGroupForm: FC<{
       groupName: current.groupName || "",
       owner: current.owner || "",
       attributeKey: current.attributeKey || "",
-      groupList: current.values?.join(", ") || "",
+      groupList: current.values || [],
       id: current.id || "",
     },
   });
@@ -75,11 +76,19 @@ const SavedGroupForm: FC<{
         }))}
         helpText={current.attributeKey && "This field can not be edited."}
       />
-      <Field
+      {/* <Field
         label="Create list of comma separated values"
         required
         textarea
         {...form.register("groupList")}
+      /> */}
+      <StringArrayField
+        label="Create list of values"
+        value={form.watch("groupList")}
+        onChange={(values) => {
+          form.setValue("groupList", values);
+        }}
+        placeholder="Enter some values..."
       />
       {current.id && (
         <div className="alert alert-warning">
