@@ -11,7 +11,10 @@ Track anonymous usage statistics
 import { jitsuClient, JitsuClient } from "@jitsu/sdk-js";
 import md5 from "md5";
 import { StatsEngine } from "@/../back-end/types/stats";
-import { ExperimentSnapshotInterface } from "@/../back-end/types/experiment-snapshot";
+import {
+  ExperimentSnapshotAnalysis,
+  ExperimentSnapshotInterface,
+} from "@/../back-end/types/experiment-snapshot";
 import { ExperimentReportInterface } from "@/../back-end/types/report";
 import { getCurrentUser } from "./UserContext";
 import {
@@ -139,18 +142,20 @@ function getTrackingPropsFromSnapshot(
   const parsedDim = parseSnapshotDimension(
     snapshot.settings.dimensions.map((d) => d.id).join(", ") || ""
   );
+  const analysis = snapshot.analyses?.[0] as
+    | ExperimentSnapshotAnalysis
+    | undefined;
   return {
     id: snapshot.id ? md5(snapshot.id) : "",
     source: source,
     experiment: snapshot.experiment ? md5(snapshot.experiment) : "",
-    engine: snapshot.analyses?.[0].settings.statsEngine ?? "bayesian",
+    engine: analysis?.settings?.statsEngine ?? "bayesian",
     datasource_type: datasourceType,
     regression_adjustment_enabled: !!snapshot.settings
       .regressionAdjustmentEnabled,
-    sequential_testing_enabled: !!snapshot.analyses[0].settings
-      .sequentialTesting,
+    sequential_testing_enabled: !!analysis?.settings?.sequentialTesting,
     sequential_testing_tuning_parameter:
-      snapshot.analyses?.[0].settings.sequentialTestingTuningParameter ?? -99,
+      analysis?.settings?.sequentialTestingTuningParameter ?? -99,
     skip_partial_data: !!snapshot.settings.skipPartialData,
     activation_metric_selected: !!snapshot.settings.activationMetric,
     query_filter_selected: !!snapshot.settings.queryFilter,

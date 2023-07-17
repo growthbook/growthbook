@@ -99,6 +99,9 @@ export interface ExperimentInterface {
   owner: string;
   datasource: string;
   exposureQueryId: string;
+  /**
+   * @deprecated Always set to 'code'
+   */
   implementation: ImplementationType;
   /**
    * @deprecated

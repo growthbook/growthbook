@@ -29,7 +29,7 @@ const ReportModel = mongoose.model<ReportInterface>("Report", reportSchema);
 
 const toInterface = (doc: ReportDocument): ReportInterface => {
   const json = omit(doc.toJSON<ReportDocument>(), ["__v", "_id"]);
-  if ((json.args.attributionModel as string) === "allExposures") {
+  if ((json.args?.attributionModel as string) === "allExposures") {
     json.args.attributionModel = "experimentDuration";
   }
   return json;
@@ -88,6 +88,20 @@ export async function getReportsByExperimentId(
   return (await ReportModel.find({ organization, experimentId })).map((r) =>
     toInterface(r)
   );
+}
+
+export async function findReportsByQueryId(ids: string[]) {
+  // Only look for matches in the past 24 hours to make the query more efficient
+  // Older snapshots should not still be running anyway
+  const earliestDate = new Date();
+  earliestDate.setDate(earliestDate.getDate() - 1);
+
+  const docs = await ReportModel.find({
+    dateCreated: { $gt: earliestDate },
+    queries: { $elemMatch: { query: { $in: ids }, status: "running" } },
+  });
+
+  return docs.map((doc) => toInterface(doc));
 }
 
 export async function updateReport(

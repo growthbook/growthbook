@@ -1827,8 +1827,6 @@ export interface operations {
           status?: "draft" | "running" | "stopped";
           autoRefresh?: boolean;
           hashAttribute?: string;
-          /** @enum {string} */
-          implementation: "visual" | "code" | "configuration" | "custom";
           variations: ({
               id?: string;
               key: string;

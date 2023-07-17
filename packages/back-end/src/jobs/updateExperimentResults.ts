@@ -17,15 +17,10 @@ import {
   getRegressionAdjustmentInfo,
 } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
-import {
-  getLatestSnapshot,
-  updateSnapshot,
-} from "../models/ExperimentSnapshotModel";
+import { getLatestSnapshot } from "../models/ExperimentSnapshotModel";
 import { ExperimentInterface } from "../../types/experiment";
-import { getStatusEndpoint } from "../services/queries";
 import { getMetricById, getMetricMap } from "../models/MetricModel";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "../util/secrets";
-import { analyzeExperimentResults } from "../services/stats";
 import { findOrganizationById } from "../models/OrganizationModel";
 import { logger } from "../util/logger";
 import {
@@ -183,7 +178,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
 
     const metricMap = await getMetricMap(organization.id);
 
-    const currentSnapshot = await createSnapshot({
+    const queryRunner = await createSnapshot({
       experiment,
       organization,
       phaseIndex: experiment.phases.length - 1,
@@ -191,64 +186,14 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
       metricRegressionAdjustmentStatuses:
         metricRegressionAdjustmentStatuses || [],
       metricMap,
+      useCache: true,
     });
+    await queryRunner.waitForResults();
+    const currentSnapshot = queryRunner.model;
 
-    await new Promise<void>((resolve, reject) => {
-      const check = async () => {
-        const phase = experiment.phases[experiment.phases.length - 1];
-        if (!phase) {
-          reject("Invalid phase");
-          return;
-        }
-        const res = await getStatusEndpoint(
-          currentSnapshot,
-          currentSnapshot.organization,
-          async (queryData) => {
-            const metricMap = await getMetricMap(experiment.organization);
-
-            return analyzeExperimentResults({
-              queryData,
-              snapshotSettings: currentSnapshot.settings,
-              analysisSettings,
-              metricMap,
-              variationNames: experiment.variations.map((v) => v.name),
-            });
-          },
-          async (updates, results, error) => {
-            const status = error ? "error" : results ? "success" : "running";
-
-            const analysis = getSnapshotAnalysis(currentSnapshot);
-            if (analysis) {
-              analysis.results = results?.dimensions || [];
-              analysis.error = error;
-              analysis.status = status;
-            }
-
-            await updateSnapshot(experiment.organization, currentSnapshot.id, {
-              ...updates,
-              unknownVariations: results?.unknownVariations || [],
-              multipleExposures: results?.multipleExposures || 0,
-              analyses: currentSnapshot.analyses,
-              error: error || "",
-              status: status,
-            });
-          },
-          currentSnapshot.error
-        );
-        if (res.queryStatus === "succeeded") {
-          resolve();
-          return;
-        }
-        if (res.queryStatus === "failed") {
-          reject("Queries failed to run");
-          return;
-        }
-        // Check every 10 seconds
-        setTimeout(check, 10000);
-      };
-      // Do the first check after a 2 second delay to quickly handle fast queries
-      setTimeout(check, 2000);
-    });
+    logger.info(
+      "Successfully Refreshed Results for expeirment " + experimentId
+    );
 
     if (lastSnapshot) {
       await sendSignificanceEmail(experiment, lastSnapshot, currentSnapshot);
