@@ -98,7 +98,7 @@ export async function findReportsByQueryId(ids: string[]) {
 
   const docs = await ReportModel.find({
     dateCreated: { $gt: earliestDate },
-    "queries.query": { $elemMatch: { query: { $in: ids }, status: "running" } },
+    queries: { $elemMatch: { query: { $in: ids }, status: "running" } },
   });
 
   return docs.map((doc) => toInterface(doc));

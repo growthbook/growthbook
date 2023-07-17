@@ -74,7 +74,7 @@ export async function findRunningPastExperimentsByQueryId(
 ) {
   const docs = await PastExperimentsModel.find({
     organization: { $in: orgIds },
-    "queries.query": { $elemMatch: { query: { $in: ids }, status: "running" } },
+    queries: { $elemMatch: { query: { $in: ids }, status: "running" } },
   });
 
   return docs.map((doc) => toInterface(doc));

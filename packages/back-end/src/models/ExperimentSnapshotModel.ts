@@ -181,7 +181,7 @@ export async function findRunningSnapshotsByQueryId(ids: string[]) {
   const docs = await ExperimentSnapshotModel.find({
     status: "running",
     dateCreated: { $gt: earliestDate },
-    "queries.query": { $elemMatch: { query: { $in: ids }, status: "running" } },
+    queries: { $elemMatch: { query: { $in: ids }, status: "running" } },
   });
 
   return docs.map((doc) => toInterface(doc));

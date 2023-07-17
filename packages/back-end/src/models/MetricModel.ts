@@ -289,7 +289,7 @@ export async function findRunningMetricsByQueryId(
   const docs = await MetricModel.find({
     // Query ids are globally unique, this filter is just for index performance
     organization: { $in: orgIds },
-    "queries.query": {
+    queries: {
       $elemMatch: { query: { $in: queryIds }, status: "running" },
     },
   });
