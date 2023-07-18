@@ -15,6 +15,7 @@ properties:
       - type: string
       - type: number
       - type: boolean
+      - type: object
   tags:
     type: array
     items:
@@ -22,6 +23,5 @@ properties:
     description: List of associated tags. Will override tags completely with submitted list
   environments:
     type: object
-    description: Environments to update; those omitted will be left intact.
     additionalProperties:
-      $ref: "../schemas/FeatureEnvironment.yaml"
+      $ref: "./postFeature/FeatureEnvironment.yaml"

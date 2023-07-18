@@ -873,11 +873,11 @@ const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
     return rolloutRule;
   });
 
-export const fromApiEnvSettingsToFeatureEnvSettings = (
-  orgEnvs: Environment[],
+export const createInterfaceEnvSettingsFromApiEnvSettings = (
+  baseEnvs: Environment[],
   incomingEnvs: ApiFeatureEnvSettings
 ): FeatureInterface["environmentSettings"] =>
-  orgEnvs.reduce(
+  baseEnvs.reduce(
     (acc, e) => ({
       ...acc,
       [e.id]: {
@@ -891,3 +891,22 @@ export const fromApiEnvSettingsToFeatureEnvSettings = (
     }),
     {} as Record<string, FeatureEnvironment>
   );
+
+export const updateInterfaceEnvSettingsFromApiEnvSettings = (
+  existing: FeatureInterface["environmentSettings"],
+  incomingEnvs: ApiFeatureEnvSettings
+): FeatureInterface["environmentSettings"] => {
+  return Object.keys(incomingEnvs).reduce((acc, k) => {
+    return {
+      ...acc,
+      [k]: {
+        enabled: incomingEnvs[k].enabled ?? existing[k].enabled,
+        rules: incomingEnvs[k].rules
+          ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+              incomingEnvs[k].rules
+            )
+          : existing[k].rules,
+      },
+    };
+  }, existing);
+};

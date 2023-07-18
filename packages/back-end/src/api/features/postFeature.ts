@@ -7,7 +7,7 @@ import { FeatureInterface } from "../../../types/feature";
 import { getEnabledEnvironments } from "../../util/features";
 import {
   addIdsToRules,
-  fromApiEnvSettingsToFeatureEnvSettings,
+  createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObj,
   getSavedGroupMap,
 } from "../../services/features";
@@ -19,7 +19,10 @@ export type ApiFeatureEnvSettings = NonNullable<
 
 export type ApiFeatureEnvSettingsRules = ApiFeatureEnvSettings[keyof ApiFeatureEnvSettings]["rules"];
 
-const validateEnvKeys = (orgEnvKeys: string[], incomingEnvKeys: string[]) => {
+export const validateEnvKeys = (
+  orgEnvKeys: string[],
+  incomingEnvKeys: string[]
+) => {
   const invalidEnvKeys = incomingEnvKeys.filter((k) => !orgEnvKeys.includes(k));
 
   if (invalidEnvKeys.length) {
@@ -31,7 +34,7 @@ const validateEnvKeys = (orgEnvKeys: string[], incomingEnvKeys: string[]) => {
   }
 };
 
-const validateDefaultValueType = (
+export const validateDefaultValueType = (
   valueType: z.infer<typeof postFeatureValidator.bodySchema>["valueType"],
   defaultValue: z.infer<typeof postFeatureValidator.bodySchema>["defaultValue"]
 ) => {
@@ -87,7 +90,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
     // ensure default value matches value type
     validateDefaultValueType(req.body.valueType, req.body.defaultValue);
 
-    const environmentSettings = fromApiEnvSettingsToFeatureEnvSettings(
+    const environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
       orgEnvs,
       req.body.environments ?? {}
     );

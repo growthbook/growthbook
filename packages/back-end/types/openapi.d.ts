@@ -1461,87 +1461,115 @@ export interface operations {
           /** @description An associated project ID */
           project?: string;
           owner?: string;
-          defaultValue?: string | number | boolean;
+          defaultValue?: string | number | boolean | any;
           /** @description List of associated tags. Will override tags completely with submitted list */
           tags?: (string)[];
-          /** @description Environments to update; those omitted will be left intact. */
           environments?: {
             [key: string]: ({
               enabled: boolean;
-              defaultValue: string;
               rules: ({
-                  description: string;
-                  condition: string;
-                  id: string;
-                  enabled: boolean;
-                  type: string;
+                  description?: string;
+                  /** @description Applied to everyone by default. */
+                  condition?: string;
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "force";
                   value: string;
                 } | {
-                  description: string;
-                  condition: string;
-                  id: string;
-                  enabled: boolean;
-                  type: string;
+                  description?: string;
+                  /** @description Applied to everyone by default. */
+                  condition?: string;
+                  id?: string;
+                  /** @description Enabled by default */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "rollout";
                   value: string;
+                  /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                   coverage: number;
                   hashAttribute: string;
                 } | {
-                  description: string;
-                  condition: string;
-                  id: string;
-                  enabled: boolean;
-                  type: string;
-                  trackingKey?: string;
-                  hashAttribute?: string;
+                  description?: string;
+                  /** @description Applied to everyone by default. */
+                  condition?: string;
+                  id?: string;
+                  /** @description Enabled by default. */
+                  enabled?: boolean;
+                  /** @enum {string} */
+                  type: "experiment";
+                  /** @description Unique identifier for this experiment, used to track impressions and analyze results. */
+                  trackingKey: string;
+                  /** @description Will be hashed together with the Tracking Key to determine which variation to assign. */
+                  hashAttribute: string;
                   namespace?: {
                     enabled: boolean;
                     name: string;
                     range: (number)[];
                   };
-                  coverage?: number;
+                  /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
+                  coverage: number;
+                  /** @description Values per variation */
                   value?: ({
                       value: string;
+                      /** @description The amount of traffic to be split to this value */
                       weight: number;
                       name?: string;
                     })[];
                 })[];
               /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
               definition?: string;
+              /** @description Use to write draft changes without publishing them. */
               draft?: {
-                enabled: boolean;
-                defaultValue: string;
+                enabled?: boolean;
                 rules: ({
-                    description: string;
-                    condition: string;
-                    id: string;
-                    enabled: boolean;
-                    type: string;
+                    description?: string;
+                    /** @description Applied to everyone by default. */
+                    condition?: string;
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "force";
                     value: string;
                   } | {
-                    description: string;
-                    condition: string;
-                    id: string;
-                    enabled: boolean;
-                    type: string;
+                    description?: string;
+                    /** @description Applied to everyone by default. */
+                    condition?: string;
+                    id?: string;
+                    /** @description Enabled by default */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "rollout";
                     value: string;
+                    /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
                     coverage: number;
                     hashAttribute: string;
                   } | {
-                    description: string;
-                    condition: string;
-                    id: string;
-                    enabled: boolean;
-                    type: string;
-                    trackingKey?: string;
-                    hashAttribute?: string;
+                    description?: string;
+                    /** @description Applied to everyone by default. */
+                    condition?: string;
+                    id?: string;
+                    /** @description Enabled by default. */
+                    enabled?: boolean;
+                    /** @enum {string} */
+                    type: "experiment";
+                    /** @description Unique identifier for this experiment, used to track impressions and analyze results. */
+                    trackingKey: string;
+                    /** @description Will be hashed together with the Tracking Key to determine which variation to assign. */
+                    hashAttribute: string;
                     namespace?: {
                       enabled: boolean;
                       name: string;
                       range: (number)[];
                     };
-                    coverage?: number;
+                    /** @description Percent of traffic included in this experiment. Users not included in the experiment will skip this rule. */
+                    coverage: number;
+                    /** @description Values per variation */
                     value?: ({
                         value: string;
+                        /** @description The amount of traffic to be split to this value */
                         weight: number;
                         name?: string;
                       })[];

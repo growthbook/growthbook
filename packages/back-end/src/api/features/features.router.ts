@@ -3,7 +3,7 @@ import { listFeatures } from "./listFeatures";
 import { toggleFeature } from "./toggleFeature";
 import { getFeature } from "./getFeature";
 import { postFeature } from "./postFeature";
-// import { updateFeature } from './updateFeature';
+import { updateFeature } from "./updateFeature";
 
 const router = Router();
 
@@ -12,7 +12,7 @@ const router = Router();
 router.get("/", listFeatures);
 router.post("/", postFeature);
 router.get("/:id", getFeature);
-// router.post("/:id", updateFeature);
+router.post("/:id", updateFeature);
 router.post("/:id/toggle", toggleFeature);
 
 export default router;

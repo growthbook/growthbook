@@ -455,6 +455,7 @@ paths:
                     - type: string
                     - type: number
                     - type: boolean
+                    - type: object
                 tags:
                   type: array
                   items:
@@ -462,9 +463,8 @@ paths:
                   description: List of associated tags. Will override tags completely with submitted list
                 environments:
                   type: object
-                  description: Environments to update; those omitted will be left intact.
                   additionalProperties:
-                    $ref: '#/components/schemas/FeatureEnvironment'
+                    $ref: '#/paths/~1features/post/requestBody/content/application~1json/schema/properties/environments/additionalProperties'
       responses:
         '200':
           content:
