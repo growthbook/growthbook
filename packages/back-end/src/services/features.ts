@@ -33,7 +33,7 @@ import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { purgeCDNCache } from "../util/fastly.util";
+import { getSurrogateKey, purgeCDNCache } from "../util/fastly.util";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -241,28 +241,17 @@ export async function refreshSDKPayloadCache(
 
   // Purge CDN if used
   // Do this before firing webhooks in case a webhook tries fetching the latest payload from the CDN
-  await purgeCDNCache(organization.id, payloadKeys);
+  // Only purge the specific payloads that are affected
+  const surrogateKeys = payloadKeys.map((k) =>
+    getSurrogateKey(organization.id, k.project, k.environment)
+  );
+  await purgeCDNCache(organization.id, surrogateKeys);
 
   // After the SDK payloads are updated, fire any webhooks on the organization
   await queueWebhook(organization.id, payloadKeys, true);
 
   // Update any Proxy servers that are affected by this change
   await queueProxyUpdate(organization.id, payloadKeys);
-}
-
-export function getSurrogateKey(
-  orgId: string,
-  project: string,
-  environment: string
-) {
-  // Fill with default values if missing
-  project = project || "AllProjects";
-  environment = environment || "production";
-
-  const key = `${orgId}_${project}_${environment}`;
-
-  // Protect against environments or projects having unusual characters
-  return key.replace(/[^a-zA-Z0-9_-]/g, "");
 }
 
 export type FeatureDefinitionsResponseArgs = {

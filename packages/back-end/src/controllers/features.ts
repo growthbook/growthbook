@@ -30,7 +30,6 @@ import {
   addIdsToRules,
   arrayMove,
   getFeatureDefinitions,
-  getSurrogateKey,
   verifyDraftsAreEqual,
 } from "../services/features";
 import { ensureWatching } from "../services/experiments";
@@ -52,6 +51,7 @@ import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
 import { FASTLY_SERVICE_ID, IS_CLOUD } from "../util/secrets";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { getSurrogateKey } from "../util/fastly.util";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
