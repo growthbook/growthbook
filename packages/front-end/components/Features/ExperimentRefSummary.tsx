@@ -8,9 +8,9 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
-import React, { ReactElement, useState } from "react";
+import React, { ReactElement, ReactNode, useState } from "react";
 import { FaAngleDown, FaAngleRight } from "react-icons/fa";
-import { date, datetime } from "shared";
+import { date, datetime } from "shared/dates";
 import { getVariationColor } from "../../services/features";
 import { phaseSummary } from "../../services/utils";
 import ResultsIndicator from "../Experiment/ResultsIndicator";
@@ -218,7 +218,7 @@ function ExperimentRefPhaseHeader({
   start?: string;
   end?: string;
   badge?: ReactElement;
-  additionalInfo?: ReactElement;
+  additionalInfo?: ReactNode;
   active?: boolean;
 }) {
   return (

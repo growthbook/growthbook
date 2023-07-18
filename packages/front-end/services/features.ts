@@ -6,6 +6,7 @@ import {
   SDKAttributeType,
 } from "back-end/types/organization";
 import {
+  ExperimentRefRule,
   ExperimentRule,
   ExperimentValue,
   FeatureInterface,
@@ -357,6 +358,18 @@ export function validateFeatureRule(
         `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
       );
     }
+  } else if (rule.type === "experiment-ref") {
+    rule.variations.forEach((v, i) => {
+      const newValue = validateFeatureValue(
+        feature,
+        v.value,
+        "Variation #" + i
+      );
+      if (newValue !== v.value) {
+        hasChanges = true;
+        (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
+      }
+    });
   } else {
     const newValue = validateFeatureValue(
       feature,

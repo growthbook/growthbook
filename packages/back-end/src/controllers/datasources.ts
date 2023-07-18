@@ -153,6 +153,7 @@ export async function postSampleData(
       trackingKey: "sample-experiment",
       exposureQueryId: "",
       hashAttribute: "",
+      hashVersion: 2,
       releasedVariationId: "",
       tags: [],
       results: "won",
