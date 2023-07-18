@@ -287,12 +287,13 @@ export function getFeatureDefinition({
             if (phase.seed) {
               rule.seed = phase.seed;
             }
-            rule.hashVersion = 2;
+            rule.hashVersion = exp.hashVersion;
             rule.meta = exp.variations.map((v) => ({
               key: v.key,
               name: v.name,
             }));
             rule.phase = exp.phases.length - 1 + "";
+            rule.name = exp.name;
 
             return rule;
           }

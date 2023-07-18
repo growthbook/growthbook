@@ -50,6 +50,9 @@ properties:
     type: boolean
   hashAttribute:
     type: string
+  hashVersion:
+    type: number
+    enum: [1, 2]
   variations:
     type: array
     minItems: 2

@@ -736,6 +736,13 @@ export default function SinglePage_old({
                   {experiment.hashAttribute}
                 </RightRailSectionGroup>
               )}
+              <RightRailSectionGroup title="Hashing Algorithm" type="commaList">
+                {experiment.hashVersion === 2
+                  ? "V2 - Unbiased"
+                  : experiment.hashVersion === 1
+                  ? "V1 - Legacy"
+                  : `V${experiment.hashVersion}`}
+              </RightRailSectionGroup>
               {exposureQuery && (
                 <RightRailSectionGroup
                   title="Assignment Query"

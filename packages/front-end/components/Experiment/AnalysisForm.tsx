@@ -84,6 +84,7 @@ const AnalysisForm: FC<{
     defaultValues: {
       trackingKey: experiment.trackingKey || "",
       hashAttribute: experiment.hashAttribute || "",
+      hashVersion: experiment.hashVersion || 2,
       datasource: experiment.datasource || "",
       exposureQueryId:
         getExposureQuery(
@@ -278,6 +279,20 @@ const AnalysisForm: FC<{
         }}
         helpText={
           "Will be hashed and used to assign a variation to each user that views the experiment"
+        }
+      />
+      <SelectField
+        label="Hashing Algorithm"
+        options={[
+          { label: "V1 - Legacy", value: "1" },
+          { label: "V2 - Unbiased", value: "2" },
+        ]}
+        value={form.watch("hashVersion") + ""}
+        onChange={(v) => {
+          form.setValue("hashVersion", (parseInt(v) || 2) as 1 | 2);
+        }}
+        helpText={
+          "V2 fixes some potential bias issues, but is only supported in newer SDK versions"
         }
       />
       {editVariationIds && (

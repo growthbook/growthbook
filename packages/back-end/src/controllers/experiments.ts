@@ -411,6 +411,7 @@ const getExperimentDefinitionFromFeatureAndRule = (
     name: (expRule.trackingKey || feature.id) + " experiment",
     hypothesis: expRule.description || "",
     hashAttribute: expRule.hashAttribute,
+    hashVersion: 1,
     description: `Experiment analysis for the feature [**${feature.id}**](/features/${feature.id})`,
     variations: expRule.values.map((v, i) => {
       let name = i ? `Variation ${i}` : "Control";
@@ -529,6 +530,7 @@ export async function postExperiments(
     organization: data.organization,
     archived: false,
     hashAttribute: data.hashAttribute || "",
+    hashVersion: data.hashVersion || 2,
     autoSnapshots: true,
     dateCreated: new Date(),
     dateUpdated: new Date(),
@@ -713,6 +715,7 @@ export async function postExperiment(
     "exposureQueryId",
     "userIdType",
     "hashAttribute",
+    "hashVersion",
     "name",
     "tags",
     "description",

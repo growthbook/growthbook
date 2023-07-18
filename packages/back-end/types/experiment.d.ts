@@ -108,6 +108,7 @@ export interface ExperimentInterface {
    */
   userIdType?: "anonymous" | "user";
   hashAttribute: string;
+  hashVersion: 1 | 2;
   name: string;
   dateCreated: Date;
   dateUpdated: Date;

@@ -1238,6 +1238,23 @@ export default function SinglePage({
                       {experiment.hashAttribute}
                     </RightRailSectionGroup>
                   )}
+                  <RightRailSectionGroup
+                    title="Hashing Algorithm"
+                    type="custom"
+                  >
+                    <Tooltip
+                      body={`V2 fixes some potential bias issues, but is only supported in newer SDK versions`}
+                    >
+                      <strong>
+                        {experiment.hashVersion === 2
+                          ? "V2 - Unbiased"
+                          : experiment.hashVersion === 1
+                          ? "V1 - Legacy"
+                          : `V${experiment.hashVersion} - Unknown`}
+                      </strong>{" "}
+                      <FaQuestionCircle />
+                    </Tooltip>
+                  </RightRailSectionGroup>
                   {exposureQuery && (
                     <RightRailSectionGroup
                       title="Assignment Query"

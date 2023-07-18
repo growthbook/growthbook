@@ -633,6 +633,11 @@ paths:
                   type: boolean
                 hashAttribute:
                   type: string
+                hashVersion:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
                 variations:
                   type: array
                   minItems: 2
@@ -819,6 +824,11 @@ paths:
                   type: boolean
                 hashAttribute:
                   type: string
+                hashVersion:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
                 variations:
                   type: array
                   minItems: 2
@@ -2393,6 +2403,7 @@ components:
         - hypothesis
         - description
         - hashAttribute
+        - hashVersion
         - tags
         - owner
         - archived
@@ -2432,6 +2443,11 @@ components:
           type: boolean
         hashAttribute:
           type: string
+        hashVersion:
+          type: number
+          enum:
+            - 1
+            - 2
         variations:
           type: array
           items:

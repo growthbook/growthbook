@@ -611,6 +611,8 @@ export interface components {
       status: string;
       autoRefresh: boolean;
       hashAttribute: string;
+      /** @enum {number} */
+      hashVersion: 1 | 2;
       variations: ({
           variationId: string;
           key: string;
@@ -1717,6 +1719,8 @@ export interface operations {
                 status: string;
                 autoRefresh: boolean;
                 hashAttribute: string;
+                /** @enum {number} */
+                hashVersion: 1 | 2;
                 variations: ({
                     variationId: string;
                     key: string;
@@ -1827,6 +1831,8 @@ export interface operations {
           status?: "draft" | "running" | "stopped";
           autoRefresh?: boolean;
           hashAttribute?: string;
+          /** @enum {number} */
+          hashVersion?: 1 | 2;
           variations: ({
               id?: string;
               key: string;
@@ -1885,6 +1891,8 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              /** @enum {number} */
+              hashVersion: 1 | 2;
               variations: ({
                   variationId: string;
                   key: string;
@@ -1989,6 +1997,8 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              /** @enum {number} */
+              hashVersion: 1 | 2;
               variations: ({
                   variationId: string;
                   key: string;
@@ -2095,6 +2105,8 @@ export interface operations {
           status?: "draft" | "running" | "stopped";
           autoRefresh?: boolean;
           hashAttribute?: string;
+          /** @enum {number} */
+          hashVersion?: 1 | 2;
           variations?: ({
               id?: string;
               key: string;
@@ -2153,6 +2165,8 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              /** @enum {number} */
+              hashVersion: 1 | 2;
               variations: ({
                   variationId: string;
                   key: string;
@@ -2867,6 +2881,8 @@ export interface operations {
               status: string;
               autoRefresh: boolean;
               hashAttribute: string;
+              /** @enum {number} */
+              hashVersion: 1 | 2;
               variations: ({
                   variationId: string;
                   key: string;

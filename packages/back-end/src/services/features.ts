@@ -115,7 +115,7 @@ function generateVisualExperimentsPayload({
           js: vc.js || "",
           domMutations: vc.domMutations,
         })),
-        hashVersion: 2,
+        hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
         urlPatterns: v.urlPatterns,
         weights: phase.variationWeights,
@@ -331,14 +331,29 @@ async function getFeatureDefinitionsResponse({
     experiments = experiments?.filter((e) => e.status !== "draft") || [];
   }
 
+  // If experiment/variation names should be removed from the payload
   if (!includeExperimentNames) {
-    // Remove experiment/variation name from every visual experiment
+    // Remove names from visual editor experiments
     experiments = experiments?.map((exp) => {
       return {
         ...omit(exp, ["name", "meta"]),
         meta: exp.meta ? exp.meta.map((m) => omit(m, ["name"])) : undefined,
       };
     });
+
+    // Remove names from every feature rule
+    for (const k in features) {
+      if (features[k]?.rules) {
+        features[k]?.rules?.forEach((rule) => {
+          if (rule.meta) {
+            rule.meta = rule.meta.map((m) => omit(m, ["name"]));
+          }
+          if (rule.name) {
+            delete rule.name;
+          }
+        });
+      }
+    }
   }
 
   const hasSecureAttributes = attributes?.some((a) =>
