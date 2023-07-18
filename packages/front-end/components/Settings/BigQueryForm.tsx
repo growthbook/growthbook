@@ -1,7 +1,9 @@
 import { FC, ChangeEventHandler } from "react";
 import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
+import { FaQuestionCircle } from "react-icons/fa";
 import { isCloud } from "@/services/env";
 import Field from "../Forms/Field";
+import Tooltip from "../Tooltip/Tooltip";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
@@ -111,23 +113,27 @@ const BigQueryForm: FC<{
         </>
       )}
       <div className="form-group col-md-12">
+        <Tooltip body="This should be the dataset where your metrics and events are or will be stored.">
+          <label>
+            Default Dataset <FaQuestionCircle />
+          </label>
+        </Tooltip>
+        <input
+          type="text"
+          className="form-control"
+          name="defaultDataset"
+          value={params.defaultDataset || ""}
+          onChange={onParamChange}
+          required
+        />
+      </div>
+      <div className="form-group col-md-12">
         <label>Default Project Name</label>
         <input
           type="text"
           className="form-control"
           name="defaultProject"
           value={params.defaultProject || ""}
-          onChange={onParamChange}
-          placeholder="(optional)"
-        />
-      </div>
-      <div className="form-group col-md-12">
-        <label>Default Dataset</label>
-        <input
-          type="text"
-          className="form-control"
-          name="defaultDataset"
-          value={params.defaultDataset || ""}
           onChange={onParamChange}
           placeholder="(optional)"
         />
