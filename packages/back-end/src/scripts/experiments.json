@@ -1,0 +1,38 @@
+[
+  {
+    "name": "checkout-layout",
+    "trackingKey": "checkout-layout",
+    "owner": "test@notarealemail.com",
+    "implementation": "code",
+    "variations": [
+      {
+        "key": "0",
+        "name": "Control"
+      },
+      {
+        "key": "1",
+        "name": "Compact"
+      },
+      {
+        "key": "2",
+        "name": "Spaced Out"
+      }
+    ]
+  },
+  {
+    "name": "price-display",
+    "trackingKey": "price-display",
+    "owner": "test@notarealemail.com",
+    "implementation": "code",
+    "variations": [
+      {
+        "key": "0",
+        "name": "Control"
+      },
+      {
+        "key": "1",
+        "name": "Hide discount"
+      }
+    ]
+  }
+]

@@ -1,0 +1,50 @@
+[
+  {
+    "name": "Any Order",
+    "type": "binomial",
+    "sql": {
+      "identifierTypes": ["user_id"],
+      "conversionSQL": "SELECT\nuserId AS user_id,\ntimestamp AS timestamp FROM purchases"
+    }
+  },
+  {
+    "name": "Number of Orders",
+    "type": "count",
+    "sql": {
+      "identifierTypes": ["user_id"],
+      "conversionSQL": "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\n1 AS value FROM purchases"
+    }
+  },
+  {
+    "name": "Total Order Value per User",
+    "type": "revenue",
+    "sql": {
+      "identifierTypes": ["user_id"],
+      "conversionSQL": "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value FROM purchases"
+    }
+  },
+  {
+    "name": "[1, 7) Day Retention",
+    "type": "binomial",
+    "behavior": {
+      "conversionWindowStart": 24,
+      "conversionWindowEnd": 168
+    },
+    "sql": {
+      "identifierTypes": ["user_id"],
+      "conversionSQL": "SELECT\nuserId AS user_id,\ntimestamp AS timestamp FROM pageViews WHERE path = '/'"
+    }
+  },
+  {
+    "name": "[7, 14) Day Retention",
+    "type": "binomial",
+    "behavior": {
+      "conversionWindowStart": 168,
+      "conversionWindowEnd": 336
+    },
+    "sql": {
+      "identifierTypes": ["user_id"],
+      "conversionSQL": "SELECT\nuserId AS user_id,\ntimestamp AS timestamp FROM pageViews WHERE path = '/'"
+    }
+  }
+]

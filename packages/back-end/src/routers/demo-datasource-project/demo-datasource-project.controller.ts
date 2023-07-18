@@ -5,11 +5,14 @@ import { getOrgFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from '../../events/event-types';
 import { createProject } from "../../models/ProjectModel";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { DataSourceSettings } from "../../../types/datasource";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource/demo-datasource.utils";
 import { PostgresConnectionParams } from "../../../types/integrations/postgres";
 import { createDataSource } from "../../models/DataSourceModel";
-import { MetricInterface } from "../../../types/metric";
 import { createMetric } from "../../services/experiments";
+import { DataSourceSettings } from "../../../types/datasource";
+import { ExperimentInterface } from "../../../types/experiment";
+import { MetricInterface } from "../../../types/metric";
+import { createExperiment } from "../../models/ExperimentModel";
 
 // region POST /demo-datasource-project
 
@@ -92,6 +95,53 @@ const DEMO_RATIO_METRIC: Pick<MetricInterface, 'name' | 'description' | 'type' |
   sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value FROM purchases"
 };
 
+
+// Experiment constants
+const DEMO_EXPERIMENTS: Pick<ExperimentInterface, 'name' | 'trackingKey' | 'variations'>[] = [
+  {
+    name: "checkout-layout",
+    trackingKey: "checkout-layout",
+    variations: [
+      {
+        id: "0",
+        key: "0",
+        name: "Control",
+        screenshots: []
+      },
+      {
+        id: "0",
+        key: "1",
+        name: "Compact",
+        screenshots: []
+      },
+      {
+        id: "0",
+        key: "2",
+        name: "Spaced Out",
+        screenshots: []
+      }
+    ],
+  },
+  {
+    name: "price-display",
+    trackingKey: "price-display",
+    variations: [
+      {
+        id: "0",
+        key: "0",
+        name: "Control",
+        screenshots: []
+      },
+      {
+        id: "0",
+        key: "1",
+        name: "Hide discount",
+        screenshots: []
+      },
+    ],
+  },
+]
+
 /**
  * END Constants for Demo Datasource
  */
@@ -134,7 +184,7 @@ export const postDemoDatasourceProject = async (
       [project.id]
     );
 
-    //TODO create metrics
+    // Create metrics
     const metrics = await Promise.all(DEMO_METRICS.map(async (m) => {
       return createMetric({
         ...m, 
@@ -154,7 +204,20 @@ export const postDemoDatasourceProject = async (
       tags: ["growthbook-demo-datasource"],
     });
 
-    //TODO create linked experiments
+    // Create experiments
+    const experiments = await Promise.all(DEMO_EXPERIMENTS.map(async (e) => {
+      return createExperiment({
+        data: {
+          ...e, 
+          owner: METRIC_OWNER, 
+          datasource: datasource.id,
+          project: project.id,
+          tags: ["growthbook-demo-datasource"],
+        },
+        organization: org,
+        user: ''
+      });
+    }));
   } catch {
     throw new Error('TODO');
   }
