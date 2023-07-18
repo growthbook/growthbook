@@ -1,0 +1,27 @@
+type: object
+properties:
+  description:
+    type: string
+    description: Description of the feature
+  archived:
+    type: boolean
+  project:
+    type: string
+    description: An associated project ID
+  owner:
+    type: string
+  defaultValue:
+    oneOf:
+      - type: string
+      - type: number
+      - type: boolean
+  tags:
+    type: array
+    items:
+      type: string
+    description: List of associated tags. Will override tags completely with submitted list
+  environments:
+    type: object
+    description: Environments to update; those omitted will be left intact.
+    additionalProperties:
+      $ref: "../schemas/FeatureEnvironment.yaml"

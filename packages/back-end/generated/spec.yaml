@@ -181,10 +181,225 @@ paths:
                         items:
                           $ref: '#/components/schemas/Feature'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      summary: Create a single feature
+      parameters: []
+      tags:
+        - features
+      operationId: postFeature
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/features \
+              -d '{ id: "test-01", description: "A cool feature", ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - owner
+                - valueType
+                - defaultValue
+              properties:
+                id:
+                  type: string
+                  description: 'A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.'
+                archived:
+                  type: boolean
+                description:
+                  type: string
+                  description: Description of the feature
+                owner:
+                  type: string
+                  description: Email of the person who owns this experiment
+                project:
+                  type: string
+                  description: An associated project ID
+                valueType:
+                  type: string
+                  description: The data type of the feature payload. Boolean by default.
+                  enum:
+                    - boolean
+                    - string
+                    - number
+                    - json
+                defaultValue:
+                  description: Default value when feature is enabled. Type must match `valueType`.
+                  oneOf:
+                    - type: string
+                    - type: number
+                    - type: boolean
+                    - type: object
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: List of associated tags
+                environments:
+                  type: object
+                  description: A dictionary of environments that are enabled for this feature. Keys supply the names of environments. Environments belong to organization and are not specified will be disabled by default.
+                  additionalProperties:
+                    type: object
+                    required:
+                      - enabled
+                      - rules
+                    properties:
+                      enabled:
+                        type: boolean
+                      rules:
+                        type: array
+                        items:
+                          anyOf:
+                            - type: object
+                              required:
+                                - type
+                                - value
+                              properties:
+                                description:
+                                  type: string
+                                condition:
+                                  type: string
+                                  description: Applied to everyone by default.
+                                id:
+                                  type: string
+                                enabled:
+                                  type: boolean
+                                  description: Enabled by default
+                                type:
+                                  type: string
+                                  enum:
+                                    - force
+                                value:
+                                  type: string
+                            - type: object
+                              required:
+                                - type
+                                - value
+                                - coverage
+                                - hashAttribute
+                              properties:
+                                description:
+                                  type: string
+                                condition:
+                                  type: string
+                                  description: Applied to everyone by default.
+                                id:
+                                  type: string
+                                enabled:
+                                  type: boolean
+                                  description: Enabled by default
+                                type:
+                                  type: string
+                                  enum:
+                                    - rollout
+                                value:
+                                  type: string
+                                coverage:
+                                  type: number
+                                  description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
+                                hashAttribute:
+                                  type: string
+                            - type: object
+                              required:
+                                - type
+                                - trackingKey
+                                - hashAttribute
+                                - coverage
+                              properties:
+                                description:
+                                  type: string
+                                condition:
+                                  type: string
+                                  description: Applied to everyone by default.
+                                id:
+                                  type: string
+                                enabled:
+                                  type: boolean
+                                  description: Enabled by default.
+                                type:
+                                  type: string
+                                  enum:
+                                    - experiment
+                                trackingKey:
+                                  type: string
+                                  description: 'Unique identifier for this experiment, used to track impressions and analyze results.'
+                                hashAttribute:
+                                  type: string
+                                  description: Will be hashed together with the Tracking Key to determine which variation to assign.
+                                namespace:
+                                  type: obect
+                                  required:
+                                    - enabled
+                                    - name
+                                    - range
+                                  properties:
+                                    enabled:
+                                      type: boolean
+                                    name:
+                                      type: string
+                                    range:
+                                      type: array
+                                      items:
+                                        type: number
+                                      minItems: 2
+                                      maxItems: 2
+                                coverage:
+                                  type: number
+                                  description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
+                                value:
+                                  type: array
+                                  description: Values per variation
+                                  minItems: 2
+                                  items:
+                                    type: object
+                                    required:
+                                      - value
+                                      - weight
+                                    properties:
+                                      value:
+                                        type: string
+                                      weight:
+                                        type: number
+                                        description: The amount of traffic to be split to this value
+                                      name:
+                                        type: string
+                      definition:
+                        type: string
+                        description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+                      draft:
+                        type: object
+                        description: Use to write draft changes without publishing them.
+                        required:
+                          - rules
+                        properties:
+                          enabled:
+                            type: boolean
+                          rules:
+                            type: array
+                            items:
+                              $ref: '#/paths/~1features/post/requestBody/content/application~1json/schema/properties/environments/additionalProperties/properties/rules/items'
+                          definition:
+                            type: string
+                            description: 'A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - feature
+                properties:
+                  feature:
+                    $ref: '#/components/schemas/Feature'
   '/features/{id}':
-    parameters:
-      - $ref: '#/components/parameters/id'
     get:
+      parameters:
+        - $ref: '#/components/parameters/id'
       summary: Get a single feature
       tags:
         - features
@@ -194,6 +409,62 @@ paths:
           source: |
             curl https://api.growthbook.io/api/v1/features/my_feature \
               -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - feature
+                properties:
+                  feature:
+                    $ref: '#/components/schemas/Feature'
+    post:
+      summary: Partially update a feature
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - features
+      operationId: updateFeature
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/features/test-01 \
+              -d '{ description: "A cool feature flag", ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                description:
+                  type: string
+                  description: Description of the feature
+                archived:
+                  type: boolean
+                project:
+                  type: string
+                  description: An associated project ID
+                owner:
+                  type: string
+                defaultValue:
+                  oneOf:
+                    - type: string
+                    - type: number
+                    - type: boolean
+                tags:
+                  type: array
+                  items:
+                    type: string
+                  description: List of associated tags. Will override tags completely with submitted list
+                environments:
+                  type: object
+                  description: Environments to update; those omitted will be left intact.
+                  additionalProperties:
+                    $ref: '#/components/schemas/FeatureEnvironment'
       responses:
         '200':
           content:
@@ -2107,7 +2378,10 @@ components:
             - number
             - json
         defaultValue:
-          type: string
+          oneOf:
+            - type: string
+            - type: number
+            - type: boolean
         tags:
           type: array
           items:

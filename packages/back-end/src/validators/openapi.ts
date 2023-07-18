@@ -12,8 +12,54 @@ export const listFeaturesValidator = {
   paramsSchema: z.never(),
 };
 
+export const postFeatureValidator = {
+  bodySchema: z.object({"id":z.string().describe("A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores."),"archived":z.boolean().optional(),"description":z.string().describe("Description of the feature").optional(),"owner":z.string().describe("Email of the person who owns this experiment"),"project":z.string().describe("An associated project ID").optional(),"valueType":z.enum(["boolean","string","number","json"]).describe("The data type of the feature payload. Boolean by default."),"defaultValue":z.any().superRefine((x, ctx) => {
+    const schemas = [z.string(),z.number(),z.boolean(),z.record(z.any())];
+    const errors = schemas.reduce(
+      (errors: z.ZodError[], schema) =>
+        ((result) => ("error" in result ? [...errors, result.error] : errors))(
+          schema.safeParse(x)
+        ),
+      []
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        path: ctx.path,
+        code: "invalid_union",
+        unionErrors: errors,
+        message: "Invalid input: Should pass single schema",
+      });
+    }
+  }).describe("Default value when feature is enabled. Type must match `valueType`."),"tags":z.array(z.string()).describe("List of associated tags").optional(),"environments":z.record(z.object({"enabled":z.boolean(),"rules":z.array(z.union([z.object({"description":z.string().optional(),"condition":z.string().describe("Applied to everyone by default.").optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["force"]),"value":z.string()}),z.object({"description":z.string().optional(),"condition":z.string().describe("Applied to everyone by default.").optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["rollout"]),"value":z.string(),"coverage":z.number().describe("Percent of traffic included in this experiment. Users not included in the experiment will skip this rule."),"hashAttribute":z.string()}),z.object({"description":z.string().optional(),"condition":z.string().describe("Applied to everyone by default.").optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default.").optional(),"type":z.enum(["experiment"]),"trackingKey":z.string().describe("Unique identifier for this experiment, used to track impressions and analyze results."),"hashAttribute":z.string().describe("Will be hashed together with the Tracking Key to determine which variation to assign."),"namespace":z.any().optional(),"coverage":z.number().describe("Percent of traffic included in this experiment. Users not included in the experiment will skip this rule."),"value":z.array(z.object({"value":z.string(),"weight":z.number().describe("The amount of traffic to be split to this value"),"name":z.string().optional()})).min(2).describe("Values per variation").optional()})])),"definition":z.string().describe("A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)").optional(),"draft":z.object({"enabled":z.boolean().optional(),"rules":z.array(z.union([z.object({"description":z.string().optional(),"condition":z.string().describe("Applied to everyone by default.").optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["force"]),"value":z.string()}),z.object({"description":z.string().optional(),"condition":z.string().describe("Applied to everyone by default.").optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default").optional(),"type":z.enum(["rollout"]),"value":z.string(),"coverage":z.number().describe("Percent of traffic included in this experiment. Users not included in the experiment will skip this rule."),"hashAttribute":z.string()}),z.object({"description":z.string().optional(),"condition":z.string().describe("Applied to everyone by default.").optional(),"id":z.string().optional(),"enabled":z.boolean().describe("Enabled by default.").optional(),"type":z.enum(["experiment"]),"trackingKey":z.string().describe("Unique identifier for this experiment, used to track impressions and analyze results."),"hashAttribute":z.string().describe("Will be hashed together with the Tracking Key to determine which variation to assign."),"namespace":z.any().optional(),"coverage":z.number().describe("Percent of traffic included in this experiment. Users not included in the experiment will skip this rule."),"value":z.array(z.object({"value":z.string(),"weight":z.number().describe("The amount of traffic to be split to this value"),"name":z.string().optional()})).min(2).describe("Values per variation").optional()})])),"definition":z.string().describe("A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)").optional()}).describe("Use to write draft changes without publishing them.").optional()})).describe("A dictionary of environments that are enabled for this feature. Keys supply the names of environments. Environments belong to organization and are not specified will be disabled by default.").optional()}).strict(),
+  querySchema: z.never(),
+  paramsSchema: z.never(),
+};
+
 export const getFeatureValidator = {
   bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: z.object({"id":z.string()}).strict(),
+};
+
+export const updateFeatureValidator = {
+  bodySchema: z.object({"description":z.string().describe("Description of the feature").optional(),"archived":z.boolean().optional(),"project":z.string().describe("An associated project ID").optional(),"owner":z.string().optional(),"defaultValue":z.any().superRefine((x, ctx) => {
+    const schemas = [z.string(),z.number(),z.boolean()];
+    const errors = schemas.reduce(
+      (errors: z.ZodError[], schema) =>
+        ((result) => ("error" in result ? [...errors, result.error] : errors))(
+          schema.safeParse(x)
+        ),
+      []
+    );
+    if (schemas.length - errors.length !== 1) {
+      ctx.addIssue({
+        path: ctx.path,
+        code: "invalid_union",
+        unionErrors: errors,
+        message: "Invalid input: Should pass single schema",
+      });
+    }
+  }).optional(),"tags":z.array(z.string()).describe("List of associated tags. Will override tags completely with submitted list").optional(),"environments":z.record(z.object({"enabled":z.boolean(),"defaultValue":z.string(),"rules":z.array(z.union([z.object({"description":z.string(),"condition":z.string(),"id":z.string(),"enabled":z.boolean(),"type":z.string(),"value":z.string()}),z.object({"description":z.string(),"condition":z.string(),"id":z.string(),"enabled":z.boolean(),"type":z.string(),"value":z.string(),"coverage":z.number(),"hashAttribute":z.string()}),z.object({"description":z.string(),"condition":z.string(),"id":z.string(),"enabled":z.boolean(),"type":z.string(),"trackingKey":z.string().optional(),"hashAttribute":z.string().optional(),"namespace":z.any().optional(),"coverage":z.number().optional(),"value":z.array(z.object({"value":z.string(),"weight":z.number(),"name":z.string().optional()})).optional()})])),"definition":z.string().describe("A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)").optional(),"draft":z.object({"enabled":z.boolean(),"defaultValue":z.string(),"rules":z.array(z.union([z.object({"description":z.string(),"condition":z.string(),"id":z.string(),"enabled":z.boolean(),"type":z.string(),"value":z.string()}),z.object({"description":z.string(),"condition":z.string(),"id":z.string(),"enabled":z.boolean(),"type":z.string(),"value":z.string(),"coverage":z.number(),"hashAttribute":z.string()}),z.object({"description":z.string(),"condition":z.string(),"id":z.string(),"enabled":z.boolean(),"type":z.string(),"trackingKey":z.string().optional(),"hashAttribute":z.string().optional(),"namespace":z.any().optional(),"coverage":z.number().optional(),"value":z.array(z.object({"value":z.string(),"weight":z.number(),"name":z.string().optional()})).optional()})])),"definition":z.string().describe("A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model)").optional()}).optional()})).describe("Environments to update; those omitted will be left intact.").optional()}).strict(),
   querySchema: z.never(),
   paramsSchema: z.object({"id":z.string()}).strict(),
 };

@@ -6,10 +6,13 @@ import omit from "lodash/omit";
 import { orgHasPremiumFeature } from "enterprise";
 import { FeatureDefinition, FeatureDefinitionRule } from "../../types/api";
 import {
+  ExperimentRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
   FeatureRule,
+  ForceRule,
+  RolloutRule,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
 import { getAllVisualExperiments } from "../models/ExperimentModel";
@@ -19,6 +22,7 @@ import {
 } from "../util/features";
 import { getAllSavedGroups } from "../models/SavedGroupModel";
 import {
+  Environment,
   OrganizationInterface,
   SDKAttribute,
   SDKAttributeSchema,
@@ -37,6 +41,10 @@ import {
   getSurrogateKeysFromSDKPayloadKeys,
   purgeCDNCache,
 } from "../util/cdn.util";
+import {
+  ApiFeatureEnvSettings,
+  ApiFeatureEnvSettingsRules,
+} from "../api/features/postFeature";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -559,14 +567,18 @@ export function getApiFeatureObj(
   organization: OrganizationInterface,
   groupMap: GroupMap
 ): ApiFeature {
+  const defaultValue = feature.defaultValue;
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
   const environments = getEnvironments(organization);
   environments.forEach((env) => {
-    const defaultValue = feature.defaultValue;
     const envSettings = feature.environmentSettings?.[env.id];
     const enabled = !!envSettings?.enabled;
     const rules = (envSettings?.rules || []).map((rule) => ({
       ...rule,
+      coverage:
+        rule.type === "rollout" || rule.type === "experiment"
+          ? rule.coverage ?? 1
+          : 1,
       condition: rule.condition || "",
       enabled: !!rule.enabled,
     }));
@@ -582,6 +594,10 @@ export function getApiFeatureObj(
           defaultValue: feature.draft?.defaultValue ?? defaultValue,
           rules: (feature.draft?.rules?.[env.id] ?? rules).map((rule) => ({
             ...rule,
+            coverage:
+              rule.type === "rollout" || rule.type === "experiment"
+                ? rule.coverage ?? 1
+                : 1,
             condition: rule.condition || "",
             enabled: !!rule.enabled,
           })),
@@ -600,8 +616,8 @@ export function getApiFeatureObj(
     }
 
     featureEnvironments[env.id] = {
-      defaultValue,
       enabled,
+      defaultValue,
       rules,
     };
     if (draft) {
@@ -806,3 +822,72 @@ export function sha256(str: string, salt: string): string {
     .update(salt + str)
     .digest("hex");
 }
+
+const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
+  rules: ApiFeatureEnvSettingsRules
+): FeatureInterface["environmentSettings"][string]["rules"] =>
+  rules.map((r) => {
+    if (r.type === "experiment") {
+      const experimentRule: ExperimentRule = {
+        // missing id will be filled in by addIdsToRules below
+        id: r.id ?? "",
+        type: r.type,
+        description: r.description ?? "",
+        hashAttribute: r.hashAttribute,
+        trackingKey: r.trackingKey,
+        values:
+          r.value?.map((v) => ({
+            value: v.value,
+            name: v.name ?? "",
+            weight: v.weight,
+          })) ?? [],
+        condition: r.condition,
+        coverage: r.coverage,
+        enabled: !!r.enabled,
+        namespace: r.namespace,
+      };
+      return experimentRule;
+    } else if (r.type === "force") {
+      const forceRule: ForceRule = {
+        // missing id will be filled in by addIdsToRules below
+        id: r.id ?? "",
+        type: r.type,
+        description: r.description ?? "",
+        value: r.value,
+        condition: r.condition,
+        enabled: !!r.enabled,
+      };
+      return forceRule;
+    }
+    const rolloutRule: RolloutRule = {
+      // missing id will be filled in by addIdsToRules below
+      id: r.id ?? "",
+      type: r.type,
+      coverage: r.coverage,
+      description: r.description ?? "",
+      hashAttribute: r.hashAttribute,
+      value: r.value,
+      condition: r.condition,
+      enabled: !!r.enabled,
+    };
+    return rolloutRule;
+  });
+
+export const fromApiEnvSettingsToFeatureEnvSettings = (
+  orgEnvs: Environment[],
+  incomingEnvs: ApiFeatureEnvSettings
+): FeatureInterface["environmentSettings"] =>
+  orgEnvs.reduce(
+    (acc, e) => ({
+      ...acc,
+      [e.id]: {
+        enabled: incomingEnvs?.[e.id]?.enabled ?? !!e.defaultState,
+        rules: incomingEnvs?.[e.id]?.rules
+          ? fromApiEnvSettingsRulesToFeatureEnvSettingsRules(
+              incomingEnvs[e.id].rules
+            )
+          : [],
+      },
+    }),
+    {} as Record<string, FeatureEnvironment>
+  );

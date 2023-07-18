@@ -1,0 +1,64 @@
+type: object
+required:
+  - type
+  - trackingKey
+  - hashAttribute
+  - coverage
+properties:
+  description:
+    type: string
+  condition:
+    type: string
+    description: Applied to everyone by default.
+  id:
+    type: string
+  enabled:
+    type: boolean
+    description: Enabled by default.
+  type:
+    type: string
+    enum:
+      - experiment
+  trackingKey:
+    type: string
+    description: Unique identifier for this experiment, used to track impressions and analyze results.
+  hashAttribute:
+    type: string
+    description: Will be hashed together with the Tracking Key to determine which variation to assign.
+  namespace:
+    type: obect
+    required:
+      - enabled
+      - name
+      - range
+    properties:
+      enabled:
+        type: boolean
+      name:
+        type: string
+      range:
+        type: array
+        items:
+          type: number
+        minItems: 2
+        maxItems: 2
+  coverage:
+    type: number
+    description: Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.
+  value:
+    type: array
+    description: Values per variation
+    minItems: 2
+    items:
+      type: object
+      required:
+        - value
+        - weight
+      properties:
+        value:
+          type: string
+        weight:
+          type: number
+          description: The amount of traffic to be split to this value
+        name:
+          type: string
