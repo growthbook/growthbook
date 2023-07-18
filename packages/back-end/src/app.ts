@@ -445,6 +445,11 @@ app.use("/sdk-connections", sdkConnectionRouter);
 
 app.use("/projects", projectRouter);
 
+app.post(
+  "/demo-datasource-project",
+  demoDatasourcesController.postDemoDatasourceProject
+);
+
 // Features
 app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);

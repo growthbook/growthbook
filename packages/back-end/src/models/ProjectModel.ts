@@ -31,15 +31,21 @@ function toInterface(doc: ProjectDocument): ProjectInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
+interface createProjectProps {
+  name: string,
+  description?: string,
+  id?: string
+};
+
 export async function createProject(
   organization: string,
-  data: Partial<ProjectInterface>
+  data: createProjectProps
 ) {
-  // TODO: sanitize fields
   const doc = await ProjectModel.create({
-    ...data,
-    organization,
-    id: uniqid("prj_"),
+    organization: organization,
+    id: data.id || uniqid("prj_"),
+    name: data.name || "",
+    description: data.description || undefined,
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });
