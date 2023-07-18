@@ -53,7 +53,6 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     ref
   ) => {
     const { apiCall } = useAuth();
-    const type = feature.valueType;
     const title =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
@@ -110,7 +109,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             className="mx-2"
           >
             {title}
-            {unreachable && (
+            {unreachable ? (
               <Tooltip
                 body={
                   "A rule above this one will serve to 100% of the traffic, and this rule will never be reached."
@@ -122,7 +121,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                   is not reachable
                 </span>
               </Tooltip>
-            )}
+            ) : null}
           </div>
           <RuleStatusPill
             rule={rule}
@@ -253,13 +252,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
               </div>
             )}
             {rule.type === "force" && (
-              <ForceSummary value={rule.value} type={type} />
+              <ForceSummary value={rule.value} feature={feature} />
             )}
             {rule.type === "rollout" && (
               <RolloutSummary
                 value={rule.value ?? ""}
                 coverage={rule.coverage ?? 1}
-                type={type}
+                feature={feature}
                 hashAttribute={rule.hashAttribute || ""}
               />
             )}

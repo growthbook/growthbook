@@ -1,19 +1,12 @@
 import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
-import {
-  createMetric,
-  getMetricAnalysis,
-  refreshMetric,
-} from "../services/experiments";
-import { MetricAnalysis, MetricInterface } from "../../types/metric";
+import { createMetric, refreshMetric } from "../services/experiments";
+import { MetricInterface } from "../../types/metric";
 import {
   getRecentExperimentsUsingMetric,
   getExperimentsByMetric,
-  removeMetricFromExperiments,
 } from "../models/ExperimentModel";
-import { addTagsDiff } from "../models/TagModel";
 import { getOrgFromReq } from "../services/organizations";
-import { getStatusEndpoint, cancelRun } from "../services/queries";
 import {
   deleteMetricById,
   getMetricsByOrganization,
@@ -31,6 +24,48 @@ import {
   auditDetailsDelete,
 } from "../services/audit";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { getIntegrationFromDatasourceId } from "../services/datasource";
+import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
+
+/**
+ * Fields on a metric that we allow users to update. Excluded fields are
+ * those that are set by asynchronous analysis jobs that run internally.
+ */
+export const UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
+  "name",
+  "description",
+  "owner",
+  "segment",
+  "type",
+  "inverse",
+  "ignoreNulls",
+  "capping",
+  "capValue",
+  "denominator",
+  "conversionWindowHours",
+  "conversionDelayHours",
+  "sql",
+  "aggregation",
+  "queryFormat",
+  "status",
+  "tags",
+  "projects",
+  "winRisk",
+  "loseRisk",
+  "maxPercentChange",
+  "minPercentChange",
+  "minSampleSize",
+  "regressionAdjustmentOverride",
+  "regressionAdjustmentEnabled",
+  "regressionAdjustmentDays",
+  "conditions",
+  "dateUpdated",
+  "table",
+  "column",
+  "userIdColumns",
+  "userIdTypes",
+  "timestampColumn",
+];
 
 export async function deleteMetric(
   req: AuthRequest<null, { id: string }>,
@@ -42,10 +77,6 @@ export async function deleteMetric(
   const { id } = req.params;
 
   const metric = await getMetricById(id, org.id);
-  req.checkPermissions(
-    "createMetrics",
-    metric?.projects?.length ? metric.projects : ""
-  );
 
   if (!metric) {
     res.status(403).json({
@@ -55,21 +86,13 @@ export async function deleteMetric(
     return;
   }
 
-  // delete references:
-  // ideas (impact estimate)
-  ImpactEstimateModel.updateMany(
-    {
-      metric: metric.id,
-      organization: org.id,
-    },
-    { metric: "" }
+  req.checkPermissions(
+    "createMetrics",
+    metric?.projects?.length ? metric.projects : ""
   );
 
-  // Experiments
-  await removeMetricFromExperiments(metric.id, org, res.locals.eventAudit);
-
   // now remove the metric itself:
-  await deleteMetricById(metric.id, org.id);
+  await deleteMetricById(id, org, res.locals.eventAudit);
 
   await req.audit({
     event: "metric.delete",
@@ -142,35 +165,6 @@ export async function getMetricUsage(
   });
 }
 
-export async function getMetricAnalysisStatus(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-  const metric = await getMetricById(id, org.id, true);
-  if (!metric) {
-    throw new Error("Could not get query status");
-  }
-  const result = await getStatusEndpoint(
-    metric,
-    org.id,
-    (queryData) => getMetricAnalysis(metric, queryData),
-    async (updates, result?: MetricAnalysis, error?: string) => {
-      const metricUpdates: Partial<MetricInterface> = {
-        ...updates,
-        analysisError: error,
-      };
-      if (result) {
-        metricUpdates.analysis = result;
-      }
-
-      await updateMetric(id, metricUpdates, org.id);
-    },
-    metric.analysisError
-  );
-  return res.status(200).json(result);
-}
 export async function cancelMetricAnalysis(
   req: AuthRequest<null, { id: string }>,
   res: Response
@@ -183,18 +177,17 @@ export async function cancelMetricAnalysis(
   if (!metric) {
     throw new Error("Could not cancel query");
   }
-  res.status(200).json(
-    await cancelRun(metric, org.id, async () => {
-      await updateMetric(
-        id,
-        {
-          queries: [],
-          runStarted: null,
-        },
-        org.id
-      );
-    })
+
+  const integration = await getIntegrationFromDatasourceId(
+    org.id,
+    metric.datasource
   );
+  const queryRunner = new MetricAnalysisQueryRunner(metric, integration);
+  await queryRunner.cancelQueries();
+
+  res.status(200).json({
+    status: 200,
+  });
 }
 
 export async function postMetricAnalysis(
@@ -278,7 +271,8 @@ export async function postMetrics(
     column,
     inverse,
     ignoreNulls,
-    cap,
+    capping,
+    capValue,
     denominator,
     conversionWindowHours,
     conversionDelayHours,
@@ -299,11 +293,8 @@ export async function postMetrics(
     conditions,
     datasource,
     timestampColumn,
-    userIdType,
     userIdColumns,
-    userIdColumn,
     userIdTypes,
-    anonymousIdColumn,
   } = req.body;
 
   req.checkPermissions("createMetrics", projects?.length ? projects : "");
@@ -331,19 +322,17 @@ export async function postMetrics(
     column,
     inverse,
     ignoreNulls,
-    cap,
+    capping,
+    capValue,
     denominator,
     conversionWindowHours,
     conversionDelayHours,
-    userIdType,
     userIdTypes,
     sql,
     aggregation,
     queryFormat,
     status: "active",
     userIdColumns,
-    userIdColumn,
-    anonymousIdColumn,
     timestampColumn,
     conditions,
     tags,
@@ -390,44 +379,7 @@ export async function putMetric(
 
   const updates: Partial<MetricInterface> = {};
 
-  const fields: (keyof MetricInterface)[] = [
-    "name",
-    "description",
-    "owner",
-    "segment",
-    "type",
-    "inverse",
-    "ignoreNulls",
-    "cap",
-    "denominator",
-    "conversionWindowHours",
-    "conversionDelayHours",
-    "sql",
-    "aggregation",
-    "queryFormat",
-    "status",
-    "tags",
-    "projects",
-    "winRisk",
-    "loseRisk",
-    "maxPercentChange",
-    "minPercentChange",
-    "minSampleSize",
-    "regressionAdjustmentOverride",
-    "regressionAdjustmentEnabled",
-    "regressionAdjustmentDays",
-    "conditions",
-    "dateUpdated",
-    "table",
-    "column",
-    "userIdType",
-    "userIdColumn",
-    "anonymousIdColumn",
-    "userIdColumns",
-    "userIdTypes",
-    "timestampColumn",
-  ];
-  fields.forEach((k) => {
+  UPDATEABLE_FIELDS.forEach((k) => {
     if (k in req.body) {
       // eslint-disable-next-line
       (updates as any)[k] = req.body[k];
@@ -439,8 +391,6 @@ export async function putMetric(
   }
 
   await updateMetric(metric.id, updates, org.id);
-
-  await addTagsDiff(org.id, metric.tags || [], req.body.tags || []);
 
   res.status(200).json({
     status: 200,

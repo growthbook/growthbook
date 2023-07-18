@@ -1,8 +1,6 @@
 import fs from "fs";
 import dotenv from "dotenv";
-import { IssuerMetadata } from "openid-client";
 import trimEnd from "lodash/trimEnd";
-import { SSOConnectionInterface } from "../../types/sso-connection";
 
 export const ENVIRONMENT = process.env.NODE_ENV;
 const prod = ENVIRONMENT === "production";
@@ -89,8 +87,8 @@ export const SLACK_SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
 const testConn = process.env.POSTGRES_TEST_CONN;
 export const POSTGRES_TEST_CONN = testConn ? JSON.parse(testConn) : {};
 
-export const AWS_CLOUDFRONT_DISTRIBUTION_ID =
-  process.env.AWS_CLOUDFRONT_DISTRIBUTION_ID || "";
+export const FASTLY_API_TOKEN = process.env.FASTLY_API_TOKEN || "";
+export const FASTLY_SERVICE_ID = process.env.FASTLY_SERVICE_ID || "";
 
 // Update results every X hours
 export const EXPERIMENT_REFRESH_FREQUENCY =
@@ -112,54 +110,6 @@ export const IMPORT_LIMIT_DAYS =
 
 export const CRON_ENABLED = !process.env.CRON_DISABLED;
 
-// Self-hosted commercial license key
-export const LICENSE_KEY = process.env.LICENSE_KEY || "";
-
-// Self-hosted SSO
-function getSSOConfig() {
-  if (!process.env.SSO_CONFIG) return null;
-
-  if (!IS_CLOUD && !LICENSE_KEY) {
-    throw new Error(
-      "Must have a commercial License Key to use self-hosted SSO"
-    );
-  }
-
-  const config: SSOConnectionInterface = JSON.parse(process.env.SSO_CONFIG);
-  // Must include clientId and specific metadata
-  const requiredMetadataKeys: (keyof IssuerMetadata)[] = [
-    "authorization_endpoint",
-    "issuer",
-    "jwks_uri",
-    "id_token_signing_alg_values_supported",
-    "token_endpoint",
-  ];
-  if (!config?.clientId || !config?.metadata) {
-    throw new Error("SSO_CONFIG must contain 'clientId' and 'metadata'");
-  }
-
-  const missingMetadata = requiredMetadataKeys.filter(
-    (k) => !(k in config.metadata)
-  );
-  if (missingMetadata.length > 0) {
-    throw new Error(
-      "SSO_CONFIG missing required metadata fields: " +
-        missingMetadata.join(", ")
-    );
-  }
-
-  // Sanity check for GrowthBook Cloud (to avoid misconfigurations)
-  if (
-    IS_CLOUD &&
-    config?.metadata?.issuer !== "https://growthbook.auth0.com/"
-  ) {
-    throw new Error("Invalid SSO configuration for GrowthBook Cloud");
-  }
-
-  config.id = "";
-  return config;
-}
-export const SSO_CONFIG = getSSOConfig();
 export const VERCEL_CLIENT_ID = process.env.VERCEL_CLIENT_ID || "";
 export const VERCEL_CLIENT_SECRET = process.env.VERCEL_CLIENT_SECRET || "";
 
@@ -177,6 +127,9 @@ if ((prod || !isLocalhost) && secretAPIKey === "dev") {
   );
 }
 export const SECRET_API_KEY = secretAPIKey;
+// This is typically used for the Proxy Server, which only requires readonly access
+export const SECRET_API_KEY_ROLE =
+  process.env.SECRET_API_KEY_ROLE || "readonly";
 export const PROXY_ENABLED = !!process.env.PROXY_ENABLED;
 export const PROXY_HOST_INTERNAL = process.env.PROXY_HOST_INTERNAL || "";
 export const PROXY_HOST_PUBLIC = process.env.PROXY_HOST_PUBLIC || "";

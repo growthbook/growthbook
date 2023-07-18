@@ -562,16 +562,10 @@ const MetricPage: FC = () => {
                               <RunQueriesButton
                                 icon="refresh"
                                 cta={analysis ? "Refresh Data" : "Run Analysis"}
-                                initialStatus={getQueryStatus(
-                                  metric.queries || [],
-                                  metric.analysisError
-                                )}
-                                statusEndpoint={`/metric/${metric.id}/analysis/status`}
+                                mutate={mutate}
+                                model={metric}
                                 cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
                                 color="outline-primary"
-                                onReady={() => {
-                                  mutate();
-                                }}
                               />
                             </form>
                           )}
@@ -1088,11 +1082,17 @@ const MetricPage: FC = () => {
                       <span className="font-weight-bold">Inverse</span>
                     </li>
                   )}
-                  {/* @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'. */}
-                  {metric.cap > 0 && (
+                  {metric.capping && metric.capValue && (
                     <li className="mb-2">
-                      <span className="text-gray">Capped value:</span>{" "}
-                      <span className="font-weight-bold">{metric.cap}</span>
+                      <span className="text-gray">
+                        Cap value ({metric.capping}):{" "}
+                      </span>
+                      <span className="font-weight-bold">
+                        {metric.capValue}{" "}
+                        {metric.capping === "percentile"
+                          ? `(${100 * metric.capValue} pctile)`
+                          : ""}{" "}
+                      </span>
                     </li>
                   )}
                   {metric.ignoreNulls && (

@@ -7,6 +7,8 @@ export default class ClickHouse extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   params: ClickHouseConnectionParams;
+  requiresDatabase = false;
+  requiresSchema = false;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<ClickHouseConnectionParams>(
       encryptedParams
@@ -82,6 +84,20 @@ export default class ClickHouse extends SqlIntegration {
   }
   castToString(col: string): string {
     return `toString(${col})`;
+  }
+  ensureFloat(col: string): string {
+    return `toFloat64(${col})`;
+  }
+  percentileCapSelectClause(
+    capPercentile: number,
+    metricTable: string
+  ): string {
+    const seed = 1234;
+    return `
+      SELECT quantileDeterministic(${capPercentile})(value, ${seed}) AS cap_value
+      FROM ${metricTable}
+      WHERE value IS NOT NULL
+    `;
   }
   getInformationSchemaWhereClause(): string {
     if (!this.params.database)

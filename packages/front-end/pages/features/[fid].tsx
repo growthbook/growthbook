@@ -4,8 +4,8 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureInterface } from "back-end/types/feature";
 import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useState } from "react";
-import { FaCheckCircle, FaExclamationTriangle } from "react-icons/fa";
-import { BsLightningFill } from "react-icons/bs";
+import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
+import { datetime } from "shared/dates";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -31,6 +31,7 @@ import {
   useEnvironments,
   getEnabledEnvironments,
   getAffectedEnvs,
+  getValidation,
 } from "@/services/features";
 import Tab from "@/components/Tabs/Tab";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
@@ -44,16 +45,19 @@ import usePermissions from "@/hooks/usePermissions";
 import DiscussionThread from "@/components/DiscussionThread";
 import EditOwnerModal from "@/components/Owner/EditOwnerModal";
 import FeatureModal from "@/components/Features/FeatureModal";
-import { isCloud } from "@/services/env";
-import TempMessage from "@/components/TempMessage";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import EditSchemaModal from "@/components/Features/EditSchemaModal";
+import Code from "@/components/SyntaxHighlighting/Code";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
 
 export default function FeaturePage() {
   const router = useRouter();
   const { fid } = router.query;
 
   const [edit, setEdit] = useState(false);
+  const [editValidator, setEditValidator] = useState(false);
+  const [showSchema, setShowSchema] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
   const [draftModal, setDraftModal] = useState(false);
   const [duplicateModal, setDuplicateModal] = useState(false);
@@ -69,21 +73,11 @@ export default function FeaturePage() {
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
-  const [publishedMessage, setPublishedMessage] = useState(false);
-  const onPublish = () => {
-    if (!publishedMessage) {
-      setPublishedMessage(true);
-    } else {
-      setPublishedMessage(false);
-      setTimeout(() => {
-        setPublishedMessage(true);
-      }, 150);
-    }
-  };
 
   const { getProjectById, projects } = useDefinitions();
 
   const { apiCall } = useAuth();
+  const { hasCommercialFeature } = useUser();
 
   const { data, error, mutate } = useApi<{
     feature: FeatureInterface;
@@ -93,8 +87,6 @@ export default function FeaturePage() {
   const firstFeature = router?.query && "first" in router.query;
   const [showImplementation, setShowImplementation] = useState(firstFeature);
   const environments = useEnvironments();
-
-  const { data: sdkConnectionsData } = useSDKConnections();
 
   if (error) {
     return (
@@ -107,17 +99,37 @@ export default function FeaturePage() {
     return <LoadingOverlay />;
   }
 
-  const type = data.feature.valueType;
+  const { jsonSchema, validationEnabled, schemaDateUpdated } = getValidation(
+    data.feature
+  );
 
   const isDraft = !!data.feature.draft?.active;
   const isArchived = data.feature.archived;
 
   const enabledEnvs = getEnabledEnvironments(data.feature);
+  const hasJsonValidator = hasCommercialFeature("json-validation");
 
   const projectId = data.feature.project;
   const project = getProjectById(projectId || "");
   const projectName = project?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
+
+  const schemaDescription = new Map();
+  if (jsonSchema && "properties" in jsonSchema) {
+    Object.keys(jsonSchema.properties).map((key) => {
+      schemaDescription.set(key, { required: false, describes: true });
+    });
+  }
+  if (jsonSchema && "required" in jsonSchema) {
+    Object.values(jsonSchema.required).map((key) => {
+      if (schemaDescription.has(key)) {
+        schemaDescription.set(key, { required: true, describes: true });
+      } else {
+        schemaDescription.set(key, { required: true, describes: false });
+      }
+    });
+  }
+  const schemaDescriptionItems = [...schemaDescription.keys()];
 
   const hasDraftPublishPermission =
     isDraft &&
@@ -131,71 +143,6 @@ export default function FeaturePage() {
             Object.keys(data.feature.draft?.rules || {})
           )
     );
-
-  const sdkConnections = sdkConnectionsData?.connections;
-  const hasProxiedConnections = sdkConnections?.some((c) => {
-    return !isCloud() ? c.proxy.enabled && c.proxy.host : c.sseEnabled;
-  });
-  const hasUnproxiedConnections =
-    sdkConnections?.some((c) => {
-      return !(!isCloud() ? c.proxy.enabled && c.proxy.host : c.sseEnabled);
-    }) || sdkConnections?.length === 0;
-
-  const rolloutDelayNotice = (
-    <div className="text-left">
-      <p className="font-weight-bolder mb-2">
-        <FaCheckCircle /> Changes published
-      </p>
-      <div className="mb-2">
-        {hasProxiedConnections ? (
-          <>
-            <p className="mb-1">
-              You currently have{" "}
-              {isCloud() ? "Streaming Updates" : "GrowthBook Proxy"} enabled on{" "}
-              {hasUnproxiedConnections ? "some" : "all"} of your SDK
-              Connections. For these connections, feature updates will be
-              deployed instantly to subscribed SDKs.
-            </p>
-            {hasUnproxiedConnections ? (
-              <p className="mb-1">
-                For your other connections, feature updates may take up to 60
-                seconds to deploy, and additional delays may occur for cached
-                SDK instances.
-              </p>
-            ) : null}
-          </>
-        ) : (
-          <p className="mb-1">
-            Feature updates may take up to 60 seconds to deploy. Additional
-            delays may occur for cached SDK instances.
-          </p>
-        )}
-      </div>
-      {isCloud() ? (
-        <div className="mt-0">
-          To use instant feature deployments, enable{" "}
-          <strong>
-            <BsLightningFill className="text-warning-orange" />
-            Streaming Updates
-          </strong>{" "}
-          in your <Link href="/sdks">SDK Connections</Link>.
-        </div>
-      ) : (
-        <div className="mt-0">
-          To use instant feature deployments, you may configure{" "}
-          <strong>
-            <BsLightningFill className="text-warning-orange" />
-            GrowthBook Proxy
-          </strong>{" "}
-          for self-hosted users. See the{" "}
-          <Link href="https://docs.growthbook.io/self-host/proxy">
-            GrowthBook Proxy documentation
-          </Link>
-          .
-        </div>
-      )}
-    </div>
-  );
 
   return (
     <div className="contents container-fluid pagecontents">
@@ -217,6 +164,13 @@ export default function FeaturePage() {
             });
             mutate();
           }}
+        />
+      )}
+      {editValidator && (
+        <EditSchemaModal
+          close={() => setEditValidator(false)}
+          feature={data.feature}
+          mutate={mutate}
         />
       )}
       {ruleModal !== null && (
@@ -276,7 +230,6 @@ export default function FeaturePage() {
           feature={data.feature}
           close={() => setDraftModal(false)}
           mutate={mutate}
-          onPublish={onPublish}
         />
       )}
       {duplicateModal && (
@@ -308,17 +261,6 @@ export default function FeaturePage() {
             Review{hasDraftPublishPermission && " and Publish"}
           </button>
         </div>
-      )}
-
-      {publishedMessage && (
-        <TempMessage
-          close={() => setPublishedMessage(false)}
-          delay={null}
-          top={65}
-          showClose={true}
-        >
-          {rolloutDelayNotice}
-        </TempMessage>
       )}
 
       <div className="row align-items-center mb-2">
@@ -548,7 +490,6 @@ export default function FeaturePage() {
                 environment={en.id}
                 mutate={() => {
                   mutate();
-                  onPublish();
                 }}
                 id={`${en.id}_toggle`}
               />
@@ -562,6 +503,118 @@ export default function FeaturePage() {
         </div>
       </div>
 
+      {data.feature.valueType === "json" && (
+        <div>
+          <h3 className={hasJsonValidator ? "" : "mb-4"}>
+            <PremiumTooltip commercialFeature="json-validation">
+              {" "}
+              Json Schema{" "}
+            </PremiumTooltip>
+            <Tooltip
+              body={
+                "Adding a json schema will allow you to validate json objects used in this feature."
+              }
+            />
+            {hasJsonValidator &&
+              permissions.check("createFeatureDrafts", projectId) && (
+                <>
+                  <a
+                    className="ml-2 cursor-pointer"
+                    onClick={() => setEditValidator(true)}
+                  >
+                    <GBEdit />
+                  </a>
+                </>
+              )}
+          </h3>
+          {hasJsonValidator && (
+            <div className="appbox mb-4 p-3 card">
+              {jsonSchema ? (
+                <>
+                  <div className="d-flex justify-content-between">
+                    {/* region Title Bar */}
+
+                    <div className="d-flex align-items-left flex-column">
+                      <div>
+                        {validationEnabled ? (
+                          <strong className="text-success">Enabled</strong>
+                        ) : (
+                          <>
+                            <strong className="text-warning">Disabled</strong>
+                          </>
+                        )}
+                        {schemaDescription && schemaDescriptionItems && (
+                          <>
+                            {" "}
+                            Describes:
+                            {schemaDescriptionItems.map((v, i) => {
+                              const required = schemaDescription.has(v)
+                                ? schemaDescription.get(v).required
+                                : false;
+                              return (
+                                <strong
+                                  className="ml-1"
+                                  key={i}
+                                  title={
+                                    required ? "This field is required" : ""
+                                  }
+                                >
+                                  {v}
+                                  {required && (
+                                    <span className="text-danger text-su">
+                                      *
+                                    </span>
+                                  )}
+                                  {i < schemaDescriptionItems.length - 1 && (
+                                    <span>, </span>
+                                  )}
+                                </strong>
+                              );
+                            })}
+                          </>
+                        )}
+                      </div>
+                      {schemaDateUpdated && (
+                        <div className="text-muted">
+                          Date updated:{" "}
+                          {schemaDateUpdated ? datetime(schemaDateUpdated) : ""}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="d-flex align-items-center">
+                      <button
+                        className="btn ml-3 text-dark"
+                        onClick={() => setShowSchema(!showSchema)}
+                      >
+                        <FaChevronRight
+                          style={{
+                            transform: `rotate(${
+                              showSchema ? "90deg" : "0deg"
+                            })`,
+                          }}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                  {showSchema && (
+                    <>
+                      <Code
+                        language="json"
+                        code={data.feature?.jsonSchema?.schema || "{}"}
+                        className="disabled"
+                      />
+                    </>
+                  )}
+                </>
+              ) : (
+                "No schema defined"
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <h3>
         Default Value
         {permissions.check("createFeatureDrafts", projectId) && (
@@ -572,8 +625,8 @@ export default function FeaturePage() {
       </h3>
       <div className="appbox mb-4 p-3">
         <ForceSummary
-          type={type}
-          value={getFeatureDefaultValue(data.feature) || ""}
+          value={getFeatureDefaultValue(data.feature)}
+          feature={data.feature}
         />
       </div>
 

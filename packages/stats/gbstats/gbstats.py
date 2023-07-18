@@ -54,6 +54,25 @@ def detect_unknown_variations(rows, var_id_map, ignore_ids={"__multiple__"}):
     return set(unknown_var_ids)
 
 
+def diff_for_daily_time_series(df: pd.DataFrame) -> pd.DataFrame:
+    dfc = df.copy()
+    diff_cols = [
+        x
+        for x in [
+            "main_sum",
+            "main_sum_squares",
+            "denominator_sum",
+            "denominator_sum_squares",
+            "main_denominator_sum_product",
+            "main_covariate_sum_product",
+        ]
+        if x in dfc.columns
+    ]
+    dfc.sort_values("dimension", inplace=True)
+    dfc[diff_cols] = dfc.groupby(["variation"])[diff_cols].diff().fillna(dfc[diff_cols])
+    return dfc
+
+
 # Transform raw SQL result for metrics into a dataframe of dimensions
 def get_metric_df(
     rows,
@@ -98,7 +117,7 @@ def get_metric_df(
             prefix = f"v{i}" if i > 0 else "baseline"
             for col in SUM_COLS:
                 dimensions[dim][f"{prefix}_{col}"] = getattr(row, col, 0)
-            # Special handling for count, if missing returnes a method, so override with user value
+            # Special handling for count, if missing returns a method, so override with user value
             if callable(getattr(row, "count")):
                 dimensions[dim][f"{prefix}_count"] = getattr(row, "users", 0)
 
@@ -141,7 +160,6 @@ def analyze_metric_df(
     engine_config: Dict[str, Any] = {},
 ) -> pd.DataFrame:
     num_variations = df.at[0, "variations"]
-
     # parse config
     test_config = engine_config.copy()
     if engine == StatsEngine.BAYESIAN:

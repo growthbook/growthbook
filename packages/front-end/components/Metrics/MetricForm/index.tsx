@@ -4,6 +4,7 @@ import {
   Condition,
   MetricType,
   Operator,
+  MetricCappingType,
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
 import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
@@ -153,6 +154,12 @@ function getAggregateSQLPreview({ type, column }: Partial<MetricInterface>) {
   return `MAX(value)`;
 }
 
+const toMetricCappingType = (cappingType: string | null): MetricCappingType => {
+  if (cappingType === "percentile") return "percentile";
+  if (cappingType === "absolute") return "absolute";
+  return null;
+};
+
 const MetricForm: FC<MetricFormProps> = ({
   current,
   edit,
@@ -238,7 +245,8 @@ const MetricForm: FC<MetricFormProps> = ({
       inverse: !!current.inverse,
       ignoreNulls: !!current.ignoreNulls,
       queryFormat: current.queryFormat || (current.sql ? "sql" : "builder"),
-      cap: current.cap || 0,
+      capping: current.capping || "",
+      capValue: current.capValue || 0,
       conversionWindowHours:
         current.conversionWindowHours || getDefaultConversionWindowHours(),
       conversionDelayHours: current.conversionDelayHours || 0,
@@ -246,14 +254,15 @@ const MetricForm: FC<MetricFormProps> = ({
       aggregation: current.aggregation || "",
       conditions: current.conditions || [],
       userIdTypes: current.userIdTypes || [],
-      userIdColumns: current.userIdColumns || {
-        user_id: current.userIdColumn || "user_id",
-        anonymous_id: current.anonymousIdColumn || "anonymous_id",
-      },
+      userIdColumns: current.userIdColumns || {},
       timestampColumn: current.timestampColumn || "",
       tags: current.tags || [],
       projects:
-        edit || duplicate ? current.projects || [] : project ? [project] : [],
+        source === "datasource-detail" || edit || duplicate
+          ? current.projects || []
+          : project
+          ? [project]
+          : [],
       winRisk: (current.winRisk || defaultWinRiskThreshold) * 100,
       loseRisk: (current.loseRisk || defaultLoseRiskThreshold) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
@@ -283,6 +292,7 @@ const MetricForm: FC<MetricFormProps> = ({
     userIdColumns: form.watch("userIdColumns"),
     userIdTypes: form.watch("userIdTypes"),
     denominator: form.watch("denominator"),
+    aggregation: form.watch("aggregation"),
     column: form.watch("column"),
     table: form.watch("table"),
     type,
@@ -329,6 +339,25 @@ const MetricForm: FC<MetricFormProps> = ({
     selectedDataSource?.properties?.hasSettings || false;
 
   const capSupported = selectedDataSource?.properties?.metricCaps || false;
+  const cappingOptions = [
+    {
+      value: "",
+      label: "No",
+    },
+    {
+      value: "absolute",
+      label: "Absolute capping",
+    },
+    ...(datasourceType !== "mixpanel"
+      ? [
+          {
+            value: "percentile",
+            label: "Percentile capping",
+          },
+        ]
+      : []),
+  ];
+
   // TODO: eventually make each of these their own independent properties
   const conditionsSupported = capSupported;
   const ignoreNullsSupported = capSupported;
@@ -358,12 +387,6 @@ const MetricForm: FC<MetricFormProps> = ({
       );
     }
   }
-  if (form.watch("aggregation")) {
-    regressionAdjustmentAvailableForMetric = false;
-    regressionAdjustmentAvailableForMetricReason = (
-      <>Not available for metrics with custom aggregations.</>
-    );
-  }
 
   let table = "Table";
   let column = "Column";
@@ -383,6 +406,7 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk,
       maxPercentChange,
       minPercentChange,
+      capping,
       ...otherValues
     } = value;
 
@@ -392,6 +416,7 @@ const MetricForm: FC<MetricFormProps> = ({
       loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
       minPercentChange: minPercentChange / 100,
+      capping: toMetricCappingType(capping),
     };
 
     if (value.loseRisk < value.winRisk) return;
@@ -436,6 +461,10 @@ const MetricForm: FC<MetricFormProps> = ({
       ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
       : "";
 
+  const customAggregationWarningMsg = value.aggregation
+    ? "When using a custom aggregation, it is safest to COALESCE values in your SQL so that the `value` column has no NULL values."
+    : "";
+
   const requiredColumns = useMemo(() => {
     const set = new Set(["timestamp", ...value.userIdTypes]);
     if (type !== "binomial") {
@@ -477,7 +506,7 @@ const MetricForm: FC<MetricFormProps> = ({
           placeholder={
             "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
           }
-          requiredColumns={Array.from(requiredColumns)}
+          requiredColumns={requiredColumns}
           value={value.sql}
           save={async (sql) => form.setValue("sql", sql)}
         />
@@ -573,7 +602,7 @@ const MetricForm: FC<MetricFormProps> = ({
             className="portal-overflow-ellipsis"
             name="datasource"
             initialOption="Manual"
-            disabled={edit}
+            disabled={edit || source === "datasource-detail"}
           />
           <div className="form-group">
             <label>Metric Type</label>
@@ -676,14 +705,20 @@ const MetricForm: FC<MetricFormProps> = ({
                     </div>
                   </div>
                   {value.type !== "binomial" && (
-                    <Field
-                      label="User Value Aggregation"
-                      placeholder="SUM(value)"
-                      textarea
-                      minRows={1}
-                      {...form.register("aggregation")}
-                      helpText="When there are multiple metric rows for a user"
-                    />
+                    <div className="mb-2">
+                      <Field
+                        label="User Value Aggregation"
+                        placeholder="SUM(value)"
+                        textarea
+                        minRows={1}
+                        containerClassName="mb-0"
+                        {...form.register("aggregation")}
+                        helpText="When there are multiple metric rows for a user"
+                      />
+                      {customAggregationWarningMsg && (
+                        <small>{customAggregationWarningMsg}</small>
+                      )}
+                    </div>
                   )}
                   <SelectField
                     label="Denominator"
@@ -943,16 +978,41 @@ const MetricForm: FC<MetricFormProps> = ({
           {capSupported &&
             ["count", "duration", "revenue"].includes(value.type) && (
               <div className="form-group">
-                <label>Capped Value</label>
-                <input
-                  type="number"
-                  className="form-control"
-                  {...form.register("cap", { valueAsNumber: true })}
+                <SelectField
+                  label="Cap User Values?"
+                  value={form.watch("capping")}
+                  onChange={(v: string) => {
+                    form.setValue("capping", v);
+                  }}
+                  sort={false}
+                  options={cappingOptions}
                 />
                 <small className="text-muted">
-                  If greater than zero, any user who has more than this count
-                  will be capped at this value.
+                  Capping (winsorization) can reduce variance by capping
+                  aggregated user values.
                 </small>
+                <div
+                  style={{
+                    display: form.watch("capping") ? "block" : "none",
+                  }}
+                  className="px-3 py-2 pb-0 mb-4 border rounded"
+                >
+                  <label>Capped Value</label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    max={form.watch("capping") === "percentile" ? "1" : ""}
+                    className="form-control"
+                    {...form.register("capValue", { valueAsNumber: true })}
+                  />
+                  <small className="text-muted">
+                    {form.watch("capping") === "absolute"
+                      ? `
+                Absolute capping: if greater than zero, aggregated user values will be capped at this value.`
+                      : `Percentile capping: if greater than zero, we use all metric data in the experiment to compute the percentiles of the user aggregated values. Then, we get the value at the percentile provided and cap all users at this value. Enter a number between 0 and 0.99999`}
+                  </small>
+                </div>
               </div>
             )}
 

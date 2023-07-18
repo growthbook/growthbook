@@ -92,6 +92,7 @@ const featureSchema = new mongoose.Schema({
   draft: {},
   revision: {},
   linkedExperiments: [String],
+  jsonSchema: {},
 });
 
 featureSchema.index({ id: 1, organization: 1 }, { unique: true });
@@ -162,6 +163,31 @@ export async function deleteFeature(
     feature.linkedExperiments.forEach((exp) => {
       removeLinkedFeatureFromExperiment(org, user, exp, feature.id);
     });
+  }
+}
+
+/**
+ * Deletes all features belonging to a project
+ * @param projectId
+ * @param organization
+ * @param user
+ */
+export async function deleteAllFeaturesForAProject({
+  projectId,
+  organization,
+  user,
+}: {
+  projectId: string;
+  organization: OrganizationInterface;
+  user: EventAuditUser;
+}) {
+  const featuresToDelete = await FeatureModel.find({
+    organization: organization.id,
+    project: projectId,
+  });
+
+  for (const feature of featuresToDelete) {
+    await deleteFeature(organization, user, feature);
   }
 }
 
@@ -551,6 +577,18 @@ export async function setDefaultValue(
   draft.defaultValue = defaultValue;
 
   return updateDraft(org, user, feature, draft);
+}
+
+export async function setJsonSchema(
+  org: OrganizationInterface,
+  user: EventAuditUser,
+  feature: FeatureInterface,
+  schema: string,
+  enabled?: boolean
+) {
+  return await updateFeature(org, user, feature, {
+    jsonSchema: { schema, enabled: enabled ?? true, date: new Date() },
+  });
 }
 
 export async function updateDraft(

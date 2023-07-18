@@ -1,12 +1,14 @@
 import { FC } from "react";
 import clsx from "clsx";
 import { ExperimentStatus } from "back-end/types/experiment";
+import { FaArchive, FaPlay, FaStop } from "react-icons/fa";
+import { BsConeStriped } from "react-icons/bs";
 import styles from "./StatusIndicator.module.scss";
 
 const getColor = (status: ExperimentStatus) => {
   switch (status) {
     case "draft":
-      return "warning";
+      return "warning-orange";
     case "running":
       return "info";
     case "stopped":
@@ -19,7 +21,44 @@ const StatusIndicator: FC<{
   archived: boolean;
   showBubble?: boolean;
   className?: string;
-}> = ({ status, archived, className = "", showBubble = true }) => {
+  newUi?: boolean;
+}> = ({ status, archived, className = "", showBubble = true, newUi }) => {
+  if (newUi) {
+    if (archived) {
+      return (
+        <div className={clsx(styles.container, className, "text-muted")}>
+          <FaArchive className="mr-1" />
+          Archived
+        </div>
+      );
+    }
+    switch (status) {
+      case "draft":
+        return (
+          <div
+            className={clsx(styles.container, className, "text-warning-orange")}
+          >
+            <BsConeStriped className="mr-1" />
+            Draft
+          </div>
+        );
+      case "running":
+        return (
+          <div className={clsx(styles.container, className, "text-info")}>
+            <FaPlay className="mr-1" />
+            Running
+          </div>
+        );
+      case "stopped":
+        return (
+          <div className={clsx(styles.container, className, "text-secondary")}>
+            <FaStop className="mr-1" />
+            Stopped
+          </div>
+        );
+    }
+  }
+
   if (archived) {
     return (
       <div

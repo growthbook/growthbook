@@ -8,7 +8,7 @@ const SlackIntegrationsPage: NextPage = () => {
 
   if (!permissions.manageIntegrations) {
     return (
-      <div className="pagecontents">
+      <div className="container-fluid pagecontents">
         <div className="alert alert-danger">
           You do not have access to view this page.
         </div>
@@ -16,7 +16,7 @@ const SlackIntegrationsPage: NextPage = () => {
     );
   }
   return (
-    <div className="pagecontents">
+    <div className="container-fluid pagecontents">
       <SlackIntegrationsListViewContainer />
     </div>
   );

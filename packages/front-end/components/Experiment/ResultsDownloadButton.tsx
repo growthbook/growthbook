@@ -55,7 +55,7 @@ export default function ResultsDownloadButton({
 
     const resultsCopy = [...results];
 
-    if (dimension === "pre:date") {
+    if (dimension?.substring(0, 8) === "pre:date") {
       // Sort the results by date to make csv cleaner
       resultsCopy.sort((a, b) => a.name.localeCompare(b.name));
     }
@@ -100,7 +100,7 @@ export default function ResultsDownloadButton({
   const href = useMemo(() => {
     try {
       const rows = getRows();
-      if (!rows) return "";
+      if (!rows || rows?.length < 1) return "";
 
       const json2csvParser = new Parser();
       const csv = json2csvParser.parse(rows);

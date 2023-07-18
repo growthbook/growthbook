@@ -4,13 +4,13 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
-import { MissingDatasourceParamsError } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-expect-error
   params: BigQueryConnectionParams;
+  requiresEscapingPath = true;
   setParams(encryptedParams: string) {
     this.params = decryptDataSourceParams<BigQueryConnectionParams>(
       encryptedParams
@@ -42,6 +42,7 @@ export default class BigQuery extends SqlIntegration {
     const client = this.getClient();
 
     const [job] = await client.createQueryJob({
+      labels: { integration: "growthbook" },
       query: sql,
       useLegacySql: false,
     });
@@ -82,21 +83,30 @@ export default class BigQuery extends SqlIntegration {
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
-  getInformationSchemaFromClause(): string {
-    if (!this.params.projectId)
-      throw new Error(
-        "No projectId provided. In order to get the information schema, you must provide a projectId."
-      );
-    if (!this.params.defaultDataset)
-      throw new MissingDatasourceParamsError(
-        "To view the information schema for a BigQuery dataset, you must define a default dataset. Please add a default dataset by editing the datasource's connection settings."
-      );
-    return `\`${this.params.projectId}.${this.params.defaultDataset}.INFORMATION_SCHEMA.COLUMNS\``;
-  }
-  getInformationSchemaTableFromClause(
-    databaseName: string,
-    tableSchema: string
+  percentileCapSelectClause(
+    capPercentile: number,
+    metricTable: string
   ): string {
-    return `\`${databaseName}.${tableSchema}.INFORMATION_SCHEMA.COLUMNS\``;
+    return `
+    SELECT 
+      APPROX_QUANTILES(value, 100000)[OFFSET(${Math.trunc(
+        100000 * capPercentile
+      )})] AS cap_value
+    FROM ${metricTable}
+    WHERE value IS NOT NULL
+  `;
+  }
+  getDefaultDatabase() {
+    return this.params.projectId || "";
+  }
+  getDefaultSchema() {
+    return this.params.defaultDataset;
+  }
+  getInformationSchemaTable(schema?: string, database?: string): string {
+    return this.generateTablePath(
+      "INFORMATION_SCHEMA.COLUMNS",
+      schema,
+      database
+    );
   }
 }

@@ -1,5 +1,5 @@
 import { UserIdType } from "back-end/types/datasource";
-import React, { ReactElement, useEffect, useState } from "react";
+import React, { ReactElement, useState } from "react";
 import { UseFormReturn } from "react-hook-form";
 import { FaPlay } from "react-icons/fa";
 import type { TestQueryRow } from "back-end/src/types/Integration";
@@ -31,6 +31,8 @@ type Props = {
   queryType: "segment" | "dimension" | "metric" | "experiment-assignment";
   className?: string;
   setCursorData?: (data: CursorData) => void;
+  showTestButton?: boolean;
+  showHeadline?: boolean;
 };
 
 export default function SQLInputField({
@@ -41,110 +43,21 @@ export default function SQLInputField({
   showPreview,
   placeholder = "",
   helpText,
-  identityTypes = [],
   queryType,
   className,
   setCursorData,
+  showTestButton = true,
+  showHeadline = true,
 }: Props) {
   const [
     testQueryResults,
     setTestQueryResults,
   ] = useState<TestQueryResults | null>(null);
-  const [suggestions, setSuggestions] = useState<ReactElement[]>([]);
   const { apiCall } = useAuth();
 
   // These will only be defined in Experiment Assignment Queries
   const userEnteredHasNameCol = form.watch("hasNameCol");
   const userEnteredDimensions = form.watch("dimensions");
-
-  // We do some one-off logic for Experiment Assignment queries
-  useEffect(() => {
-    if (queryType === "experiment-assignment") {
-      const result = testQueryResults?.results?.[0];
-      if (!result) return;
-
-      const suggestions: ReactElement[] = [];
-
-      const namedCols = ["experiment_name", "variation_name"];
-      const userIdTypes = identityTypes.map((type) => type.userIdType || []);
-
-      const returnedColumns = new Set<string>(Object.keys(result));
-      const optionalColumns = [...returnedColumns].filter(
-        (col) =>
-          !requiredColumns.has(col) &&
-          !namedCols.includes(col) &&
-          !userIdTypes.includes(col)
-      );
-
-      // Check if `hasNameCol` should be enabled
-      if (!userEnteredHasNameCol) {
-        // Selected both required columns, turn on `hasNameCol` automatically
-        if (
-          returnedColumns.has("experiment_name") &&
-          returnedColumns.has("variation_name")
-        ) {
-          form.setValue("hasNameCol", true);
-        }
-        // Only selected `experiment_name`, add warning
-        else if (returnedColumns.has("experiment_name")) {
-          suggestions.push(
-            <>
-              Add <code>variation_name</code> to your SELECT clause to enable
-              GrowthBook to populate names automatically.
-            </>
-          );
-        }
-        // Only selected `variation_name`, add warning
-        else if (returnedColumns.has("variation_name")) {
-          suggestions.push(
-            <>
-              Add <code>experiment_name</code> to your SELECT clause to enable
-              GrowthBook to populate names automatically.
-            </>
-          );
-        }
-      }
-
-      // Prompt to add optional columns as dimensions
-      if (optionalColumns.length > 0) {
-        suggestions.push(
-          <>
-            The following columns were returned, but will be ignored. Add them
-            as dimensions or disregard this message.
-            <ul className="mb-0 pb-0">
-              {optionalColumns.map((col) => (
-                <li key={col}>
-                  <code>{col}</code> -{" "}
-                  <a
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      form.setValue("dimensions", [
-                        ...userEnteredDimensions,
-                        col,
-                      ]);
-                    }}
-                  >
-                    add as dimension
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </>
-        );
-      }
-
-      setSuggestions(suggestions);
-    }
-  }, [
-    requiredColumns,
-    testQueryResults,
-    userEnteredDimensions,
-    identityTypes,
-    userEnteredHasNameCol,
-    form,
-    queryType,
-  ]);
 
   const handleTestQuery = async () => {
     setTestQueryResults(null);
@@ -167,41 +80,45 @@ export default function SQLInputField({
 
   return (
     <div className={className}>
-      <label className="font-weight-bold mb-1">SQL Query</label>
+      {showHeadline && (
+        <label className="font-weight-bold mb-1">SQL Query</label>
+      )}
       <div className="row flex-column-reverse flex-md-row">
         <div
           className={
             queryType === "experiment-assignment" ? "col-md-8" : "col-12"
           }
         >
-          <div className="d-flex justify-content-between align-items-center p-1 border rounded">
-            <button
-              className="btn btn-sm btn-primary m-1"
-              onClick={(e) => {
-                e.preventDefault();
-                handleTestQuery();
-              }}
-            >
-              <span className="pr-2">
-                <FaPlay />
-              </span>
-              Test Query
-            </button>
-            {queryType === "experiment-assignment" ? (
-              <div className="d-flex m-1">
-                <label className="mr-2 mb-0" htmlFor="exposure-query-toggle">
-                  Use Name Columns
-                </label>
-                <input
-                  type="checkbox"
-                  id="exposure-query-toggle"
-                  className="form-check-input "
-                  {...form.register("hasNameCol")}
-                />
-                <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
-              </div>
-            ) : null}
-          </div>
+          {showTestButton && (
+            <div className="d-flex justify-content-between align-items-center p-1 border rounded">
+              <button
+                className="btn btn-sm btn-primary m-1"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleTestQuery();
+                }}
+              >
+                <span className="pr-2">
+                  <FaPlay />
+                </span>
+                Test Query
+              </button>
+              {queryType === "experiment-assignment" ? (
+                <div className="d-flex m-1">
+                  <label className="mr-2 mb-0" htmlFor="exposure-query-toggle">
+                    Use Name Columns
+                  </label>
+                  <input
+                    type="checkbox"
+                    id="exposure-query-toggle"
+                    className="form-check-input "
+                    {...form.register("hasNameCol")}
+                  />
+                  <Tooltip body="Enable this if you store experiment/variation names as well as ids in your table" />
+                </div>
+              ) : null}
+            </div>
+          )}
           {showPreview ? (
             <Code language="sql" code={userEnteredQuery} />
           ) : (
@@ -220,14 +137,11 @@ export default function SQLInputField({
               setCursorData={setCursorData}
             />
           )}
-          {testQueryResults && (
+          {testQueryResults && !testQueryResults.error && (
             <DisplayTestQueryResults
               duration={parseInt(testQueryResults.duration || "0")}
-              requiredColumns={[...requiredColumns]}
               results={testQueryResults.results || []}
-              error={testQueryResults.error}
               sql={testQueryResults.sql || ""}
-              suggestions={suggestions}
             />
           )}
         </div>

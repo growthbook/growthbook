@@ -47,6 +47,11 @@ export interface FeatureInterface {
     publishedBy: UserRef;
   };
   linkedExperiments?: string[];
+  jsonSchema?: {
+    schema: string;
+    date: Date;
+    enabled: boolean;
+  };
 }
 type ScheduleRule = {
   timestamp: string | null;

@@ -95,6 +95,7 @@ const experimentSchema = new mongoose.Schema({
   releasedVariationId: String,
   currentPhase: Number,
   autoAssign: Boolean,
+  // Legacy field, no longer used when creating experiments
   implementation: String,
   previewURL: String,
   targetURLRegex: String,
@@ -709,6 +710,33 @@ export async function deleteExperimentByIdForOrganization(
     await onExperimentDelete(organization, user, experiment);
   } catch (e) {
     logger.error(e);
+  }
+}
+
+/**
+ * Delete experiments belonging to a project
+ * @param projectId
+ * @param organization
+ * @param user
+ */
+export async function deleteAllExperimentsForAProject({
+  projectId,
+  organization,
+  user,
+}: {
+  projectId: string;
+  organization: OrganizationInterface;
+  user: EventAuditUser;
+}) {
+  const experimentsToDelete = await ExperimentModel.find({
+    organization: organization.id,
+    project: projectId,
+  });
+
+  for (const experiment of experimentsToDelete) {
+    await experiment.delete();
+    VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await onExperimentDelete(organization, user, experiment);
   }
 }
 
