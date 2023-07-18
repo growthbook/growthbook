@@ -1,9 +1,9 @@
+import { FeatureRule as FeatureDefinitionRule } from "@growthbook/growthbook";
 import { EventAuditUser } from "../src/events/event-types";
 import { PermissionFunctions } from "../src/types/AuthRequest";
 import { AuditInterface } from "./audit";
 import { ExperimentStatus } from "./experiment";
 import { OrganizationInterface } from "./organization";
-
 export interface ExperimentOverride {
   weights?: number[];
   status?: ExperimentStatus;
@@ -13,19 +13,11 @@ export interface ExperimentOverride {
   url?: string;
 }
 
-export interface FeatureDefinitionRule {
-  // eslint-disable-next-line
-  force?: any;
-  weights?: number[];
-  // eslint-disable-next-line
-  variations?: any[];
-  hashAttribute?: string;
-  namespace?: [string, number, number];
+export type VariationMeta = {
+  passthrough?: boolean;
   key?: string;
-  coverage?: number;
-  // eslint-disable-next-line
-  condition?: any;
-}
+  name?: string;
+};
 
 export interface FeatureDefinition {
   // eslint-disable-next-line

@@ -2,7 +2,6 @@ import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
-import uniq from "lodash/uniq";
 import {
   Changeset,
   ExperimentInterface,
@@ -27,6 +26,8 @@ import { upgradeExperimentDoc } from "../util/migrations";
 import { refreshSDKPayloadCache, VisualExperiment } from "../services/features";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 import { EventAuditUser } from "../events/event-types";
+import { FeatureInterface } from "../../types/feature";
+import { getAffectedSDKPayloadKeys } from "../util/features";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
 import { createEvent } from "./EventModel";
@@ -34,6 +35,7 @@ import {
   findVisualChangesets,
   VisualChangesetModel,
 } from "./VisualChangesetModel";
+import { getFeaturesByIds } from "./FeatureModel";
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -1005,9 +1007,59 @@ const _isValidVisualExperiment = (
   e: Partial<VisualExperiment>
 ): e is VisualExperiment => !!e.experiment && !!e.visualChangeset;
 
-export const getAllVisualExperiments = async (
+export async function getExperimentMapForFeature(
+  organization: string,
+  featureId: string
+): Promise<Map<string, ExperimentInterface>> {
+  const experiments = await findExperiments({
+    organization,
+    archived: { $ne: true },
+    linkedFeatures: featureId,
+  });
+
+  return new Map(
+    experiments
+      // exclude experiments that are stopped and don't have a released variation
+      .filter((e) => {
+        if (e.status === "stopped" && !e.releasedVariationId) return false;
+        return true;
+      })
+      .map((e) => [e.id, e])
+  );
+}
+
+export async function getAllPayloadExperiments(
   organization: string,
   project?: string
+): Promise<Map<string, ExperimentInterface>> {
+  const experiments = await findExperiments({
+    organization,
+    ...(project ? { project } : {}),
+    archived: { $ne: true },
+    $or: [
+      {
+        linkedFeatures: { $exists: true, $ne: [] },
+      },
+      {
+        hasVisualChangesets: true,
+      },
+    ],
+  });
+
+  return new Map(
+    experiments
+      // exclude experiments that are stopped and don't have a released variation
+      .filter((e) => {
+        if (e.status === "stopped" && !e.releasedVariationId) return false;
+        return true;
+      })
+      .map((e) => [e.id, e])
+  );
+}
+
+export const getAllVisualExperiments = async (
+  organization: string,
+  experimentMap: Map<string, ExperimentInterface>
 ): Promise<Array<VisualExperiment>> => {
   const visualChangesets = await findVisualChangesets(organization);
 
@@ -1021,49 +1073,63 @@ export const getAllVisualExperiments = async (
     return acc;
   }, {});
 
-  const experiments = (
-    await findExperiments({
-      id: {
-        $in: uniq(visualChangesets.map((changeset) => changeset.experiment)),
-      },
-      ...(project ? { project } : {}),
-      organization,
-      archived: false,
-    })
-  )
-    // exclude experiments that are stopped and don't have a released variation
-    // exclude experiments that are stopped and the released variation doesn’t have any visual changes
-    .filter((e) => {
-      if (e.status !== "stopped") return true;
-      if (!e.releasedVariationId) return false;
-      return visualChangesByExperimentId[e.id].some(
-        (vc) =>
-          vc.variation === e.releasedVariationId &&
-          (!!vc.css || !!vc.domMutations.length)
-      );
-    });
+  const hasVisualChanges = (
+    experimentId: string,
+    variationId: string
+  ): boolean => {
+    const changes = visualChangesByExperimentId[experimentId];
+    if (!changes) return false;
+    return changes
+      .filter((vc) => vc.variation === variationId)
+      .some((vc) => !!vc.css || vc.domMutations.length > 0);
+  };
 
-  const visualExperiments: Array<VisualExperiment> = visualChangesets
+  return visualChangesets
     .map((c) => ({
-      experiment: experiments.find((e) => e.id === c.experiment),
+      experiment: experimentMap.get(c.experiment),
       visualChangeset: c,
     }))
-    .filter(_isValidVisualExperiment);
-
-  return visualExperiments;
+    .filter(_isValidVisualExperiment)
+    .filter((e) => {
+      // exclude experiments that are stopped and the released variation doesn’t have any visual changes
+      if (
+        e.experiment.status === "stopped" &&
+        !hasVisualChanges(e.experiment.id, e.experiment.releasedVariationId)
+      ) {
+        return false;
+      }
+      return true;
+    });
 };
 
 export const getPayloadKeys = (
   organization: OrganizationInterface,
-  experiment: ExperimentInterface
+  experiment: ExperimentInterface,
+  linkedFeatures?: FeatureInterface[]
 ): SDKPayloadKey[] => {
   const environments =
     organization.settings?.environments?.map((e) => e.id) ?? [];
   const project = experiment.project ?? "";
-  return environments.map((e) => ({
-    environment: e,
-    project,
-  }));
+
+  // Visual editor experiments always affect all environments
+  if (experiment.hasVisualChangesets) {
+    return environments.map((e) => ({
+      environment: e,
+      project,
+    }));
+  }
+
+  // Feature flag experiments only affect the environments where the experiment rule is active
+  if (linkedFeatures && linkedFeatures.length > 0) {
+    return getAffectedSDKPayloadKeys(
+      linkedFeatures,
+      (rule) =>
+        rule.type === "experiment-ref" && rule.experimentId === experiment.id
+    );
+  }
+
+  // Otherwise, if no linked visual editor or feature flag changes, there are no affected payload keys
+  return [];
 };
 
 const getExperimentChanges = (
@@ -1096,8 +1162,13 @@ const hasChangesForSDKPayloadRefresh = (
   oldExperiment: ExperimentInterface,
   newExperiment: ExperimentInterface
 ): boolean => {
-  // We don't need to refresh the payload for experiments without visual changesets
-  if (!newExperiment.hasVisualChangesets) return false;
+  // Skip experiments that don't have linked features or visual changesets
+  if (
+    !newExperiment.hasVisualChangesets &&
+    !newExperiment.linkedFeatures?.length
+  ) {
+    return false;
+  }
 
   const oldChanges = getExperimentChanges(oldExperiment);
   const newChanges = getExperimentChanges(newExperiment);
@@ -1141,10 +1212,24 @@ const onExperimentUpdate = async ({
     !bypassWebhooks &&
     hasChangesForSDKPayloadRefresh(oldExperiment, newExperiment)
   ) {
+    // Get linked features
+    const featureIds = [
+      ...(oldExperiment.linkedFeatures || []),
+      ...(newExperiment.linkedFeatures || []),
+    ];
+    let linkedFeatures: FeatureInterface[] = [];
+    if (featureIds.length > 0) {
+      linkedFeatures = await getFeaturesByIds(organization.id, featureIds);
+    }
+
     const oldPayloadKeys = oldExperiment
-      ? getPayloadKeys(organization, oldExperiment)
+      ? getPayloadKeys(organization, oldExperiment, linkedFeatures)
       : [];
-    const newPayloadKeys = getPayloadKeys(organization, newExperiment);
+    const newPayloadKeys = getPayloadKeys(
+      organization,
+      newExperiment,
+      linkedFeatures
+    );
     const payloadKeys = uniqWith(
       [...oldPayloadKeys, ...newPayloadKeys],
       isEqual

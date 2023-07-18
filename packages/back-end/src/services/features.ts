@@ -5,7 +5,8 @@ import fetch from "node-fetch";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import { orgHasPremiumFeature } from "enterprise";
-import { FeatureDefinition, FeatureDefinitionRule } from "../../types/api";
+import { FeatureRule as FeatureDefinitionRule } from "@growthbook/growthbook";
+import { FeatureDefinition } from "../../types/api";
 import {
   FeatureDraftChanges,
   FeatureEnvironment,
@@ -13,7 +14,10 @@ import {
   FeatureRule,
 } from "../../types/feature";
 import { getAllFeatures } from "../models/FeatureModel";
-import { getAllVisualExperiments } from "../models/ExperimentModel";
+import {
+  getAllPayloadExperiments,
+  getAllVisualExperiments,
+} from "../models/ExperimentModel";
 import {
   getFeatureDefinition,
   replaceSavedGroupsInCondition,
@@ -41,10 +45,12 @@ export type AttributeMap = Map<string, string>;
 
 function generatePayload({
   features,
+  experimentMap,
   environment,
   groupMap,
 }: {
   features: FeatureInterface[];
+  experimentMap: Map<string, ExperimentInterface>;
   environment: string;
   groupMap: GroupMap;
 }): Record<string, FeatureDefinition> {
@@ -54,6 +60,7 @@ function generatePayload({
       feature,
       environment,
       groupMap,
+      experimentMap,
     });
     if (def) {
       defs[feature.id] = def;
@@ -193,9 +200,13 @@ export async function refreshSDKPayloadCache(
   // If no environments are affected, we don't need to update anything
   if (!payloadKeys.length) return;
 
+  const experimentMap = await getAllPayloadExperiments(organization.id);
   const groupMap = await getSavedGroupMap(organization);
   allFeatures = allFeatures || (await getAllFeatures(organization.id));
-  const allVisualExperiments = await getAllVisualExperiments(organization.id);
+  const allVisualExperiments = await getAllVisualExperiments(
+    organization.id,
+    experimentMap
+  );
 
   // For each affected project/environment pair, generate a new SDK payload and update the cache
   const promises: (() => Promise<void>)[] = [];
@@ -213,6 +224,7 @@ export async function refreshSDKPayloadCache(
       features: projectFeatures,
       environment: key.environment,
       groupMap,
+      experimentMap,
     });
 
     const experimentsDefinitions = generateVisualExperimentsPayload({
@@ -456,16 +468,18 @@ export async function getFeatureDefinitions({
   // Generate the feature definitions
   const features = await getAllFeatures(organization, project);
   const groupMap = await getSavedGroupMap(org);
+  const experimentMap = await getAllPayloadExperiments(organization, project);
 
   const featureDefinitions = generatePayload({
     features,
     environment,
     groupMap,
+    experimentMap,
   });
 
   const allVisualExperiments = await getAllVisualExperiments(
     organization,
-    project
+    experimentMap
   );
 
   // Generate visual experiments
@@ -585,11 +599,17 @@ export async function encrypt(
   return bufToBase64(iv) + "." + bufToBase64(encryptedBuffer);
 }
 
-export function getApiFeatureObj(
-  feature: FeatureInterface,
-  organization: OrganizationInterface,
-  groupMap: GroupMap
-): ApiFeature {
+export function getApiFeatureObj({
+  feature,
+  organization,
+  groupMap,
+  experimentMap,
+}: {
+  feature: FeatureInterface;
+  organization: OrganizationInterface;
+  groupMap: GroupMap;
+  experimentMap: Map<string, ExperimentInterface>;
+}): ApiFeature {
   const featureEnvironments: Record<string, ApiFeatureEnvironment> = {};
   const environments = getEnvironments(organization);
   environments.forEach((env) => {
@@ -604,6 +624,7 @@ export function getApiFeatureObj(
     const definition = getFeatureDefinition({
       feature,
       groupMap,
+      experimentMap,
       environment: env.id,
     });
 
@@ -622,6 +643,7 @@ export function getApiFeatureObj(
       const draftDefinition = getFeatureDefinition({
         feature,
         groupMap,
+        experimentMap,
         environment: env.id,
         useDraft: true,
       });

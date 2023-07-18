@@ -33,6 +33,7 @@ import { saveRevision } from "./FeatureRevisionModel";
 import { createEvent } from "./EventModel";
 import {
   addLinkedFeatureToExperiment,
+  getExperimentMapForFeature,
   removeLinkedFeatureFromExperiment,
 } from "./ExperimentModel";
 
@@ -133,6 +134,15 @@ export async function getFeature(
   return feature ? upgradeFeatureInterface(toInterface(feature)) : null;
 }
 
+export async function getFeaturesByIds(
+  organization: string,
+  ids: string[]
+): Promise<FeatureInterface[]> {
+  return (
+    await FeatureModel.find({ organization, id: { $in: ids } })
+  ).map((m) => upgradeFeatureInterface(toInterface(m)));
+}
+
 export async function createFeature(
   org: OrganizationInterface,
   user: EventAuditUser,
@@ -144,11 +154,16 @@ export async function createFeature(
     linkedExperiments,
   });
   await saveRevision(toInterface(feature));
-  onFeatureCreate(org, user, feature);
 
-  linkedExperiments.forEach((exp) => {
-    addLinkedFeatureToExperiment(org, user, exp, data.id);
-  });
+  if (linkedExperiments.length > 0) {
+    await Promise.all(
+      linkedExperiments.map(async (exp) => {
+        await addLinkedFeatureToExperiment(org, user, exp, data.id);
+      })
+    );
+  }
+
+  onFeatureCreate(org, user, feature);
 }
 
 export async function deleteFeature(
@@ -157,13 +172,16 @@ export async function deleteFeature(
   feature: FeatureInterface
 ) {
   await FeatureModel.deleteOne({ organization: org.id, id: feature.id });
-  onFeatureDelete(org, user, feature);
 
   if (feature.linkedExperiments) {
-    feature.linkedExperiments.forEach((exp) => {
-      removeLinkedFeatureFromExperiment(org, user, exp, feature.id);
-    });
+    await Promise.all(
+      feature.linkedExperiments.map(async (exp) => {
+        await removeLinkedFeatureFromExperiment(org, user, exp, feature.id);
+      })
+    );
   }
+
+  onFeatureDelete(org, user, feature);
 }
 
 /**
@@ -205,14 +223,28 @@ async function logFeatureUpdatedEvent(
   previous: FeatureInterface,
   current: FeatureInterface
 ): Promise<string | undefined> {
-  const savedGroupMap = await getSavedGroupMap(organization);
+  const groupMap = await getSavedGroupMap(organization);
+  const experimentMap = await getExperimentMapForFeature(
+    organization.id,
+    current.id
+  );
 
   const payload: FeatureUpdatedNotificationEvent = {
     object: "feature",
     event: "feature.updated",
     data: {
-      current: getApiFeatureObj(current, organization, savedGroupMap),
-      previous: getApiFeatureObj(previous, organization, savedGroupMap),
+      current: getApiFeatureObj({
+        feature: current,
+        organization,
+        groupMap,
+        experimentMap,
+      }),
+      previous: getApiFeatureObj({
+        feature: previous,
+        organization,
+        groupMap,
+        experimentMap,
+      }),
     },
     user,
   };
@@ -235,14 +267,23 @@ async function logFeatureCreatedEvent(
   user: EventAuditUser,
   feature: FeatureInterface
 ): Promise<string | undefined> {
-  const savedGroupMap = await getSavedGroupMap(organization);
+  const groupMap = await getSavedGroupMap(organization);
+  const experimentMap = await getExperimentMapForFeature(
+    organization.id,
+    feature.id
+  );
 
   const payload: FeatureCreatedNotificationEvent = {
     object: "feature",
     event: "feature.created",
     user,
     data: {
-      current: getApiFeatureObj(feature, organization, savedGroupMap),
+      current: getApiFeatureObj({
+        feature,
+        organization,
+        groupMap,
+        experimentMap,
+      }),
     },
   };
 
@@ -263,14 +304,23 @@ async function logFeatureDeletedEvent(
   user: EventAuditUser,
   previousFeature: FeatureInterface
 ): Promise<string | undefined> {
-  const savedGroupMap = await getSavedGroupMap(organization);
+  const groupMap = await getSavedGroupMap(organization);
+  const experimentMap = await getExperimentMapForFeature(
+    organization.id,
+    previousFeature.id
+  );
 
   const payload: FeatureDeletedNotificationEvent = {
     object: "feature",
     event: "feature.deleted",
     user,
     data: {
-      previous: getApiFeatureObj(previousFeature, organization, savedGroupMap),
+      previous: getApiFeatureObj({
+        feature: previousFeature,
+        organization,
+        groupMap,
+        experimentMap,
+      }),
     },
   };
 
@@ -369,15 +419,22 @@ export async function updateFeature(
     }
   );
 
+  if (experimentsAdded.size > 0) {
+    await Promise.all(
+      [...experimentsAdded].map(async (exp) => {
+        await addLinkedFeatureToExperiment(org, user, exp, feature.id);
+      })
+    );
+  }
+  if (experimentsRemoved.size > 0) {
+    await Promise.all(
+      [...experimentsRemoved].map(async (exp) => {
+        await removeLinkedFeatureFromExperiment(org, user, exp, feature.id);
+      })
+    );
+  }
+
   onFeatureUpdate(org, user, feature, updatedFeature);
-
-  experimentsAdded.forEach((exp) => {
-    addLinkedFeatureToExperiment(org, user, exp, feature.id);
-  });
-  experimentsRemoved.forEach((exp) => {
-    removeLinkedFeatureFromExperiment(org, user, exp, feature.id);
-  });
-
   return updatedFeature;
 }
 
