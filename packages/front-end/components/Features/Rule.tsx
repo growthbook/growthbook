@@ -265,7 +265,9 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             {rule.type === "experiment" && (
               <ExperimentSummary
                 feature={feature}
-                experiment={experiments[rule.trackingKey || feature.id]}
+                experiment={Object.values(experiments).find(
+                  (exp) => exp.trackingKey === (rule.trackingKey || feature.id)
+                )}
                 rule={rule}
               />
             )}
