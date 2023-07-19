@@ -139,12 +139,6 @@ export default function SDKConnectionForm({
           });
           mutate();
         } else {
-          track("Create SDK Connection", {
-            languages: value.languages,
-            encryptPayload: value.encryptPayload,
-            hashSecureAttributes: value.hashSecureAttributes,
-            proxyEnabled: value.proxyEnabled,
-          });
           const res = await apiCall<{ connection: SDKConnectionInterface }>(
             `/sdk-connections`,
             {
@@ -152,6 +146,13 @@ export default function SDKConnectionForm({
               body: JSON.stringify(body),
             }
           );
+          track("Create SDK Connection", {
+            source: "SDKConnectionForm",
+            languages: value.languages,
+            encryptPayload: value.encryptPayload,
+            hashSecureAttributes: value.hashSecureAttributes,
+            proxyEnabled: value.proxyEnabled,
+          });
           mutate();
           await router.push(`/sdks/${res.connection.id}`);
         }
