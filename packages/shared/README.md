@@ -29,7 +29,13 @@ import { MY_CONSTANT } from "shared/constants";
 
 ## Adding a new Entry Point
 
-If one of the existing Entry Points doesn't meet your needs, you can create a new one with the following steps.
+If none of the existing Entry Points meet your needs, you can generate a new one by running the following command:
+
+```sh
+yarn plop shared-entrypoint # or `yarn plop` and choosing 'shared-entrypoint'
+```
+
+Alternatively, you can manually create a new one with the following steps.
 
 This assumes you are going to make a new `foo` entry point.
 
