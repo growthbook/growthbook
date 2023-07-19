@@ -23,6 +23,7 @@ import {
 import { enqueueTasks, QueueTask, TaskResult } from "@/services/async-queue";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import track from "@/services/track";
 
 /**
  * User-friendly result message with status
@@ -281,6 +282,12 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
 
   const { apiCall } = useAuth();
 
+  useEffect(function trackPageVisit() {
+    track("Import from Service visit", {
+      service: "launchdarkly",
+    });
+  }, []);
+
   /**
    * Kicks off the process for fetching LD data and import tasks.
    * Projects are a dependency to environments and feature flags, so these need to be downloaded first.
@@ -306,6 +313,10 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
           data: e.message || "Failed to fetch projects from LaunchDarkly",
         });
         setStatus("completed");
+        track("Import from Service failed", {
+          service: "launchdarkly",
+          error: e.message || "Unknown Error",
+        });
       }
     },
     [dispatch, status]
@@ -379,7 +390,10 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
           });
         });
 
-        await enqueueTasks<Environment, Environment>(
+        const {
+          completed: completedEnvs,
+          failed: failedEnvs,
+        } = await enqueueTasks<Environment, Environment>(
           createEnvironmentTasks,
           {
             onProgress(id, result) {
@@ -463,6 +477,14 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
             delayMs: 2000,
           }
         );
+
+        track("Import from Service success", {
+          service: "launchdarkly",
+          resource: "environment",
+          successCount: completedEnvs.length,
+          skippedCount: failedEnvs.filter((r) => r.status === "fail").length,
+          failedCount: failedEnvs.filter((r) => r.status === "retry").length,
+        });
       };
 
       const createFeatures = async () => {
@@ -529,7 +551,10 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
           });
         });
 
-        await enqueueTasks<
+        const {
+          completed: completedFeatures,
+          failed: failedFeatures,
+        } = await enqueueTasks<
           Omit<
             FeatureInterface,
             "dateCreated" | "dateUpdated" | "revision" | "organization"
@@ -617,6 +642,16 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
             }
           },
         });
+
+        track("Import from Service success", {
+          service: "launchdarkly",
+          resource: "feature",
+          successCount: completedFeatures.length,
+          skippedCount: failedFeatures.filter((r) => r.status === "fail")
+            .length,
+          failedCount: failedFeatures.filter((r) => r.status === "retry")
+            .length,
+        });
       };
 
       const createAll = async () => {
@@ -661,7 +696,10 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
           data: p,
         }));
 
-        await enqueueTasks<
+        const {
+          completed: projectsCompleted,
+          failed: projectsFailed,
+        } = await enqueueTasks<
           Pick<ProjectInterface, "name" | "description">,
           ProjectInterface
         >(createProjectTasks, {
@@ -741,6 +779,16 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
         });
 
         dispatch({ type: "set-gb-projects-ready" });
+
+        track("Import from Service success", {
+          service: "launchdarkly",
+          resource: "project",
+          successCount: projectsCompleted.length,
+          skippedCount: projectsFailed.filter((r) => r.status === "fail")
+            .length,
+          failedCount: projectsFailed.filter((r) => r.status === "retry")
+            .length,
+        });
       };
 
       perform();

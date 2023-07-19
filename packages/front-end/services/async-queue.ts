@@ -90,9 +90,9 @@ const newDefaultEnqueueOptions = (): EnqueueOptions => ({
   retryCount: DEFAULT_RETRY_COUNT,
 });
 
-export type QueueResult = {
-  completed: string[];
-  failed: string[];
+export type QueueResult<ResultData> = {
+  completed: TaskResult<ResultData>[];
+  failed: TaskResult<ResultData>[];
 };
 
 /**
@@ -110,7 +110,7 @@ export async function enqueueTasks<DataType, ResultData>(
     delayMs = DEFAULT_INTERVAL_DELAY,
     retryCount = DEFAULT_RETRY_COUNT,
   }: EnqueueOptions = newDefaultEnqueueOptions()
-): Promise<QueueResult> {
+): Promise<QueueResult<ResultData>> {
   if (!tasks.length) {
     return {
       completed: [],
@@ -128,12 +128,12 @@ export async function enqueueTasks<DataType, ResultData>(
   // Make a copy of the task list since it will be mutated
   const taskQueue = cloneDeep<QueueTask<DataType>[]>(tasks);
 
-  const completed: string[] = [];
-  const failed: string[] = [];
+  const completed: TaskResult<ResultData>[] = [];
+  const failed: TaskResult<ResultData>[] = [];
   const retries = new Map<string, number>();
 
   const handleSuccess = (taskId: string, result: TaskResult<ResultData>) => {
-    completed.push(taskId);
+    completed.push(result);
     onProgress(taskId, result);
   };
 
@@ -146,7 +146,7 @@ export async function enqueueTasks<DataType, ResultData>(
 
     // if the task should not be retried, or the retry count is exhausted, progress as failure
     if (!retry || taskRetryCount >= retryCount) {
-      failed.push(task.id);
+      failed.push(result);
       onProgress(task.id, result);
     } else {
       // re-enqueue task for retrying
