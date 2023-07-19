@@ -17,15 +17,11 @@ import {
   getReportsByOrg,
   updateReport,
 } from "../models/ReportModel";
+import { ReportQueryRunner } from "../queryRunners/ReportQueryRunner";
+import { getIntegrationFromDatasourceId } from "../services/datasource";
 import { generateReportNotebook } from "../services/notebook";
 import { getOrgFromReq } from "../services/organizations";
-import { cancelRun, getStatusEndpoint } from "../services/queries";
-import {
-  getSnapshotSettingsFromReportArgs,
-  reportArgsFromSnapshot,
-  runReport,
-} from "../services/reports";
-import { analyzeExperimentResults } from "../services/stats";
+import { reportArgsFromSnapshot } from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
 
 export async function postReportFromSnapshot(
@@ -212,11 +208,22 @@ export async function refreshReport(
       ? !!report.args?.regressionAdjustmentEnabled
       : false;
 
-  await runReport(org, report, useCache);
+  const metricMap = await getMetricMap(org.id);
+
+  const integration = await getIntegrationFromDatasourceId(
+    org.id,
+    report.args.datasource,
+    true
+  );
+  const queryRunner = new ReportQueryRunner(report, integration, useCache);
+
+  const updatedReport = await queryRunner.startAnalysis({
+    metricMap,
+  });
 
   return res.status(200).json({
     status: 200,
-    report,
+    updatedReport,
   });
 }
 
@@ -272,57 +279,24 @@ export async function putReport(
     ...updates,
   };
   if (needsRun) {
-    await runReport(org, updatedReport, true);
+    const metricMap = await getMetricMap(org.id);
+
+    const integration = await getIntegrationFromDatasourceId(
+      org.id,
+      updatedReport.args.datasource,
+      true
+    );
+    const queryRunner = new ReportQueryRunner(updatedReport, integration);
+
+    await queryRunner.startAnalysis({
+      metricMap,
+    });
   }
 
   return res.status(200).json({
     status: 200,
     updatedReport,
   });
-}
-
-export async function getReportStatus(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-  const report = await getReportById(org.id, id);
-  if (!report) {
-    throw new Error("Could not get query status");
-  }
-  const result = await getStatusEndpoint(
-    report,
-    org.id,
-    async (queryData) => {
-      if (report.type === "experiment") {
-        const metricMap = await getMetricMap(org.id);
-
-        const {
-          snapshotSettings,
-          analysisSettings,
-        } = getSnapshotSettingsFromReportArgs(report.args, metricMap);
-
-        return analyzeExperimentResults({
-          variationNames: report.args.variations.map((v) => v.name),
-          queryData,
-          metricMap,
-          snapshotSettings,
-          analysisSettings,
-        });
-      }
-      throw new Error("Unsupported report type");
-    },
-    async (updates, results, error) => {
-      await updateReport(org.id, id, {
-        ...updates,
-        results: results || report.results,
-        error,
-      });
-    },
-    report.error
-  );
-  return res.status(200).json(result);
 }
 
 export async function cancelReport(
@@ -337,14 +311,15 @@ export async function cancelReport(
   if (!report) {
     throw new Error("Could not cancel query");
   }
-  res.status(200).json(
-    await cancelRun(report, org.id, async () => {
-      await updateReport(org.id, id, {
-        queries: [],
-        runStarted: null,
-      });
-    })
+
+  const integration = await getIntegrationFromDatasourceId(
+    org.id,
+    report.args.datasource
   );
+  const queryRunner = new ReportQueryRunner(report, integration);
+  await queryRunner.cancelQueries();
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function postNotebook(
