@@ -86,6 +86,7 @@ import StatusIndicator from "./StatusIndicator";
 import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
 import VariationsTable from "./VariationsTable";
 import VisualChangesetModal from "./VisualChangesetModal";
+import StatusBanner from "./StatusBanner";
 
 function drawMetricRow(
   m: string,
@@ -1171,22 +1172,22 @@ export default function SinglePage({
         </div>
       ) : null}
 
-      {experimentHasPhases && !experimentPendingWithVisualChanges ? (
-        <ControlledTabs
-          newStyle={true}
-          className="mt-3 mb-4"
-          buttonsClassName="px-5"
-          tabContentsClassName={clsx(
-            "px-3 pt-3",
-            resultsTab === "results" && (phases.length || 0) === 0
-              ? "alert-cool-1 py-3 noborder"
-              : "border"
-          )}
-          setActive={(tab: ResultsTab) => setResultsTab(tab ?? "results")}
-          active={resultsTab}
-        >
-          <Tab id="results" display="Results" padding={false}>
-            <div className="mb-2" style={{ overflowX: "initial" }}>
+      <ControlledTabs
+        newStyle={true}
+        className="mt-3 mb-4"
+        buttonsClassName="px-5"
+        tabContentsClassName={clsx(
+          "px-3 pt-3",
+          resultsTab === "results" && (phases.length || 0) === 0
+            ? "alert-cool-1 py-3 noborder"
+            : "border"
+        )}
+        setActive={(tab: ResultsTab) => setResultsTab(tab ?? "results")}
+        active={resultsTab}
+      >
+        <Tab id="results" display="Results" padding={false}>
+          <div className="mb-2" style={{ overflowX: "initial" }}>
+            {experimentHasPhases && !experimentPendingWithVisualChanges ? (
               <Results
                 experiment={experiment}
                 mutateExperiment={mutate}
@@ -1206,239 +1207,234 @@ export default function SinglePage({
                 }
                 onRegressionAdjustmentChange={onRegressionAdjustmentChange}
               />
-            </div>
-          </Tab>
+            ) : (
+              <StatusBanner
+                mutateExperiment={mutate}
+                editResult={editResult ?? undefined}
+              />
+            )}
+          </div>
+        </Tab>
 
-          <Tab id="config" display="Configure" padding={false}>
-            <div className="mb-4 mx-2">
-              <RightRailSection
-                title="Experiment Settings"
-                open={() => setReportSettingsOpen(true)}
-                canOpen={canEditExperiment}
-              >
-                <div className="appbox px-3 pt-3 pb-2">
-                  <RightRailSectionGroup
-                    title="Data Source"
-                    type="commaList"
-                    titleClassName="align-top"
-                  >
-                    {datasource && (
-                      <Tooltip body={datasource?.description || ""}>
-                        <Link href={`/datasources/${datasource?.id}`}>
-                          {datasource?.name}
-                        </Link>
-                      </Tooltip>
-                    )}
-                  </RightRailSectionGroup>
-                  {experiment.hashAttribute && (
-                    <RightRailSectionGroup
-                      title="Assignment Attribute"
-                      type="commaList"
-                    >
-                      {experiment.hashAttribute}
-                    </RightRailSectionGroup>
-                  )}
-                  {exposureQuery && (
-                    <RightRailSectionGroup
-                      title="Assignment Query"
-                      type="commaList"
-                    >
-                      {exposureQuery?.name}
-                    </RightRailSectionGroup>
-                  )}
+        <Tab id="config" display="Configure" padding={false}>
+          <div className="mb-4 mx-2">
+            <RightRailSection
+              title="Experiment Settings"
+              open={() => setReportSettingsOpen(true)}
+              canOpen={canEditExperiment}
+            >
+              <div className="appbox px-3 pt-3 pb-2">
+                <RightRailSectionGroup
+                  title="Data Source"
+                  type="commaList"
+                  titleClassName="align-top"
+                >
                   {datasource && (
-                    <RightRailSectionGroup
-                      title="Experiment Id"
-                      type="commaList"
-                    >
-                      {experiment.trackingKey}
-                    </RightRailSectionGroup>
+                    <Tooltip body={datasource?.description || ""}>
+                      <Link href={`/datasources/${datasource?.id}`}>
+                        {datasource?.name}
+                      </Link>
+                    </Tooltip>
                   )}
-                  {datasource?.properties?.segments && (
-                    <RightRailSectionGroup
-                      title="Analysis Segment"
-                      type="commaList"
-                      empty="All Users"
-                    >
-                      {segment?.name}
-                    </RightRailSectionGroup>
-                  )}
-                  {experiment.activationMetric && (
-                    <RightRailSectionGroup
-                      title="Activation Metric"
-                      type="commaList"
-                    >
-                      {activationMetric?.name}
-                    </RightRailSectionGroup>
-                  )}
-                  {experiment.queryFilter && (
-                    <RightRailSectionGroup title="Custom Filter" type="custom">
-                      <Code
-                        language={
-                          datasource?.properties?.queryLanguage ?? "none"
-                        }
-                        code={experiment.queryFilter}
-                        expandable={true}
-                      />
-                    </RightRailSectionGroup>
-                  )}
+                </RightRailSectionGroup>
+                {experiment.hashAttribute && (
                   <RightRailSectionGroup
-                    title="Attribution Model"
-                    type="custom"
+                    title="Assignment Attribute"
+                    type="commaList"
                   >
-                    <AttributionModelTooltip>
-                      <strong>
-                        {experiment.attributionModel === "experimentDuration"
-                          ? "Experiment Duration"
-                          : "First Exposure"}
-                      </strong>{" "}
-                      <FaQuestionCircle />
-                    </AttributionModelTooltip>
+                    {experiment.hashAttribute}
                   </RightRailSectionGroup>
-                  {statsEngine === "frequentist" && (
-                    <>
-                      <RightRailSectionGroup
-                        title={
-                          <>
-                            <GBCuped size={16} /> Regression Adjustment (CUPED)
-                          </>
-                        }
-                        type="custom"
-                      >
-                        {regressionAdjustmentEnabled ? "Enabled" : "Disabled"}
-                      </RightRailSectionGroup>
-                      <RightRailSectionGroup
-                        title={
-                          <>
-                            <GBSequential size={16} /> Sequential Testing
-                          </>
-                        }
-                        type="custom"
-                      >
-                        {experiment.sequentialTestingEnabled ??
-                        !!orgSettings.sequentialTestingEnabled
-                          ? "Enabled"
-                          : "Disabled"}
-                      </RightRailSectionGroup>
-                    </>
-                  )}
-                </div>
-              </RightRailSection>
-              <div className="mb-4"></div>
-              <RightRailSection
-                title="Metrics"
-                open={() => editMetrics && editMetrics()}
-                canOpen={(editMetrics && !experiment.archived) ?? undefined}
-              >
-                <div className="appbox p-3">
-                  <div className="row mb-1 text-muted">
-                    <div className="col-5">Goals</div>
-                    <div className="col-5">
-                      Conversion {ignoreConversionEnd ? "Delay" : "Window"}{" "}
-                      <Tooltip
-                        body={
-                          ignoreConversionEnd
-                            ? `Wait this long after viewing the experiment before we start counting conversions for a user.`
-                            : `After a user sees the experiment, only include
-                          metric conversions within the specified time window.`
-                        }
-                      >
-                        <FaQuestionCircle />
-                      </Tooltip>
-                    </div>
-                    <div className="col-sm-2">Behavior</div>
-                  </div>
+                )}
+                {exposureQuery && (
+                  <RightRailSectionGroup
+                    title="Assignment Query"
+                    type="commaList"
+                  >
+                    {exposureQuery?.name}
+                  </RightRailSectionGroup>
+                )}
+                {datasource && (
+                  <RightRailSectionGroup title="Experiment Id" type="commaList">
+                    {experiment.trackingKey}
+                  </RightRailSectionGroup>
+                )}
+                {datasource?.properties?.segments && (
+                  <RightRailSectionGroup
+                    title="Analysis Segment"
+                    type="commaList"
+                    empty="All Users"
+                  >
+                    {segment?.name}
+                  </RightRailSectionGroup>
+                )}
+                {experiment.activationMetric && (
+                  <RightRailSectionGroup
+                    title="Activation Metric"
+                    type="commaList"
+                  >
+                    {activationMetric?.name}
+                  </RightRailSectionGroup>
+                )}
+                {experiment.queryFilter && (
+                  <RightRailSectionGroup title="Custom Filter" type="custom">
+                    <Code
+                      language={datasource?.properties?.queryLanguage ?? "none"}
+                      code={experiment.queryFilter}
+                      expandable={true}
+                    />
+                  </RightRailSectionGroup>
+                )}
+                <RightRailSectionGroup title="Attribution Model" type="custom">
+                  <AttributionModelTooltip>
+                    <strong>
+                      {experiment.attributionModel === "experimentDuration"
+                        ? "Experiment Duration"
+                        : "First Exposure"}
+                    </strong>{" "}
+                    <FaQuestionCircle />
+                  </AttributionModelTooltip>
+                </RightRailSectionGroup>
+                {statsEngine === "frequentist" && (
                   <>
-                    {experiment.metrics.map((m) => {
-                      const metric = getMetricById(m);
-                      return drawMetricRow(
-                        m,
-                        metric,
-                        experiment,
+                    <RightRailSectionGroup
+                      title={
+                        <>
+                          <GBCuped size={16} /> Regression Adjustment (CUPED)
+                        </>
+                      }
+                      type="custom"
+                    >
+                      {regressionAdjustmentEnabled ? "Enabled" : "Disabled"}
+                    </RightRailSectionGroup>
+                    <RightRailSectionGroup
+                      title={
+                        <>
+                          <GBSequential size={16} /> Sequential Testing
+                        </>
+                      }
+                      type="custom"
+                    >
+                      {experiment.sequentialTestingEnabled ??
+                      !!orgSettings.sequentialTestingEnabled
+                        ? "Enabled"
+                        : "Disabled"}
+                    </RightRailSectionGroup>
+                  </>
+                )}
+              </div>
+            </RightRailSection>
+            <div className="mb-4"></div>
+            <RightRailSection
+              title="Metrics"
+              open={() => editMetrics && editMetrics()}
+              canOpen={(editMetrics && !experiment.archived) ?? undefined}
+            >
+              <div className="appbox p-3">
+                <div className="row mb-1 text-muted">
+                  <div className="col-5">Goals</div>
+                  <div className="col-5">
+                    Conversion {ignoreConversionEnd ? "Delay" : "Window"}{" "}
+                    <Tooltip
+                      body={
                         ignoreConversionEnd
-                      );
-                    })}
-                    {(experiment.guardrails?.length ?? 0) > 0 && (
-                      <>
-                        <div className="row mb-1 mt-3 text-muted">
-                          <div className="col-5">Guardrails</div>
-                          <div className="col-5">
-                            Conversion{" "}
-                            {ignoreConversionEnd ? "Delay" : "Window"}
-                          </div>
-                          <div className="col-sm-2">Behavior</div>
+                          ? `Wait this long after viewing the experiment before we start counting conversions for a user.`
+                          : `After a user sees the experiment, only include
+                        metric conversions within the specified time window.`
+                      }
+                    >
+                      <FaQuestionCircle />
+                    </Tooltip>
+                  </div>
+                  <div className="col-sm-2">Behavior</div>
+                </div>
+                <>
+                  {experiment.metrics.map((m) => {
+                    const metric = getMetricById(m);
+                    return drawMetricRow(
+                      m,
+                      metric,
+                      experiment,
+                      ignoreConversionEnd
+                    );
+                  })}
+                  {(experiment.guardrails?.length ?? 0) > 0 && (
+                    <>
+                      <div className="row mb-1 mt-3 text-muted">
+                        <div className="col-5">Guardrails</div>
+                        <div className="col-5">
+                          Conversion {ignoreConversionEnd ? "Delay" : "Window"}
                         </div>
-                        {experiment.guardrails?.map((m) => {
-                          const metric = getMetricById(m);
-                          return drawMetricRow(
-                            m,
-                            metric,
-                            experiment,
-                            ignoreConversionEnd
-                          );
-                        })}
-                      </>
-                    )}
-                    {experiment.activationMetric && (
-                      <>
-                        <div className="row mb-1 mt-3 text-muted">
-                          <div className="col-5">Activation Metric</div>
-                          <div className="col-5">
-                            Conversion{" "}
-                            {ignoreConversionEnd ? "Delay" : "Window"}
-                          </div>
-                          <div className="col-sm-2">Behavior</div>
-                        </div>
-                        {drawMetricRow(
-                          experiment.activationMetric,
-                          getMetricById(experiment.activationMetric),
+                        <div className="col-sm-2">Behavior</div>
+                      </div>
+                      {experiment.guardrails?.map((m) => {
+                        const metric = getMetricById(m);
+                        return drawMetricRow(
+                          m,
+                          metric,
                           experiment,
                           ignoreConversionEnd
-                        )}
-                      </>
-                    )}
-                  </>
-                </div>
-              </RightRailSection>
-              <div className="mb-4"></div>
-              <RightRailSection
-                title="Phases"
-                open={editPhases ?? undefined}
-                canOpen={!!editPhases}
-              >
-                <div className="appbox mb-0">
-                  {phases.length > 0 ? (
-                    <div>
-                      {experiment.phases.map((phase, i) => (
-                        <ExpandablePhaseSummary
-                          key={i}
-                          phase={phase}
-                          i={i}
-                          editPhase={editPhase ?? undefined}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="text-center p-3">
-                      <em>No experiment phases defined.</em>
-                      {newPhase && (
-                        <div className="mt-2">
-                          <button
-                            className="btn btn-outline-primary btn-sm"
-                            onClick={newPhase}
-                          >
-                            <GBAddCircle /> Add a Phase
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                        );
+                      })}
+                    </>
                   )}
-                </div>
-              </RightRailSection>
-            </div>
-          </Tab>
-        </ControlledTabs>
-      ) : null}
+                  {experiment.activationMetric && (
+                    <>
+                      <div className="row mb-1 mt-3 text-muted">
+                        <div className="col-5">Activation Metric</div>
+                        <div className="col-5">
+                          Conversion {ignoreConversionEnd ? "Delay" : "Window"}
+                        </div>
+                        <div className="col-sm-2">Behavior</div>
+                      </div>
+                      {drawMetricRow(
+                        experiment.activationMetric,
+                        getMetricById(experiment.activationMetric),
+                        experiment,
+                        ignoreConversionEnd
+                      )}
+                    </>
+                  )}
+                </>
+              </div>
+            </RightRailSection>
+            <div className="mb-4"></div>
+            <RightRailSection
+              title="Phases"
+              open={editPhases ?? undefined}
+              canOpen={!!editPhases}
+            >
+              <div className="appbox mb-0">
+                {phases.length > 0 ? (
+                  <div>
+                    {experiment.phases.map((phase, i) => (
+                      <ExpandablePhaseSummary
+                        key={i}
+                        phase={phase}
+                        i={i}
+                        editPhase={editPhase ?? undefined}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center p-3">
+                    <em>No experiment phases defined.</em>
+                    {newPhase && (
+                      <div className="mt-2">
+                        <button
+                          className="btn btn-outline-primary btn-sm"
+                          onClick={newPhase}
+                        >
+                          <GBAddCircle /> Add a Phase
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </RightRailSection>
+          </div>
+        </Tab>
+      </ControlledTabs>
 
       {!experimentPendingWithVisualChanges && experimentHasPhases ? (
         <div className="mb-4 pt-3 appbox">
