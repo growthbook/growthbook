@@ -11,6 +11,7 @@ import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import { useEnvironments } from "@/services/features";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import track from "@/services/track";
 import CodeSnippetModal from "../CodeSnippetModal";
 import SDKLanguageSelector from "./SDKLanguageSelector";
 
@@ -112,6 +113,13 @@ export default function InitialSDKConnectionForm({
         await apiCall(`/sdk-connections`, {
           method: "POST",
           body: JSON.stringify(body),
+        });
+        track("Create SDK Connection", {
+          source: "initialSDKConnectionForm",
+          languages: body.languages,
+          encryptPayload: body.encryptPayload,
+          hashSecureAttributes: body.hashSecureAttributes,
+          proxyEnabled: body.proxyEnabled,
         });
         await mutate();
       })}
