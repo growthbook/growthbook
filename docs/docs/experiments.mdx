@@ -1,0 +1,75 @@
+---
+title: Running Experiments on GrowthBook
+description: Understanding the ways to run experiments with GrowthBook
+sidebar_label: Running Experiments
+slug: experiments
+---
+
+# Running Experiments on GrowthBook
+
+GrowthBook has a few different ways to run experiments or AB tests depending on your needs. This guide will walk you
+through the different ways of running experiments on GrowthBook.
+
+## Server Side Experiments
+
+Server-side A/B testing, also known as backend or server-side experimentation, is a technique used in software
+development and web applications to test measure the impact of any code changes or new features. The changes may impact
+both the user interface and the backend of the application, but the decision about what version to serve a user is
+decided on the server. This has a number of advantages over client side experiments, specifically, that it allows you to
+run very complex tests that may involve a lot of different parts of the code, and span multiple parts of your
+application. It also avoids any issues with flickering that can happen with client side testing.
+
+### Feature Flag Experiments
+
+With GrowthBook, the easiest way to do server-side testing is by using feature flags. Each feature flag has conditional
+logic ([rules](/features/rules)) [how, who](/features/targeting) ([and when](/features/scheduling)) a feature should be
+shown. With GrowthBook, you can add a rule to a feature that will randomly assign the users based on some attribute into
+one of your experiment variations. You can read more about feature flag experiment rules [here](/features/rules).
+
+### Inline Experiments
+
+You can also run server-side experiments by using inline experiments directly with our SDK. This requires no 3rd party
+requests, as the experiment conditions and settings can be written directly into the code. How you implement in-line
+experiments depends on the SDK language you're using, you can read more about this from our [SDKs pages](/lib).
+
+## Client Side Experiments
+
+Client-side A/B testing, also known as frontend or client-side experimentation, is a way to test visual changes to your
+application. The server returns the same code to all users, and the experiment assignments and variations are handled by
+the client, typically in [Javascript](/lib/js) or [React](/lib/react).
+
+When the client loads your application, our SDK will check to see if the user should be part of any experiments, and if
+so, assign them and the client code will serve that variations treatment to them. GrowthBook's client side SDKs can
+handle all of this for you, and you can also serve client-side A/B test via our feature flags, or using our visual editor.
+
+Client-side A/B tests are great for testing visual changes to your application, but they do have some drawbacks. One of
+the most common issues is caused by the delay in loading the specific variation to a user, which may cause a flash or
+flickering as the experiment loads. This can be reduced by using inline-experiments, or by moving the GrowthBook SDK
+code higher in the code so it loads at the same time or before the page. Sometimes the hashing attribute may not be
+available until your tracking software has loaded, and you may need to use a custom tracking id.
+
+## Visual Editor (WYSIWYG) Experiments
+
+GrowthBook has a visual editor for running experiments on the front-end of your website without requiring any code
+changes. Our visual editor uses the same client-side SDK used for feature flags and A/B testing.
+
+## Custom Experiments
+
+## API / ML Experiments
+
+## How GrowthBook Assigns Users to Experiments
+
+GrowthBook uses a consistent hashing algorithm to assign users to experiments. This means that the same user will always
+get the same variation given the same experiment settings (experiment key, and user hashing id). This is useful
+because it means that you can run experiments across multiple pages, or even multiple applications, and the user will
+always get the same variation. It also means that GrowthBook stores no state, and requires no additional cookies.
+
+## Best Practices
+
+### When to Expose Users to Experiments
+
+### Avoiding Flickering
+
+### Interacting Experiments
+
+###

@@ -1,0 +1,89 @@
+---
+title: Feature Flag Basics
+description: Learn about the basics of feature flags.
+sidebar_label: Feature Flag Basics
+slug: /features/basics
+---
+
+# Basics of Feature Flags
+
+## Feature Keys
+
+Every feature is defined by a unique **key**. This is what the engineering team will reference in their code when they
+check the value of a feature. Feature keys **cannot** be changed after they are created, so take care when choosing one.
+If you make a mistake, you can always delete the feature and create a new one.
+
+<img src="/images/features/feature-create-feature-1.png" alt="Create Feature" width="600" />
+
+Feature keys must be all lowercase and include only letters, numbers, hyphens, and underscores.
+
+Some examples of good feature keys:
+
+- `onboarding-checklist` - ON/OFF flag for a feature
+- `checkout_button_color` - The color of the checkout button
+- `results-per-page` - Number of search results to show per page
+
+## Default Values
+
+Each feature has a default value that is used when there are no matching rules for the user. A feature that is enabled
+on an environment, with no rules, will use the default value. The default values also depend on the feature type.
+
+## Override Rules
+
+Default values are overridden by **override rules**. Override rules are used to target specific users or groups of users,
+or when launching A/B tests. For more information, see our page on [override rules](/features/rules).
+
+## Feature Types
+
+Features can be a simple ON/OFF flag or a more complex data type (strings, numbers or JSON) which can be used for remote
+configuration. The type of feature you select depends on your use case.
+
+### Boolean (ON/OFF) Flags
+
+ON/OFF flags can support any of the following use cases:
+
+- Decouple code deploys and releases
+- Kill switch for production
+- Gradual rollout of features
+- Complex targeting and segmentation of features
+- Validating feature releases with A/B tests
+
+Boolean feature flags may only have two values, on and off, so they are best used for simple use cases. Boolean feature
+flags are limited to 2 variations with A/B tests for this reason.
+
+For example, if you have a checkout button that is currently blue, you could use an boolean flag called `new-button-color`
+that sets it to red when ON. This is pretty limiting since you can't easily try other colors in the future without
+changing the code. You may want to use one of the other feature types.
+
+### String Flags
+
+String flag types support sending arbitrary string values to your application. This is useful for remote configuration,
+and also for multivariate A/B testing. For our previous example, you could use a string flag named `button-color` where
+you can easily set the value to 'blue', 'red', 'green', or any other color without changing your code.
+
+### Number Flags
+
+Similar to string flags, number flags support sending arbitrary numeric values to your application.
+
+### JSON Flags
+
+JSON flags support sending arbitrary JSON objects to your application. This is useful for remote configuration, and also
+when you want to send multiple values down to the SDK or code.
+
+JSON feature flags also support JSON validation, which allows you to validate the JSON object against a JSON schema. This
+feature is useful for validating the structure of the JSON object before sending it to your application to eliminate
+chances of typos. Currently, JSON validation is part of our enterprise plan.
+
+## Publishing Changes
+
+When you make changes to a feature's definition (default value or override rules), a new draft version of the feature is created automatically. This draft version is unpublished and is only visible within the GrowthBook UI, not to your users.
+
+You can continue adding changes to this draft and when you are ready, publish them all at once with an optional commit message.
+
+![Draft Modal](/images/features/feature-publishing.png)
+
+## Revision History
+
+You can view a revision history for your feature and revert to a past version by clicking the blue revert icons. This will create a new draft based on the past version you select, so you can safely review it (or add additional changes) before deciding to publish.
+
+![Feature Revisions](/images/feature-revisions.png)
