@@ -7,11 +7,10 @@ import {
 } from "@growthbook/growthbook";
 import { AppFeatures } from "front-end/types/app-features";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
+import { getAccountPlan, getLicense } from "enterprise";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
-import { getAccountPlan } from "../../util/organization.util";
 import { sha256 } from "../features";
-import { getLicense } from "../../init/license";
 import { logger } from "../../util/logger";
 
 export async function initializeSdk(
