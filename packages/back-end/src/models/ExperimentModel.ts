@@ -95,6 +95,7 @@ const experimentSchema = new mongoose.Schema({
   releasedVariationId: String,
   currentPhase: Number,
   autoAssign: Boolean,
+  // Legacy field, no longer used when creating experiments
   implementation: String,
   previewURL: String,
   targetURLRegex: String,

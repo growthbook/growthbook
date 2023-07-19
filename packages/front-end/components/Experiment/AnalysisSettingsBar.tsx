@@ -344,12 +344,9 @@ export default function AnalysisSettingsBar({
                   >
                     <RunQueriesButton
                       cta="Update Data"
-                      initialStatus={status}
-                      statusEndpoint={`/snapshot/${latest.id}/status`}
                       cancelEndpoint={`/snapshot/${latest.id}/cancel`}
-                      onReady={() => {
-                        mutate();
-                      }}
+                      mutate={mutate}
+                      model={latest}
                       icon="refresh"
                       color="outline-primary"
                     />

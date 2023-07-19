@@ -2,7 +2,7 @@ import { ExperimentPhaseStringDates } from "back-end/types/experiment";
 import React, { ReactNode } from "react";
 import qs from "query-string";
 
-function trafficSplitPercentages(weights: number[]): number[] {
+export function trafficSplitPercentages(weights: number[]): number[] {
   const sum = weights.reduce((sum, n) => sum + n, 0);
   return weights.map((w) => +((w / sum) * 100));
 }

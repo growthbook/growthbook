@@ -3,9 +3,10 @@ import Tag from "./Tag";
 
 export interface Props {
   tags?: string[];
+  skipFirstMargin?: boolean;
 }
 
-export default function SortedTags({ tags }: Props) {
+export default function SortedTags({ tags, skipFirstMargin }: Props) {
   const { tags: all } = useDefinitions();
 
   if (!tags || !tags.length) return null;
@@ -19,8 +20,8 @@ export default function SortedTags({ tags }: Props) {
 
   return (
     <>
-      {sorted.map((tag) => (
-        <Tag tag={tag} key={tag} />
+      {sorted.map((tag, i) => (
+        <Tag tag={tag} key={tag} skipMargin={skipFirstMargin && i === 0} />
       ))}
     </>
   );

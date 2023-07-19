@@ -4,6 +4,7 @@ import uniqid from "uniqid";
 import fetch from "node-fetch";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
+import { orgHasPremiumFeature } from "enterprise";
 import { FeatureDefinition, FeatureDefinitionRule } from "../../types/api";
 import {
   FeatureDraftChanges,
@@ -33,7 +34,6 @@ import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { orgHasPremiumFeature } from "../util/organization.util";
 import { FASTLY_API_TOKEN, FASTLY_SERVICE_ID } from "../util/secrets";
 import { getEnvironments, getOrganizationById } from "./organizations";
 

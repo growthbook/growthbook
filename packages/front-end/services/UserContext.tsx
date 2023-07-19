@@ -1,11 +1,8 @@
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import {
-  AccountPlan,
-  CommercialFeature,
   EnvScopedPermission,
   GlobalPermission,
-  LicenseData,
   MemberRole,
   ExpandedMember,
   OrganizationInterface,
@@ -14,6 +11,7 @@ import {
   Role,
   ProjectScopedPermission,
 } from "back-end/types/organization";
+import type { AccountPlan, CommercialFeature, LicenseData } from "enterprise";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useRouter } from "next/router";
 import {
