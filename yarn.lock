@@ -7753,6 +7753,15 @@ axios@^0.27.2:
     follow-redirects "^1.14.9"
     form-data "^4.0.0"
 
+axios@^1.4.0:
+  version "1.4.0"
+  resolved "https://registry.yarnpkg.com/axios/-/axios-1.4.0.tgz#38a7bf1224cd308de271146038b551d725f0be1f"
+  integrity sha512-S4XCWMEmzvo64T9GfvQDOXgYRDJ/wsSZc7Jvdgx5u1sd0JwsuPLqb3SYmusag+edF6ziyMensPVqLTSc1PiSEA==
+  dependencies:
+    follow-redirects "^1.15.0"
+    form-data "^4.0.0"
+    proxy-from-env "^1.1.0"
+
 babel-jest@^27.5.1:
   version "27.5.1"
   resolved "https://registry.yarnpkg.com/babel-jest/-/babel-jest-27.5.1.tgz#a1bf8d61928edfefd21da27eb86a695bfd691444"
@@ -11350,6 +11359,11 @@ follow-redirects@^1.10.0, follow-redirects@^1.14.9:
   resolved "https://registry.yarnpkg.com/follow-redirects/-/follow-redirects-1.15.1.tgz#0ca6a452306c9b276e4d3127483e29575e207ad5"
   integrity sha512-yLAMQs+k0b2m7cVxpS1VKJVvoz7SS9Td1zss3XRwXj+ZDH00RJgnuLx7E44wx02kQLrdM3aOOy+FpzS7+8OizA==
 
+follow-redirects@^1.15.0:
+  version "1.15.2"
+  resolved "https://registry.yarnpkg.com/follow-redirects/-/follow-redirects-1.15.2.tgz#b460864144ba63f2681096f274c4e57026da2c13"
+  integrity sha512-VQLG33o04KaQ8uYi2tVNbdrWp1QWxNNea+nmIB4EVM28v0hmP17z7aG1+wAkNzVq4KeXTq3221ye5qTJP91JwA==
+
 for-each@^0.3.3:
   version "0.3.3"
   resolved "https://registry.yarnpkg.com/for-each/-/for-each-0.3.3.tgz#69b447e88a0a5d32c3e7084f3f1710034b21376e"
@@ -12037,15 +12051,16 @@ graceful-fs@^4.1.11, graceful-fs@^4.1.15, graceful-fs@^4.1.2, graceful-fs@^4.1.6
   resolved "https://registry.yarnpkg.com/graceful-fs/-/graceful-fs-4.2.10.tgz#147d3a006da4ca3ce14728c7aefc287c367d7a6c"
   integrity sha512-9ByhssR2fPVsNZj478qUUbKfmL0+t5BDVyjShtyZZLiK7ZDAArFFfopyOTj0M05wE2tJPisA4iTnnXl2YoPvOA==
 
-growthbook@^0.0.2:
-  version "0.0.2"
-  resolved "https://registry.yarnpkg.com/growthbook/-/growthbook-0.0.2.tgz#84d9431e23e2a119dbf7728a9607a9e28b7ff1f9"
-  integrity sha512-YB8FkgnZgZscV6kr9Wci4de6Zu5b5JnN0J2BbFRMr8+jdQV8O76wP8tqHAJ8KPtQbWYcgtKs0iGYUhGo1DtIAA==
+growthbook@^0.2.1:
+  version "0.2.1"
+  resolved "https://registry.yarnpkg.com/growthbook/-/growthbook-0.2.1.tgz#8062d99ee0ff66dbfeacd69409e423a7c81d3ac4"
+  integrity sha512-R/5jR/gAVDNFkuMZkQWsv31ekpsQiQFIQLSU9IWlxAwmgUzq+vuR5+zjWpW5/e/spRaGaMmDTPCWu/UNr8893A==
   dependencies:
     "@iarna/toml" "^2.2.5"
     "@oclif/core" "^2"
     "@oclif/plugin-help" "^5"
     "@oclif/plugin-plugins" "^2.3.2"
+    axios "^1.4.0"
     chalk "^4.1.2"
     handlebars "^4.7.7"
     node-fetch "2"
