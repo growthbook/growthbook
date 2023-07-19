@@ -192,6 +192,13 @@ const navlinks: SidebarLinkProps[] = [
         feature: "slack-integration",
       },
       {
+        name: "Import your data",
+        href: "/importing",
+        path: /^importing/,
+        feature: "import-from-x",
+        permissions: ["manageFeatures", "manageEnvironments", "manageProjects"],
+      },
+      {
         name: "Billing",
         href: "/settings/billing",
         path: /^settings\/billing/,
