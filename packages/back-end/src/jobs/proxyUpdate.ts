@@ -52,9 +52,11 @@ export default function addProxyUpdateJob(ag: Agenda) {
       .update(payload)
       .digest("hex");
 
-    const url = IS_CLOUD
-      ? `https://proxy.growthbook.io/proxy/features`
-      : `${connection.proxy.host}/proxy/features`;
+    const hasLocalProxy = connection.proxy.enabled && connection.proxy.host;
+    let url = `${connection.proxy.host}/proxy/features`;
+    if (IS_CLOUD && !hasLocalProxy) {
+      url = `https://proxy.growthbook.io/proxy/features`;
+    }
 
     const { responseWithoutBody: res } = await cancellableFetch(
       url,
@@ -150,9 +152,15 @@ export async function queueProxyUpdate(
   }
 }
 
+// todo: deprecate this method once streaming is fully rolled out for all cloud users
 function connectionSupportsProxyUpdate(connection: SDKConnectionInterface) {
-  // note: sseEnabled indicates that we are using Cloud Proxy behind the scenes
-  if (IS_CLOUD) return !!connection.sseEnabled;
+  // Both self-hosted and cloud customers can configure a local proxy server. Check for presence:
+  let proxySupported = !!(connection.proxy.enabled && connection.proxy.host);
 
-  return !!(connection.proxy.enabled && connection.proxy.host);
+  // Cloud customers may also be using Cloud Proxy. Check for enabled (sseEnabled === true):
+  if (IS_CLOUD && !proxySupported) {
+    proxySupported = !!connection.sseEnabled;
+  }
+
+  return proxySupported;
 }
