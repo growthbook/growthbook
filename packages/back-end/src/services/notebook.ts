@@ -14,8 +14,29 @@ import { MetricInterface } from "../../types/metric";
 import { ExperimentReportArgs } from "../../types/report";
 import { getReportById } from "../models/ReportModel";
 import { Queries } from "../../types/query";
+import { QueryMap } from "../queryRunners/QueryRunner";
+import { getQueriesByIds } from "../models/QueryModel";
 import { reportArgsFromSnapshot } from "./reports";
-import { getQueryData } from "./queries";
+
+async function getQueryData(
+  queries: Queries,
+  organization: string,
+  map?: QueryMap
+): Promise<QueryMap> {
+  const docs = await getQueriesByIds(
+    organization,
+    queries.map((q) => q.query)
+  );
+
+  const res: QueryMap = map || new Map();
+  docs.forEach((doc) => {
+    const match = queries.filter((q) => q.query === doc.id)[0];
+    if (!match) return;
+    res.set(match.name, doc);
+  });
+
+  return res;
+}
 
 export async function generateReportNotebook(
   reportId: string,

@@ -255,7 +255,8 @@ const VisualChangesetModal: FC<{
             });
           }}
         >
-          <GBAddCircle /> Add URL Target
+          <GBAddCircle className="mr-1" />
+          Add URL Target
         </button>
       </div>
 

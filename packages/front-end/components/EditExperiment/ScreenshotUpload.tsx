@@ -7,6 +7,7 @@ import React, {
 import { useDropzone } from "react-dropzone";
 import { Screenshot } from "back-end/types/experiment";
 import clsx from "clsx";
+import { BiImageAdd } from "react-icons/bi";
 import { useAuth } from "@/services/auth";
 import { uploadFile } from "@/services/files";
 import LoadingOverlay from "../LoadingOverlay";
@@ -17,12 +18,14 @@ type props = {
   experiment: string;
   variation: number;
   onSuccess: (variation: number, screenshot: Screenshot) => void;
+  newUi?: boolean;
 };
 
 const ScreenshotUpload = ({
   experiment,
   variation,
   onSuccess,
+  newUi,
 }: props): ReactElement => {
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(0);
@@ -66,6 +69,27 @@ const ScreenshotUpload = ({
     HTMLAttributes<HTMLDivElement>,
     HTMLDivElement
   >;
+
+  if (newUi) {
+    return (
+      <>
+        <div
+          {...typedRootProps}
+          className={clsx(styles.droparea, styles.dropareaNewUi, "my-1", {
+            [styles.dragging]: isDragActive,
+          })}
+        >
+          {loading > 0 ? <LoadingOverlay /> : ""}
+          <input {...getInputProps()} />
+          <div className={styles.message}>Drop Image Here...</div>
+          <span className={styles.textlink}>
+            <BiImageAdd className="mr-1" style={{ fontSize: 20 }} />
+            Add Screenshot
+          </span>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>

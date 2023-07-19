@@ -1,5 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { dateStringArrayBetweenDates, getValidDate } from "shared/dates";
+import { format as formatDate, subDays } from "date-fns";
 import { MetricInterface, MetricType } from "../../types/metric";
 import {
   DataSourceSettings,
@@ -90,7 +91,11 @@ export default abstract class SqlIntegration
   }
 
   isAutoGeneratingMetricsSupported(): boolean {
-    const supportedEventTrackers: SchemaFormat[] = ["segment", "rudderstack"];
+    const supportedEventTrackers: SchemaFormat[] = [
+      "segment",
+      "rudderstack",
+      "ga4",
+    ];
 
     if (
       this.settings.schemaFormat &&
@@ -1440,6 +1445,20 @@ export default abstract class SqlIntegration
   }
   getSchemaFormatConfig(schemaFormat: SchemaFormat): SchemaFormatConfig {
     switch (schemaFormat) {
+      case "ga4": {
+        return {
+          trackedEventTableName: "events_*",
+          eventColumn: "event_name",
+          timestampColumn: "TIMESTAMP_MICROS(event_timestamp)",
+          userIdColumn: "user_id",
+          anonymousIdColumn: "user_pseudo_id",
+          includesPagesTable: false,
+          includesScreensTable: false,
+          groupByColumns: ["event"],
+          eventHasUniqueTable: false,
+          dateFormat: "yyyyMMdd",
+        };
+      }
       // Segment & Rudderstack
       default: {
         return {
@@ -1451,6 +1470,9 @@ export default abstract class SqlIntegration
           displayNameColumn: "event_text",
           includesPagesTable: true,
           includesScreensTable: true,
+          groupByColumns: ["event", "received_at", "displayName"],
+          eventHasUniqueTable: true,
+          dateFormat: "yyyy-MM-dd",
         };
       }
     }
@@ -1465,16 +1487,21 @@ export default abstract class SqlIntegration
       timestampColumn,
       userIdColumn,
       anonymousIdColumn,
+      eventHasUniqueTable,
+      trackedEventTableName,
     } = this.getSchemaFormatConfig(schemaFormat);
 
     const sqlQuery = `
-    SELECT
-    ${
-      hasUserId ? `${userIdColumn}, ` : ""
-    }${anonymousIdColumn} as anonymous_id, ${timestampColumn} as timestamp
-    ${type === "count" ? `, 1 as value` : ""}
-     FROM ${this.generateTablePath(event)}
-  `;
+      SELECT
+        ${hasUserId ? `${userIdColumn}, ` : ""}
+        ${anonymousIdColumn} as anonymous_id,
+        ${timestampColumn} as timestamp
+        ${type === "count" ? `, 1 as value` : ""}
+      FROM ${this.generateTablePath(
+        eventHasUniqueTable ? event : trackedEventTableName
+      )}
+      ${eventHasUniqueTable ? "" : `WHERE event_name = '${event}'`}
+`;
 
     return format(sqlQuery, this.getFormatDialect());
   }
@@ -1542,12 +1569,13 @@ export default abstract class SqlIntegration
       displayNameColumn,
       includesPagesTable,
       includesScreensTable,
+      groupByColumns,
+      eventHasUniqueTable,
+      dateFormat,
     } = this.getSchemaFormatConfig(schemaFormat);
 
-    const currentDateTime = new Date();
-    const SevenDaysAgo = new Date(
-      currentDateTime.valueOf() - 7 * 60 * 60 * 24 * 1000
-    );
+    const today = formatDate(new Date(), dateFormat);
+    const sevenDaysAgo = formatDate(subDays(new Date(), 7), dateFormat);
 
     const sql = `
         SELECT
@@ -1558,14 +1586,15 @@ export default abstract class SqlIntegration
           MAX(${timestampColumn}) as lastTrackedAt
         FROM
           ${this.generateTablePath(trackedEventTableName)}
-          WHERE received_at < '${currentDateTime
-            .toISOString()
-            .slice(
-              0,
-              10
-            )}' AND received_at > '${SevenDaysAgo.toISOString().slice(0, 10)}'
-          AND event NOT IN ('experiment_viewed', 'experiment_started')
-          GROUP BY event, ${timestampColumn}, displayName`;
+        WHERE
+          ${
+            eventHasUniqueTable
+              ? `received_at < '${today}' AND received_at > '${sevenDaysAgo}'`
+              : `_TABLE_SUFFIX BETWEEN '${sevenDaysAgo}' AND'${today}'`
+          } 
+        AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
+        GROUP BY ${groupByColumns.join(", ")}
+    `;
 
     const results = await this.runQuery(format(sql, this.getFormatDialect()));
 
@@ -1579,12 +1608,7 @@ export default abstract class SqlIntegration
            MAX(${timestampColumn}) as lastTrackedAt
         FROM
            ${this.generateTablePath("pages")}
-        WHERE received_at < '${currentDateTime
-          .toISOString()
-          .slice(0, 10)}' AND received_at > '${SevenDaysAgo.toISOString().slice(
-        0,
-        10
-      )}'`;
+        WHERE received_at < '${today}' AND received_at > '${sevenDaysAgo}'`;
 
       try {
         const pageViewedResults = await this.runQuery(
@@ -1611,12 +1635,7 @@ export default abstract class SqlIntegration
            MAX(${timestampColumn}) as lastTrackedAt
         FROM
            ${this.generateTablePath("screens")}
-        WHERE received_at < '${currentDateTime
-          .toISOString()
-          .slice(0, 10)}' AND received_at > '${SevenDaysAgo.toISOString().slice(
-        0,
-        10
-      )}'`;
+        WHERE received_at < '${today}' AND received_at > '${sevenDaysAgo}'`;
 
       try {
         const screenViewedResults = await this.runQuery(
