@@ -69,6 +69,9 @@ def create_notebook(
         dimension if dimension in ["pre:datedaily", "pre:datecumulative"] else ""
     )
     gbstats_version: str = "0.6.0" if time_series else "0.5.0"
+    additional_import_statement = (
+        ("    diff_for_daily_time_series,\n") if time_series else ""
+    )
     cells = [
         nbf.new_markdown_cell(
             f"# {name}\n"
@@ -86,9 +89,9 @@ def create_notebook(
             "from gbstats.gbstats import (\n"
             "    analyze_metric_df,\n"
             "    detect_unknown_variations,\n"
-            "    diff_for_daily_time_series,\n"
+            f"{additional_import_statement}"
             "    get_metric_df,\n"
-            "    reduce_dimensionality\n"
+            "    reduce_dimensionality,\n"
             ")\n"
             "from gbstats.shared.constants import StatsEngine\n\n"
             "# Mapping of variation id to index\n"
