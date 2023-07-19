@@ -322,6 +322,11 @@ export function getFeatureDefinition({
               .map((w) => (w < 0 ? 0 : w > 1 ? 1 : w))
               .map((w) => roundVariationWeight(w));
 
+            rule.meta = r.values.map((v, i) => ({
+              key: i + "",
+              name: v.name,
+            }));
+
             if (r.trackingKey) {
               rule.key = r.trackingKey;
             }
