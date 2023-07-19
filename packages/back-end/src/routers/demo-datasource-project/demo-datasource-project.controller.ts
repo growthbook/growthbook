@@ -2,10 +2,9 @@ import type { Response } from "express";
 import { AuthRequest } from "../../types/AuthRequest";
 import { PrivateApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
-import { EventAuditUserForResponseLocals } from '../../events/event-types';
-import { createProject } from "../../models/ProjectModel";
-import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource/demo-datasource.utils";
+import { EventAuditUserForResponseLocals } from "../../events/event-types";
+import { createProject, deleteProjectById } from "../../models/ProjectModel";
+//import { getDemoDatasourceProjectIdForOrganization } from "shared/src/demo-datasource/demo-datasource.utils";
 import { PostgresConnectionParams } from "../../../types/integrations/postgres";
 import { createDataSource } from "../../models/DataSourceModel";
 import { createMetric } from "../../services/experiments";
@@ -13,91 +12,137 @@ import { DataSourceSettings } from "../../../types/datasource";
 import { ExperimentInterface } from "../../../types/experiment";
 import { MetricInterface } from "../../../types/metric";
 import { createExperiment } from "../../models/ExperimentModel";
+import { ProjectInterface } from "../../../types/project";
 
 // region POST /demo-datasource-project
+const DEMO_PROJECT_ID_SEPARATOR = "_";
+const DEMO_PROJECT_ID_SUFFIX = "demo-datasource-project";
 
-type CreateDemoDatasourceProjectRequest = AuthRequest<{ name: string; description: string }>;
-
-type CreateDemoDatasourceProjectResponse = {
-  demoDatasourceProject: unknown;
-};
+function getDemoDatasourceProjectIdForOrganization(
+  organizationId: string
+): string {
+  return (
+    "prj" +
+    DEMO_PROJECT_ID_SEPARATOR +
+    organizationId +
+    DEMO_PROJECT_ID_SEPARATOR +
+    DEMO_PROJECT_ID_SUFFIX
+  );
+}
 
 /**
  * START Constants for Demo Datasource
  */
 
 // Datasource constants
-const DATASOURCE_TYPE = "postgres"
+const DATASOURCE_TYPE = "postgres";
 const DEMO_DATASOURCE_SETTINGS: DataSourceSettings = {
+  userIdTypes: [{ userIdType: "user_id" }],
+  queries: {
+    exposure: [
+      {
+        id: "user_id",
+        name: "Logged-in User Experiments",
+        userIdType: "user_id",
+        query:
+          "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nexperimentId AS experiment_id,\nvariationId AS variation_id\nFROM experiment_viewed",
+        dimensions: [],
+      },
+    ],
+  },
 };
 
 const DEMO_DATASOURCE_PARAMS: PostgresConnectionParams = {
-  user: "string",
-  host: "string",
-  database: "string",
-  password: "string",
-  port: 0,
-  ssl: "string | boolean",
-  defaultSchema: "string",
+  user: "lukesonnet",
+  host: "localhost",
+  database: "sample",
+  password: "",
+  port: 5432,
+  ssl: false,
+  defaultSchema: "",
 };
 
 // Metric constants
-const METRIC_OWNER = 'datascience@growthbook.io';
-const DEMO_METRICS: Pick<MetricInterface, 'name' | 'description' | 'type' | 'sql' | 'conversionWindowHours' | 'conversionDelayHours' | 'aggregation'>[] = [
+const METRIC_OWNER = "datascience@growthbook.io";
+const DEMO_METRICS: Pick<
+  MetricInterface,
+  | "name"
+  | "description"
+  | "type"
+  | "sql"
+  | "conversionWindowHours"
+  | "conversionDelayHours"
+  | "aggregation"
+>[] = [
   {
     name: "Purchases - Total Revenue (72 hour window)",
     description: "The total amount of USD spent aggregated at the user level",
     type: "revenue",
-    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value FROM purchases",
+    sql:
+      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
   },
   {
     name: "Purchases - Any Order (72 hour window)",
     description: "Whether the user places any order or not (0/1)",
     type: "binomial",
-    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp FROM purchases",
+    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM orders",
   },
   {
     name: "Purchases - Number of Orders (72 hour window)",
     description: "Total number of discrete orders placed by a user",
     type: "count",
-    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\n1 AS value FROM purchases",
+    sql:
+      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\n1 AS value\nFROM orders",
   },
   {
     name: "Retention - [1, 7) Days",
-    description: "Whether the user logged in 1-7 days after experiment exposure",
+    description:
+      "Whether the user logged in 1-7 days after experiment exposure",
     type: "binomial",
     conversionDelayHours: 24,
     conversionWindowHours: 144,
-    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp FROM pageViews WHERE path = '/'"
+    sql:
+      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM pages WHERE path = '/'",
   },
   {
     name: "Retention - [7, 14) Days",
-    description: "Whether the user logged in 7-14 days after experiment exposure",
+    description:
+      "Whether the user logged in 7-14 days after experiment exposure",
     type: "binomial",
     conversionDelayHours: 168,
     conversionWindowHours: 168,
-    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp FROM pageViews WHERE path = '/'"
+    sql:
+      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM pages WHERE path = '/'",
   },
   {
     name: "Days Active in Next 7 Days",
-    description: "Count of times the user was active in the next 7 days after exposure",
+    description:
+      "Count of times the user was active in the next 7 days after exposure",
     type: "count",
     conversionWindowHours: 168,
     aggregation: "COUNT(DISTINCT value)",
-    sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nDATE_TRUNC('day', timestamp) AS value FROM pageViews WHERE path = '/'"
-  }
-]
+    sql:
+      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nDATE_TRUNC('day', timestamp) AS value\nFROM pages WHERE path = '/'",
+  },
+];
 
-const DEMO_RATIO_METRIC: Pick<MetricInterface, 'name' | 'description' | 'type' | 'sql'> = {
-  name: "Purcahses - Average Order Value (ratio)",
-  description: "The average value of purchases made in the 72 hours after exposure divided by the total number of purchases",
+const DEMO_RATIO_METRIC: Pick<
+  MetricInterface,
+  "name" | "description" | "type" | "sql"
+> = {
+  name: "Purchases - Average Order Value (ratio)",
+  description:
+    "The average value of purchases made in the 72 hours after exposure divided by the total number of purchases",
   type: "revenue",
-  sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value FROM purchases"
+  sql:
+    "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
 };
 
-
 // Experiment constants
-const DEMO_EXPERIMENTS: Pick<ExperimentInterface, 'name' | 'trackingKey' | 'variations'>[] = [
+const DEMO_EXPERIMENTS: Pick<
+  ExperimentInterface,
+  "name" | "trackingKey" | "variations"
+>[] = [
   {
     name: "checkout-layout",
     trackingKey: "checkout-layout",
@@ -106,20 +151,20 @@ const DEMO_EXPERIMENTS: Pick<ExperimentInterface, 'name' | 'trackingKey' | 'vari
         id: "0",
         key: "0",
         name: "Control",
-        screenshots: []
+        screenshots: [],
       },
       {
         id: "0",
         key: "1",
         name: "Compact",
-        screenshots: []
+        screenshots: [],
       },
       {
         id: "0",
         key: "2",
         name: "Spaced Out",
-        screenshots: []
-      }
+        screenshots: [],
+      },
     ],
   },
   {
@@ -130,21 +175,28 @@ const DEMO_EXPERIMENTS: Pick<ExperimentInterface, 'name' | 'trackingKey' | 'vari
         id: "0",
         key: "0",
         name: "Control",
-        screenshots: []
+        screenshots: [],
       },
       {
         id: "0",
         key: "1",
         name: "Hide discount",
-        screenshots: []
+        screenshots: [],
       },
     ],
   },
-]
+];
 
 /**
  * END Constants for Demo Datasource
  */
+
+type CreateDemoDatasourceProjectRequest = AuthRequest;
+
+type CreateDemoDatasourceProjectResponse = {
+  status: 200;
+  project: ProjectInterface;
+};
 
 /**
  * POST /demo-datasource-project
@@ -165,11 +217,18 @@ export const postDemoDatasourceProject = async (
   req.checkPermissions("createAnalyses", "");
 
   const { org } = getOrgFromReq(req);
-  const statsEngine = org.settings?.statsEngine || DEFAULT_STATS_ENGINE;
 
   try {
+    // TODO smarter management for cases when project exists
+    // TODO throw appropriate error after each step
+    await deleteProjectById(
+      getDemoDatasourceProjectIdForOrganization(org.id),
+      org.id
+    );
+
     const project = await createProject(org.id, {
-      name: getDemoDatasourceProjectIdForOrganization(org.id),
+      id: getDemoDatasourceProjectIdForOrganization(org.id),
+      name: "GrowthBook Demo Project",
       description: "GrowthBook Demo Project",
     });
 
@@ -185,42 +244,79 @@ export const postDemoDatasourceProject = async (
     );
 
     // Create metrics
-    const metrics = await Promise.all(DEMO_METRICS.map(async (m) => {
-      return createMetric({
-        ...m, 
-        owner: METRIC_OWNER, 
-        datasource: datasource.id,
-        projects: [project.id],
-        tags: ["growthbook-demo-datasource"],
-      });
-    }));
+    const metrics = await Promise.all(
+      DEMO_METRICS.map(async (m) => {
+        return createMetric({
+          ...m,
+          organization: org.id,
+          owner: METRIC_OWNER,
+          userIdColumns: { user_id: "user_id" },
+          userIdTypes: ["user_id"],
+          datasource: datasource.id,
+          projects: [project.id],
+          tags: ["growthbook-demo"],
+        });
+      })
+    );
 
     const ratioMetric = await createMetric({
       ...DEMO_RATIO_METRIC,
-      denominator: metrics.find(x => x.name === "Purchases - Number of Orders (72 hour window)")?.id,
-      owner: METRIC_OWNER, 
+      denominator: metrics.find(
+        (x) => x.name === "Purchases - Number of Orders (72 hour window)"
+      )?.id,
+      organization: org.id,
+      owner: METRIC_OWNER,
+      userIdColumns: { user_id: "user_id" },
+      userIdTypes: ["user_id"],
       datasource: datasource.id,
       projects: [project.id],
-      tags: ["growthbook-demo-datasource"],
+      tags: ["growthbook-demo"],
     });
 
     // Create experiments
-    const experiments = await Promise.all(DEMO_EXPERIMENTS.map(async (e) => {
-      return createExperiment({
-        data: {
-          ...e, 
-          owner: METRIC_OWNER, 
-          datasource: datasource.id,
-          project: project.id,
-          tags: ["growthbook-demo-datasource"],
-        },
-        organization: org,
-        user: ''
-      });
-    }));
-  } catch {
-    throw new Error('TODO');
+    await Promise.all(
+      DEMO_EXPERIMENTS.map(async (e) => {
+        return createExperiment({
+          data: {
+            ...e,
+            owner: METRIC_OWNER,
+            datasource: datasource.id,
+            project: project.id,
+            metrics: metrics.map((m) => m.id).concat(ratioMetric.id),
+            exposureQueryId: "user_id",
+            // TODO set correct date and variation
+            phases: [
+              {
+                dateStarted: new Date(),
+                name: "",
+                reason: "",
+                coverage: 1,
+                condition: "",
+                namespace: { enabled: false, name: "", range: [0, 1] },
+                variationWeights: [0.5, 0.5],
+              },
+            ],
+            status: "running",
+            tags: ["growthbook-demo"],
+          },
+          organization: org,
+          user: res.locals.eventAudit,
+        });
+      })
+    );
+
+    res.status(200).json({
+      status: 200,
+      project: project,
+    });
+    // TODO create experiment snapshots?
+  } catch (e) {
+    res.status(403).json({
+      status: 403,
+      message: e.message,
+    });
   }
+  return;
 };
 
 // endregion POST /demo-datasource-project
