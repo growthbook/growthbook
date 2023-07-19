@@ -482,8 +482,10 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
           service: "launchdarkly",
           resource: "environment",
           successCount: completedEnvs.length,
-          skippedCount: failedEnvs.filter((r) => r.status === "fail").length,
-          failedCount: failedEnvs.filter((r) => r.status === "retry").length,
+          skippedCount: failedEnvs.filter((t) => t.result.status === "fail")
+            .length,
+          failedCount: failedEnvs.filter((t) => t.result.status === "retry")
+            .length,
         });
       };
 
@@ -647,9 +649,9 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
           service: "launchdarkly",
           resource: "feature",
           successCount: completedFeatures.length,
-          skippedCount: failedFeatures.filter((r) => r.status === "fail")
+          skippedCount: failedFeatures.filter((t) => t.result.status === "fail")
             .length,
-          failedCount: failedFeatures.filter((r) => r.status === "retry")
+          failedCount: failedFeatures.filter((t) => t.result.status === "retry")
             .length,
         });
       };
@@ -784,9 +786,9 @@ export const useImportFromLaunchDarkly = (): UseImportFromLaunchDarkly => {
           service: "launchdarkly",
           resource: "project",
           successCount: projectsCompleted.length,
-          skippedCount: projectsFailed.filter((r) => r.status === "fail")
+          skippedCount: projectsFailed.filter((t) => t.result.status === "fail")
             .length,
-          failedCount: projectsFailed.filter((r) => r.status === "retry")
+          failedCount: projectsFailed.filter((t) => t.result.status === "retry")
             .length,
         });
       };

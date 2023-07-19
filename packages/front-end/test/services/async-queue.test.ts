@@ -24,22 +24,8 @@ describe("async queue", () => {
     },
   ];
 
-  it("should not mutate the task list", async () => {
+  beforeEach(() => {
     deepFreeze(tasks);
-
-    const mockPerform = jest.fn().mockResolvedValue({
-      status: "success",
-      data: { echo: "the number is -1" },
-    });
-
-    const result = await enqueueTasks<MyMockDataType, MyMockResultType>(tasks, {
-      perform: mockPerform,
-      onProgress: () => undefined,
-    });
-
-    expect(result.completed).toEqual(["one", "two", "three", "four"]);
-    expect(result.failed).toEqual([]);
-    expect(mockPerform.mock.calls).toHaveLength(4);
   });
 
   it("should enqueue provided tasks and call them with the provided delay", async () => {
@@ -73,7 +59,44 @@ describe("async queue", () => {
       onProgress: mockOnProgress,
     });
 
-    expect(result.completed).toEqual(["one", "two", "three", "four"]);
+    expect(result.completed).toEqual([
+      {
+        id: "one",
+        result: {
+          data: {
+            echo: "the number is 1",
+          },
+          status: "success",
+        },
+      },
+      {
+        id: "two",
+        result: {
+          data: {
+            echo: "the number is 2",
+          },
+          status: "success",
+        },
+      },
+      {
+        id: "three",
+        result: {
+          data: {
+            echo: "the number is 3",
+          },
+          status: "success",
+        },
+      },
+      {
+        id: "four",
+        result: {
+          data: {
+            echo: "the number is 4",
+          },
+          status: "success",
+        },
+      },
+    ]);
     expect(result.failed).toEqual([]);
     // perform function is called
     expect(mockPerformAsync.mock.calls).toHaveLength(4);
@@ -153,8 +176,42 @@ describe("async queue", () => {
       );
 
       // correct results
-      expect(result.completed).toEqual(["two", "four"]);
-      expect(result.failed).toEqual(["three", "one"]);
+      expect(result.completed).toEqual([
+        {
+          id: "two",
+          result: {
+            data: {
+              echo: "the number is 2",
+            },
+            status: "success",
+          },
+        },
+        {
+          id: "four",
+          result: {
+            data: {
+              echo: "the number is 4",
+            },
+            status: "success",
+          },
+        },
+      ]);
+      expect(result.failed).toEqual([
+        {
+          id: "three",
+          result: {
+            status: "fail",
+            error: "This task was programmed to: fail",
+          },
+        },
+        {
+          id: "one",
+          result: {
+            status: "retry",
+            error: "This task was programmed to: retry",
+          },
+        },
+      ]);
       expect(mockOnProgress.mock.calls).toHaveLength(4);
       // the first call to onProgress is the successful task 'two' since 'one' needs to be retried
       expect(mockOnProgress.mock.calls[0][0]).toEqual("two");
@@ -230,8 +287,44 @@ describe("async queue", () => {
         }
       );
 
-      expect(result.completed).toEqual(["one", "three", "four"]);
-      expect(result.failed).toEqual(["two"]);
+      expect(result.completed).toEqual([
+        {
+          id: "one",
+          result: {
+            data: {
+              echo: "the number is 1",
+            },
+            status: "success",
+          },
+        },
+        {
+          id: "three",
+          result: {
+            data: {
+              echo: "the number is 3",
+            },
+            status: "success",
+          },
+        },
+        {
+          id: "four",
+          result: {
+            data: {
+              echo: "the number is 4",
+            },
+            status: "success",
+          },
+        },
+      ]);
+      expect(result.failed).toEqual([
+        {
+          id: "two",
+          result: {
+            status: "fail",
+            error: "cannot perform two (2)",
+          },
+        },
+      ]);
       // perform function is called
       // Progress is called
       expect(mockOnProgress.mock.calls).toHaveLength(4);
