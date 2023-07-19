@@ -341,10 +341,6 @@ app.put("/metric/:id", metricsController.putMetric);
 app.delete("/metric/:id", metricsController.deleteMetric);
 app.get("/metric/:id/usage", metricsController.getMetricUsage);
 app.post("/metric/:id/analysis", metricsController.postMetricAnalysis);
-app.get(
-  "/metric/:id/analysis/status",
-  metricsController.getMetricAnalysisStatus
-);
 app.post("/metric/:id/analysis/cancel", metricsController.cancelMetricAnalysis);
 
 // Experiments
@@ -362,7 +358,6 @@ app.get(
 );
 app.get("/experiment/:id", experimentsController.getExperiment);
 app.get("/experiment/:id/reports", reportsController.getReportsOnExperiment);
-app.get("/snapshot/:id/status", experimentsController.getSnapshotStatus);
 app.post("/snapshot/:id/cancel", experimentsController.cancelSnapshot);
 app.get("/experiment/:id/snapshot/:phase", experimentsController.getSnapshot);
 app.get(
@@ -409,10 +404,6 @@ app.get(
   "/experiments/import/:id",
   experimentsController.getPastExperimentsList
 );
-app.get(
-  "/experiments/import/:id/status",
-  experimentsController.getPastExperimentStatus
-);
 app.post(
   "/experiments/import/:id/cancel",
   experimentsController.cancelPastExperiments
@@ -441,7 +432,6 @@ app.delete(
 app.get("/report/:id", reportsController.getReport);
 app.put("/report/:id", reportsController.putReport);
 app.delete("/report/:id", reportsController.deleteReport);
-app.get("/report/:id/status", reportsController.getReportStatus);
 app.post("/report/:id/refresh", reportsController.refreshReport);
 app.post("/report/:id/cancel", reportsController.cancelReport);
 app.post("/report/:id/notebook", reportsController.postNotebook);
