@@ -1,5 +1,6 @@
 import { Response } from "express";
 import uniqid from "uniqid";
+import jwt from "jsonwebtoken";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -65,7 +66,7 @@ import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
-import { IMPORT_LIMIT_DAYS } from "../util/secrets";
+import { IMPORT_LIMIT_DAYS, JWT_SECRET } from "../util/secrets";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, FeatureInterface } from "../../types/feature";
 import {
@@ -2108,5 +2109,34 @@ export async function deleteVisualChangeset(
 
   res.status(200).json({
     status: 200,
+  });
+}
+
+export async function generateVisualEditorTempToken(
+  req: AuthRequest<{ experimentId: string; visualChangesetId: string }>,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+  const visualChangeset = await findVisualChangesetById(
+    req.body.visualChangesetId,
+    org.id
+  );
+
+  if (!visualChangeset) throw new Error("Visual changeset not found");
+  if (visualChangeset.experiment !== req.body.experimentId)
+    throw new Error("Visual changeset does not match experiment id");
+
+  const token = jwt.sign(
+    {
+      editorUrl: visualChangeset.editorUrl,
+    },
+    JWT_SECRET,
+    {
+      expiresIn: "1m",
+    }
+  );
+
+  res.status(200).json({
+    token,
   });
 }

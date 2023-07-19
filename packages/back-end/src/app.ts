@@ -428,6 +428,12 @@ app.delete(
   experimentsController.deleteVisualChangeset
 );
 
+// Visual editor auth
+app.post(
+  "/visual-editor/token",
+  experimentsController.generateVisualEditorTempToken
+);
+
 // Reports
 app.get("/report/:id", reportsController.getReport);
 app.put("/report/:id", reportsController.putReport);

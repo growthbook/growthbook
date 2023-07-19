@@ -1,33 +1,68 @@
-import { FC, useCallback, useMemo, useState } from "react";
+import { FC, MouseEvent, useCallback, useMemo, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { getApiHost } from "@/services/env";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
+import { useAuth } from "@/services/auth";
 import Modal from "./Modal";
+import LoadingSpinner from "./LoadingSpinner";
 
-// TODO - parameterize this
 const CHROME_EXTENSION_LINK =
   "https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia";
 
+const isChromeExtInstalledLocally = async () => {
+  try {
+    const resp = await fetch(
+      "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo192.png",
+      {
+        method: "HEAD",
+      }
+    );
+    return resp.status === 200;
+  } catch (e) {
+    return false;
+  }
+};
+
 const OpenVisualEditorLink: FC<{
-  visualEditorUrl?: string;
+  visualEditorUrl: string;
   id: string;
   openSettings?: () => void;
   changeIndex: number;
-}> = ({ id, visualEditorUrl, openSettings, changeIndex }) => {
+  experimentId: string;
+  visualChangesetId: string;
+}> = ({
+  id,
+  visualEditorUrl,
+  openSettings,
+  changeIndex,
+  experimentId,
+  visualChangesetId,
+}) => {
   const apiHost = getApiHost();
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const isChromeBrowser = useMemo(() => {
     const ua = navigator.userAgent;
     return ua.indexOf("Chrome") > -1 && ua.indexOf("Edge") === -1;
   }, []);
 
-  const url = useMemo(() => {
-    if (!visualEditorUrl) return "";
+  const { apiCall } = useAuth();
 
-    // Trim whitespace to prevent simple copy/paste errors
+  const fetchTempToken = useCallback(async () => {
+    const res = await apiCall<{ token: string }>("/visual-editor/token", {
+      method: "POST",
+      body: JSON.stringify({
+        experimentId,
+        visualChangesetId,
+      }),
+    });
+    return res.token;
+  }, [apiCall, experimentId, visualChangesetId]);
+
+  const genUrl = useCallback(async () => {
     let url = visualEditorUrl.trim();
 
     // Force all URLs to be absolute
@@ -37,54 +72,42 @@ const OpenVisualEditorLink: FC<{
       url = "http://" + url;
     }
 
+    const token = await fetchTempToken();
+
     url = appendQueryParamsToURL(url, {
       "vc-id": id,
       "v-idx": changeIndex,
       "exp-url": encodeURIComponent(window.location.href),
       "api-host": encodeURIComponent(apiHost),
+      t: token,
     });
 
     return url;
-  }, [visualEditorUrl, id, changeIndex, apiHost]);
+  }, [apiHost, changeIndex, id, visualEditorUrl, fetchTempToken]);
 
-  const navigate = useCallback(() => {
-    track("Open visual editor", {
-      source: "visual-editor-ui",
-      status: "success",
-    });
-    window.location.href = url;
-  }, [url]);
+  const navigate = useCallback(
+    async (e: MouseEvent) => {
+      e.preventDefault();
+      setShowExtensionDialog(false);
+      setIsNavigating(true);
+      const url = await genUrl();
+      track("Open visual editor", {
+        source: "visual-editor-ui",
+        status: "success",
+      });
+      setIsNavigating(false);
+      window.location.href = url;
+    },
+    [genUrl]
+  );
 
   return (
     <>
       <span
         className="btn btn-sm btn-primary"
+        style={{ width: "144px" }}
         onClick={async (e) => {
-          if (!visualEditorUrl) {
-            e.preventDefault();
-            setShowEditorUrlDialog(true);
-            track("Open visual editor", {
-              source: "visual-editor-ui",
-              status: "missing visualEditorUrl",
-            });
-            return false;
-          }
-
-          let isExtensionInstalled = false;
-          await fetch(
-            "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo192.png",
-            {
-              method: "HEAD",
-            }
-          )
-            .then((resp) => {
-              if (resp.status === 200) {
-                isExtensionInstalled = true;
-              }
-            })
-            .catch((e) => {
-              console.log("chrome extension check failed", e.message);
-            });
+          const isExtensionInstalled = await isChromeExtInstalledLocally();
 
           if (!isExtensionInstalled) {
             e.preventDefault();
@@ -96,12 +119,16 @@ const OpenVisualEditorLink: FC<{
             return false;
           }
 
-          if (url) {
-            navigate();
-          }
+          navigate(e);
         }}
       >
-        Open Visual Editor <FaExternalLinkAlt />
+        {isNavigating ? (
+          <LoadingSpinner />
+        ) : (
+          <>
+            Open Visual Editor <FaExternalLinkAlt />
+          </>
+        )}
       </span>
 
       {showEditorUrlDialog && openSettings && (

@@ -133,6 +133,8 @@ const drawChange = ({
                   id={vc.id}
                   changeIndex={1}
                   visualEditorUrl={vc.editorUrl}
+                  experimentId={experiment.id}
+                  visualChangesetId={vc.id}
                 />
               )}
               <DeleteButton
