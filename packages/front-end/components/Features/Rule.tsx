@@ -18,6 +18,7 @@ import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
 import RuleStatusPill from "./RuleStatusPill";
+import ExperimentRefSummary from "./ExperimentRefSummary";
 
 interface SortableProps {
   i: number;
@@ -241,16 +242,18 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             }}
             className="pt-1 position-relative"
           >
-            {rule.condition && rule.condition !== "{}" && (
-              <div className="row mb-3 align-items-top">
-                <div className="col-auto">
-                  <strong>IF</strong>
+            {rule.condition &&
+              rule.condition !== "{}" &&
+              rule.type !== "experiment-ref" && (
+                <div className="row mb-3 align-items-top">
+                  <div className="col-auto">
+                    <strong>IF</strong>
+                  </div>
+                  <div className="col">
+                    <ConditionDisplay condition={rule.condition} />
+                  </div>
                 </div>
-                <div className="col">
-                  <ConditionDisplay condition={rule.condition} />
-                </div>
-              </div>
-            )}
+              )}
             {rule.type === "force" && (
               <ForceSummary value={rule.value} feature={feature} />
             )}
@@ -268,6 +271,13 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 experiment={Object.values(experiments).find(
                   (exp) => exp.trackingKey === (rule.trackingKey || feature.id)
                 )}
+                rule={rule}
+              />
+            )}
+            {rule.type === "experiment-ref" && (
+              <ExperimentRefSummary
+                feature={feature}
+                experiment={experiments[rule.experimentId]}
                 rule={rule}
               />
             )}

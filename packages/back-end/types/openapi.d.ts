@@ -345,6 +345,17 @@ export interface components {
                   weight: number;
                   name?: string;
                 })[];
+            } | {
+              description: string;
+              id: string;
+              enabled: boolean;
+              type: string;
+              condition?: string;
+              variations: ({
+                  value: string;
+                  variationId: string;
+                })[];
+              experimentId: string;
             })[];
           /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
           definition?: string;
@@ -386,6 +397,17 @@ export interface components {
                     weight: number;
                     name?: string;
                   })[];
+              } | {
+                description: string;
+                id: string;
+                enabled: boolean;
+                type: string;
+                condition?: string;
+                variations: ({
+                    value: string;
+                    variationId: string;
+                  })[];
+                experimentId: string;
               })[];
             /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
             definition?: string;
@@ -438,6 +460,17 @@ export interface components {
               weight: number;
               name?: string;
             })[];
+        } | {
+          description: string;
+          id: string;
+          enabled: boolean;
+          type: string;
+          condition?: string;
+          variations: ({
+              value: string;
+              variationId: string;
+            })[];
+          experimentId: string;
         })[];
       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
       definition?: string;
@@ -479,6 +512,17 @@ export interface components {
                 weight: number;
                 name?: string;
               })[];
+          } | {
+            description: string;
+            id: string;
+            enabled: boolean;
+            type: string;
+            condition?: string;
+            variations: ({
+                value: string;
+                variationId: string;
+              })[];
+            experimentId: string;
           })[];
         /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
         definition?: string;
@@ -519,6 +563,17 @@ export interface components {
           weight: number;
           name?: string;
         })[];
+    } | {
+      description: string;
+      id: string;
+      enabled: boolean;
+      type: string;
+      condition?: string;
+      variations: ({
+          value: string;
+          variationId: string;
+        })[];
+      experimentId: string;
     };
     FeatureDefinition: {
       defaultValue: OneOf<[string, number, (unknown)[], any, null]>;
@@ -572,6 +627,18 @@ export interface components {
           weight: number;
           name?: string;
         })[];
+    };
+    FeatureExperimentRefRule: {
+      description: string;
+      id: string;
+      enabled: boolean;
+      type: string;
+      condition?: string;
+      variations: ({
+          value: string;
+          variationId: string;
+        })[];
+      experimentId: string;
     };
     SdkConnection: {
       id: string;
@@ -996,6 +1063,17 @@ export interface operations {
                             weight: number;
                             name?: string;
                           })[];
+                      } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        condition?: string;
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
                       })[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -1037,6 +1115,17 @@ export interface operations {
                               weight: number;
                               name?: string;
                             })[];
+                        } | {
+                          description: string;
+                          id: string;
+                          enabled: boolean;
+                          type: string;
+                          condition?: string;
+                          variations: ({
+                              value: string;
+                              variationId: string;
+                            })[];
+                          experimentId: string;
                         })[];
                       /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                       definition?: string;
@@ -1122,6 +1211,17 @@ export interface operations {
                           weight: number;
                           name?: string;
                         })[];
+                    } | {
+                      description: string;
+                      id: string;
+                      enabled: boolean;
+                      type: string;
+                      condition?: string;
+                      variations: ({
+                          value: string;
+                          variationId: string;
+                        })[];
+                      experimentId: string;
                     })[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
@@ -1163,6 +1263,17 @@ export interface operations {
                             weight: number;
                             name?: string;
                           })[];
+                      } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        condition?: string;
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
                       })[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -1251,6 +1362,17 @@ export interface operations {
                           weight: number;
                           name?: string;
                         })[];
+                    } | {
+                      description: string;
+                      id: string;
+                      enabled: boolean;
+                      type: string;
+                      condition?: string;
+                      variations: ({
+                          value: string;
+                          variationId: string;
+                        })[];
+                      experimentId: string;
                     })[];
                   /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                   definition?: string;
@@ -1292,6 +1414,17 @@ export interface operations {
                             weight: number;
                             name?: string;
                           })[];
+                      } | {
+                        description: string;
+                        id: string;
+                        enabled: boolean;
+                        type: string;
+                        condition?: string;
+                        variations: ({
+                            value: string;
+                            variationId: string;
+                          })[];
+                        experimentId: string;
                       })[];
                     /** @description A JSON stringified [FeatureDefinition](#tag/FeatureDefinition_model) */
                     definition?: string;
@@ -3175,6 +3308,7 @@ export type ApiFeatureDefinition = components["schemas"]["FeatureDefinition"];
 export type ApiFeatureForceRule = components["schemas"]["FeatureForceRule"];
 export type ApiFeatureRolloutRule = components["schemas"]["FeatureRolloutRule"];
 export type ApiFeatureExperimentRule = components["schemas"]["FeatureExperimentRule"];
+export type ApiFeatureExperimentRefRule = components["schemas"]["FeatureExperimentRefRule"];
 export type ApiSdkConnection = components["schemas"]["SdkConnection"];
 export type ApiExperiment = components["schemas"]["Experiment"];
 export type ApiExperimentMetric = components["schemas"]["ExperimentMetric"];

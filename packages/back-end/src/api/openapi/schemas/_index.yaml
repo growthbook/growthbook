@@ -22,6 +22,8 @@ FeatureRolloutRule:
   $ref: './FeatureRolloutRule.yaml'
 FeatureExperimentRule:
   $ref: './FeatureExperimentRule.yaml'
+FeatureExperimentRefRule:
+  $ref: './FeatureExperimentRefRule.yaml'
 SdkConnection:
   $ref: './SdkConnection.yaml'
 Experiment:
