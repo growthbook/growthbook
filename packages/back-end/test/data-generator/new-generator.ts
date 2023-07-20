@@ -491,7 +491,7 @@ function generateAndWriteData(
   startDate: Date,
   outputDir: string,
   numUsers: number,
-  messyData: boolean,
+  messyData: boolean
 ) {
   const sim: SimulatorData = {
     dataTables: {
