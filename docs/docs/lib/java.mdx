@@ -18,6 +18,7 @@ import CodeTabsRunExperimentPartial from '@site/src/partials/java/_code-tabs-run
 import CodeTabsExperimentResultCallbackPartial from '@site/src/partials/java/_code-tabs-subscribe-experiment-run.mdx'
 import CodeTabsExperimentResultSubscribeMultipleCallbackPartial from '@site/src/partials/java/_code-tabs-subscribe-multiple.mdx'
 import CodeTabsFeaturesRepository from '@site/src/partials/java/_code-tabs-gbfeatures-repository.mdx'
+import CodeTabsFeatureUsageCallback from '@site/src/partials/java/_code-tabs-feature-usage-callback.mdx'
 
 This supports Java applications using Java version 1.8 and higher.
 
@@ -71,15 +72,16 @@ There are 2 steps to initializing the GrowthBook SDK:
 
 The GrowthBook context `GBContext` can be created either by implementing the builder class, available at `GBContext.builder()`, or by using the `GBContext` constructor.
 
-| Field name            | Type                   | Description                                                                                                                                                                                                                                                                                                                                                    |
-| --------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `attributesJson`      | `String`               | The user attributes JSON. See [Attributes](#attributes).                                                                                                                                                                                                                                                                                                       |
-| `featuresJson`        | `String`               | The features JSON served by the GrowthBook API (or equivalent). See [Features](#features).                                                                                                                                                                                                                                                                     |
-| `enabled`             | `Boolean`              | Whether to enable the functionality of the SDK (default: `true`)                                                                                                                                                                                                                                                                                               |
-| `isQaMode`            | `Boolean`              | Whether the SDK is in QA mode. Not for production use. If true, random assignment is disabled and only explicitly forced variations are used (default: `false`)                                                                                                                                                                                                |
-| `url`                 | `String`               | The URL of the current page. Useful when evaluating features and experiments based on the page URL.                                                                                                                                                                                                                                                            |
-| `forcedVariationsMap` | `Map<String, Integer>` | Force specific experiments to always assign a specific variation (used for QA)                                                                                                                                                                                                                                                                                 |
-| `trackingCallback`    | `TrackingCallback`     | A callback that will be invoked with every experiment evaluation where the user **is** included in the experiment. See [TrackingCallback](#tracking-callback). To subscribe to all evaluated events regardless of whether the user is in the experiment, see [Subscribing to experiment runs](#subscribing-to-experiment-runs-with-the-experimentruncallback). |
+| Field name             | Type                   | Description                                                                                                                                                                                                                                                                                                                                                    |
+| ---------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `attributesJson`       | `String`               | The user attributes JSON. See [Attributes](#attributes).                                                                                                                                                                                                                                                                                                       |
+| `featuresJson`         | `String`               | The features JSON served by the GrowthBook API (or equivalent). See [Features](#features).                                                                                                                                                                                                                                                                     |
+| `enabled`              | `Boolean`              | Whether to enable the functionality of the SDK (default: `true`)                                                                                                                                                                                                                                                                                               |
+| `isQaMode`             | `Boolean`              | Whether the SDK is in QA mode. Not for production use. If true, random assignment is disabled and only explicitly forced variations are used (default: `false`)                                                                                                                                                                                                |
+| `url`                  | `String`               | The URL of the current page. Useful when evaluating features and experiments based on the page URL.                                                                                                                                                                                                                                                            |
+| `forcedVariationsMap`  | `Map<String, Integer>` | Force specific experiments to always assign a specific variation (used for QA)                                                                                                                                                                                                                                                                                 |
+| `trackingCallback`     | `TrackingCallback`     | A callback that will be invoked with every experiment evaluation where the user **is** included in the experiment. See [TrackingCallback](#tracking-callback). To subscribe to all evaluated events regardless of whether the user is in the experiment, see [Subscribing to experiment runs](#subscribing-to-experiment-runs-with-the-experimentruncallback). |
+| `featureUsageCallback` | `FeatureUsageCallback` | A callback that will be invoked every time a feature is viewed. See [FeatureUsageCallback](#feature-usage-callback)                                                                                                                                                                                                                                            |
 
 #### Using the GBContext builder
 
@@ -121,6 +123,12 @@ Any time an experiment is run to determine the value of a feature, we may call t
 **The tracking callback is only called when the user is in the experiment**. If they are not in the experiment, this will not be called. If you'd like to subscribe to all evaluations, regardless of experiment result, see [Subscribing to experiment runs](#subscribing-to-experiment-runs-with-the-experimentruncallback).
 
 <CodeTabsTrackingCallbackPartial />
+
+#### Feature usage callback
+
+Any time a feature is viewed, this callback is called with the feature key and result.
+
+<CodeTabsFeatureUsageCallback />
 
 ### Using Features
 
@@ -212,7 +220,9 @@ There's also a number of methods available.
 
 As expected in Kotlin, you can access these getters using property accessors.
 
-### Subscribing to experiment runs with the ExperimentRunCallback
+### Tracking feature usage and experiment impressions
+
+#### Subscribing to experiment runs with the ExperimentRunCallback
 
 You can subscribe to experiment run evaluations using the `ExperimentRunCallback`.
 
@@ -225,6 +235,12 @@ You can subscribe with as many callbacks as you like:
 <CodeTabsExperimentResultSubscribeMultipleCallbackPartial />
 
 **The experiment run callback is called for every experiment run, regardless of experiment result**. If you would like to subscribe only to evaluations where the user falls into an experiment, see [TrackingCallback](#tracking-callback).
+
+#### Subscribing to feature usage events with the FeatureUsageCallback
+
+You can subscribe to feature usage events by providing an implementation of the `FeatureUsageCallback` interface to the `GBContext`.
+
+<CodeTabsFeatureUsageCallback />
 
 ### Working with Encrypted features
 

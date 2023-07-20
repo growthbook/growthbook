@@ -23,7 +23,7 @@ export function getSnapshotAnalysis(
 ): ExperimentSnapshotAnalysis | null {
   // TODO: add a "settings" argument to this function and use it to pick the right snapshot
   // For example, if `sequential: true` is passed in, look for an analysis with sequential enabled
-  return snapshot.analyses[0] || null;
+  return snapshot.analyses?.[0] || null;
 }
 
 export function generateVariationId() {

@@ -22,7 +22,7 @@ import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
-import { QueryMap } from "./queries";
+import { QueryMap } from "../queryRunners/QueryRunner";
 
 export const MAX_DIMENSIONS = 20;
 
