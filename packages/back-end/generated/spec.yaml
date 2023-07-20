@@ -589,7 +589,6 @@ paths:
                 - datasourceId
                 - trackingKey
                 - assignmentQueryId
-                - implementation
               properties:
                 datasourceId:
                   type: string
@@ -634,13 +633,6 @@ paths:
                   type: boolean
                 hashAttribute:
                   type: string
-                implementation:
-                  type: string
-                  enum:
-                    - visual
-                    - code
-                    - configuration
-                    - custom
                 variations:
                   type: array
                   minItems: 2

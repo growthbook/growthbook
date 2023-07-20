@@ -42,7 +42,7 @@
     "eslint-plugin-import": "^2.26.0",
     "eslint-plugin-prettier": "^3.1.3",
     "eslint-plugin-react": "^7.30.1",
-    "growthbook": "^0.0.2",
+    "growthbook": "^0.2.1",
     "husky": "^7.0.0",
     "lint-staged": "^10.2.7",
     "plop": "^3.1.1",

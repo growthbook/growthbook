@@ -313,6 +313,11 @@ const sidebars = {
           href: "https://docs.growthbook.io/open-guide-to-ab-testing.v1.0.pdf",
           label: "Guide to A/B Testing",
         },
+        {
+          type: "doc",
+          id: "guide/importing",
+          label: "Importing data into GrowthBook",
+        },
       ],
     },
     {
