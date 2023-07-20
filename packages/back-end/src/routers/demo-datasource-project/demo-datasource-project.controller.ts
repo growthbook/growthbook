@@ -1,34 +1,21 @@
 import type { Response } from "express";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { AuthRequest } from "../../types/AuthRequest";
 import { PrivateApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
-import { createProject, deleteProjectById } from "../../models/ProjectModel";
-//import { getDemoDatasourceProjectIdForOrganization } from "shared/src/demo-datasource/demo-datasource.utils";
 import { PostgresConnectionParams } from "../../../types/integrations/postgres";
 import { createDataSource } from "../../models/DataSourceModel";
-import { createMetric } from "../../services/experiments";
+import { createExperiment } from "../../models/ExperimentModel";
+import { createProject, deleteProjectById } from "../../models/ProjectModel";
+import { createMetric, createSnapshot } from "../../services/experiments";
 import { DataSourceSettings } from "../../../types/datasource";
 import { ExperimentInterface } from "../../../types/experiment";
 import { MetricInterface } from "../../../types/metric";
-import { createExperiment } from "../../models/ExperimentModel";
 import { ProjectInterface } from "../../../types/project";
-
-// region POST /demo-datasource-project
-const DEMO_PROJECT_ID_SEPARATOR = "_";
-const DEMO_PROJECT_ID_SUFFIX = "demo-datasource-project";
-
-function getDemoDatasourceProjectIdForOrganization(
-  organizationId: string
-): string {
-  return (
-    "prj" +
-    DEMO_PROJECT_ID_SEPARATOR +
-    organizationId +
-    DEMO_PROJECT_ID_SEPARATOR +
-    DEMO_PROJECT_ID_SUFFIX
-  );
-}
+import { ExperimentSnapshotAnalysisSettings } from "../../../types/experiment-snapshot";
+import { getMetricMap } from "../../models/MetricModel";
 
 /**
  * START Constants for Demo Datasource
@@ -191,6 +178,8 @@ const DEMO_EXPERIMENTS: Pick<
  * END Constants for Demo Datasource
  */
 
+// region POST /demo-datasource-project
+
 type CreateDemoDatasourceProjectRequest = AuthRequest;
 
 type CreateDemoDatasourceProjectResponse = {
@@ -273,8 +262,10 @@ export const postDemoDatasourceProject = async (
       tags: ["growthbook-demo"],
     });
 
+    // TODO create feature
+
     // Create experiments
-    await Promise.all(
+    const experiments = await Promise.all(
       DEMO_EXPERIMENTS.map(async (e) => {
         return createExperiment({
           data: {
@@ -305,15 +296,35 @@ export const postDemoDatasourceProject = async (
       })
     );
 
+    const analysisSettings: ExperimentSnapshotAnalysisSettings = {
+      statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
+      dimensions: [],
+    };
+
+    const metricMap = await getMetricMap(org.id);
+
+    await Promise.all(
+      experiments.map(async (e) => {
+        return createSnapshot({
+          experiment: e,
+          organization: org,
+          phaseIndex: 0,
+          analysisSettings: analysisSettings,
+          metricRegressionAdjustmentStatuses: [],
+          metricMap: metricMap,
+          useCache: true,
+        });
+      })
+    );
+
     res.status(200).json({
       status: 200,
       project: project,
     });
-    // TODO create experiment snapshots?
   } catch (e) {
-    res.status(403).json({
-      status: 403,
-      message: e.message,
+    res.status(500).json({
+      status: 500,
+      message: `Failed to create demo datasource and project with message: ${e.message}`,
     });
   }
   return;

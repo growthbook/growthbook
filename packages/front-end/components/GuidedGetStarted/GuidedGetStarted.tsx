@@ -276,6 +276,16 @@ export default function GuidedGetStarted({
               }
             />
           )}
+          <button
+            className="my-4 btn btn-primary"
+            onClick={async () => {
+              await apiCall(`/demo-datasource-project/`, {
+                method: "POST",
+              });
+            }}
+          >
+            Add Demo Datasource Project
+          </button>
         </>
       ),
     },
