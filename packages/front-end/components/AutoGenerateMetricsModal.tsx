@@ -34,11 +34,9 @@ export default function AutoGenerateMetricsModal({
   const [autoMetricError, setAutoMetricError] = useState("");
   const [trackedEvents, setTrackedEvents] = useState<TrackedEventData[]>([]);
   const { datasources } = useDefinitions();
-  const [selectedDatasource, setSelectedDatasource] = useState<
-    DataSourceInterfaceWithParams | undefined
-  >(datasource || undefined);
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(false);
+  const { getDatasourceById } = useDefinitions();
 
   const form = useForm<{
     datasourceId: string;
@@ -56,20 +54,28 @@ export default function AutoGenerateMetricsModal({
     },
   });
 
-  const submit = async () => {
+  const selectedDatasource =
+    datasource || getDatasourceById(form.watch("datasourceId"));
+
+  const submit = form.handleSubmit(async (data) => {
     track("Generating Auto Metrics For User", {
-      metricsToCreate: form.watch("metricsToCreate"),
+      autoMetricsCreated: {
+        countMetrics: data.metricsToCreate.filter((m) => m.type === "count")
+          .length,
+        binomialMetrics: data.metricsToCreate.filter(
+          (m) => m.type === "binomial"
+        ).length,
+      },
       source,
       type: selectedDatasource?.type,
       dataSourceId: selectedDatasource?.id,
       schema: selectedDatasource?.settings.schemaFormat,
-      newDatasourceForm: true,
     });
 
     const value = {
       datasourceId: selectedDatasource?.id,
       projects: selectedDatasource?.projects,
-      metricsToCreate: form.watch("metricsToCreate"),
+      metricsToCreate: data.metricsToCreate,
     };
 
     await apiCall(`/metrics/auto-metrics`, {
@@ -77,7 +83,7 @@ export default function AutoGenerateMetricsModal({
       body: JSON.stringify(value),
     });
     mutate();
-  };
+  });
 
   const getTrackedEvents = useCallback(
     async (datasourceObj: DataSourceInterfaceWithParams | undefined) => {
@@ -158,10 +164,10 @@ export default function AutoGenerateMetricsModal({
   }, [form, trackedEvents]);
 
   useEffect(() => {
-    if (datasource) {
-      getTrackedEvents(datasource);
-    }
-  }, [datasource, getTrackedEvents]);
+    if (!selectedDatasource) return;
+
+    getTrackedEvents(selectedDatasource);
+  }, [getTrackedEvents, selectedDatasource]);
 
   return (
     <Modal
@@ -185,13 +191,8 @@ export default function AutoGenerateMetricsModal({
         <SelectField
           label="Select A Data Source"
           value={selectedDatasource?.id || ""}
-          onChange={async (datasourceId) => {
+          onChange={(datasourceId) => {
             form.setValue("datasourceId", datasourceId);
-            const datasourceObj = datasources.find(
-              (d) => d.id === datasourceId
-            );
-            setSelectedDatasource(datasourceObj);
-            await getTrackedEvents(datasourceObj);
           }}
           options={(datasources || []).map((d) => ({
             value: d.id,

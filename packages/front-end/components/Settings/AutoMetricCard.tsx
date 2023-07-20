@@ -65,9 +65,7 @@ export default function AutoMetricCard({
                 value={
                   event.metricsToCreate[binomialIndex].shouldCreate || false
                 }
-                disabled={
-                  event.metricsToCreate[binomialIndex].exists ? true : false
-                }
+                disabled={event.metricsToCreate[binomialIndex].exists || false}
                 disabledMessage="This metric has already been created."
                 style={
                   event.metricsToCreate[binomialIndex].exists
@@ -104,9 +102,7 @@ export default function AutoMetricCard({
               <Toggle
                 value={event.metricsToCreate[countIndex].shouldCreate || false}
                 id={`${event}-${event.metricsToCreate[countIndex].name}`}
-                disabled={
-                  event.metricsToCreate[countIndex].exists ? true : false
-                }
+                disabled={event.metricsToCreate[countIndex].exists || false}
                 disabledMessage="This metric has already been created."
                 style={
                   event.metricsToCreate[countIndex].exists
