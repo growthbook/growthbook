@@ -288,18 +288,6 @@ const sidebars = {
         },
       ],
     },
-    { type: "doc", id: "self-host/proxy", label: "Proxy" },
-    { type: "doc", id: "api-overview", label: "API" },
-    {
-      type: "category",
-      label: "Self-Hosting",
-      collapsed: true,
-      link: {
-        type: "doc",
-        id: "self-host/index",
-      },
-      items: ["self-host/environment-variables", "self-host/config-yml"],
-    },
     {
       type: "category",
       label: "SDKs",
@@ -324,6 +312,18 @@ const sidebars = {
         { type: "doc", id: "lib/build-your-own", label: "Build Your Own" },
       ],
     },
+    {
+      type: "category",
+      label: "Self-Hosting",
+      collapsed: true,
+      link: {
+        type: "doc",
+        id: "self-host/index",
+      },
+      items: ["self-host/environment-variables", "self-host/config-yml"],
+    },
+    { type: "doc", id: "self-host/proxy", label: "Proxy" },
+    { type: "doc", id: "api-overview", label: "API" },
     { type: "doc", id: "webhooks", label: "Webhooks" },
     {
       type: "category",
