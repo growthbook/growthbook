@@ -32,10 +32,10 @@ function toInterface(doc: ProjectDocument): ProjectInterface {
 }
 
 interface createProjectProps {
-  name: string,
-  description?: string,
-  id?: string
-};
+  name: string;
+  description?: string;
+  id?: string;
+}
 
 export async function createProject(
   organization: string,
