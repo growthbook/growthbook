@@ -12,6 +12,7 @@ import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
   createSnapshot,
+  decodeAndValidateVisualEditorTempToken,
   ensureWatching,
   getExperimentWatchers,
   getManualSnapshotData,
@@ -86,6 +87,10 @@ import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { findProjectById } from "../models/ProjectModel";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
+import {
+  createUserVisualEditorApiKey,
+  getVisualEditorApiKey,
+} from "../models/ApiKeyModel";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -2125,18 +2130,52 @@ export async function generateVisualEditorTempToken(
   if (!visualChangeset) throw new Error("Visual changeset not found");
   if (visualChangeset.experiment !== req.body.experimentId)
     throw new Error("Visual changeset does not match experiment id");
+  if (!req.userId) throw new Error("Associated user not found");
 
   const token = jwt.sign(
     {
       editorUrl: visualChangeset.editorUrl,
+      userId: req.userId,
+      orgId: org.id,
     },
     JWT_SECRET,
     {
-      expiresIn: "1m",
+      expiresIn: "2m",
     }
   );
 
   res.status(200).json({
     token,
+  });
+}
+
+export async function authenticateVisualEditor(
+  req: AuthRequest<{ token: string }>,
+  res: Response
+) {
+  if (!req.headers.referer) throw new Error("Referer header is undefined");
+
+  const decoded = await decodeAndValidateVisualEditorTempToken(
+    req.body.token,
+    req.headers.referer
+  );
+
+  // get existing visual editor key
+  let visualEditorKey = await getVisualEditorApiKey(
+    decoded.orgId,
+    decoded.userId
+  );
+
+  // if not exist, create one
+  if (!visualEditorKey) {
+    visualEditorKey = await createUserVisualEditorApiKey({
+      userId: decoded.userId,
+      organizationId: decoded.orgId,
+      description: `Created on ${new Date().toISOString()}`,
+    });
+  }
+
+  res.status(200).json({
+    visualEditorKey: visualEditorKey.key,
   });
 }

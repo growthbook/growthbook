@@ -1,9 +1,11 @@
+import url from "url";
 import uniqid from "uniqid";
 import cronParser from "cron-parser";
 import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
 import { isEqual } from "lodash";
+import jwt from "jsonwebtoken";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
@@ -40,6 +42,7 @@ import { findSegmentById } from "../models/SegmentModel";
 import {
   DEFAULT_CONVERSION_WINDOW_HOURS,
   EXPERIMENT_REFRESH_FREQUENCY,
+  JWT_SECRET,
 } from "../util/secrets";
 import {
   ExperimentUpdateSchedule,
@@ -1774,4 +1777,43 @@ export function visualChangesetsHaveChanges({
 
   // Otherwise, there are no meaningful changes
   return false;
+}
+
+// type guard
+const _isValidToken = (decoded: {
+  editorUrl?: string;
+  userId?: string;
+  orgId?: string;
+}): decoded is { editorUrl: string; userId: string; orgId: string } =>
+  !!decoded.editorUrl && !!decoded.userId && !!decoded.orgId;
+
+// TODO Unit test
+export async function decodeAndValidateVisualEditorTempToken(
+  token: string,
+  referrer: string
+) {
+  try {
+    const referrerUrl = url.parse(referrer);
+    // TODO Use shared type here for decoded token body
+    const decoded = await new Promise<{
+      editorUrl?: string;
+      userId?: string;
+      orgId?: string;
+    }>((resolve, reject) =>
+      jwt.verify(token, JWT_SECRET, (err, decoded) =>
+        err ? reject(err) : resolve(decoded ?? {})
+      )
+    );
+
+    if (!_isValidToken(decoded)) throw new Error("Malformed token");
+
+    const editorUrl = url.parse(decoded.editorUrl);
+
+    if (referrerUrl.host !== editorUrl.host)
+      throw new Error("Referrer URL host does not match editor URL host");
+
+    return decoded;
+  } catch (e) {
+    throw new Error(`Unable to verify token: ${e.message}`);
+  }
 }
