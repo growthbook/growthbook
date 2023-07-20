@@ -1,10 +1,10 @@
-import React, { FC, useMemo } from "react";
-import { FaExclamationCircle } from "react-icons/fa";
+import React, { FC, useCallback, useMemo, useState } from "react";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { AppFeatures } from "@/types/app-features";
+import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 
 type DemoDataSourceGlobalBannerProps = {
   ready: boolean;
@@ -15,27 +15,50 @@ export const DemoDataSourceGlobalBanner: FC<DemoDataSourceGlobalBannerProps> = (
   ready,
   currentProjectIsDemo,
 }) => {
+  const [show, setShow] = useState(false);
+
+  const onClick = useCallback(() => {
+    setShow(!show);
+  }, [show]);
+
   if (!ready || !currentProjectIsDemo) {
     return null;
   }
 
   return (
-    <div className="contents pagecontents container mb-3">
-      <div className="alert alert-warning">
-        <p className="font-weight-bold">
-          <FaExclamationCircle /> Demo Datasource Project
-        </p>
-        <p>
-          You are currently in the demo datasource project. There are some
-          restrictions when creating resources linked to this project.
-        </p>
-        <p>
-          All created resources will be deleted when the project is deleted.
-        </p>
-        <p>
-          If you accidentally delete something in the demo project and would
-          like to restore it, you can delete the whole project and recreate it.
-        </p>
+    <div className="demo-datasource-banner__wrapper">
+      <div className="demo-datasource-banner">
+        <div className="demo-datasource-banner__line" />
+
+        {show && (
+          <div
+            className="demo-datasource-banner__tooltip-click-overlay"
+            onClick={onClick}
+          />
+        )}
+
+        <div className="demo-datasource-banner__text-wrapper">
+          <button className="demo-datasource-banner__text" onClick={onClick}>
+            Demo Datasource Project
+          </button>
+        </div>
+
+        {show && (
+          <>
+            <SimpleTooltip position="bottom">
+              <div className="text-left">
+                <p>
+                  There are some restrictions when creating resources in this
+                  project.
+                </p>
+                <p className="mb-0">
+                  All created resources will be deleted when the project is
+                  deleted.
+                </p>
+              </div>
+            </SimpleTooltip>
+          </>
+        )}
       </div>
     </div>
   );
