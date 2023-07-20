@@ -13,6 +13,7 @@ import Field from "../Forms/Field";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
+import StringArrayField from "../Forms/StringArrayField";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
@@ -334,16 +335,22 @@ export default function ConditionInput(props: Props) {
                       required
                     />
                   ) : ["$in", "$nin"].includes(operator) ? (
-                    <Field
-                      textarea
+                    // <Field
+                    //   textarea
+                    //   value={value}
+                    //   onChange={onChange}
+                    //   name="value"
+                    //   minRows={1}
+                    //   className={styles.matchingInput}
+                    //   containerClassName="col-sm-12 col-md mb-2"
+                    //   helpText="separate values by comma"
+                    //   required
+                    // />
+                    <StringArrayField
+                      label="Create list of values"
                       value={value}
                       onChange={onChange}
-                      name="value"
-                      minRows={1}
-                      className={styles.matchingInput}
-                      containerClassName="col-sm-12 col-md mb-2"
-                      helpText="separate values by comma"
-                      required
+                      placeholder="Enter some values..."
                     />
                   ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                   attribute.enum.length ? (
