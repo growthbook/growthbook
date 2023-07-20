@@ -3,7 +3,6 @@ import { useForm } from "react-hook-form";
 import { MemberRoleWithProjects } from "back-end/types/organization";
 import Link from "next/link";
 import track from "@/services/track";
-import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import { useAuth } from "@/services/auth";
 import useStripeSubscription from "@/hooks/useStripeSubscription";
@@ -85,7 +84,10 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   const onSubmit = form.handleSubmit(async (value) => {
     // const inviteArr = value.email.split(",");
 
-    if (canSubscribe && activeAndInvitedUsers + inviteArr.length > freeSeats) {
+    if (
+      canSubscribe &&
+      activeAndInvitedUsers + value.email.length > freeSeats
+    ) {
       setShowUpgradeModal("Whoops! You reached your free seat limit.");
       return;
     }
@@ -93,7 +95,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     const failed: InviteResult[] = [];
     const succeeded: InviteResult[] = [];
 
-    for (const emailItem of value.email) {
+    for (const email of value.email) {
       const resp = await apiCall<{
         emailSent: boolean;
         inviteUrl: string;
@@ -102,13 +104,13 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       }>(`/invite`, {
         method: "POST",
         body: JSON.stringify({
-          email: emailItem,
+          email,
           ...value.roleInfo,
         }),
       });
 
       const result: InviteResult = {
-        email: emailItem,
+        email,
         inviteUrl: resp.inviteUrl,
       };
       if (resp.emailSent) {
@@ -135,19 +137,14 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
       open={true}
       cta="Invite"
       closeCta={
-        successfulInvites.length > 0 || failedInvites.length > 0
-          ? "Close"
-          : "Cancel"
+        successfulInvites.length || failedInvites.length ? "Close" : "Cancel"
       }
       autoCloseOnSubmit={false}
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '((e?: BaseSyntheticEvent<object, any, any> |... Remove this comment to see the full error message
       submit={
-        successfulInvites.length > 0 || failedInvites.length > 0
-          ? null
-          : onSubmit
+        successfulInvites.length || failedInvites.length ? undefined : onSubmit
       }
     >
-      {successfulInvites.length > 0 || failedInvites.length > 0 ? (
+      {successfulInvites.length || failedInvites.length ? (
         <>
           {successfulInvites.length === 1 && (
             <div className="alert alert-success" role="alert">
@@ -211,14 +208,6 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
         </>
       ) : (
         <>
-          <Field
-            label="Email Address"
-            required
-            type="email"
-            multiple={tSrue}
-            helpText="Enter a comma separated list of emails to invite multiple members at once."
-            {...form.register("email")}
-          />
           <StringArrayField
             required
             label="Email Address"
@@ -226,7 +215,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
             onChange={(emails) => {
               form.setValue("email", emails);
             }}
-            helpText="Enter a comma separated list of emails to invite multiple members at once."
+            helpText="Enter a list of emails to invite multiple members at once."
             type="email"
           />
           <RoleSelector

@@ -37,6 +37,7 @@ const SavedGroupForm: FC<{
       open={true}
       header={current.id ? "Edit Group" : "New Group"}
       submit={form.handleSubmit(async (value) => {
+        console.log({ value });
         await apiCall(
           current.id ? `/saved-groups/${current.id}` : `/saved-groups`,
           {
@@ -76,12 +77,6 @@ const SavedGroupForm: FC<{
         }))}
         helpText={current.attributeKey && "This field can not be edited."}
       />
-      {/* <Field
-        label="Create list of comma separated values"
-        required
-        textarea
-        {...form.register("groupList")}
-      /> */}
       <StringArrayField
         label="Create list of values"
         value={form.watch("groupList")}
