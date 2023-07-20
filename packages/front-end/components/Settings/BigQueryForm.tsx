@@ -40,6 +40,7 @@ const BigQueryForm: FC<{
             <div className="custom-file">
               <input
                 type="file"
+                required
                 className="custom-file-input"
                 id="bigQueryFileInput"
                 accept="application/json"
