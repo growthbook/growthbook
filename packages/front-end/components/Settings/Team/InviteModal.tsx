@@ -82,7 +82,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
   }
 
   const onSubmit = form.handleSubmit(async (value) => {
-    // const inviteArr = value.email.split(",");
+    const { email: emails } = value;
 
     if (
       canSubscribe &&
@@ -95,7 +95,7 @@ const InviteModal: FC<{ mutate: () => void; close: () => void }> = ({
     const failed: InviteResult[] = [];
     const succeeded: InviteResult[] = [];
 
-    for (const email of value.email) {
+    for (const email of emails) {
       const resp = await apiCall<{
         emailSent: boolean;
         inviteUrl: string;

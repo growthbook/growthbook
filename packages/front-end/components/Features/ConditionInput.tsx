@@ -173,10 +173,8 @@ export default function ConditionInput(props: Props) {
             };
 
             const handleListChange = (values: string[]) => {
-              console.log({ values });
               const name = "value";
               const value: string | number = values.join(",");
-              console.log({ value });
               handleCondsChange(value, name);
             };
 

@@ -37,7 +37,6 @@ const SavedGroupForm: FC<{
       open={true}
       header={current.id ? "Edit Group" : "New Group"}
       submit={form.handleSubmit(async (value) => {
-        console.log({ value });
         await apiCall(
           current.id ? `/saved-groups/${current.id}` : `/saved-groups`,
           {
