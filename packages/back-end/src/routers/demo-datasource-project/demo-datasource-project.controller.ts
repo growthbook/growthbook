@@ -284,7 +284,10 @@ export const postDemoDatasourceProject = async (
                 coverage: 1,
                 condition: "",
                 namespace: { enabled: false, name: "", range: [0, 1] },
-                variationWeights: [0.5, 0.5],
+                variationWeights:
+                  e.name === "checkout-layout"
+                    ? [0.3334, 0.3333, 0.3333]
+                    : [0.5, 0.5],
               },
             ],
             status: "running",
