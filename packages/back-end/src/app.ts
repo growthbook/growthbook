@@ -94,6 +94,7 @@ import { projectRouter } from "./routers/project/project.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
+import { environmentRouter } from "./routers/environment/environment.router";
 import * as gbCloudSdkMiddleware from "./services/GBCloudSDKService/middleware";
 
 const app = express();
@@ -308,6 +309,8 @@ app.use(
 
 // Organization and Settings
 app.use(organizationsRouter);
+
+app.use("/environment", environmentRouter);
 
 app.post("/oauth/google", datasourcesController.postGoogleOauthRedirect);
 app.post("/subscription/checkout", stripeController.postNewSubscription);
