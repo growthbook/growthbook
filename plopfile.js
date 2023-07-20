@@ -210,4 +210,63 @@ module.exports = function (plop) {
   });
 
   // endregion Front-end
+
+  // region Shared
+
+  plop.setGenerator("shared-entrypoint", {
+    description: "[shared] Generates a new entry point for the shared package",
+    prompts: [
+      {
+        type: "input",
+        name: "entrypoint",
+        message:
+          "A new entry point for the shared package, e.g. 'todos' to make import { createTodo } from 'shared/todos'",
+      },
+      {
+        type: "input",
+        name: "function",
+        message:
+          "Name of the first function to add to this file, e.g. 'createTodo' to make import { createTodo } from 'shared/todos'",
+      },
+    ],
+    actions: [
+      // definition file
+      {
+        type: "add",
+        skipIfExists: true,
+        path: "./packages/shared/{{kebabCase entrypoint}}.d.ts",
+        template: `export * from "./src/{{kebabCase entrypoint}}";`.trim(),
+      },
+      // utils
+      {
+        type: "add",
+        skipIfExists: true,
+        path:
+          "./packages/shared/src/{{kebabCase entrypoint}}/{{kebabCase entrypoint}}.ts",
+        template: `export function {{function}}(): void {
+  // todo
+}`.trim(),
+      },
+      // exports & barrel files
+      {
+        type: "add",
+        skipIfExists: true,
+        path: "./packages/shared/{{kebabCase entrypoint}}.js",
+        template: `module.exports = require("./dist/{{kebabCase entrypoint}}");`.trim(),
+      },
+      {
+        type: "add",
+        skipIfExists: true,
+        path: "./packages/shared/src/{{kebabCase entrypoint}}/index.ts",
+        template: `export * from "./{{kebabCase entrypoint}}";`.trim(),
+      },
+      {
+        type: "append",
+        path: "./packages/shared/src/index.ts",
+        template: `export * as {{camelCase entrypoint}} from "./{{kebabCase entrypoint}}";`.trim(),
+      },
+    ],
+  });
+
+  // endregion Shared
 };
