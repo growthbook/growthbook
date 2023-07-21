@@ -52,6 +52,7 @@ import ClickToCopy from "@/components/Settings/ClickToCopy";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import { useFeaturesList } from "@/services/features";
+import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -885,18 +886,13 @@ export default function SinglePage({
       !hasSomeVisualChanges ? (
         <div className="alert mb-4 py-4 text-center alert-info">
           Click the{" "}
-          <div
-            className="d-inline-block btn btn-sm btn-outline-primary"
-            style={{
-              pointerEvents: "none",
-              verticalAlign: 1,
-              padding: "3px 6px",
-            }}
-          >
-            Open Visual Editor <FaExternalLinkAlt />
-          </div>{" "}
-          button in the <strong>Linked Changes</strong> section below and add at
-          least one change to your experiment before you start
+          <OpenVisualEditorLink
+            id={visualChangesets[0].id}
+            changeIndex={1}
+            visualEditorUrl={visualChangesets[0].editorUrl}
+          />{" "}
+          button here or in the <strong>Linked Changes</strong> section below
+          and add at least one change to your experiment before you start
         </div>
       ) : null}
 
