@@ -348,6 +348,7 @@ export default function ConditionInput(props: Props) {
                       value={value ? value.trim().split(",") : []}
                       onChange={handleListChange}
                       placeholder="Enter some values..."
+                      delimiters={["Enter", "Tab"]}
                     />
                   ) : attribute.enum.length ? (
                     <SelectField

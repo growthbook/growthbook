@@ -83,6 +83,7 @@ const SavedGroupForm: FC<{
           form.setValue("groupList", values);
         }}
         placeholder="Enter some values..."
+        delimiters={["Enter", "Tab"]}
       />
       {current.id && (
         <div className="alert alert-warning">
