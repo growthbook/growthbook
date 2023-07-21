@@ -49,6 +49,7 @@ type CreateDimensionRequest = AuthRequest<{
   userIdType: string;
   name: string;
   sql: string;
+  description?: string;
 }>;
 
 type CreateDimensionResponse = {
@@ -69,7 +70,7 @@ export const postDimension = async (
   req.checkPermissions("createDimensions");
 
   const { org, userName } = getOrgFromReq(req);
-  const { datasource, name, sql, userIdType } = req.body;
+  const { datasource, name, sql, userIdType, description } = req.body;
 
   const datasourceDoc = await getDataSourceById(datasource, org.id);
   if (!datasourceDoc) {
@@ -86,6 +87,7 @@ export const postDimension = async (
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: org.id,
+    description,
   });
 
   res.status(200).json({
@@ -105,6 +107,7 @@ type PutDimensionRequest = AuthRequest<
     name: string;
     sql: string;
     owner: string;
+    description: string;
   },
   { id: string },
   Record<string, never>
@@ -134,7 +137,7 @@ export const putDimension = async (
     throw new Error("Could not find dimension");
   }
 
-  const { datasource, name, sql, userIdType, owner } = req.body;
+  const { datasource, name, sql, userIdType, owner, description } = req.body;
 
   const datasourceDoc = await getDataSourceById(datasource, org.id);
   if (!datasourceDoc) {
@@ -147,6 +150,7 @@ export const putDimension = async (
     name,
     sql,
     owner,
+    description,
     dateUpdated: new Date(),
   });
 

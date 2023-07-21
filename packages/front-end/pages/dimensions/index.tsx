@@ -126,6 +126,7 @@ const DimensionsPage: FC = () => {
               <thead>
                 <tr>
                   <th>Name</th>
+                  <th>Description</th>
                   <th>Owner</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
@@ -144,6 +145,9 @@ const DimensionsPage: FC = () => {
                   return (
                     <tr key={s.id}>
                       <td>{s.name}</td>
+                      <td className="text-ellipsis" style={{ maxWidth: 250 }}>
+                        {s.description}
+                      </td>
                       <td>{s.owner}</td>
                       <td className="d-none d-sm-table-cell">
                         {datasource && (
@@ -155,7 +159,7 @@ const DimensionsPage: FC = () => {
                             </div>
                             <div
                               className="text-gray font-weight-normal small text-ellipsis"
-                              style={{ maxWidth: 350 }}
+                              style={{ maxWidth: 150 }}
                             >
                               {datasource?.description}
                             </div>
