@@ -637,8 +637,8 @@ export default function SinglePage({
       </div>
 
       <div className="mb-4">
-        <div className="row align-items-center mb-2">
-          {(projects.length > 0 || projectIsDeReferenced) && (
+        <div className="experiment-top-rows row align-items-center mb-2">
+          {(projects.length > 0 || projectIsDeReferenced) ? (
             <div className="col-auto pr-3">
               Project:{" "}
               {projectIsDeReferenced ? (
@@ -671,7 +671,7 @@ export default function SinglePage({
                 </a>
               )}
             </div>
-          )}
+          ) : null}
           <div className="col-auto pr-3 ml-2">
             Tags:{" "}
             {experiment.tags?.length > 0 ? (
@@ -694,7 +694,7 @@ export default function SinglePage({
               </a>
             )}
           </div>
-          <div className="col-auto pr-3 ml-2">
+          <div className="col-auto pr-3 ml-2 mr-4">
             Owner:{" "}
             {ownerName ? (
               <strong>{ownerName}</strong>
@@ -702,9 +702,10 @@ export default function SinglePage({
               <em className="text-muted">None</em>
             )}{" "}
           </div>
+          <div className="row-break" />
           {numLinkedChanges > 0 ? (
             <div
-              className="col-auto ml-5 pr-3 d-flex flex-column"
+              className="col-auto pr-3 d-flex flex-column"
               style={{ height: 42, justifyContent: "space-between" }}
             >
               <div>Linked changes</div>
@@ -752,7 +753,7 @@ export default function SinglePage({
             </div>
           ) : null}
           <div
-            className="col-auto ml-5 pr-3 d-flex flex-column"
+            className="col-auto ml-4 pr-3 d-flex flex-column"
             style={{ height: 42, justifyContent: "space-between" }}
           >
             <div>Experiment key</div>
@@ -761,7 +762,7 @@ export default function SinglePage({
 
           <div className="flex-1 col"></div>
 
-          <div className="col-auto pr-2">
+          <div className="col-auto experiment-dates text-center">
             <div className="mt-1 small text-gray">
               {startDate && (
                 <>
@@ -1187,32 +1188,26 @@ export default function SinglePage({
       >
         <Tab id="results" display="Results" padding={false}>
           <div className="mb-2" style={{ overflowX: "initial" }}>
-            {experimentHasPhases && !experimentPendingWithVisualChanges ? (
-              <Results
-                experiment={experiment}
-                mutateExperiment={mutate}
-                editMetrics={editMetrics ?? undefined}
-                editResult={editResult ?? undefined}
-                editPhases={editPhases ?? undefined}
-                alwaysShowPhaseSelector={true}
-                reportDetailsLink={false}
-                statsEngine={statsEngine}
-                regressionAdjustmentAvailable={regressionAdjustmentAvailable}
-                regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                regressionAdjustmentHasValidMetrics={
-                  regressionAdjustmentHasValidMetrics
-                }
-                metricRegressionAdjustmentStatuses={
-                  metricRegressionAdjustmentStatuses
-                }
-                onRegressionAdjustmentChange={onRegressionAdjustmentChange}
-              />
-            ) : (
-              <StatusBanner
-                mutateExperiment={mutate}
-                editResult={editResult ?? undefined}
-              />
-            )}
+            <Results
+              experiment={experiment}
+              mutateExperiment={mutate}
+              draftMode={experiment.status === "draft" || !(experimentHasPhases && !experimentPendingWithVisualChanges)}
+              editMetrics={editMetrics ?? undefined}
+              editResult={editResult ?? undefined}
+              editPhases={editPhases ?? undefined}
+              alwaysShowPhaseSelector={true}
+              reportDetailsLink={false}
+              statsEngine={statsEngine}
+              regressionAdjustmentAvailable={regressionAdjustmentAvailable}
+              regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+              regressionAdjustmentHasValidMetrics={
+                regressionAdjustmentHasValidMetrics
+              }
+              metricRegressionAdjustmentStatuses={
+                metricRegressionAdjustmentStatuses
+              }
+              onRegressionAdjustmentChange={onRegressionAdjustmentChange}
+            />
           </div>
         </Tab>
 

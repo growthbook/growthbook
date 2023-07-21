@@ -200,6 +200,17 @@ pre {
   border-radius: 20px !important;
   overflow: hidden;
 }
+.experiment-top-rows {
+  @media (max-width: 1300px) {
+    .row-break {
+      flex-basis: 100%;
+      height: 15px;
+    }
+    .experiment-dates {
+      width: 100px;
+    }
+  }
+}
 
 .badge {
   line-height: 1em;

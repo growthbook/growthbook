@@ -29,10 +29,9 @@ const CompactResults = dynamic(
   () => import("@/components/Experiment/CompactResults")
 );
 
-const Results: FC<{
+const Results_old: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => void;
-  draftMode?: boolean;
   editMetrics?: () => void;
   editResult?: () => void;
   editPhases?: () => void;
@@ -47,7 +46,6 @@ const Results: FC<{
 }> = ({
   experiment,
   mutateExperiment,
-  draftMode = false,
   editMetrics,
   editResult,
   editPhases,
@@ -126,25 +124,21 @@ const Results: FC<{
         mutateExperiment={mutateExperiment}
         editResult={editResult}
       />
-
-      {!draftMode ? (
-        <AnalysisSettingsBar
-          mutateExperiment={mutateExperiment}
-          editMetrics={editMetrics}
-          variations={variations}
-          editPhases={editPhases}
-          alwaysShowPhaseSelector={alwaysShowPhaseSelector}
-          statsEngine={statsEngine}
-          regressionAdjustmentAvailable={regressionAdjustmentAvailable}
-          regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-          regressionAdjustmentHasValidMetrics={
-            regressionAdjustmentHasValidMetrics
-          }
-          metricRegressionAdjustmentStatuses={metricRegressionAdjustmentStatuses}
-          onRegressionAdjustmentChange={onRegressionAdjustmentChange}
-        />
-      ) : null }
-
+      <AnalysisSettingsBar
+        mutateExperiment={mutateExperiment}
+        editMetrics={editMetrics}
+        variations={variations}
+        editPhases={editPhases}
+        alwaysShowPhaseSelector={alwaysShowPhaseSelector}
+        statsEngine={statsEngine}
+        regressionAdjustmentAvailable={regressionAdjustmentAvailable}
+        regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+        regressionAdjustmentHasValidMetrics={
+          regressionAdjustmentHasValidMetrics
+        }
+        metricRegressionAdjustmentStatuses={metricRegressionAdjustmentStatuses}
+        onRegressionAdjustmentChange={onRegressionAdjustmentChange}
+      />
       {experiment.metrics.length === 0 && (
         <div className="alert alert-info m-3">
           Add at least 1 metric to view results.{" "}
@@ -162,7 +156,6 @@ const Results: FC<{
           )}
         </div>
       )}
-
       {!hasData &&
         !snapshot?.unknownVariations?.length &&
         status !== "running" &&
@@ -182,7 +175,6 @@ const Results: FC<{
               `Click the "Update" button above.`}
           </div>
         )}
-      
       {snapshot && !snapshot.dimension && (
         <VariationIdWarning
           unknownVariations={snapshot.unknownVariations || []}
@@ -231,7 +223,7 @@ const Results: FC<{
           project={experiment.project}
         />
       )}
-      {!draftMode && hasData &&
+      {!hasData &&
         snapshot?.dimension &&
         (snapshot.dimension.substring(0, 8) === "pre:date" ? (
           <DateResults
@@ -267,7 +259,7 @@ const Results: FC<{
             sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           />
         ))}
-      {!draftMode && hasData &&
+      {!hasData &&
         snapshot &&
         analysis &&
         analysis.results?.[0] &&
@@ -343,8 +335,71 @@ const Results: FC<{
             )}
           </>
         )}
+      {!hasData && (
+        <div className="row align-items-center mx-2 my-3">
+          <div className="col-auto small" style={{ lineHeight: 1.2 }}>
+            <div className="text-muted mb-1">
+              The above results were computed with:
+            </div>
+            <div>
+              <span className="text-muted">Engine:</span>{" "}
+              <span>
+                {analysis?.settings?.statsEngine === "frequentist"
+                  ? "Frequentist"
+                  : "Bayesian"}
+              </span>
+            </div>
+            {analysis?.settings?.statsEngine === "frequentist" && (
+              <>
+                <div>
+                  <span className="text-muted">
+                    <GBCuped size={13} /> CUPED:
+                  </span>{" "}
+                  <span>
+                    {analysis?.settings?.regressionAdjusted
+                      ? "Enabled"
+                      : "Disabled"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted">
+                    <GBSequential size={13} /> Sequential:
+                  </span>{" "}
+                  <span>
+                    {analysis?.settings?.sequentialTesting
+                      ? "Enabled"
+                      : "Disabled"}
+                  </span>
+                </div>
+              </>
+            )}
+            <div>
+              <span className="text-muted">Run date:</span>{" "}
+              <span>
+                {getValidDate(snapshot?.dateCreated ?? "").toLocaleString([], {
+                  year: "numeric",
+                  month: "numeric",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+          </div>
+          <div style={{ flex: "1 1 0%" }}></div>
+          <div className="col-4 small text-muted" style={{ lineHeight: 1.2 }}>
+            {permissions.check("createAnalyses", experiment.project) &&
+              experiment.metrics?.length > 0 && (
+                <>
+                  Click the 3 dots next to the Update button above to configure
+                  this report, download as a Jupyter notebook, and more.
+                </>
+              )}
+          </div>
+        </div>
+      )}
     </>
   );
 };
 
-export default Results;
+export default Results_old;

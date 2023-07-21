@@ -60,7 +60,7 @@ import EditExperimentNameForm from "./EditExperimentNameForm";
 import { useSnapshot } from "./SnapshotProvider";
 import ExperimentReportsList from "./ExperimentReportsList";
 import AnalysisForm from "./AnalysisForm";
-import Results from "./Results";
+import Results_old from "./Results_old";
 import StatusIndicator from "./StatusIndicator";
 import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
 import VariationsTable from "./VariationsTable";
@@ -1054,7 +1054,7 @@ export default function SinglePage_old({
             </h3>
             <div className="appbox" style={{ overflowX: "initial" }}>
               {experiment.phases?.length > 0 ? (
-                <Results
+                <Results_old
                   experiment={experiment}
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
