@@ -269,6 +269,7 @@ const SegmentPage: FC = () => {
               <thead>
                 <tr>
                   <th>Name</th>
+                  <th>Description</th>
                   <th>Owner</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
@@ -279,12 +280,16 @@ const SegmentPage: FC = () => {
               </thead>
               <tbody>
                 {segments.map((s) => {
+                  console.log("s", s);
                   const datasource = getDatasourceById(s.datasource);
                   const language: Language =
                     datasource?.properties?.queryLanguage || "sql";
                   return (
                     <tr key={s.id}>
                       <td>{s.name}</td>
+                      <td className="text-ellipses" style={{ maxWidth: 150 }}>
+                        {s.description}
+                      </td>
                       <td>{s.owner}</td>
                       <td className="d-none d-sm-table-cell">
                         {datasource && (
@@ -296,7 +301,7 @@ const SegmentPage: FC = () => {
                             </div>
                             <div
                               className="text-gray font-weight-normal small text-ellipsis"
-                              style={{ maxWidth: 350 }}
+                              style={{ maxWidth: 150 }}
                             >
                               {datasource?.description}
                             </div>
@@ -310,7 +315,7 @@ const SegmentPage: FC = () => {
                       </td>
                       <td
                         className="d-none d-lg-table-cell"
-                        style={{ maxWidth: "30em" }}
+                        style={{ maxWidth: 350 }}
                       >
                         <Code
                           code={s.sql}

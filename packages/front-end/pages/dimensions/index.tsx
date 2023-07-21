@@ -145,7 +145,7 @@ const DimensionsPage: FC = () => {
                   return (
                     <tr key={s.id}>
                       <td>{s.name}</td>
-                      <td className="text-ellipsis" style={{ maxWidth: 250 }}>
+                      <td className="text-ellipsis" style={{ maxWidth: 150 }}>
                         {s.description}
                       </td>
                       <td>{s.owner}</td>
@@ -173,7 +173,7 @@ const DimensionsPage: FC = () => {
                       </td>
                       <td
                         className="d-none d-lg-table-cell"
-                        style={{ maxWidth: "30em" }}
+                        style={{ maxWidth: 350 }}
                       >
                         <Code
                           language={language}

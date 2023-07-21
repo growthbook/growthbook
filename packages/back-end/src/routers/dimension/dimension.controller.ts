@@ -49,7 +49,7 @@ type CreateDimensionRequest = AuthRequest<{
   userIdType: string;
   name: string;
   sql: string;
-  description?: string;
+  description: string;
 }>;
 
 type CreateDimensionResponse = {

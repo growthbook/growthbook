@@ -19,7 +19,7 @@ router.post(
         userIdType: z.string(),
         name: z.string(),
         sql: z.string(),
-        description: z.string().optional(),
+        description: z.string(),
         owner: z.string().optional(), // This is required even though it's not being used
       })
       .strict(),
