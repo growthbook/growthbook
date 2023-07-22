@@ -931,7 +931,7 @@ pre {
   }
 
   label:active:after {
-    width: 30px;
+    transition-delay: 0.3s;
   }
 
   &.disabled {
