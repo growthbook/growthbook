@@ -76,6 +76,7 @@ import Code from "../SyntaxHighlighting/Code";
 import Tooltip from "../Tooltip/Tooltip";
 import Button from "../Button";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
+import { DocLink } from "../DocLink";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import ResultsIndicator from "./ResultsIndicator";
 import EditStatusModal from "./EditStatusModal";
@@ -832,17 +833,17 @@ export default function SinglePage({
             <div className="d-flex align-items-center">
               <div>
                 <FaClock /> <strong>Temporary Rollout Enabled</strong>
-                <br />
-                This experiment has been stopped, but visual changes are still
-                being applied to give you time to implement them in code.
-                <br />
-                When you no longer need this rollout, stop it to improve site
-                performance.
+                <div className="my-1">
+                  This experiment has been stopped, but visual changes are still
+                  being applied to give you time to implement them in code.
+                </div>
+                When you no longer need this rollout, stop it to improve your
+                site performance.{" "}
+                <DocLink docSection="temporaryRollout">Learn more</DocLink>
               </div>
-              <div className="ml-auto">
+              <div className="ml-auto pl-2">
                 <Button
                   color="primary"
-                  className="btn-sm"
                   onClick={async () => {
                     await apiCall(`/experiment/${experiment.id}`, {
                       method: "POST",

@@ -11,6 +11,7 @@ import Modal from "../Modal";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Field from "../Forms/Field";
 import Toggle from "../Forms/Toggle";
+import { DocLink } from "../DocLink";
 
 const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -168,8 +169,8 @@ const StopExperimentForm: FC<{
             </div>
 
             <small className="form-text text-muted">
-              Keep the experiment running until you&apos;re able to implement
-              the visual changes in code
+              Keep the experiment running until you can implement the changes in
+              code. <DocLink docSection="temporaryRollout">Learn more</DocLink>
             </small>
           </div>
         </div>
