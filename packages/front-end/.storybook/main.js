@@ -13,6 +13,7 @@ module.exports = {
         prop.parent ? !/node_modules/.test(prop.parent.fileName) : true,
     },
   },
+  staticDirs: ["../public"],
   addons: [
     "storybook-addon-next",
     "@storybook/addon-knobs",
