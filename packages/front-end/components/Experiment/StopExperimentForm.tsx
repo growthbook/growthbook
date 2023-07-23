@@ -10,6 +10,7 @@ import SelectField from "@/components/Forms/SelectField";
 import Modal from "../Modal";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import Field from "../Forms/Field";
+import Toggle from "../Forms/Toggle";
 
 const StopExperimentForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -23,6 +24,7 @@ const StopExperimentForm: FC<{
       reason: "",
       winner: experiment.winner || 0,
       releasedVariationId: experiment.releasedVariationId || "",
+      excludeFromPayload: !!experiment.excludeFromPayload,
       analysis: experiment.analysis || "",
       results: experiment.results || "dnf",
       dateEnded: new Date().toISOString().substr(0, 16),
@@ -100,7 +102,29 @@ const StopExperimentForm: FC<{
           onChange={(v) => {
             const result = v as ExperimentResultsType;
             form.setValue("results", result);
+
+            if (result === "dnf" || result === "inconclusive") {
+              form.setValue("excludeFromPayload", true);
+              form.setValue("releasedVariationId", "");
+              form.setValue("winner", 0);
+            } else if (result === "won") {
+              form.setValue("excludeFromPayload", false);
+              form.setValue("winner", 1);
+              form.setValue(
+                "releasedVariationId",
+                experiment.variations[1]?.id || ""
+              );
+            } else if (result === "lost") {
+              form.setValue("excludeFromPayload", true);
+              form.setValue("winner", 0);
+              form.setValue(
+                "releasedVariationId",
+                experiment.variations[0]?.id || ""
+              );
+            }
           }}
+          initialOption="Pick one..."
+          required
           options={[
             { label: "Did Not Finish", value: "dnf" },
             { label: "Won", value: "won" },
@@ -115,6 +139,12 @@ const StopExperimentForm: FC<{
             value={form.watch("winner") + ""}
             onChange={(v) => {
               form.setValue("winner", parseInt(v) || 0);
+
+              form.setValue(
+                "releasedVariationId",
+                experiment.variations[parseInt(v)]?.id ||
+                  form.watch("releasedVariationId")
+              );
             }}
             options={experiment.variations.slice(1).map((v, i) => {
               return { value: i + 1 + "", label: v.name };
@@ -122,21 +152,45 @@ const StopExperimentForm: FC<{
           />
         )}
       </div>
-      <div className="row">
-        <SelectField
-          label="Variation to Release"
-          containerClassName="col"
-          value={form.watch("releasedVariationId")}
-          onChange={(v) => {
-            form.setValue("releasedVariationId", v);
-          }}
-          helpText="Which variation should be rolled out to 100% of users?"
-          initialOption="None"
-          options={experiment.variations.map((v) => {
-            return { value: v.id, label: v.name };
-          })}
-        />
-      </div>
+      {experiment.hasVisualChangesets && (
+        <div className="row">
+          <div className="form-group col">
+            <label>Enable Temporary Rollout</label>
+
+            <div>
+              <Toggle
+                id="excludeFromPayload"
+                value={!form.watch("excludeFromPayload")}
+                setValue={(includeInPayload) => {
+                  form.setValue("excludeFromPayload", !includeInPayload);
+                }}
+              />
+            </div>
+
+            <small className="form-text text-muted">
+              Keep the experiment running until you&apos;re able to implement
+              the visual changes in code
+            </small>
+          </div>
+        </div>
+      )}
+      {!form.watch("excludeFromPayload") && experiment.hasVisualChangesets && (
+        <div className="row">
+          <SelectField
+            label="Variation to Release"
+            containerClassName="col"
+            value={form.watch("releasedVariationId")}
+            onChange={(v) => {
+              form.setValue("releasedVariationId", v);
+            }}
+            helpText="Send 100% of experiment traffic to this variation"
+            initialOption="None"
+            options={experiment.variations.map((v) => {
+              return { value: v.id, label: v.name };
+            })}
+          />
+        </div>
+      )}
       <div className="row">
         <div className="form-group col-lg">
           <label>Additional Analysis or Details</label>{" "}
