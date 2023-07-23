@@ -1,4 +1,4 @@
 # Generated files for OpenAPI
-packages/back-end/generated/ linguist-generated=true
+packages/back-end/generated/spec.yaml linguist-generated=true
 packages/back-end/types/openapi.d.ts linguist-generated=true
 packages/back-end/src/validators/openapi.ts linguist-generated=true
