@@ -61,8 +61,8 @@ export const postProject = async (
   const { org } = getOrgFromReq(req);
 
   const doc = await createProject(org.id, {
-    name: name,
-    description: description,
+    name,
+    description,
   });
 
   res.status(200).json({

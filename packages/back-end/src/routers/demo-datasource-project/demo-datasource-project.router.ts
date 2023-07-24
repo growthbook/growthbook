@@ -13,11 +13,7 @@ const demoDatasourceProjectController = wrapController(
 router.post(
   "/",
   validateRequestMiddleware({
-    body: z
-      .object({
-        // TODO:
-      })
-      .strict(),
+    body: z.object({}).strict(),
   }),
   demoDatasourceProjectController.postDemoDatasourceProject
 );

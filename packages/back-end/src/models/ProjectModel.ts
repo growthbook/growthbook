@@ -31,7 +31,7 @@ function toInterface(doc: ProjectDocument): ProjectInterface {
   return omit(ret, ["__v", "_id"]);
 }
 
-interface createProjectProps {
+interface CreateProjectProps {
   name: string;
   description?: string;
   id?: string;
@@ -39,13 +39,13 @@ interface createProjectProps {
 
 export async function createProject(
   organization: string,
-  data: createProjectProps
+  data: CreateProjectProps
 ) {
   const doc = await ProjectModel.create({
     organization: organization,
     id: data.id || uniqid("prj_"),
     name: data.name || "",
-    description: data.description || undefined,
+    description: data.description,
     dateCreated: new Date(),
     dateUpdated: new Date(),
   });

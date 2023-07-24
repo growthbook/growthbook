@@ -8,7 +8,7 @@ import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { PostgresConnectionParams } from "../../../types/integrations/postgres";
 import { createDataSource } from "../../models/DataSourceModel";
 import { createExperiment } from "../../models/ExperimentModel";
-import { createProject, deleteProjectById } from "../../models/ProjectModel";
+import { createProject } from "../../models/ProjectModel";
 import { createMetric, createSnapshot } from "../../services/experiments";
 import { DataSourceSettings } from "../../../types/datasource";
 import { ExperimentInterface } from "../../../types/experiment";
@@ -49,8 +49,9 @@ const DEMO_DATASOURCE_PARAMS: PostgresConnectionParams = {
   defaultSchema: "",
 };
 
+const ASSET_OWNER = "datascience@growthbook.io";
+
 // Metric constants
-const METRIC_OWNER = "datascience@growthbook.io";
 const DEMO_METRICS: Pick<
   MetricInterface,
   | "name"
@@ -210,10 +211,6 @@ export const postDemoDatasourceProject = async (
   try {
     // TODO smarter management for cases when project exists
     // TODO throw appropriate error after each step
-    await deleteProjectById(
-      getDemoDatasourceProjectIdForOrganization(org.id),
-      org.id
-    );
 
     const project = await createProject(org.id, {
       id: getDemoDatasourceProjectIdForOrganization(org.id),
@@ -238,7 +235,7 @@ export const postDemoDatasourceProject = async (
         return createMetric({
           ...m,
           organization: org.id,
-          owner: METRIC_OWNER,
+          owner: ASSET_OWNER,
           userIdColumns: { user_id: "user_id" },
           userIdTypes: ["user_id"],
           datasource: datasource.id,
@@ -254,7 +251,7 @@ export const postDemoDatasourceProject = async (
         (x) => x.name === "Purchases - Number of Orders (72 hour window)"
       )?.id,
       organization: org.id,
-      owner: METRIC_OWNER,
+      owner: ASSET_OWNER,
       userIdColumns: { user_id: "user_id" },
       userIdTypes: ["user_id"],
       datasource: datasource.id,
@@ -270,7 +267,7 @@ export const postDemoDatasourceProject = async (
         return createExperiment({
           data: {
             ...e,
-            owner: METRIC_OWNER,
+            owner: ASSET_OWNER,
             datasource: datasource.id,
             project: project.id,
             metrics: metrics.map((m) => m.id).concat(ratioMetric.id),
