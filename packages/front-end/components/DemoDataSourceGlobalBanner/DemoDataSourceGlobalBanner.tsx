@@ -39,7 +39,7 @@ export const DemoDataSourceGlobalBanner: FC<DemoDataSourceGlobalBannerProps> = (
 
         <div className="demo-datasource-banner__text-wrapper">
           <button className="demo-datasource-banner__text" onClick={onClick}>
-            Demo Datasource Project
+            Demo Project
           </button>
         </div>
 
@@ -48,12 +48,13 @@ export const DemoDataSourceGlobalBanner: FC<DemoDataSourceGlobalBannerProps> = (
             <SimpleTooltip position="bottom">
               <div className="text-left">
                 <p>
-                  There are some restrictions when creating resources in this
-                  project.
+                  This project lets you explore GrowthBook with sample data.
+                  We&apos;ve created everything for you - a data source,
+                  metrics, and experiments.
                 </p>
                 <p className="mb-0">
-                  All created resources will be deleted when the project is
-                  deleted.
+                  Once you are done exploring, you can delete this project and
+                  create your own under Settings.
                 </p>
               </div>
             </SimpleTooltip>
