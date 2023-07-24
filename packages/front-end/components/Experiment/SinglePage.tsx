@@ -639,7 +639,7 @@ export default function SinglePage({
 
       <div className="mb-4">
         <div className="experiment-top-rows row align-items-center mb-2">
-          {(projects.length > 0 || projectIsDeReferenced) ? (
+          {projects.length > 0 || projectIsDeReferenced ? (
             <div className="col-auto pr-3">
               Project:{" "}
               {projectIsDeReferenced ? (
@@ -1187,7 +1187,10 @@ export default function SinglePage({
             <Results
               experiment={experiment}
               mutateExperiment={mutate}
-              draftMode={experiment.status === "draft" || !(experimentHasPhases && !experimentPendingWithVisualChanges)}
+              draftMode={
+                experiment.status === "draft" ||
+                !(experimentHasPhases && !experimentPendingWithVisualChanges)
+              }
               editMetrics={editMetrics ?? undefined}
               editResult={editResult ?? undefined}
               editPhases={editPhases ?? undefined}

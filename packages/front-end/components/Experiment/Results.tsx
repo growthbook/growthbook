@@ -140,10 +140,12 @@ const Results: FC<{
           regressionAdjustmentHasValidMetrics={
             regressionAdjustmentHasValidMetrics
           }
-          metricRegressionAdjustmentStatuses={metricRegressionAdjustmentStatuses}
+          metricRegressionAdjustmentStatuses={
+            metricRegressionAdjustmentStatuses
+          }
           onRegressionAdjustmentChange={onRegressionAdjustmentChange}
         />
-      ) : null }
+      ) : null}
 
       {experiment.metrics.length === 0 && (
         <div className="alert alert-info m-3">
@@ -182,7 +184,7 @@ const Results: FC<{
               `Click the "Update" button above.`}
           </div>
         )}
-      
+
       {snapshot && !snapshot.dimension && (
         <VariationIdWarning
           unknownVariations={snapshot.unknownVariations || []}
@@ -231,7 +233,8 @@ const Results: FC<{
           project={experiment.project}
         />
       )}
-      {!draftMode && hasData &&
+      {!draftMode &&
+        hasData &&
         snapshot?.dimension &&
         (snapshot.dimension.substring(0, 8) === "pre:date" ? (
           <DateResults
@@ -267,7 +270,8 @@ const Results: FC<{
             sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           />
         ))}
-      {!draftMode && hasData &&
+      {!draftMode &&
+        hasData &&
         snapshot &&
         analysis &&
         analysis.results?.[0] &&
@@ -293,6 +297,7 @@ const Results: FC<{
               status={experiment.status}
               metrics={experiment.metrics}
               metricOverrides={experiment.metricOverrides ?? []}
+              guardrails={experiment.guardrails}
               id={experiment.id}
               statsEngine={analysis.settings.statsEngine}
               pValueCorrection={pValueCorrection}
@@ -304,43 +309,6 @@ const Results: FC<{
               }
               sequentialTestingEnabled={analysis.settings?.sequentialTesting}
             />
-            {(experiment.guardrails?.length ?? 0) > 0 && (
-              <div className="mt-1 px-3">
-                <h3 className="mb-3">Guardrails</h3>
-                <div className="row">
-                  {experiment.guardrails?.map((g) => {
-                    const metric = getMetricById(g);
-                    if (!metric) return "";
-
-                    const data = analysis.results?.[0]?.variations;
-                    if (!data) return "";
-
-                    const xlargeCols =
-                      experiment.guardrails?.length === 2 ? 6 : 4;
-                    return (
-                      <div
-                        className={`col-12 col-xl-${xlargeCols} col-lg-6`}
-                        key={g}
-                      >
-                        {analysis.settings.statsEngine === "frequentist" ? (
-                          <PValueGuardrailResults
-                            data={data}
-                            variations={variations}
-                            metric={metric}
-                          />
-                        ) : (
-                          <GuardrailResults
-                            data={data}
-                            variations={variations}
-                            metric={metric}
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
           </>
         )}
     </>

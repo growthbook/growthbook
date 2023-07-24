@@ -14,7 +14,7 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import DateResults from "@/components/Experiment/DateResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
-import CompactResults from "@/components/Experiment/CompactResults";
+import CompactResults_old from "@/components/Experiment/CompactResults_old";
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import { useAuth } from "@/services/auth";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
@@ -455,7 +455,7 @@ export default function ReportPage() {
           )}
           {hasData && !report.args.dimension && (
             <>
-              <CompactResults
+              <CompactResults_old
                 id={report.id}
                 isLatestPhase={true}
                 metrics={report.args.metrics}

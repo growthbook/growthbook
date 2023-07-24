@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import React, {ReactElement, useEffect, useLayoutEffect, useRef, useState} from "react";
+import React, { ReactElement } from "react";
 import { FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
@@ -13,11 +13,11 @@ import SelectField from "../Forms/SelectField";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
-import PercentGraph from "./PercentGraph";
+import PercentGraphColumn from "./PercentGraphColumn";
 import RiskColumn from "./RiskColumn";
 import PValueColumn from "./PValueColumn";
 
-export type ResultsTableProps = {
+export type ResultsTableProps_old = {
   id: string;
   variations: ExperimentReportVariation[];
   status: ExperimentStatus;
@@ -48,7 +48,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-export default function ResultsTable({
+export default function ResultsTable_old({
   id,
   isLatestPhase,
   status,
@@ -67,180 +67,10 @@ export default function ResultsTable({
   statsEngine = DEFAULT_STATS_ENGINE,
   pValueCorrection,
   sequentialTestingEnabled = false,
-}: ResultsTableProps) {
-
-  const tableContainerRef = useRef<HTMLDivElement>(null);
-  const [graphCellWidth, setGraphCellWidth] = useState(0);
-
-  function onResize() {
-    if (!tableContainerRef.current) return;
-    const tableWidth = tableContainerRef.current.clientWidth;
-    const firstRowCells = tableContainerRef.current?.querySelectorAll("thead tr:first-child th:not(.graphCell)");
-    let totalCellWidth = 0;
-    if (firstRowCells) {
-      for (let i = 0; i < firstRowCells.length; i++) {
-        const cell = firstRowCells[i];
-        totalCellWidth += cell.clientWidth;
-      }
-    }
-    const graphWidth = tableWidth - totalCellWidth;
-    // const totalCellWidth = (firstRowCells || []).reduce((acc, cell) => acc + cell.clientWidth, 0);
-    console.log({ totalCellWidth, graphWidth, tableWidth })
-
-    setGraphCellWidth(graphWidth - 20);
-  }
-
-  // useLayoutEffect(() => {
-  //   onResize();
-  // }, []);
-
-  useEffect(() => {
-    window.addEventListener("resize", onResize);
-    onResize();
-  }, []);
-
-  // useEffect(() => {
-  //   const firstRowCells = tableContainerRef.current?.querySelectorAll("thead tr:first-child th:not(.graphCell)");
-  //   let totalCellWidth = 0;
-  //   if (firstRowCells) {
-  //     for (let i = 0; i < firstRowCells.length; i++) {
-  //       const cell = firstRowCells[i];
-  //       console.log("cell", i, cell.clientWidth)
-  //       totalCellWidth += cell.clientWidth;
-  //     }
-  //   }
-  //   // const totalCellWidth = (firstRowCells || []).reduce((acc, cell) => acc + cell.clientWidth, 0);
-  //   console.log({ totalCellWidth, tableWidth })
-  //
-  //   setGraphCellWidth(tableWidth - totalCellWidth);
-  // }, [tableWidth]);
-
+}: ResultsTableProps_old) {
   const orgSettings = useOrgSettings();
 
   const domain = useDomain(variations, rows);
-
-  return (
-    <div ref={tableContainerRef}>
-      <table className="experiment-results table-borderless table-sm">
-      <thead>
-        <tr className="results-top-row">
-          <th style={{ width: 180 }}></th>
-          <th style={{ width: 180 }}></th>
-          <th style={{  }} className="graphCell">
-            <AlignedGraph
-              id={`${id}_axis`}
-              domain={domain}
-              significant={true}
-              showAxis={true}
-              axisOnly={true}
-              graphWidth={graphCellWidth}
-              height={45}
-            />
-          </th>
-        </tr>
-      </thead>
-
-      {rows.map((row, i) => {
-        const baseline = row.variations[0] || {
-          value: 0,
-          cr: 0,
-          users: 0,
-        };
-
-        return (
-          <tbody className="results-group-row" key={i}>
-            <tr className="results-label-row">
-              <th colSpan={2}>
-                <h3 className="mt-2 mb-1">{row.label}</h3>
-              </th>
-              <th>
-                <AlignedGraph
-                  id={`${id}_axis`}
-                  domain={domain}
-                  significant={true}
-                  showAxis={false}
-                  axisOnly={true}
-                  graphWidth={graphCellWidth}
-                  height={40}
-                />
-              </th>
-            </tr>
-
-            {variations.map((v, j) => {
-              const skipVariation = false; // todo: use filter
-              if (skipVariation) {
-                return null;
-              }
-              const stats = row.variations[j] || {
-                value: 0,
-                cr: 0,
-                users: 0,
-              };
-
-              return (
-                <tr
-                  className="results-variation-row align-items-center"
-                  key={j}
-                >
-                  <td
-                    className={`variation with-variation-label variation${j} d-inline-flex align-items-center`}
-                    style={{ width: 180 }}
-                  >
-                    <span
-                      className="label ml-1"
-                      style={{ width: 20, height: 20 }}
-                    >
-                      {j}
-                    </span>
-                    <div
-                      className="text-ellipsis font-weight-bold"
-                      style={{ width: 125 }}
-                    >
-                      {v.name}
-                    </div>
-                  </td>
-                  <td>
-                    {users ? (
-                      <div className="results-user-value">
-                        users: {numberFormatter.format(users[j] || 0)}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td>
-                    {j > 0 ? (
-                      <PercentGraph
-                        barType={
-                          statsEngine === "frequentist" ? "pill" : undefined
-                        }
-                        baseline={baseline}
-                        domain={domain}
-                        metric={row.metric}
-                        stats={stats}
-                        id={`${id}_violin_row${i}_var${j}`}
-                        graphWidth={graphCellWidth}
-                        height={25}
-                      />
-                    ) : (
-                      <AlignedGraph
-                        id={`${id}_axis`}
-                        domain={domain}
-                        significant={true}
-                        showAxis={false}
-                        axisOnly={true}
-                        graphWidth={graphCellWidth}
-                        height={25}
-                      />
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        );
-      })}
-    </table>
-    </div>
-  );
 
   return (
     <table

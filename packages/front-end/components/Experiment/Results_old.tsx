@@ -25,8 +25,8 @@ import PValueGuardrailResults from "./PValueGuardrailResults";
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
 );
-const CompactResults = dynamic(
-  () => import("@/components/Experiment/CompactResults")
+const CompactResults_old = dynamic(
+  () => import("@/components/Experiment/CompactResults_old")
 );
 
 const Results_old: FC<{
@@ -259,7 +259,7 @@ const Results_old: FC<{
             sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           />
         ))}
-      {!hasData &&
+      {hasData &&
         snapshot &&
         analysis &&
         analysis.results?.[0] &&
@@ -274,7 +274,7 @@ const Results_old: FC<{
                 />
               </div>
             )}
-            <CompactResults
+            <CompactResults_old
               editMetrics={editMetrics}
               variations={variations}
               multipleExposures={snapshot.multipleExposures || 0}

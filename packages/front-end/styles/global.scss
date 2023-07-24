@@ -212,6 +212,17 @@ pre {
   }
 }
 
+.experiment-results {
+  table-layout: auto;
+  width: 100%;
+  th, td {
+    padding: 0 10px;
+  }
+  .variation {
+    font-size: 12px;
+  }
+}
+
 .badge {
   line-height: 1em;
   font-size: 85.72%; //12px

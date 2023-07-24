@@ -16,7 +16,7 @@ export interface Props {
   uplift?: { dist: string; mean?: number; stddev?: number };
   domain: [number, number];
   //width: string | number;
-  height: number;
+  height?: number;
   inverse?: boolean;
   graphWidth?: number;
   expected?: number;

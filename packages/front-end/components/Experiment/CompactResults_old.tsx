@@ -17,15 +17,13 @@ import {
   useRiskVariation,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
-import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResults";
-import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
-import ResultsTable from "./ResultsTable";
+import ResultsTable_old from "./ResultsTable_old";
 import MultipleExposureWarning from "./MultipleExposureWarning";
 
-const CompactResults: FC<{
+const CompactResults_old: FC<{
   editMetrics?: () => void;
   variations: ExperimentReportVariation[];
   multipleExposures?: number;
@@ -36,7 +34,6 @@ const CompactResults: FC<{
   status: ExperimentStatus;
   metrics: string[];
   metricOverrides: MetricOverride[];
-  guardrails?: string[];
   id: string;
   statsEngine?: StatsEngine;
   pValueCorrection?: PValueCorrection;
@@ -54,7 +51,6 @@ const CompactResults: FC<{
   isLatestPhase,
   metrics,
   metricOverrides,
-  guardrails,
   id,
   statsEngine,
   pValueCorrection,
@@ -138,7 +134,7 @@ const CompactResults: FC<{
         </h3>
       </div>
       <div className="mb-1 experiment-compact-holder">
-        <ResultsTable
+        <ResultsTable_old
           dateCreated={reportDate}
           isLatestPhase={isLatestPhase}
           startDate={startDate}
@@ -217,41 +213,7 @@ const CompactResults: FC<{
           }}
         />
       </div>
-
-      {(guardrails?.length ?? 0) > 0 && (
-        <div className="mt-1 px-3">
-          <h3 className="mb-3">Guardrails</h3>
-          <div className="row">
-            {guardrails?.map((g) => {
-              const metric = getMetricById(g);
-              if (!metric) return "";
-
-              const data = results?.variations;
-              if (!data) return "";
-
-              const xlargeCols = guardrails?.length === 2 ? 6 : 4;
-              return (
-                <div className={`col-12 col-xl-${xlargeCols} col-lg-6`} key={g}>
-                  {statsEngine === "frequentist" ? (
-                    <PValueGuardrailResults
-                      data={data}
-                      variations={variations}
-                      metric={metric}
-                    />
-                  ) : (
-                    <GuardrailResults
-                      data={data}
-                      variations={variations}
-                      metric={metric}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </>
   );
 };
-export default CompactResults;
+export default CompactResults_old;
