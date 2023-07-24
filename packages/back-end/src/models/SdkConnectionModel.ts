@@ -69,10 +69,12 @@ const SDKConnectionModel = mongoose.model<SDKConnectionInterface>(
 
 function addEnvProxySettings(proxy: ProxyConnection): ProxyConnection {
   return {
-    enabled: PROXY_ENABLED,
-    host: PROXY_HOST_INTERNAL || PROXY_HOST_PUBLIC,
-    hostExternal: PROXY_HOST_PUBLIC || PROXY_HOST_INTERNAL,
     ...proxy,
+    enabled: proxy.enabled !== undefined ? proxy.enabled : PROXY_ENABLED,
+    host: proxy.host ? proxy.host : PROXY_HOST_INTERNAL || PROXY_HOST_PUBLIC,
+    hostExternal: proxy.hostExternal
+      ? proxy.hostExternal
+      : PROXY_HOST_PUBLIC || PROXY_HOST_INTERNAL,
   };
 }
 
@@ -145,8 +147,8 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
     key: generateSDKConnectionKey(),
     proxy: addEnvProxySettings({
       enabled: !!proxyEnabled,
-      host: proxyHost || "",
-      hostExternal: proxyHost || "",
+      host: proxyHost || PROXY_HOST_INTERNAL || PROXY_HOST_PUBLIC,
+      hostExternal: proxyHost || PROXY_HOST_PUBLIC || PROXY_HOST_INTERNAL,
       signingKey: generateSigningKey(),
       connected: false,
       lastError: null,
