@@ -134,7 +134,6 @@ const drawChange = ({
                   changeIndex={1}
                   visualEditorUrl={vc.editorUrl}
                   experimentId={experiment.id}
-                  visualChangesetId={vc.id}
                 />
               )}
               <DeleteButton

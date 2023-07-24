@@ -30,15 +30,7 @@ const OpenVisualEditorLink: FC<{
   openSettings?: () => void;
   changeIndex: number;
   experimentId: string;
-  visualChangesetId: string;
-}> = ({
-  id,
-  visualEditorUrl,
-  openSettings,
-  changeIndex,
-  experimentId,
-  visualChangesetId,
-}) => {
+}> = ({ id, visualEditorUrl, openSettings, changeIndex, experimentId }) => {
   const apiHost = getApiHost();
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
@@ -56,11 +48,11 @@ const OpenVisualEditorLink: FC<{
       method: "POST",
       body: JSON.stringify({
         experimentId,
-        visualChangesetId,
+        visualChangesetId: id,
       }),
     });
     return res.token;
-  }, [apiCall, experimentId, visualChangesetId]);
+  }, [apiCall, experimentId, id]);
 
   const genUrl = useCallback(async () => {
     let url = visualEditorUrl.trim();

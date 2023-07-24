@@ -889,6 +889,7 @@ export default function SinglePage({
             id={visualChangesets[0].id}
             changeIndex={1}
             visualEditorUrl={visualChangesets[0].editorUrl}
+            experimentId={experiment.id}
           />{" "}
           button here or in the <strong>Linked Changes</strong> section below
           and add at least one change to your experiment before you start
