@@ -81,6 +81,8 @@ function generateVisualExperimentsPayload({
     !!e;
   const sdkExperiments: Array<SDKExperiment | null> = visualExperiments.map(
     ({ experiment: e, visualChangeset: v }) => {
+      if (e.status === "stopped" && e.excludeFromPayload) return null;
+
       const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
       const forcedVariation =
         e.status === "stopped" && e.releasedVariationId

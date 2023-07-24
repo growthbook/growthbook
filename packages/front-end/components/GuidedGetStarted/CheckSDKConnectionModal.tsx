@@ -6,7 +6,7 @@ type Props = {
   close: () => void;
   connection: SDKConnectionInterface;
   mutate: () => Promise<unknown>;
-  goToNextStep: () => void;
+  goToNextStep?: () => void;
 };
 
 export default function CheckSDKConnectionModal({
@@ -25,7 +25,7 @@ export default function CheckSDKConnectionModal({
       size="lg"
       cta="Next: Add a Data Source"
       header={"Check SDK Connection"}
-      submit={async () => goToNextStep()}
+      submit={async () => goToNextStep?.()}
     >
       <CheckSDKConnectionResults
         connection={connection}

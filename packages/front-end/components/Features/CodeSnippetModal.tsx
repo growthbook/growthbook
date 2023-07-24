@@ -56,7 +56,7 @@ export default function CodeSnippetModal({
   feature,
   inline,
   cta = "Finish",
-  submit = () => undefined,
+  submit,
   secondaryCTA,
   sdkConnection,
   connections,
@@ -168,6 +168,7 @@ export default function CodeSnippetModal({
       <Modal
         close={close}
         secondaryCTA={secondaryCTA}
+        className="mb-4"
         bodyClassName="p-0"
         open={true}
         inline={inline}
