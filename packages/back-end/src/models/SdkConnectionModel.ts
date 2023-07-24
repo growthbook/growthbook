@@ -68,13 +68,11 @@ const SDKConnectionModel = mongoose.model<SDKConnectionInterface>(
 );
 
 function addEnvProxySettings(proxy: ProxyConnection): ProxyConnection {
-  if (IS_CLOUD) return proxy;
-
   return {
-    ...proxy,
     enabled: PROXY_ENABLED,
     host: PROXY_HOST_INTERNAL || PROXY_HOST_PUBLIC,
     hostExternal: PROXY_HOST_PUBLIC || PROXY_HOST_INTERNAL,
+    ...proxy,
   };
 }
 
@@ -218,19 +216,17 @@ export async function editSDKConnection(
   // If we're changing the filter for which features are included, we should ping any
   // connected proxies to update their cache immediately instead of waiting for the TTL
   let needsProxyUpdate = false;
-  if (newProxy.enabled && newProxy.host) {
-    const keysRequiringProxyUpdate = [
-      "project",
-      "environment",
-      "encryptPayload",
-      "hashSecureAttributes",
-    ] as const;
-    keysRequiringProxyUpdate.forEach((key) => {
-      if (key in otherChanges && otherChanges[key] !== connection[key]) {
-        needsProxyUpdate = true;
-      }
-    });
-  }
+  const keysRequiringProxyUpdate = [
+    "project",
+    "environment",
+    "encryptPayload",
+    "hashSecureAttributes",
+  ] as const;
+  keysRequiringProxyUpdate.forEach((key) => {
+    if (key in otherChanges && otherChanges[key] !== connection[key]) {
+      needsProxyUpdate = true;
+    }
+  });
 
   await SDKConnectionModel.updateOne(
     {
@@ -247,11 +243,19 @@ export async function editSDKConnection(
   );
 
   if (needsProxyUpdate) {
-    await queueSingleProxyUpdate({
+    const newConnection = {
       ...connection,
       ...otherChanges,
       proxy: newProxy,
-    } as SDKConnectionInterface);
+    } as SDKConnectionInterface;
+
+    if (IS_CLOUD) {
+      await queueSingleProxyUpdate(newConnection, true);
+    }
+
+    if (newProxy.enabled && newProxy.host) {
+      await queueSingleProxyUpdate(newConnection, false);
+    }
   }
 }
 
