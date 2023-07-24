@@ -15,6 +15,7 @@ import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import { DocLink } from "@/components/DocLink";
 import Code, { Language } from "@/components/SyntaxHighlighting/Code";
+import Tooltip from "@/components/Tooltip/Tooltip";
 
 const DimensionsPage: FC = () => {
   const {
@@ -126,7 +127,6 @@ const DimensionsPage: FC = () => {
               <thead>
                 <tr>
                   <th>Name</th>
-                  <th>Description</th>
                   <th>Owner</th>
                   <th className="d-none d-sm-table-cell">Data Source</th>
                   <th className="d-none d-md-table-cell">Identifier Type</th>
@@ -144,25 +144,25 @@ const DimensionsPage: FC = () => {
                     datasource?.properties?.queryLanguage || "sql";
                   return (
                     <tr key={s.id}>
-                      <td>{s.name}</td>
-                      <td className="text-ellipsis" style={{ maxWidth: 150 }}>
-                        {s.description}
+                      <td>
+                        {" "}
+                        <>
+                          {s.name}{" "}
+                          {s.description ? (
+                            <Tooltip body={s.description} />
+                          ) : null}
+                        </>
                       </td>
                       <td>{s.owner}</td>
                       <td className="d-none d-sm-table-cell">
                         {datasource && (
                           <>
-                            <div>
-                              <Link href={`/datasources/${datasource?.id}`}>
-                                {datasource?.name}
-                              </Link>
-                            </div>
-                            <div
-                              className="text-gray font-weight-normal small text-ellipsis"
-                              style={{ maxWidth: 150 }}
-                            >
-                              {datasource?.description}
-                            </div>
+                            <Link href={`/datasources/${datasource.id}`}>
+                              {datasource.name}
+                            </Link>{" "}
+                            {datasource.description ? (
+                              <Tooltip body={datasource.description} />
+                            ) : null}
                           </>
                         )}
                       </td>
@@ -173,7 +173,7 @@ const DimensionsPage: FC = () => {
                       </td>
                       <td
                         className="d-none d-lg-table-cell"
-                        style={{ maxWidth: 350 }}
+                        style={{ maxWidth: "30em" }}
                       >
                         <Code
                           language={language}
