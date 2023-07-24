@@ -162,3 +162,24 @@ export async function testQuery(
     };
   }
 }
+
+// Return any errors that result when running the query otherwise return undefined
+export async function testQueryValidity(
+  datasource: DataSourceInterface,
+  query: string
+): Promise<string | undefined> {
+  const integration = getSourceIntegrationObject(datasource);
+
+  // The Mixpanel integration does not support test queries
+  if (!integration.getTestValidityQuery || !integration.runTestQuery) {
+    return undefined;
+  }
+
+  const sql = integration.getTestValidityQuery(query);
+  try {
+    await integration.runTestQuery(sql);
+    return undefined;
+  } catch (e) {
+    return e.message;
+  }
+}

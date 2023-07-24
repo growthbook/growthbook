@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { isEqual } from "lodash";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -12,6 +13,7 @@ import {
   encryptParams,
   getSourceIntegrationObject,
   testDataSourceConnection,
+  testQueryValidity,
 } from "../services/datasource";
 import { usingFileConfig, getConfigDatasources } from "../init/config";
 import { upgradeDatasourceObject } from "../util/migrations";
@@ -167,15 +169,6 @@ export async function createDataSource(
     (params as GoogleAnalyticsParams).refreshToken = tokens.refresh_token || "";
   }
 
-  // Add any missing exposure query ids
-  if (settings.queries?.exposure) {
-    settings.queries.exposure.forEach((exposure) => {
-      if (!exposure.id) {
-        exposure.id = uniqid("exq_");
-      }
-    });
-  }
-
   const datasource: DataSourceInterface = {
     id,
     name,
@@ -190,6 +183,19 @@ export async function createDataSource(
   };
 
   await testDataSourceConnection(datasource);
+
+  // Add any missing exposure query ids and check query validity
+  if (settings.queries?.exposure) {
+    await Promise.all(
+      settings.queries.exposure.map(async (exposure) => {
+        if (!exposure.id) {
+          exposure.id = uniqid("exq_");
+        }
+        exposure.error = await testQueryValidity(datasource, exposure.query);
+      })
+    );
+  }
+
   const model = (await DataSourceModel.create(
     datasource
   )) as DataSourceDocument;
@@ -206,7 +212,7 @@ export async function createDataSource(
 }
 
 export async function updateDataSource(
-  id: string,
+  datasource: DataSourceInterface,
   organization: string,
   updates: Partial<DataSourceInterface>
 ) {
@@ -214,18 +220,44 @@ export async function updateDataSource(
     throw new Error("Cannot update. Data sources managed by config.yml");
   }
 
-  // Add any missing exposure query ids
+  // Add any missing exposure query ids and validate any new, changed, or previously errored queries
   if (updates.settings?.queries?.exposure) {
-    updates.settings.queries.exposure.forEach((exposure) => {
-      if (!exposure.id) {
-        exposure.id = uniqid("exq_");
-      }
-    });
+    await Promise.all(
+      updates.settings.queries.exposure.map(async (exposure) => {
+        let checkValidity = false;
+        if (!exposure.id) {
+          exposure.id = uniqid("exq_");
+          checkValidity = true;
+        } else {
+          const existingQuery = datasource.settings.queries?.exposure?.find(
+            (q) => q.id == exposure.id
+          );
+          if (
+            !existingQuery ||
+            existingQuery.query != exposure.query ||
+            existingQuery.error
+          ) {
+            checkValidity = true;
+          }
+        }
+        if (checkValidity) {
+          exposure.error = await testQueryValidity(datasource, exposure.query);
+        }
+      })
+    );
+  }
+
+  const updateKeys = Object.keys(updates).filter(
+    (key) => key !== "dateUpdated"
+  ) as Array<keyof DataSourceInterface>;
+
+  if (updateKeys.every((key) => isEqual(datasource[key], updates[key]))) {
+    return; // No need to update if the only change was dateUpdated and everything else is the same.
   }
 
   await DataSourceModel.updateOne(
     {
-      id,
+      id: datasource.id,
       organization,
     },
     {
@@ -267,6 +299,7 @@ export function toDataSourceApiInterface(
       sql: q.query,
       includesNameColumns: !!q.hasNameCol,
       dimensionColumns: q.dimensions,
+      error: q.error,
     })),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
       (q) => ({

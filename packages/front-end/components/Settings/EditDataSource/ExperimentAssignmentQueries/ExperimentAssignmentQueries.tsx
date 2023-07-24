@@ -13,6 +13,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Button from "@/components/Button";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -104,6 +105,19 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
     [dataSource, onSave]
   );
 
+  const [validatingQuery, setValidatingQuery] = useState(false);
+
+  const handleValidate = useCallback(
+    () => async () => {
+      const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      setValidatingQuery(true);
+      // Resaving the document as-is will automatically revalidate any queries in error state
+      await onSave(copy);
+      setValidatingQuery(false);
+    },
+    [dataSource, onSave]
+  );
+
   if (!dataSource) {
     console.error("ImplementationError: dataSource cannot be null");
     return null;
@@ -174,6 +188,31 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                     )}
                   </div>
                 </div>
+                {query.error && (
+                  <div
+                    className="alert alert-danger"
+                    style={{ marginTop: "1rem" }}
+                  >
+                    This query had an error with it the last time it ran.
+                    <Button
+                      onClick={handleValidate()}
+                      style={{ marginLeft: "1rem" }}
+                      loading={validatingQuery}
+                    >
+                      Check it again.
+                    </Button>
+                    {canEdit && (
+                      <Button
+                        onClick={() =>
+                          new Promise(handleActionEditClicked(idx))
+                        }
+                        style={{ marginLeft: "1rem" }}
+                      >
+                        Edit it now.
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* endregion Title Bar */}
