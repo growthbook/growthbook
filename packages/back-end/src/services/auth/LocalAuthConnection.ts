@@ -84,7 +84,6 @@ export class LocalAuthConnection implements AuthConnection {
     }
     jwtCheck(req, res, next);
   }
-  // TODO abstract
   private generateJWT(user: UserInterface) {
     return jwt.sign(
       {

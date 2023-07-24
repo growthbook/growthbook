@@ -30,3 +30,9 @@ export interface VisualChangesetInterface {
   experiment: string;
   visualChanges: VisualChange[];
 }
+
+export interface VisualEditorTempToken {
+  editorUrl: string;
+  userId: string;
+  orgId: string;
+}

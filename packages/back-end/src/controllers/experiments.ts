@@ -81,7 +81,10 @@ import {
 } from "../../types/experiment-snapshot";
 import { StatsEngine } from "../../types/stats";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
+import {
+  VisualChangesetInterface,
+  VisualEditorTempToken,
+} from "../../types/visual-changeset";
 import { PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { findProjectById } from "../models/ProjectModel";
@@ -2132,17 +2135,15 @@ export async function generateVisualEditorTempToken(
     throw new Error("Visual changeset does not match experiment id");
   if (!req.userId) throw new Error("Associated user not found");
 
-  const token = jwt.sign(
-    {
-      editorUrl: visualChangeset.editorUrl,
-      userId: req.userId,
-      orgId: org.id,
-    },
-    JWT_SECRET,
-    {
-      expiresIn: "2m",
-    }
-  );
+  const tempTokenBody: VisualEditorTempToken = {
+    editorUrl: visualChangeset.editorUrl,
+    userId: req.userId,
+    orgId: org.id,
+  };
+
+  const token = jwt.sign(tempTokenBody, JWT_SECRET, {
+    expiresIn: "2m",
+  });
 
   res.status(200).json({
     token,

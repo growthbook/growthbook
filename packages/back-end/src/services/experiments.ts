@@ -65,7 +65,10 @@ import {
   updateExperimentValidator,
 } from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
-import { VisualChangesetInterface } from "../../types/visual-changeset";
+import {
+  VisualChangesetInterface,
+  VisualEditorTempToken,
+} from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
@@ -1780,29 +1783,22 @@ export function visualChangesetsHaveChanges({
 }
 
 // type guard
-const _isValidToken = (decoded: {
-  editorUrl?: string;
-  userId?: string;
-  orgId?: string;
-}): decoded is { editorUrl: string; userId: string; orgId: string } =>
+const _isValidToken = (
+  decoded: Partial<VisualEditorTempToken>
+): decoded is VisualEditorTempToken =>
   !!decoded.editorUrl && !!decoded.userId && !!decoded.orgId;
 
-// TODO Unit test
 export async function decodeAndValidateVisualEditorTempToken(
   token: string,
   referrer: string
 ) {
   try {
     const referrerUrl = url.parse(referrer);
-    // TODO Use shared type here for decoded token body
-    const decoded = await new Promise<{
-      editorUrl?: string;
-      userId?: string;
-      orgId?: string;
-    }>((resolve, reject) =>
-      jwt.verify(token, JWT_SECRET, (err, decoded) =>
-        err ? reject(err) : resolve(decoded ?? {})
-      )
+    const decoded = await new Promise<Partial<VisualEditorTempToken>>(
+      (resolve, reject) =>
+        jwt.verify(token, JWT_SECRET, (err, decoded) =>
+          err ? reject(err) : resolve(decoded ?? {})
+        )
     );
 
     if (!_isValidToken(decoded)) throw new Error("Malformed token");
@@ -1810,9 +1806,13 @@ export async function decodeAndValidateVisualEditorTempToken(
     const editorUrl = url.parse(decoded.editorUrl);
 
     if (referrerUrl.host !== editorUrl.host)
-      throw new Error("Referrer URL host does not match editor URL host");
+      throw new Error("Referer URL host does not match editor URL host");
 
-    return decoded;
+    return {
+      editorUrl: decoded.editorUrl,
+      userId: decoded.userId,
+      orgId: decoded.orgId,
+    };
   } catch (e) {
     throw new Error(`Unable to verify token: ${e.message}`);
   }
