@@ -285,6 +285,21 @@ If you are using the "First Exposure" attribution model, then we build this conv
 
 If you use the "Experiment Duration" attribution model, we effectively ignore the conversion window setting. In this case, we still respect the conversion _delay_ from a user's first experiment exposure timestamp, but we aggregate all metric values/conversions after the conversion delay.
 
+## Auto Generate Metrics
+
+When using GrowthBook with certain event trackers, we may be able to generate metrics for you automatically by identifying the unique events tracked by your event tracker. This is currently only supported for a few event trackers (listed below), but we are working to expand this list.
+
+If you are using one of the supported event trackers and would like to see what metrics we can create for you, head to the `Metrics` page in GrowthBook and select the `Discover Metrics` button.
+
+:::note
+When querying your datasource to identify unique events, we're currently only looking at events in the last 7 days.
+:::
+
+### Supported Event Trackers
+
+- Segment
+- Rudderstack
+
 ## Examples
 
 Let's walk through some examples of creating binomial, count, and retention metrics with GrowthBook. For all of the metrics below, let's pretend we have some table called `purchases`, which has one row per purchase that a user makes. For each row we have the following columns:
