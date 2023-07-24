@@ -680,6 +680,7 @@ export interface components {
         winner: string;
         conclusions: string;
         releasedVariationId: string;
+        excludeFromPayload: boolean;
       };
     };
     ExperimentMetric: {
@@ -1786,6 +1787,7 @@ export interface operations {
                   winner: string;
                   conclusions: string;
                   releasedVariationId: string;
+                  excludeFromPayload: boolean;
                 };
               })[];
           }) & {
@@ -1827,6 +1829,8 @@ export interface operations {
           status?: "draft" | "running" | "stopped";
           autoRefresh?: boolean;
           hashAttribute?: string;
+          releasedVariationId?: string;
+          excludeFromPayload?: boolean;
           variations: ({
               id?: string;
               key: string;
@@ -1954,6 +1958,7 @@ export interface operations {
                 winner: string;
                 conclusions: string;
                 releasedVariationId: string;
+                excludeFromPayload: boolean;
               };
             };
           };
@@ -2058,6 +2063,7 @@ export interface operations {
                 winner: string;
                 conclusions: string;
                 releasedVariationId: string;
+                excludeFromPayload: boolean;
               };
             };
           };
@@ -2095,6 +2101,8 @@ export interface operations {
           status?: "draft" | "running" | "stopped";
           autoRefresh?: boolean;
           hashAttribute?: string;
+          releasedVariationId?: string;
+          excludeFromPayload?: boolean;
           variations?: ({
               id?: string;
               key: string;
@@ -2222,6 +2230,7 @@ export interface operations {
                 winner: string;
                 conclusions: string;
                 releasedVariationId: string;
+                excludeFromPayload: boolean;
               };
             };
           };
@@ -2936,6 +2945,7 @@ export interface operations {
                 winner: string;
                 conclusions: string;
                 releasedVariationId: string;
+                excludeFromPayload: boolean;
               };
             };
           };
