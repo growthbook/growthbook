@@ -37,10 +37,12 @@ export function getCustomLogProps(req: Request) {
   const typedReq = req as AuthRequest & ApiRequestLocals;
 
   // Add helpful fields to logs
-  const data: { [key: string]: string | number | boolean } = {};
+  const data: { [key: string]: object | string | number | boolean } = {};
   if (typedReq.organization) {
-    data.organization = typedReq.organization.id;
-    data.orgName = typedReq.organization.name;
+    data.organization = {
+      id: typedReq.organization.id,
+      name: typedReq.organization.name,
+    };
   }
   if (typedReq.apiKey) {
     data.apiKey = typedReq.apiKey;

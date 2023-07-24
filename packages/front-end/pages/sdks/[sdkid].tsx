@@ -10,7 +10,6 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { BsArrowRepeat, BsLightningFill } from "react-icons/bs";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCircleArrowLeft, GBEdit, GBHashLock } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -28,7 +27,6 @@ import Button from "@/components/Button";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { AppFeatures } from "@/types/app-features";
 
 function ConnectionDot({ left }: { left: boolean }) {
   return (
@@ -119,8 +117,6 @@ function ConnectionStatus({
 }
 
 export default function SDKConnectionPage() {
-  const growthbook = useGrowthBook<AppFeatures>();
-
   const router = useRouter();
   const { sdkid } = router.query;
 
@@ -157,9 +153,8 @@ export default function SDKConnectionPage() {
     [connection.environment]
   );
 
-  const hasProxy =
-    !isCloud() && connection.proxy.enabled && connection.proxy.host;
-  const hasCloudProxyForSSE = isCloud() && growthbook?.isOn("proxy-cloud-sse");
+  const hasProxy = connection.proxy.enabled && connection.proxy.host;
+  const hasCloudProxyForSSE = isCloud();
 
   const projectId = connection.project;
   const projectName = getProjectById(projectId)?.name || null;
@@ -351,7 +346,7 @@ export default function SDKConnectionPage() {
               }
             >
               <code className="text-muted">
-                {connection.proxy.hostExternal || connection.proxy.host}
+                {connection.proxy.host || connection.proxy.hostExternal}
               </code>
             </ConnectionNode>
 
@@ -387,7 +382,7 @@ export default function SDKConnectionPage() {
         </ConnectionNode>
       </div>
 
-      {isCloud() && (
+      {hasProxy || isCloud() ? (
         <div className="row mb-5 align-items-center">
           <div className="flex-1"></div>
           <div className="col-auto">
@@ -406,7 +401,9 @@ export default function SDKConnectionPage() {
             >
               <BsLightningFill className="text-warning" />
               Streaming Updates:{" "}
-              <strong>{hasCloudProxyForSSE ? "Enabled" : "Disabled"}</strong>
+              <strong>
+                {hasCloudProxyForSSE || hasProxy ? "Enabled" : "Disabled"}
+              </strong>
               <div
                 className="text-right text-muted"
                 style={{ fontSize: "0.75rem" }}
@@ -416,7 +413,7 @@ export default function SDKConnectionPage() {
             </Tooltip>
           </div>
         </div>
-      )}
+      ) : null}
 
       <div className="mt-4">
         <CodeSnippetModal
