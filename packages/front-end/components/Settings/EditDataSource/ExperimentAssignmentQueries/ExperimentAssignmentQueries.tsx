@@ -76,7 +76,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   }, [experimentExposureQueries]);
 
   const handleActionEditClicked = useCallback(
-    (idx: number) => () => {
+    (idx: number) => async () => {
       setEditingIndex(idx);
       setUiMode("edit");
     },
@@ -203,9 +203,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                     </Button>
                     {canEdit && (
                       <Button
-                        onClick={() =>
-                          new Promise(handleActionEditClicked(idx))
-                        }
+                        onClick={handleActionEditClicked(idx)}
                         style={{ marginLeft: "1rem" }}
                       >
                         Edit it now.
