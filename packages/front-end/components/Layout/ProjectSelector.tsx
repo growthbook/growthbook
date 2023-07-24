@@ -1,12 +1,18 @@
 import clsx from "clsx";
 import { FaCaretDown } from "react-icons/fa";
-import { FC, useMemo } from "react";
+import { FC } from "react";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import Dropdown from "../Dropdown/Dropdown";
 import DropdownLink from "../Dropdown/DropdownLink";
 import LetterAvatar from "./LetterAvatar";
+
+const demoBadge = {
+  badgeText: "Demo",
+  badgeColor: "#EB8045",
+  badgeTitle: "This is a demo project with sample data",
+};
 
 type ProjectDropdownBadgeProps = {
   badgeText: string;
@@ -79,22 +85,10 @@ export default function ProjectSelector() {
   const { orgId } = useAuth();
   const current = getProjectById(project);
 
-  const badgeProps = useMemo((): ProjectDropdownBadgeProps | null => {
-    if (!current || !orgId) return null;
-
-    const isDemo = isDemoDatasourceProject({
-      projectId: current.id,
-      organizationId: orgId,
-    });
-
-    if (!isDemo) return null;
-
-    return {
-      badgeText: "Demo",
-      badgeColor: "#EB8045",
-      badgeTitle: "This is a demo project with sample data",
-    };
-  }, [current, orgId]);
+  const currentProjectIsDemoProject = isDemoDatasourceProject({
+    projectId: current?.id || "",
+    organizationId: orgId || "",
+  });
 
   if (!projects.length) return null;
 
@@ -118,7 +112,7 @@ export default function ProjectSelector() {
             caret
             avatarName={current?.name || ""}
             display={current?.name || "All Projects"}
-            badge={badgeProps}
+            badge={currentProjectIsDemoProject ? demoBadge : null}
           />
         }
       >
@@ -158,7 +152,7 @@ export default function ProjectSelector() {
                       projectId: p.id,
                       organizationId: orgId || "",
                     })
-                      ? badgeProps
+                      ? demoBadge
                       : null
                   }
                 />
