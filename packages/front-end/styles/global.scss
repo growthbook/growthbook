@@ -915,7 +915,7 @@ pre {
     height: 21px;
     background: var(--surface-background-color);
     border-radius: 90px;
-    transition: 0.3s;
+    transition: right 0.1s ease, width 0.1s ease;
   }
 
   input:checked + label:after {
@@ -931,7 +931,10 @@ pre {
   }
 
   label:active:after {
-    transition-delay: 0.3s;
+    width: 31px;
+    transition: 0.1s all ease;
+    transition-duration: 0.2s;
+    left: calc(100% - 46px);
   }
 
   &.disabled {
