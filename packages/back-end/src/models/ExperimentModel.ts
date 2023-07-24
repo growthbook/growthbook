@@ -93,6 +93,7 @@ const experimentSchema = new mongoose.Schema({
   analysis: String,
   winner: Number,
   releasedVariationId: String,
+  excludeFromPayload: Boolean,
   currentPhase: Number,
   autoAssign: Boolean,
   // Legacy field, no longer used when creating experiments
@@ -954,6 +955,7 @@ export const getAllVisualExperiments = async (
     .filter((e) => {
       if (e.status !== "stopped") return true;
       if (!e.releasedVariationId) return false;
+      if (e.excludeFromPayload) return false;
       return visualChangesByExperimentId[e.id].some(
         (vc) =>
           vc.variation === e.releasedVariationId &&
@@ -997,6 +999,7 @@ const getExperimentChanges = (
     "archived",
     "status",
     "releasedVariationId",
+    "excludeFromPayload",
     "autoAssign",
     "variations",
     "phases",
