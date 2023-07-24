@@ -22,6 +22,9 @@ export async function initializeSdk(
     fetch: require("node-fetch"),
   });
 
+  // Disable SSE
+  configureCache({ backgroundSync: false });
+
   const gb = new GrowthBook<AppFeatures>({
     apiHost: "https://cdn.growthbook.io",
     clientKey:
@@ -31,19 +34,16 @@ export async function initializeSdk(
   });
   req.app.locals.growthbook = gb;
 
-  // Disable SSE
-  configureCache({ backgroundSync: false });
-
   res.on("close", () => {
     gb.destroy();
   });
 
   try {
-    await promiseTimeout(
+    await gb.loadFeatures({
       // Do not subscribe individual SDK instances to streaming updates
-      gb.loadFeatures({ autoRefresh: false }),
-      1000
-    );
+      autoRefresh: false,
+      timeout: 1000,
+    });
   } catch (e) {
     logger.error(e, "Failed to load features from GrowthBook");
   }
@@ -80,29 +80,4 @@ export async function setAttributes(
     gb.setAttributes(attributes);
   }
   next();
-}
-
-// Guarantee the promise always resolves within {timeout} ms
-// Resolved value will be `null` when there's an error or it takes too long
-// Note: The promise will continue running in the background, even if the timeout is hit
-function promiseTimeout<T>(
-  promise: Promise<T>,
-  timeout?: number
-): Promise<T | null> {
-  return new Promise((resolve) => {
-    let resolved = false;
-    let timer: unknown;
-    const finish = (data?: T) => {
-      if (resolved) return;
-      resolved = true;
-      timer && clearTimeout(timer as NodeJS.Timer);
-      resolve(data || null);
-    };
-
-    if (timeout) {
-      timer = setTimeout(() => finish(), timeout);
-    }
-
-    promise.then((data) => finish(data)).catch(() => finish());
-  });
 }
