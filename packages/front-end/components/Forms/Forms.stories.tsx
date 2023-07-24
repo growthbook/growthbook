@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import Toggle from "@/components/Forms/Toggle";
 
 export default {
@@ -15,4 +15,16 @@ export const ToggleStory = () => {
       setValue={() => setEnabled(!enabled)}
     />
   );
+};
+
+export const ToggleWithDelayedUpdateBugStory = () => {
+  const [enabled, setEnabled] = useState(false);
+
+  const onClick = useCallback(() => {
+    setTimeout(() => {
+      setEnabled(!enabled);
+    }, 1000);
+  }, [enabled]);
+
+  return <Toggle id="my-toggle-2" value={enabled} setValue={onClick} />;
 };
