@@ -566,6 +566,7 @@ export async function postExperiments(
     results: data.results || undefined,
     analysis: data.analysis || "",
     releasedVariationId: "",
+    excludeFromPayload: true,
     autoAssign: data.autoAssign || false,
     previewURL: data.previewURL || "",
     targetURLRegex: data.targetURLRegex || "",
@@ -744,6 +745,7 @@ export async function postExperiment(
     "previewURL",
     "targetURLRegex",
     "releasedVariationId",
+    "excludeFromPayload",
     "autoSnapshots",
     "project",
     "regressionAdjustmentEnabled",
@@ -804,6 +806,8 @@ export async function postExperiment(
     "trackingKey",
     "archived",
     "status",
+    "releasedVariationId",
+    "excludeFromPayload",
   ] as (keyof ExperimentInterfaceStringDates)[]).some((key) => key in changes);
   if (needsRunExperimentsPermission) {
     const envs = getAffectedEnvsForExperiment({
@@ -1076,6 +1080,7 @@ export async function postExperimentStop(
     winner,
     dateEnded,
     releasedVariationId,
+    excludeFromPayload,
   } = req.body;
 
   const experiment = await getExperimentById(org.id, id);
@@ -1127,6 +1132,7 @@ export async function postExperimentStop(
   changes.results = results;
   changes.analysis = analysis;
   changes.releasedVariationId = releasedVariationId;
+  changes.excludeFromPayload = !!excludeFromPayload;
 
   try {
     const updated = await updateExperiment({

@@ -1,0 +1,49 @@
+.demo-datasource-banner__wrapper {
+  position: sticky;
+  top: 56px;
+  z-index: 100;
+}
+
+.demo-datasource-banner {
+  position: relative;
+  margin-top: -4px;
+  display: flex;
+  justify-content: center;
+}
+
+.demo-datasource-banner__line {
+  position: absolute;
+  z-index: 20;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background-color: #EB8045;
+}
+
+.demo-datasource-banner__text-wrapper {
+  position: relative;
+  z-index: 20;
+  background-color: #EB8045;
+  border-bottom-left-radius: 6px;
+  border-bottom-right-radius: 6px;
+  padding: 0.2em 0.5em;
+}
+
+.demo-datasource-banner__text {
+  background: transparent;
+  border: 0;
+  color: #fff;
+  font-weight: 700;
+}
+
+.demo-datasource-banner__tooltip-click-overlay {
+  max-width: 100%;
+  width: 100vw;
+  height: 100vh;
+  max-height: calc(100vh - 56px); // 56px = .topbar height
+  z-index: 10;
+  position: fixed;
+  top: 0px;
+  left: 0;
+}
