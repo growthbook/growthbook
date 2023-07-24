@@ -95,6 +95,7 @@ import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { environmentRouter } from "./routers/environment/environment.router";
+import * as gbCloudSdkMiddleware from "./services/gb-cloud-sdk/middleware";
 
 const app = express();
 
@@ -215,6 +216,9 @@ app.options(
   }
 );
 
+// Initialize GBCloudSDK for standard and apiRouter routes
+app.use(gbCloudSdkMiddleware.initializeSdk);
+
 // Secret API routes (no JWT or CORS)
 app.use(
   "/api/v1",
@@ -282,6 +286,9 @@ app.use(
 
 // Validate self hosted license key if present
 app.use(verifyLicenseMiddleware);
+
+// Set attributes for GBCloudSDK once logged in
+app.use(gbCloudSdkMiddleware.setAttributes);
 
 // Logged-in auth requests
 if (!useSSO) {
