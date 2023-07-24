@@ -26,7 +26,6 @@ import ProxyTestButton from "@/components/Features/SDKConnections/ProxyTestButto
 import Button from "@/components/Button";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 function ConnectionDot({ left }: { left: boolean }) {
@@ -154,8 +153,7 @@ export default function SDKConnectionPage() {
     [connection.environment]
   );
 
-  const hasProxy =
-    !isCloud() && connection.proxy.enabled && connection.proxy.host;
+  const hasProxy = connection.proxy.enabled && connection.proxy.host;
   const hasCloudProxyForSSE = isCloud() && connection.sseEnabled;
 
   const projectId = connection.project;
@@ -348,7 +346,7 @@ export default function SDKConnectionPage() {
               }
             >
               <code className="text-muted">
-                {connection.proxy.hostExternal || connection.proxy.host}
+                {connection.proxy.host || connection.proxy.hostExternal}
               </code>
             </ConnectionNode>
 
@@ -384,12 +382,11 @@ export default function SDKConnectionPage() {
         </ConnectionNode>
       </div>
 
-      {isCloud() && (
+      {hasProxy || isCloud() ? (
         <div className="row mb-5 align-items-center">
           <div className="flex-1"></div>
           <div className="col-auto">
-            <PremiumTooltip
-              commercialFeature="cloud-proxy"
+            <Tooltip
               body={
                 <div style={{ lineHeight: 1.5 }}>
                   <p>
@@ -402,11 +399,11 @@ export default function SDKConnectionPage() {
                   <p>
                     Streaming updates are currently{" "}
                     <strong>
-                      {hasCloudProxyForSSE ? "enabled" : "disabled"}
+                      {hasCloudProxyForSSE || hasProxy ? "enabled" : "disabled"}
                     </strong>{" "}
                     for this connection. You may{" "}
-                    {hasCloudProxyForSSE ? "disable" : "enable"} Streaming
-                    Updates by editing this connection.
+                    {hasCloudProxyForSSE || hasProxy ? "disable" : "enable"}{" "}
+                    Streaming Updates by editing this connection.
                   </p>
 
                   <div className="mt-4" style={{ lineHeight: 1.2 }}>
@@ -429,17 +426,19 @@ export default function SDKConnectionPage() {
             >
               <BsLightningFill className="text-warning" />
               Streaming Updates:{" "}
-              <strong>{hasCloudProxyForSSE ? "Enabled" : "Disabled"}</strong>
+              <strong>
+                {hasCloudProxyForSSE || hasProxy ? "Enabled" : "Disabled"}
+              </strong>
               <div
                 className="text-right text-muted"
                 style={{ fontSize: "0.75rem" }}
               >
                 What is this? <FaInfoCircle />
               </div>
-            </PremiumTooltip>
+            </Tooltip>
           </div>
         </div>
-      )}
+      ) : null}
 
       <div className="mt-4">
         <CodeSnippetModal
