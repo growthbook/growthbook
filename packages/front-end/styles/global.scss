@@ -881,8 +881,6 @@ pre {
   display: inline-block;
   margin-right: 5px;
   vertical-align: middle;
-  height: 25px;
-  width: 50px;
   position: relative;
 
   input[type="checkbox"] {
@@ -894,7 +892,6 @@ pre {
   label {
     position: absolute;
     top: 0;
-    left: 0;
     cursor: pointer;
     text-indent: -9999px;
     width: 50px;
@@ -902,8 +899,6 @@ pre {
     background: var(--form-switch-background);
     display: block;
     border-radius: 100px;
-    margin-bottom: 0;
-    padding-bottom: 0;
   }
 
   label:after {
@@ -915,12 +910,7 @@ pre {
     height: 21px;
     background: var(--surface-background-color);
     border-radius: 90px;
-    transition: right 0.1s ease, width 0.1s ease;
-  }
-
-  input:checked + label:after {
-    left: calc(100% - 2px);
-    transform: translateX(-100%);
+    transition: 0.3s;
   }
 
   input:checked + label {
@@ -930,11 +920,13 @@ pre {
     background: colors.$blue;
   }
 
+  input:checked + label:after {
+    left: calc(100% - 2px);
+    transform: translateX(-100%);
+  }
+
   label:active:after {
-    width: 31px;
-    transition: 0.1s all ease;
-    transition-duration: 0.2s;
-    left: calc(100% - 46px);
+    width: 30px;
   }
 
   &.disabled {
