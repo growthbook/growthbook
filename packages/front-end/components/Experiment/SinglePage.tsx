@@ -8,6 +8,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import {
   FaAngleRight,
+  FaClock,
   FaExclamationTriangle,
   FaExternalLinkAlt,
   FaQuestionCircle,
@@ -75,6 +76,7 @@ import Code from "../SyntaxHighlighting/Code";
 import Tooltip from "../Tooltip/Tooltip";
 import Button from "../Button";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
+import { DocLink } from "../DocLink";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import ResultsIndicator from "./ResultsIndicator";
 import EditStatusModal from "./EditStatusModal";
@@ -809,7 +811,7 @@ export default function SinglePage({
                 await apiCall(`/experiment/${experiment.id}`, {
                   method: "POST",
                   body: JSON.stringify({
-                    currentProject,
+                    project: currentProject,
                   }),
                 });
                 mutate();
@@ -823,6 +825,42 @@ export default function SinglePage({
           </div>
         )}
       </div>
+
+      {experiment.status === "stopped" &&
+        experiment.releasedVariationId &&
+        experiment.hasVisualChangesets &&
+        !experiment.excludeFromPayload && (
+          <div className="alert alert-warning mb-3">
+            <div className="d-flex align-items-center">
+              <div>
+                <FaClock /> <strong>Temporary Rollout Enabled</strong>
+                <div className="my-1">
+                  This experiment has been stopped, but visual changes are still
+                  being applied to give you time to implement them in code.
+                </div>
+                When you no longer need this rollout, stop it to improve your
+                site performance.{" "}
+                <DocLink docSection="temporaryRollout">Learn more</DocLink>
+              </div>
+              <div className="ml-auto pl-2">
+                <Button
+                  color="primary"
+                  onClick={async () => {
+                    await apiCall(`/experiment/${experiment.id}`, {
+                      method: "POST",
+                      body: JSON.stringify({
+                        excludeFromPayload: true,
+                      }),
+                    });
+                    mutate();
+                  }}
+                >
+                  Stop Temporary Rollout
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
 
       {experimentPendingWithVisualChanges && visualChangesets.length === 0 ? (
         <div className="alert-cool-1 text-center mb-4 px-3 py-4 position-relative">

@@ -4,6 +4,7 @@ import Head from "next/head";
 import { useEffect, useState } from "react";
 import { GrowthBook, GrowthBookProvider } from "@growthbook/growthbook-react";
 import { OrganizationMessagesContainer } from "@/components/OrganizationMessages/OrganizationMessages";
+import { DemoDataSourceGlobalBannerContainer } from "@/components/DemoDataSourceGlobalBanner/DemoDataSourceGlobalBanner";
 import { AuthProvider } from "../services/auth";
 import ProtectedPage from "../components/ProtectedPage";
 import { DefinitionsProvider } from "../services/DefinitionsContext";
@@ -97,6 +98,7 @@ function App({
                       {!liteLayout && <Layout />}
                       <main className={`main ${parts[0]}`}>
                         <OrganizationMessagesContainer />
+                        <DemoDataSourceGlobalBannerContainer />
                         <Component {...pageProps} />
                       </main>
                     </DefinitionsProvider>

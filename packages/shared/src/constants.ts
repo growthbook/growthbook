@@ -13,3 +13,5 @@ export const variant_0 = "#4f69ff";
 export const variant_1 = "#03d1ca";
 export const variant_2 = "#fd7e14";
 export const variant_3 = "#e83e8c";
+
+export const GROWTHBOOK_SECURE_ATTRIBUTE_SALT = "eg8amUur5GunJXCfgjwB";
