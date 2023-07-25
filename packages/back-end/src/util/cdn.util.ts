@@ -1,20 +1,22 @@
 import fetch from "node-fetch";
+import { SDKPayloadKey } from "../../types/sdk-payload";
 import { logger } from "./logger";
 import { FASTLY_API_TOKEN, FASTLY_SERVICE_ID } from "./secrets";
 
-export function getSurrogateKey(
+export function getSurrogateKeysFromSDKPayloadKeys(
   orgId: string,
-  project: string,
-  environment: string
-) {
-  // Fill with default values if missing
-  project = project || "AllProjects";
-  environment = environment || "production";
+  payloadKeys: SDKPayloadKey[]
+): string[] {
+  return payloadKeys.map((k) => {
+    // Fill with default values if missing
+    const project = k.project || "AllProjects";
+    const environment = k.environment || "production";
 
-  const key = `${orgId}_${project}_${environment}`;
+    const key = `${orgId}_${project}_${environment}`;
 
-  // Protect against environments or projects having unusual characters
-  return key.replace(/[^a-zA-Z0-9_-]/g, "");
+    // Protect against environments or projects having unusual characters
+    return key.replace(/[^a-zA-Z0-9_-]/g, "");
+  });
 }
 
 export async function purgeCDNCache(

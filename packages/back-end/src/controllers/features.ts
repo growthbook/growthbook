@@ -51,7 +51,8 @@ import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
 import { FASTLY_SERVICE_ID, IS_CLOUD } from "../util/secrets";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
-import { getSurrogateKey } from "../util/fastly.util";
+import { getSurrogateKeysFromSDKPayloadKeys } from "../util/cdn.util";
+import { SDKPayloadKey } from "../../types/sdk-payload";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -189,10 +190,11 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     // If using Fastly, add surrogate key header for cache purging
     if (FASTLY_SERVICE_ID) {
       // Purge by org, API Key, or payload contents
+      const payloadKey: SDKPayloadKey = { environment, project };
       const surrogateKeys = [
         organization,
         key,
-        getSurrogateKey(organization, project, environment),
+        ...getSurrogateKeysFromSDKPayloadKeys(organization, [payloadKey]),
       ];
       res.set("Surrogate-Key", surrogateKeys.join(" "));
     }
