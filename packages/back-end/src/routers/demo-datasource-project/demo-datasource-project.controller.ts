@@ -16,6 +16,8 @@ import { MetricInterface } from "../../../types/metric";
 import { ProjectInterface } from "../../../types/project";
 import { ExperimentSnapshotAnalysisSettings } from "../../../types/experiment-snapshot";
 import { getMetricMap } from "../../models/MetricModel";
+import { createFeature } from "../../models/FeatureModel";
+import { FeatureInterface } from "../../../types/feature";
 
 /**
  * START Constants for Demo Datasource
@@ -50,6 +52,7 @@ const DEMO_DATASOURCE_PARAMS: PostgresConnectionParams = {
 };
 
 const ASSET_OWNER = "datascience@growthbook.io";
+const DEMO_TAGS = ["growthbook-demo"];
 
 // Metric constants
 const DEMO_METRICS: Pick<
@@ -83,22 +86,12 @@ const DEMO_METRICS: Pick<
       "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\n1 AS value\nFROM orders",
   },
   {
-    name: "Retention - [1, 7) Days",
+    name: "Retention - [1, 14) Days",
     description:
-      "Whether the user logged in 1-7 days after experiment exposure",
+      "Whether the user logged in 1-14 days after experiment exposure",
     type: "binomial",
     conversionDelayHours: 24,
-    conversionWindowHours: 144,
-    sql:
-      "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM pages WHERE path = '/'",
-  },
-  {
-    name: "Retention - [7, 14) Days",
-    description:
-      "Whether the user logged in 7-14 days after experiment exposure",
-    type: "binomial",
-    conversionDelayHours: 168,
-    conversionWindowHours: 168,
+    conversionWindowHours: 144 + 168,
     sql:
       "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM pages WHERE path = '/'",
   },
@@ -126,50 +119,121 @@ const DEMO_RATIO_METRIC: Pick<
     "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
 };
 
+// Feature constants
+const DEMO_FEATURES: Omit<
+  FeatureInterface,
+  "organization" | "dateCreated" | "dateUpdated"
+>[] = [
+  {
+    id: "gbdemo-checkout-layout",
+    description:
+      "Controls checkout layout UI. Employees forced to see new UI, other users randomly assigned to one of three designs.",
+    owner: ASSET_OWNER,
+    valueType: "string",
+    defaultValue: "current",
+    tags: DEMO_TAGS,
+    environmentSettings: {
+      production: {
+        enabled: true,
+        rules: [
+          {
+            type: "force",
+            description: "",
+            id: "gbdemo-checkout-layout-employee-force-rule",
+            value: "dev",
+            condition: "is_employee = true",
+            enabled: true,
+          },
+          {
+            type: "experiment",
+            description: "",
+            id: "gbdemo-checkout-layout-exp-rule",
+            trackingKey: "checkout-layout",
+            hashAttribute: "user_id",
+            coverage: 1,
+            enabled: true,
+            values: [
+              {
+                value: "current",
+                weight: 0.3334,
+              },
+              {
+                value: "dev-compact",
+                weight: 0.3333,
+              },
+              {
+                value: "dev",
+                weight: 0.3333,
+              },
+            ],
+          },
+        ],
+      },
+    },
+  },
+];
+
 // Experiment constants
 const DEMO_EXPERIMENTS: Pick<
   ExperimentInterface,
-  "name" | "trackingKey" | "variations"
+  | "name"
+  | "description"
+  | "hypothesis"
+  | "trackingKey"
+  | "variations"
+  | "phases"
 >[] = [
   {
     name: "checkout-layout",
     trackingKey: "checkout-layout",
+    description: `**THIS IS A DEMO EXPERIMENT USED FOR DEMONSTRATION PURPOSES ONLY**
+
+Experiment to test impact of checkout cart design.
+Both variations move the "Proceed to checkout" button to a single table, but with different
+spacing and headings.`,
+    hypothesis: `We predict new variations will increase Purchase metrics and have uncertain effects on Retention.`,
     variations: [
       {
         id: "0",
         key: "0",
-        name: "Control",
-        screenshots: [],
+        name: "Current",
+        screenshots: [
+          {
+            path: "/images/demo-datasource/current.png",
+          },
+        ],
       },
       {
         id: "0",
         key: "1",
-        name: "Compact",
-        screenshots: [],
+        name: "Dev-Compact",
+        screenshots: [
+          {
+            path: "/images/demo-datasource/dev-compact.png",
+          },
+        ],
       },
       {
         id: "0",
         key: "2",
-        name: "Spaced Out",
-        screenshots: [],
+        name: "Dev",
+        screenshots: [
+          {
+            path: "/images/demo-datasource/dev.png",
+          },
+        ],
       },
     ],
-  },
-  {
-    name: "price-display",
-    trackingKey: "price-display",
-    variations: [
+    // TODO fix date
+    phases: [
       {
-        id: "0",
-        key: "0",
-        name: "Control",
-        screenshots: [],
-      },
-      {
-        id: "0",
-        key: "1",
-        name: "Hide discount",
-        screenshots: [],
+        dateStarted: new Date("2023-07-21T00:00:00"),
+        name: "",
+        reason: "",
+        coverage: 1,
+        condition: "",
+        namespace: { enabled: false, name: "", range: [0, 1] },
+        variationWeights: [0.3334, 0.3333, 0.3333],
       },
     ],
   },
@@ -209,9 +273,7 @@ export const postDemoDatasourceProject = async (
   const { org } = getOrgFromReq(req);
 
   try {
-    // TODO smarter management for cases when project exists
-    // TODO throw appropriate error after each step
-
+    // TODO remove delete project
     const project = await createProject(org.id, {
       id: getDemoDatasourceProjectIdForOrganization(org.id),
       name: "GrowthBook Demo Project",
@@ -240,7 +302,7 @@ export const postDemoDatasourceProject = async (
           userIdTypes: ["user_id"],
           datasource: datasource.id,
           projects: [project.id],
-          tags: ["growthbook-demo"],
+          tags: DEMO_TAGS,
         });
       })
     );
@@ -256,12 +318,23 @@ export const postDemoDatasourceProject = async (
       userIdTypes: ["user_id"],
       datasource: datasource.id,
       projects: [project.id],
-      tags: ["growthbook-demo"],
+      tags: DEMO_TAGS,
     });
 
-    // TODO create feature
+    // Create feature
+    await Promise.all(
+      DEMO_FEATURES.map(async (f) => {
+        return createFeature(org, res.locals.eventAudit, {
+          ...f,
+          project: project.id,
+          organization: org.id,
+          dateCreated: new Date("2023-07-20T00:00:00"),
+          dateUpdated: new Date("2023-07-20T00:00:00"),
+        });
+      })
+    );
 
-    // Create experiments
+    // Create experiment
     const experiments = await Promise.all(
       DEMO_EXPERIMENTS.map(async (e) => {
         return createExperiment({
@@ -272,23 +345,8 @@ export const postDemoDatasourceProject = async (
             project: project.id,
             metrics: metrics.map((m) => m.id).concat(ratioMetric.id),
             exposureQueryId: "user_id",
-            // TODO set correct date and variation
-            phases: [
-              {
-                dateStarted: new Date(),
-                name: "",
-                reason: "",
-                coverage: 1,
-                condition: "",
-                namespace: { enabled: false, name: "", range: [0, 1] },
-                variationWeights:
-                  e.name === "checkout-layout"
-                    ? [0.3334, 0.3333, 0.3333]
-                    : [0.5, 0.5],
-              },
-            ],
             status: "running",
-            tags: ["growthbook-demo"],
+            tags: DEMO_TAGS,
           },
           organization: org,
           user: res.locals.eventAudit,
@@ -322,6 +380,7 @@ export const postDemoDatasourceProject = async (
       project: project,
     });
   } catch (e) {
+    // TODO add teardown here
     res.status(500).json({
       status: 500,
       message: `Failed to create demo datasource and project with message: ${e.message}`,
