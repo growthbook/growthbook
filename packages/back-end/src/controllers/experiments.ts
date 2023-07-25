@@ -1,6 +1,5 @@
 import { Response } from "express";
 import uniqid from "uniqid";
-import jwt from "jsonwebtoken";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -12,7 +11,6 @@ import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
   createSnapshot,
-  decodeAndValidateVisualEditorTempToken,
   ensureWatching,
   getExperimentWatchers,
   getManualSnapshotData,
@@ -67,7 +65,7 @@ import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
-import { IMPORT_LIMIT_DAYS, JWT_SECRET } from "../util/secrets";
+import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, FeatureInterface } from "../../types/feature";
 import {
@@ -81,10 +79,7 @@ import {
 } from "../../types/experiment-snapshot";
 import { StatsEngine } from "../../types/stats";
 import { MetricRegressionAdjustmentStatus } from "../../types/report";
-import {
-  VisualChangesetInterface,
-  VisualEditorTempToken,
-} from "../../types/visual-changeset";
+import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { findProjectById } from "../models/ProjectModel";
@@ -2126,63 +2121,26 @@ export async function deleteVisualChangeset(
   });
 }
 
-export async function generateVisualEditorTempToken(
-  req: AuthRequest<{ experimentId: string; visualChangesetId: string }>,
+export async function findOrCreateVisualEditorToken(
+  req: AuthRequest,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const visualChangeset = await findVisualChangesetById(
-    req.body.visualChangesetId,
-    org.id
-  );
 
-  if (!visualChangeset) throw new Error("Visual changeset not found");
-  if (visualChangeset.experiment !== req.body.experimentId)
-    throw new Error("Visual changeset does not match experiment id");
-  if (!req.userId) throw new Error("Associated user not found");
+  if (!req.userId) throw new Error("No user found");
 
-  const tempTokenBody: VisualEditorTempToken = {
-    editorUrl: visualChangeset.editorUrl,
-    userId: req.userId,
-    orgId: org.id,
-  };
-
-  const token = jwt.sign(tempTokenBody, JWT_SECRET, {
-    expiresIn: "2m",
-  });
-
-  res.status(200).json({
-    token,
-  });
-}
-
-export async function authenticateVisualEditor(
-  req: AuthRequest<{ token: string }>,
-  res: Response
-) {
-  if (!req.headers.referer) throw new Error("Referer header is undefined");
-
-  const decoded = await decodeAndValidateVisualEditorTempToken(
-    req.body.token,
-    req.headers.referer
-  );
-
-  // get existing visual editor key
-  let visualEditorKey = await getVisualEditorApiKey(
-    decoded.orgId,
-    decoded.userId
-  );
+  let visualEditorKey = await getVisualEditorApiKey(org.id, req.userId);
 
   // if not exist, create one
   if (!visualEditorKey) {
     visualEditorKey = await createUserVisualEditorApiKey({
-      userId: decoded.userId,
-      organizationId: decoded.orgId,
+      userId: req.userId,
+      organizationId: org.id,
       description: `Created on ${new Date().toISOString()}`,
     });
   }
 
   res.status(200).json({
-    visualEditorKey: visualEditorKey.key,
+    key: visualEditorKey.key,
   });
 }

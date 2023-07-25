@@ -1,11 +1,9 @@
-import url from "url";
 import uniqid from "uniqid";
 import cronParser from "cron-parser";
 import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
 import { z } from "zod";
 import { isEqual } from "lodash";
-import jwt from "jsonwebtoken";
 import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_STATS_ENGINE,
@@ -42,7 +40,6 @@ import { findSegmentById } from "../models/SegmentModel";
 import {
   DEFAULT_CONVERSION_WINDOW_HOURS,
   EXPERIMENT_REFRESH_FREQUENCY,
-  JWT_SECRET,
 } from "../util/secrets";
 import {
   ExperimentUpdateSchedule,
@@ -65,10 +62,7 @@ import {
   updateExperimentValidator,
 } from "../validators/openapi";
 import { EventAuditUser } from "../events/event-types";
-import {
-  VisualChangesetInterface,
-  VisualEditorTempToken,
-} from "../../types/visual-changeset";
+import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
@@ -1786,40 +1780,4 @@ export function visualChangesetsHaveChanges({
 
   // Otherwise, there are no meaningful changes
   return false;
-}
-
-// type guard
-const _isValidToken = (
-  decoded: Partial<VisualEditorTempToken>
-): decoded is VisualEditorTempToken =>
-  !!decoded.editorUrl && !!decoded.userId && !!decoded.orgId;
-
-export async function decodeAndValidateVisualEditorTempToken(
-  token: string,
-  referrer: string
-) {
-  try {
-    const referrerUrl = url.parse(referrer);
-    const decoded = await new Promise<Partial<VisualEditorTempToken>>(
-      (resolve, reject) =>
-        jwt.verify(token, JWT_SECRET, (err, decoded) =>
-          err ? reject(err) : resolve(decoded ?? {})
-        )
-    );
-
-    if (!_isValidToken(decoded)) throw new Error("Malformed token");
-
-    const editorUrl = url.parse(decoded.editorUrl);
-
-    if (referrerUrl.host !== editorUrl.host)
-      throw new Error("Referer URL host does not match editor URL host");
-
-    return {
-      editorUrl: decoded.editorUrl,
-      userId: decoded.userId,
-      orgId: decoded.orgId,
-    };
-  } catch (e) {
-    throw new Error(`Unable to verify token: ${e.message}`);
-  }
 }

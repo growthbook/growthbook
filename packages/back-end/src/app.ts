@@ -225,15 +225,6 @@ app.use(
   apiRouter
 );
 
-// Visual editor auth (public endopint)
-// require CORS headers since requests will come from users' websites
-app.options("/visual-editor/authenticate", cors());
-app.post(
-  "/visual-editor/authenticate",
-  cors(),
-  experimentsController.authenticateVisualEditor
-);
-
 // Accept cross-origin requests from the frontend app
 const origins: (string | RegExp)[] = [APP_ORIGIN];
 if (CORS_ORIGIN_REGEX) {
@@ -446,9 +437,9 @@ app.delete(
 );
 
 // Visual editor auth
-app.post(
-  "/visual-editor/token",
-  experimentsController.generateVisualEditorTempToken
+app.get(
+  "/visual-editor/key",
+  experimentsController.findOrCreateVisualEditorToken
 );
 
 // Reports

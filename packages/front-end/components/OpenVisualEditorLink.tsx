@@ -29,8 +29,7 @@ const OpenVisualEditorLink: FC<{
   id: string;
   openSettings?: () => void;
   changeIndex: number;
-  experimentId: string;
-}> = ({ id, visualEditorUrl, openSettings, changeIndex, experimentId }) => {
+}> = ({ id, visualEditorUrl, openSettings, changeIndex }) => {
   const apiHost = getApiHost();
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
@@ -43,17 +42,6 @@ const OpenVisualEditorLink: FC<{
 
   const { apiCall } = useAuth();
 
-  const fetchTempToken = useCallback(async () => {
-    const res = await apiCall<{ token: string }>("/visual-editor/token", {
-      method: "POST",
-      body: JSON.stringify({
-        experimentId,
-        visualChangesetId: id,
-      }),
-    });
-    return res.token;
-  }, [apiCall, experimentId, id]);
-
   const genUrl = useCallback(async () => {
     let url = visualEditorUrl.trim();
 
@@ -64,33 +52,52 @@ const OpenVisualEditorLink: FC<{
       url = "http://" + url;
     }
 
-    const token = await fetchTempToken();
-
     url = appendQueryParamsToURL(url, {
       "vc-id": id,
       "v-idx": changeIndex,
       "exp-url": encodeURIComponent(window.location.href),
       "api-host": encodeURIComponent(apiHost),
-      t: token,
     });
 
     return url;
-  }, [apiHost, changeIndex, id, visualEditorUrl, fetchTempToken]);
+  }, [apiHost, changeIndex, id, visualEditorUrl]);
+
+  const getVisualEditorKey = useCallback(async () => {
+    const res = await apiCall<{ key: string }>("/visual-editor/key", {
+      method: "GET",
+    });
+    return res.key;
+  }, [apiCall]);
 
   const navigate = useCallback(
     async (e: MouseEvent) => {
       e.preventDefault();
+
       setShowExtensionDialog(false);
+
       setIsNavigating(true);
+
       const url = await genUrl();
+      const key = await getVisualEditorKey();
+
+      window.postMessage(
+        {
+          type: "GB_OPEN_VISUAL_EDITOR",
+          data: key,
+        },
+        window.location.origin
+      );
+
+      setIsNavigating(false);
+
       track("Open visual editor", {
         source: "visual-editor-ui",
         status: "success",
       });
-      setIsNavigating(false);
+
       window.location.href = url;
     },
-    [genUrl]
+    [genUrl, getVisualEditorKey]
   );
 
   return (
