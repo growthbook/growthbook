@@ -26,6 +26,7 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
 
     const { owner, archived, description, project, tags } = req.body;
 
+    // check permissions for previous project and new one
     req.checkPermissions("manageFeatures", [
       feature.project ?? "",
       project ?? "",
