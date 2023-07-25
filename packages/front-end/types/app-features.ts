@@ -30,4 +30,5 @@ export type AppFeatures = {
   "organization-message-list": Record<string, unknown>;
   "remote-evaluation": boolean;
   "import-from-x": boolean;
+  "demo-datasource": boolean;
 };
