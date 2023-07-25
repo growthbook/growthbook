@@ -219,7 +219,10 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
 
               {/* region Actions*/}
 
-              <div className="d-flex align-items-center">
+              <div
+                className="d-flex align-items-center"
+                style={{ height: "fit-content" }}
+              >
                 {canEdit && (
                   <MoreMenu>
                     <button
