@@ -147,8 +147,8 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
     key: generateSDKConnectionKey(),
     proxy: addEnvProxySettings({
       enabled: !!proxyEnabled,
-      host: proxyHost || PROXY_HOST_INTERNAL || PROXY_HOST_PUBLIC,
-      hostExternal: proxyHost || PROXY_HOST_PUBLIC || PROXY_HOST_INTERNAL,
+      host: proxyHost || "",
+      hostExternal: proxyHost || "",
       signingKey: generateSigningKey(),
       connected: false,
       lastError: null,
