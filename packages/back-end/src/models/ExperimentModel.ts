@@ -96,6 +96,7 @@ const experimentSchema = new mongoose.Schema({
   analysis: String,
   winner: Number,
   releasedVariationId: String,
+  excludeFromPayload: Boolean,
   currentPhase: Number,
   autoAssign: Boolean,
   // Legacy field, no longer used when creating experiments
@@ -1092,7 +1093,10 @@ export const getAllVisualExperiments = async (
     }))
     .filter(_isValidVisualExperiment)
     .filter((e) => {
-      // exclude experiments that are stopped and the released variation doesn’t have any visual changes
+      // Exclude experiments from SDK payload
+      if (e.experiment.excludeFromPayload) return false;
+
+      // Exclude experiments that are stopped and the released variation doesn’t have any visual changes
       if (
         e.experiment.status === "stopped" &&
         !hasVisualChanges(e.experiment.id, e.experiment.releasedVariationId)
@@ -1147,6 +1151,7 @@ const getExperimentChanges = (
     "archived",
     "status",
     "releasedVariationId",
+    "excludeFromPayload",
     "autoAssign",
     "variations",
     "phases",

@@ -38,8 +38,10 @@ const docSections = {
   config_organization_settings: "/self-host/config#organization-settings",
   env_prod: "/self-host/env#production-settings",
   visual_editor: "/app/visual",
+  temporaryRollout: "/app/visual#stopping-an-experiment",
   encryptedSDKEndpoints: "/lib/js#loading-features",
   hashSecureAttributes: "/lib/js#secure-attributes",
+  autoMetrics: "/app/metrics/#auto-generate-metrics",
 };
 
 export type DocSection = keyof typeof docSections;

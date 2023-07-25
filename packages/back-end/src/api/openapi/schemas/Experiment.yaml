@@ -136,6 +136,7 @@ properties:
       - status
       - winner
       - releasedVariationId
+      - excludeFromPayload
       - conclusions
     properties:
       status:
@@ -146,3 +147,5 @@ properties:
         type: string
       releasedVariationId:
         type: string
+      excludeFromPayload:
+        type: boolean

@@ -4,6 +4,7 @@ import {
   FaExclamationTriangle,
   FaPencilAlt,
   FaQuestionCircle,
+  FaUpload,
 } from "react-icons/fa";
 import { useForm } from "react-hook-form";
 import isEqual from "lodash/isEqual";
@@ -17,6 +18,8 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { OrganizationSettings } from "@/../back-end/types/organization";
+import Link from "next/link";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useAuth } from "@/services/auth";
 import EditOrganizationModal from "@/components/Settings/EditOrganizationModal";
 import BackupConfigYamlButton from "@/components/Settings/BackupConfigYamlButton";
@@ -44,6 +47,7 @@ import Tab from "@/components/Tabs/Tab";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useCurrency } from "@/hooks/useCurrency";
+import { AppFeatures } from "@/types/app-features";
 
 export const supportedCurrencies = {
   AED: "UAE Dirham (AED)",
@@ -243,6 +247,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     settings.statsEngine || DEFAULT_STATS_ENGINE
   );
   const displayCurrency = useCurrency();
+  const growthbook = useGrowthBook<AppFeatures>();
 
   const currencyOptions = Object.entries(
     supportedCurrencies
@@ -729,6 +734,21 @@ const GeneralSettingsPage = (): React.ReactElement => {
                 does not include data source connection secrets such as
                 passwords. You must edit the file and add these yourself.
               </div>
+            </div>
+          )}
+
+          {growthbook?.getFeatureValue("import-from-x", false) && (
+            <div className="bg-white p-3 border position-relative my-3">
+              <h3>Import from another service</h3>
+              <p>
+                Import your data from another feature flag and/or
+                experimentation service.
+              </p>
+              <Link href="/importing">
+                <a className="btn btn-primary">
+                  <FaUpload /> Import from another service
+                </a>
+              </Link>
             </div>
           )}
 

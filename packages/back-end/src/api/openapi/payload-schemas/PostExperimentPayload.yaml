@@ -53,6 +53,10 @@ properties:
   hashVersion:
     type: number
     enum: [1, 2]
+  releasedVariationId:
+    type: string
+  excludeFromPayload:
+    type: boolean
   variations:
     type: array
     minItems: 2

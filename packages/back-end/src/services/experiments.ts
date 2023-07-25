@@ -625,6 +625,7 @@ export async function toExperimentApiInterface(
             winner: experiment.variations[experiment.winner ?? 0]?.id || "",
             conclusions: experiment.analysis || "",
             releasedVariationId: experiment.releasedVariationId || "",
+            excludeFromPayload: !!experiment.excludeFromPayload,
           },
         }
       : null),
@@ -1514,7 +1515,8 @@ export function postExperimentApiPayloadToInterface(
     implementation: "code",
     status: payload.status || "draft",
     analysis: "",
-    releasedVariationId: "",
+    releasedVariationId: payload.releasedVariationId || "",
+    excludeFromPayload: !!payload.excludeFromPayload,
     autoAssign: false,
     previewURL: "",
     targetURLRegex: "",
@@ -1552,21 +1554,25 @@ export function updateExperimentApiPayloadToInterface(
     status,
     phases,
     variations,
+    releasedVariationId,
+    excludeFromPayload,
   } = payload;
   return {
     ...(trackingKey ? { trackingKey } : {}),
-    ...(project ? { project } : {}),
-    ...(owner ? { owner } : {}),
+    ...(project !== undefined ? { project } : {}),
+    ...(owner !== undefined ? { owner } : {}),
     ...(assignmentQueryId ? { assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(hashVersion ? { hashVersion } : {}),
     ...(name ? { name } : {}),
     ...(tags ? { tags } : {}),
-    ...(description ? { description } : {}),
-    ...(hypothesis ? { hypothesis } : {}),
+    ...(description !== undefined ? { description } : {}),
+    ...(hypothesis !== undefined ? { hypothesis } : {}),
     ...(metrics ? { metrics } : {}),
-    ...(archived ? { archived } : {}),
+    ...(archived !== undefined ? { archived } : {}),
     ...(status ? { status } : {}),
+    ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),
+    ...(excludeFromPayload !== undefined ? { excludeFromPayload } : {}),
     ...(variations
       ? {
           variations: variations?.map((v) => ({

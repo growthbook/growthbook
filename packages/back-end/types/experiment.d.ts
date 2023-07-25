@@ -134,6 +134,7 @@ export interface ExperimentInterface {
   winner?: number;
   analysis?: string;
   releasedVariationId: string;
+  excludeFromPayload?: boolean;
   lastSnapshotAttempt?: Date;
   nextSnapshotAttempt?: Date;
   autoSnapshots: boolean;

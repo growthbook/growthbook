@@ -641,6 +641,10 @@ paths:
                   enum:
                     - 1
                     - 2
+                releasedVariationId:
+                  type: string
+                excludeFromPayload:
+                  type: boolean
                 variations:
                   type: array
                   minItems: 2
@@ -832,6 +836,10 @@ paths:
                   enum:
                     - 1
                     - 2
+                releasedVariationId:
+                  type: string
+                excludeFromPayload:
+                  type: boolean
                 variations:
                   type: array
                   minItems: 2
@@ -2569,6 +2577,7 @@ components:
             - status
             - winner
             - releasedVariationId
+            - excludeFromPayload
             - conclusions
           properties:
             status:
@@ -2579,6 +2588,8 @@ components:
               type: string
             releasedVariationId:
               type: string
+            excludeFromPayload:
+              type: boolean
     ExperimentMetric:
       type: object
       required:

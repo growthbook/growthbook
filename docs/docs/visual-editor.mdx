@@ -10,7 +10,7 @@ import Pill from '@site/src/components/Pill';
 
 # Visual Editor 2.0 <Pill>beta</Pill>
 
-The Visual Editor enables non-technical users to design A/B tests on their site directly in their browser, run them in production, and analyze results, all without writing a single line of code.
+The Visual Editor enables non-technical users to design A/B tests on their site directly in their browser, run them in production, and analyze results, all without writing a single line of code. To use the Visual Editor, you will need to integrate either our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDK to your application (requires a developer).
 
 In March, 2023 we released version 2.0 of our Visual Editor with many improvements.
 
@@ -172,6 +172,19 @@ Now, just join these together with an equals sign (e.g. `my-experiment-id=1`). T
 `https://www.example.com/pricing?my-experiment-id=1`
 
 Until an experiment is moved out of the "draft" phase and started, this is the only way to view it on your site.
+
+## Stopping an Experiment
+
+When your experiment is finihsed, you can click on the `Stop Experiment` link at the top of results. This will prompt you for several bits of information about why you're stopping and what the conclusion was.
+
+If your variation won, you can optionally enable a `Temporary Rollout` when stopping. This will continue running your experiment with the same targeting conditions, but send 100% of traffic to the winning variation and disable the `trackingCallback` from being called.
+
+The reason it's called a "Temporary" Rollout is because you don't want to rely on our SDK to implement the winning variation forever. It's best practice to have your engineering team re-implement the changes directly in your site's code. This is for a number of reasons:
+
+1. Changes implemented in code are rendered quicker, so your site will load faster
+2. Changes in code will be picked up for SEO
+3. Changes applied through the visual editor require the SDK to download data from GrowthBook. Although lightweight, these stopped experiments can add up over time and further slow down your site.
+4. Reduce the chance of conflicts. If two visual editor experiments try to change the same element at the same time, it will not always work as expected. Moving the winning variation to code will avoid this issue.
 
 ## Security Requirements
 
