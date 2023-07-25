@@ -193,22 +193,24 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                     className="alert alert-danger"
                     style={{ marginTop: "1rem" }}
                   >
-                    This query had an error with it the last time it ran.
-                    <Button
-                      onClick={handleValidate()}
-                      style={{ marginLeft: "1rem" }}
-                      loading={validatingQuery}
-                    >
-                      Check it again.
-                    </Button>
-                    {canEdit && (
+                    This query had an error with it the last time it ran:{" "}
+                    <div className="font-weight-bold">{query.error}</div>
+                    <div style={{ marginTop: "1rem" }}>
                       <Button
-                        onClick={handleActionEditClicked(idx)}
-                        style={{ marginLeft: "1rem" }}
+                        onClick={handleValidate()}
+                        loading={validatingQuery}
                       >
-                        Edit it now.
+                        Check it again.
                       </Button>
-                    )}
+                      {canEdit && (
+                        <Button
+                          onClick={handleActionEditClicked(idx)}
+                          style={{ marginLeft: "1rem" }}
+                        >
+                          Edit it now.
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
