@@ -2,6 +2,7 @@
 import fs from "fs";
 import { GrowthBook } from "@growthbook/growthbook";
 import { jStat } from "jstat";
+import { int } from "aws-sdk/clients/datapipeline";
 
 type TableData = {
   userId: string;
@@ -44,15 +45,22 @@ interface DataTables {
 interface SimulatorData {
   dataTables: DataTables;
   messyData: boolean;
+  expKeyPrefix: string;
   startDate: Date;
   currentDate: Date;
+  runLengthDays: int;
 }
 
-function getDateRangeCondition(startDate: Date, start: number, end: number) {
+function getDateRangeCondition(
+  startDate: Date,
+  dateLength: int,
+  startPct: number,
+  endPct: number
+) {
   const s = new Date(startDate);
   const e = new Date(startDate);
-  s.setDate(s.getDate() + start);
-  e.setDate(e.getDate() + end);
+  s.setDate(s.getDate() + startPct * dateLength);
+  e.setDate(e.getDate() + endPct * dateLength);
 
   return {
     date: {
@@ -82,7 +90,7 @@ function trackExperiment(
   if (!result.inExperiment) return;
   sim.dataTables.experimentViews.push({
     ...data,
-    experimentId,
+    experimentId: sim.expKeyPrefix.concat("", experimentId),
     variationId: result.variationId,
     timestamp: getTimestamp(sim.currentDate),
   });
@@ -212,7 +220,12 @@ function viewSearchResults(
     key: "results-order",
     // Bounce rate
     variations: [0.15, 0.12],
-    condition: getDateRangeCondition(sim.startDate, 5, 35),
+    condition: getDateRangeCondition(
+      sim.startDate,
+      sim.runLengthDays,
+      0.05,
+      0.35
+    ),
   });
   trackExperiment(data, res, "results-order", sim);
   advanceTime(sim.currentDate, 20);
@@ -241,7 +254,7 @@ function viewItemPage(data: TableData, gb: GrowthBook, sim: SimulatorData) {
     key: "price-display",
     // Max qty purchased
     variations: [2, 1],
-    condition: getDateRangeCondition(sim.startDate, 30, 90),
+    condition: getDateRangeCondition(sim.startDate, sim.runLengthDays, 0, 0.9),
   });
   trackExperiment(data, res, "price-display", sim);
   const qty = normalInt(1, res.value);
@@ -251,7 +264,12 @@ function viewItemPage(data: TableData, gb: GrowthBook, sim: SimulatorData) {
   res = gb.run({
     key: "add-to-cart-cta",
     variations: [0.3, 0.36],
-    condition: getDateRangeCondition(sim.startDate, 45, 75),
+    condition: getDateRangeCondition(
+      sim.startDate,
+      sim.runLengthDays,
+      0.45,
+      0.75
+    ),
   });
 
   advanceTime(sim.currentDate, 20);
@@ -293,7 +311,7 @@ function viewCheckout(data: TableData, gb: GrowthBook, sim: SimulatorData) {
     key: "checkout-layout",
     // Bounce rate
     variations: [0.3, 0.4, 0.25],
-    condition: getDateRangeCondition(sim.startDate, 50, 100),
+    condition: getDateRangeCondition(sim.startDate, sim.runLengthDays, 0, 1),
   });
   trackExperiment(data, res, "checkout-layout", sim);
   // add second "error" exposure with different value
@@ -352,7 +370,12 @@ function purchase(
     key: "confirmation-email",
     // How much retention is gained (out of 100)
     variations: [5, 10],
-    condition: getDateRangeCondition(sim.startDate, 70, 90),
+    condition: getDateRangeCondition(
+      sim.startDate,
+      sim.runLengthDays,
+      0.7,
+      0.9
+    ),
   });
   trackExperiment(data, res, "confirmation-email", sim);
   sim[parseInt(data.userId)] += normalInt(res.value - 10, res.value + 10);
@@ -408,7 +431,12 @@ async function simulateSession(
   const res = gb.run({
     key: "recommended-items",
     variations: [4, 4.2, 4.4],
-    condition: getDateRangeCondition(sim.startDate, 20, 50),
+    condition: getDateRangeCondition(
+      sim.startDate,
+      sim.runLengthDays,
+      0.2,
+      0.5
+    ),
   });
   const itemsViewed = normalInt(1, res.value);
   for (let i = 0; i < itemsViewed; i++) {
@@ -428,10 +456,10 @@ async function simulateSession(
 
 const anonymousIds: Record<string, string> = {};
 async function simulate(sim: SimulatorData, numUsers: number) {
-  for (let i = 0; i < 90; i++) {
+  for (let i = 0; i < sim.runLengthDays; i++) {
     for (let j = 0; j < numUsers; j++) {
       // Space out people's starting days
-      const firstDay = (j / numUsers) * 60;
+      const firstDay = (j / numUsers) * (sim.runLengthDays - 30);
       if (i < firstDay) continue;
 
       // If user is retained
@@ -489,9 +517,11 @@ function writeCSV(
 
 function generateAndWriteData(
   startDate: Date,
+  runLengthDays: int,
   outputDir: string,
   numUsers: number,
-  messyData: boolean
+  messyData: boolean,
+  expKeyPrefix: string = ""
 ) {
   const sim: SimulatorData = {
     dataTables: {
@@ -503,8 +533,10 @@ function generateAndWriteData(
       userRetention: {},
     },
     messyData: messyData,
+    expKeyPrefix: expKeyPrefix,
     startDate: startDate,
     currentDate: new Date(startDate),
+    runLengthDays: runLengthDays,
   };
 
   simulate(sim, numUsers).then(async () => {
@@ -539,4 +571,4 @@ function generateAndWriteData(
 }
 
 console.log("Generating dummy data...");
-generateAndWriteData(new Date(), "/tmp/csv", 10000, true);
+generateAndWriteData(new Date(), 90, "/tmp/csv", 10000, true, "");
