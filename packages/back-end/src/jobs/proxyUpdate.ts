@@ -49,7 +49,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
 
     const payload = JSON.stringify(defs);
 
-    // note: Cloud Proxy users will have proxy.enabled === false, but will still have a valid proxy.signingKey
+    // note: Cloud users will typically have proxy.enabled === false (unless using a local proxy), but will still have a valid proxy.signingKey
     const signature = createHmac("sha256", connection.proxy.signingKey)
       .update(payload)
       .digest("hex");
@@ -155,7 +155,7 @@ function connectionSupportsProxyUpdate(
   useCloudProxy: boolean = false
 ) {
   if (useCloudProxy) {
-    return IS_CLOUD && !!connection.sseEnabled;
+    return IS_CLOUD;
   }
   return !!(connection.proxy.enabled && connection.proxy.host);
 }

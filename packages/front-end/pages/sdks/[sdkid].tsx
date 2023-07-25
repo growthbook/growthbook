@@ -153,8 +153,7 @@ export default function SDKConnectionPage() {
     [connection.environment]
   );
 
-  const hasProxy = connection.proxy.enabled && connection.proxy.host;
-  const hasCloudProxyForSSE = isCloud() && connection.sseEnabled;
+  const hasProxy = connection.proxy.enabled && !!connection.proxy.host;
 
   const projectId = connection.project;
   const projectName = getProjectById(projectId)?.name || null;
@@ -382,63 +381,34 @@ export default function SDKConnectionPage() {
         </ConnectionNode>
       </div>
 
-      {hasProxy || isCloud() ? (
-        <div className="row mb-5 align-items-center">
-          <div className="flex-1"></div>
-          <div className="col-auto">
-            <Tooltip
-              body={
-                <div style={{ lineHeight: 1.5 }}>
-                  <p>
-                    <BsLightningFill className="text-warning" />
-                    <strong>Streaming Updates</strong> allow you to instantly
-                    update any subscribed SDKs when you make any feature changes
-                    in GrowthBook. For front-end SDKs, active users will see the
-                    changes immediately without having to refresh the page.
-                  </p>
-                  <p>
-                    Streaming updates are currently{" "}
-                    <strong>
-                      {hasCloudProxyForSSE || hasProxy ? "enabled" : "disabled"}
-                    </strong>{" "}
-                    for this connection. You may{" "}
-                    {hasCloudProxyForSSE || hasProxy ? "disable" : "enable"}{" "}
-                    Streaming Updates by editing this connection.
-                  </p>
-
-                  <div className="mt-4" style={{ lineHeight: 1.2 }}>
-                    <p className="mb-1">
-                      <span className="badge badge-purple text-uppercase mr-2">
-                        Beta
-                      </span>
-                      <span className="text-purple">
-                        This is an opt-in beta feature.
-                      </span>
-                    </p>
-                    <p className="text-muted small mb-0">
-                      While in beta, we cannot guarantee 100% reliability of
-                      streaming updates. However, using this feature poses no
-                      risk to any other SDK functionality.
-                    </p>
-                  </div>
-                </div>
-              }
-            >
-              <BsLightningFill className="text-warning" />
-              Streaming Updates:{" "}
-              <strong>
-                {hasCloudProxyForSSE || hasProxy ? "Enabled" : "Disabled"}
-              </strong>
-              <div
-                className="text-right text-muted"
-                style={{ fontSize: "0.75rem" }}
-              >
-                What is this? <FaInfoCircle />
+      <div className="row mb-5 align-items-center">
+        <div className="flex-1"></div>
+        <div className="col-auto">
+          <Tooltip
+            body={
+              <div style={{ lineHeight: 1.5 }}>
+                <p className="mb-0">
+                  <BsLightningFill className="text-warning" />
+                  <strong>Streaming Updates</strong> allow you to instantly
+                  update any subscribed SDKs when you make any feature changes
+                  in GrowthBook. For front-end SDKs, active users will see the
+                  changes immediately without having to refresh the page.
+                </p>
               </div>
-            </Tooltip>
-          </div>
+            }
+          >
+            <BsLightningFill className="text-warning" />
+            Streaming Updates:{" "}
+            <strong>{isCloud() || hasProxy ? "Enabled" : "Disabled"}</strong>
+            <div
+              className="text-right text-muted"
+              style={{ fontSize: "0.75rem" }}
+            >
+              What is this? <FaInfoCircle />
+            </div>
+          </Tooltip>
         </div>
-      ) : null}
+      </div>
 
       <div className="mt-4">
         <CodeSnippetModal
