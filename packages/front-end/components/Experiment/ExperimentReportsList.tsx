@@ -4,6 +4,7 @@ import React from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
+import { FaExclamationTriangle } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
@@ -13,6 +14,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import Button from "../Button";
 import { GBAddCircle } from "../Icons";
+import Tooltip from "../Tooltip/Tooltip";
 import { useSnapshot } from "./SnapshotProvider";
 
 export default function ExperimentReportsList({
@@ -117,11 +119,22 @@ export default function ExperimentReportsList({
                     router.push(`/report/${report.id}`);
                   }}
                 >
-                  <Link href={`/report/${report.id}`}>
-                    <a className={`text-dark font-weight-bold`}>
-                      {report.title}
-                    </a>
-                  </Link>
+                  <div className="d-flex align-items-center">
+                    {!report.error ? (
+                      <Tooltip
+                        body="This is a sample test error"
+                        className="d-flex align-items-center"
+                      >
+                        <FaExclamationTriangle color="red" className="mr-2" />
+                      </Tooltip>
+                    ) : null}
+
+                    <Link href={`/report/${report.id}`}>
+                      <a className={`text-dark font-weight-bold`}>
+                        {report.title}
+                      </a>
+                    </Link>
+                  </div>
                 </td>
                 <td
                   className="cursor-pointer"
