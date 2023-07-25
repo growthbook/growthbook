@@ -120,9 +120,9 @@ export default function ExperimentReportsList({
                   }}
                 >
                   <div className="d-flex align-items-center">
-                    {!report.error ? (
+                    {report.error ? (
                       <Tooltip
-                        body="This is a sample test error"
+                        body={report.error}
                         className="d-flex align-items-center"
                       >
                         <FaExclamationTriangle color="red" className="mr-2" />
