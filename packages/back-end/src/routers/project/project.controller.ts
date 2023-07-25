@@ -279,6 +279,7 @@ export const deleteProject = async (
 
   // ideas?
   // report?
+  // dimensions?
   // api endpoints & webhooks?
 
   res.status(200).json({

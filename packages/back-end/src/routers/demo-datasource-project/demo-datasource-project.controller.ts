@@ -2,22 +2,22 @@ import type { Response } from "express";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { AuthRequest } from "../../types/AuthRequest";
-import { PrivateApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { PostgresConnectionParams } from "../../../types/integrations/postgres";
 import { createDataSource } from "../../models/DataSourceModel";
 import { createExperiment } from "../../models/ExperimentModel";
-import { createProject } from "../../models/ProjectModel";
+import { createProject, findProjectById } from "../../models/ProjectModel";
 import { createMetric, createSnapshot } from "../../services/experiments";
+import { PrivateApiErrorResponse } from "../../../types/api";
 import { DataSourceSettings } from "../../../types/datasource";
 import { ExperimentInterface } from "../../../types/experiment";
+import { FeatureInterface } from "../../../types/feature";
 import { MetricInterface } from "../../../types/metric";
 import { ProjectInterface } from "../../../types/project";
 import { ExperimentSnapshotAnalysisSettings } from "../../../types/experiment-snapshot";
 import { getMetricMap } from "../../models/MetricModel";
 import { createFeature } from "../../models/FeatureModel";
-import { FeatureInterface } from "../../../types/feature";
 
 /**
  * START Constants for Demo Datasource
@@ -34,8 +34,8 @@ const DEMO_DATASOURCE_SETTINGS: DataSourceSettings = {
         name: "Logged-in User Experiments",
         userIdType: "user_id",
         query:
-          "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nexperimentId AS experiment_id,\nvariationId AS variation_id\nFROM experiment_viewed",
-        dimensions: [],
+          "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\nexperimentId AS experiment_id,\nvariationId AS variation_id,\nbrowser\nFROM experiment_viewed",
+        dimensions: ["browser"],
       },
     ],
   },
@@ -122,10 +122,9 @@ const DEMO_RATIO_METRIC: Pick<
 // Feature constants
 const DEMO_FEATURES: Omit<
   FeatureInterface,
-  "organization" | "dateCreated" | "dateUpdated"
+  "id" | "organization" | "dateCreated" | "dateUpdated"
 >[] = [
   {
-    id: "gbdemo-checkout-layout",
     description:
       "Controls checkout layout UI. Employees forced to see new UI, other users randomly assigned to one of three designs.",
     owner: ASSET_OWNER,
@@ -148,7 +147,7 @@ const DEMO_FEATURES: Omit<
             type: "experiment",
             description: "",
             id: "gbdemo-checkout-layout-exp-rule",
-            trackingKey: "checkout-layout",
+            trackingKey: "gbdemo-checkout-layout",
             hashAttribute: "user_id",
             coverage: 1,
             enabled: true,
@@ -174,6 +173,8 @@ const DEMO_FEATURES: Omit<
 ];
 
 // Experiment constants
+const EXPERIMENT_START_DATE = new Date();
+EXPERIMENT_START_DATE.setDate(EXPERIMENT_START_DATE.getDate() - 30);
 const DEMO_EXPERIMENTS: Pick<
   ExperimentInterface,
   | "name"
@@ -184,8 +185,8 @@ const DEMO_EXPERIMENTS: Pick<
   | "phases"
 >[] = [
   {
-    name: "checkout-layout",
-    trackingKey: "checkout-layout",
+    name: "gbdemo-checkout-layout",
+    trackingKey: "gbdemo-checkout-layout",
     description: `**THIS IS A DEMO EXPERIMENT USED FOR DEMONSTRATION PURPOSES ONLY**
 
 Experiment to test impact of checkout cart design.
@@ -224,10 +225,9 @@ spacing and headings.`,
         ],
       },
     ],
-    // TODO fix date
     phases: [
       {
-        dateStarted: new Date("2023-07-21T00:00:00"),
+        dateStarted: EXPERIMENT_START_DATE,
         name: "",
         reason: "",
         coverage: 1,
@@ -272,14 +272,26 @@ export const postDemoDatasourceProject = async (
 
   const { org } = getOrgFromReq(req);
 
+  const demoProjId = getDemoDatasourceProjectIdForOrganization(org.id);
+  const existingDemoProject: ProjectInterface | null = await findProjectById(
+    demoProjId,
+    org.id
+  );
+
+  if (existingDemoProject) {
+    res.status(200).json({
+      status: 200,
+      project: existingDemoProject,
+    });
+    return;
+  }
+
   try {
-    // TODO remove delete project
     const project = await createProject(org.id, {
-      id: getDemoDatasourceProjectIdForOrganization(org.id),
+      id: demoProjId,
       name: "GrowthBook Demo Project",
       description: "GrowthBook Demo Project",
     });
-
     const datasource = await createDataSource(
       org.id,
       "GrowthBook Demo Postgres Datasource",
@@ -326,10 +338,11 @@ export const postDemoDatasourceProject = async (
       DEMO_FEATURES.map(async (f) => {
         return createFeature(org, res.locals.eventAudit, {
           ...f,
+          id: "gbdemo-checkout-layout",
           project: project.id,
           organization: org.id,
-          dateCreated: new Date("2023-07-20T00:00:00"),
-          dateUpdated: new Date("2023-07-20T00:00:00"),
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
         });
       })
     );
@@ -380,7 +393,6 @@ export const postDemoDatasourceProject = async (
       project: project,
     });
   } catch (e) {
-    // TODO add teardown here
     res.status(500).json({
       status: 500,
       message: `Failed to create demo datasource and project with message: ${e.message}`,
