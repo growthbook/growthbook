@@ -177,7 +177,10 @@ export async function testQueryValidity(
 
   const sql = integration.getTestValidityQuery(query);
   try {
-    await integration.runTestQuery(sql);
+    const results = await integration.runTestQuery(sql);
+    if (results.results.length === 0) {
+      return "No rows returned";
+    }
     return undefined;
   } catch (e) {
     return e.message;
