@@ -15,6 +15,8 @@ import { checkMetricProjectPermissions } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ProjectBadges from "@/components/ProjectBadges";
 import usePermissions from "@/hooks/usePermissions";
+import AutoGenerateMetricsButton from "@/components/AutoGenerateMetricsButton";
+import AutoGenerateMetricsModal from "@/components/AutoGenerateMetricsModal";
 import { DataSourceQueryEditingModalBaseProps } from "./types";
 
 type DataSourceMetricsProps = Omit<
@@ -27,6 +29,10 @@ export default function DataSourceMetrics({
   canEdit,
 }: DataSourceMetricsProps) {
   const permissions = usePermissions();
+  const [
+    showAutoGenerateMetricsModal,
+    setShowAutoGenerateMetricsModal,
+  ] = useState(false);
   const [metricsOpen, setMetricsOpen] = useState(false);
   const [modalData, setModalData] = useState<{
     current: Partial<MetricInterface>;
@@ -52,6 +58,14 @@ export default function DataSourceMetrics({
 
   return (
     <>
+      {showAutoGenerateMetricsModal && (
+        <AutoGenerateMetricsModal
+          source="datasource-detail-page"
+          datasource={dataSource}
+          setShowAutoGenerateMetricsModal={setShowAutoGenerateMetricsModal}
+          mutate={mutate}
+        />
+      )}
       {modalData ? (
         <MetricForm
           {...modalData}
@@ -79,21 +93,29 @@ export default function DataSourceMetrics({
         </div>
         <div className="d-flex flex-row pl-3">
           {canEdit && !hasFileConfig() ? (
-            <button
-              className="btn btn-outline-primary font-weight-bold text-nowrap"
-              onClick={() =>
-                setModalData({
-                  current: {
-                    datasource: dataSource.id,
-                    projects: dataSource.projects || [],
-                  },
-                  edit: false,
-                  duplicate: false,
-                })
-              }
-            >
-              <FaPlus className="mr-1" /> Add
-            </button>
+            <>
+              <AutoGenerateMetricsButton
+                setShowAutoGenerateMetricsModal={
+                  setShowAutoGenerateMetricsModal
+                }
+                datasource={dataSource}
+              />
+              <button
+                className="btn btn-outline-primary font-weight-bold text-nowrap"
+                onClick={() =>
+                  setModalData({
+                    current: {
+                      datasource: dataSource.id,
+                      projects: dataSource.projects || [],
+                    },
+                    edit: false,
+                    duplicate: false,
+                  })
+                }
+              >
+                <FaPlus className="mr-1" /> Add
+              </button>
+            </>
           ) : null}
           <button
             className="btn text-dark"

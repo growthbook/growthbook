@@ -150,12 +150,6 @@ export default function SDKConnectionForm({
           });
           mutate();
         } else {
-          track("Create SDK Connection", {
-            languages: value.languages,
-            encryptPayload: value.encryptPayload,
-            hashSecureAttributes: value.hashSecureAttributes,
-            proxyEnabled: value.proxyEnabled,
-          });
           const res = await apiCall<{ connection: SDKConnectionInterface }>(
             `/sdk-connections`,
             {
@@ -163,6 +157,13 @@ export default function SDKConnectionForm({
               body: JSON.stringify(body),
             }
           );
+          track("Create SDK Connection", {
+            source: "SDKConnectionForm",
+            languages: value.languages,
+            encryptPayload: value.encryptPayload,
+            hashSecureAttributes: value.hashSecureAttributes,
+            proxyEnabled: value.proxyEnabled,
+          });
           mutate();
           await router.push(`/sdks/${res.connection.id}`);
         }
@@ -396,10 +397,12 @@ export default function SDKConnectionForm({
           </div>
         )}
 
-      {/*todo: deprecate this in favor of sseEnabled switch?*/}
       {isCloud() && gb?.isOn("proxy-cloud") && (
-        <>
-          <div className="mb-3">
+        <div
+          className="d-flex mt-3 mb-3 align-top"
+          style={{ justifyContent: "space-between" }}
+        >
+          <div className="">
             <label htmlFor="sdk-connection-proxy-toggle">
               Use GrowthBook Proxy
             </label>
@@ -413,15 +416,25 @@ export default function SDKConnectionForm({
           </div>
 
           {form.watch("proxyEnabled") && (
-            <Field
-              label="GrowthBook Proxy Host"
-              required
-              placeholder="https://"
-              type="url"
-              {...form.register("proxyHost")}
-            />
+            <div className="ml-3 d-flex align-items-center">
+              <label
+                className="mr-2 mt-3 pt-2"
+                htmlFor="sdk-connection-proxyHost"
+              >
+                Proxy Host URL
+              </label>
+              <Field
+                id="sdk-connection-proxyHost"
+                required
+                placeholder="https://"
+                type="url"
+                containerClassName="mt-3"
+                style={{ width: 400 }}
+                {...form.register("proxyHost")}
+              />
+            </div>
           )}
-        </>
+        </div>
       )}
 
       <div className="form-group mt-4">

@@ -4,7 +4,7 @@ import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import { getAffectedEnvsForExperiment, getSnapshotAnalysis } from "shared/util";
+import { getAffectedEnvsForExperiment } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { orgHasPremiumFeature } from "enterprise";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
@@ -14,7 +14,6 @@ import {
   ensureWatching,
   getExperimentWatchers,
   getManualSnapshotData,
-  processPastExperiments,
 } from "../services/experiments";
 import { MetricStats } from "../../types/metric";
 import {
@@ -38,20 +37,21 @@ import {
   deleteSnapshotById,
   findSnapshotById,
   getLatestSnapshot,
-  updateSnapshot,
   updateSnapshotsOnPhaseDelete,
 } from "../models/ExperimentSnapshotModel";
-import { getSourceIntegrationObject } from "../services/datasource";
+import {
+  getIntegrationFromDatasourceId,
+  getSourceIntegrationObject,
+} from "../services/datasource";
 import { addTagsDiff } from "../models/TagModel";
 import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import { removeExperimentFromPresentations } from "../services/presentations";
 import {
-  cancelRun,
-  getPastExperiments,
-  getStatusEndpoint,
-  startRun,
-} from "../services/queries";
-import { PastExperimentsModel } from "../models/PastExperimentsModel";
+  createPastExperiments,
+  getPastExperimentsById,
+  getPastExperimentsModelByDatasource,
+  updatePastExperiments,
+} from "../models/PastExperimentsModel";
 import {
   Changeset,
   ExperimentInterface,
@@ -65,7 +65,6 @@ import { IdeaModel } from "../models/IdeasModel";
 import { IdeaInterface } from "../../types/idea";
 import { getDataSourceById } from "../models/DataSourceModel";
 import { generateExperimentNotebook } from "../services/notebook";
-import { analyzeExperimentResults } from "../services/stats";
 import { IMPORT_LIMIT_DAYS } from "../util/secrets";
 import { getAllFeatures } from "../models/FeatureModel";
 import { ExperimentRule, FeatureInterface } from "../../types/feature";
@@ -84,6 +83,8 @@ import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { PrivateApiErrorResponse } from "../../types/api";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { findProjectById } from "../models/ProjectModel";
+import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
+import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -556,6 +557,7 @@ export async function postExperiments(
     results: data.results || undefined,
     analysis: data.analysis || "",
     releasedVariationId: "",
+    excludeFromPayload: true,
     autoAssign: data.autoAssign || false,
     previewURL: data.previewURL || "",
     targetURLRegex: data.targetURLRegex || "",
@@ -734,6 +736,7 @@ export async function postExperiment(
     "previewURL",
     "targetURLRegex",
     "releasedVariationId",
+    "excludeFromPayload",
     "autoSnapshots",
     "project",
     "regressionAdjustmentEnabled",
@@ -794,6 +797,8 @@ export async function postExperiment(
     "trackingKey",
     "archived",
     "status",
+    "releasedVariationId",
+    "excludeFromPayload",
   ] as (keyof ExperimentInterfaceStringDates)[]).some((key) => key in changes);
   if (needsRunExperimentsPermission) {
     const envs = getAffectedEnvsForExperiment({
@@ -1066,6 +1071,7 @@ export async function postExperimentStop(
     winner,
     dateEnded,
     releasedVariationId,
+    excludeFromPayload,
   } = req.body;
 
   const experiment = await getExperimentById(org.id, id);
@@ -1117,6 +1123,7 @@ export async function postExperimentStop(
   changes.results = results;
   changes.analysis = analysis;
   changes.releasedVariationId = releasedVariationId;
+  changes.excludeFromPayload = !!excludeFromPayload;
 
   try {
     const updated = await updateExperiment({
@@ -1500,72 +1507,6 @@ export async function previewManualSnapshot(
   }
 }
 
-export async function getSnapshotStatus(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-  const snapshot = await findSnapshotById(org.id, id);
-  if (!snapshot) {
-    return res.status(400).json({
-      status: 400,
-      message: "Unknown snapshot id",
-    });
-  }
-
-  if (snapshot.organization !== org?.id)
-    throw new Error("You don't have access to that snapshot");
-
-  const experiment = await getExperimentById(org.id, snapshot.experiment);
-
-  if (!experiment) throw new Error("Invalid experiment id");
-
-  const analysis = getSnapshotAnalysis(snapshot);
-
-  if (!analysis) {
-    throw new Error("Missing snapshot analysis");
-  }
-
-  const result = await getStatusEndpoint(
-    snapshot,
-    org.id,
-    async (queryData) => {
-      const metricMap = await getMetricMap(experiment.organization);
-
-      return analyzeExperimentResults({
-        queryData,
-        snapshotSettings: snapshot.settings,
-        analysisSettings: analysis.settings,
-        variationNames: experiment.variations.map((v) => v.name),
-        metricMap,
-      });
-    },
-    async (updates, results, error) => {
-      const status = error ? "error" : results ? "success" : "running";
-
-      const analysis = getSnapshotAnalysis(snapshot);
-      if (analysis) {
-        analysis.results = results?.dimensions || [];
-        analysis.status = status;
-        analysis.error = error;
-      }
-
-      await updateSnapshot(org.id, id, {
-        ...updates,
-        unknownVariations:
-          results?.unknownVariations || snapshot.unknownVariations || [],
-        multipleExposures:
-          results?.multipleExposures ?? snapshot.multipleExposures ?? 0,
-        analyses: snapshot.analyses,
-        status: status,
-        error: error || "",
-      });
-    },
-    snapshot.error
-  );
-  return res.status(200).json(result);
-}
 export async function cancelSnapshot(
   req: AuthRequest<null, { id: string }>,
   res: Response
@@ -1581,11 +1522,16 @@ export async function cancelSnapshot(
       message: "No snapshot found with that id",
     });
   }
-  res.status(200).json(
-    await cancelRun(snapshot, org.id, async () => {
-      await deleteSnapshotById(org.id, id);
-    })
+
+  const integration = await getIntegrationFromDatasourceId(
+    snapshot.organization,
+    snapshot.settings.datasourceId
   );
+  const queryRunner = new ExperimentResultsQueryRunner(snapshot, integration);
+  await queryRunner.cancelQueries();
+  await deleteSnapshotById(org.id, snapshot.id);
+
+  res.status(200).json({ status: 200 });
 }
 export async function postSnapshot(
   req: AuthRequest<
@@ -1737,7 +1683,7 @@ export async function postSnapshot(
   }
 
   try {
-    const snapshot = await createSnapshot({
+    const queryRunner = await createSnapshot({
       experiment,
       organization: org,
       user: res.locals.eventAudit,
@@ -1748,6 +1694,7 @@ export async function postSnapshot(
         metricRegressionAdjustmentStatuses || [],
       metricMap,
     });
+    const snapshot = queryRunner.model;
 
     await req.audit({
       event: "experiment.refresh",
@@ -1924,36 +1871,6 @@ export async function addScreenshot(
   });
 }
 
-export async function getPastExperimentStatus(
-  req: AuthRequest<null, { id: string }>,
-  res: Response
-) {
-  const { org } = getOrgFromReq(req);
-  const { id } = req.params;
-  const model = await PastExperimentsModel.findOne({ id });
-  if (!model) {
-    throw new Error("Could not get query status");
-  }
-  const result = await getStatusEndpoint(
-    model,
-    org.id,
-    processPastExperiments,
-    async (updates, experiments, error) => {
-      await PastExperimentsModel.updateOne(
-        { id },
-        {
-          $set: {
-            ...updates,
-            experiments: experiments || model.experiments,
-            error,
-          },
-        }
-      );
-    },
-    model.error
-  );
-  return res.status(200).json(result);
-}
 export async function cancelPastExperiments(
   req: AuthRequest<null, { id: string }>,
   res: Response
@@ -1962,20 +1879,22 @@ export async function cancelPastExperiments(
 
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const model = await PastExperimentsModel.findOne({
-    id,
-    organization: org.id,
-  });
-  if (!model) {
+  const pastExperiments = await getPastExperimentsById(org.id, id);
+  if (!pastExperiments) {
     throw new Error("Could not cancel query");
   }
-  res.status(200).json(
-    await cancelRun(model, org.id, async () => {
-      model.set("queries", []);
-      model.set("runStarted", null);
-      await model.save();
-    })
+
+  const integration = await getIntegrationFromDatasourceId(
+    pastExperiments.organization,
+    pastExperiments.datasource
   );
+  const queryRunner = new PastExperimentsQueryRunner(
+    pastExperiments,
+    integration
+  );
+  await queryRunner.cancelQueries();
+
+  res.status(200).json({ status: 200 });
 }
 
 export async function getPastExperimentsList(
@@ -1984,18 +1903,15 @@ export async function getPastExperimentsList(
 ) {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
-  const model = await PastExperimentsModel.findOne({
-    id,
-    organization: org.id,
-  });
+  const pastExperiments = await getPastExperimentsById(org.id, id);
 
-  if (!model) {
+  if (!pastExperiments) {
     throw new Error("Invalid import id");
   }
 
   const experiments = await getPastExperimentsByDatasource(
     org.id,
-    model.datasource
+    pastExperiments.datasource
   );
 
   const experimentMap = new Map<string, string>();
@@ -2004,7 +1920,7 @@ export async function getPastExperimentsList(
   });
 
   const trackingKeyMap: Record<string, string> = {};
-  (model.experiments || []).forEach((e) => {
+  (pastExperiments.experiments || []).forEach((e) => {
     const id = experimentMap.get(e.trackingKey);
     if (id) {
       trackingKeyMap[e.trackingKey] = id;
@@ -2013,7 +1929,7 @@ export async function getPastExperimentsList(
 
   res.status(200).json({
     status: 200,
-    experiments: model,
+    experiments: pastExperiments,
     existing: trackingKeyMap,
   });
 }
@@ -2035,71 +1951,54 @@ export async function postPastExperiments(
     datasourceObj?.projects?.length ? datasourceObj.projects : ""
   );
 
-  const integration = getSourceIntegrationObject(datasourceObj);
-  if (integration.decryptionError) {
-    throw new Error(
-      "Could not decrypt data source credentials. View the data source settings for more info."
-    );
-  }
+  const integration = getSourceIntegrationObject(datasourceObj, true);
+
+  let pastExperiments = await getPastExperimentsModelByDatasource(
+    org.id,
+    datasource
+  );
+
   const start = new Date();
   start.setDate(start.getDate() - IMPORT_LIMIT_DAYS);
-  const now = new Date();
 
-  let model = await PastExperimentsModel.findOne({
-    datasource,
-    organization: org.id,
-  });
-  let runStarted = false;
-  if (!model) {
-    const { queries, result } = await startRun(
-      {
-        experiments: getPastExperiments(integration, start),
-      },
-      processPastExperiments
-    );
-    model = await PastExperimentsModel.create({
-      id: uniqid("imp_"),
+  let needsRun = false;
+  if (!pastExperiments) {
+    pastExperiments = await createPastExperiments({
       organization: org.id,
-      datasource: datasource,
-      experiments: result || [],
-      runStarted: now,
+      datasource,
+      experiments: [],
+      start,
+      queries: [],
+    });
+    needsRun = true;
+  }
+
+  if (force) {
+    needsRun = true;
+    pastExperiments = await updatePastExperiments(pastExperiments, {
       config: {
         start,
-        end: now,
+        end: new Date(),
       },
-      error: "",
-      queries,
-      dateCreated: new Date(),
-      dateUpdated: new Date(),
     });
-    runStarted = true;
-  } else if (force) {
-    const { queries, result } = await startRun(
-      {
-        experiments: getPastExperiments(integration, start),
-      },
-      processPastExperiments
+  }
+
+  if (needsRun) {
+    const queryRunner = new PastExperimentsQueryRunner(
+      pastExperiments,
+      integration
     );
-    model.set("runStarted", now);
-    model.set("error", "");
-    model.set("queries", queries);
-    model.set("config", {
-      start: start,
-      end: new Date(),
+    pastExperiments = await queryRunner.startAnalysis({
+      from: start,
     });
-    if (result) {
-      model.set("experiments", result);
-    }
-    await model.save();
-    runStarted = true;
   }
 
   res.status(200).json({
     status: 200,
-    id: model.id,
+    id: pastExperiments.id,
   });
 
-  if (runStarted) {
+  if (needsRun) {
     await req.audit({
       event: "datasource.import",
       entity: {

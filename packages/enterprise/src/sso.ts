@@ -1,12 +1,11 @@
 import type { IssuerMetadata } from "openid-client";
 import type { SSOConnectionInterface } from "../../back-end/types/sso-connection";
-import { LICENSE_KEY } from "./license";
 
 // Self-hosted SSO
 function getSSOConfig() {
   if (!process.env.SSO_CONFIG) return null;
 
-  if (!process.env.IS_CLOUD && !LICENSE_KEY) {
+  if (!process.env.IS_CLOUD && !process.env.LICENSE_KEY) {
     throw new Error(
       "Must have a commercial License Key to use self-hosted SSO"
     );

@@ -331,7 +331,7 @@ const NewDataSourceForm: FC<{
   const submit =
     step === 0
       ? null
-      : async () => {
+      : form.handleSubmit(async (data) => {
           let newDataId = dataSourceId;
           if (step === 1) {
             // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
@@ -343,12 +343,18 @@ const NewDataSourceForm: FC<{
           if (isFinalStep) {
             if (trackedEvents.length > 0) {
               track("Generating Auto Metrics For User", {
-                metricsToCreate: form.watch("metricsToCreate"),
+                autoMetricsCreated: {
+                  countMetrics: data.metricsToCreate.filter(
+                    (m) => m.type === "count"
+                  ).length,
+                  binomialMetrics: data.metricsToCreate.filter(
+                    (m) => m.type === "binomial"
+                  ).length,
+                },
                 source,
                 type: datasource.type,
                 dataSourceId,
                 schema: schema,
-                newDatasourceForm: true,
               });
             }
             // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | null' is not assignable... Remove this comment to see the full error message
@@ -357,7 +363,7 @@ const NewDataSourceForm: FC<{
           } else {
             setStep(step + 1);
           }
-        };
+        });
 
   let stepContents: ReactElement;
   if (step === 0) {
@@ -617,9 +623,7 @@ const NewDataSourceForm: FC<{
                           const res = await apiCall<{
                             trackedEvents: TrackedEventData[];
                             message?: string;
-                          }>(`/datasource/${dataSourceId}/auto-metrics`, {
-                            method: "POST",
-                          });
+                          }>(`/metrics/tracked-events/${dataSourceId}`);
                           if (res.message) {
                             track("Generate Auto Metrics Error", {
                               error: res.message,
