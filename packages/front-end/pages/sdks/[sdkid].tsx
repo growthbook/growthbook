@@ -10,7 +10,6 @@ import {
   FaQuestionCircle,
 } from "react-icons/fa";
 import { BsArrowRepeat, BsLightningFill } from "react-icons/bs";
-import { useGrowthBook } from "@growthbook/growthbook-react";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBCircleArrowLeft, GBEdit, GBHashLock } from "@/components/Icons";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
@@ -27,7 +26,6 @@ import ProxyTestButton from "@/components/Features/SDKConnections/ProxyTestButto
 import Button from "@/components/Button";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { isCloud } from "@/services/env";
-import { AppFeatures } from "@/types/app-features";
 import Tooltip from "@/components/Tooltip/Tooltip";
 
 function ConnectionDot({ left }: { left: boolean }) {
@@ -119,8 +117,6 @@ function ConnectionStatus({
 }
 
 export default function SDKConnectionPage() {
-  const growthbook = useGrowthBook<AppFeatures>();
-
   const router = useRouter();
   const { sdkid } = router.query;
 
@@ -158,7 +154,6 @@ export default function SDKConnectionPage() {
   );
 
   const hasProxy = connection.proxy.enabled && !!connection.proxy.host;
-  const hasCloudProxyForSSE = isCloud() && growthbook?.isOn("proxy-cloud-sse");
 
   const projectId = connection.project;
   const projectName = getProjectById(projectId)?.name || null;
@@ -404,9 +399,7 @@ export default function SDKConnectionPage() {
           >
             <BsLightningFill className="text-warning" />
             Streaming Updates:{" "}
-            <strong>
-              {hasCloudProxyForSSE || hasProxy ? "Enabled" : "Disabled"}
-            </strong>
+            <strong>{isCloud() || hasProxy ? "Enabled" : "Disabled"}</strong>
             <div
               className="text-right text-muted"
               style={{ fontSize: "0.75rem" }}

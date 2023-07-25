@@ -76,14 +76,6 @@ function addEnvProxySettings(proxy: ProxyConnection): ProxyConnection {
     host: PROXY_HOST_INTERNAL || PROXY_HOST_PUBLIC,
     hostExternal: PROXY_HOST_PUBLIC || PROXY_HOST_INTERNAL,
   };
-  // return {
-  //   ...proxy,
-  //   enabled: proxy.enabled !== undefined ? proxy.enabled : PROXY_ENABLED,
-  //   host: proxy.host ? proxy.host : PROXY_HOST_INTERNAL || PROXY_HOST_PUBLIC,
-  //   hostExternal: proxy.hostExternal
-  //     ? proxy.hostExternal
-  //     : PROXY_HOST_PUBLIC || PROXY_HOST_INTERNAL,
-  // };
 }
 
 function toInterface(doc: SDKConnectionDocument): SDKConnectionInterface {

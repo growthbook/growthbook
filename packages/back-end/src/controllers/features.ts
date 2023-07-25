@@ -177,12 +177,6 @@ export async function getFeaturesPublic(req: Request, res: Response) {
       "public, max-age=30, stale-while-revalidate=3600, stale-if-error=36000"
     );
 
-    // todo: enable this after SSE rollout & metering is complete
-    // if (IS_CLOUD) {
-    //   res.set("x-sse-support", "enabled");
-    //   res.set("Access-Control-Expose-Headers", "x-sse-support");
-    // }
-
     // If using Fastly, add surrogate key header for cache purging
     if (FASTLY_SERVICE_ID) {
       // Purge by org, API Key, or payload contents
