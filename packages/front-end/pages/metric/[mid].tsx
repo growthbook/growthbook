@@ -155,16 +155,16 @@ const MetricPage: FC = () => {
 
   let regressionAdjustmentAvailableForMetric = true;
   let regressionAdjustmentAvailableForMetricReason = <></>;
-  if (metric.denominator) {
-    const denominator = metrics.find((m) => m.id === metric.denominator);
-    if (denominator?.type === "count") {
-      regressionAdjustmentAvailableForMetric = false;
-      regressionAdjustmentAvailableForMetricReason = (
-        <>
-          Not available for ratio metrics with <em>count</em> denominators.
-        </>
-      );
-    }
+  const denominator = metric.denominator
+    ? metrics.find((m) => m.id === metric.denominator)
+    : undefined;
+  if (denominator && denominator.type === "count") {
+    regressionAdjustmentAvailableForMetric = false;
+    regressionAdjustmentAvailableForMetricReason = (
+      <>
+        Not available for ratio metrics with <em>count</em> denominators.
+      </>
+    );
   }
   if (metric.aggregation) {
     regressionAdjustmentAvailableForMetric = false;
@@ -540,6 +540,34 @@ const MetricPage: FC = () => {
                         <div className="col-auto">
                           <h3 className="d-inline-block mb-0">Data Preview</h3>
                         </div>
+                        <div className="small col-auto">
+                          {segments.length > 0 && (
+                            <>
+                              {segment?.name ? (
+                                <>
+                                  Segment applied:{" "}
+                                  <span className="badge badge-primary mr-1">
+                                    {segment?.name || "Everyone"}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="mr-1">Apply a segment</span>
+                              )}
+                              {canEditMetric &&
+                                permissions.check("runQueries", "") && (
+                                  <a
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      setSegmentOpen(true);
+                                    }}
+                                    href="#"
+                                  >
+                                    <BsGear />
+                                  </a>
+                                )}
+                            </>
+                          )}
+                        </div>
                         <div style={{ flex: 1 }} />
                         <div className="col-auto">
                           {permissions.check("runQueries", "") && (
@@ -562,55 +590,28 @@ const MetricPage: FC = () => {
                               <RunQueriesButton
                                 icon="refresh"
                                 cta={analysis ? "Refresh Data" : "Run Analysis"}
-                                initialStatus={getQueryStatus(
-                                  metric.queries || [],
-                                  metric.analysisError
-                                )}
-                                statusEndpoint={`/metric/${metric.id}/analysis/status`}
+                                mutate={mutate}
+                                model={metric}
                                 cancelEndpoint={`/metric/${metric.id}/analysis/cancel`}
                                 color="outline-primary"
-                                onReady={() => {
-                                  mutate();
-                                }}
                               />
                             </form>
                           )}
                         </div>
                       </div>
-                      <div className="row justify-content-between">
-                        <div className="col-auto">
-                          {segments.length > 0 && (
+                      <div className="row flex justify-content-between">
+                        <div className="small text-muted col">
+                          {denominator && (
                             <>
-                              {segment?.name ? (
-                                <>
-                                  Segment applied:{" "}
-                                  <span className="badge badge-primary mr-1">
-                                    {segment?.name || "Everyone"}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="mr-1">No segment applied</span>
-                              )}
-                              {canEditMetric &&
-                                permissions.check("runQueries", "") && (
-                                  <a
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      setSegmentOpen(true);
-                                    }}
-                                    href="#"
-                                  >
-                                    <BsGear />
-                                  </a>
-                                )}
+                              The data below only aggregates the numerator. The
+                              denominator ({denominator.name}) is only used in
+                              experiment analyses.
                             </>
                           )}
                         </div>
                         {analysis && (
-                          <div className="col-auto text-muted">
-                            <small>
-                              Last updated on {date(analysis?.createdAt)}
-                            </small>
+                          <div className="small text-muted col-auto">
+                            Last updated on {date(analysis?.createdAt)}
                           </div>
                         )}
                       </div>

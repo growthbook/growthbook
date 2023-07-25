@@ -24,7 +24,7 @@ export default function SuccessCard({
         />
         <h1>Great job!</h1>
         <p>
-          {`You sucessfully created a ${feature}. Want to see all of your ${feature}s
+          {`You successfully created a ${feature}. Want to see all of your ${feature}s
           or create more?`}
           <span>
             <Link href={href}> Click here.</Link>

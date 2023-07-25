@@ -10,7 +10,6 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
-import { getValidDate } from "shared/dates";
 import { getScopedSettings } from "shared/settings";
 import { getSnapshotAnalysis, generateVariationId } from "shared/util";
 import { updateExperiment } from "../models/ExperimentModel";
@@ -21,35 +20,22 @@ import {
   MetricForSnapshot,
   SnapshotVariation,
 } from "../../types/experiment-snapshot";
-import {
-  getMetricsByIds,
-  insertMetric,
-  updateMetric,
-} from "../models/MetricModel";
+import { getMetricsByIds, insertMetric } from "../models/MetricModel";
 import { checkSrm, sumSquaresFromStats } from "../util/stats";
 import { addTags } from "../models/TagModel";
 import { WatchModel } from "../models/WatchModel";
-import {
-  Dimension,
-  ExperimentMetricQueryResponse,
-  MetricValueParams,
-  MetricValueResult,
-  PastExperimentResult,
-} from "../types/Integration";
+import { Dimension, ExperimentMetricQueryResponse } from "../types/Integration";
 import { createExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import {
   Condition,
-  MetricAnalysis,
   MetricInterface,
   MetricStats,
   Operator,
 } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
 import { ExperimentInterface, MetricOverride } from "../../types/experiment";
-import { PastExperiment } from "../../types/past-experiments";
 import { promiseAllChunks } from "../util/promise";
 import { findDimensionById } from "../models/DimensionModel";
-import { getDataSourceById } from "../models/DataSourceModel";
 import { findSegmentById } from "../models/SegmentModel";
 import {
   DEFAULT_CONVERSION_WINDOW_HOURS,
@@ -78,13 +64,10 @@ import {
 import { EventAuditUser } from "../events/event-types";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
-import {
-  getMetricForSnapshot,
-  getReportVariations,
-  startExperimentAnalysis,
-} from "./reports";
-import { getMetricValue, QueryMap, startRun } from "./queries";
-import { getSourceIntegrationObject } from "./datasource";
+import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
+import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
+import { getReportVariations, getMetricForSnapshot } from "./reports";
+import { getIntegrationFromDatasourceId } from "./datasource";
 import { analyzeExperimentMetric } from "./stats";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
@@ -104,72 +87,17 @@ export async function createMetric(data: Partial<MetricInterface>) {
   return metric;
 }
 
-export async function getMetricAnalysis(
-  metric: MetricInterface,
-  queryData: QueryMap
-): Promise<MetricAnalysis> {
-  const metricData = (queryData.get("metric")?.result as MetricValueResult) || {
-    users: 0,
-    count: 0,
-    mean: 0,
-    stddev: 0,
-  };
-
-  let total = (metricData.count || 0) * (metricData.mean || 0);
-  let count = metricData.count || 0;
-  const dates: { d: Date; v: number; s: number; c: number }[] = [];
-
-  // Calculate total from dates
-  if (metricData.dates) {
-    total = 0;
-    count = 0;
-
-    metricData.dates.forEach((d) => {
-      const mean = d.mean;
-      const stddev = d.stddev;
-
-      const dateTotal = (d.count || 0) * (d.mean || 0);
-      total += dateTotal;
-      count += d.count || 0;
-      dates.push({
-        d: getValidDate(d.date),
-        v: mean,
-        c: d.count || 0,
-        s: stddev,
-      });
-    });
-  }
-
-  const averageBase = count;
-  const average = averageBase > 0 ? total / averageBase : 0;
-
-  return {
-    createdAt: new Date(),
-    average,
-    dates,
-    segment: metric.segment || "",
-  };
-}
-
 export async function refreshMetric(
   metric: MetricInterface,
   orgId: string,
   metricAnalysisDays: number = DEFAULT_METRIC_ANALYSIS_DAYS
 ) {
   if (metric.datasource) {
-    const datasource = await getDataSourceById(
+    const integration = await getIntegrationFromDatasourceId(
+      metric.organization,
       metric.datasource,
-      metric.organization
+      true
     );
-    if (!datasource) {
-      throw new Error("Could not load metric datasource");
-    }
-    const integration = getSourceIntegrationObject(datasource);
-    if (integration.decryptionError) {
-      throw new Error(
-        "Could not decrypt data source credentials. View the data source settings for more info."
-      );
-    }
 
     let segment: SegmentInterface | undefined = undefined;
     if (metric.segment) {
@@ -189,35 +117,15 @@ export async function refreshMetric(
     const to = new Date();
     to.setDate(to.getDate() + 1);
 
-    const baseParams: Omit<MetricValueParams, "metric"> = {
+    const queryRunner = new MetricAnalysisQueryRunner(metric, integration);
+    await queryRunner.startAnalysis({
       from,
       to,
       name: `Last ${days} days`,
       includeByDate: true,
       segment,
-    };
-
-    const updates: Partial<MetricInterface> = {};
-
-    updates.runStarted = new Date();
-    updates.analysisError = "";
-
-    const { queries, result } = await startRun(
-      {
-        metric: getMetricValue(integration, {
-          ...baseParams,
-          metric,
-        }),
-      },
-      (queryData) => getMetricAnalysis(metric, queryData)
-    );
-
-    updates.queries = queries;
-    if (result) {
-      updates.analysis = result;
-    }
-
-    await updateMetric(metric.id, updates, orgId);
+      metric,
+    });
   } else {
     throw new Error("Cannot analyze manual metrics");
   }
@@ -504,7 +412,7 @@ export async function createSnapshot({
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricRegressionAdjustmentStatuses: MetricRegressionAdjustmentStatus[];
   metricMap: Map<string, MetricInterface>;
-}) {
+}): Promise<ExperimentResultsQueryRunner> {
   const dimension = analysisSettings.dimensions[0] || null;
 
   const data: ExperimentSnapshotInterface = {
@@ -526,7 +434,14 @@ export async function createSnapshot({
     }),
     unknownVariations: [],
     multipleExposures: 0,
-    analyses: [],
+    analyses: [
+      {
+        dateCreated: new Date(),
+        results: [],
+        settings: analysisSettings,
+        status: "running",
+      },
+    ],
     status: "running",
   };
 
@@ -545,45 +460,27 @@ export async function createSnapshot({
     },
   });
 
-  const { queries, results } = await startExperimentAnalysis({
-    organization,
-    useCache,
+  const snapshot = await createExperimentSnapshotModel(data);
+
+  const integration = await getIntegrationFromDatasourceId(
+    experiment.organization,
+    experiment.datasource,
+    true
+  );
+
+  const queryRunner = new ExperimentResultsQueryRunner(
+    snapshot,
+    integration,
+    useCache
+  );
+  await queryRunner.startAnalysis({
     analysisSettings,
     snapshotSettings: data.settings,
     variationNames: experiment.variations.map((v) => v.name),
     metricMap,
   });
 
-  data.queries = queries;
-
-  // Already finished (cached)
-  if (results?.dimensions) {
-    data.analyses.push({
-      dateCreated: new Date(),
-      results: results.dimensions,
-      settings: analysisSettings,
-      status: "success",
-    });
-    data.unknownVariations = results.unknownVariations;
-    data.multipleExposures = results.multipleExposures;
-    data.status = "success";
-  }
-  // Still running
-  else {
-    data.analyses.push({
-      dateCreated: new Date(),
-      results: [],
-      settings: analysisSettings,
-      status: "running",
-    });
-    data.status = "running";
-  }
-
-  const snapshot = await createExperimentSnapshotModel(data);
-
-  // TODO: https://linear.app/growthbook/issue/GB-20/[be]-create-events-for-experiment-snapshots-experiment-results
-
-  return snapshot;
+  return queryRunner;
 }
 
 export async function ensureWatching(
@@ -617,102 +514,6 @@ export async function getExperimentWatchers(
     organization: orgId,
   });
   return watchers;
-}
-
-export async function processPastExperiments(
-  data: QueryMap
-): Promise<PastExperiment[]> {
-  const experiments =
-    (data.get("experiments")?.result as PastExperimentResult)?.experiments ||
-    [];
-
-  // Group by experiment and exposureQuery
-  const experimentExposureMap = new Map<string, PastExperiment>();
-  experiments.forEach((e) => {
-    const key = e.experiment_id + "::" + e.exposureQueryId;
-    let el = experimentExposureMap.get(key);
-    if (!el) {
-      el = {
-        endDate: e.end_date,
-        startDate: e.start_date,
-        numVariations: 1,
-        variationKeys: [e.variation_id],
-        variationNames: [e.variation_name || ""],
-        exposureQueryId: e.exposureQueryId || "",
-        trackingKey: e.experiment_id,
-        experimentName: e.experiment_name,
-        users: e.users,
-        weights: [e.users],
-      };
-      experimentExposureMap.set(key, el);
-    } else {
-      if (e.start_date < el.startDate) {
-        el.startDate = e.start_date;
-      }
-      if (e.end_date > el.endDate) {
-        el.endDate = e.end_date;
-      }
-      if (!el.variationKeys.includes(e.variation_id)) {
-        el.variationKeys.push(e.variation_id);
-        el.weights.push(e.users);
-        el.users += e.users;
-        el.numVariations++;
-        el.variationNames?.push(e.variation_name || "");
-      }
-    }
-  });
-
-  // Group by experiment, choosing the exposure query with the most users
-  const experimentMap = new Map<string, PastExperiment>();
-  experimentExposureMap.forEach((exp) => {
-    const key = exp.trackingKey;
-    const el = experimentMap.get(key);
-    if (!el || el.users < exp.users) {
-      experimentMap.set(key, exp);
-    }
-  });
-
-  // Round the weights
-  const possibleWeights = [
-    5,
-    10,
-    16,
-    20,
-    25,
-    30,
-    33,
-    40,
-    50,
-    60,
-    67,
-    70,
-    75,
-    80,
-    90,
-    95,
-  ];
-  experimentMap.forEach((exp) => {
-    const totalWeight = exp.weights.reduce((sum, weight) => sum + weight, 0);
-    exp.weights = exp.weights.map((w) => {
-      // Map the observed percentage traffic to the closest reasonable number
-      const p = Math.round((w / totalWeight) * 100);
-      return possibleWeights
-        .map((x) => [x, Math.abs(x - p)])
-        .sort((a, b) => a[1] - b[1])[0][0];
-    });
-
-    // Make sure total weight adds to 1 (if not, increase the control until it does)
-    const newTotalWeight = exp.weights.reduce((sum, weight) => sum + weight, 0);
-    if (newTotalWeight < 100) {
-      exp.weights[0] += 100 - newTotalWeight;
-    }
-    exp.weights = exp.weights.map((w) => w / 100);
-  });
-
-  // Filter out experiments with too few or too many variations
-  return Array.from(experimentMap.values()).filter(
-    (e) => e.numVariations > 1 && e.numVariations < 10
-  );
 }
 
 function getExperimentMetric(
@@ -823,6 +624,7 @@ export async function toExperimentApiInterface(
             winner: experiment.variations[experiment.winner ?? 0]?.id || "",
             conclusions: experiment.analysis || "",
             releasedVariationId: experiment.releasedVariationId || "",
+            excludeFromPayload: !!experiment.excludeFromPayload,
           },
         }
       : null),
@@ -1707,10 +1509,12 @@ export function postExperimentApiPayloadToInterface(
         id: generateVariationId(),
         screenshots: v.screenshots || [],
       })) || [],
-    implementation: payload.implementation || "code",
+    // Legacy field, no longer used when creating experiments
+    implementation: "code",
     status: payload.status || "draft",
     analysis: "",
-    releasedVariationId: "",
+    releasedVariationId: payload.releasedVariationId || "",
+    excludeFromPayload: !!payload.excludeFromPayload,
     autoAssign: false,
     previewURL: "",
     targetURLRegex: "",
@@ -1747,20 +1551,24 @@ export function updateExperimentApiPayloadToInterface(
     status,
     phases,
     variations,
+    releasedVariationId,
+    excludeFromPayload,
   } = payload;
   return {
     ...(trackingKey ? { trackingKey } : {}),
-    ...(project ? { project } : {}),
-    ...(owner ? { owner } : {}),
+    ...(project !== undefined ? { project } : {}),
+    ...(owner !== undefined ? { owner } : {}),
     ...(assignmentQueryId ? { assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
     ...(name ? { name } : {}),
     ...(tags ? { tags } : {}),
-    ...(description ? { description } : {}),
-    ...(hypothesis ? { hypothesis } : {}),
+    ...(description !== undefined ? { description } : {}),
+    ...(hypothesis !== undefined ? { hypothesis } : {}),
     ...(metrics ? { metrics } : {}),
-    ...(archived ? { archived } : {}),
+    ...(archived !== undefined ? { archived } : {}),
     ...(status ? { status } : {}),
+    ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),
+    ...(excludeFromPayload !== undefined ? { excludeFromPayload } : {}),
     ...(variations
       ? {
           variations: variations?.map((v) => ({

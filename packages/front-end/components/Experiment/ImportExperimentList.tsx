@@ -183,15 +183,9 @@ const ImportExperimentList: FC<{
             >
               <RunQueriesButton
                 cta="Refresh List"
-                initialStatus={getQueryStatus(
-                  data.experiments.queries || [],
-                  data.experiments.error
-                )}
-                statusEndpoint={`/experiments/import/${data.experiments.id}/status`}
                 cancelEndpoint={`/experiments/import/${data.experiments.id}/cancel`}
-                onReady={async () => {
-                  await mutate();
-                }}
+                mutate={mutate}
+                model={data.experiments}
               />
             </form>
           </div>
