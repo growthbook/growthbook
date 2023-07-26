@@ -97,6 +97,15 @@ const OpenVisualEditorLink: FC<{
       });
 
       window.location.href = url;
+    } else {
+      // for backwards-compatibility - if the chrome extension is out-of-date
+      // and does not yet support the postMessage auth token flow, we show this
+      // dialog to the user for them to 'proceed anyway'
+      // TODO delete this after 0.3.1 of chrome ext is released
+      setTimeout(() => {
+        setIsNavigating(false);
+        setShowExtensionDialog(true);
+      }, 1500);
     }
   }, [url, getVisualEditorKey, isBypassing]);
 
