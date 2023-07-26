@@ -186,7 +186,9 @@ export default function AttributeModal({ close, attribute }: Props) {
             <div className="alert alert-warning">
               <strong>Warning:</strong> Version string attributes are only
               supported in the latest Javascript and React SDK versions. Other
-              language support is coming soon.
+              language support is coming soon. Do not use this format if you are
+              using an older SDK version or a different language as it will
+              break any filtering based on the attribute.
             </div>
           )}
         </>
