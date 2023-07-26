@@ -35,7 +35,7 @@ export default function StringArrayField({
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (!inputValue) return;
 
-    if (event.key in delimiters) {
+    if (delimiters.includes(event.key)) {
       event.preventDefault();
       onChange([...value, inputValue]);
       setInputValue("");
