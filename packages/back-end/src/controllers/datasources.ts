@@ -288,6 +288,12 @@ export async function deleteDataSource(
     );
   }
 
+  if (org.settings?.defaultDataSource === datasource.id) {
+    throw new Error(
+      "Error: This is the default data source for your organization. You must select a new default data source before deleting this one."
+    );
+  }
+
   await deleteDatasourceById(datasource.id, org.id);
 
   if (datasource.settings?.informationSchemaId) {

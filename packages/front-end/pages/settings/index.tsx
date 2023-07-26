@@ -1414,6 +1414,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     onChange={(v: string) =>
                       form.setValue("defaultDataSource", v)
                     }
+                    isClearable={true}
                     placeholder="Select a data source..."
                     helpText="The default data source is the default data source selected when creating metrics and experiments."
                   />
