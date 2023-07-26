@@ -24,20 +24,52 @@ const isChromeExtInstalledLocally = async () => {
   }
 };
 
+type VisualEditorError = "no-extension" | "api-key-failed" | "not-chrome";
+
 const ExtensionDialog: FC<{
   close: () => void;
   submit?: () => void;
-  children: React.ReactNode;
-}> = ({ close, submit, children }) => (
+  errorType: VisualEditorError;
+  bypass: () => void;
+}> = ({ close, submit, errorType, bypass }) => (
   <Modal
     open
     header="GrowthBook DevTools Extension"
     close={close}
     closeCta="Close"
-    cta="View extension"
+    cta={errorType === "no-extension" ? "View extension" : "Close"}
     submit={submit}
   >
-    {children}
+    {errorType === "no-extension" ? (
+      <>
+        You&apos;ll need to install the GrowthBook DevTools Chrome extension to
+        use the visual editor.
+      </>
+    ) : errorType === "api-key-failed" ? (
+      <>
+        We were unable to fetch an API key to initialize the Visual Editor.
+        Please try again or contact support.
+      </>
+    ) : errorType === "not-chrome" ? (
+      <>
+        The Visual Editor is currently only supported in Chrome. We are working
+        on bringing the Visual Editor to other browsers.
+      </>
+    ) : (
+      <>There was an error. Please try again or contact support.</>
+    )}{" "}
+    <a
+      href="#"
+      onClick={(e) => {
+        e.preventDefault();
+        bypass();
+      }}
+      target="_blank"
+      rel="noreferrer"
+    >
+      Click here to proceed anyway
+    </a>
+    .
   </Modal>
 );
 
@@ -48,8 +80,7 @@ const OpenVisualEditorLink: FC<{
   changeIndex: number;
 }> = ({ id, visualEditorUrl, openSettings, changeIndex }) => {
   const apiHost = getApiHost();
-  const [showExtensionDialog, setShowExtensionDialog] = useState(false);
-  const [extensionDialogText, setExtensionDialogText] = useState("");
+  const [errorType, setErrorType] = useState<VisualEditorError | null>(null);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [isBypassing, setIsBypassing] = useState(false);
@@ -89,8 +120,6 @@ const OpenVisualEditorLink: FC<{
   }, [apiCall]);
 
   const navigate = useCallback(async () => {
-    setShowExtensionDialog(false);
-
     // in the case a user has clicked 'proceed anyway' when we do not detect the
     // chrome extension installation, we ignore waiting for the responsem msg
     // and navigate right away.
@@ -114,10 +143,7 @@ const OpenVisualEditorLink: FC<{
       key = await getVisualEditorKey();
     } catch (e) {
       setIsNavigating(false);
-      setExtensionDialogText(
-        "We were unable to fetch an API key to initialize the Visual Editor. Please try again or contact support."
-      );
-      setShowExtensionDialog(true);
+      setErrorType("api-key-failed");
       return;
     }
 
@@ -181,12 +207,7 @@ const OpenVisualEditorLink: FC<{
           const isExtensionInstalled = await isChromeExtInstalledLocally();
 
           if (!isExtensionInstalled) {
-            setExtensionDialogText(
-              isChromeBrowser
-                ? "You'll need to install the GrowthBook DevTools Chrome extension to use the visual editor."
-                : "The Visual Editor is currently only supported in Chrome. We are working on bringing the Visual Editor to other browsers."
-            );
-            setShowExtensionDialog(true);
+            setErrorType(isChromeBrowser ? "no-extension" : "not-chrome");
             track("Open visual editor", {
               source: "visual-editor-ui",
               status: "missing extension",
@@ -222,34 +243,19 @@ const OpenVisualEditorLink: FC<{
         </Modal>
       )}
 
-      {showExtensionDialog && (
+      {errorType && (
         <ExtensionDialog
-          close={() => setShowExtensionDialog(false)}
+          errorType={errorType}
+          close={() => setErrorType(null)}
           submit={
-            isChromeBrowser
+            errorType === "no-extension"
               ? () => {
                   window.open(CHROME_EXTENSION_LINK);
                 }
               : undefined
           }
-        >
-          <>
-            {extensionDialogText ??
-              `There was an error. Please try again or contact support.`}{" "}
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                setIsBypassing(true);
-              }}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Click here to proceed anyway
-            </a>
-            .
-          </>
-        </ExtensionDialog>
+          bypass={() => setIsBypassing(true)}
+        ></ExtensionDialog>
       )}
     </>
   );
