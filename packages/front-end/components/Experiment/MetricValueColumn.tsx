@@ -10,21 +10,23 @@ export default function MetricValueColumn({
   stats,
   users,
   className,
+  newUi = false,
 }: {
   metric: MetricInterface;
   stats: SnapshotMetric;
   users: number;
   className?: string;
+  newUi?: boolean;
 }) {
   const displayCurrency = useCurrency();
   return (
     <td className={className}>
       {metric && stats.users ? (
         <>
-          <div className="result-number">
+          <div className="result-number" style={ newUi ? {lineHeight: "10px", fontWeight: "bold"} : {}}>
             {formatConversionRate(metric?.type, stats.cr, displayCurrency)}
           </div>
-          <div>
+          <div style={ newUi ? {lineHeight: "12px", textAlign: "right"} : {}}>
             <small className="text-muted">
               <em
                 style={{

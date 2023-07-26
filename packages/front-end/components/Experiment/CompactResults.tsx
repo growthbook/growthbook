@@ -120,24 +120,8 @@ const CompactResults: FC<{
             multipleExposures={multipleExposures}
           />
         )}
-        <h3 className="mb-0">
-          Metrics
-          {editMetrics && (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                editMetrics();
-              }}
-              className="ml-2"
-              style={{ fontSize: "0.8rem" }}
-            >
-              Adjust Metrics
-            </a>
-          )}
-        </h3>
       </div>
-      <div className="mb-1 experiment-compact-holder">
+      <div className="w-100">
         <ResultsTable
           dateCreated={reportDate}
           isLatestPhase={isLatestPhase}
@@ -148,7 +132,8 @@ const CompactResults: FC<{
           id={id}
           {...risk}
           tableRowAxis="metric"
-          labelHeader="Metric"
+          labelHeader="Goal Metrics"
+          editMetrics={editMetrics}
           users={users}
           statsEngine={statsEngine}
           sequentialTestingEnabled={sequentialTestingEnabled}

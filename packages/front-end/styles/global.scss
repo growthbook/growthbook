@@ -213,16 +213,38 @@ pre {
 }
 
 .experiment-results {
-  table-layout: auto;
+  table-layout: fixed;
   width: 100%;
   th, td {
     padding: 0 10px;
   }
   th {
     vertical-align: bottom;
+    &.axis-col {
+      border-bottom: 1px solid var(--text-link-hover-color);
+      &.header-label {
+        padding-bottom: 5px;
+        font-size: 16px;
+      }
+      &.label {
+        color: var(--text-link-hover-color);
+        font-size: 13px;
+        padding-bottom: 5px;
+      }
+    }
   }
   .variation {
     font-size: 12px;
+  }
+  .results-change {
+    font-size: 12px;
+  }
+  .non-significant {
+    color: var(--text-color-muted);
+  }
+  .significant {
+    font-weight: bold;
+    color: var(--text-link-hover-color);
   }
 }
 

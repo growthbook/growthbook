@@ -1,12 +1,12 @@
 import clsx from "clsx";
 import React, {ReactElement, useEffect, useLayoutEffect, useRef, useState} from "react";
-import { FaQuestionCircle } from "react-icons/fa";
+import {FaArrowDown, FaArrowUp, FaQuestionCircle} from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import { ExperimentTableRow, useDomain } from "@/services/experiments";
+import {ExperimentTableRow, isStatSig, useDomain} from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "../Tooltip/Tooltip";
 import SelectField from "../Forms/SelectField";
@@ -16,6 +16,9 @@ import MetricValueColumn from "./MetricValueColumn";
 import PercentGraph from "./PercentGraph";
 import RiskColumn from "./RiskColumn";
 import PValueColumn from "./PValueColumn";
+import {GBEdit} from "@/components/Icons";
+import useConfidenceLevels from "@/hooks/useConfidenceLevels";
+import usePValueThreshold from "@/hooks/usePValueThreshold";
 
 export type ResultsTableProps = {
   id: string;
@@ -27,6 +30,7 @@ export type ResultsTableProps = {
   users?: number[];
   tableRowAxis: "metric" | "dimension";
   labelHeader: string;
+  editMetrics?: () => void;
   renderLabelColumn: (
     label: string,
     metric: MetricInterface,
@@ -53,9 +57,10 @@ export default function ResultsTable({
   isLatestPhase,
   status,
   rows,
-  labelHeader,
   users,
   tableRowAxis,
+  labelHeader,
+  editMetrics,
   variations,
   startDate,
   renderLabelColumn,
@@ -68,6 +73,8 @@ export default function ResultsTable({
   pValueCorrection,
   sequentialTestingEnabled = false,
 }: ResultsTableProps) {
+  const { ciUpper, ciLower } = useConfidenceLevels();
+  const pValueThreshold = usePValueThreshold();
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(0);
@@ -76,7 +83,7 @@ export default function ResultsTable({
     if (!tableContainerRef?.current?.clientWidth) return;
     const tableWidth = tableContainerRef.current.clientWidth as number;
     const firstRowCells = tableContainerRef.current?.querySelectorAll("thead tr:first-child th:not(.graphCell)");
-    const expectedArrowsTextWidth = 120; // this is the approximate width of the text "↑ XX.X%" inside <AlignedGraph>
+    const expectedArrowsTextWidth = 0; // this is the approximate width of the text "↑ XX.X%" inside <AlignedGraph>
     let totalCellWidth = 0;
     if (firstRowCells) {
       for (let i = 0; i < firstRowCells.length; i++) {
@@ -85,6 +92,7 @@ export default function ResultsTable({
       }
     }
     const graphWidth = tableWidth - totalCellWidth;
+    console.log({totalCellWidth, graphWidth, tableWidth,  cells: firstRowCells.length})
     setGraphCellWidth(graphWidth - expectedArrowsTextWidth);
   }
 
@@ -104,9 +112,23 @@ export default function ResultsTable({
       <table className="experiment-results table-borderless table-sm">
       <thead>
         <tr className="results-top-row">
-          <th style={{ width: 180 }}></th>
-          <th>Users</th>
-          <th className="graphCell">
+          <th style={{ width: 180 }} className="axis-col header-label">
+            {labelHeader}
+            {editMetrics ? (
+              <a
+                role="button"
+                className="ml-2 cursor-pointer"
+                onClick={(e) => {
+                  e.preventDefault();
+                  editMetrics();
+                }}
+              >
+                <GBEdit />
+              </a>
+            ): null}
+          </th>
+          <th style={{ width: 100 }} className="axis-col label">Value</th>
+          <th className="axis-col graphCell" style={{ maxWidth: graphCellWidth }}>
             <AlignedGraph
               id={`${id}_axis`}
               domain={domain}
@@ -118,6 +140,7 @@ export default function ResultsTable({
               newUi={true}
             />
           </th>
+          <th style={{ width: 120 }} className="axis-col label text-right">% Change</th>
         </tr>
       </thead>
 
@@ -134,8 +157,8 @@ export default function ResultsTable({
             style={{ backgroundColor: i%2 === 1 ? "rgb(127 127 127 / 8%)" : "transparent" }}
           >
             <tr className="results-label-row">
-              <th colSpan={2}>
-                <h3 className="mb-2">{row.label}</h3>
+              <th colSpan={2} className="metric-label pb-2">
+                {row.label}
               </th>
               <th>
                 <AlignedGraph
@@ -145,9 +168,11 @@ export default function ResultsTable({
                   showAxis={false}
                   axisOnly={true}
                   graphWidth={graphCellWidth}
-                  height={40}
+                  height={35}
+                  newUi={true}
                 />
               </th>
+              <th></th>
             </tr>
 
             {variations.map((v, j) => {
@@ -160,6 +185,14 @@ export default function ResultsTable({
                 cr: 0,
                 users: 0,
               };
+              let significant = j > 0 ? (
+                statsEngine === "bayesian"
+                  ? (stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower
+                  : isStatSig(
+                    stats.pValueAdjusted ?? stats.pValue ?? 1,
+                    pValueThreshold
+                  )
+              ) : false;
 
               return (
                 <tr
@@ -183,13 +216,20 @@ export default function ResultsTable({
                       {v.name}
                     </div>
                   </td>
-                  <td>
-                    {users ? (
-                      <div className="results-user-value">
-                        {numberFormatter.format(users[j] || 0)}
-                      </div>
-                    ) : null}
-                  </td>
+                  {/*todo: put "users" in its own row*/}
+                  {(users && j<0) ? (
+                    <td className="results-user-value">
+                      {numberFormatter.format(users[j] || 0)}
+                    </td>
+                  ) : (
+                    <MetricValueColumn
+                      metric={row.metric}
+                      stats={stats}
+                      users={stats?.users || 0}
+                      className="value variation"
+                      newUi={true}
+                    />
+                  )}
                   <td>
                     {j > 0 ? (
                       <PercentGraph
@@ -202,7 +242,7 @@ export default function ResultsTable({
                         stats={stats}
                         id={`${id}_violin_row${i}_var${j}`}
                         graphWidth={graphCellWidth}
-                        height={25}
+                        height={32}
                         newUi={true}
                       />
                     ) : (
@@ -213,10 +253,24 @@ export default function ResultsTable({
                         showAxis={false}
                         axisOnly={true}
                         graphWidth={graphCellWidth}
-                        height={25}
+                        height={32}
                         newUi={true}
                       />
                     )}
+                  </td>
+                  <td className={clsx(
+                    "results-change text-right",
+                    {
+                      "significant": significant,
+                      "non-significant": !significant,
+                    }
+                  )}>
+                    <span className="expectedArrows">
+                      {(stats.expected ?? 0) > 0 ? <FaArrowUp /> : <FaArrowDown />}
+                    </span>{" "}
+                    <span className="expected bold">
+                      {parseFloat(((stats.expected ?? 0) * 100).toFixed(1)) + "%"}{" "}
+                    </span>
                   </td>
                 </tr>
               );
@@ -235,8 +289,10 @@ export default function ResultsTable({
                   axisOnly={true}
                   graphWidth={graphCellWidth}
                   height={10}
+                  newUi={true}
                 />
               </td>
+              <td></td>
             </tr>
           </tbody>
         );

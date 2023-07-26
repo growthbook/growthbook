@@ -128,7 +128,7 @@ const AlignedGraph: FC<Props> = ({
   return (
     <>
       <div className="d-flex aligned-graph align-items-center aligned-graph-row">
-        <div className="flex-grow-1">
+        <div className={newUi ? "" : "flex-grow-1"}>
           <div style={{ position: "relative" }}>
             <ParentSize className="graph-container" debounceTime={1000}>
               {({ height: visHeight }) => {
@@ -191,7 +191,7 @@ const AlignedGraph: FC<Props> = ({
                         scale={xScale}
                         tickLength={5}
                         tickFormat={tickFormat}
-                        stroke={axisColor}
+                        stroke={newUi ? "" : axisColor}
                         tickStroke={axisColor}
                         tickLabelProps={tickLabelProps}
                         tickClassName="ticktext"
@@ -276,7 +276,7 @@ const AlignedGraph: FC<Props> = ({
             </ParentSize>
           </div>
         </div>
-        {!axisOnly && (
+        {!axisOnly && !newUi && (
           <>
             <div className="expectedwrap text-right">
               <span className="expectedArrows">
