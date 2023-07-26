@@ -65,11 +65,11 @@ implementation easier as you can use all your existing events that you're alread
 one additional event to track when a user was exposed to an experiment. You should see a `trackingCallback` method in
 the SDK implementation, and you will need to adjust this to call your event tracker with the experiment key and
 variation id. The specifics of this depend on the event tracker you're using. You can find instructions for the most
-popular event trackers [here](/event-trackers).
+popular event trackers [here](/app/datasources).
 
 :::note **Don't have an event tracker yet?**
 
-Most companies we speak to have Google Analytics installed, which will [work great](/event-trackers/GA4-google-analytics).
+Most companies we speak to have Google Analytics installed, which will [work great](/guide/GA4-google-analytics).
 If you don't use GA, or are not testing on a website, we recommend using something like [RudderStack](/guide/rudderstack), Jitsu or [Segment](/event-trackers/segment).
 
 :::
