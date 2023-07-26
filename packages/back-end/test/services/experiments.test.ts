@@ -1,7 +1,5 @@
 import { z } from "zod";
-import jwt from "jsonwebtoken";
 import {
-  decodeAndValidateVisualEditorTempToken,
   postMetricApiPayloadIsValid,
   postMetricApiPayloadToMetricInterface,
   putMetricApiPayloadIsValid,
@@ -13,7 +11,6 @@ import {
 } from "../../src/validators/openapi";
 import { DataSourceInterface } from "../../types/datasource";
 import { OrganizationInterface } from "../../types/organization";
-import { JWT_SECRET } from "../../src/util/secrets";
 
 describe("experiments utils", () => {
   describe("postMetricApiPayloadIsValid", () => {
@@ -1062,121 +1059,6 @@ describe("experiments utils", () => {
         expect(result.sql).toBe(undefined);
         expect(result.type).toEqual("count");
         expect(result.userIdTypes).toEqual(undefined);
-      });
-    });
-  });
-
-  describe("decodeAndValidateVisualEditorTempToken", () => {
-    const referrer = "https://google.com";
-
-    let token;
-
-    describe("when token is missing editorUrl", () => {
-      beforeEach(() => {
-        token = jwt.sign(
-          {
-            // editorUrl: "https://google.com",
-            userId: "usr_123",
-            orgId: "org_123",
-          },
-          JWT_SECRET,
-          { expiresIn: "1m" }
-        );
-      });
-
-      it("throws a 'Malformed token' error", async () => {
-        try {
-          await decodeAndValidateVisualEditorTempToken(token, referrer);
-        } catch (e) {
-          expect(e.message).toContain("Malformed token");
-        }
-        expect.assertions(1);
-      });
-    });
-
-    describe("when token is missing userId", () => {
-      beforeEach(() => {
-        token = jwt.sign(
-          {
-            editorUrl: "https://google.com",
-            // userId: "usr_123",
-            orgId: "org_123",
-          },
-          JWT_SECRET,
-          { expiresIn: "1m" }
-        );
-      });
-
-      it("throws a 'Malformed token' error", async () => {
-        try {
-          await decodeAndValidateVisualEditorTempToken(token, referrer);
-        } catch (e) {
-          expect(e.message).toContain("Malformed token");
-        }
-        expect.assertions(1);
-      });
-    });
-
-    describe("when token is missing orgId", () => {
-      beforeEach(() => {
-        token = jwt.sign(
-          {
-            editorUrl: "https://google.com",
-            userId: "usr_123",
-            // orgId: "org_123",
-          },
-          JWT_SECRET,
-          { expiresIn: "1m" }
-        );
-      });
-
-      it("throws a 'Malformed token' error", async () => {
-        try {
-          await decodeAndValidateVisualEditorTempToken(token, referrer);
-        } catch (e) {
-          expect(e.message).toContain("Malformed token");
-        }
-        expect.assertions(1);
-      });
-    });
-
-    describe("when editorUrl does not match referer", () => {
-      beforeEach(() => {
-        token = jwt.sign(
-          {
-            editorUrl: "https://not-google.com",
-            userId: "usr_123",
-            orgId: "org_123",
-          },
-          JWT_SECRET,
-          { expiresIn: "1m" }
-        );
-      });
-      it("throws a 'Referer URL' error", async () => {
-        try {
-          await decodeAndValidateVisualEditorTempToken(token, referrer);
-        } catch (e) {
-          expect(e.message).toContain("Referer URL host does not match");
-        }
-        expect.assertions(1);
-      });
-    });
-
-    describe("when everything is hunky dory", () => {
-      const decoded = {
-        editorUrl: "https://google.com",
-        userId: "usr_123",
-        orgId: "org_123",
-      };
-      beforeEach(() => {
-        token = jwt.sign(decoded, JWT_SECRET, { expiresIn: "1m" });
-      });
-      it("returns the decoded token", async () => {
-        const result = await decodeAndValidateVisualEditorTempToken(
-          token,
-          referrer
-        );
-        expect(result).toEqual(decoded);
       });
     });
   });
