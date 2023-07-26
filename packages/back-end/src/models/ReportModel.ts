@@ -118,7 +118,6 @@ export async function updateReport(
       $set: {
         ...updates,
         dateUpdated: new Date(),
-        error: updates.error || "",
       },
     }
   );
