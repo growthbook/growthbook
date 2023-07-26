@@ -78,7 +78,7 @@ export default function SDKConnectionsList() {
           <tbody>
             {connections.map((connection) => {
               const hasProxy =
-                connection.proxy.enabled && connection.proxy.host;
+                connection.proxy.enabled && !!connection.proxy.host;
               const connected =
                 connection.connected &&
                 (!hasProxy || connection.proxy.connected);
