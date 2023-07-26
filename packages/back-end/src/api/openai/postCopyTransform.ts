@@ -2,6 +2,8 @@ import { z } from "zod";
 import { hasExceededUsageQuota, simpleCompletion } from "../../services/openai";
 import { createApiRequestHandler } from "../../util/handler";
 
+const OPENAI_ENABLED = !!process.env.OPENAI_API_KEY;
+
 interface PostCopyTransformResponse {
   original: string;
   transformed: string | undefined;
@@ -39,6 +41,8 @@ ${text}
 
 export const postCopyTransform = createApiRequestHandler(validation)(
   async (req): Promise<PostCopyTransformResponse> => {
+    if (!OPENAI_ENABLED) throw new Error("OPENAI_API_KEY not defined");
+
     const { copy, mode } = req.body;
 
     if (await hasExceededUsageQuota(req.organization)) {
