@@ -1,7 +1,6 @@
 import React, { FC } from "react";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import Link from "next/link";
-import { FaAngleRight } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "../LoadingOverlay";
 import SecretApiKeys from "./SecretApiKeys";
@@ -20,7 +19,7 @@ const ApiKeys: FC = () => {
     <>
       <SecretApiKeys keys={data.keys} mutate={mutate} />
 
-      <div className="alert alert-info mb-3">
+      <div className="alert alert-info mb-4">
         You can also create{" "}
         <Link href="/account/personal-access-tokens">
           Personal Access Tokens
@@ -29,15 +28,8 @@ const ApiKeys: FC = () => {
       </div>
 
       <div className="alert alert-info">
-        Looking for SDK Endpoints? They have moved to the new{" "}
-        <Link href="/sdks">
-          <a>
-            Features <FaAngleRight /> SDKs
-          </a>
-        </Link>{" "}
-        tab. Also, make sure to check out the new{" "}
-        <strong>SDK Connections</strong>, which makes it easier to configure and
-        test your integrations.
+        Looking for SDK Endpoints? They have moved to the{" "}
+        <Link href="/sdks">SDK Connections</Link> page.
       </div>
     </>
   );

@@ -1,4 +1,5 @@
 import type { Response } from "express";
+import { orgHasPremiumFeature } from "enterprise";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import {
@@ -15,7 +16,6 @@ import {
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "../../models/SdkConnectionModel";
-import { orgHasPremiumFeature } from "../../util/organization.util";
 
 export const getSDKConnections = async (
   req: AuthRequest,
@@ -56,16 +56,10 @@ export const postSDKConnection = async (
     hashSecureAttributes = params.hashSecureAttributes;
   }
 
-  let sseEnabled = false;
-  if (orgHasPremiumFeature(org, "cloud-proxy")) {
-    sseEnabled = params.sseEnabled || false;
-  }
-
   const doc = await createSDKConnection({
     ...params,
     encryptPayload,
     hashSecureAttributes,
-    sseEnabled,
     organization: org.id,
   });
 
@@ -109,16 +103,10 @@ export const putSDKConnection = async (
     hashSecureAttributes = req.body.hashSecureAttributes || false;
   }
 
-  let sseEnabled = false;
-  if (orgHasPremiumFeature(org, "cloud-proxy")) {
-    sseEnabled = req.body.sseEnabled || false;
-  }
-
   await editSDKConnection(connection, {
     ...req.body,
     encryptPayload,
     hashSecureAttributes,
-    sseEnabled,
   });
 
   res.status(200).json({

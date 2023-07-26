@@ -1,11 +1,8 @@
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { ApiKeyInterface } from "back-end/types/apikey";
 import {
-  AccountPlan,
-  CommercialFeature,
   EnvScopedPermission,
   GlobalPermission,
-  LicenseData,
   MemberRole,
   ExpandedMember,
   OrganizationInterface,
@@ -14,6 +11,7 @@ import {
   Role,
   ProjectScopedPermission,
 } from "back-end/types/organization";
+import type { AccountPlan, CommercialFeature, LicenseData } from "enterprise";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
 import { useRouter } from "next/router";
 import {
@@ -26,11 +24,13 @@ import {
   useState,
 } from "react";
 import * as Sentry from "@sentry/react";
+import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
 import { isCloud, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
 import track from "@/services/track";
 import { AppFeatures } from "@/types/app-features";
+import { sha256 } from "@/services/utils";
 
 type OrgSettingsResponse = {
   organization: OrganizationInterface;
@@ -161,6 +161,14 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     mutate: refreshOrganization,
   } = useApi<OrgSettingsResponse>(isAuthenticated ? `/organization` : null);
 
+  const [hashedOrganizationId, setHashedOrganizationId] = useState<string>("");
+  useEffect(() => {
+    const id = currentOrg?.organization?.id || "";
+    sha256(GROWTHBOOK_SECURE_ATTRIBUTE_SALT + id).then((hashedOrgId) => {
+      setHashedOrganizationId(hashedOrgId);
+    });
+  }, [currentOrg?.organization?.id]);
+
   const updateUser = useCallback(async () => {
     try {
       const res = await apiCall<UserResponse>("/user", {
@@ -264,7 +272,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       name: data?.userName || "",
       admin: data?.admin || false,
       company: currentOrg?.organization?.name || "",
-      organizationId: currentOrg?.organization?.id || "",
+      organizationId: hashedOrganizationId,
       userAgent: window.navigator.userAgent,
       url: router?.pathname || "",
       cloud: isCloud(),
@@ -273,7 +281,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       freeSeats: currentOrg?.organization?.freeSeats || 3,
       discountCode: currentOrg?.organization?.discountCode || "",
     });
-  }, [data, currentOrg, router?.pathname, growthbook]);
+  }, [data, currentOrg, hashedOrganizationId, router?.pathname, growthbook]);
 
   useEffect(() => {
     if (!data?.email) return;

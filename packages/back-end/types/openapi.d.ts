@@ -108,16 +108,14 @@ export interface paths {
   "/experiments": {
     /** Get all experiments */
     get: operations["listExperiments"];
+    /** Create a single experiment */
+    post: operations["postExperiment"];
   };
   "/experiments/{id}": {
     /** Get a single experiment */
     get: operations["getExperiment"];
-    parameters: {
-        /** @description The id of the requested resource */
-      path: {
-        id: string;
-      };
-    };
+    /** Update a single experiment */
+    post: operations["updateExperiment"];
   };
   "/experiments/{id}/results": {
     /** Get results for an experiment */
@@ -138,6 +136,10 @@ export interface paths {
   "/metrics/{id}": {
     /** Get a single metric */
     get: operations["getMetric"];
+    /** Update a metric */
+    put: operations["putMetric"];
+    /** Deletes a metric */
+    delete: operations["deleteMetric"];
   };
   "/experiments/{id}/visual-changesets": {
     /** Get all visual changesets */
@@ -225,7 +227,10 @@ export interface components {
       behavior: {
         /** @enum {string} */
         goal: "increase" | "decrease";
-        cap: number;
+        cap?: number;
+        /** @enum {string|null} */
+        capping?: "absolute" | "percentile" | null;
+        capValue?: number;
         conversionWindowStart: number;
         conversionWindowEnd: number;
         riskThresholdSuccess: number;
@@ -675,6 +680,7 @@ export interface components {
         winner: string;
         conclusions: string;
         releasedVariationId: string;
+        excludeFromPayload: boolean;
       };
     };
     ExperimentMetric: {
@@ -1781,6 +1787,7 @@ export interface operations {
                   winner: string;
                   conclusions: string;
                   releasedVariationId: string;
+                  excludeFromPayload: boolean;
                 };
               })[];
           }) & {
@@ -1795,8 +1802,73 @@ export interface operations {
       };
     };
   };
-  getExperiment: {
-    /** Get a single experiment */
+  postExperiment: {
+    /** Create a single experiment */
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description ID for the [DataSource](#tag/DataSource_model) */
+          datasourceId: string;
+          /** @description The ID property of one of the assignment query objects associated with the datasource */
+          assignmentQueryId: string;
+          trackingKey: string;
+          /** @description Name of the experiment */
+          name: string;
+          /** @description Project ID which the experiment belongs to */
+          project?: string;
+          /** @description Hypothesis of the experiment */
+          hypothesis?: string;
+          /** @description Description of the experiment */
+          description?: string;
+          tags?: (string)[];
+          metrics?: (string)[];
+          /** @description Email of the person who owns this experiment */
+          owner: string;
+          archived?: boolean;
+          /** @enum {string} */
+          status?: "draft" | "running" | "stopped";
+          autoRefresh?: boolean;
+          hashAttribute?: string;
+          releasedVariationId?: string;
+          excludeFromPayload?: boolean;
+          variations: ({
+              id?: string;
+              key: string;
+              name: string;
+              description?: string;
+              screenshots?: ({
+                  path: string;
+                  width?: number;
+                  height?: number;
+                  description?: string;
+                })[];
+            })[];
+          phases?: ({
+              name: string;
+              /** Format: date */
+              dateStarted: string;
+              /** Format: date */
+              dateEnded?: string;
+              reasonForStopping?: string;
+              seed?: string;
+              coverage?: number;
+              trafficSplit?: ({
+                  variationId: string;
+                  weight: number;
+                })[];
+              namespace?: {
+                namespaceId: string;
+                range: (number)[];
+                enabled?: boolean;
+              };
+              targetingCondition?: string;
+              reason?: string;
+              condition?: string;
+              variationWeights?: (number)[];
+            })[];
+        };
+      };
+    };
     responses: {
       200: {
         content: {
@@ -1886,6 +1958,279 @@ export interface operations {
                 winner: string;
                 conclusions: string;
                 releasedVariationId: string;
+                excludeFromPayload: boolean;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  getExperiment: {
+    /** Get a single experiment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experiment: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              project: string;
+              hypothesis: string;
+              description: string;
+              tags: (string)[];
+              owner: string;
+              archived: boolean;
+              status: string;
+              autoRefresh: boolean;
+              hashAttribute: string;
+              variations: ({
+                  variationId: string;
+                  key: string;
+                  name: string;
+                  description: string;
+                  screenshots: (string)[];
+                })[];
+              phases: ({
+                  name: string;
+                  dateStarted: string;
+                  dateEnded: string;
+                  reasonForStopping: string;
+                  seed: string;
+                  coverage: number;
+                  trafficSplit: ({
+                      variationId: string;
+                      weight: number;
+                    })[];
+                  namespace?: {
+                    namespaceId: string;
+                    range: (unknown)[];
+                  };
+                  targetingCondition: string;
+                })[];
+              settings: {
+                datasourceId: string;
+                assignmentQueryId: string;
+                experimentId: string;
+                segmentId: string;
+                queryFilter: string;
+                /** @enum {unknown} */
+                inProgressConversions: "include" | "exclude";
+                /** @enum {unknown} */
+                attributionModel: "firstExposure" | "experimentDuration";
+                /** @enum {unknown} */
+                statsEngine: "bayesian" | "frequentist";
+                goals: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                guardrails: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                activationMetric?: {
+                  metricId: string;
+                  overrides: {
+                    conversionWindowStart?: number;
+                    conversionWindowEnd?: number;
+                    winRiskThreshold?: number;
+                    loseRiskThreshold?: number;
+                  };
+                };
+              };
+              resultSummary?: {
+                status: string;
+                winner: string;
+                conclusions: string;
+                releasedVariationId: string;
+                excludeFromPayload: boolean;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+  updateExperiment: {
+    /** Update a single experiment */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          assignmentQueryId?: string;
+          trackingKey?: string;
+          /** @description Name of the experiment */
+          name?: string;
+          /** @description Project ID which the experiment belongs to */
+          project?: string;
+          /** @description Hypothesis of the experiment */
+          hypothesis?: string;
+          /** @description Description of the experiment */
+          description?: string;
+          tags?: (string)[];
+          metrics?: (string)[];
+          /** @description Email of the person who owns this experiment */
+          owner?: string;
+          archived?: boolean;
+          /** @enum {string} */
+          status?: "draft" | "running" | "stopped";
+          autoRefresh?: boolean;
+          hashAttribute?: string;
+          releasedVariationId?: string;
+          excludeFromPayload?: boolean;
+          variations?: ({
+              id?: string;
+              key: string;
+              name: string;
+              description?: string;
+              screenshots?: ({
+                  path: string;
+                  width?: number;
+                  height?: number;
+                  description?: string;
+                })[];
+            })[];
+          phases?: ({
+              name: string;
+              /** Format: date */
+              dateStarted: string;
+              /** Format: date */
+              dateEnded?: string;
+              reasonForStopping?: string;
+              seed?: string;
+              coverage?: number;
+              trafficSplit?: ({
+                  variationId: string;
+                  weight: number;
+                })[];
+              namespace?: {
+                namespaceId: string;
+                range: (number)[];
+                enabled?: boolean;
+              };
+              targetingCondition?: string;
+              reason?: string;
+              condition?: string;
+              variationWeights?: (number)[];
+            })[];
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            experiment: {
+              id: string;
+              /** Format: date-time */
+              dateCreated: string;
+              /** Format: date-time */
+              dateUpdated: string;
+              name: string;
+              project: string;
+              hypothesis: string;
+              description: string;
+              tags: (string)[];
+              owner: string;
+              archived: boolean;
+              status: string;
+              autoRefresh: boolean;
+              hashAttribute: string;
+              variations: ({
+                  variationId: string;
+                  key: string;
+                  name: string;
+                  description: string;
+                  screenshots: (string)[];
+                })[];
+              phases: ({
+                  name: string;
+                  dateStarted: string;
+                  dateEnded: string;
+                  reasonForStopping: string;
+                  seed: string;
+                  coverage: number;
+                  trafficSplit: ({
+                      variationId: string;
+                      weight: number;
+                    })[];
+                  namespace?: {
+                    namespaceId: string;
+                    range: (unknown)[];
+                  };
+                  targetingCondition: string;
+                })[];
+              settings: {
+                datasourceId: string;
+                assignmentQueryId: string;
+                experimentId: string;
+                segmentId: string;
+                queryFilter: string;
+                /** @enum {unknown} */
+                inProgressConversions: "include" | "exclude";
+                /** @enum {unknown} */
+                attributionModel: "firstExposure" | "experimentDuration";
+                /** @enum {unknown} */
+                statsEngine: "bayesian" | "frequentist";
+                goals: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                guardrails: ({
+                    metricId: string;
+                    overrides: {
+                      conversionWindowStart?: number;
+                      conversionWindowEnd?: number;
+                      winRiskThreshold?: number;
+                      loseRiskThreshold?: number;
+                    };
+                  })[];
+                activationMetric?: {
+                  metricId: string;
+                  overrides: {
+                    conversionWindowStart?: number;
+                    conversionWindowEnd?: number;
+                    winRiskThreshold?: number;
+                    loseRiskThreshold?: number;
+                  };
+                };
+              };
+              resultSummary?: {
+                status: string;
+                winner: string;
+                conclusions: string;
+                releasedVariationId: string;
+                excludeFromPayload: boolean;
               };
             };
           };
@@ -2024,7 +2369,10 @@ export interface operations {
                 behavior: {
                   /** @enum {string} */
                   goal: "increase" | "decrease";
-                  cap: number;
+                  cap?: number;
+                  /** @enum {string|null} */
+                  capping?: "absolute" | "percentile" | null;
+                  capValue?: number;
                   conversionWindowStart: number;
                   conversionWindowEnd: number;
                   riskThresholdSuccess: number;
@@ -2102,8 +2450,18 @@ export interface operations {
           behavior?: {
             /** @enum {string} */
             goal?: "increase" | "decrease";
-            /** @description This should be non-negative */
+            /**
+             * @deprecated 
+             * @description (deprecated, use capping and capValue fields instead) This should be non-negative
+             */
             cap?: number;
+            /**
+             * @description Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`. 
+             * @enum {string|null}
+             */
+            capping?: "absolute" | "percentile" | null;
+            /** @description This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`. */
+            capValue?: number;
             /** @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
             conversionWindowStart?: number;
             /** @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
@@ -2176,7 +2534,10 @@ export interface operations {
               behavior: {
                 /** @enum {string} */
                 goal: "increase" | "decrease";
-                cap: number;
+                cap?: number;
+                /** @enum {string|null} */
+                capping?: "absolute" | "percentile" | null;
+                capValue?: number;
                 conversionWindowStart: number;
                 conversionWindowEnd: number;
                 riskThresholdSuccess: number;
@@ -2249,7 +2610,10 @@ export interface operations {
               behavior: {
                 /** @enum {string} */
                 goal: "increase" | "decrease";
-                cap: number;
+                cap?: number;
+                /** @enum {string|null} */
+                capping?: "absolute" | "percentile" | null;
+                capValue?: number;
                 conversionWindowStart: number;
                 conversionWindowEnd: number;
                 riskThresholdSuccess: number;
@@ -2289,6 +2653,123 @@ export interface operations {
                   })[];
               };
             };
+          };
+        };
+      };
+    };
+  };
+  putMetric: {
+    /** Update a metric */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    requestBody: {
+      content: {
+        "application/json": {
+          /** @description Name of the person who owns this metric */
+          owner?: string;
+          /** @description Name of the metric */
+          name?: string;
+          /** @description Description of the metric */
+          description?: string;
+          /**
+           * @description Type of metric. See [Metrics documentation](/app/metrics) 
+           * @enum {string}
+           */
+          type?: "binomial" | "count" | "duration" | "revenue";
+          /** @description List of tags */
+          tags?: (string)[];
+          /** @description List of project IDs for projects that can access this metric */
+          projects?: (string)[];
+          archived?: boolean;
+          behavior?: {
+            /** @enum {string} */
+            goal?: "increase" | "decrease";
+            /**
+             * @description Used in conjunction with `capValue` to set the capping (winsorization). Set to null to turn capping off. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/> If `behavior.capping` is non-null, you must specify `behavior.capValue`. 
+             * @enum {string|null}
+             */
+            capping?: "absolute" | "percentile" | null;
+            /** @description This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`. */
+            capValue?: number;
+            /** @description The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
+            conversionWindowStart?: number;
+            /** @description The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither. */
+            conversionWindowEnd?: number;
+            /** @description Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`. */
+            riskThresholdSuccess?: number;
+            /** @description Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number. */
+            riskThresholdDanger?: number;
+            /** @description Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%) */
+            minPercentChange?: number;
+            /** @description Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%) */
+            maxPercentChange?: number;
+            minSampleSize?: number;
+          };
+          /** @description Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
+          sql?: {
+            identifierTypes?: (string)[];
+            conversionSQL?: string;
+            /** @description Custom user level aggregation for your metric (default: `SUM(value)`) */
+            userAggregationSQL?: string;
+            /** @description The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics) */
+            denominatorMetricId?: string;
+          };
+          /** @description An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed */
+          sqlBuilder?: {
+            identifierTypeColumns?: ({
+                identifierType: string;
+                columnName: string;
+              })[];
+            tableName?: string;
+            valueColumnName?: string;
+            timestampColumnName?: string;
+            conditions?: ({
+                column: string;
+                operator: string;
+                value: string;
+              })[];
+          };
+          /** @description Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed. */
+          mixpanel?: {
+            eventName?: string;
+            eventValue?: string;
+            userAggregation?: string;
+            conditions?: ({
+                property: string;
+                operator: string;
+                value: string;
+              })[];
+          };
+        };
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            updatedId: string;
+          };
+        };
+      };
+    };
+  };
+  deleteMetric: {
+    /** Deletes a metric */
+    parameters: {
+        /** @description The id of the requested resource */
+      path: {
+        id: string;
+      };
+    };
+    responses: {
+      200: {
+        content: {
+          "application/json": {
+            deletedId: string;
           };
         };
       };
@@ -2464,6 +2945,7 @@ export interface operations {
                 winner: string;
                 conclusions: string;
                 releasedVariationId: string;
+                excludeFromPayload: boolean;
               };
             };
           };
@@ -2712,11 +3194,15 @@ export type GetSdkConnectionResponse = operations["getSdkConnection"]["responses
 export type ListDataSourcesResponse = operations["listDataSources"]["responses"]["200"]["content"]["application/json"];
 export type GetDataSourceResponse = operations["getDataSource"]["responses"]["200"]["content"]["application/json"];
 export type ListExperimentsResponse = operations["listExperiments"]["responses"]["200"]["content"]["application/json"];
+export type PostExperimentResponse = operations["postExperiment"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResponse = operations["getExperiment"]["responses"]["200"]["content"]["application/json"];
+export type UpdateExperimentResponse = operations["updateExperiment"]["responses"]["200"]["content"]["application/json"];
 export type GetExperimentResultsResponse = operations["getExperimentResults"]["responses"]["200"]["content"]["application/json"];
 export type ListMetricsResponse = operations["listMetrics"]["responses"]["200"]["content"]["application/json"];
 export type PostMetricResponse = operations["postMetric"]["responses"]["200"]["content"]["application/json"];
 export type GetMetricResponse = operations["getMetric"]["responses"]["200"]["content"]["application/json"];
+export type PutMetricResponse = operations["putMetric"]["responses"]["200"]["content"]["application/json"];
+export type DeleteMetricResponse = operations["deleteMetric"]["responses"]["200"]["content"]["application/json"];
 export type ListVisualChangesetsResponse = operations["listVisualChangesets"]["responses"]["200"]["content"]["application/json"];
 export type GetVisualChangesetResponse = operations["getVisualChangeset"]["responses"]["200"]["content"]["application/json"];
 export type PutVisualChangesetResponse = operations["putVisualChangeset"]["responses"]["200"]["content"]["application/json"];

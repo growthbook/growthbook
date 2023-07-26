@@ -4,6 +4,7 @@ import React from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { ago, datetime } from "shared/dates";
+import { FaExclamationTriangle } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
@@ -13,12 +14,15 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import DeleteButton from "../DeleteButton/DeleteButton";
 import Button from "../Button";
 import { GBAddCircle } from "../Icons";
+import Tooltip from "../Tooltip/Tooltip";
 import { useSnapshot } from "./SnapshotProvider";
 
 export default function ExperimentReportsList({
   experiment,
+  newUi,
 }: {
   experiment: ExperimentInterfaceStringDates;
+  newUi?: boolean;
 }) {
   const router = useRouter();
   const { apiCall } = useAuth();
@@ -51,45 +55,47 @@ export default function ExperimentReportsList({
     hasData && snapshot?.queries && permissions.check("createAnalyses", "");
 
   return (
-    <div>
-      <div className="row align-items-center mb-2">
-        <div className="col">
-          <h3 className="mb-0">Custom Reports</h3>
-        </div>
-        {canCreateReports && (
-          <div className="col-auto">
-            <Button
-              className="btn btn-primary float-right"
-              color="outline-info"
-              onClick={async () => {
-                const res = await apiCall<{ report: ReportInterface }>(
-                  `/experiments/report/${snapshot.id}`,
-                  {
-                    method: "POST",
-                  }
-                );
-
-                if (!res.report) {
-                  throw new Error("Failed to create report");
-                }
-                trackReport(
-                  "create",
-                  "NewCustomReportButton",
-                  getDatasourceById(res.report.args.datasource)?.type || null,
-                  res.report
-                );
-
-                await router.push(`/report/${res.report.id}`);
-              }}
-            >
-              <span className="h4 pr-2 m-0 d-inline-block align-top">
-                <GBAddCircle />
-              </span>
-              New Custom Report
-            </Button>
+    <div className={newUi ? "px-4 mb-4" : ""}>
+      {!newUi && (
+        <div className="row align-items-center mb-2">
+          <div className="col">
+            <h3 className="mb-0">Custom Reports</h3>
           </div>
-        )}
-      </div>
+          {canCreateReports && (
+            <div className="col-auto">
+              <Button
+                className="btn btn-primary float-right"
+                color="outline-info"
+                onClick={async () => {
+                  const res = await apiCall<{ report: ReportInterface }>(
+                    `/experiments/report/${snapshot.id}`,
+                    {
+                      method: "POST",
+                    }
+                  );
+
+                  if (!res.report) {
+                    throw new Error("Failed to create report");
+                  }
+                  trackReport(
+                    "create",
+                    "NewCustomReportButton",
+                    getDatasourceById(res.report.args.datasource)?.type || null,
+                    res.report
+                  );
+
+                  await router.push(`/report/${res.report.id}`);
+                }}
+              >
+                <span className="h4 pr-2 m-0 d-inline-block align-top">
+                  <GBAddCircle />
+                </span>
+                New Custom Report
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
       <table className="table appbox gbtable table-hover mb-0">
         <thead>
           <tr>
@@ -113,11 +119,22 @@ export default function ExperimentReportsList({
                     router.push(`/report/${report.id}`);
                   }}
                 >
-                  <Link href={`/report/${report.id}`}>
-                    <a className={`text-dark font-weight-bold`}>
-                      {report.title}
-                    </a>
-                  </Link>
+                  <div className="d-flex align-items-center">
+                    {report.error ? (
+                      <Tooltip
+                        body={report.error}
+                        className="d-flex align-items-center"
+                      >
+                        <FaExclamationTriangle color="red" className="mr-2" />
+                      </Tooltip>
+                    ) : null}
+
+                    <Link href={`/report/${report.id}`}>
+                      <a className={`text-dark font-weight-bold`}>
+                        {report.title}
+                      </a>
+                    </Link>
+                  </div>
                 </td>
                 <td
                   className="cursor-pointer"

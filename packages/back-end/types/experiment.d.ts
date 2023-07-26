@@ -99,6 +99,9 @@ export interface ExperimentInterface {
   owner: string;
   datasource: string;
   exposureQueryId: string;
+  /**
+   * @deprecated Always set to 'code'
+   */
   implementation: ImplementationType;
   /**
    * @deprecated
@@ -130,6 +133,7 @@ export interface ExperimentInterface {
   winner?: number;
   analysis?: string;
   releasedVariationId: string;
+  excludeFromPayload?: boolean;
   lastSnapshotAttempt?: Date;
   nextSnapshotAttempt?: Date;
   autoSnapshots: boolean;

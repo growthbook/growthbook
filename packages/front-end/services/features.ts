@@ -19,13 +19,15 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureUsageRecords } from "back-end/types/realtime";
 import dJSON from "dirty-json";
 import cloneDeep from "lodash/cloneDeep";
-import uniqid from "uniqid";
 import Ajv from "ajv";
+import { generateVariationId } from "shared/util";
 import { getUpcomingScheduleRule } from "@/services/scheduleRules";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useOrgSettings from "../hooks/useOrgSettings";
 import useApi from "../hooks/useApi";
 import { useDefinitions } from "./DefinitionsContext";
+
+export { generateVariationId } from "shared/util";
 
 export interface Condition {
   field: string;
@@ -289,10 +291,6 @@ export function getVariationColor(i: number) {
     "#6cc160",
   ];
   return colors[i % colors.length];
-}
-
-export function generateVariationId() {
-  return uniqid("var_");
 }
 
 export function useAttributeSchema(showArchived = false) {

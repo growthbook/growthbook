@@ -4,6 +4,7 @@ import uniqid from "uniqid";
 import fetch from "node-fetch";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
+import { orgHasPremiumFeature } from "enterprise";
 import { FeatureDefinition, FeatureDefinitionRule } from "../../types/api";
 import {
   FeatureDraftChanges,
@@ -33,7 +34,6 @@ import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { orgHasPremiumFeature } from "../util/organization.util";
 import { FASTLY_API_TOKEN, FASTLY_SERVICE_ID } from "../util/secrets";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
@@ -81,6 +81,8 @@ function generateVisualExperimentsPayload({
     !!e;
   const sdkExperiments: Array<SDKExperiment | null> = visualExperiments.map(
     ({ experiment: e, visualChangeset: v }) => {
+      if (e.status === "stopped" && e.excludeFromPayload) return null;
+
       const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
       const forcedVariation =
         e.status === "stopped" && e.releasedVariationId
@@ -379,6 +381,13 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   hashSecureAttributes?: boolean;
 };
+export type FeatureDefinitionSDKPayload = {
+  features: Record<string, FeatureDefinition>;
+  experiments?: SDKExperiment[];
+  dateUpdated: Date | null;
+  encryptedFeatures?: string;
+  encryptedExperiments?: string;
+};
 
 export async function getFeatureDefinitions({
   organization,
@@ -389,13 +398,7 @@ export async function getFeatureDefinitions({
   includeDraftExperiments,
   includeExperimentNames,
   hashSecureAttributes,
-}: FeatureDefinitionArgs): Promise<{
-  features: Record<string, FeatureDefinition>;
-  experiments?: SDKExperiment[];
-  dateUpdated: Date | null;
-  encryptedFeatures?: string;
-  encryptedExperiments?: string;
-}> {
+}: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
   // Return cached payload from Mongo if exists
   try {
     const cached = await getSDKPayload({
@@ -832,7 +835,7 @@ any {
   }
 }
 
-function sha256(str: string, salt: string): string {
+export function sha256(str: string, salt: string): string {
   return createHash("sha256")
     .update(salt + str)
     .digest("hex");

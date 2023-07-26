@@ -293,13 +293,10 @@ export default function ReportPage() {
                     <RunQueriesButton
                       icon="refresh"
                       cta="Refresh Data"
-                      initialStatus={status}
-                      statusEndpoint={`/report/${report.id}/status`}
+                      mutate={mutate}
+                      model={report}
                       cancelEndpoint={`/report/${report.id}/cancel`}
                       color="outline-primary"
-                      onReady={() => {
-                        mutate();
-                      }}
                     />
                   </form>
                 )}
@@ -353,6 +350,11 @@ export default function ReportPage() {
                 />
               </div>
             </div>
+            {report.error ? (
+              <div className="alert alert-danger">
+                <strong>Error generating the report: </strong> {report.error}
+              </div>
+            ) : null}
             {refreshError && (
               <div className="alert alert-danger">
                 <strong>Error refreshing data: </strong> {refreshError}

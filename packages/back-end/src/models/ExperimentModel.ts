@@ -93,8 +93,10 @@ const experimentSchema = new mongoose.Schema({
   analysis: String,
   winner: Number,
   releasedVariationId: String,
+  excludeFromPayload: Boolean,
   currentPhase: Number,
   autoAssign: Boolean,
+  // Legacy field, no longer used when creating experiments
   implementation: String,
   previewURL: String,
   targetURLRegex: String,
@@ -712,6 +714,33 @@ export async function deleteExperimentByIdForOrganization(
 }
 
 /**
+ * Delete experiments belonging to a project
+ * @param projectId
+ * @param organization
+ * @param user
+ */
+export async function deleteAllExperimentsForAProject({
+  projectId,
+  organization,
+  user,
+}: {
+  projectId: string;
+  organization: OrganizationInterface;
+  user: EventAuditUser;
+}) {
+  const experimentsToDelete = await ExperimentModel.find({
+    organization: organization.id,
+    project: projectId,
+  });
+
+  for (const experiment of experimentsToDelete) {
+    await experiment.delete();
+    VisualChangesetModel.deleteMany({ experiment: experiment.id });
+    await onExperimentDelete(organization, user, experiment);
+  }
+}
+
+/**
  * Removes the tag from any experiments that have it
  * and logs the experiment.updated event
  * @param organization
@@ -926,6 +955,7 @@ export const getAllVisualExperiments = async (
     .filter((e) => {
       if (e.status !== "stopped") return true;
       if (!e.releasedVariationId) return false;
+      if (e.excludeFromPayload) return false;
       return visualChangesByExperimentId[e.id].some(
         (vc) =>
           vc.variation === e.releasedVariationId &&
@@ -969,6 +999,7 @@ const getExperimentChanges = (
     "archived",
     "status",
     "releasedVariationId",
+    "excludeFromPayload",
     "autoAssign",
     "variations",
     "phases",

@@ -564,10 +564,186 @@ paths:
                         items:
                           $ref: '#/components/schemas/Experiment'
                   - $ref: '#/components/schemas/PaginationFields'
+    post:
+      parameters: []
+      tags:
+        - experiments
+      summary: Create a single experiment
+      operationId: postExperiment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/experiments \
+              -d '{ name: "test_experiment", "owner": "weijie.ou@example.com" ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - variations
+                - owner
+                - datasourceId
+                - trackingKey
+                - assignmentQueryId
+              properties:
+                datasourceId:
+                  type: string
+                  description: 'ID for the [DataSource](#tag/DataSource_model)'
+                assignmentQueryId:
+                  type: string
+                  description: The ID property of one of the assignment query objects associated with the datasource
+                trackingKey:
+                  type: string
+                name:
+                  type: string
+                  description: Name of the experiment
+                project:
+                  type: string
+                  description: Project ID which the experiment belongs to
+                hypothesis:
+                  type: string
+                  description: Hypothesis of the experiment
+                description:
+                  type: string
+                  description: Description of the experiment
+                tags:
+                  type: array
+                  items:
+                    type: string
+                metrics:
+                  type: array
+                  items:
+                    type: string
+                owner:
+                  type: string
+                  description: Email of the person who owns this experiment
+                archived:
+                  type: boolean
+                status:
+                  type: string
+                  enum:
+                    - draft
+                    - running
+                    - stopped
+                autoRefresh:
+                  type: boolean
+                hashAttribute:
+                  type: string
+                releasedVariationId:
+                  type: string
+                excludeFromPayload:
+                  type: boolean
+                variations:
+                  type: array
+                  minItems: 2
+                  items:
+                    type: object
+                    required:
+                      - key
+                      - name
+                    properties:
+                      id:
+                        type: string
+                      key:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      screenshots:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - path
+                          properties:
+                            path:
+                              type: string
+                            width:
+                              type: number
+                            height:
+                              type: number
+                            description:
+                              type: string
+                phases:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - dateStarted
+                    properties:
+                      name:
+                        type: string
+                      dateStarted:
+                        type: string
+                        format: date
+                      dateEnded:
+                        type: string
+                        format: date
+                      reasonForStopping:
+                        type: string
+                      seed:
+                        type: string
+                      coverage:
+                        type: number
+                      trafficSplit:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - variationId
+                            - weight
+                          properties:
+                            variationId:
+                              type: string
+                            weight:
+                              type: number
+                      namespace:
+                        type: object
+                        required:
+                          - namespaceId
+                          - range
+                        properties:
+                          namespaceId:
+                            type: string
+                          range:
+                            type: array
+                            items:
+                              type: number
+                            minItems: 2
+                            maxItems: 2
+                          enabled:
+                            type: boolean
+                      targetingCondition:
+                        type: string
+                      reason:
+                        type: string
+                      condition:
+                        type: string
+                      variationWeights:
+                        type: array
+                        items:
+                          type: number
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experiment
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/Experiment'
   '/experiments/{id}':
-    parameters:
-      - $ref: '#/components/parameters/id'
     get:
+      parameters:
+        - $ref: '#/components/parameters/id'
       summary: Get a single experiment
       tags:
         - experiments
@@ -577,6 +753,172 @@ paths:
           source: |
             curl https://api.growthbook.io/api/v1/experiments/exp_123abc \
               -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - experiment
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/Experiment'
+    post:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - experiments
+      summary: Update a single experiment
+      operationId: updateExperiment
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X POST https://api.growthbook.io/api/v1/experiments/exp_1234 \
+              -d '{ name: "test_experiment", "owner": "weijie.ou@example.com" ... }'
+              -u secret_abc123DEF456:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                assignmentQueryId:
+                  type: string
+                trackingKey:
+                  type: string
+                name:
+                  type: string
+                  description: Name of the experiment
+                project:
+                  type: string
+                  description: Project ID which the experiment belongs to
+                hypothesis:
+                  type: string
+                  description: Hypothesis of the experiment
+                description:
+                  type: string
+                  description: Description of the experiment
+                tags:
+                  type: array
+                  items:
+                    type: string
+                metrics:
+                  type: array
+                  items:
+                    type: string
+                owner:
+                  type: string
+                  description: Email of the person who owns this experiment
+                archived:
+                  type: boolean
+                status:
+                  type: string
+                  enum:
+                    - draft
+                    - running
+                    - stopped
+                autoRefresh:
+                  type: boolean
+                hashAttribute:
+                  type: string
+                releasedVariationId:
+                  type: string
+                excludeFromPayload:
+                  type: boolean
+                variations:
+                  type: array
+                  minItems: 2
+                  items:
+                    type: object
+                    required:
+                      - key
+                      - name
+                    properties:
+                      id:
+                        type: string
+                      key:
+                        type: string
+                      name:
+                        type: string
+                      description:
+                        type: string
+                      screenshots:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - path
+                          properties:
+                            path:
+                              type: string
+                            width:
+                              type: number
+                            height:
+                              type: number
+                            description:
+                              type: string
+                phases:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - name
+                      - dateStarted
+                    properties:
+                      name:
+                        type: string
+                      dateStarted:
+                        type: string
+                        format: date
+                      dateEnded:
+                        type: string
+                        format: date
+                      reasonForStopping:
+                        type: string
+                      seed:
+                        type: string
+                      coverage:
+                        type: number
+                      trafficSplit:
+                        type: array
+                        items:
+                          type: object
+                          required:
+                            - variationId
+                            - weight
+                          properties:
+                            variationId:
+                              type: string
+                            weight:
+                              type: number
+                      namespace:
+                        type: object
+                        required:
+                          - namespaceId
+                          - range
+                        properties:
+                          namespaceId:
+                            type: string
+                          range:
+                            type: array
+                            items:
+                              type: number
+                            minItems: 2
+                            maxItems: 2
+                          enabled:
+                            type: boolean
+                      targetingCondition:
+                        type: string
+                      reason:
+                        type: string
+                      condition:
+                        type: string
+                      variationWeights:
+                        type: array
+                        items:
+                          type: number
       responses:
         '200':
           content:
@@ -718,7 +1060,19 @@ paths:
                         - decrease
                     cap:
                       type: number
-                      description: This should be non-negative
+                      deprecated: true
+                      description: '(deprecated, use capping and capValue fields instead) This should be non-negative'
+                      minimum: 0
+                    capping:
+                      type: string
+                      nullable: true
+                      description: 'Used in conjunction with `capValue` to set the capping (winsorization). Do not specify or set to null for no capping. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/>  If `behavior.capping` is non-null, you must specify `behavior.capValue`.'
+                      enum:
+                        - absolute
+                        - percentile
+                    capValue:
+                      type: number
+                      description: This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
                       minimum: 0
                     conversionWindowStart:
                       type: number
@@ -868,6 +1222,213 @@ paths:
                 properties:
                   metric:
                     $ref: '#/components/schemas/Metric'
+    put:
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - metrics
+      summary: Update a metric
+      operationId: putMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -XPUT https://api.growthbook.io/api/v1/metrics/met_123abc \
+              -u secret_abc123DEF456 \
+              -H "Content-Type: application/json" \
+              -d '{"name": "net revenue", "description":"revenue minus lacroix spend"}'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                owner:
+                  type: string
+                  description: Name of the person who owns this metric
+                name:
+                  type: string
+                  description: Name of the metric
+                description:
+                  type: string
+                  description: Description of the metric
+                type:
+                  type: string
+                  description: 'Type of metric. See [Metrics documentation](/app/metrics)'
+                  enum:
+                    - binomial
+                    - count
+                    - duration
+                    - revenue
+                tags:
+                  type: array
+                  description: List of tags
+                  items:
+                    type: string
+                projects:
+                  type: array
+                  description: List of project IDs for projects that can access this metric
+                  items:
+                    type: string
+                archived:
+                  type: boolean
+                behavior:
+                  type: object
+                  required: []
+                  properties:
+                    goal:
+                      type: string
+                      enum:
+                        - increase
+                        - decrease
+                    capping:
+                      type: string
+                      nullable: true
+                      description: 'Used in conjunction with `capValue` to set the capping (winsorization). Set to null to turn capping off. "absolute" will cap user values at the `capValue` if it is greater than 0. "percentile" will cap user values at the percentile of user values in an experiment using the `capValue` for the percentile, if greater than 0. <br/> If `behavior.capping` is non-null, you must specify `behavior.capValue`.'
+                      enum:
+                        - absolute
+                        - percentile
+                    capValue:
+                      type: number
+                      description: This should be non-negative. <br/> Must specify `behavior.capping` when setting `behavior.capValue`.
+                      minimum: 0
+                    conversionWindowStart:
+                      type: number
+                      description: 'The start of a Conversion Window relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                    conversionWindowEnd:
+                      type: number
+                      description: 'The end of a [Conversion Window](/app/metrics#conversion-window) relative to the exposure date, in hours. This is equivalent to the [Conversion Delay](/app/metrics#conversion-delay) + Conversion Window Hours settings in the UI. In other words, if you want a 48 hour window starting after 24 hours, you would set conversionWindowStart to 24 and conversionWindowEnd to 72 (24+48). <br/> Must specify both `behavior.conversionWindowStart` and `behavior.conversionWindowEnd` or neither.'
+                    riskThresholdSuccess:
+                      type: number
+                      description: 'Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.'
+                      minimum: 0
+                    riskThresholdDanger:
+                      type: number
+                      description: 'Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.'
+                      minimum: 0
+                    minPercentChange:
+                      type: number
+                      description: 'Minimum percent change to consider uplift significant, as a proportion (e.g. put 0.005 for 0.5%)'
+                      minimum: 0
+                    maxPercentChange:
+                      type: number
+                      description: 'Maximum percent change to consider uplift significant, as a proportion (e.g. put 0.5 for 50%)'
+                      minimum: 0
+                    minSampleSize:
+                      type: number
+                      minimum: 0
+                sql:
+                  type: object
+                  description: 'Preferred way to define SQL. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed.'
+                  properties:
+                    identifierTypes:
+                      type: array
+                      items:
+                        type: string
+                    conversionSQL:
+                      type: string
+                    userAggregationSQL:
+                      type: string
+                      description: 'Custom user level aggregation for your metric (default: `SUM(value)`)'
+                    denominatorMetricId:
+                      type: string
+                      description: 'The metric ID for a [denominator metric for funnel and ratio metrics](/app/metrics#denominator-ratio--funnel-metrics)'
+                sqlBuilder:
+                  type: object
+                  description: 'An alternative way to specify a SQL metric, rather than a full query. Using `sql` is preferred to `sqlBuilder`. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed'
+                  properties:
+                    identifierTypeColumns:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - identifierType
+                          - columnName
+                        properties:
+                          identifierType:
+                            type: string
+                          columnName:
+                            type: string
+                    tableName:
+                      type: string
+                    valueColumnName:
+                      type: string
+                    timestampColumnName:
+                      type: string
+                    conditions:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - column
+                          - operator
+                          - value
+                        properties:
+                          column:
+                            type: string
+                          operator:
+                            type: string
+                          value:
+                            type: string
+                mixpanel:
+                  type: object
+                  description: 'Only use for MixPanel (non-SQL) Data Sources. Only one of `sql`, `sqlBuilder` or `mixpanel` allowed.'
+                  properties:
+                    eventName:
+                      type: string
+                    eventValue:
+                      type: string
+                    userAggregation:
+                      type: string
+                    conditions:
+                      type: array
+                      items:
+                        type: object
+                        required:
+                          - property
+                          - operator
+                          - value
+                        properties:
+                          property:
+                            type: string
+                          operator:
+                            type: string
+                          value:
+                            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - updatedId
+                properties:
+                  updatedId:
+                    type: string
+    delete:
+      summary: Deletes a metric
+      parameters:
+        - $ref: '#/components/parameters/id'
+      tags:
+        - metrics
+      operationId: deleteMetric
+      x-codeSamples:
+        - lang: cURL
+          source: |
+            curl -X DELETE https://api.growthbook.io/api/v1/metrics/met_123abc \
+              -u secret_abc123DEF456:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - deletedId
+                properties:
+                  deletedId:
+                    type: string
   '/experiments/{id}/visual-changesets':
     get:
       summary: Get all visual changesets
@@ -995,7 +1556,7 @@ paths:
       x-codeSamples:
         - lang: cURL
           source: |
-            curl -XPOST https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change/vch_abc123 \
+            curl -XPUT https://api.growthbook.io/api/v1/visual-changesets/vc_123abc/visual-change/vch_abc123 \
               -u secret_abc123DEF456 \
               -H "Content-Type: application/json" \
               -d '{"variation": "v_123abc", "domMutations":"[]"}'
@@ -1327,7 +1888,6 @@ components:
           type: object
           required:
             - goal
-            - cap
             - conversionWindowStart
             - conversionWindowEnd
             - riskThresholdSuccess
@@ -1342,6 +1902,14 @@ components:
                 - increase
                 - decrease
             cap:
+              type: number
+            capping:
+              type: string
+              nullable: true
+              enum:
+                - absolute
+                - percentile
+            capValue:
               type: number
             conversionWindowStart:
               type: number
@@ -1955,6 +2523,7 @@ components:
             - status
             - winner
             - releasedVariationId
+            - excludeFromPayload
             - conclusions
           properties:
             status:
@@ -1965,6 +2534,8 @@ components:
               type: string
             releasedVariationId:
               type: string
+            excludeFromPayload:
+              type: boolean
     ExperimentMetric:
       type: object
       required:

@@ -10,12 +10,27 @@ import {
   updateProject,
   updateProjectSettings,
 } from "../../models/ProjectModel";
-import { removeProjectFromDatasources } from "../../models/DataSourceModel";
-import { removeProjectFromMetrics } from "../../models/MetricModel";
-import { removeProjectFromFeatures } from "../../models/FeatureModel";
+import {
+  deleteAllDataSourcesForAProject,
+  removeProjectFromDatasources,
+} from "../../models/DataSourceModel";
+import {
+  deleteAllMetricsForAProject,
+  removeProjectFromMetrics,
+} from "../../models/MetricModel";
+import {
+  deleteAllFeaturesForAProject,
+  removeProjectFromFeatures,
+} from "../../models/FeatureModel";
 import { removeProjectFromProjectRoles } from "../../models/OrganizationModel";
-import { removeProjectFromExperiments } from "../../models/ExperimentModel";
-import { removeProjectFromSlackIntegration } from "../../models/SlackIntegrationModel";
+import {
+  deleteAllExperimentsForAProject,
+  removeProjectFromExperiments,
+} from "../../models/ExperimentModel";
+import {
+  deleteAllSlackIntegrationsForAProject,
+  removeProjectFromSlackIntegration,
+} from "../../models/SlackIntegrationModel";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 
 // region POST /projects
@@ -114,10 +129,20 @@ export const putProject = async (
 
 // region DELETE /projects/:id
 
-type DeleteProjectRequest = AuthRequest<null, { id: string }>;
+type DeleteProjectRequest = AuthRequest<
+  null,
+  { id: string },
+  {
+    deleteFeatures?: boolean;
+    deleteExperiments?: boolean;
+    deleteMetrics?: boolean;
+    deleteSlackIntegrations?: boolean;
+    deleteDataSources?: boolean;
+  }
+>;
 
 type DeleteProjectResponse = {
-  status: 200;
+  status: number;
 };
 
 /**
@@ -134,6 +159,14 @@ export const deleteProject = async (
   >
 ) => {
   const { id } = req.params;
+  const {
+    deleteExperiments = false,
+    deleteFeatures = false,
+    deleteMetrics = false,
+    deleteSlackIntegrations = false,
+    deleteDataSources = false,
+  } = req.query;
+
   req.checkPermissions("manageProjects", id);
 
   const { org } = getOrgFromReq(req);
@@ -141,15 +174,109 @@ export const deleteProject = async (
   await deleteProjectById(id, org.id);
 
   // Cleanup functions from other models
-  await removeProjectFromDatasources(id, org.id);
-  await removeProjectFromMetrics(id, org.id);
-  await removeProjectFromFeatures(id, org, res.locals.eventAudit);
-  await removeProjectFromExperiments(id, org, res.locals.eventAudit);
+  // Clean up data sources
+  if (deleteDataSources) {
+    try {
+      req.checkPermissions("createDatasources", id);
+
+      await deleteAllDataSourcesForAProject({
+        projectId: id,
+        organizationId: org.id,
+      });
+    } catch (e) {
+      return res.json({
+        status: 403,
+        message: "Failed to delete data sources",
+      });
+    }
+  } else {
+    await removeProjectFromDatasources(id, org.id);
+  }
+
+  // Clean up metrics
+  if (deleteMetrics) {
+    try {
+      req.checkPermissions("createAnalyses", id);
+
+      await deleteAllMetricsForAProject({
+        projectId: id,
+        organization: org,
+        user: res.locals.eventAudit,
+      });
+    } catch (e) {
+      return res.json({
+        status: 403,
+        message: "Failed to delete metrics",
+      });
+    }
+  } else {
+    await removeProjectFromMetrics(id, org.id);
+  }
+
+  // Clean up features
+  if (deleteFeatures) {
+    try {
+      req.checkPermissions("manageFeatures", id);
+
+      await deleteAllFeaturesForAProject({
+        projectId: id,
+        organization: org,
+        user: res.locals.eventAudit,
+      });
+    } catch (e) {
+      return res.json({
+        status: 403,
+        message: "Failed to delete features",
+      });
+    }
+  } else {
+    await removeProjectFromFeatures(id, org, res.locals.eventAudit);
+  }
+
+  // Clean up experiments
+  if (deleteExperiments) {
+    try {
+      req.checkPermissions("createAnalyses", id);
+
+      await deleteAllExperimentsForAProject({
+        projectId: id,
+        organization: org,
+        user: res.locals.eventAudit,
+      });
+    } catch (e) {
+      return res.json({
+        status: 403,
+        message: "Failed to delete experiments",
+      });
+    }
+  } else {
+    await removeProjectFromExperiments(id, org, res.locals.eventAudit);
+  }
+
+  // Clean up Slack integrations
+  if (deleteSlackIntegrations) {
+    try {
+      req.checkPermissions("manageIntegrations");
+
+      await deleteAllSlackIntegrationsForAProject({
+        projectId: id,
+        organization: org,
+      });
+    } catch (e) {
+      return res.json({
+        status: 403,
+        message: "Failed to delete Slack integrations",
+      });
+    }
+  } else {
+    await removeProjectFromSlackIntegration({
+      organizationId: org.id,
+      projectId: id,
+    });
+  }
+
   await removeProjectFromProjectRoles(id, org);
-  await removeProjectFromSlackIntegration({
-    organizationId: org.id,
-    projectId: id,
-  });
+
   // ideas?
   // report?
   // api endpoints & webhooks?
