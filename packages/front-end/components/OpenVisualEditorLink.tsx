@@ -103,6 +103,8 @@ const OpenVisualEditorLink: FC<{
       });
 
       window.location.href = url;
+
+      return;
     }
 
     setIsNavigating(true);
