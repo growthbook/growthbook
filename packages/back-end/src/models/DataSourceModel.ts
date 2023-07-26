@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
-import { isEqual } from "lodash";
+import { cloneDeep, isEqual } from "lodash";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -211,19 +211,15 @@ export async function createDataSource(
   return toInterface(model);
 }
 
-export async function updateDataSource(
+// Add any missing exposure query ids and validate any new, changed, or previously errored queries
+export async function validateExposureQueriesAndAddMissingIds(
   datasource: DataSourceInterface,
-  organization: string,
   updates: Partial<DataSourceInterface>
-) {
-  if (usingFileConfig()) {
-    throw new Error("Cannot update. Data sources managed by config.yml");
-  }
-
-  // Add any missing exposure query ids and validate any new, changed, or previously errored queries
-  if (updates.settings?.queries?.exposure) {
+): Promise<Partial<DataSourceInterface>> {
+  const updatesCopy = cloneDeep(updates);
+  if (updatesCopy.settings?.queries?.exposure) {
     await Promise.all(
-      updates.settings.queries.exposure.map(async (exposure) => {
+      updatesCopy.settings.queries.exposure.map(async (exposure) => {
         let checkValidity = false;
         if (!exposure.id) {
           exposure.id = uniqid("exq_");
@@ -246,13 +242,33 @@ export async function updateDataSource(
       })
     );
   }
+  return updatesCopy;
+}
 
+// Returns true if there are any actual changes, besides dateUpdated, from the actual datasource
+export function hasActualChanges(
+  datasource: DataSourceInterface,
+  updates: Partial<DataSourceInterface>
+) {
   const updateKeys = Object.keys(updates).filter(
     (key) => key !== "dateUpdated"
   ) as Array<keyof DataSourceInterface>;
 
-  if (updateKeys.every((key) => isEqual(datasource[key], updates[key]))) {
-    return; // No need to update if the only change was dateUpdated and everything else is the same.
+  return updateKeys.some((key) => !isEqual(datasource[key], updates[key]));
+}
+
+export async function updateDataSource(
+  datasource: DataSourceInterface,
+  organization: string,
+  updates: Partial<DataSourceInterface>
+) {
+  if (usingFileConfig()) {
+    throw new Error("Cannot update. Data sources managed by config.yml");
+  }
+
+  updates = await validateExposureQueriesAndAddMissingIds(datasource, updates);
+  if (!hasActualChanges(datasource, updates)) {
+    return;
   }
 
   await DataSourceModel.updateOne(
