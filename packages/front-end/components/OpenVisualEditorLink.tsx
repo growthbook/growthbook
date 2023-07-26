@@ -1,4 +1,4 @@
-import { FC, MouseEvent, useCallback, useMemo, useState } from "react";
+import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { getApiHost } from "@/services/env";
 import track from "@/services/track";
@@ -34,6 +34,7 @@ const OpenVisualEditorLink: FC<{
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [isBypassing, setIsBypassing] = useState(false);
 
   const isChromeBrowser = useMemo(() => {
     const ua = navigator.userAgent;
@@ -42,7 +43,7 @@ const OpenVisualEditorLink: FC<{
 
   const { apiCall } = useAuth();
 
-  const genUrl = useCallback(async () => {
+  const url = useMemo(() => {
     let url = visualEditorUrl.trim();
 
     // Force all URLs to be absolute
@@ -69,25 +70,25 @@ const OpenVisualEditorLink: FC<{
     return res.key;
   }, [apiCall]);
 
-  const navigate = useCallback(
-    async (e: MouseEvent) => {
-      e.preventDefault();
+  const navigate = useCallback(async () => {
+    setShowExtensionDialog(false);
 
-      setShowExtensionDialog(false);
+    setIsNavigating(true);
 
-      setIsNavigating(true);
+    const key = await getVisualEditorKey();
 
-      const url = await genUrl();
-      const key = await getVisualEditorKey();
+    window.postMessage(
+      {
+        type: "GB_REQUEST_OPEN_VISUAL_EDITOR",
+        data: key,
+      },
+      window.location.origin
+    );
 
-      window.postMessage(
-        {
-          type: "GB_OPEN_VISUAL_EDITOR",
-          data: key,
-        },
-        window.location.origin
-      );
-
+    // in the case a user has clicked 'proceed anyway' when we do not detect the
+    // chrome extension installation, we ignore waiting for the responsem msg
+    // and navigate right away.
+    if (isBypassing) {
       setIsNavigating(false);
 
       track("Open visual editor", {
@@ -96,9 +97,33 @@ const OpenVisualEditorLink: FC<{
       });
 
       window.location.href = url;
-    },
-    [genUrl, getVisualEditorKey]
-  );
+    }
+  }, [url, getVisualEditorKey, isBypassing]);
+
+  // we wait until the visual editor gives us a response message to open a new
+  // window. this ensures that the api key is set upon loading it.
+  useEffect(() => {
+    if (!url) return;
+
+    const onMessage = (
+      event: MessageEvent<{ type?: "GB_RESPONSE_OPEN_VISUAL_EDITOR" }>
+    ) => {
+      if (event.data.type === "GB_RESPONSE_OPEN_VISUAL_EDITOR") {
+        track("Open visual editor", {
+          source: "visual-editor-ui",
+          status: "success",
+        });
+
+        setIsNavigating(false);
+
+        window.location.href = url;
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+
+    return () => window.removeEventListener("message", onMessage);
+  }, [url]);
 
   return (
     <>
@@ -106,10 +131,11 @@ const OpenVisualEditorLink: FC<{
         className="btn btn-sm btn-primary"
         style={{ width: "144px" }}
         onClick={async (e) => {
+          e.preventDefault();
+
           const isExtensionInstalled = await isChromeExtInstalledLocally();
 
           if (!isExtensionInstalled) {
-            e.preventDefault();
             setShowExtensionDialog(true);
             track("Open visual editor", {
               source: "visual-editor-ui",
@@ -118,7 +144,7 @@ const OpenVisualEditorLink: FC<{
             return false;
           }
 
-          navigate(e);
+          navigate();
         }}
       >
         {isNavigating ? (
@@ -165,7 +191,16 @@ const OpenVisualEditorLink: FC<{
             <>
               You&apos;ll need to install the GrowthBook DevTools Chrome
               extension to use the visual editor.{" "}
-              <a href="#" onClick={navigate} target="_blank" rel="noreferrer">
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setIsBypassing(true);
+                  navigate();
+                }}
+                target="_blank"
+                rel="noreferrer"
+              >
                 Click here to proceed anyway
               </a>
               .
