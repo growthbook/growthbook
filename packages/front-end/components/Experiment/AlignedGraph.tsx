@@ -30,6 +30,7 @@ export interface Props {
   sigBarColorPos?: string;
   sigBarColorNeg?: string;
   expectedColor?: string;
+  newUi?: boolean;
 }
 
 const AlignedGraph: FC<Props> = ({
@@ -53,7 +54,13 @@ const AlignedGraph: FC<Props> = ({
   barColor = "#aaaaaaaa",
   sigBarColorPos = "#0D8C8Ccc",
   sigBarColorNeg = "#D94032cc",
+  newUi = false,
 }) => {
+  if (newUi) {
+    sigBarColorPos = "#52be5b";
+    sigBarColorNeg = "#be9c96";
+  }
+
   if (barType == "violin" && !uplift) {
     barType = "pill";
   }

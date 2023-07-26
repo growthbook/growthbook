@@ -69,13 +69,14 @@ export default function ResultsTable({
   sequentialTestingEnabled = false,
 }: ResultsTableProps) {
 
-  const tableContainerRef = useRef<HTMLDivElement>(null);
+  const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(0);
 
   function onResize() {
-    if (!tableContainerRef.current) return;
-    const tableWidth = tableContainerRef.current.clientWidth;
+    if (!tableContainerRef?.current?.clientWidth) return;
+    const tableWidth = tableContainerRef.current.clientWidth as number;
     const firstRowCells = tableContainerRef.current?.querySelectorAll("thead tr:first-child th:not(.graphCell)");
+    const expectedArrowsTextWidth = 120; // this is the approximate width of the text "↑ XX.X%" inside <AlignedGraph>
     let totalCellWidth = 0;
     if (firstRowCells) {
       for (let i = 0; i < firstRowCells.length; i++) {
@@ -84,36 +85,15 @@ export default function ResultsTable({
       }
     }
     const graphWidth = tableWidth - totalCellWidth;
-    // const totalCellWidth = (firstRowCells || []).reduce((acc, cell) => acc + cell.clientWidth, 0);
-    console.log({ totalCellWidth, graphWidth, tableWidth })
-
-    setGraphCellWidth(graphWidth - 20);
+    setGraphCellWidth(graphWidth - expectedArrowsTextWidth);
   }
-
-  // useLayoutEffect(() => {
-  //   onResize();
-  // }, []);
 
   useEffect(() => {
     window.addEventListener("resize", onResize);
-    onResize();
   }, []);
-
-  // useEffect(() => {
-  //   const firstRowCells = tableContainerRef.current?.querySelectorAll("thead tr:first-child th:not(.graphCell)");
-  //   let totalCellWidth = 0;
-  //   if (firstRowCells) {
-  //     for (let i = 0; i < firstRowCells.length; i++) {
-  //       const cell = firstRowCells[i];
-  //       console.log("cell", i, cell.clientWidth)
-  //       totalCellWidth += cell.clientWidth;
-  //     }
-  //   }
-  //   // const totalCellWidth = (firstRowCells || []).reduce((acc, cell) => acc + cell.clientWidth, 0);
-  //   console.log({ totalCellWidth, tableWidth })
-  //
-  //   setGraphCellWidth(tableWidth - totalCellWidth);
-  // }, [tableWidth]);
+  useLayoutEffect(() => {
+    onResize();
+  }, [tableContainerRef.current]);
 
   const orgSettings = useOrgSettings();
 
@@ -125,8 +105,8 @@ export default function ResultsTable({
       <thead>
         <tr className="results-top-row">
           <th style={{ width: 180 }}></th>
-          <th style={{ width: 180 }}></th>
-          <th style={{  }} className="graphCell">
+          <th>Users</th>
+          <th className="graphCell">
             <AlignedGraph
               id={`${id}_axis`}
               domain={domain}
@@ -135,6 +115,7 @@ export default function ResultsTable({
               axisOnly={true}
               graphWidth={graphCellWidth}
               height={45}
+              newUi={true}
             />
           </th>
         </tr>
@@ -148,10 +129,13 @@ export default function ResultsTable({
         };
 
         return (
-          <tbody className="results-group-row" key={i}>
+          <tbody
+            className="results-group-row" key={i}
+            style={{ backgroundColor: i%2 === 1 ? "rgb(127 127 127 / 8%)" : "transparent" }}
+          >
             <tr className="results-label-row">
               <th colSpan={2}>
-                <h3 className="mt-2 mb-1">{row.label}</h3>
+                <h3 className="mb-2">{row.label}</h3>
               </th>
               <th>
                 <AlignedGraph
@@ -202,7 +186,7 @@ export default function ResultsTable({
                   <td>
                     {users ? (
                       <div className="results-user-value">
-                        users: {numberFormatter.format(users[j] || 0)}
+                        {numberFormatter.format(users[j] || 0)}
                       </div>
                     ) : null}
                   </td>
@@ -219,6 +203,7 @@ export default function ResultsTable({
                         id={`${id}_violin_row${i}_var${j}`}
                         graphWidth={graphCellWidth}
                         height={25}
+                        newUi={true}
                       />
                     ) : (
                       <AlignedGraph
@@ -229,12 +214,30 @@ export default function ResultsTable({
                         axisOnly={true}
                         graphWidth={graphCellWidth}
                         height={25}
+                        newUi={true}
                       />
                     )}
                   </td>
                 </tr>
               );
             })}
+
+            {/*spacer row*/}
+            <tr className="results-label-row" style={{lineHeight: "1px"}}>
+              <td></td>
+              <td></td>
+              <td>
+                <AlignedGraph
+                  id={`${id}_axis`}
+                  domain={domain}
+                  significant={true}
+                  showAxis={false}
+                  axisOnly={true}
+                  graphWidth={graphCellWidth}
+                  height={10}
+                />
+              </td>
+            </tr>
           </tbody>
         );
       })}
@@ -449,6 +452,7 @@ export default function ResultsTable({
                           showAxis={true}
                           axisOnly={true}
                           height={45}
+                          newUi={true}
                         />
                       )}
                     </div>

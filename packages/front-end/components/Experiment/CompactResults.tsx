@@ -120,7 +120,7 @@ const CompactResults: FC<{
             multipleExposures={multipleExposures}
           />
         )}
-        <h3 className="mb-3">
+        <h3 className="mb-0">
           Metrics
           {editMetrics && (
             <a
