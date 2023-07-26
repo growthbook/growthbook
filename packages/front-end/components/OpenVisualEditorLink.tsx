@@ -24,6 +24,23 @@ const isChromeExtInstalledLocally = async () => {
   }
 };
 
+const ExtensionDialog: FC<{
+  close: () => void;
+  submit?: () => void;
+  children: React.ReactNode;
+}> = ({ close, submit, children }) => (
+  <Modal
+    open
+    header="GrowthBook DevTools Extension"
+    close={close}
+    closeCta="Close"
+    cta="View extension"
+    submit={submit}
+  >
+    {children}
+  </Modal>
+);
+
 const OpenVisualEditorLink: FC<{
   visualEditorUrl: string;
   id: string;
@@ -32,6 +49,7 @@ const OpenVisualEditorLink: FC<{
 }> = ({ id, visualEditorUrl, openSettings, changeIndex }) => {
   const apiHost = getApiHost();
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
+  const [extensionDialogText, setExtensionDialogText] = useState("");
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
   const [isNavigating, setIsNavigating] = useState(false);
   const [isBypassing, setIsBypassing] = useState(false);
@@ -73,18 +91,6 @@ const OpenVisualEditorLink: FC<{
   const navigate = useCallback(async () => {
     setShowExtensionDialog(false);
 
-    setIsNavigating(true);
-
-    const key = await getVisualEditorKey();
-
-    window.postMessage(
-      {
-        type: "GB_REQUEST_OPEN_VISUAL_EDITOR",
-        data: key,
-      },
-      window.location.origin
-    );
-
     // in the case a user has clicked 'proceed anyway' when we do not detect the
     // chrome extension installation, we ignore waiting for the responsem msg
     // and navigate right away.
@@ -97,17 +103,39 @@ const OpenVisualEditorLink: FC<{
       });
 
       window.location.href = url;
-    } else {
-      // for backwards-compatibility - if the chrome extension is out-of-date
-      // and does not yet support the postMessage auth token flow, we route to
-      // the page automatically after a certain timeout.
-      // TODO this can be deleted after 0.3.1 of chrome ext is released to
-      // all users
-      setTimeout(() => {
-        setIsNavigating(false);
-        window.location.href = url;
-      }, 1500);
     }
+
+    setIsNavigating(true);
+
+    let key: string;
+    try {
+      key = await getVisualEditorKey();
+    } catch (e) {
+      setIsNavigating(false);
+      setExtensionDialogText(
+        "We were unable to fetch an API key to initialize the Visual Editor. Please try again or contact support."
+      );
+      setShowExtensionDialog(true);
+      return;
+    }
+
+    window.postMessage(
+      {
+        type: "GB_REQUEST_OPEN_VISUAL_EDITOR",
+        data: key,
+      },
+      window.location.origin
+    );
+
+    // for backwards-compatibility - if the chrome extension is out-of-date
+    // and does not yet support the postMessage auth token flow, we route to
+    // the page automatically after a certain timeout.
+    // TODO this can be deleted after 0.3.1 of chrome ext is released to
+    // all users
+    setTimeout(() => {
+      setIsNavigating(false);
+      window.location.href = url;
+    }, 1500);
   }, [url, getVisualEditorKey, isBypassing]);
 
   // we wait until the visual editor gives us a response message to open a new
@@ -135,6 +163,11 @@ const OpenVisualEditorLink: FC<{
     return () => window.removeEventListener("message", onMessage);
   }, [url]);
 
+  useEffect(() => {
+    if (!isBypassing) return;
+    navigate();
+  }, [navigate, isBypassing]);
+
   return (
     <>
       <span
@@ -146,6 +179,11 @@ const OpenVisualEditorLink: FC<{
           const isExtensionInstalled = await isChromeExtInstalledLocally();
 
           if (!isExtensionInstalled) {
+            setExtensionDialogText(
+              isChromeBrowser
+                ? "You'll need to install the GrowthBook DevTools Chrome extension to use the visual editor."
+                : "The Visual Editor is currently only supported in Chrome. We are working on bringing the Visual Editor to other browsers."
+            );
             setShowExtensionDialog(true);
             track("Open visual editor", {
               source: "visual-editor-ui",
@@ -183,12 +221,8 @@ const OpenVisualEditorLink: FC<{
       )}
 
       {showExtensionDialog && (
-        <Modal
-          open
-          header="GrowthBook DevTools Extension"
+        <ExtensionDialog
           close={() => setShowExtensionDialog(false)}
-          closeCta="Close"
-          cta="View extension"
           submit={
             isChromeBrowser
               ? () => {
@@ -197,35 +231,23 @@ const OpenVisualEditorLink: FC<{
               : undefined
           }
         >
-          {isChromeBrowser ? (
-            <>
-              You&apos;ll need to install the GrowthBook DevTools Chrome
-              extension to use the visual editor.{" "}
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  setIsBypassing(true);
-                  navigate();
-                }}
-                target="_blank"
-                rel="noreferrer"
-              >
-                Click here to proceed anyway
-              </a>
-              .
-            </>
-          ) : (
-            <>
-              The Visual Editor is currently only supported in Chrome. We are
-              working on bringing the Visual Editor to other browsers.{" "}
-              <a href={CHROME_EXTENSION_LINK} target="_blank" rel="noreferrer">
-                Click here to proceed anyway
-              </a>
-              .
-            </>
-          )}
-        </Modal>
+          <>
+            {extensionDialogText ??
+              `There was an error. Please try again or contact support.`}{" "}
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setIsBypassing(true);
+              }}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Click here to proceed anyway
+            </a>
+            .
+          </>
+        </ExtensionDialog>
       )}
     </>
   );
