@@ -55,7 +55,9 @@ end
 btn_color = gb.feature_value(:signup_btn_color, 'pink')
 ```
 
-## Track experiment impressions
+## Tracking
+
+### Track experiment impressions
 
 When a feature's value is determined by an experiment (A/B test), you typically want to track that assignment event for later analysis.
 
@@ -79,15 +81,100 @@ end
 gb.listener = MyImpressionListener.new
 ```
 
+### Track feature usage
+
+GrowthBook can fire a callback whenever a feature is evaluated for a user. This can be useful to update 3rd party tools like NewRelic or DataDog.
+
+Provide a receiver that can receive `def on_feature_usage: (String _feature_key, FeatureResult _result) -> void`. There's a convenience class `FeatureUsageCallback` with a method you can override but you can provide your own.
+
+```rb
+class MyFeatureUsageCallback < FeatureUsageCallback
+  def on_feature_usage(feature_key, feature_result)
+    puts "on_feature_usage_called with key: #{feature_key} and result #{feature_result}"
+  end
+end
+
+on_feature_usage = MyFeatureUsageCallback.new
+
+# you can pass it into the context
+gb = Growthbook::Context.new({
+  attributes: {
+    id: 'user-abc123'
+  },
+  features: feature_repository.fetch || {},
+  on_feature_usage: on_feature_usage,
+})
+
+# or assign it afterwards
+gb.on_feature_usage = on_feature_usage
+```
+
 ## Using with Rails
 
-The recommended way to use GrowthBook with a Rails app is as follows:
+You can use the provided `Growthbook::FeatureRepository` class along with the Rails cache to fetch features periodically within your usage limits. Here is a controller concern you can use:
 
-1. Fetch the features from the GrowthBook API (or a cache) once at server startup
-2. At the start of each request, create a new Context object
-3. Use the Context object to evaluate features and run experiments during the request
-4. At the end of a request, track experiment impressions (if any) and destroy the Context instance
-5. (optional) Periodically refresh the list of features from the GrowthBook API in the background
+```rb
+require 'growthbook'
+
+module GrowthbookSdk
+  def growthbook
+    @growthbook ||= Growthbook::Context.new(
+      features: growthbook_features_json,
+      attributes: {},
+    )
+  end
+
+  # use this as a before_action on your controller
+  def init_feature_flags
+    return if current_user.nil?
+
+    # TODO: Change this to get your user attributes as a hash in a way that works for your app
+    growthbook.attributes = current_user.as_json
+  end
+
+  private
+
+  def growthbook_features_json
+    Rails.cache.fetch("growthbook_features", expires_in: 1.hour) do
+      puts "🌎 Fetching GrowthBook features from the network"
+
+      repo = Growthbook::FeatureRepository.new(
+        endpoint: 'https://cdn.growthbook.io/api/features/java_NsrWldWd5bxQJZftGsWKl7R2yD2LtAK8C8EUYh9L8',
+        decryption_key: nil,
+      )
+
+      repo.fetch || {}
+    end
+  end
+end
+```
+
+And in your `ApplicationController`:
+
+```rb
+class ApplicationController < ActionController::API
+  include Authentication # your own auth strategy
+  include GrowthbookSdk # the controller concern code above
+
+  before_action :authenticate!
+  before_action :init_feature_flags # call this once you have a user from which to get attributes
+end
+```
+
+The above code exposes the following methods on your application controller:
+
+- `growthbook`: an instance of the GrowthBook SDK for the request
+- `init_feature_flags`: a method intended to be used as a `before_action` hook, e.g. `before_action :init_feature_flags`
+
+It assumes you have a method `current_user` that returns the currently-authenticated user, and that it responds to `as_json` to return a hash of the targeting attributes.
+
+How this works:
+
+1. With each request, the `init_feature_flags` method is called. This creates a new instance of `Growthbook::Context`
+2. When creating the context for the first time, features are fetched and cached in the Rails cache. Subsequent calls use the cached version until the cache expires.
+3. Developers can call methods on `growthbook` in their controllers to use the GrowthBook SDK, e.g. `growthbook.on?(:dark_mode)`.
+
+You can see the Rails example linked in the [Code examples below](#code-examples).
 
 ## Dev and QA helpers
 

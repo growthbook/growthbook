@@ -50,6 +50,10 @@ properties:
     type: boolean
   hashAttribute:
     type: string
+  releasedVariationId:
+    type: string
+  excludeFromPayload:
+    type: boolean
   variations:
     type: array
     minItems: 2

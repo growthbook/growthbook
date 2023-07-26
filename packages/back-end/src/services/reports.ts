@@ -7,32 +7,19 @@ import {
   ExperimentReportArgs,
   ExperimentReportVariation,
   MetricRegressionAdjustmentStatus,
-  ReportInterface,
 } from "../../types/report";
-import { getMetricMap } from "../models/MetricModel";
-import { QueryDocument } from "../models/QueryModel";
-import { findSegmentById } from "../models/SegmentModel";
-import { SegmentInterface } from "../../types/segment";
-import { getDataSourceById } from "../models/DataSourceModel";
 import {
   ExperimentInterface,
   ExperimentPhase,
   MetricOverride,
 } from "../../types/experiment";
-import { updateReport } from "../models/ReportModel";
 import {
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
   MetricForSnapshot,
 } from "../../types/experiment-snapshot";
-import { expandDenominatorMetrics } from "../util/sql";
-import { OrganizationInterface } from "../../types/organization";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
-import { analyzeExperimentResults } from "./stats";
-import { parseDimensionId } from "./experiments";
-import { getExperimentMetric, getExperimentResults, startRun } from "./queries";
-import { getSourceIntegrationObject } from "./datasource";
 
 export function getReportVariations(
   experiment: ExperimentInterface,
@@ -156,123 +143,6 @@ export function getSnapshotSettingsFromReportArgs(
   return { snapshotSettings, analysisSettings };
 }
 
-export async function startExperimentAnalysis({
-  organization,
-  snapshotSettings,
-  analysisSettings,
-  variationNames,
-  useCache,
-  metricMap,
-}: {
-  organization: OrganizationInterface;
-  snapshotSettings: ExperimentSnapshotSettings;
-  analysisSettings: ExperimentSnapshotAnalysisSettings;
-  variationNames: string[];
-  metricMap: Map<string, MetricInterface>;
-  useCache: boolean;
-}) {
-  const datasourceObj = await getDataSourceById(
-    snapshotSettings.datasourceId,
-    organization.id
-  );
-  if (!datasourceObj) {
-    throw new Error("Missing datasource for report");
-  }
-
-  const activationMetrics: MetricInterface[] = [];
-  if (snapshotSettings.activationMetric) {
-    activationMetrics.push(
-      ...expandDenominatorMetrics(snapshotSettings.activationMetric, metricMap)
-        .map((m) => metricMap.get(m) as MetricInterface)
-        .filter(Boolean)
-    );
-  }
-
-  // Only include metrics tied to this experiment (both goal and guardrail metrics)
-  const selectedMetrics = Array.from(
-    new Set(
-      snapshotSettings.goalMetrics.concat(snapshotSettings.guardrailMetrics)
-    )
-  )
-    .map((m) => metricMap.get(m))
-    .filter((m) => m) as MetricInterface[];
-  if (!selectedMetrics.length) {
-    throw new Error("Experiment must have at least 1 metric selected.");
-  }
-
-  let segmentObj: SegmentInterface | null = null;
-  if (snapshotSettings.segment) {
-    segmentObj = await findSegmentById(
-      snapshotSettings.segment,
-      organization.id
-    );
-  }
-
-  const integration = getSourceIntegrationObject(datasourceObj);
-  if (integration.decryptionError) {
-    throw new Error(
-      "Could not decrypt data source credentials. View the data source settings for more info."
-    );
-  }
-
-  const queryDocs: { [key: string]: Promise<QueryDocument> } = {};
-  const dimensionObj = await parseDimensionId(
-    snapshotSettings.dimensions[0]?.id,
-    organization.id
-  );
-
-  // Run it as a single synchronous task (non-sql datasources and legacy code)
-  if (!integration.getSourceProperties().separateExperimentResultQueries) {
-    queryDocs["results"] = getExperimentResults({
-      integration,
-      snapshotSettings,
-      metrics: selectedMetrics,
-      activationMetric: activationMetrics[0],
-      dimension: dimensionObj?.type === "user" ? dimensionObj.dimension : null,
-    });
-  }
-  // Run as multiple async queries (new way for sql datasources)
-  else {
-    selectedMetrics.forEach((m) => {
-      const denominatorMetrics: MetricInterface[] = [];
-      if (m.denominator) {
-        denominatorMetrics.push(
-          ...expandDenominatorMetrics(m.denominator, metricMap)
-            .map((m) => metricMap.get(m) as MetricInterface)
-            .filter(Boolean)
-        );
-      }
-      queryDocs[m.id] = getExperimentMetric(
-        integration,
-        {
-          metric: m,
-          dimension: dimensionObj,
-          activationMetrics,
-          denominatorMetrics,
-          segment: segmentObj,
-          settings: snapshotSettings,
-        },
-        useCache
-      );
-    });
-  }
-
-  const { queries, result: results } = await startRun(
-    queryDocs,
-    async (queryData) => {
-      return analyzeExperimentResults({
-        analysisSettings,
-        snapshotSettings,
-        variationNames,
-        metricMap,
-        queryData,
-      });
-    }
-  );
-
-  return { queries, results };
-}
-
 export function getMetricForSnapshot(
   id: string | null | undefined,
   metricMap: Map<string, MetricInterface>,
@@ -313,39 +183,4 @@ export function getMetricForSnapshot(
       regressionAdjustmentReason: regressionAdjustmentStatus?.reason ?? "",
     },
   };
-}
-
-export async function runReport(
-  organization: OrganizationInterface,
-  report: ReportInterface,
-  useCache: boolean = true
-) {
-  const updates: Partial<ReportInterface> = {};
-
-  if (report.type === "experiment") {
-    const metricMap = await getMetricMap(organization.id);
-
-    const {
-      snapshotSettings,
-      analysisSettings,
-    } = getSnapshotSettingsFromReportArgs(report.args, metricMap);
-
-    const { queries, results } = await startExperimentAnalysis({
-      organization,
-      snapshotSettings,
-      analysisSettings,
-      variationNames: report.args.variations.map((v) => v.name),
-      metricMap,
-      useCache,
-    });
-
-    updates.queries = queries;
-    updates.results = results || report.results;
-    updates.runStarted = new Date();
-    updates.error = "";
-  } else {
-    throw new Error("Unsupported report type");
-  }
-
-  await updateReport(organization.id, report.id, updates);
 }
