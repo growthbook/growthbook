@@ -10,6 +10,7 @@ export default function NotEnoughData({
   minSampleSize,
   variationValue,
   baselineValue,
+  newUi = false,
 }: {
   snapshotCreated: Date;
   phaseStart: string;
@@ -18,6 +19,7 @@ export default function NotEnoughData({
   minSampleSize: number;
   variationValue: number;
   baselineValue: number;
+  newUi?: boolean;
 }) {
   const percentComplete = Math.min(
     Math.max(variationValue, baselineValue) / minSampleSize
@@ -38,8 +40,15 @@ export default function NotEnoughData({
 
   return (
     <div>
-      <div className="mb-1">
-        <div className="badge badge-pill badge-secondary">not enough data</div>
+      <div className={newUi ? "" : "mb-1"}>
+        <div
+          className={newUi
+            ? "text-blue font-weight-normal"
+            : "badge badge-pill badge-secondary"}
+          style={newUi
+            ? {fontSize: "11px", lineHeight: "14px"}
+            : {}}
+        >not enough data</div>
       </div>
       {showTimeRemaining && (
         <small className="text-muted">

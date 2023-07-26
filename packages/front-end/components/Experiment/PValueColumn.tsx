@@ -27,6 +27,8 @@ const PValueColumn: FC<{
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   pValueCorrection?: PValueCorrection;
+  className?: string;
+  newUi?: boolean;
 }> = ({
   metric,
   status,
@@ -36,6 +38,8 @@ const PValueColumn: FC<{
   baseline,
   stats,
   pValueCorrection,
+  className,
+  newUi = false,
 }) => {
   const {
     getMinSampleSizeForMetric,
@@ -72,11 +76,11 @@ const PValueColumn: FC<{
   const expectedDirection = isExpectedDirection(stats, metric);
 
   let sigText: string | JSX.Element = "";
-  let className = "";
+  let statusClassName = "";
 
   if (shouldHighlight && statSig && expectedDirection) {
     sigText = `Significant win as the p-value is below ${pValueThreshold} and the change is in the desired direction.`;
-    className = "won";
+    statusClassName = "won";
   } else if (shouldHighlight && statSig && !expectedDirection) {
     sigText = (
       <>
@@ -84,11 +88,11 @@ const PValueColumn: FC<{
         change is <em>not</em> in the desired direction.
       </>
     );
-    className = "lost";
+    statusClassName = "lost";
   } else if (enoughData && belowMinChange && statSig) {
     sigText =
       "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
-    className += " draw";
+    statusClassName += " draw";
   }
 
   let pValText = (
@@ -111,7 +115,8 @@ const PValueColumn: FC<{
     <td
       className={clsx(
         "variation chance result-number align-middle d-table-cell",
-        className
+        className,
+        statusClassName
       )}
     >
       {enoughData && suspiciousChange && (
@@ -138,7 +143,7 @@ const PValueColumn: FC<{
         shouldDisplay={sigText !== ""}
       >
         {!baseline?.value || !stats?.value ? (
-          <em>no data</em>
+          <em className={newUi ? "text-blue font-weight-normal" : ""}>no data</em>
         ) : !enoughData ? (
           <NotEnoughData
             experimentStatus={status}
@@ -148,6 +153,7 @@ const PValueColumn: FC<{
             minSampleSize={minSampleSize}
             snapshotCreated={snapshotDate}
             phaseStart={startDate}
+            newUi={newUi}
           />
         ) : (
           <>{pValText || "P-value missing"}</>

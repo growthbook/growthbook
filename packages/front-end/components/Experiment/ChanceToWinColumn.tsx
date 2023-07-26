@@ -26,6 +26,8 @@ export default function ChanceToWinColumn({
   snapshotDate,
   baseline,
   stats,
+  className,
+  newUi = false,
 }: {
   metric: MetricInterface;
   status: ExperimentStatus;
@@ -34,6 +36,8 @@ export default function ChanceToWinColumn({
   snapshotDate: Date;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
+  className?: string;
+  newUi?: boolean;
 }) {
   const {
     getMinSampleSizeForMetric,
@@ -68,17 +72,17 @@ export default function ChanceToWinColumn({
   const chanceToWin = stats?.chanceToWin ?? 0;
 
   let sigText = "";
-  let className = "";
+  let statusClassName = "";
   if (shouldHighlight && chanceToWin > ciUpper) {
     sigText = `Significant win as the chance to win is above the ${percentFormatter.format(
       ciUpper
     )} threshold`;
-    className = "won";
+    statusClassName = "won";
   } else if (shouldHighlight && chanceToWin < ciLower) {
     sigText = `Significant loss as the chance to win is below the ${percentFormatter.format(
       ciLower
     )} threshold`;
-    className = "lost";
+    statusClassName = "lost";
   }
   if (
     enoughData &&
@@ -87,14 +91,15 @@ export default function ChanceToWinColumn({
   ) {
     sigText =
       "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
-    className += " draw";
+    statusClassName += " draw";
   }
 
   return (
     <td
       className={clsx(
         "variation chance result-number align-middle d-table-cell",
-        className
+        className,
+        statusClassName
       )}
     >
       {enoughData && suspiciousChange && (
@@ -119,7 +124,7 @@ export default function ChanceToWinColumn({
         shouldDisplay={sigText !== ""}
       >
         {!baseline?.value || !stats?.value ? (
-          <em>no data</em>
+          <em className={newUi ? "text-blue font-weight-normal" : ""}>no data</em>
         ) : !enoughData ? (
           <NotEnoughData
             experimentStatus={status}
@@ -129,6 +134,7 @@ export default function ChanceToWinColumn({
             minSampleSize={minSampleSize}
             snapshotCreated={snapshotDate}
             phaseStart={startDate}
+            newUi={newUi}
           />
         ) : (
           <>{percentFormatter.format(chanceToWin)}</>

@@ -92,7 +92,6 @@ export default function ResultsTable({
       }
     }
     const graphWidth = tableWidth - totalCellWidth;
-    console.log({totalCellWidth, graphWidth, tableWidth,  cells: firstRowCells.length})
     setGraphCellWidth(graphWidth - expectedArrowsTextWidth);
   }
 
@@ -149,6 +148,9 @@ export default function ResultsTable({
             />
           </th>
           <th style={{ width: 120 }} className="axis-col label text-right">% Change</th>
+          <th style={{ width: 120 }} className="axis-col label text-right">{
+            statsEngine === "bayesian" ? "Chance to Win" : "P-value"
+          }</th>
         </tr>
       </thead>
 
@@ -166,7 +168,7 @@ export default function ResultsTable({
           >
             <tr className="results-label-row">
               <th colSpan={3} className="metric-label pb-2">
-                {row.label}
+                {renderLabelColumn(row.label, row.metric, row)}
               </th>
               <th>
                 <AlignedGraph
@@ -180,6 +182,7 @@ export default function ResultsTable({
                   newUi={true}
                 />
               </th>
+              <th></th>
               <th></th>
             </tr>
 
@@ -294,21 +297,53 @@ export default function ResultsTable({
                     )}
                   </td>
                   {j > 0 ? (
-                  <td className={clsx(
-                    "results-change text-right",
-                    {
-                      "significant": significant,
-                      "non-significant": !significant,
-                    }
-                  )}>
-                    <span className="expectedArrows">
-                      {(stats.expected ?? 0) > 0 ? <FaArrowUp /> : <FaArrowDown />}
-                    </span>{" "}
-                    <span className="expected bold">
-                      {parseFloat(((stats.expected ?? 0) * 100).toFixed(1)) + "%"}{" "}
-                    </span>
-                  </td>
-                    ): (<td></td>)}
+                    <td className={clsx(
+                      "results-change text-right",
+                      {
+                        "significant": significant,
+                        "non-significant": !significant,
+                      }
+                    )}>
+                      <span className="expectedArrows">
+                        {(stats.expected ?? 0) > 0 ? <FaArrowUp /> : <FaArrowDown />}
+                      </span>{" "}
+                      <span className="expected bold">
+                        {parseFloat(((stats.expected ?? 0) * 100).toFixed(1)) + "%"}{" "}
+                      </span>
+                    </td>
+                  ): (
+                    <td></td>
+                  )}
+                  {j > 0 ? (
+                    statsEngine === "bayesian" ? (
+                      <ChanceToWinColumn
+                        baseline={baseline}
+                        stats={stats}
+                        status={status}
+                        isLatestPhase={isLatestPhase}
+                        startDate={startDate}
+                        metric={row.metric}
+                        snapshotDate={dateCreated}
+                        className="text-right"
+                        newUi={true}
+                      />
+                    ) : (
+                      <PValueColumn
+                        baseline={baseline}
+                        stats={stats}
+                        status={status}
+                        isLatestPhase={isLatestPhase}
+                        startDate={startDate}
+                        metric={row.metric}
+                        snapshotDate={dateCreated}
+                        pValueCorrection={pValueCorrection}
+                        className="text-right"
+                        newUi={true}
+                      />
+                    )
+                  ): (
+                    <td></td>
+                  )}
                 </tr>
               );
             })}
@@ -330,6 +365,7 @@ export default function ResultsTable({
                   newUi={true}
                 />
               </td>
+              <td></td>
               <td></td>
             </tr>
           </tbody>
