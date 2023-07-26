@@ -41,6 +41,7 @@ const docSections = {
   temporaryRollout: "/app/visual#stopping-an-experiment",
   encryptedSDKEndpoints: "/lib/js#loading-features",
   hashSecureAttributes: "/lib/js#secure-attributes",
+  autoMetrics: "/app/metrics/#auto-generate-metrics",
 };
 
 export type DocSection = keyof typeof docSections;

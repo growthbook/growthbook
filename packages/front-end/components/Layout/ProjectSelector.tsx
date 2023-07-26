@@ -1,9 +1,45 @@
 import clsx from "clsx";
 import { FaCaretDown } from "react-icons/fa";
+import { FC } from "react";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useAuth } from "@/services/auth";
 import Dropdown from "../Dropdown/Dropdown";
 import DropdownLink from "../Dropdown/DropdownLink";
 import LetterAvatar from "./LetterAvatar";
+
+const demoBadge = {
+  badgeText: "Demo",
+  badgeColor: "#EB8045",
+  badgeTitle: "This is a demo project with sample data",
+};
+
+type ProjectDropdownBadgeProps = {
+  badgeText: string;
+  badgeColor: string;
+  badgeTitle: string;
+};
+
+const ProjectDropdownBadge: FC<ProjectDropdownBadgeProps> = ({
+  badgeText,
+  badgeColor,
+  badgeTitle,
+}) => {
+  return (
+    <div
+      className="badge badge-pill position-absolute text-white"
+      title={badgeTitle}
+      style={{
+        backgroundColor: badgeColor,
+        bottom: -6,
+        left: -6,
+        fontSize: "0.7em",
+      }}
+    >
+      {badgeText}
+    </div>
+  );
+};
 
 function ProjectName({
   display,
@@ -11,19 +47,24 @@ function ProjectName({
   className,
   bold = false,
   caret = false,
+  badge,
 }: {
   display: string;
   avatarName: string;
   className?: string;
   bold?: boolean;
   caret?: boolean;
+  badge: ProjectDropdownBadgeProps | null;
 }) {
   return (
     <div
       className={clsx(className, "d-flex align-items-center")}
       style={{ padding: "10px" }}
     >
-      <LetterAvatar name={avatarName} defaultInitials="ALL" />
+      <div className="position-relative">
+        <LetterAvatar name={avatarName} defaultInitials="ALL" />
+        {badge ? <ProjectDropdownBadge {...badge} /> : null}
+      </div>
       <div
         style={{
           flex: 1,
@@ -41,10 +82,15 @@ function ProjectName({
 
 export default function ProjectSelector() {
   const { projects, project, getProjectById, setProject } = useDefinitions();
+  const { orgId } = useAuth();
+  const current = getProjectById(project);
+
+  const currentProjectIsDemoProject = isDemoDatasourceProject({
+    projectId: current?.id || "",
+    organizationId: orgId || "",
+  });
 
   if (!projects.length) return null;
-
-  const current = getProjectById(project);
 
   return (
     <li
@@ -66,6 +112,7 @@ export default function ProjectSelector() {
             caret
             avatarName={current?.name || ""}
             display={current?.name || "All Projects"}
+            badge={currentProjectIsDemoProject ? demoBadge : null}
           />
         }
       >
@@ -76,6 +123,7 @@ export default function ProjectSelector() {
           className="p-0"
         >
           <ProjectName
+            badge={null}
             className="text-dark"
             avatarName={""}
             display={"All Projects"}
@@ -99,6 +147,14 @@ export default function ProjectSelector() {
                   avatarName={p.name}
                   display={p.name}
                   bold={p.id === project}
+                  badge={
+                    isDemoDatasourceProject({
+                      projectId: p.id,
+                      organizationId: orgId || "",
+                    })
+                      ? demoBadge
+                      : null
+                  }
                 />
               </DropdownLink>
             );
