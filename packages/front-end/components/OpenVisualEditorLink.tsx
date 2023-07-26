@@ -99,7 +99,7 @@ const OpenVisualEditorLink: FC<{
 
       track("Open visual editor", {
         source: "visual-editor-ui",
-        status: "success",
+        status: "bypass",
       });
 
       window.location.href = url;
