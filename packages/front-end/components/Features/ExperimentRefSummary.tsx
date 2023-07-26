@@ -14,6 +14,35 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
+function ExperimentSkipped({
+  color = "secondary",
+  experimentId,
+  message,
+  cta = "View results",
+}: {
+  color?: string;
+  experimentId?: string;
+  message: string;
+  cta?: string;
+}) {
+  return (
+    <div className="mb-2">
+      <div className={`alert alert-${color}`}>
+        <div className="d-flex">
+          <div className="flex">{message}</div>
+          {experimentId && (
+            <div>
+              <Link href={`/experiment/${experimentId}`}>
+                <a className="btn btn-outline-primary">{cta}</a>
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ExperimentRefSummary({
   rule,
   experiment,
@@ -28,74 +57,66 @@ export default function ExperimentRefSummary({
 
   if (!experiment) {
     return (
-      <div className="alert alert-danger">
-        The experiment could not be found
-      </div>
+      <ExperimentSkipped
+        message="The experiment could not be found"
+        color="danger"
+      />
     );
   }
 
   if (experiment.archived) {
     return (
-      <div>
-        <div className="alert alert-warning mb-2">
-          This experiment is archived. This rule will be skipped.
-        </div>
-        <Link href={`/experiment/${experiment.id}`}>
-          <a className="btn btn-outline-primary">View experiment</a>
-        </Link>
-      </div>
+      <ExperimentSkipped
+        message="This experiment is archived. This rule will be skipped."
+        experimentId={experiment.id}
+        cta="View experiment"
+      />
     );
   }
 
   const phase = experiment.phases[experiment.phases.length - 1];
   if (!phase) {
     return (
-      <div>
-        <div className="alert alert-warning mb-2">
-          The experiment is not running. This rule will be skipped.
-        </div>
-        <Link href={`/experiment/${experiment.id}`}>
-          <a className="btn btn-outline-primary">View details</a>
-        </Link>
-      </div>
+      <ExperimentSkipped
+        message="This experiment is not running. This rule will be skipped."
+        experimentId={experiment.id}
+        cta="View experiment"
+      />
     );
   }
 
   if (experiment.status === "stopped") {
+    if (experiment.excludeFromPayload) {
+      return (
+        <ExperimentSkipped
+          message="This experiment is stopped and disabled. This rule will be skipped."
+          experimentId={experiment.id}
+        />
+      );
+    }
+
     const releasedValue = rule.variations.find(
       (v) => v.variationId === experiment.releasedVariationId
     );
-
     if (releasedValue) {
       return (
         <div>
-          <div className="alert alert-info mb-2">
-            <div className="d-flex">
-              <div className="flex">
-                This experiment was stopped and the winning variation is now
-                being served to 100% of users.
-              </div>
-              <div>
-                <Link href={`/experiment/${experiment.id}`}>
-                  <a className="btn btn-outline-primary">View experiment</a>
-                </Link>
-              </div>
-            </div>
+          <div className="mb-2">
+            <ExperimentSkipped
+              message="This experiment is stopped and a Temporary Rollout is enabled. The winning variation is being served to 100% of users."
+              color="info"
+              experimentId={experiment.id}
+            />
           </div>
           <ForceSummary feature={feature} value={releasedValue.value} />;
         </div>
       );
     } else {
       return (
-        <div>
-          <div className="alert alert-warning mb-2">
-            The experiment was stopped, but a winner was not selected. This rule
-            will be skipped.
-          </div>
-          <Link href={`/experiment/${experiment.id}`}>
-            <a className="btn btn-outline-primary">View details and results</a>
-          </Link>
-        </div>
+        <ExperimentSkipped
+          message="This experiment is stopped, but a winner was not selected. This rule will be skipped"
+          experimentId={experiment.id}
+        />
       );
     }
   }

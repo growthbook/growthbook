@@ -229,23 +229,6 @@ export function getFeatureDefinition({
             const exp = experimentMap.get(r.experimentId);
             if (!exp) return null;
 
-            if (exp.status === "stopped") {
-              // If a variation has been rolled out to 100%
-              if (exp.releasedVariationId) {
-                const variation = r.variations.find(
-                  (v) => v.variationId === exp.releasedVariationId
-                );
-                rule.force = variation
-                  ? getJSONValue(feature.valueType, variation.value)
-                  : null;
-                return rule;
-              }
-              // Otherwise, the experiment is stopped, skip this rule
-              else {
-                return null;
-              }
-            }
-
             // Get current experiment phase and use it to set rule properties
             const phase = exp.phases[exp.phases.length - 1];
             if (!phase) return null;
@@ -256,20 +239,8 @@ export function getFeatureDefinition({
               );
             }
 
-            rule.variations = exp.variations.map((v) => {
-              const variation = r.variations.find(
-                (ruleVariation) => v.id === ruleVariation.variationId
-              );
-              return variation
-                ? getJSONValue(feature.valueType, variation.value)
-                : null;
-            });
-
             rule.coverage = phase.coverage;
 
-            rule.weights = phase.variationWeights;
-
-            rule.key = exp.trackingKey;
             if (exp.hashAttribute) {
               rule.hashAttribute = exp.hashAttribute;
             }
@@ -288,12 +259,39 @@ export function getFeatureDefinition({
               rule.seed = phase.seed;
             }
             rule.hashVersion = exp.hashVersion;
-            rule.meta = exp.variations.map((v) => ({
-              key: v.key,
-              name: v.name,
-            }));
-            rule.phase = exp.phases.length - 1 + "";
-            rule.name = exp.name;
+
+            // Stopped experiment
+            if (exp.status === "stopped") {
+              if (exp.excludeFromPayload) return null;
+              if (!exp.releasedVariationId) return null;
+
+              const variation = r.variations.find(
+                (v) => v.variationId === exp.releasedVariationId
+              );
+              if (!variation) return null;
+
+              // If a variation has been rolled out to 100%
+              rule.force = getJSONValue(feature.valueType, variation.value);
+            }
+            // Running or draft experiment
+            else {
+              rule.variations = exp.variations.map((v) => {
+                const variation = r.variations.find(
+                  (ruleVariation) => v.id === ruleVariation.variationId
+                );
+                return variation
+                  ? getJSONValue(feature.valueType, variation.value)
+                  : null;
+              });
+              rule.weights = phase.variationWeights;
+              rule.key = exp.trackingKey;
+              rule.meta = exp.variations.map((v) => ({
+                key: v.key,
+                name: v.name,
+              }));
+              rule.phase = exp.phases.length - 1 + "";
+              rule.name = exp.name;
+            }
 
             return rule;
           }

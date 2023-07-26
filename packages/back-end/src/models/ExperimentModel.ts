@@ -1023,7 +1023,10 @@ export async function getExperimentMapForFeature(
     experiments
       // exclude experiments that are stopped and don't have a released variation
       .filter((e) => {
-        if (e.status === "stopped" && !e.releasedVariationId) return false;
+        if (e.status === "stopped") {
+          if (e.excludeFromPayload) return false;
+          if (!e.releasedVariationId) return false;
+        }
         return true;
       })
       .map((e) => [e.id, e])
@@ -1052,7 +1055,10 @@ export async function getAllPayloadExperiments(
     experiments
       // exclude experiments that are stopped and don't have a released variation
       .filter((e) => {
-        if (e.status === "stopped" && !e.releasedVariationId) return false;
+        if (e.status === "stopped") {
+          if (e.excludeFromPayload) return false;
+          if (!e.releasedVariationId) return false;
+        }
         return true;
       })
       .map((e) => [e.id, e])
@@ -1112,7 +1118,15 @@ export const getPayloadKeys = (
   experiment: ExperimentInterface,
   linkedFeatures?: FeatureInterface[]
 ): SDKPayloadKey[] => {
-  const environments =
+  // If experiment is not included in the SDK payload
+  if (
+    experiment.status === "stopped" &&
+    (!experiment.releasedVariationId || experiment.excludeFromPayload)
+  ) {
+    return [];
+  }
+
+  const environments: string[] =
     organization.settings?.environments?.map((e) => e.id) ?? [];
   const project = experiment.project ?? "";
 
@@ -1129,7 +1143,9 @@ export const getPayloadKeys = (
     return getAffectedSDKPayloadKeys(
       linkedFeatures,
       (rule) =>
-        rule.type === "experiment-ref" && rule.experimentId === experiment.id
+        rule.type === "experiment-ref" &&
+        rule.experimentId === experiment.id &&
+        rule.enabled !== false
     );
   }
 
@@ -1253,8 +1269,12 @@ const onExperimentDelete = async (
 ) => {
   await logExperimentDeleted(organization, user, experiment);
 
-  if (experiment.hasVisualChangesets) {
-    const payloadKeys = getPayloadKeys(organization, experiment);
-    refreshSDKPayloadCache(organization, payloadKeys);
+  const featureIds = [...(experiment.linkedFeatures || [])];
+  let linkedFeatures: FeatureInterface[] = [];
+  if (featureIds.length > 0) {
+    linkedFeatures = await getFeaturesByIds(organization.id, featureIds);
   }
+
+  const payloadKeys = getPayloadKeys(organization, experiment, linkedFeatures);
+  refreshSDKPayloadCache(organization, payloadKeys);
 };
