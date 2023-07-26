@@ -2,6 +2,7 @@ import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { formatConversionRate } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
+import {CSSProperties} from "react";
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -10,23 +11,27 @@ export default function MetricValueColumn({
   stats,
   users,
   className,
+  style,
   newUi = false,
+  rowSpan,
 }: {
   metric: MetricInterface;
   stats: SnapshotMetric;
   users: number;
   className?: string;
+  style?: CSSProperties;
   newUi?: boolean;
+  rowSpan?: number;
 }) {
   const displayCurrency = useCurrency();
   return (
-    <td className={className}>
+    <td className={className} style={style} rowSpan={rowSpan}>
       {metric && stats.users ? (
         <>
-          <div className="result-number" style={ newUi ? {lineHeight: "10px", fontWeight: "bold"} : {}}>
+          <div className="result-number">
             {formatConversionRate(metric?.type, stats.cr, displayCurrency)}
           </div>
-          <div style={ newUi ? {lineHeight: "12px", textAlign: "right"} : {}}>
+          <div className="result-number-sub">
             <small className="text-muted">
               <em
                 style={{

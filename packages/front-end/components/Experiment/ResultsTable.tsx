@@ -76,7 +76,7 @@ export default function ResultsTable({
   const { ciUpper, ciLower } = useConfidenceLevels();
   const pValueThreshold = usePValueThreshold();
 
-  const tableContainerRef = useRef<HTMLDivElement | null>(null);
+  const tableContainerRef = useRef<HTMLDivElement | undefined>();
   const [graphCellWidth, setGraphCellWidth] = useState(0);
 
   function onResize() {
@@ -107,8 +107,10 @@ export default function ResultsTable({
 
   const domain = useDomain(variations, rows);
 
+  const baselineRow = 0;
+
   return (
-    <div ref={tableContainerRef}>
+    <div ref={tableContainerRef} style={{ minWidth: 1000 }}>
       <table className="experiment-results table-borderless table-sm">
       <thead>
         <tr className="results-top-row">
@@ -126,6 +128,12 @@ export default function ResultsTable({
                 <GBEdit />
               </a>
             ): null}
+          </th>
+          <th style={{ width: 100 }} className="axis-col label">
+            Baseline
+            <span className={`variation variation${baselineRow} with-variation-label`}>
+              <span className="label ml-1" style={{width: 20, height: 20, marginRight: -20}}>{baselineRow}</span>
+            </span>
           </th>
           <th style={{ width: 100 }} className="axis-col label">Value</th>
           <th className="axis-col graphCell" style={{ maxWidth: graphCellWidth }}>
@@ -145,7 +153,7 @@ export default function ResultsTable({
       </thead>
 
       {rows.map((row, i) => {
-        const baseline = row.variations[0] || {
+        const baseline = row.variations[baselineRow] || {
           value: 0,
           cr: 0,
           users: 0,
@@ -157,7 +165,7 @@ export default function ResultsTable({
             style={{ backgroundColor: i%2 === 1 ? "rgb(127 127 127 / 8%)" : "transparent" }}
           >
             <tr className="results-label-row">
-              <th colSpan={2} className="metric-label pb-2">
+              <th colSpan={3} className="metric-label pb-2">
                 {row.label}
               </th>
               <th>
@@ -176,9 +184,18 @@ export default function ResultsTable({
             </tr>
 
             {variations.map((v, j) => {
-              const skipVariation = false; // todo: use filter
+              let skipVariation = false; // todo: use filter
+              if (j === 0) {
+                // baseline
+                skipVariation = true;
+              }
               if (skipVariation) {
                 return null;
+              }
+              const controlStats = row.variations[0] || {
+                value: 0,
+                cr: 0,
+                users: 0,
               }
               const stats = row.variations[j] || {
                 value: 0,
@@ -218,17 +235,35 @@ export default function ResultsTable({
                   </td>
                   {/*todo: put "users" in its own row*/}
                   {(users && j<0) ? (
-                    <td className="results-user-value">
-                      {numberFormatter.format(users[j] || 0)}
-                    </td>
+                    <>
+                      <td className="results-user-value">
+                        {numberFormatter.format(users[j] || 0)}
+                      </td>
+                      <td className="results-user-value">
+                        {/*{numberFormatter.format(users[j] || 0)}*/}
+                      </td>
+                    </>
                   ) : (
-                    <MetricValueColumn
-                      metric={row.metric}
-                      stats={stats}
-                      users={stats?.users || 0}
-                      className="value variation"
-                      newUi={true}
-                    />
+                    <>
+                      {j === 1 ? (
+                        <MetricValueColumn
+                          metric={row.metric}
+                          stats={stats}
+                          users={stats?.users || 0}
+                          className="value variation control-col"
+                          style={{ backgroundColor: "rgb(127 127 127 / 6%)" }}
+                          newUi={true}
+                          rowSpan={row.variations.length - 1}
+                        />
+                      ): null}
+                      <MetricValueColumn
+                        metric={row.metric}
+                        stats={controlStats}
+                        users={controlStats?.users || 0}
+                        className="value variation"
+                        newUi={true}
+                      />
+                    </>
                   )}
                   <td>
                     {j > 0 ? (
@@ -258,6 +293,7 @@ export default function ResultsTable({
                       />
                     )}
                   </td>
+                  {j > 0 ? (
                   <td className={clsx(
                     "results-change text-right",
                     {
@@ -272,12 +308,14 @@ export default function ResultsTable({
                       {parseFloat(((stats.expected ?? 0) * 100).toFixed(1)) + "%"}{" "}
                     </span>
                   </td>
+                    ): (<td></td>)}
                 </tr>
               );
             })}
 
             {/*spacer row*/}
             <tr className="results-label-row" style={{lineHeight: "1px"}}>
+              <td></td>
               <td></td>
               <td></td>
               <td>

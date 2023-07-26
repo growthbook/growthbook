@@ -121,7 +121,7 @@ const CompactResults: FC<{
           />
         )}
       </div>
-      <div className="w-100">
+      <div className="w-100 overflow-auto">
         <ResultsTable
           dateCreated={reportDate}
           isLatestPhase={isLatestPhase}

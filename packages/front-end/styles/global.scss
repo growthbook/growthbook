@@ -233,6 +233,19 @@ pre {
       }
     }
   }
+  .result-number {
+    font-weight: bold;
+    line-height: 10px;
+  }
+  .result-number-sub {
+    line-height: 12px;
+    text-align: right;
+  }
+  .control-col {
+    .result-number {
+      font-weight: normal;
+    }
+  }
   .variation {
     font-size: 12px;
   }
