@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../services/auth";
@@ -20,6 +20,9 @@ const SavedGroupForm: FC<{
   const attributeSchema = useAttributeSchema();
 
   const { mutateDefinitions } = useDefinitions();
+
+  const [rawTextMode, setRawTextMode] = useState(false);
+  const [rawText, setRawText] = useState(current.values?.join(", ") || "");
 
   const form = useForm({
     defaultValues: {
@@ -76,17 +79,44 @@ const SavedGroupForm: FC<{
         }))}
         helpText={current.attributeKey && "This field can not be edited."}
       />
-      <StringArrayField
-        label="Create list of values"
-        value={form.watch("groupList")}
-        onChange={(values) => {
-          form.setValue("groupList", values);
+      {rawTextMode ? (
+        <Field
+          containerClassName="mb-0"
+          label="Create list of comma separated values"
+          required
+          textarea
+          value={rawText}
+          onChange={(e) => {
+            setRawText(e.target.value);
+            form.setValue("groupList", e.target.value.trim().split(","));
+          }}
+        />
+      ) : (
+        <StringArrayField
+          containerClassName="mb-0"
+          label="Create list of values"
+          value={form.watch("groupList")}
+          onChange={(values) => {
+            form.setValue("groupList", values);
+            setRawText(values.join(", "));
+          }}
+          placeholder="Enter some values..."
+          delimiters={["Enter", "Tab"]}
+        />
+      )}
+      <a
+        className="d-flex flex-column align-items-end"
+        href="#"
+        style={{ fontSize: "0.8em" }}
+        onClick={(e) => {
+          e.preventDefault();
+          setRawTextMode((prev) => !prev);
         }}
-        placeholder="Enter some values..."
-        delimiters={["Enter", "Tab"]}
-      />
+      >
+        Switch to {rawTextMode ? "token" : "raw text"} mode
+      </a>
       {current.id && (
-        <div className="alert alert-warning">
+        <div className="alert alert-warning mt-2">
           <b>Warning:</b> Updating this group will automatically update any
           feature that has an override rule that uses this group.
         </div>
