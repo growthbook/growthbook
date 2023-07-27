@@ -102,12 +102,14 @@ const CompactResults: FC<{
     metricRegressionAdjustmentStatuses,
     pValueCorrection,
     ready,
+    getMetricById,
+    statsEngine,
   ]);
 
   const users = useMemo(() => {
     const vars = results?.variations;
     return variations.map((v, i) => vars?.[i]?.users || 0);
-  }, [results]);
+  }, [results, variations]);
   const risk = useRiskVariation(variations.length, rows);
 
   return (

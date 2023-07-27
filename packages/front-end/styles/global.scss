@@ -249,8 +249,16 @@ pre {
   .variation {
     font-size: 12px;
   }
-  .results-change {
+  .results-change{
     font-size: 12px;
+    .change {
+      font-weight: bold;
+      line-height: 10px;
+    }
+    .ci {
+      line-height: 12px;
+      font-size: 10px;
+    }
   }
   .non-significant {
     color: var(--text-color-muted);

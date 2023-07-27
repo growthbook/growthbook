@@ -123,7 +123,7 @@ export default function ResultsTable({
 
   // todo: fullStats toggle
   // todo: hasRisk toggle. minimally supported now, but should be more thoughtful
-  // todo: some CI info in the % Change column
+  // todo: some CI info in the % Change column (togglable?)
   // todo: tooltips
   // todo: highlighting, risk (SelectField?), significance, etc
 
@@ -228,7 +228,7 @@ export default function ResultsTable({
                 newUi={true}
               />
             </th>
-            <th style={{ width: 150 }} className="axis-col label text-right">
+            <th style={{ width: 140 }} className="axis-col label text-right">
               <Tooltip
                 innerClassName={"text-left"}
                 body={getPercentChangeTooltip(
@@ -361,7 +361,6 @@ export default function ResultsTable({
                         users={baseline?.users || 0}
                         className="value variation control-col"
                         style={{ backgroundColor: "rgb(127 127 127 / 6%)" }}
-                        newUi={true}
                         rowSpan={row.variations.length - 1}
                       />
                     ) : null}
@@ -370,7 +369,6 @@ export default function ResultsTable({
                       stats={stats}
                       users={stats?.users || 0}
                       className="value variation"
-                      newUi={true}
                     />
                     <td>
                       {j > 0 ? (
@@ -401,27 +399,37 @@ export default function ResultsTable({
                       )}
                     </td>
                     {j > 0 && row.metric && enoughData ? (
-                      <td
-                        className={clsx("results-change text-right", {
-                          significant: significant,
-                          "non-significant": !significant,
-                        })}
-                      >
-                        <span className="expectedArrows">
-                          {(stats.expected ?? 0) > 0 ? (
-                            <FaArrowUp />
-                          ) : (
-                            <FaArrowDown />
-                          )}
-                        </span>{" "}
-                        <span className="expected bold">
-                          {parseFloat(
-                            ((stats.expected ?? 0) * 100).toFixed(1)
-                          ) + "%"}{" "}
-                        </span>
-                      </td>
+                      <>
+                        <td
+                          className={clsx("results-change", {
+                            significant: significant,
+                            "non-significant": !significant,
+                          })}
+                        >
+                          <div className="text-left nowrap change">
+                            <span className="expectedArrows">
+                              {(stats.expected ?? 0) > 0 ? (
+                                <FaArrowUp />
+                              ) : (
+                                <FaArrowDown />
+                              )}
+                            </span>{" "}
+                            <span className="expected bold">
+                              {parseFloat(
+                                ((stats.expected ?? 0) * 100).toFixed(1)
+                              ) + "%"}{" "}
+                            </span>
+                          </div>
+                          <div className="text-right nowrap ci">
+                            [{percentFormatter.format(stats.ci?.[0] ?? 0)},{" "}
+                            {percentFormatter.format(stats.ci?.[1] ?? 0)}]
+                          </div>
+                        </td>
+                      </>
                     ) : (
-                      <td></td>
+                      <>
+                        <td></td>
+                      </>
                     )}
                     {j > 0 ? (
                       statsEngine === "bayesian" ? (

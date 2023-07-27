@@ -12,7 +12,6 @@ export default function MetricValueColumn({
   users,
   className,
   style,
-  newUi = false,
   rowSpan,
 }: {
   metric: MetricInterface;
@@ -20,7 +19,6 @@ export default function MetricValueColumn({
   users: number;
   className?: string;
   style?: CSSProperties;
-  newUi?: boolean;
   rowSpan?: number;
 }) {
   const displayCurrency = useCurrency();
