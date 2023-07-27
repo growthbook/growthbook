@@ -114,7 +114,10 @@ const CompactResults: FC<{
     <>
       <div className="">
         <DataQualityWarning results={results} variations={variations} />
-        <MultipleExposureWarning users={users} multipleExposures={multipleExposures} />
+        <MultipleExposureWarning
+          users={users}
+          multipleExposures={multipleExposures}
+        />
       </div>
       <div className="w-100 overflow-auto">
         <ResultsTable

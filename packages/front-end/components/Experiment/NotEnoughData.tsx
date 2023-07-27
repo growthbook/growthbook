@@ -42,13 +42,15 @@ export default function NotEnoughData({
     <div>
       <div className={newUi ? "" : "mb-1"}>
         <div
-          className={newUi
-            ? "text-blue font-weight-normal"
-            : "badge badge-pill badge-secondary"}
-          style={newUi
-            ? {fontSize: "11px", lineHeight: "14px"}
-            : {}}
-        >not enough data</div>
+          className={
+            newUi
+              ? "text-blue font-weight-normal"
+              : "badge badge-pill badge-secondary"
+          }
+          style={newUi ? { fontSize: "11px", lineHeight: "14px" } : {}}
+        >
+          not enough data
+        </div>
       </div>
       {showTimeRemaining && (
         <small className="text-muted">

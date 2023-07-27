@@ -1,10 +1,10 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import {hasEnoughData, isStatSig} from "@/services/experiments";
+import { hasEnoughData, isStatSig } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import AlignedGraph from "./AlignedGraph";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
+import AlignedGraph from "./AlignedGraph";
 
 export default function PercentGraph({
   metric,
@@ -37,16 +37,13 @@ export default function PercentGraph({
   const showGraph = metric && enoughData;
   let significant = showGraph
     ? (stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower
-    : false
+    : false;
 
   if (newUi && barType === "pill") {
     // frequentist
     significant = showGraph
-    ? isStatSig(
-        stats.pValueAdjusted ?? stats.pValue ?? 1,
-        pValueThreshold
-      )
-    : false
+      ? isStatSig(stats.pValueAdjusted ?? stats.pValue ?? 1, pValueThreshold)
+      : false;
   }
 
   return (

@@ -106,11 +106,14 @@ export default function ChanceToWinColumn({
         <div>
           <div className="mb-1 d-flex flex-row">
             <Tooltip
-              body={<div className="text-left" style={{lineHeight: 1.5}}>
-                A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (
-                {(metric.maxPercentChange ?? 0) * 100}
-                %).
-              </div>}
+              body={
+                <div className="text-left" style={{ lineHeight: 1.5 }}>
+                  A suspicious result occurs when the percent change is equal to
+                  or greater than your maximum percent change (
+                  {(metric.maxPercentChange ?? 0) * 100}
+                  %).
+                </div>
+              }
             >
               <span className="badge badge-pill badge-warning">
                 Suspicious Result
@@ -120,15 +123,19 @@ export default function ChanceToWinColumn({
         </div>
       )}
       <Tooltip
-        body={<div className="text-left" style={{lineHeight: 1.5}}>
-          {sigText}
-        </div>}
+        body={
+          <div className="text-left" style={{ lineHeight: 1.5 }}>
+            {sigText}
+          </div>
+        }
         className="d-block"
         tipPosition={"top"}
         shouldDisplay={sigText !== ""}
       >
         {!baseline?.value || !stats?.value ? (
-          <em className={newUi ? "text-blue font-weight-normal" : ""}>no data</em>
+          <em className={newUi ? "text-blue font-weight-normal" : ""}>
+            no data
+          </em>
         ) : !enoughData ? (
           <NotEnoughData
             experimentStatus={status}

@@ -1,8 +1,8 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
+import { CSSProperties } from "react";
 import { formatConversionRate } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
-import {CSSProperties} from "react";
 
 const numberFormatter = new Intl.NumberFormat();
 
