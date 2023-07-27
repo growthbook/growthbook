@@ -1,67 +1,16 @@
-import { getSourceIntegrationObject } from "../../src/services/datasource";
-import { DataSourceInterface } from "../../types/datasource";
-
-jest.mock("../../src/services/datasource");
-const { testQueryValidity } = jest.requireActual(
-  "../../src/services/datasource"
-);
+import { testQueryValidity } from "../../src/services/datasource";
 
 const mockDataSourceIntegration = {
   getTestValidityQuery: jest.fn(),
   runTestQuery: jest.fn(),
 };
 
-const mockedGetSourceIntegrationObject: jest.MockedFunction<
-  typeof getSourceIntegrationObject
-> = getSourceIntegrationObject as jest.MockedFunction<
-  typeof getSourceIntegrationObject
->;
-
-const mockDataSource: DataSourceInterface = {
-  id: "123",
-  organization: "test",
-  name: "Test Data Source",
-  type: "postgres",
-  description: "desc",
-  params: "params",
-  settings: {
-    queries: {
-      exposure: [
-        {
-          id: "anonymous_id",
-          userIdType: "anonymous_id",
-          dimensions: ["device", "browser"],
-          name: "Anonymous Visitors",
-          description: "",
-          query: "SELECT anonymous_id FROM experiment_viewed",
-        },
-        {
-          id: "user_id",
-          userIdType: "user_id",
-          dimensions: ["device", "browser"],
-          name: "Logged in Users",
-          description: "",
-          query: "SELECT bad query",
-          error: "Error: bad query",
-        },
-      ],
-    },
-  },
-  dateCreated: new Date(),
-  dateUpdated: new Date(),
-};
-
 describe("testQueryValidity", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-
-    mockedGetSourceIntegrationObject.mockReturnValue(mockDataSourceIntegration);
   });
 
   it("should return undefined if integration does not support test queries", async () => {
-    // @ts-expect-error - we are testing something similar to mixpanel which doesn't have the functions
-    mockedGetSourceIntegrationObject.mockReturnValue({});
-
     const query = {
       id: "user_id",
       name: "Logged in Users",
@@ -71,7 +20,8 @@ describe("testQueryValidity", () => {
       query: "SELECT * FROM experiments",
     };
 
-    const result = await testQueryValidity(mockDataSource, query);
+    // @ts-expect-error - we are testing the case where integration does not support test queries
+    const result = await testQueryValidity({}, query);
 
     expect(result).toBeUndefined();
   });
@@ -91,7 +41,7 @@ describe("testQueryValidity", () => {
       .fn()
       .mockResolvedValue({ results: [] });
 
-    const result = await testQueryValidity(mockDataSource, query);
+    const result = await testQueryValidity(mockDataSourceIntegration, query);
 
     expect(result).toBe("No rows returned");
     expect(mockDataSourceIntegration.getTestValidityQuery).toHaveBeenCalledWith(
@@ -123,7 +73,7 @@ describe("testQueryValidity", () => {
       ],
     });
 
-    const result = await testQueryValidity(mockDataSource, query);
+    const result = await testQueryValidity(mockDataSourceIntegration, query);
 
     expect(result).toBe(
       "Missing required columns in response: user_id, country, experiment_name, variation_name"
@@ -161,7 +111,7 @@ describe("testQueryValidity", () => {
       ],
     });
 
-    const result = await testQueryValidity(mockDataSource, query);
+    const result = await testQueryValidity(mockDataSourceIntegration, query);
 
     expect(result).toBeUndefined();
     expect(mockDataSourceIntegration.getTestValidityQuery).toHaveBeenCalledWith(
@@ -187,7 +137,7 @@ describe("testQueryValidity", () => {
       .fn()
       .mockRejectedValue(new Error("Test query failed"));
 
-    const result = await testQueryValidity(mockDataSource, query);
+    const result = await testQueryValidity(mockDataSourceIntegration, query);
 
     expect(result).toBe("Test query failed");
     expect(mockDataSourceIntegration.getTestValidityQuery).toHaveBeenCalledWith(

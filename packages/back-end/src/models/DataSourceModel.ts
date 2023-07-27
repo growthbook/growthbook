@@ -41,7 +41,7 @@ const dataSourceSchema = new mongoose.Schema<DataSourceDocument>({
 dataSourceSchema.index({ id: 1, organization: 1 }, { unique: true });
 type DataSourceDocument = mongoose.Document & DataSourceInterface;
 
-export const DataSourceModel = mongoose.model<DataSourceInterface>(
+const DataSourceModel = mongoose.model<DataSourceInterface>(
   "DataSource",
   dataSourceSchema
 );
@@ -185,16 +185,11 @@ export async function createDataSource(
   await testDataSourceConnection(datasource);
 
   // Add any missing exposure query ids and check query validity
-  if (settings.queries?.exposure) {
-    await Promise.all(
-      settings.queries.exposure.map(async (exposure) => {
-        if (!exposure.id) {
-          exposure.id = uniqid("exq_");
-        }
-        exposure.error = await testQueryValidity(datasource, exposure);
-      })
-    );
-  }
+  settings = await validateExposureQueriesAndAddMissingIds(
+    datasource,
+    settings,
+    true
+  );
 
   const model = (await DataSourceModel.create(
     datasource
@@ -214,30 +209,32 @@ export async function createDataSource(
 // Add any missing exposure query ids and validate any new, changed, or previously errored queries
 export async function validateExposureQueriesAndAddMissingIds(
   datasource: DataSourceInterface,
-  updates: Partial<DataSourceInterface>
-): Promise<Partial<DataSourceInterface>> {
+  updates: Partial<DataSourceSettings>,
+  forceCheckValidity: boolean = false
+): Promise<Partial<DataSourceSettings>> {
   const updatesCopy = cloneDeep(updates);
-  if (updatesCopy.settings?.queries?.exposure) {
+  if (updatesCopy.queries?.exposure) {
     await Promise.all(
-      updatesCopy.settings.queries.exposure.map(async (exposure) => {
-        let checkValidity = false;
+      updatesCopy.queries.exposure.map(async (exposure) => {
+        let checkValidity = forceCheckValidity;
         if (!exposure.id) {
           exposure.id = uniqid("exq_");
           checkValidity = true;
-        } else {
+        } else if (!forceCheckValidity) {
           const existingQuery = datasource.settings.queries?.exposure?.find(
             (q) => q.id == exposure.id
           );
           if (
             !existingQuery ||
-            existingQuery.query != exposure.query ||
+            !isEqual(existingQuery, exposure) ||
             existingQuery.error
           ) {
             checkValidity = true;
           }
         }
         if (checkValidity) {
-          exposure.error = await testQueryValidity(datasource, exposure);
+          const integration = getSourceIntegrationObject(datasource);
+          exposure.error = await testQueryValidity(integration, exposure);
         }
       })
     );
@@ -266,7 +263,12 @@ export async function updateDataSource(
     throw new Error("Cannot update. Data sources managed by config.yml");
   }
 
-  updates = await validateExposureQueriesAndAddMissingIds(datasource, updates);
+  if (updates.settings) {
+    updates.settings = await validateExposureQueriesAndAddMissingIds(
+      datasource,
+      updates.settings
+    );
+  }
   if (!hasActualChanges(datasource, updates)) {
     return;
   }

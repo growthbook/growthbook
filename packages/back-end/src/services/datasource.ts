@@ -21,7 +21,6 @@ import {
 import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
 import { getDataSourceById } from "../models/DataSourceModel";
-import * as thisModule from "./datasource"; //needed for jest.mock
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string
@@ -167,11 +166,9 @@ export async function testQuery(
 
 // Return any errors that result when running the query otherwise return undefined
 export async function testQueryValidity(
-  datasource: DataSourceInterface,
+  integration: SourceIntegrationInterface,
   query: ExposureQuery
 ): Promise<string | undefined> {
-  const integration = thisModule.getSourceIntegrationObject(datasource);
-
   // The Mixpanel integration does not support test queries
   if (!integration.getTestValidityQuery || !integration.runTestQuery) {
     return undefined;

@@ -3,7 +3,10 @@ import {
   validateExposureQueriesAndAddMissingIds,
   hasActualChanges,
 } from "../../src/models/DataSourceModel";
-import { DataSourceInterface } from "../../types/datasource";
+import {
+  DataSourceInterface,
+  DataSourceSettings,
+} from "../../types/datasource";
 import { testQueryValidity } from "../../src/services/datasource";
 import { usingFileConfig } from "../../src/init/config";
 
@@ -82,56 +85,50 @@ describe("dataSourceModel", () => {
     it("should add missing exposure query ids and validate new queries", async () => {
       mockedTestQueryValidity.mockResolvedValue(undefined);
 
-      const updates: Partial<DataSourceInterface> = {
-        settings: {
-          queries: {
-            exposure: [
-              // @ts-expect-error - we are testing the case where id is missing
-              {
-                query: "SELECT new_id FROM experiment_viewed",
-              },
-            ],
-          },
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            // @ts-expect-error - we are testing the case where id is missing
+            {
+              query: "SELECT new_id FROM experiment_viewed",
+            },
+          ],
         },
       };
       const new_updates = await validateExposureQueriesAndAddMissingIds(
         datasource,
         updates
       );
-
+      console.log("new updates", new_updates);
       expect(mockedTestQueryValidity).toHaveBeenCalled();
       expect(new_updates).toEqual({
-        settings: {
-          queries: {
-            exposure: [
-              {
-                error: undefined,
-                id: expect.any(String),
-                query: "SELECT new_id FROM experiment_viewed",
-              },
-            ],
-          },
+        queries: {
+          exposure: [
+            {
+              error: undefined,
+              id: expect.any(String),
+              query: "SELECT new_id FROM experiment_viewed",
+            },
+          ],
         },
       });
     });
 
     it("should validate previously errored queries", async () => {
       mockedTestQueryValidity.mockResolvedValue("bad query still bad");
-      const updates: Partial<DataSourceInterface> = {
-        settings: {
-          queries: {
-            exposure: [
-              {
-                id: "user_id",
-                userIdType: "user_id",
-                dimensions: ["device", "browser"],
-                name: "Logged in Users",
-                description: "",
-                query: "SELECT bad query",
-                error: "Error: bad query",
-              },
-            ],
-          },
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "user_id",
+              userIdType: "user_id",
+              dimensions: ["device", "browser"],
+              name: "Logged in Users",
+              description: "",
+              query: "SELECT bad query",
+              error: "Error: bad query",
+            },
+          ],
         },
       };
       const new_updates = await validateExposureQueriesAndAddMissingIds(
@@ -140,28 +137,26 @@ describe("dataSourceModel", () => {
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
-      if (expected?.settings?.queries?.exposure) {
-        expected.settings.queries.exposure[0].error = "bad query still bad";
+      if (expected?.queries?.exposure) {
+        expected.queries.exposure[0].error = "bad query still bad";
       }
       expect(new_updates).toEqual(expected);
     });
 
     it("should validate changed queries", async () => {
-      mockedTestQueryValidity.mockResolvedValue(undefined);
-      const updates: Partial<DataSourceInterface> = {
-        settings: {
-          queries: {
-            exposure: [
-              {
-                id: "anonymous_id",
-                userIdType: "anonymous_id",
-                dimensions: ["device", "browser"],
-                name: "Anonymous Visitors",
-                description: "",
-                query: "SELECT changed_anonymous_id FROM experiment_viewed",
-              },
-            ],
-          },
+      mockedTestQueryValidity.mockResolvedValue("bad query");
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "anonymous_id",
+              userIdType: "anonymous_id",
+              dimensions: ["device", "browser"],
+              name: "Anonymous Visitors",
+              description: "",
+              query: "SELECT changed_anonymous_id FROM experiment_viewed",
+            },
+          ],
         },
       };
       const new_updates = await validateExposureQueriesAndAddMissingIds(
@@ -170,8 +165,122 @@ describe("dataSourceModel", () => {
       );
       expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
-      if (expected?.settings?.queries?.exposure) {
-        expected.settings.queries.exposure[0].error = undefined;
+      if (expected?.queries?.exposure) {
+        expected.queries.exposure[0].error = "bad query";
+      }
+      expect(new_updates).toEqual(updates);
+    });
+
+    it("should validate changed dimensions", async () => {
+      mockedTestQueryValidity.mockResolvedValue("bad query");
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "anonymous_id",
+              userIdType: "anonymous_id",
+              dimensions: ["device"],
+              name: "Anonymous Visitors",
+              description: "",
+              query: "SELECT anonymous_id FROM experiment_viewed",
+            },
+          ],
+        },
+      };
+      const new_updates = await validateExposureQueriesAndAddMissingIds(
+        datasource,
+        updates
+      );
+      expect(testQueryValidity).toHaveBeenCalled();
+      const expected = updates;
+      if (expected?.queries?.exposure) {
+        expected.queries.exposure[0].error = "bad query";
+      }
+      expect(new_updates).toEqual(updates);
+    });
+
+    it("should validate changed hasNameColumns", async () => {
+      mockedTestQueryValidity.mockResolvedValue("bad query");
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "anonymous_id",
+              userIdType: "anonymous_id",
+              dimensions: ["device"],
+              name: "Anonymous Visitors",
+              hasNameCol: true,
+              description: "",
+              query: "SELECT anonymous_id FROM experiment_viewed",
+            },
+          ],
+        },
+      };
+      const new_updates = await validateExposureQueriesAndAddMissingIds(
+        datasource,
+        updates
+      );
+      expect(testQueryValidity).toHaveBeenCalled();
+      const expected = updates;
+      if (expected?.queries?.exposure) {
+        expected.queries.exposure[0].error = "bad query";
+      }
+      expect(new_updates).toEqual(updates);
+    });
+
+    it("should not revalidate unchanged queries", async () => {
+      mockedTestQueryValidity.mockResolvedValue("bad query");
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "anonymous_id",
+              userIdType: "anonymous_id",
+              dimensions: ["device", "browser"],
+              name: "Anonymous Visitors",
+              description: "",
+              query: "SELECT anonymous_id FROM experiment_viewed",
+            },
+          ],
+        },
+      };
+      const new_updates = await validateExposureQueriesAndAddMissingIds(
+        datasource,
+        updates
+      );
+      expect(testQueryValidity).not.toHaveBeenCalled();
+      const expected = updates;
+      if (expected?.queries?.exposure) {
+        expected.queries.exposure[0].error = undefined;
+      }
+      expect(new_updates).toEqual(updates);
+    });
+
+    it("should not revalidate unchanged queries if forceCheckValidation is true", async () => {
+      mockedTestQueryValidity.mockResolvedValue("bad query");
+      const updates: Partial<DataSourceSettings> = {
+        queries: {
+          exposure: [
+            {
+              id: "anonymous_id",
+              userIdType: "anonymous_id",
+              dimensions: ["device", "browser"],
+              name: "Anonymous Visitors",
+              description: "",
+              query: "SELECT anonymous_id FROM experiment_viewed",
+            },
+          ],
+        },
+      };
+      const new_updates = await validateExposureQueriesAndAddMissingIds(
+        datasource,
+        updates,
+        true
+      );
+      expect(testQueryValidity).toHaveBeenCalled();
+      const expected = updates;
+      if (expected?.queries?.exposure) {
+        expected.queries.exposure[0].error = "bad query";
       }
       expect(new_updates).toEqual(updates);
     });
