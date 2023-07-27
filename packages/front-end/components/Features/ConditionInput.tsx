@@ -35,6 +35,7 @@ export default function ConditionInput(props: Props) {
   const [conds, setConds] = useState(
     () => jsonToConds(props.defaultValue, attributes) || []
   );
+  const [rawTextMode, setRawTextMode] = useState(false);
 
   const attributeSchema = useAttributeSchema();
 
@@ -343,13 +344,39 @@ export default function ConditionInput(props: Props) {
                       required
                     />
                   ) : ["$in", "$nin"].includes(operator) ? (
-                    <StringArrayField
-                      containerClassName="col-sm-12 col-md mb-2"
-                      value={value ? value.trim().split(",") : []}
-                      onChange={handleListChange}
-                      placeholder="Enter some values..."
-                      delimiters={["Enter", "Tab"]}
-                    />
+                    <div className="d-flex align-items-end flex-column col-sm-12 col-md mb-1">
+                      {rawTextMode ? (
+                        <Field
+                          textarea
+                          value={value}
+                          onChange={handleFieldChange}
+                          name="value"
+                          minRows={1}
+                          className={styles.matchingInput}
+                          helpText="separate values by comma"
+                          required
+                        />
+                      ) : (
+                        <StringArrayField
+                          containerClassName="w-100"
+                          value={value ? value.trim().split(",") : []}
+                          onChange={handleListChange}
+                          placeholder="Enter some values..."
+                          delimiters={["Enter", "Tab"]}
+                          required
+                        />
+                      )}
+                      <a
+                        href="#"
+                        style={{ fontSize: "0.5em" }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setRawTextMode((prev) => !prev);
+                        }}
+                      >
+                        Switch to {rawTextMode ? "token" : "raw text"} mode
+                      </a>
+                    </div>
                   ) : attribute.enum.length ? (
                     <SelectField
                       options={attribute.enum.map((v) => ({
