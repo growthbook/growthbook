@@ -17,24 +17,20 @@ const snapshotContext = React.createContext<{
   mutateSnapshot: () => void;
   phase: number;
   dimension: string;
-  baselineVariation: string;
   analysisSettings?: ExperimentSnapshotAnalysisSettings | undefined;
   setPhase: (phase: number) => void;
   setDimension: (dimension: string) => void;
-  setBaselineVariation: (baselineVariation: string) => void;
-  setAnalysisSettings: (analysisSettings: ExperimentSnapshotAnalysisSettings) => void;
+  setAnalysisSettings: (
+    analysisSettings: ExperimentSnapshotAnalysisSettings | null
+  ) => void;
   error?: Error;
 }>({
   phase: 0,
   dimension: "",
-  baselineVariation: "0",
   setPhase: () => {
     // do nothing
   },
   setDimension: () => {
-    // do nothing
-  },
-  setBaselineVariation: () => {
     // do nothing
   },
   setAnalysisSettings: () => {
@@ -54,7 +50,6 @@ export default function SnapshotProvider({
 }) {
   const [phase, setPhase] = useState(experiment.phases?.length - 1 || 0);
   const [dimension, setDimension] = useState("");
-  const [baselineVariation, setBaselineVariation] = useState(experiment.variations[0].name)
 
   const { data, error, mutate } = useApi<{
     snapshot: ExperimentSnapshotInterface;
@@ -64,8 +59,13 @@ export default function SnapshotProvider({
       (dimension ? "/" + dimension : "")
   );
 
-  const defaultSnapshotSettings =  data?.snapshot ? getSnapshotAnalysis(data?.snapshot)?.settings : undefined;
-  const [analysisSettings, setAnalysisSettings] = useState(defaultSnapshotSettings);
+  const defaultSnapshotSettings = data?.snapshot
+    ? getSnapshotAnalysis(data?.snapshot)?.settings
+    : null;
+  const [analysisSettings, setAnalysisSettings] = useState(
+    defaultSnapshotSettings
+  );
+
   return (
     <snapshotContext.Provider
       value={{
@@ -81,11 +81,9 @@ export default function SnapshotProvider({
         mutateSnapshot: mutate,
         phase,
         dimension,
-        baselineVariation,
         analysisSettings,
         setPhase,
         setDimension,
-        setBaselineVariation,
         setAnalysisSettings,
         error,
       }}

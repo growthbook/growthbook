@@ -4,6 +4,7 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
+import { putBaselineVariationFirst } from "shared/util";
 import { MetricInterface } from "../../types/metric";
 import { ExperimentMetricAnalysis, StatsEngine } from "../../types/stats";
 import {
@@ -23,7 +24,6 @@ import {
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
-import { putBaselineVariationFirst } from "shared/util";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -35,7 +35,7 @@ export async function analyzeExperimentMetric(
   statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
   sequentialTestingEnabled: boolean = false,
   sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  baselineVariation: string | null = null,
+  baselineVariation: string | null = null
 ): Promise<ExperimentMetricAnalysis> {
   if (!rows || !rows.length) {
     return {
@@ -44,7 +44,10 @@ export async function analyzeExperimentMetric(
       dimensions: [],
     };
   }
-  const sortedVariations = putBaselineVariationFirst(variations, baselineVariation);
+  const sortedVariations = putBaselineVariationFirst(
+    variations,
+    baselineVariation
+  );
   const variationIdMap: { [key: string]: number } = {};
   sortedVariations.map((v, i) => {
     variationIdMap[v.id] = i;
@@ -228,7 +231,7 @@ export async function analyzeExperimentResults({
           analysisSettings.statsEngine,
           analysisSettings.sequentialTesting,
           analysisSettings.sequentialTestingTuningParameter,
-          analysisSettings.baselineVariation ?? null,
+          analysisSettings.baselineVariation
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(

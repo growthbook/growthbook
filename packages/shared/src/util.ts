@@ -23,7 +23,7 @@ export function getAffectedEnvsForExperiment({
 
 export function getSnapshotAnalysis(
   snapshot: ExperimentSnapshotInterface,
-  analysisSettings?: ExperimentSnapshotAnalysisSettings
+  analysisSettings?: ExperimentSnapshotAnalysisSettings | null
 ): ExperimentSnapshotAnalysis | null {
   // TODO make it so order doesn't matter
   return (

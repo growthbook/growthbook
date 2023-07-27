@@ -1,5 +1,8 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentSnapshotAnalysisSettings, ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import {
+  ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotInterface,
+} from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
 import { useState } from "react";
 import {
@@ -25,12 +28,12 @@ import track, { trackSnapshot } from "@/services/track";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import DimensionChooser from "../Dimensions/DimensionChooser";
+import SelectField from "../Forms/SelectField";
 import AnalysisForm from "./AnalysisForm";
 import RefreshSnapshotButton from "./RefreshSnapshotButton";
 import ResultMoreMenu from "./ResultMoreMenu";
 import PhaseSelector from "./PhaseSelector";
 import { useSnapshot } from "./SnapshotProvider";
-import SelectField from "../Forms/SelectField";
 
 function isDifferent(
   val1?: string | boolean | null,
@@ -151,8 +154,7 @@ export default function AnalysisSettingsBar({
     latest,
     analysis,
     dimension,
-    baselineVariation,
-    setBaselineVariation,
+    analysisSettings,
     mutateSnapshot: mutate,
     phase,
     setDimension,
@@ -222,43 +224,45 @@ export default function AnalysisSettingsBar({
             />
           </div>
           {snapshot && analysis && (
-          <div className="col-auto form-inline">
-            <SelectField
-              label="Baseline Variation"
-              labelClassName="mr-2"
-              options={variations.map((v) => {
-                return {
+            <div className="col-auto form-inline">
+              <SelectField
+                label="Baseline Variation"
+                labelClassName="mr-2"
+                options={variations.map((v) => {
+                  return {
                     label: v.name,
-                    value: v.name
-                };
+                    value: v.name,
+                  };
                 })}
-              value={baselineVariation}
-              onChange={(v) => {
-                const newSettings: ExperimentSnapshotAnalysisSettings = {...analysis.settings, baselineVariation: v};
-                if (!getSnapshotAnalysis(snapshot, newSettings)) {
-                  apiCall(
-                    `/snapshot/${snapshot.id}/analysis`,
-                    {
+                value={
+                  analysisSettings?.baselineVariation ||
+                  experiment.variations[0].name
+                }
+                onChange={async (v) => {
+                  const newSettings: ExperimentSnapshotAnalysisSettings = {
+                    ...analysis.settings,
+                    baselineVariation: v,
+                  };
+                  if (!getSnapshotAnalysis(snapshot, newSettings)) {
+                    await apiCall(`/snapshot/${snapshot.id}/analysis`, {
                       method: "POST",
                       body: JSON.stringify({
-                        analysesSettings: [newSettings]
+                        analysesSettings: [newSettings],
                       }),
-                    }
-                  )
-                    .then(() => {
-                      track("Experiment Analysis: switch baseline");
                     })
-                    .catch((e) => {
-                      // TODO error handling here
-                      setRefreshError(e.message);
-                    });
-                }
-                setAnalysisSettings(newSettings);
-                setBaselineVariation(v);
-                mutate();
-              }}
-            />
-          </div>
+                      .then(() => {
+                        track("Experiment Analysis: switch baseline");
+                      })
+                      .catch((e) => {
+                        // TODO error handling here
+                        setRefreshError(e.message);
+                      });
+                  }
+                  setAnalysisSettings(newSettings);
+                  mutate();
+                }}
+              />
+            </div>
           )}
           <div style={{ flex: 1 }} />
           <div className="col-auto">
@@ -377,6 +381,8 @@ export default function AnalysisSettingsBar({
                             datasource?.type || null,
                             res.snapshot
                           );
+
+                          setAnalysisSettings(null);
                           mutate();
                           setRefreshError("");
                         })
@@ -434,6 +440,7 @@ export default function AnalysisSettingsBar({
                       datasource?.type || null,
                       res.snapshot
                     );
+                    setAnalysisSettings(null);
                     mutate();
                   })
                   .catch((e) => {
