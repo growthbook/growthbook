@@ -4,9 +4,12 @@ import {
 } from "back-end/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
+  ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
+import { ExperimentReportVariation } from "back-end/types/report";
 import uniqid from "uniqid";
+import isEqual from "lodash/isEqual";
 
 export function getAffectedEnvsForExperiment({
   experiment,
@@ -19,13 +22,29 @@ export function getAffectedEnvsForExperiment({
 }
 
 export function getSnapshotAnalysis(
-  snapshot: ExperimentSnapshotInterface
+  snapshot: ExperimentSnapshotInterface,
+  analysisSettings?: ExperimentSnapshotAnalysisSettings
 ): ExperimentSnapshotAnalysis | null {
-  // TODO: add a "settings" argument to this function and use it to pick the right snapshot
-  // For example, if `sequential: true` is passed in, look for an analysis with sequential enabled
-  return snapshot.analyses?.[0] || null;
+  // TODO make it so order doesn't matter
+  return (
+    (analysisSettings
+      ? snapshot.analyses.find((a) => isEqual(a.settings, analysisSettings))
+      : snapshot.analyses[0]) || null
+  );
 }
 
 export function generateVariationId() {
   return uniqid("var_");
+}
+
+export function putBaselineVariationFirst(
+  variations: ExperimentReportVariation[],
+  baselineVariation: string | null
+): ExperimentReportVariation[] {
+  if (!baselineVariation) return variations;
+
+  return [
+    ...variations.filter((v) => v.name === baselineVariation),
+    ...variations.filter((v) => v.name !== baselineVariation),
+  ];
 }

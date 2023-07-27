@@ -14,6 +14,7 @@ import { getScopedSettings } from "shared/settings";
 import { getSnapshotAnalysis, generateVariationId } from "shared/util";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
+  ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
   ExperimentSnapshotSettings,
@@ -25,7 +26,10 @@ import { checkSrm, sumSquaresFromStats } from "../util/stats";
 import { addTags } from "../models/TagModel";
 import { WatchModel } from "../models/WatchModel";
 import { Dimension, ExperimentMetricQueryResponse } from "../types/Integration";
-import { createExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
+import {
+  createExperimentSnapshotModel,
+  updateSnapshot,
+} from "../models/ExperimentSnapshotModel";
 import {
   Condition,
   MetricInterface,
@@ -66,9 +70,12 @@ import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
+import { Queries, QueryStatus } from "../../types/query";
+import { getQueriesByIds } from "../models/QueryModel";
+import { QueryMap } from "../queryRunners/QueryRunner";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
-import { analyzeExperimentMetric } from "./stats";
+import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
 
 export const DEFAULT_METRIC_ANALYSIS_DAYS = 90;
 
@@ -481,6 +488,90 @@ export async function createSnapshot({
   });
 
   return queryRunner;
+}
+
+export async function createSnapshotAnalyses({
+  experiment,
+  organization,
+  analysesSettings,
+  metricMap,
+  snapshot,
+}: {
+  experiment: ExperimentInterface;
+  organization: OrganizationInterface;
+  analysesSettings: ExperimentSnapshotAnalysisSettings[];
+  metricMap: Map<string, MetricInterface>;
+  snapshot: ExperimentSnapshotInterface;
+}): Promise<ExperimentSnapshotInterface> {
+  const analyses = snapshot.analyses;
+  // TODO consider abstraction of functionality in ExperimentResultsQueryRunner
+  // which is largely replicated below
+
+  // Check data is available in snapshot
+  function getOverallQueryStatus(): QueryStatus {
+    const hasFailedQueries = snapshot.queries.some(
+      (q) => q.status === "failed"
+    );
+    const hasRunningQueries = snapshot.queries.some(
+      (q) => q.status === "running"
+    );
+    return hasFailedQueries
+      ? "failed"
+      : hasRunningQueries
+      ? "running"
+      : "succeeded";
+  }
+  const queryStatus = getOverallQueryStatus();
+
+  if (queryStatus !== "succeeded") {
+    // TODO return failed status?
+    return snapshot;
+  }
+  // Format data correctly
+  async function getQueryMap(pointers: Queries): Promise<QueryMap> {
+    const queryDocs = await getQueriesByIds(
+      organization.id,
+      pointers.map((q) => q.query)
+    );
+
+    const map: QueryMap = new Map();
+    pointers.forEach((q) => {
+      const query = queryDocs.find((doc) => doc.id === q.query);
+      if (query) {
+        map.set(q.name, query);
+      }
+    });
+
+    return map;
+  }
+  const queryMap = await getQueryMap(snapshot.queries);
+  // Run each analysis
+  const newResults: ExperimentSnapshotAnalysis[] = await Promise.all(
+    analysesSettings.map(async (analysisSettings) => {
+      const results = await analyzeExperimentResults({
+        queryData: queryMap,
+        snapshotSettings: snapshot.settings,
+        analysisSettings: analysisSettings,
+        variationNames: experiment.variations.map((v) => v.name),
+        metricMap: metricMap,
+      });
+      return {
+        settings: analysisSettings,
+        results: results.dimensions || [],
+        status: "success", // TODO check if... not success?
+        error: "",
+        dateCreated: new Date(),
+      };
+    })
+  );
+
+  const updatedAnalyses = analyses.concat(newResults);
+  await updateSnapshot(organization.id, snapshot.id, {
+    analyses: updatedAnalyses,
+  });
+  // TODO is the return here necessary?
+  snapshot.analyses = updatedAnalyses;
+  return snapshot;
 }
 
 export async function ensureWatching(

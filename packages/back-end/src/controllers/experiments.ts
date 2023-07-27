@@ -11,6 +11,7 @@ import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
   createSnapshot,
+  createSnapshotAnalyses,
   ensureWatching,
   getExperimentWatchers,
   getManualSnapshotData,
@@ -1715,6 +1716,60 @@ export async function postSnapshot(
     });
   } catch (e) {
     req.log.error(e, "Failed to create experiment snapshot");
+    res.status(400).json({
+      status: 400,
+      message: e.message,
+    });
+  }
+}
+export async function postSnapshotAnalyses(
+  req: AuthRequest<
+    {
+      analysesSettings: ExperimentSnapshotAnalysisSettings[];
+    },
+    { id: string }
+  >,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  const { id } = req.params;
+  const snapshot = await findSnapshotById(org.id, id);
+  if (!snapshot) {
+    res.status(404).json({
+      status: 404,
+      message: "Snapshot not found",
+    });
+    return;
+  }
+
+  const { analysesSettings } = req.body;
+
+  const experiment = await getExperimentById(org.id, snapshot.experiment);
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  const metricMap = await getMetricMap(org.id);
+
+  try {
+    const updatedSnapshot = await createSnapshotAnalyses({
+      experiment: experiment,
+      organization: org,
+      analysesSettings: analysesSettings,
+      metricMap: metricMap,
+      snapshot: snapshot,
+    });
+    res.status(200).json({
+      status: 200,
+      updatedSnapshot,
+    });
+  } catch (e) {
+    req.log.error(e, "Failed to create experiment snapshot analysis");
     res.status(400).json({
       status: 400,
       message: e.message,

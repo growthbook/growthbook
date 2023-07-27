@@ -109,7 +109,7 @@ export default function ResultsTable({
                   }}
                   options={variations.map((v, i) => ({
                     value: i + "",
-                    label: `${i}: ${v.name}`,
+                    label: `${v.id}: ${v.name}`,
                   }))}
                 />
               </div>
@@ -118,11 +118,11 @@ export default function ResultsTable({
           {variations.map((v, i) => (
             <th
               colSpan={i ? (fullStats ? 3 : 2) : 1}
-              className={`value variation with-variation-label variation${i} pb-2`}
+              className={`value variation with-variation-label variation${v.id} pb-2`}
               key={i}
               style={{ whiteSpace: i == 0 ? "nowrap" : "initial" }}
             >
-              <span className="label">{i}</span>
+              <span className="label">{v.id}</span>
               <span className="name">{v.name}</span>
             </th>
           ))}
@@ -133,14 +133,14 @@ export default function ResultsTable({
               <th
                 className={clsx(
                   "value pt-2",
-                  `variation${i} head-last-row text-center`
+                  `variation${v.id} head-last-row text-center`
                 )}
               >
                 Value
               </th>
               {i > 0 && fullStats && (
                 <th
-                  className={`variation${i} head-last-row text-center pt-2`}
+                  className={`variation${v.id} head-last-row text-center pt-2`}
                   style={{ minWidth: 110 }}
                 >
                   {statsEngine === "frequentist" ? (
@@ -191,7 +191,7 @@ export default function ResultsTable({
                 </th>
               )}
               {i > 0 && (
-                <th className={`variation${i} head-last-row text-center pt-2`}>
+                <th className={`variation${v.id} head-last-row text-center pt-2`}>
                   Percent Change{" "}
                   {fullStats && (
                     <>
@@ -251,7 +251,7 @@ export default function ResultsTable({
           {variations.map((v, i) => (
             <th
               key={i}
-              className={`head-bottom-border variation variation${i} with-variation-fill`}
+              className={`head-bottom-border variation variation${v.id} with-variation-fill`}
               colSpan={i ? (fullStats ? 3 : 2) : 1}
             ></th>
           ))}

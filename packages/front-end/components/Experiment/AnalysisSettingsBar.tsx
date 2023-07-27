@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { ExperimentSnapshotAnalysisSettings, ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
 import { useState } from "react";
 import {
@@ -21,7 +21,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { trackSnapshot } from "@/services/track";
+import track, { trackSnapshot } from "@/services/track";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import DimensionChooser from "../Dimensions/DimensionChooser";
@@ -30,6 +30,7 @@ import RefreshSnapshotButton from "./RefreshSnapshotButton";
 import ResultMoreMenu from "./ResultMoreMenu";
 import PhaseSelector from "./PhaseSelector";
 import { useSnapshot } from "./SnapshotProvider";
+import SelectField from "../Forms/SelectField";
 
 function isDifferent(
   val1?: string | boolean | null,
@@ -119,6 +120,7 @@ function isOutdated(
 
 export default function AnalysisSettingsBar({
   mutateExperiment,
+  setAnalysisSettings,
   editMetrics,
   editPhases,
   variations,
@@ -131,6 +133,7 @@ export default function AnalysisSettingsBar({
   onRegressionAdjustmentChange,
 }: {
   mutateExperiment: () => void;
+  setAnalysisSettings: (ExperimentSnapshotAnalysisSettings) => void;
   editMetrics?: () => void;
   editPhases?: () => void;
   variations: ExperimentReportVariation[];
@@ -148,6 +151,8 @@ export default function AnalysisSettingsBar({
     latest,
     analysis,
     dimension,
+    baselineVariation,
+    setBaselineVariation,
     mutateSnapshot: mutate,
     phase,
     setDimension,
@@ -182,7 +187,6 @@ export default function AnalysisSettingsBar({
   const status = getQueryStatus(latest?.queries || [], latest?.error);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
-
   const [refreshError, setRefreshError] = useState("");
 
   return (
@@ -217,6 +221,45 @@ export default function AnalysisSettingsBar({
               labelClassName="mr-2"
             />
           </div>
+          {snapshot && analysis && (
+          <div className="col-auto form-inline">
+            <SelectField
+              label="Baseline Variation"
+              labelClassName="mr-2"
+              options={variations.map((v) => {
+                return {
+                    label: v.name,
+                    value: v.name
+                };
+                })}
+              value={baselineVariation}
+              onChange={(v) => {
+                const newSettings: ExperimentSnapshotAnalysisSettings = {...analysis.settings, baselineVariation: v};
+                if (!getSnapshotAnalysis(snapshot, newSettings)) {
+                  apiCall(
+                    `/snapshot/${snapshot.id}/analysis`,
+                    {
+                      method: "POST",
+                      body: JSON.stringify({
+                        analysesSettings: [newSettings]
+                      }),
+                    }
+                  )
+                    .then(() => {
+                      track("Experiment Analysis: switch baseline");
+                    })
+                    .catch((e) => {
+                      // TODO error handling here
+                      setRefreshError(e.message);
+                    });
+                }
+                setAnalysisSettings(newSettings);
+                setBaselineVariation(v);
+                mutate();
+              }}
+            />
+          </div>
+          )}
           <div style={{ flex: 1 }} />
           <div className="col-auto">
             {regressionAdjustmentAvailable && (

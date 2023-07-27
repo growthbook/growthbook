@@ -23,6 +23,7 @@ import {
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
 import { QueryMap } from "../queryRunners/QueryRunner";
+import { putBaselineVariationFirst } from "shared/util";
 
 export const MAX_DIMENSIONS = 20;
 
@@ -33,7 +34,8 @@ export async function analyzeExperimentMetric(
   dimension: string | null = null,
   statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
   sequentialTestingEnabled: boolean = false,
-  sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER
+  sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+  baselineVariation: string | null = null,
 ): Promise<ExperimentMetricAnalysis> {
   if (!rows || !rows.length) {
     return {
@@ -42,12 +44,11 @@ export async function analyzeExperimentMetric(
       dimensions: [],
     };
   }
-
+  const sortedVariations = putBaselineVariationFirst(variations, baselineVariation);
   const variationIdMap: { [key: string]: number } = {};
-  variations.map((v, i) => {
+  sortedVariations.map((v, i) => {
     variationIdMap[v.id] = i;
   });
-
   const result = await promisify(PythonShell.runString)(
     `
 from gbstats.gbstats import (
@@ -64,8 +65,8 @@ import json
 
 data = json.loads("""${JSON.stringify({
       var_id_map: variationIdMap,
-      var_names: variations.map((v) => v.name),
-      weights: variations.map((v) => v.weight),
+      var_names: sortedVariations.map((v) => v.name),
+      weights: sortedVariations.map((v) => v.weight),
       ignore_nulls: !!metric.ignoreNulls,
       inverse: !!metric.inverse,
       max_dimensions:
@@ -150,7 +151,7 @@ export async function analyzeExperimentResults({
   queryData: QueryMap;
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   snapshotSettings: ExperimentSnapshotSettings;
-  variationNames?: string[];
+  variationNames: string[];
   metricMap: Map<string, MetricInterface>;
 }): Promise<ExperimentReportResults> {
   const metricRows: {
@@ -219,14 +220,15 @@ export async function analyzeExperimentResults({
         const result = await analyzeExperimentMetric(
           snapshotSettings.variations.map((v, i) => ({
             ...v,
-            name: variationNames?.[i] || v.id,
+            name: variationNames[i] || v.id,
           })),
           metric,
           data.rows,
           analysisSettings.dimensions[0],
           analysisSettings.statsEngine,
           analysisSettings.sequentialTesting,
-          analysisSettings.sequentialTestingTuningParameter
+          analysisSettings.sequentialTestingTuningParameter,
+          analysisSettings.baselineVariation ?? null,
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(
