@@ -2,6 +2,7 @@ import { each, isEqual, omit, pick, uniqBy, uniqWith } from "lodash";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
+import { includeExperimentInPayload } from "shared/util";
 import {
   Changeset,
   ExperimentInterface,
@@ -1020,16 +1021,7 @@ export async function getExperimentMapForFeature(
   });
 
   return new Map(
-    experiments
-      // exclude experiments that are stopped and don't have a released variation
-      .filter((e) => {
-        if (e.status === "stopped") {
-          if (e.excludeFromPayload) return false;
-          if (!e.releasedVariationId) return false;
-        }
-        return true;
-      })
-      .map((e) => [e.id, e])
+    experiments.filter(includeExperimentInPayload).map((e) => [e.id, e])
   );
 }
 
@@ -1052,16 +1044,7 @@ export async function getAllPayloadExperiments(
   });
 
   return new Map(
-    experiments
-      // exclude experiments that are stopped and don't have a released variation
-      .filter((e) => {
-        if (e.status === "stopped") {
-          if (e.excludeFromPayload) return false;
-          if (!e.releasedVariationId) return false;
-        }
-        return true;
-      })
-      .map((e) => [e.id, e])
+    experiments.filter(includeExperimentInPayload).map((e) => [e.id, e])
   );
 }
 
@@ -1100,7 +1083,7 @@ export const getAllVisualExperiments = async (
     .filter(_isValidVisualExperiment)
     .filter((e) => {
       // Exclude experiments from SDK payload
-      if (e.experiment.excludeFromPayload) return false;
+      if (!includeExperimentInPayload(e.experiment)) return false;
 
       // Exclude experiments that are stopped and the released variation doesn’t have any visual changes
       if (
@@ -1119,10 +1102,7 @@ export const getPayloadKeys = (
   linkedFeatures?: FeatureInterface[]
 ): SDKPayloadKey[] => {
   // If experiment is not included in the SDK payload
-  if (
-    experiment.status === "stopped" &&
-    (!experiment.releasedVariationId || experiment.excludeFromPayload)
-  ) {
+  if (!includeExperimentInPayload(experiment)) {
     return [];
   }
 
@@ -1187,8 +1167,8 @@ const hasChangesForSDKPayloadRefresh = (
 ): boolean => {
   // Skip experiments that don't have linked features or visual changesets
   if (
-    !newExperiment.hasVisualChangesets &&
-    !newExperiment.linkedFeatures?.length
+    !includeExperimentInPayload(oldExperiment) &&
+    !includeExperimentInPayload(newExperiment)
   ) {
     return false;
   }

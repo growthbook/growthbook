@@ -1,5 +1,6 @@
 import isEqual from "lodash/isEqual";
 import { FeatureRule as FeatureDefinitionRule } from "@growthbook/growthbook";
+import { includeExperimentInPayload } from "shared/util";
 import {
   FeatureInterface,
   FeatureRule,
@@ -229,6 +230,8 @@ export function getFeatureDefinition({
             const exp = experimentMap.get(r.experimentId);
             if (!exp) return null;
 
+            if (!includeExperimentInPayload(exp)) return null;
+
             // Get current experiment phase and use it to set rule properties
             const phase = exp.phases[exp.phases.length - 1];
             if (!phase) return null;
@@ -262,9 +265,6 @@ export function getFeatureDefinition({
 
             // Stopped experiment
             if (exp.status === "stopped") {
-              if (exp.excludeFromPayload) return null;
-              if (!exp.releasedVariationId) return null;
-
               const variation = r.variations.find(
                 (v) => v.variationId === exp.releasedVariationId
               );

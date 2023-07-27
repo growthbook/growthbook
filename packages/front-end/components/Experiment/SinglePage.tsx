@@ -23,7 +23,10 @@ import {
   ReportInterface,
 } from "back-end/types/report";
 import { DEFAULT_REGRESSION_ADJUSTMENT_ENABLED } from "shared/constants";
-import { getAffectedEnvsForExperiment } from "shared/util";
+import {
+  getAffectedEnvsForExperiment,
+  includeExperimentInPayload,
+} from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { date } from "shared/dates";
 import Collapsible from "react-collapsible";
@@ -826,9 +829,7 @@ export default function SinglePage({
       </div>
 
       {experiment.status === "stopped" &&
-        experiment.releasedVariationId &&
-        experiment.hasVisualChangesets &&
-        !experiment.excludeFromPayload && (
+        includeExperimentInPayload(experiment) && (
           <div className="alert alert-warning mb-3">
             <div className="d-flex align-items-center">
               <div>

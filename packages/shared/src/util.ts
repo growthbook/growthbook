@@ -15,6 +15,12 @@ export function getAffectedEnvsForExperiment({
 }): string[] {
   // Visual changesets are not environment-scoped, so it affects all of them
   if (experiment.hasVisualChangesets) return ["__ALL__"];
+
+  // TODO: get actual environments for linked feature flags. We are being overly conservative here
+  if (experiment.linkedFeatures && experiment.linkedFeatures.length > 0) {
+    return ["__ALL__"];
+  }
+
   return [];
 }
 
@@ -28,4 +34,29 @@ export function getSnapshotAnalysis(
 
 export function generateVariationId() {
   return uniqid("var_");
+}
+
+export function experimentHasLinkedChanges(
+  exp: ExperimentInterface | ExperimentInterfaceStringDates
+): boolean {
+  if (exp.hasVisualChangesets) return true;
+  if (exp.linkedFeatures && exp.linkedFeatures.length > 0) return true;
+  return false;
+}
+
+export function includeExperimentInPayload(
+  exp: ExperimentInterface | ExperimentInterfaceStringDates
+): boolean {
+  // Archived experiments are always excluded
+  if (exp.archived) return false;
+
+  if (!experimentHasLinkedChanges(exp)) return false;
+
+  // Stopped experiments are only included if they are currently releasing a winning variant
+  if (exp.status === "stopped") {
+    if (exp.excludeFromPayload) return false;
+    if (!exp.releasedVariationId) return false;
+  }
+
+  return true;
 }
