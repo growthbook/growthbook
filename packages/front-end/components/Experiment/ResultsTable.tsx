@@ -82,7 +82,7 @@ export default function ResultsTable({
   function onResize() {
     if (!tableContainerRef?.current?.clientWidth) return;
     const tableWidth = tableContainerRef.current.clientWidth as number;
-    const firstRowCells = tableContainerRef.current?.querySelectorAll("thead tr:first-child th:not(.graphCell)");
+    const firstRowCells = tableContainerRef.current?.querySelectorAll("#main-results thead tr:first-child th:not(.graphCell)");
     const expectedArrowsTextWidth = 0; // this is the approximate width of the text "↑ XX.X%" inside <AlignedGraph>
     let totalCellWidth = 0;
     if (firstRowCells) {
@@ -110,7 +110,47 @@ export default function ResultsTable({
 
   return (
     <div ref={tableContainerRef} style={{ minWidth: 1000 }}>
-      <table className="experiment-results table-borderless table-sm">
+      {users ? (
+        <table className="experiment-results table table-borderless" style={{width: "auto"}}>
+          <thead>
+            <tr>
+              <th style={{ width: 180 }} className="axis-col"></th>
+              <th style={{ minWidth: 60, paddingBottom: 2 }} className="axis-col label">Users</th>
+            </tr>
+          </thead>
+          <tbody>
+            {variations.map((v, i) => (
+              <tr key={i}>
+                <td
+                  className={`variation with-variation-label variation${i} d-inline-flex align-items-center pt-1`}
+                  style={{ width: 180 }}
+                >
+                    <span
+                      className="label ml-1"
+                      style={{ width: 20, height: 20 }}
+                    >
+                      {i}
+                    </span>
+                  <div
+                    className="text-ellipsis font-weight-bold"
+                    style={{ width: 125 }}
+                  >
+                    {v.name}
+                  </div>
+                </td>
+                <td className="variation results-user-value align-middle">
+                  {numberFormatter.format(users[i] || 0)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      ) : null}
+
+      <table
+        id="main-results"
+        className="experiment-results table-borderless table-sm"
+      >
       <thead>
         <tr className="results-top-row">
           <th style={{ width: 180 }} className="axis-col header-label">
@@ -195,11 +235,6 @@ export default function ResultsTable({
               if (skipVariation) {
                 return null;
               }
-              const controlStats = row.variations[0] || {
-                value: 0,
-                cr: 0,
-                users: 0,
-              }
               const stats = row.variations[j] || {
                 value: 0,
                 cr: 0,
@@ -251,8 +286,8 @@ export default function ResultsTable({
                       {j === 1 ? (
                         <MetricValueColumn
                           metric={row.metric}
-                          stats={stats}
-                          users={stats?.users || 0}
+                          stats={baseline}
+                          users={baseline?.users || 0}
                           className="value variation control-col"
                           style={{ backgroundColor: "rgb(127 127 127 / 6%)" }}
                           newUi={true}
@@ -261,8 +296,8 @@ export default function ResultsTable({
                       ): null}
                       <MetricValueColumn
                         metric={row.metric}
-                        stats={controlStats}
-                        users={controlStats?.users || 0}
+                        stats={stats}
+                        users={stats?.users || 0}
                         className="value variation"
                         newUi={true}
                       />

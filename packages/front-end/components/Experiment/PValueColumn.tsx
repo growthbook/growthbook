@@ -123,11 +123,11 @@ const PValueColumn: FC<{
         <div>
           <div className="mb-1 d-flex flex-row">
             <Tooltip
-              body={`A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
-                (metric.maxPercentChange ??
-                  metricDefaults?.maxPercentageChange ??
-                  0) * 100
-              }%).`}
+              body={<div className="text-left" style={{lineHeight: 1.5}}>
+                A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (
+                {(metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0) * 100}
+                %).
+              </div>}
             >
               <span className="badge badge-pill badge-warning">
                 Suspicious Result
@@ -137,7 +137,9 @@ const PValueColumn: FC<{
         </div>
       )}
       <Tooltip
-        body={sigText}
+        body={<div className="text-left" style={{lineHeight: 1.5}}>
+          {sigText}
+        </div>}
         className="d-block"
         tipPosition={"top"}
         shouldDisplay={sigText !== ""}

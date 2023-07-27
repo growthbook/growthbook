@@ -112,14 +112,9 @@ const CompactResults: FC<{
 
   return (
     <>
-      <div className="px-3">
+      <div className="">
         <DataQualityWarning results={results} variations={variations} />
-        {multipleExposures !== undefined && (
-          <MultipleExposureWarning
-            users={users}
-            multipleExposures={multipleExposures}
-          />
-        )}
+        <MultipleExposureWarning users={users} multipleExposures={multipleExposures} />
       </div>
       <div className="w-100 overflow-auto">
         <ResultsTable
@@ -148,6 +143,7 @@ const CompactResults: FC<{
                     reportRegressionAdjustmentEnabled={
                       regressionAdjustmentEnabled
                     }
+                    newUi={true}
                   />
                 }
                 tipPosition="right"
