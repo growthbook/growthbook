@@ -6,7 +6,7 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
-import {ExperimentTableRow, isStatSig, useDomain} from "@/services/experiments";
+import {ExperimentTableRow, hasEnoughData, isStatSig, useDomain} from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "../Tooltip/Tooltip";
 import SelectField from "../Forms/SelectField";
@@ -19,6 +19,7 @@ import PValueColumn from "./PValueColumn";
 import {GBEdit} from "@/components/Icons";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
+import {useOrganizationMetricDefaults} from "@/hooks/useOrganizationMetricDefaults";
 
 export type ResultsTableProps = {
   id: string;
@@ -73,6 +74,7 @@ export default function ResultsTable({
   pValueCorrection,
   sequentialTestingEnabled = false,
 }: ResultsTableProps) {
+  const { metricDefaults } = useOrganizationMetricDefaults();
   const { ciUpper, ciLower } = useConfidenceLevels();
   const pValueThreshold = usePValueThreshold();
 
@@ -187,9 +189,30 @@ export default function ResultsTable({
               newUi={true}
             />
           </th>
-          <th style={{ width: 120 }} className="axis-col label text-right">% Change</th>
+          <th style={{ width: 150 }} className="axis-col label text-right">
+            <Tooltip
+              innerClassName={"text-left"}
+              body={getPercentChangeTooltip(statsEngine ?? DEFAULT_STATS_ENGINE, hasRisk, !!sequentialTestingEnabled, pValueCorrection ?? null)}
+            >
+              % Change{" "}
+              <FaQuestionCircle />
+            </Tooltip>
+          </th>
           <th style={{ width: 120 }} className="axis-col label text-right">{
-            statsEngine === "bayesian" ? "Chance to Win" : "P-value"
+            statsEngine === "bayesian" ? (
+              <>Chance to Win</>
+            ) : (
+              sequentialTestingEnabled || pValueCorrection ? (
+                <Tooltip
+                  innerClassName={"text-left"}
+                  body={getPValueTooltip(!!sequentialTestingEnabled, pValueCorrection ?? null, orgSettings.pValueThreshold ?? 0.05, tableRowAxis)}
+                >
+                  P-value{" "}
+                  <FaQuestionCircle />
+                </Tooltip>
+            ) : (
+              <>P-value</>
+            ))
           }</th>
         </tr>
       </thead>
@@ -249,6 +272,8 @@ export default function ResultsTable({
                   )
               ) : false;
 
+              const enoughData = hasEnoughData(baseline, stats, row.metric, metricDefaults);
+
               return (
                 <tr
                   className="results-variation-row align-items-center"
@@ -271,38 +296,25 @@ export default function ResultsTable({
                       {v.name}
                     </div>
                   </td>
-                  {/*todo: put "users" in its own row*/}
-                  {(users && j<0) ? (
-                    <>
-                      <td className="results-user-value">
-                        {numberFormatter.format(users[j] || 0)}
-                      </td>
-                      <td className="results-user-value">
-                        {/*{numberFormatter.format(users[j] || 0)}*/}
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      {j === 1 ? (
-                        <MetricValueColumn
-                          metric={row.metric}
-                          stats={baseline}
-                          users={baseline?.users || 0}
-                          className="value variation control-col"
-                          style={{ backgroundColor: "rgb(127 127 127 / 6%)" }}
-                          newUi={true}
-                          rowSpan={row.variations.length - 1}
-                        />
-                      ): null}
-                      <MetricValueColumn
-                        metric={row.metric}
-                        stats={stats}
-                        users={stats?.users || 0}
-                        className="value variation"
-                        newUi={true}
-                      />
-                    </>
-                  )}
+                  {j === 1 ? (
+                    // draw baseline value once, merge rows
+                    <MetricValueColumn
+                      metric={row.metric}
+                      stats={baseline}
+                      users={baseline?.users || 0}
+                      className="value variation control-col"
+                      style={{ backgroundColor: "rgb(127 127 127 / 6%)" }}
+                      newUi={true}
+                      rowSpan={row.variations.length - 1}
+                    />
+                  ): null}
+                  <MetricValueColumn
+                    metric={row.metric}
+                    stats={stats}
+                    users={stats?.users || 0}
+                    className="value variation"
+                    newUi={true}
+                  />
                   <td>
                     {j > 0 ? (
                       <PercentGraph
@@ -331,7 +343,7 @@ export default function ResultsTable({
                       />
                     )}
                   </td>
-                  {j > 0 ? (
+                  {(j > 0 && (row.metric && enoughData)) ? (
                     <td className={clsx(
                       "results-change text-right",
                       {
@@ -716,4 +728,73 @@ export default function ResultsTable({
       </tbody>
     </table>
   );
+}
+
+
+function getPercentChangeTooltip(statsEngine: StatsEngine, hasRisk: boolean, sequentialTestingEnabled: boolean, pValueCorrection: PValueCorrection) {
+  if (hasRisk && statsEngine === "bayesian") {
+    return (<>This is a 95% credible interval. The true value is more likely to be in the thicker parts of the graph.</>);
+  }
+  if (statsEngine === "frequentist") {
+    return (<>
+      <p className="mb-0">
+        This is a 95% confidence interval. If you re-ran
+        the experiment 100 times, the true value would
+        be in this range 95% of the time.
+      </p>
+      {sequentialTestingEnabled && (
+        <p className="mt-4 mb-0">
+          Because sequential testing is enabled, these
+          confidence intervals are valid no matter how
+          many times you analyze (or peek at) this
+          experiment as it runs.
+        </p>
+      )}
+      {pValueCorrection && (
+        <p className="mt-4 mb-0">
+          These confidence intervals are not adjusted
+          for multiple comparisons as the multiple
+          comparisons adjustments GrowthBook implements
+          only have associated adjusted p-values, not
+          confidence intervals.
+        </p>
+      )}
+    </>);
+  }
+  return <></>;
+}
+
+function getPValueTooltip(
+  sequentialTestingEnabled: boolean,
+  pValueCorrection: PValueCorrection,
+  pValueThreshold: number,
+  tableRowAxis: "dimension" | "metric"
+) {
+  return (<>
+    {sequentialTestingEnabled && (
+      <div className={pValueCorrection ? "mb-3" : ""}>
+        Sequential testing is enabled. These are
+        &apos;always valid p-values&apos; and robust
+        to peeking. They have a slightly different
+        interpretation to normal p-values and can
+        often be 1.000. Nonetheless, the
+        interpretation remains that the result is
+        still statistically significant if it drops
+        below your threshold ({pValueThreshold}).
+      </div>
+    )}
+    {pValueCorrection && (
+      <div>
+        The p-values presented below are adjusted for
+        multiple comparisons using the{" "}
+        {pValueCorrection} method. P-values were
+        adjusted across tests for
+        {tableRowAxis === "dimension"
+          ? "all dimension values, non-guardrail metrics, and variations"
+          : "all non-guardrail metrics and variations"}
+        . The unadjusted p-values are returned in
+        parentheses.
+      </div>
+    )}
+  </>);
 }
