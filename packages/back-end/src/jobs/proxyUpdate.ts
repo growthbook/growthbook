@@ -30,7 +30,7 @@ export default function addProxyUpdateJob(ag: Agenda) {
 
     const connection = await findSDKConnectionById(connectionId);
     if (!connection) return;
-    if (!connectionSupportsProxyUpdate(connection)) return;
+    if (!connectionSupportsProxyUpdate(connection, useCloudProxy)) return;
 
     // TODO This probably needs to renamed
     const defs = await getFeatureDefinitions({
