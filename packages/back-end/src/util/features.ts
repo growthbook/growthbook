@@ -322,7 +322,7 @@ export function getFeatureDefinition({
 
             rule.meta = r.values.map((v, i) => ({
               key: i + "",
-              name: v.name,
+              ...(v.name !== undefined ? { name: v.name } : {}),
             }));
 
             if (r.trackingKey) {
