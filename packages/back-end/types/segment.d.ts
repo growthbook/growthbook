@@ -8,4 +8,5 @@ export interface SegmentInterface {
   sql: string;
   dateCreated: Date | null;
   dateUpdated: Date | null;
+  description?: string;
 }
