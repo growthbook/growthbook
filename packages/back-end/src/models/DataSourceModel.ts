@@ -191,7 +191,7 @@ export async function createDataSource(
         if (!exposure.id) {
           exposure.id = uniqid("exq_");
         }
-        exposure.error = await testQueryValidity(datasource, exposure.query);
+        exposure.error = await testQueryValidity(datasource, exposure);
       })
     );
   }
@@ -237,7 +237,7 @@ export async function validateExposureQueriesAndAddMissingIds(
           }
         }
         if (checkValidity) {
-          exposure.error = await testQueryValidity(datasource, exposure.query);
+          exposure.error = await testQueryValidity(datasource, exposure);
         }
       })
     );

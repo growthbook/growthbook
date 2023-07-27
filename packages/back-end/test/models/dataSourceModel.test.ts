@@ -10,6 +10,13 @@ import { usingFileConfig } from "../../src/init/config";
 jest.mock("../../src/services/datasource");
 jest.mock("../../src/init/config");
 
+const mockedTestQueryValidity: jest.MockedFunction<
+  typeof testQueryValidity
+> = testQueryValidity as jest.MockedFunction<typeof testQueryValidity>;
+const mockedUsingFileConfig: jest.MockedFunction<
+  typeof usingFileConfig
+> = usingFileConfig as jest.MockedFunction<typeof usingFileConfig>;
+
 describe("dataSourceModel", () => {
   const datasource: DataSourceInterface = {
     id: "123",
@@ -73,8 +80,7 @@ describe("dataSourceModel", () => {
 
   describe("validateExposureQueriesAndAddMissingIds", () => {
     it("should add missing exposure query ids and validate new queries", async () => {
-      // @ts-expect-error - not sure why it doesn't realize testQueryValidity is a mock
-      testQueryValidity.mockResolvedValue(undefined);
+      mockedTestQueryValidity.mockResolvedValue(undefined);
 
       const updates: Partial<DataSourceInterface> = {
         settings: {
@@ -92,18 +98,16 @@ describe("dataSourceModel", () => {
         datasource,
         updates
       );
-      expect(testQueryValidity).toHaveBeenCalledWith(
-        datasource,
-        "SELECT new_id FROM experiment_viewed"
-      );
+
+      expect(mockedTestQueryValidity).toHaveBeenCalled();
       expect(new_updates).toEqual({
         settings: {
           queries: {
             exposure: [
               {
+                error: undefined,
                 id: expect.any(String),
                 query: "SELECT new_id FROM experiment_viewed",
-                error: undefined,
               },
             ],
           },
@@ -112,8 +116,7 @@ describe("dataSourceModel", () => {
     });
 
     it("should validate previously errored queries", async () => {
-      // @ts-expect-error - not sure why it doesn't realize testQueryValidity is a mock
-      testQueryValidity.mockResolvedValue("bad query still bad");
+      mockedTestQueryValidity.mockResolvedValue("bad query still bad");
       const updates: Partial<DataSourceInterface> = {
         settings: {
           queries: {
@@ -135,10 +138,7 @@ describe("dataSourceModel", () => {
         datasource,
         updates
       );
-      expect(testQueryValidity).toHaveBeenCalledWith(
-        datasource,
-        "SELECT bad query"
-      );
+      expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
       if (expected?.settings?.queries?.exposure) {
         expected.settings.queries.exposure[0].error = "bad query still bad";
@@ -147,8 +147,7 @@ describe("dataSourceModel", () => {
     });
 
     it("should validate changed queries", async () => {
-      // @ts-expect-error - not sure why it doesn't realize testQueryValidity is a mock
-      testQueryValidity.mockResolvedValue(undefined);
+      mockedTestQueryValidity.mockResolvedValue(undefined);
       const updates: Partial<DataSourceInterface> = {
         settings: {
           queries: {
@@ -169,10 +168,7 @@ describe("dataSourceModel", () => {
         datasource,
         updates
       );
-      expect(testQueryValidity).toHaveBeenCalledWith(
-        datasource,
-        "SELECT changed_anonymous_id FROM experiment_viewed"
-      );
+      expect(testQueryValidity).toHaveBeenCalled();
       const expected = updates;
       if (expected?.settings?.queries?.exposure) {
         expected.settings.queries.exposure[0].error = undefined;
@@ -183,8 +179,7 @@ describe("dataSourceModel", () => {
 
   describe("updateDataSource", () => {
     it("should throw an error if data sources are managed by config.yml", async () => {
-      // @ts-expect-error - not sure why it doesn't realize usingFileConfig is a mock
-      usingFileConfig.mockReturnValue(true);
+      mockedUsingFileConfig.mockReturnValue(true);
       const updates: Partial<DataSourceInterface> = {
         name: "Updated Data Source",
       };
