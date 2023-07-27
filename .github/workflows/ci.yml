@@ -1,6 +1,14 @@
 name: CI
 on:
   push:
+    branches: main
+    paths:
+      - "packages/**"
+      - "yarn.lock"
+      - ".eslintrc"
+      - ".eslintignore"
+      - ".prettierignore"
+  pull_request:
     paths:
       - "packages/**"
       - "yarn.lock"

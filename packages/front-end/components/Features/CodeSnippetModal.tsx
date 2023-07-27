@@ -56,7 +56,7 @@ export default function CodeSnippetModal({
   feature,
   inline,
   cta = "Finish",
-  submit = () => undefined,
+  submit,
   secondaryCTA,
   sdkConnection,
   connections,
@@ -138,6 +138,8 @@ export default function CodeSnippetModal({
   }
 
   const { docs, label } = languageMapping[language];
+  const hasProxy =
+    currentConnection.proxy.enabled && !!currentConnection.proxy.host;
   const apiHost = getApiBaseUrl(currentConnection);
   const clientKey = currentConnection.key;
   const featuresEndpoint = apiHost + "/api/features/" + clientKey;
@@ -168,6 +170,7 @@ export default function CodeSnippetModal({
       <Modal
         close={close}
         secondaryCTA={secondaryCTA}
+        className="mb-4"
         bodyClassName="p-0"
         open={true}
         inline={inline}
@@ -202,7 +205,7 @@ export default function CodeSnippetModal({
                     value: connection.id,
                     label: connection.name,
                   }))}
-                  value={currentConnection?.id}
+                  value={currentConnection?.id ?? ""}
                   onChange={(id) => {
                     setCurrentConnectionId(id);
                   }}
@@ -262,6 +265,12 @@ export default function CodeSnippetModal({
                     <tr>
                       <th className="pl-3" style={{ verticalAlign: "middle" }}>
                         Full API Endpoint
+                        {hasProxy ? (
+                          <>
+                            {" "}
+                            <small>(proxied)</small>
+                          </>
+                        ) : null}
                       </th>
                       <td>
                         <ClickToCopy>{featuresEndpoint}</ClickToCopy>
@@ -270,6 +279,12 @@ export default function CodeSnippetModal({
                     <tr>
                       <th className="pl-3" style={{ verticalAlign: "middle" }}>
                         API Host
+                        {hasProxy ? (
+                          <>
+                            {" "}
+                            <small>(proxied)</small>
+                          </>
+                        ) : null}
                       </th>
                       <td>
                         <ClickToCopy>{apiHost}</ClickToCopy>

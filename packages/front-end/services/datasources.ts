@@ -77,7 +77,9 @@ WHERE
       ? ",\n  event_value_in_usd as value"
       : type === "binomial"
       ? ""
-      : `,\n  value_param.value.${type === "count" ? "int" : "float"}_value`
+      : `,\n  value_param.value.${
+          type === "count" ? "int" : "float"
+        }_value as value`
   }
 FROM
   ${tablePrefix}\`events_*\`${

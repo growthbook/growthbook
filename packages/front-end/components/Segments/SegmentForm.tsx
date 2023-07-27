@@ -38,6 +38,7 @@ const SegmentForm: FC<{
         (current.id ? current.datasource : filteredDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
       owner: current.owner || "",
+      description: current.description || "",
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);
@@ -91,6 +92,7 @@ const SegmentForm: FC<{
           comboBox
           {...form.register("owner")}
         />
+        <Field label="Description" {...form.register("description")} textarea />
         <SelectField
           label="Data Source"
           required
