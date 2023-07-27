@@ -10,7 +10,7 @@ import ButtonCard from '@site/src/components/ButtonCard'
 # Quick Start Guide
 
 This guide will walk you through the basics of a full integration of GrowthBook for both feature flagging and A/B testing.
-You can use GrowthBook for Feature Flags, Experiment Analysis, or both, and you're welcome to skip to section that
+You can use GrowthBook for Feature Flags, Experiment Analysis, or both, and you're welcome to skip to the section that
 applies to your use case.
 
 :::note
@@ -25,7 +25,10 @@ You can use GrowthBook hosted on our **cloud**, or you can choose to **self-host
 You can sign up for a free account [here](https://app.growthbook.io). If you want to self-host, you can follow the
 instructions [here](/self-host) or on our GitHub page.
 
-Once you're in the GrowthBook app, you need to add an SDK endpoint to allow GrowthBook to communicate to your app.
+## Step 2. [Feature Flags] Add an SDK endpoint
+
+Once you're in the GrowthBook app, you need to add an SDK endpoint to allow GrowthBook to communicate to your app in order
+to use Feature Flags.
 From the left nav, click on **SDK Configuration** and then **SDK Connections**. From this page, click on the
 **Add SDK Connection** button. Name your SDK connection, then select the languages you're using in your application,
 and any additional options like including the visual experiments in the SDK payload. You can change any of these
@@ -36,11 +39,11 @@ settings later if needed.
 With this SDK endpoint created, you are now ready to install the SDK in your application. Depending on the languages you
 selected, you'll see instructions for how to install the SDK in your application. You can use this snippet of code for the next step.
 
-## Step 2. Integrate GrowthBook with your application
+## Step 3. [Feature Flags] Integrate GrowthBook with your application
 
 Integration with GrowthBook is done by installing one of our SDKs in your application. The SDKs are used to evaluate
-feature flags and run experiments. You can find specific instructions for each SDK language when you create the SDK endpoint,
-or you can read the full documentation [here](/lib).
+feature flags and run experiments. You can find specific instructions for each SDK language when you create the SDK endpoint
+in the app, or you can read the full documentation [here](/lib).
 
 The basics of installing the SDKs are:
 
@@ -57,12 +60,14 @@ same across all languages, platforms, and environments.
 
 :::
 
-## Step 3. Add one additional event
+## Step 4. [Feature Flags] Add an additional event to track experimentation
 
-To analyse the results of an AB test, you'll need to track which users were exposed to which variation. GrowthBook
-itself does not collect raw events. Instead, GrowthBook works with most popular event trackers. This actually makes
-implementation easier as you can use all your existing events that you're already tracking. You will need to just add
-one additional event to track when a user was exposed to an experiment. You should see a `trackingCallback` method in
+To analyse the results of an experiment, you'll need to track which users were exposed to which variation. GrowthBook
+itself does not collect raw events. Instead, GrowthBook works with most popular event trackers. This simplifies
+implementation as experiment exposures will be tracked alongside your existing events. You will need to just add
+one additional event to track when a user was exposed to an experiment.
+
+You should see a `trackingCallback` method in
 the SDK implementation, and you will need to adjust this to call your event tracker with the experiment key and
 variation id. The specifics of this depend on the event tracker you're using. You can find instructions for the most
 popular event trackers [here](/app/datasources).
@@ -70,14 +75,22 @@ popular event trackers [here](/app/datasources).
 :::note **Don't have an event tracker yet?**
 
 Most companies we speak to have Google Analytics installed, which will [work great](/guide/GA4-google-analytics).
-If you don't use GA, or are not testing on a website, we recommend using something like [RudderStack](/guide/rudderstack), Jitsu or [Segment](/event-trackers/segment).
+If you don't use GA, or are not testing on a website, we recommend using something like [RudderStack](/guide/rudderstack), Jitsu, or [Segment](/event-trackers/segment).
 
 :::
 
-## Step 4. Connect to your data warehouse
+## Step 5. [Feature Flags] Add attributes to GrowthBook
+
+GrowthBook needs to know what attributes you want to use for targeting of features and experiments. These attributes
+are passed into the SDK you set up on step 2, but as evaluation happens on the SDK, and no data is passed back to the
+GrowthBook app, you have to describe the attributes for targeting to work correctly in our UI. You can add attributes from the
+**SDK Configuration** menu, and then **Attributes**. Click on the **Add Attribute** button, and then describe the attributes
+you are passing to the SDK.
+
+## Step 6. [Experiment Analysis] Connect to your data warehouse
 
 GrowthBook is warehouse native: it connects to your data warehouse and queries it to get the results of your experiments.
-We support all the popular SQL data warehouses such as Snowflake, Redshift, Databricks, and even Mixpanel.
+We support all the popular SQL data warehouses such as BigQuery, Snowflake, Postgres, MySQL, Redshift, Databricks, and even Mixpanel.
 GrowthBook is extremely flexible and can support almost any schema structure with a bit of configuration.
 
 :::info **Don't have a data warehouse?**
@@ -87,30 +100,23 @@ the data source for your event tracker [here](/app/datasources).
 
 :::
 
-To connect GrowthBook to your data warehouse, you need to add a data source. Click on the **Metrics and data** menu
+To connect GrowthBook to your data warehouse, you need to add a data source. Click on the **Metrics and Data** menu
 from the left navigation, and then click on **Data Sources**. From here, click on the **Add Data Source** button. You'll be
-presented with a list of data warehouses and event trackers. Select the one you're using, or click on a custom, and
-follow the instructions to connect to your data warehouse. You can find guides on how to set up the data source for your
-specific data warehouse [here](/warehouses).
+presented with a list of data warehouses and event trackers. The data warehouse information will actually allow us to connect
+to your data warehouse and execute queries with the credentials you provide. The event tracker information will allow us to
+generate more accurate SQL templates given the schema the event tracker uses.
+You can find guides on how to set up the data source for your specific data warehouse [here](/warehouses).
 
-## Step 5. Add a metric or two
+## Step 7. [Experiment Analysis] Add a metric or two
 
-GrowthBook needs to know what metrics you want to track for your experiments. You can add metrics in the GrowthBook UI,
-from the **Metrics** page within the **Metrics and data** menu. Click on the **Add Metric** button, and then give your metric
+GrowthBook needs to know what metrics you want to measure for your experiments. You can add metrics in the GrowthBook UI,
+from the **Metrics** page within the **Metrics and Data** menu. Click on the **Add Metric** button, and then give your metric
 a name and description. You will then pick a **Metric Type** which will help GrowthBook understand how to analyze the metric.
-You can read more about metric types [Metrics](/app/metrics).
-
-## Step 6. Add attributes to GrowthBook
-
-GrowthBook needs to know what attributes you want to use for targeting of features and experiments. These attributes
-are passed into the SDK you set up on step 2, but as evaluation happens on the SDK, and no data is passed back to the
-GrowthBook app, you have to describe the attributes for targeting to work correctly in our UI. You can add attributes from the
-**SDK Configuration** menu, and then **Attributes**. Click on the **Add Attribute** button, and then describe the attributes
-you are passing to the SDK.
+You can read more about metric types on the [Metrics docs page](/app/metrics).
 
 ## Create your first feature flag or experiment
 
-You are now ready to create features and add experiment rules, or use the visual experiment editor.
+You are now ready to create [features](/app/features) and [add experiment rules](/features/rules), or use the visual experiment editor.
 
 ## Next Steps
 
