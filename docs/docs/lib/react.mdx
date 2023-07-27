@@ -499,7 +499,7 @@ Note that in a browser context, we will not be able to natively access the Node.
 
 ```js
 async function sha256(str) {
-  const buffer = await crypto.subtle.digest("SHA-256", new TextEncoder("utf-8").encode(str));
+  const buffer = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
   const hashArray = Array.from(new Uint8Array(buffer));
   return hashArray.map(byte => byte.toString(16).padStart(2, "0")).join("");
 }
