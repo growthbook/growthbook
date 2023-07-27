@@ -13,12 +13,6 @@ export interface ExperimentOverride {
   url?: string;
 }
 
-export type VariationMeta = {
-  passthrough?: boolean;
-  key?: string;
-  name?: string;
-};
-
 export interface FeatureDefinition {
   // eslint-disable-next-line
   defaultValue: any;

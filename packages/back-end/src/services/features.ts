@@ -5,7 +5,10 @@ import fetch from "node-fetch";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import { orgHasPremiumFeature } from "enterprise";
-import { FeatureRule as FeatureDefinitionRule } from "@growthbook/growthbook";
+import {
+  FeatureRule as FeatureDefinitionRule,
+  AutoExperiment,
+} from "@growthbook/growthbook";
 import { FeatureDefinition } from "../../types/api";
 import {
   FeatureDraftChanges,
@@ -33,7 +36,7 @@ import { logger } from "../util/logger";
 import { promiseAllChunks } from "../util/promise";
 import { queueWebhook } from "../jobs/webhooks";
 import { GroupMap } from "../../types/saved-group";
-import { SDKExperiment, SDKPayloadKey } from "../../types/sdk-payload";
+import { SDKPayloadKey } from "../../types/sdk-payload";
 import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
@@ -83,10 +86,11 @@ function generateVisualExperimentsPayload({
   visualExperiments: Array<VisualExperiment>;
   // environment: string,
   groupMap: GroupMap;
-}): SDKExperiment[] {
-  const isValidSDKExperiment = (e: SDKExperiment | null): e is SDKExperiment =>
-    !!e;
-  const sdkExperiments: Array<SDKExperiment | null> = visualExperiments.map(
+}): AutoExperiment[] {
+  const isValidSDKExperiment = (
+    e: AutoExperiment | null
+  ): e is AutoExperiment => !!e;
+  const sdkExperiments: Array<AutoExperiment | null> = visualExperiments.map(
     ({ experiment: e, visualChangeset: v }) => {
       if (e.status === "stopped" && e.excludeFromPayload) return null;
 
@@ -109,14 +113,14 @@ function generateVisualExperimentsPayload({
 
       if (!phase) return null;
 
-      return {
+      const exp: AutoExperiment = {
         key: e.trackingKey,
         status: e.status,
         variations: v.visualChanges.map((vc) => ({
           css: vc.css,
           js: vc.js || "",
           domMutations: vc.domMutations,
-        })),
+        })) as AutoExperiment["variations"],
         hashVersion: e.hashVersion,
         hashAttribute: e.hashAttribute,
         urlPatterns: v.urlPatterns,
@@ -141,6 +145,8 @@ function generateVisualExperimentsPayload({
         condition,
         coverage: phase.coverage,
       };
+
+      return exp;
     }
   );
   return sdkExperiments.filter(isValidSDKExperiment);
@@ -309,7 +315,7 @@ export async function purgeCDNCache(
 
 export type FeatureDefinitionsResponseArgs = {
   features: Record<string, FeatureDefinition>;
-  experiments: SDKExperiment[];
+  experiments: AutoExperiment[];
   dateUpdated: Date | null;
   encryptionKey?: string;
   includeVisualExperiments?: boolean;
@@ -410,7 +416,7 @@ export type FeatureDefinitionArgs = {
 };
 export type FeatureDefinitionSDKPayload = {
   features: Record<string, FeatureDefinition>;
-  experiments?: SDKExperiment[];
+  experiments?: AutoExperiment[];
   dateUpdated: Date | null;
   encryptedFeatures?: string;
   encryptedExperiments?: string;
@@ -772,10 +778,10 @@ export function applyFeatureHashing(
 
 // Specific hashing entrypoint for Experiment conditions
 export function applyExperimentHashing(
-  experiments: SDKExperiment[],
+  experiments: AutoExperiment[],
   attributes: SDKAttributeSchema,
   salt: string
-): SDKExperiment[] {
+): AutoExperiment[] {
   return experiments.map((experiment) => {
     if (experiment?.condition) {
       experiment.condition = hashStrings({
