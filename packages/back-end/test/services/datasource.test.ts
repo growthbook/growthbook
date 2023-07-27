@@ -1,6 +1,8 @@
 import { testQueryValidity } from "../../src/services/datasource";
+import { SourceIntegrationInterface } from "../../src/types/Integration";
 
-const mockDataSourceIntegration = {
+// @ts-expect-error - we are not testing all the properties of the integration
+const mockDataSourceIntegration: SourceIntegrationInterface = {
   getTestValidityQuery: jest.fn(),
   runTestQuery: jest.fn(),
 };
@@ -28,6 +30,8 @@ describe("testQueryValidity", () => {
 
   it('should return "No rows returned" if test query returns no results', async () => {
     const query = {
+      id: "user_id",
+      name: "Logged in Users",
       userIdType: "user_id",
       dimensions: ["country"],
       hasNameCol: true,
@@ -54,6 +58,8 @@ describe("testQueryValidity", () => {
 
   it('should return "Missing required columns in response" if test query results do not contain all required columns', async () => {
     const query = {
+      id: "user_id",
+      name: "Logged in Users",
       userIdType: "user_id",
       dimensions: ["country"],
       hasNameCol: true,
@@ -88,6 +94,8 @@ describe("testQueryValidity", () => {
 
   it("should return undefined if test query results contain all required columns", async () => {
     const query = {
+      id: "user_id",
+      name: "Logged in Users",
       userIdType: "user_id",
       dimensions: ["country"],
       hasNameCol: true,
@@ -124,6 +132,8 @@ describe("testQueryValidity", () => {
 
   it("should return the error message if an error occurs while running the test query", async () => {
     const query = {
+      id: "user_id",
+      name: "Logged in Users",
       userIdType: "user_id",
       dimensions: ["country"],
       hasNameCol: true,
