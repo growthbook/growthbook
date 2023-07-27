@@ -25,7 +25,9 @@ You can use GrowthBook hosted on our **cloud**, or you can choose to **self-host
 You can sign up for a free account [here](https://app.growthbook.io). If you want to self-host, you can follow the
 instructions [here](/self-host) or on our GitHub page.
 
-## Step 2. [Feature Flags] Add an SDK endpoint
+## Feature Flags
+
+### Step 2. Add an SDK endpoint
 
 Once you're in the GrowthBook app, you need to add an SDK endpoint to allow GrowthBook to communicate to your app in order
 to use Feature Flags.
@@ -39,7 +41,7 @@ settings later if needed.
 With this SDK endpoint created, you are now ready to install the SDK in your application. Depending on the languages you
 selected, you'll see instructions for how to install the SDK in your application. You can use this snippet of code for the next step.
 
-## Step 3. [Feature Flags] Integrate GrowthBook with your application
+### Step 3. Integrate GrowthBook with your application
 
 Integration with GrowthBook is done by installing one of our SDKs in your application. The SDKs are used to evaluate
 feature flags and run experiments. You can find specific instructions for each SDK language when you create the SDK endpoint
@@ -60,7 +62,7 @@ same across all languages, platforms, and environments.
 
 :::
 
-## Step 4. [Feature Flags] Add an additional event to track experimentation
+### Step 4. Add an additional event to track experiments
 
 To analyse the results of an experiment, you'll need to track which users were exposed to which variation. GrowthBook
 itself does not collect raw events. Instead, GrowthBook works with most popular event trackers. This simplifies
@@ -79,7 +81,7 @@ If you don't use GA, or are not testing on a website, we recommend using somethi
 
 :::
 
-## Step 5. [Feature Flags] Add attributes to GrowthBook
+### Step 5. Add attributes to GrowthBook
 
 GrowthBook needs to know what attributes you want to use for targeting of features and experiments. These attributes
 are passed into the SDK you set up on step 2, but as evaluation happens on the SDK, and no data is passed back to the
@@ -87,7 +89,9 @@ GrowthBook app, you have to describe the attributes for targeting to work correc
 **SDK Configuration** menu, and then **Attributes**. Click on the **Add Attribute** button, and then describe the attributes
 you are passing to the SDK.
 
-## Step 6. [Experiment Analysis] Connect to your data warehouse
+## Experiment Analysis
+
+### Step 6. Connect to your data warehouse
 
 GrowthBook is warehouse native: it connects to your data warehouse and queries it to get the results of your experiments.
 We support all the popular SQL data warehouses such as BigQuery, Snowflake, Postgres, MySQL, Redshift, Databricks, and even Mixpanel.
@@ -107,7 +111,7 @@ to your data warehouse and execute queries with the credentials you provide. The
 generate more accurate SQL templates given the schema the event tracker uses.
 You can find guides on how to set up the data source for your specific data warehouse [here](/warehouses).
 
-## Step 7. [Experiment Analysis] Add a metric or two
+### Step 7. Add a metric or two
 
 GrowthBook needs to know what metrics you want to measure for your experiments. You can add metrics in the GrowthBook UI,
 from the **Metrics** page within the **Metrics and Data** menu. Click on the **Add Metric** button, and then give your metric
@@ -116,7 +120,14 @@ You can read more about metric types on the [Metrics docs page](/app/metrics).
 
 ## Create your first feature flag or experiment
 
-You are now ready to create [features](/app/features) and [add experiment rules](/features/rules), or use the visual experiment editor.
+If you are using us for Feature Flags or as a full service Experimentation Platform:
+
+- You are now create [features](/app/features) and [add experiment rules](/features/rules)
+- Or, you can use the [visual experiment editor](/app/visual).
+
+If you are using us solely for Experimentation Analysis:
+
+- [Import your existing experiments](/app/experiments#adding-an-experiment) from your connected data warehouse
 
 ## Next Steps
 
