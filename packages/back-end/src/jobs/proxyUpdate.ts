@@ -152,7 +152,7 @@ export async function queueProxyUpdate(
 
 function connectionSupportsProxyUpdate(
   connection: SDKConnectionInterface,
-  useCloudProxy: boolean = false
+  useCloudProxy: boolean
 ) {
   if (useCloudProxy) {
     return IS_CLOUD;
