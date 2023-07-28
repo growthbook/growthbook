@@ -95,6 +95,7 @@ export interface SchemaFormatConfig {
   groupByColumns: string[];
   eventHasUniqueTable: boolean;
   dateFormat: string;
+  dateFilterColumn?: string;
 }
 
 export interface DataSourceProperties {

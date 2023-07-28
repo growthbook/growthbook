@@ -95,6 +95,7 @@ export default abstract class SqlIntegration
       "segment",
       "rudderstack",
       "ga4",
+      "amplitude",
     ];
 
     if (
@@ -1445,6 +1446,21 @@ export default abstract class SqlIntegration
   }
   getSchemaFormatConfig(schemaFormat: SchemaFormat): SchemaFormatConfig {
     switch (schemaFormat) {
+      case "amplitude": {
+        return {
+          trackedEventTableName: "EVENTS_*",
+          eventColumn: "event_type",
+          timestampColumn: "event_time",
+          userIdColumn: "user_id",
+          anonymousIdColumn: "amplitude_id",
+          includesPagesTable: false,
+          includesScreensTable: false,
+          groupByColumns: ["event"],
+          eventHasUniqueTable: false,
+          dateFormat: "yyyy-MM-dd",
+          dateFilterColumn: "event_time",
+        };
+      }
       case "ga4": {
         return {
           trackedEventTableName: "events_*",
@@ -1595,6 +1611,7 @@ export default abstract class SqlIntegration
       groupByColumns,
       eventHasUniqueTable,
       dateFormat,
+      dateFilterColumn,
     } = this.getSchemaFormatConfig(schemaFormat);
 
     const today = formatDate(new Date(), dateFormat);
@@ -1613,7 +1630,9 @@ export default abstract class SqlIntegration
           ${
             eventHasUniqueTable
               ? `received_at < '${today}' AND received_at > '${sevenDaysAgo}'`
-              : `_TABLE_SUFFIX BETWEEN '${sevenDaysAgo}' AND'${today}'`
+              : `${
+                  dateFilterColumn ? dateFilterColumn : "_TABLE_SUFFIX"
+                } BETWEEN '${sevenDaysAgo}' AND'${today}'`
           } 
         AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
         GROUP BY ${groupByColumns.join(", ")}
