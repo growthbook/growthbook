@@ -99,13 +99,16 @@ export default function NamespaceSelector({
                   title="Allocation"
                   trackingKey={trackingKey}
                 />
-                <div className="row align-items-center pt-2">
+                <div className="row align-items-center pt-4">
                   <div className="col-auto">
                     <label className="mb-0">Selected Range</label>
                   </div>
                   <div className="col-auto">
+                    <div className="selected-value text-center">
+                      {range[0].toFixed(2)}
+                    </div>
                     <Field
-                      type="number"
+                      type="range"
                       min={0}
                       max={range[1]}
                       step=".01"
@@ -116,8 +119,11 @@ export default function NamespaceSelector({
                   </div>
                   <div className="col-auto">to</div>
                   <div className="col-auto">
+                    <div className="selected-value text-center">
+                      {range[1].toFixed(2)}
+                    </div>
                     <Field
-                      type="number"
+                      type="range"
                       min={range[0]}
                       max={1}
                       step=".01"
