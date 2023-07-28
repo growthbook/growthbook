@@ -174,6 +174,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
         experiment?.sequentialTestingTuningParameter ??
         organization.settings?.sequentialTestingTuningParameter ??
         DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
+      baselineVariation: experiment.variations[0].name
     };
 
     const metricMap = await getMetricMap(organization.id);

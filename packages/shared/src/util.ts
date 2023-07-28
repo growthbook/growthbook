@@ -6,6 +6,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotAnalysisSettings,
   ExperimentSnapshotInterface,
+  ExperimentSnapshotSettings,
 } from "back-end/types/experiment-snapshot";
 import { ExperimentReportVariation } from "back-end/types/report";
 import uniqid from "uniqid";
@@ -47,4 +48,19 @@ export function putBaselineVariationFirst(
     ...variations.filter((v) => v.name === baselineVariation),
     ...variations.filter((v) => v.name !== baselineVariation),
   ];
+}
+
+export function isAnalysisAllowed(snapshotSettings: ExperimentSnapshotSettings, analysisSettings: ExperimentSnapshotAnalysisSettings): boolean {
+  // Analysis dimensions must be subset of snapshot dimensions
+  const snapshotDimIds = snapshotSettings.dimensions.map((d) => d.id)
+  if (!analysisSettings.dimensions.every((d) => snapshotDimIds.includes(d))) {
+    return false;
+  }
+
+  // CUPED only available if available in snapshot
+  if (!snapshotSettings.regressionAdjustmentEnabled && analysisSettings.regressionAdjusted) {
+    return false;
+  }
+
+  return true;
 }

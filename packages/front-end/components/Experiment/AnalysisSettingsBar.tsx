@@ -247,14 +247,13 @@ export default function AnalysisSettingsBar({
                     await apiCall(`/snapshot/${snapshot.id}/analysis`, {
                       method: "POST",
                       body: JSON.stringify({
-                        analysesSettings: [newSettings],
+                        analysisSettings: newSettings,
                       }),
                     })
                       .then(() => {
                         track("Experiment Analysis: switch baseline");
                       })
                       .catch((e) => {
-                        // TODO error handling here
                         setRefreshError(e.message);
                       });
                   }

@@ -11,7 +11,11 @@ import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
 } from "shared/constants";
 import { getScopedSettings } from "shared/settings";
-import { getSnapshotAnalysis, generateVariationId } from "shared/util";
+import {
+  getSnapshotAnalysis,
+  generateVariationId,
+  isAnalysisAllowed,
+} from "shared/util";
 import { updateExperiment } from "../models/ExperimentModel";
 import {
   ExperimentSnapshotAnalysis,
@@ -28,6 +32,7 @@ import { WatchModel } from "../models/WatchModel";
 import { Dimension, ExperimentMetricQueryResponse } from "../types/Integration";
 import {
   createExperimentSnapshotModel,
+  findSnapshotById,
   updateSnapshot,
 } from "../models/ExperimentSnapshotModel";
 import {
@@ -70,9 +75,7 @@ import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
-import { Queries, QueryStatus } from "../../types/query";
-import { getQueriesByIds } from "../models/QueryModel";
-import { QueryMap } from "../queryRunners/QueryRunner";
+import { QueryMap, getQueryMap } from "../queryRunners/QueryRunner";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import { analyzeExperimentMetric, analyzeExperimentResults } from "./stats";
@@ -490,88 +493,87 @@ export async function createSnapshot({
   return queryRunner;
 }
 
-export async function createSnapshotAnalyses({
+export async function createSnapshotAnalysis({
   experiment,
   organization,
-  analysesSettings,
+  analysisSettings,
   metricMap,
   snapshot,
 }: {
   experiment: ExperimentInterface;
   organization: OrganizationInterface;
-  analysesSettings: ExperimentSnapshotAnalysisSettings[];
+  analysisSettings: ExperimentSnapshotAnalysisSettings;
   metricMap: Map<string, MetricInterface>;
   snapshot: ExperimentSnapshotInterface;
-}): Promise<ExperimentSnapshotInterface> {
-  const analyses = snapshot.analyses;
-  // TODO consider abstraction of functionality in ExperimentResultsQueryRunner
-  // which is largely replicated below
+}): Promise<void> {
+  // check if analysis already exists
+  if (getSnapshotAnalysis(snapshot, analysisSettings)) {
+    return;
+  }
 
+  // check if analysis is possible
+  if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
+    // TODO more informative error message
+    throw new Error("Analysis not allowed with this snapshot");
+  }
+
+  const analysis: ExperimentSnapshotAnalysis = {
+    results: [],
+    status: "running",
+    settings: analysisSettings,
+    dateCreated: new Date(),
+  };
+  snapshot.analyses.push(analysis);
+
+  updateSnapshot(organization.id, snapshot.id, { analyses: snapshot.analyses });
   // Check data is available in snapshot
-  function getOverallQueryStatus(): QueryStatus {
-    const hasFailedQueries = snapshot.queries.some(
-      (q) => q.status === "failed"
-    );
-    const hasRunningQueries = snapshot.queries.some(
-      (q) => q.status === "running"
-    );
-    return hasFailedQueries
-      ? "failed"
-      : hasRunningQueries
-      ? "running"
-      : "succeeded";
-  }
-  const queryStatus = getOverallQueryStatus();
-
-  if (queryStatus !== "succeeded") {
-    // TODO return failed status?
-    return snapshot;
-  }
-  // Format data correctly
-  async function getQueryMap(pointers: Queries): Promise<QueryMap> {
-    const queryDocs = await getQueriesByIds(
-      organization.id,
-      pointers.map((q) => q.query)
-    );
-
-    const map: QueryMap = new Map();
-    pointers.forEach((q) => {
-      const query = queryDocs.find((doc) => doc.id === q.query);
-      if (query) {
-        map.set(q.name, query);
-      }
+  if (snapshot.queries.some((q) => q.status === "failed")) {
+    analysis.status = "error";
+    analysis.error = "Snapshot has failed queries";
+    updateSnapshot(organization.id, snapshot.id, {
+      analyses: snapshot.analyses,
     });
-
-    return map;
+    return;
   }
-  const queryMap = await getQueryMap(snapshot.queries);
-  // Run each analysis
-  const newResults: ExperimentSnapshotAnalysis[] = await Promise.all(
-    analysesSettings.map(async (analysisSettings) => {
-      const results = await analyzeExperimentResults({
-        queryData: queryMap,
-        snapshotSettings: snapshot.settings,
-        analysisSettings: analysisSettings,
-        variationNames: experiment.variations.map((v) => v.name),
-        metricMap: metricMap,
-      });
-      return {
-        settings: analysisSettings,
-        results: results.dimensions || [],
-        status: "success", // TODO check if... not success?
-        error: "",
-        dateCreated: new Date(),
-      };
-    })
+  if (snapshot.queries.some((q) => q.status === "running")) {
+    // TODO in this case?
+    return;
+  }
+
+  // Format data correctly
+  const queryMap: QueryMap = await getQueryMap(
+    organization.id,
+    snapshot.queries
   );
 
-  const updatedAnalyses = analyses.concat(newResults);
-  await updateSnapshot(organization.id, snapshot.id, {
-    analyses: updatedAnalyses,
+  // Run the analysis
+  const results = await analyzeExperimentResults({
+    queryData: queryMap,
+    snapshotSettings: snapshot.settings,
+    analysisSettings: analysisSettings,
+    variationNames: experiment.variations.map((v) => v.name),
+    metricMap: metricMap,
   });
-  // TODO is the return here necessary?
-  snapshot.analyses = updatedAnalyses;
-  return snapshot;
+  analysis.results = results.dimensions || [];
+  analysis.status = "success";
+  analysis.error = undefined;
+
+  // fetch snapshot again to prevent race conditions if above gbstats call is slow
+  const refetchedSnapshot = await findSnapshotById(
+    organization.id,
+    snapshot.id
+  );
+  if (!refetchedSnapshot) {
+    throw new Error("Snapshot deleted between creating and writing analysis");
+  }
+  // update matching analysis or set if not found for some reason
+  Object.assign(
+    getSnapshotAnalysis(refetchedSnapshot, analysisSettings) ?? analysis,
+    analysis
+  );
+  updateSnapshot(organization.id, snapshot.id, {
+    analyses: refetchedSnapshot.analyses,
+  });
 }
 
 export async function ensureWatching(

@@ -11,7 +11,7 @@ import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
   createSnapshot,
-  createSnapshotAnalyses,
+  createSnapshotAnalysis,
   ensureWatching,
   getExperimentWatchers,
   getManualSnapshotData,
@@ -1625,7 +1625,8 @@ export async function postSnapshot(
     regressionAdjusted: !!regressionAdjustmentEnabled,
     dimensions: dimension ? [dimension] : [],
     sequentialTesting: !!sequentialTestingEnabled,
-    sequentialTestingTuningParameter,
+    sequentialTestingTuningParameter: sequentialTestingTuningParameter,
+    baselineVariation: experiment.variations[0].name
   };
 
   const metricMap = await getMetricMap(org.id);
@@ -1725,7 +1726,7 @@ export async function postSnapshot(
 export async function postSnapshotAnalyses(
   req: AuthRequest<
     {
-      analysesSettings: ExperimentSnapshotAnalysisSettings[];
+      analysisSettings: ExperimentSnapshotAnalysisSettings;
     },
     { id: string }
   >,
@@ -1743,7 +1744,7 @@ export async function postSnapshotAnalyses(
     return;
   }
 
-  const { analysesSettings } = req.body;
+  const { analysisSettings } = req.body;
 
   const experiment = await getExperimentById(org.id, snapshot.experiment);
   if (!experiment) {
@@ -1757,16 +1758,15 @@ export async function postSnapshotAnalyses(
   const metricMap = await getMetricMap(org.id);
 
   try {
-    const updatedSnapshot = await createSnapshotAnalyses({
+    await createSnapshotAnalysis({
       experiment: experiment,
       organization: org,
-      analysesSettings: analysesSettings,
+      analysisSettings: analysisSettings,
       metricMap: metricMap,
       snapshot: snapshot,
     });
     res.status(200).json({
-      status: 200,
-      updatedSnapshot,
+      status: 200
     });
   } catch (e) {
     req.log.error(e, "Failed to create experiment snapshot analysis");

@@ -17,7 +17,7 @@ const snapshotContext = React.createContext<{
   mutateSnapshot: () => void;
   phase: number;
   dimension: string;
-  analysisSettings?: ExperimentSnapshotAnalysisSettings | undefined;
+  analysisSettings?: ExperimentSnapshotAnalysisSettings | null;
   setPhase: (phase: number) => void;
   setDimension: (dimension: string) => void;
   setAnalysisSettings: (
@@ -65,7 +65,6 @@ export default function SnapshotProvider({
   const [analysisSettings, setAnalysisSettings] = useState(
     defaultSnapshotSettings
   );
-
   return (
     <snapshotContext.Provider
       value={{
