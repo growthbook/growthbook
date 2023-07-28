@@ -29,11 +29,7 @@ properties:
       - json
   defaultValue:
     description: Default value when feature is enabled. Type must match `valueType`.
-    oneOf:
-      - type: string
-      - type: number
-      - type: boolean
-      - type: object
+    type: string
   tags:
     type: array
     items:

@@ -1080,7 +1080,7 @@ export interface operations {
            */
           valueType: "boolean" | "string" | "number" | "json";
           /** @description Default value when feature is enabled. Type must match `valueType`. */
-          defaultValue: string | number | boolean | any;
+          defaultValue: string;
           /** @description List of associated tags */
           tags?: (string)[];
           /** @description A dictionary of environments that are enabled for this feature. Keys supply the names of environments. Environments belong to organization and are not specified will be disabled by default. */
@@ -1461,7 +1461,7 @@ export interface operations {
           /** @description An associated project ID */
           project?: string;
           owner?: string;
-          defaultValue?: string | number | boolean | any;
+          defaultValue?: string;
           /** @description List of associated tags. Will override tags completely with submitted list */
           tags?: (string)[];
           environments?: {
