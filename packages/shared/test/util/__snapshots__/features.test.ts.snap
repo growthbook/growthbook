@@ -1,0 +1,93 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`getValidation returns validationEnabled as false if jsonSchema enabled value is false 1`] = `
+Object {
+  "jsonSchema": Object {
+    "properties": Object {
+      "test": Object {
+        "type": "string",
+      },
+    },
+    "type": "object",
+  },
+  "schemaDateUpdated": 2020-04-20T00:00:00.000Z,
+  "validationEnabled": false,
+}
+`;
+
+exports[`getValidation returns validationEnabled as false if jsonSchema is invalid 1`] = `
+Object {
+  "jsonSchema": null,
+  "schemaDateUpdated": null,
+  "validationEnabled": false,
+}
+`;
+
+exports[`getValidation returns validationEnabled as false if jsonSchema is undefined 1`] = `
+Object {
+  "jsonSchema": null,
+  "schemaDateUpdated": undefined,
+  "validationEnabled": false,
+}
+`;
+
+exports[`getValidation returns validationEnabled as true if jsonSchema is populated and enabled 1`] = `
+Object {
+  "jsonSchema": Object {
+    "properties": Object {
+      "test": Object {
+        "type": "string",
+      },
+    },
+    "type": "object",
+  },
+  "schemaDateUpdated": 2020-04-20T00:00:00.000Z,
+  "validationEnabled": true,
+}
+`;
+
+exports[`validateJSONFeatureValue returns valid as false if all values are valid but json schema test fails 1`] = `
+Object {
+  "enabled": true,
+  "errors": Array [
+    "Invalid value for field: test/type must be string",
+  ],
+  "valid": false,
+}
+`;
+
+exports[`validateJSONFeatureValue returns valid as false if json schema is invalid 1`] = `
+Object {
+  "enabled": true,
+  "errors": Array [
+    "strict mode: unknown keyword: \\"test\\"",
+  ],
+  "valid": false,
+}
+`;
+
+exports[`validateJSONFeatureValue returns valid as false if unparseable json value is supplied 1`] = `
+Object {
+  "enabled": true,
+  "errors": Array [
+    "Found } that I can't handle at line 0:12",
+  ],
+  "valid": false,
+}
+`;
+
+exports[`validateJSONFeatureValue returns valid as true if all values are valid and json schema test passes 1`] = `
+Object {
+  "enabled": true,
+  "errors": Array [],
+  "valid": true,
+}
+`;
+
+exports[`validateJSONFeatureValue returns valid as true if validation is not enabled 1`] = `
+Object {
+  "enabled": false,
+  "errors": Array [],
+  "valid": true,
+}
+`;
