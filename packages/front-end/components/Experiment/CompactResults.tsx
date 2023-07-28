@@ -151,7 +151,7 @@ const CompactResults: FC<{
           tableRowAxis="metric"
           labelHeader="Goal Metrics"
           editMetrics={editMetrics}
-          users={users}
+          // users={users}
           statsEngine={statsEngine}
           sequentialTestingEnabled={sequentialTestingEnabled}
           pValueCorrection={pValueCorrection}
@@ -179,7 +179,9 @@ const CompactResults: FC<{
             statsEngine={statsEngine}
             sequentialTestingEnabled={sequentialTestingEnabled}
             pValueCorrection={pValueCorrection}
-            renderLabelColumn={getRenderLabelColumn(regressionAdjustmentEnabled)}
+            renderLabelColumn={getRenderLabelColumn(
+              regressionAdjustmentEnabled
+            )}
             showAdvanced={showAdvanced}
           />
         </div>
@@ -223,18 +225,15 @@ const CompactResults: FC<{
 };
 export default CompactResults;
 
-
 function getRenderLabelColumn(regressionAdjustmentEnabled) {
-  return (label, metric, row) => {
+  return function renderLabelColumn(label, metric, row) {
     const metricLink = (
       <Tooltip
         body={
           <MetricTooltipBody
             metric={metric}
             row={row}
-            reportRegressionAdjustmentEnabled={
-              regressionAdjustmentEnabled
-            }
+            reportRegressionAdjustmentEnabled={regressionAdjustmentEnabled}
             newUi={true}
           />
         }
@@ -259,13 +258,13 @@ function getRenderLabelColumn(regressionAdjustmentEnabled) {
         >
           <div
             className="d-inline-block mr-1 position-relative"
-            style={{width: 12, height: 12}}
+            style={{ width: 12, height: 12 }}
           >
-            <GBCuped className="position-absolute" size={12}/>
+            <GBCuped className="position-absolute" size={12} />
             <FaTimes
               className="position-absolute"
               color="#ff0000"
-              style={{transform: "scale(0.7)", top: -4, right: -8}}
+              style={{ transform: "scale(0.7)", top: -4, right: -8 }}
             />
           </div>
         </Tooltip>
@@ -276,7 +275,7 @@ function getRenderLabelColumn(regressionAdjustmentEnabled) {
         body="metric is inverse, lower is better"
         className="inverse-indicator ml-1"
       >
-        <MdSwapCalls/>
+        <MdSwapCalls />
       </Tooltip>
     ) : null;
 

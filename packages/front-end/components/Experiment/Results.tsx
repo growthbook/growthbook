@@ -15,12 +15,9 @@ import FilterSummary from "@/components/Experiment/FilterSummary";
 import DateResults from "@/components/Experiment/DateResults";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
-import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import StatusBanner from "@/components/Experiment/StatusBanner";
-import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
-import PValueGuardrailResults from "./PValueGuardrailResults";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -60,8 +57,6 @@ const Results: FC<{
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
 }) => {
-  const { getMetricById } = useDefinitions();
-
   const { apiCall } = useAuth();
 
   // todo: move to snapshot property
@@ -81,7 +76,7 @@ const Results: FC<{
 
   useEffect(() => {
     setPhase(experiment.phases.length - 1);
-  }, [experiment.phases.length]);
+  }, [experiment.phases.length, setPhase]);
 
   const permissions = usePermissions();
   const { getDatasourceById } = useDefinitions();

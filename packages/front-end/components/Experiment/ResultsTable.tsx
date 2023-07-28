@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import {FaArrowDown, FaArrowUp, FaQuestionCircle} from "react-icons/fa";
+import { FaArrowDown, FaArrowUp, FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
@@ -37,7 +37,7 @@ export type ResultsTableProps = {
   isLatestPhase: boolean;
   startDate: string;
   rows: ExperimentTableRow[];
-  users?: number[];
+  // users?: number[];
   metricsAsGuardrails?: boolean;
   tableRowAxis: "metric" | "dimension";
   labelHeader: string;
@@ -58,7 +58,7 @@ export type ResultsTableProps = {
   showAdvanced: boolean;
 };
 
-const numberFormatter = new Intl.NumberFormat();
+// const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
@@ -69,7 +69,7 @@ export default function ResultsTable({
   isLatestPhase,
   status,
   rows,
-  users,
+  // users,
   metricsAsGuardrails,
   tableRowAxis,
   labelHeader,
@@ -146,7 +146,7 @@ export default function ResultsTable({
 
   return (
     <div ref={tableContainerRef} style={{ minWidth: 1000 }}>
-{/*      {users ? (
+      {/*      {users ? (
         <table
           className="experiment-results table table-borderless"
           style={{ width: "auto" }}
@@ -212,24 +212,26 @@ export default function ResultsTable({
                 </a>
               ) : null}
             </th>
-            {showAdvanced ? (<>
-            <th style={{ width: 110 }} className="axis-col label">
-              Baseline
-              <span
-                className={`variation variation${baselineRow} with-variation-label`}
-              >
-                <span
-                  className="label ml-1"
-                  style={{ width: 20, height: 20, marginRight: -20 }}
-                >
-                  {baselineRow}
-                </span>
-              </span>
-            </th>
-            <th style={{ width: 110 }} className="axis-col label">
-              Value
-            </th>
-            </>) : null}
+            {showAdvanced ? (
+              <>
+                <th style={{ width: 110 }} className="axis-col label">
+                  Baseline
+                  <span
+                    className={`variation variation${baselineRow} with-variation-label`}
+                  >
+                    <span
+                      className="label ml-1"
+                      style={{ width: 20, height: 20, marginRight: -20 }}
+                    >
+                      {baselineRow}
+                    </span>
+                  </span>
+                </th>
+                <th style={{ width: 110 }} className="axis-col label">
+                  Value
+                </th>
+              </>
+            ) : null}
             <th style={{ width: 120 }} className="axis-col label text-right">
               {statsEngine === "bayesian" ? (
                 <>Chance to Win</>
@@ -304,7 +306,10 @@ export default function ResultsTable({
               }}
             >
               <tr className="results-label-row">
-                <th colSpan={showAdvanced ? 4 : 2} className="metric-label pb-2">
+                <th
+                  colSpan={showAdvanced ? 4 : 2}
+                  className="metric-label pb-2"
+                >
                   {renderLabelColumn(row.label, row.metric, row)}
                 </th>
                 <th>
@@ -394,26 +399,30 @@ export default function ResultsTable({
                         users={stats?.users || 0}
                         className="value variation"
                       />
-                    ): null}
+                    ) : null}
                     {j > 0 ? (
                       statsEngine === "bayesian" ? (
-                        <ChanceToWinColumn
-                          baseline={baseline}
-                          stats={stats}
-                          status={status}
-                          isLatestPhase={isLatestPhase}
-                          startDate={startDate}
-                          metric={row.metric}
-                          snapshotDate={dateCreated}
-                          className={clsx("text-right results-ctw", {
-                            significant: significant,
-                            "non-significant": !significant,
-                            positive: stats.expected > 0,
-                            negative: stats.expected < 0,
-                          })}
-                          newUi={true}
-                        />
-                      ) : (
+                        !metricsAsGuardrails ? (
+                          <ChanceToWinColumn
+                            baseline={baseline}
+                            stats={stats}
+                            status={status}
+                            isLatestPhase={isLatestPhase}
+                            startDate={startDate}
+                            metric={row.metric}
+                            snapshotDate={dateCreated}
+                            className={clsx("text-right results-ctw", {
+                              significant: significant,
+                              "non-significant": !significant,
+                              positive: stats.expected > 0,
+                              negative: stats.expected < 0,
+                            })}
+                            newUi={true}
+                          />
+                        ) : (
+                          <td>todo</td>
+                        )
+                      ) : !metricsAsGuardrails ? (
                         <PValueColumn
                           baseline={baseline}
                           stats={stats}
@@ -431,6 +440,8 @@ export default function ResultsTable({
                           })}
                           newUi={true}
                         />
+                      ) : (
+                        <td>todo</td>
                       )
                     ) : (
                       <td></td>
@@ -473,10 +484,12 @@ export default function ResultsTable({
                             negative: stats.expected < 0,
                           })}
                         >
-                          <div className={clsx("nowrap change", {
-                            "text-left": showAdvanced,
-                            "text-right": !showAdvanced,
-                          })}>
+                          <div
+                            className={clsx("nowrap change", {
+                              "text-left": showAdvanced,
+                              "text-right": !showAdvanced,
+                            })}
+                          >
                             <span className="expectedArrows">
                               {(stats.expected ?? 0) > 0 ? (
                                 <FaArrowUp />
@@ -510,10 +523,12 @@ export default function ResultsTable({
               {/*spacer row*/}
               <tr className="results-label-row" style={{ lineHeight: "1px" }}>
                 <td></td>
-                {showAdvanced ? (<>
-                  <td></td>
-                  <td></td>
-                </>) : null}
+                {showAdvanced ? (
+                  <>
+                    <td></td>
+                    <td></td>
+                  </>
+                ) : null}
                 <td></td>
                 <td>
                   <AlignedGraph

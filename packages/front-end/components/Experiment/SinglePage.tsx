@@ -89,7 +89,6 @@ import StatusIndicator from "./StatusIndicator";
 import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
 import VariationsTable from "./VariationsTable";
 import VisualChangesetModal from "./VisualChangesetModal";
-import StatusBanner from "./StatusBanner";
 
 function drawMetricRow(
   m: string,

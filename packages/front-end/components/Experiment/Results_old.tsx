@@ -79,7 +79,7 @@ const Results_old: FC<{
 
   useEffect(() => {
     setPhase(experiment.phases.length - 1);
-  }, [experiment.phases.length]);
+  }, [experiment.phases.length, setPhase]);
 
   const permissions = usePermissions();
   const { getDatasourceById } = useDefinitions();
