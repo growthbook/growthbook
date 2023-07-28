@@ -22,6 +22,7 @@ export type ExperimentTableRow = {
   variations: SnapshotMetric[];
   rowClass?: string;
   regressionAdjustmentStatus?: MetricRegressionAdjustmentStatus;
+  isGuardrail?: boolean;
 };
 
 export function hasEnoughData(

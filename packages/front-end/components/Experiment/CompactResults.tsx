@@ -65,38 +65,45 @@ const CompactResults: FC<{
   const { getMetricById, ready } = useDefinitions();
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
+    function getRow(metricId: string, isGuardrail: boolean) {
+      const metric = getMetricById(metricId);
+      if (!metric) return null;
+      const { newMetric } = applyMetricOverrides(metric, metricOverrides);
+      let regressionAdjustmentStatus:
+        | MetricRegressionAdjustmentStatus
+        | undefined;
+      if (regressionAdjustmentEnabled && metricRegressionAdjustmentStatuses) {
+        regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find(
+          (s) => s.metric === metricId
+        );
+      }
+      return {
+        label: newMetric?.name,
+        metric: newMetric,
+        rowClass: newMetric?.inverse ? "inverse" : "",
+        variations: results.variations.map((v) => {
+          return v.metrics[metricId];
+        }),
+        regressionAdjustmentStatus,
+        isGuardrail,
+      };
+    }
+
     if (!results || !results.variations || !ready) return [];
     if (pValueCorrection && statsEngine === "frequentist") {
       setAdjustedPValuesOnResults([results], metrics, pValueCorrection);
     }
-    return metrics
-      .map((metricId) => {
-        const metric = getMetricById(metricId);
-        if (!metric) return null;
-        const { newMetric } = applyMetricOverrides(metric, metricOverrides);
-        let regressionAdjustmentStatus:
-          | MetricRegressionAdjustmentStatus
-          | undefined;
-        if (regressionAdjustmentEnabled && metricRegressionAdjustmentStatuses) {
-          regressionAdjustmentStatus = metricRegressionAdjustmentStatuses.find(
-            (s) => s.metric === metricId
-          );
-        }
-
-        return {
-          label: newMetric?.name,
-          metric: newMetric,
-          rowClass: newMetric?.inverse ? "inverse" : "",
-          variations: results.variations.map((v) => {
-            return v.metrics[metricId];
-          }),
-          regressionAdjustmentStatus,
-        };
-      })
+    const retMetrics = metrics
+      .map((metricId) => getRow(metricId, false))
       .filter((row) => row?.metric) as ExperimentTableRow[];
+    const retGuardrails = guardrails
+      .map((metricId) => getRow(metricId, true))
+      .filter((row) => row?.metric) as ExperimentTableRow[];
+    return [...retMetrics, ...retGuardrails];
   }, [
     results,
     metrics,
+    guardrails,
     metricOverrides,
     regressionAdjustmentEnabled,
     metricRegressionAdjustmentStatuses,
@@ -112,6 +119,8 @@ const CompactResults: FC<{
   }, [results, variations]);
   const risk = useRiskVariation(variations.length, rows);
 
+  const [showAdvanced, setShowAdvanced] = React.useState(false);
+
   return (
     <>
       <div className="">
@@ -121,6 +130,14 @@ const CompactResults: FC<{
           multipleExposures={multipleExposures}
         />
       </div>
+      <div>
+        <button
+          className="btn btn-link btn-sm"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+        >
+          {showAdvanced ? "Hide" : "Show"} Advanced
+        </button>
+      </div>
       <div className="w-100 overflow-auto">
         <ResultsTable
           dateCreated={reportDate}
@@ -128,7 +145,7 @@ const CompactResults: FC<{
           startDate={startDate}
           status={status}
           variations={variations}
-          rows={rows}
+          rows={rows.filter((r) => !r.isGuardrail)}
           id={id}
           {...risk}
           tableRowAxis="metric"
@@ -138,71 +155,35 @@ const CompactResults: FC<{
           statsEngine={statsEngine}
           sequentialTestingEnabled={sequentialTestingEnabled}
           pValueCorrection={pValueCorrection}
-          renderLabelColumn={(label, metric, row) => {
-            const metricLink = (
-              <Tooltip
-                body={
-                  <MetricTooltipBody
-                    metric={metric}
-                    row={row}
-                    reportRegressionAdjustmentEnabled={
-                      regressionAdjustmentEnabled
-                    }
-                    newUi={true}
-                  />
-                }
-                tipPosition="right"
-              >
-                <Link href={`/metric/${metric.id}`}>
-                  <a className="metriclabel text-dark">{label}</a>
-                </Link>
-              </Tooltip>
-            );
-
-            const cupedIconDisplay =
-              regressionAdjustmentEnabled &&
-              !row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled ? (
-                <Tooltip
-                  className="ml-1"
-                  body={
-                    row?.regressionAdjustmentStatus?.reason
-                      ? `CUPED disabled: ${row?.regressionAdjustmentStatus?.reason}`
-                      : `CUPED disabled`
-                  }
-                >
-                  <div
-                    className="d-inline-block mr-1 position-relative"
-                    style={{ width: 12, height: 12 }}
-                  >
-                    <GBCuped className="position-absolute" size={12} />
-                    <FaTimes
-                      className="position-absolute"
-                      color="#ff0000"
-                      style={{ transform: "scale(0.7)", top: -4, right: -8 }}
-                    />
-                  </div>
-                </Tooltip>
-              ) : null;
-
-            const metricInverseIconDisplay = metric.inverse ? (
-              <Tooltip
-                body="metric is inverse, lower is better"
-                className="inverse-indicator ml-1"
-              >
-                <MdSwapCalls />
-              </Tooltip>
-            ) : null;
-
-            return (
-              <>
-                {metricLink}
-                {metricInverseIconDisplay}
-                {cupedIconDisplay}
-              </>
-            );
-          }}
+          renderLabelColumn={getRenderLabelColumn(regressionAdjustmentEnabled)}
+          showAdvanced={showAdvanced}
         />
       </div>
+
+      {guardrails.length > 0 ? (
+        <div className="w-100 overflow-auto">
+          <ResultsTable
+            dateCreated={reportDate}
+            isLatestPhase={isLatestPhase}
+            startDate={startDate}
+            status={status}
+            variations={variations}
+            rows={rows.filter((r) => r.isGuardrail)}
+            guardrails={guardrails}
+            id={id}
+            {...risk}
+            tableRowAxis="metric"
+            labelHeader="Guardrail Metrics"
+            editMetrics={editMetrics}
+            metricsAsGuardrails={true}
+            statsEngine={statsEngine}
+            sequentialTestingEnabled={sequentialTestingEnabled}
+            pValueCorrection={pValueCorrection}
+            renderLabelColumn={getRenderLabelColumn(regressionAdjustmentEnabled)}
+            showAdvanced={showAdvanced}
+          />
+        </div>
+      ) : null}
 
       {(guardrails?.length ?? 0) > 0 && (
         <div className="mt-1 px-3">
@@ -241,3 +222,70 @@ const CompactResults: FC<{
   );
 };
 export default CompactResults;
+
+
+function getRenderLabelColumn(regressionAdjustmentEnabled) {
+  return (label, metric, row) => {
+    const metricLink = (
+      <Tooltip
+        body={
+          <MetricTooltipBody
+            metric={metric}
+            row={row}
+            reportRegressionAdjustmentEnabled={
+              regressionAdjustmentEnabled
+            }
+            newUi={true}
+          />
+        }
+        tipPosition="right"
+      >
+        <Link href={`/metric/${metric.id}`}>
+          <a className="metriclabel text-dark">{label}</a>
+        </Link>
+      </Tooltip>
+    );
+
+    const cupedIconDisplay =
+      regressionAdjustmentEnabled &&
+      !row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled ? (
+        <Tooltip
+          className="ml-1"
+          body={
+            row?.regressionAdjustmentStatus?.reason
+              ? `CUPED disabled: ${row?.regressionAdjustmentStatus?.reason}`
+              : `CUPED disabled`
+          }
+        >
+          <div
+            className="d-inline-block mr-1 position-relative"
+            style={{width: 12, height: 12}}
+          >
+            <GBCuped className="position-absolute" size={12}/>
+            <FaTimes
+              className="position-absolute"
+              color="#ff0000"
+              style={{transform: "scale(0.7)", top: -4, right: -8}}
+            />
+          </div>
+        </Tooltip>
+      ) : null;
+
+    const metricInverseIconDisplay = metric.inverse ? (
+      <Tooltip
+        body="metric is inverse, lower is better"
+        className="inverse-indicator ml-1"
+      >
+        <MdSwapCalls/>
+      </Tooltip>
+    ) : null;
+
+    return (
+      <>
+        {metricLink}
+        {metricInverseIconDisplay}
+        {cupedIconDisplay}
+      </>
+    );
+  };
+}

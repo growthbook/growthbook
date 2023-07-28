@@ -265,7 +265,12 @@ pre {
   }
   .significant {
     font-weight: bold;
-    color: var(--text-link-hover-color);
+    &.positive {
+      color: #09ac17;
+    }
+    &.negative {
+      color: #d94032;
+    }
   }
 }
 

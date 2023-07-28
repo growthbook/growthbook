@@ -152,7 +152,7 @@ const PValueColumn: FC<{
         shouldDisplay={sigText !== ""}
       >
         {!baseline?.value || !stats?.value ? (
-          <em className={newUi ? "text-blue font-weight-normal" : ""}>
+          <em className={newUi ? "text-gray font-weight-normal" : ""}>
             no data
           </em>
         ) : !enoughData ? (

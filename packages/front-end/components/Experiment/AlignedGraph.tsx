@@ -48,7 +48,7 @@ const AlignedGraph: FC<Props> = ({
   height = 30,
   inverse = false,
   graphWidth = 500,
-  gridColor = "#90e0efaa",
+  gridColor = "#5c9ea94c",
   axisColor = "var(--text-link-hover-color)",
   zeroLineColor = "#0077b6",
   barColor = "#aaaaaaaa",
@@ -58,7 +58,7 @@ const AlignedGraph: FC<Props> = ({
 }) => {
   if (newUi) {
     sigBarColorPos = "#52be5b";
-    sigBarColorNeg = "#be9c96";
+    sigBarColorNeg = "#d35a5a";
   }
 
   if (barType == "violin" && !uplift) {
@@ -261,7 +261,7 @@ const AlignedGraph: FC<Props> = ({
                         <Line
                           fill="#000000"
                           strokeWidth={3}
-                          stroke={"#666"}
+                          stroke={"#0005"}
                           from={{ x: xScale(expected ?? 0), y: barHeight }}
                           to={{
                             x: xScale(expected ?? 0),

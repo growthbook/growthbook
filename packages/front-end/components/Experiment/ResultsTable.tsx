@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { FaArrowDown, FaArrowUp, FaQuestionCircle } from "react-icons/fa";
+import {FaArrowDown, FaArrowUp, FaQuestionCircle} from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
@@ -38,6 +38,7 @@ export type ResultsTableProps = {
   startDate: string;
   rows: ExperimentTableRow[];
   users?: number[];
+  metricsAsGuardrails?: boolean;
   tableRowAxis: "metric" | "dimension";
   labelHeader: string;
   editMetrics?: () => void;
@@ -54,6 +55,7 @@ export type ResultsTableProps = {
   statsEngine?: StatsEngine;
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
+  showAdvanced: boolean;
 };
 
 const numberFormatter = new Intl.NumberFormat();
@@ -68,6 +70,7 @@ export default function ResultsTable({
   status,
   rows,
   users,
+  metricsAsGuardrails,
   tableRowAxis,
   labelHeader,
   editMetrics,
@@ -82,6 +85,7 @@ export default function ResultsTable({
   statsEngine = DEFAULT_STATS_ENGINE,
   pValueCorrection,
   sequentialTestingEnabled = false,
+  showAdvanced = false,
 }: ResultsTableProps) {
   const { metricDefaults } = useOrganizationMetricDefaults();
   const { ciUpper, ciLower } = useConfidenceLevels();
@@ -109,11 +113,15 @@ export default function ResultsTable({
   }
 
   useEffect(() => {
-    window.addEventListener("resize", onResize);
+    window.addEventListener("resize", onResize, false);
+    return () => window.removeEventListener("resize", onResize, false);
   }, []);
   useLayoutEffect(() => {
     onResize();
   }, []);
+  useEffect(() => {
+    onResize();
+  }, [showAdvanced]);
 
   const orgSettings = useOrgSettings();
 
@@ -125,13 +133,20 @@ export default function ResultsTable({
   // todo: hasRisk toggle. minimally supported now, but should be more thoughtful
   // todo: some CI info in the % Change column (togglable?)
   // todo: tooltips
+
   // todo: highlighting, risk (SelectField?), significance, etc
+  // Risk is always in the tooltip, and continue to be shaded as it currently is wrt the
+  // acceptable and unacceptable risk levels.
+  //
+  // However, we only surface it in the Chance To Win column if:
+  // - CTW > 95% (or threshold) AND risk of Variation is NOT acceptable
+  // - OR if CTW < 5% (or 100-threshold) AND risk of Control is NOT acceptable.
 
   // todo: StatusBanner?
 
   return (
     <div ref={tableContainerRef} style={{ minWidth: 1000 }}>
-      {users ? (
+{/*      {users ? (
         <table
           className="experiment-results table table-borderless"
           style={{ width: "auto" }}
@@ -174,7 +189,7 @@ export default function ResultsTable({
             ))}
           </tbody>
         </table>
-      ) : null}
+      ) : null}*/}
 
       <table
         id="main-results"
@@ -197,7 +212,8 @@ export default function ResultsTable({
                 </a>
               ) : null}
             </th>
-            <th style={{ width: 100 }} className="axis-col label">
+            {showAdvanced ? (<>
+            <th style={{ width: 110 }} className="axis-col label">
               Baseline
               <span
                 className={`variation variation${baselineRow} with-variation-label`}
@@ -210,37 +226,10 @@ export default function ResultsTable({
                 </span>
               </span>
             </th>
-            <th style={{ width: 100 }} className="axis-col label">
+            <th style={{ width: 110 }} className="axis-col label">
               Value
             </th>
-            <th
-              className="axis-col graphCell"
-              style={{ maxWidth: graphCellWidth }}
-            >
-              <AlignedGraph
-                id={`${id}_axis`}
-                domain={domain}
-                significant={true}
-                showAxis={true}
-                axisOnly={true}
-                graphWidth={graphCellWidth}
-                height={45}
-                newUi={true}
-              />
-            </th>
-            <th style={{ width: 140 }} className="axis-col label text-right">
-              <Tooltip
-                innerClassName={"text-left"}
-                body={getPercentChangeTooltip(
-                  statsEngine ?? DEFAULT_STATS_ENGINE,
-                  hasRisk,
-                  !!sequentialTestingEnabled,
-                  pValueCorrection ?? null
-                )}
-              >
-                % Change <FaQuestionCircle />
-              </Tooltip>
-            </th>
+            </>) : null}
             <th style={{ width: 120 }} className="axis-col label text-right">
               {statsEngine === "bayesian" ? (
                 <>Chance to Win</>
@@ -259,6 +248,41 @@ export default function ResultsTable({
               ) : (
                 <>P-value</>
               )}
+            </th>
+            <th
+              className="axis-col graphCell position-relative"
+              style={{ maxWidth: graphCellWidth }}
+            >
+              <AlignedGraph
+                id={`${id}_axis`}
+                domain={domain}
+                significant={true}
+                showAxis={true}
+                axisOnly={true}
+                graphWidth={graphCellWidth}
+                height={45}
+                newUi={true}
+              />
+              <Tooltip
+                className={"position-absolute"}
+                style={{
+                  bottom: 8,
+                  right: -18,
+                  color: "var(--text-link-hover-color)",
+                }}
+                innerClassName={"text-left"}
+                body={getPercentChangeTooltip(
+                  statsEngine ?? DEFAULT_STATS_ENGINE,
+                  hasRisk,
+                  !!sequentialTestingEnabled,
+                  pValueCorrection ?? null
+                )}
+              >
+                <FaQuestionCircle />
+              </Tooltip>
+            </th>
+            <th style={{ width: 140 }} className="axis-col label text-right">
+              % Change
             </th>
           </tr>
         </thead>
@@ -280,7 +304,7 @@ export default function ResultsTable({
               }}
             >
               <tr className="results-label-row">
-                <th colSpan={3} className="metric-label pb-2">
+                <th colSpan={showAdvanced ? 4 : 2} className="metric-label pb-2">
                   {renderLabelColumn(row.label, row.metric, row)}
                 </th>
                 <th>
@@ -295,7 +319,6 @@ export default function ResultsTable({
                     newUi={true}
                   />
                 </th>
-                <th></th>
                 <th></th>
               </tr>
 
@@ -338,7 +361,7 @@ export default function ResultsTable({
                   >
                     <td
                       className={`variation with-variation-label variation${j} d-inline-flex align-items-center`}
-                      style={{ width: 180 }}
+                      style={{ width: 180, paddingTop: 6 }}
                     >
                       <span
                         className="label ml-1"
@@ -346,14 +369,14 @@ export default function ResultsTable({
                       >
                         {j}
                       </span>
-                      <div
-                        className="text-ellipsis font-weight-bold"
+                      <span
+                        className="d-inline-block text-ellipsis font-weight-bold"
                         style={{ width: 125 }}
                       >
                         {v.name}
-                      </div>
+                      </span>
                     </td>
-                    {j === 1 ? (
+                    {showAdvanced && j === 1 ? (
                       // draw baseline value once, merge rows
                       <MetricValueColumn
                         metric={row.metric}
@@ -364,12 +387,54 @@ export default function ResultsTable({
                         rowSpan={row.variations.length - 1}
                       />
                     ) : null}
-                    <MetricValueColumn
-                      metric={row.metric}
-                      stats={stats}
-                      users={stats?.users || 0}
-                      className="value variation"
-                    />
+                    {showAdvanced ? (
+                      <MetricValueColumn
+                        metric={row.metric}
+                        stats={stats}
+                        users={stats?.users || 0}
+                        className="value variation"
+                      />
+                    ): null}
+                    {j > 0 ? (
+                      statsEngine === "bayesian" ? (
+                        <ChanceToWinColumn
+                          baseline={baseline}
+                          stats={stats}
+                          status={status}
+                          isLatestPhase={isLatestPhase}
+                          startDate={startDate}
+                          metric={row.metric}
+                          snapshotDate={dateCreated}
+                          className={clsx("text-right results-ctw", {
+                            significant: significant,
+                            "non-significant": !significant,
+                            positive: stats.expected > 0,
+                            negative: stats.expected < 0,
+                          })}
+                          newUi={true}
+                        />
+                      ) : (
+                        <PValueColumn
+                          baseline={baseline}
+                          stats={stats}
+                          status={status}
+                          isLatestPhase={isLatestPhase}
+                          startDate={startDate}
+                          metric={row.metric}
+                          snapshotDate={dateCreated}
+                          pValueCorrection={pValueCorrection}
+                          className={clsx("text-right results-pval", {
+                            significant: significant,
+                            "non-significant": !significant,
+                            positive: stats.expected > 0,
+                            negative: stats.expected < 0,
+                          })}
+                          newUi={true}
+                        />
+                      )
+                    ) : (
+                      <td></td>
+                    )}
                     <td>
                       {j > 0 ? (
                         <PercentGraph
@@ -404,9 +469,14 @@ export default function ResultsTable({
                           className={clsx("results-change", {
                             significant: significant,
                             "non-significant": !significant,
+                            positive: stats.expected > 0,
+                            negative: stats.expected < 0,
                           })}
                         >
-                          <div className="text-left nowrap change">
+                          <div className={clsx("nowrap change", {
+                            "text-left": showAdvanced,
+                            "text-right": !showAdvanced,
+                          })}>
                             <span className="expectedArrows">
                               {(stats.expected ?? 0) > 0 ? (
                                 <FaArrowUp />
@@ -420,46 +490,18 @@ export default function ResultsTable({
                               ) + "%"}{" "}
                             </span>
                           </div>
-                          <div className="text-right nowrap ci">
-                            [{percentFormatter.format(stats.ci?.[0] ?? 0)},{" "}
-                            {percentFormatter.format(stats.ci?.[1] ?? 0)}]
-                          </div>
+                          {showAdvanced ? (
+                            <div className="text-right nowrap ci">
+                              [{percentFormatter.format(stats.ci?.[0] ?? 0)},{" "}
+                              {percentFormatter.format(stats.ci?.[1] ?? 0)}]
+                            </div>
+                          ) : null}
                         </td>
                       </>
                     ) : (
                       <>
                         <td></td>
                       </>
-                    )}
-                    {j > 0 ? (
-                      statsEngine === "bayesian" ? (
-                        <ChanceToWinColumn
-                          baseline={baseline}
-                          stats={stats}
-                          status={status}
-                          isLatestPhase={isLatestPhase}
-                          startDate={startDate}
-                          metric={row.metric}
-                          snapshotDate={dateCreated}
-                          className="text-right"
-                          newUi={true}
-                        />
-                      ) : (
-                        <PValueColumn
-                          baseline={baseline}
-                          stats={stats}
-                          status={status}
-                          isLatestPhase={isLatestPhase}
-                          startDate={startDate}
-                          metric={row.metric}
-                          snapshotDate={dateCreated}
-                          pValueCorrection={pValueCorrection}
-                          className="text-right"
-                          newUi={true}
-                        />
-                      )
-                    ) : (
-                      <td></td>
                     )}
                   </tr>
                 );
@@ -468,7 +510,10 @@ export default function ResultsTable({
               {/*spacer row*/}
               <tr className="results-label-row" style={{ lineHeight: "1px" }}>
                 <td></td>
-                <td></td>
+                {showAdvanced ? (<>
+                  <td></td>
+                  <td></td>
+                </>) : null}
                 <td></td>
                 <td>
                   <AlignedGraph
@@ -482,7 +527,6 @@ export default function ResultsTable({
                     newUi={true}
                   />
                 </td>
-                <td></td>
                 <td></td>
               </tr>
             </tbody>

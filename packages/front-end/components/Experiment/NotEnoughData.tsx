@@ -44,7 +44,7 @@ export default function NotEnoughData({
         <div
           className={
             newUi
-              ? "text-blue font-weight-normal"
+              ? "text-gray font-weight-normal"
               : "badge badge-pill badge-secondary"
           }
           style={newUi ? { fontSize: "11px", lineHeight: "14px" } : {}}
