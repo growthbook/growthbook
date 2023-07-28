@@ -50,15 +50,21 @@ export function putBaselineVariationFirst(
   ];
 }
 
-export function isAnalysisAllowed(snapshotSettings: ExperimentSnapshotSettings, analysisSettings: ExperimentSnapshotAnalysisSettings): boolean {
+export function isAnalysisAllowed(
+  snapshotSettings: ExperimentSnapshotSettings,
+  analysisSettings: ExperimentSnapshotAnalysisSettings
+): boolean {
   // Analysis dimensions must be subset of snapshot dimensions
-  const snapshotDimIds = snapshotSettings.dimensions.map((d) => d.id)
+  const snapshotDimIds = snapshotSettings.dimensions.map((d) => d.id);
   if (!analysisSettings.dimensions.every((d) => snapshotDimIds.includes(d))) {
     return false;
   }
 
   // CUPED only available if available in snapshot
-  if (!snapshotSettings.regressionAdjustmentEnabled && analysisSettings.regressionAdjusted) {
+  if (
+    !snapshotSettings.regressionAdjustmentEnabled &&
+    analysisSettings.regressionAdjusted
+  ) {
     return false;
   }
 

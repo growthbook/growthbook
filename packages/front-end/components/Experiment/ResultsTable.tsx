@@ -191,7 +191,9 @@ export default function ResultsTable({
                 </th>
               )}
               {i > 0 && (
-                <th className={`variation${v.id} head-last-row text-center pt-2`}>
+                <th
+                  className={`variation${v.id} head-last-row text-center pt-2`}
+                >
                   Percent Change{" "}
                   {fullStats && (
                     <>

@@ -34,7 +34,10 @@ export type QueryStatusEndpointResponse = {
 
 const FINISH_EVENT = "finish";
 
-export async function getQueryMap(organization: string, queries: Queries): Promise<QueryMap> {
+export async function getQueryMap(
+  organization: string,
+  queries: Queries
+): Promise<QueryMap> {
   const queryDocs = await getQueriesByIds(
     organization,
     queries.map((q) => q.query)

@@ -506,15 +506,15 @@ export async function createSnapshotAnalysis({
   metricMap: Map<string, MetricInterface>;
   snapshot: ExperimentSnapshotInterface;
 }): Promise<void> {
-  // check if analysis already exists
-  if (getSnapshotAnalysis(snapshot, analysisSettings)) {
-    return;
-  }
-
   // check if analysis is possible
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
     // TODO more informative error message
     throw new Error("Analysis not allowed with this snapshot");
+  }
+  // get analysis already exists
+  // TODO allow overwriting running or errored analysis
+  if (getSnapshotAnalysis(snapshot, analysisSettings)) {
+    return;
   }
 
   const analysis: ExperimentSnapshotAnalysis = {
@@ -536,8 +536,9 @@ export async function createSnapshotAnalysis({
     return;
   }
   if (snapshot.queries.some((q) => q.status === "running")) {
-    // TODO in this case?
-    return;
+    throw new Error(
+      "Some queries still running. Try to create analysis again later."
+    );
   }
 
   // Format data correctly

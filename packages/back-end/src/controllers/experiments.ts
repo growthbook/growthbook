@@ -1626,7 +1626,7 @@ export async function postSnapshot(
     dimensions: dimension ? [dimension] : [],
     sequentialTesting: !!sequentialTestingEnabled,
     sequentialTestingTuningParameter: sequentialTestingTuningParameter,
-    baselineVariation: experiment.variations[0].name
+    baselineVariation: experiment.variations[0].name,
   };
 
   const metricMap = await getMetricMap(org.id);
@@ -1766,7 +1766,7 @@ export async function postSnapshotAnalyses(
       snapshot: snapshot,
     });
     res.status(200).json({
-      status: 200
+      status: 200,
     });
   } catch (e) {
     req.log.error(e, "Failed to create experiment snapshot analysis");
