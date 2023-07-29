@@ -1,3 +1,4 @@
+import { validateFeatureValue } from "shared/util";
 import { UpdateFeatureResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { updateFeatureValidator } from "../../validators/openapi";
@@ -15,7 +16,7 @@ import { FeatureInterface } from "../../../types/feature";
 import { getEnabledEnvironments } from "../../util/features";
 import { addTagsDiff } from "../../models/TagModel";
 import { auditDetailsUpdate } from "../../services/audit";
-import { validateDefaultValueType, validateEnvKeys } from "./postFeature";
+import { validateEnvKeys } from "./postFeature";
 
 export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
   async (req): Promise<UpdateFeatureResponse> => {
@@ -56,8 +57,9 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
     }
 
     // ensure default value matches value type
+    let defaultValue;
     if (req.body.defaultValue != null) {
-      validateDefaultValueType(feature.valueType, req.body.defaultValue);
+      defaultValue = validateFeatureValue(feature, req.body.defaultValue);
     }
 
     const environmentSettings =
@@ -67,11 +69,6 @@ export const updateFeature = createApiRequestHandler(updateFeatureValidator)(
             req.body.environments
           )
         : null;
-
-    const defaultValue =
-      feature.valueType === "json" && typeof req.body.defaultValue === "object"
-        ? JSON.stringify(req.body.defaultValue)
-        : req.body.defaultValue ?? null;
 
     const updates: Partial<FeatureInterface> = {
       ...(owner != null ? { owner } : {}),

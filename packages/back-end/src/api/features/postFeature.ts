@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validateFeatureValue } from "shared/util";
 import { PostFeatureResponse } from "../../../types/openapi";
 import { createApiRequestHandler } from "../../util/handler";
 import { postFeatureValidator } from "../../validators/openapi";
@@ -34,42 +35,6 @@ export const validateEnvKeys = (
   }
 };
 
-export const validateDefaultValueType = (
-  valueType: z.infer<typeof postFeatureValidator.bodySchema>["valueType"],
-  defaultValue: z.infer<typeof postFeatureValidator.bodySchema>["defaultValue"]
-) => {
-  const defaultValueType = typeof defaultValue;
-  switch (valueType) {
-    case "string":
-    case "number":
-    case "boolean":
-      if (defaultValueType !== valueType)
-        throw new Error(
-          `Type mismatch between valueType ('${valueType}') and defaultValue ('${defaultValueType}').`
-        );
-      break;
-    case "json":
-      if (defaultValueType === "object") return;
-      if (defaultValueType === "string") {
-        try {
-          const json = JSON.parse(defaultValue);
-          // check against valid json that doesn't produce an object
-          // e.g. JSON.parse('false')
-          if (typeof json !== "object") throw new Error("not json obj");
-        } catch (e) {
-          throw new Error(`defaultValue is not valid JSON.`);
-        }
-      } else {
-        throw new Error(
-          "Values of type 'json' must be provided in string or object format."
-        );
-      }
-      break;
-    default:
-      throw new Error(`Invalid valueType ('${valueType}').`);
-  }
-};
-
 export const postFeature = createApiRequestHandler(postFeatureValidator)(
   async (req): Promise<PostFeatureResponse> => {
     req.checkPermissions("manageFeatures", req.body.project);
@@ -87,21 +52,13 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       Object.keys(req.body.environments ?? {})
     );
 
-    // ensure default value matches value type
-    validateDefaultValueType(req.body.valueType, req.body.defaultValue);
-
     const environmentSettings = createInterfaceEnvSettingsFromApiEnvSettings(
       orgEnvs,
       req.body.environments ?? {}
     );
 
-    const defaultValue =
-      req.body.valueType === "json" && typeof req.body.defaultValue === "object"
-        ? JSON.stringify(req.body.defaultValue)
-        : req.body.defaultValue ?? "";
-
     const feature: FeatureInterface = {
-      defaultValue,
+      defaultValue: req.body.defaultValue ?? "",
       valueType: req.body.valueType,
       owner: req.body.owner,
       description: req.body.description || "",
@@ -128,6 +85,9 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(
       },
       environmentSettings,
     };
+
+    // ensure default value matches value type
+    feature.defaultValue = validateFeatureValue(feature, feature.defaultValue);
 
     req.checkPermissions(
       "publishFeatures",

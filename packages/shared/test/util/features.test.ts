@@ -113,6 +113,10 @@ describe("validateFeatureValue", () => {
       expect(validateFeatureValue(feature, "true", "testVal")).toEqual("true");
       expect(validateFeatureValue(feature, "0", "testVal")).toEqual("true");
     });
+    it('returns "true" if value is truthy and label is omitted', () => {
+      expect(validateFeatureValue(feature, "true")).toEqual("true");
+      expect(validateFeatureValue(feature, "0")).toEqual("true");
+    });
     it('returns "false" if value is "false"', () => {
       expect(validateFeatureValue(feature, "false", "testVal")).toEqual(
         "false"
@@ -145,9 +149,7 @@ describe("validateFeatureValue", () => {
 
     it("parses json and returns in string format", () => {
       const value = '{ "test": 123 }';
-      expect(validateFeatureValue(feature, value, "testVal")).toEqual(
-        '{"test": 123}'
-      );
+      expect(validateFeatureValue(feature, value)).toEqual('{"test": 123}');
     });
 
     it('parses json that is "slightly" invalid', () => {
