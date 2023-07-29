@@ -1,4 +1,8 @@
-import { ExperimentRefRule, ExperimentRule, FeatureInterface } from "back-end/types/feature";
+import {
+  ExperimentRefRule,
+  ExperimentRule,
+  FeatureInterface,
+} from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import LinkedChange from "@/components/Experiment/LinkedChange";
@@ -25,8 +29,9 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
   Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
     settings?.rules?.forEach((rule, i) => {
       if (
-        (rule.type === "experiment-ref" && experiment.id === rule.experimentId) || (
-          rule.type === "experiment" &&
+        (rule.type === "experiment-ref" &&
+          experiment.id === rule.experimentId) ||
+        (rule.type === "experiment" &&
           experiment.trackingKey === (rule.trackingKey || feature.id))
       ) {
         rules.push({
@@ -41,7 +46,9 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
 
   const activeRules = rules.filter(({ enabled }) => enabled);
   const uniqueValueMappings = new Set(
-    rules.map(({ rule }) => JSON.stringify(rule.type === "experiment" ? rule.values : rule.variations))
+    rules.map(({ rule }) =>
+      JSON.stringify(rule.type === "experiment" ? rule.values : rule.variations)
+    )
   );
   const rulesAbove = activeRules.some(({ i }) => i > 0);
 
@@ -54,10 +61,10 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
     const state = firstMatch?.enabled
       ? "active"
       : firstMatch?.rule?.enabled === false
-        ? "disabledRule"
-        : firstMatch
-          ? "disabledEnvironment"
-          : "missing";
+      ? "disabledRule"
+      : firstMatch
+      ? "disabledEnvironment"
+      : "missing";
 
     return {
       id: env.id,
@@ -65,17 +72,17 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
         state === "missing"
           ? "secondary"
           : state === "active"
-            ? "primary"
-            : "warning",
+          ? "primary"
+          : "warning",
       active: state === "active",
       tooltip:
         state === "active"
           ? "The experiment is active in this environment"
           : state === "disabledEnvironment"
-            ? "The environment is disabled for this feature, so the experiment is not active"
-            : state === "disabledRule"
-              ? "The experiment is disabled in this environment and is not active"
-              : "The experiment does not exist in this environment",
+          ? "The environment is disabled for this feature, so the experiment is not active"
+          : state === "disabledRule"
+          ? "The experiment is disabled in this environment and is not active"
+          : "The experiment does not exist in this environment",
     };
   });
 
@@ -86,11 +93,13 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
     experiment.variations.forEach((v, i) => {
       if (firstRule.rule.type === "experiment") {
         orderedValues.push(firstRule.rule.values[i]?.value || "");
+      } else if (firstRule.rule.type === "experiment-ref") {
+        orderedValues.push(
+          firstRule.rule.variations.find((v2) => v2.variationId === v.id)
+            ?.value || ""
+        );
       }
-      else if (firstRule.rule.type === "experiment-ref") {
-        orderedValues.push(firstRule.rule.variations.find(v2 => v2.variationId === v.id)?.value || "");
-      }
-    })
+    });
   }
 
   return (

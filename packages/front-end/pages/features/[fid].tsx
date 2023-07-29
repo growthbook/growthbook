@@ -6,6 +6,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useState } from "react";
 import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -50,7 +51,6 @@ import EditSchemaModal from "@/components/Features/EditSchemaModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -757,11 +757,15 @@ export default function FeaturePage() {
                     setRuleModal({
                       environment: env,
                       i: getRules(data.feature, env).length,
-                      defaultType: showNewExperimentRule ? "experiment-ref" : "experiment",
+                      defaultType: showNewExperimentRule
+                        ? "experiment-ref"
+                        : "experiment",
                     });
                     track("Viewed Rule Modal", {
                       source: "add-rule",
-                      type: showNewExperimentRule ? "experiment-ref" : "experiment",
+                      type: showNewExperimentRule
+                        ? "experiment-ref"
+                        : "experiment",
                     });
                   }}
                 >

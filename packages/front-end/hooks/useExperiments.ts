@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useMemo } from "react";
 import useApi from "./useApi";
 
 export function useExperiments(project?: string) {
@@ -6,9 +7,11 @@ export function useExperiments(project?: string) {
     experiments: ExperimentInterfaceStringDates[];
   }>(`/experiments?project=${project || ""}`);
 
+  const experiments = useMemo(() => data?.experiments || [], [data]);
+
   return {
     loading: !error && !data,
-    experiments: data?.experiments || [],
+    experiments: experiments,
     error: error,
     mutateExperiments: mutate,
   };

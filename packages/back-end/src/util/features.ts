@@ -248,7 +248,11 @@ export function getFeatureDefinition({
               rule.hashAttribute = exp.hashAttribute;
             }
 
-            if (phase.namespace && phase.namespace.enabled && phase.namespace.name) {
+            if (
+              phase.namespace &&
+              phase.namespace.enabled &&
+              phase.namespace.name
+            ) {
               rule.namespace = [
                 phase.namespace.name,
                 // eslint-disable-next-line

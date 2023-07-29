@@ -5,7 +5,8 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "back-end/types/feature";
-import {useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import {
   generateVariationId,
   getDefaultRuleValue,
@@ -17,6 +18,8 @@ import {
 } from "@/services/features";
 import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useExperiments } from "@/hooks/useExperiments";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
@@ -28,9 +31,6 @@ import FeatureValueField from "./FeatureValueField";
 import NamespaceSelector from "./NamespaceSelector";
 import ScheduleInputs from "./ScheduleInputs";
 import FeatureVariationsInput from "./FeatureVariationsInput";
-import { useExperiments } from "@/hooks/useExperiments";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 
 export interface Props {
   close: () => void;
@@ -92,10 +92,9 @@ export default function RuleModal({
   const experimentId = form.watch("experimentId");
   const selectedExperiment = useMemo(() => {
     if (!experimentId) return null;
-    const exp = experiments.find(e => e.id === experimentId) || null;
-
+    const exp = experiments.find((e) => e.id === experimentId) || null;
     return exp;
-  }, [experimentId]);
+  }, [experimentId, experiments]);
 
   if (showUpgradeModal) {
     return (
@@ -115,18 +114,15 @@ export default function RuleModal({
   if (showNewExperimentRule || type === "experiment-ref") {
     ruleTypeOptions.push({
       label: "A/B Experiment",
-      value: "experiment-ref"
+      value: "experiment-ref",
     });
     ruleTypeOptions.push({
       label: "Legacy Experiment",
-      value: "experiment"
+      value: "experiment",
     });
   } else {
-    ruleTypeOptions.push(
-      { label: "A/B Experiment", value: "experiment" },
-    );
+    ruleTypeOptions.push({ label: "A/B Experiment", value: "experiment" });
   }
-
 
   return (
     <Modal
@@ -168,17 +164,18 @@ export default function RuleModal({
         try {
           // Validate a proper experiment was chosen and it has a value for every variation id
           if (rule.type === "experiment-ref") {
-            const exp = experiments.find(e => e.id === rule.experimentId);
+            const exp = experiments.find((e) => e.id === rule.experimentId);
             if (!exp) throw new Error("Must select an experiment");
-            const variationIds = new Set(exp.variations.map(v => v.id));
+            const variationIds = new Set(exp.variations.map((v) => v.id));
 
-            if (rule.variations.length !== variationIds.size) throw new Error("Must specify a value for every variation");
+            if (rule.variations.length !== variationIds.size)
+              throw new Error("Must specify a value for every variation");
 
-            rule.variations.forEach(v => {
+            rule.variations.forEach((v) => {
               if (!variationIds.has(v.variationId)) {
-                throw new Error("Unknown variation id: " + v.variationId)
+                throw new Error("Unknown variation id: " + v.variationId);
               }
-            })
+            });
           }
 
           const newRule = validateFeatureRule(rule, feature);
@@ -304,50 +301,51 @@ export default function RuleModal({
           />
         </div>
       )}
-      {
-        type === "experiment-ref" && (
-          <div>
-            <SelectField
-              label="Experiment"
-              initialOption="Choose One..."
-              options={experiments.map(e => ({
-                label: e.name,
-                value: e.id
-              }))}
-              required
-              value={experimentId || ""}
-              onChange={(experimentId) => {
-                form.setValue("experimentId", experimentId)
+      {type === "experiment-ref" && (
+        <div>
+          <SelectField
+            label="Experiment"
+            initialOption="Choose One..."
+            options={experiments.map((e) => ({
+              label: e.name,
+              value: e.id,
+            }))}
+            required
+            value={experimentId || ""}
+            onChange={(experimentId) => {
+              form.setValue("experimentId", experimentId);
 
-                const exp = experiments.find(e => e.id === experimentId);
-                if (exp) {
-                  const controlValue = getFeatureDefaultValue(feature);
-                  const variationValue = getDefaultVariationValue(controlValue);
-                  form.setValue('variations', exp.variations.map((v, i) => ({
+              const exp = experiments.find((e) => e.id === experimentId);
+              if (exp) {
+                const controlValue = getFeatureDefaultValue(feature);
+                const variationValue = getDefaultVariationValue(controlValue);
+                form.setValue(
+                  "variations",
+                  exp.variations.map((v, i) => ({
                     variationId: v.id,
-                    value: i ? variationValue : controlValue
-                  })))
-                }
-              }}
-            />
-            {selectedExperiment && (
-              <div className="mb-3 bg-light border p-3">
-                <h4>Variation Values</h4>
-                {selectedExperiment.variations.map((v, i) => (
-                  <FeatureValueField
-                    key={v.id}
-                    label={v.name}
-                    id={v.id}
-                    value={form.watch(`variations.${i}.value`) || ""}
-                    setValue={(v) => form.setValue(`variations.${i}.value`, v)}
-                    valueType={feature.valueType}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        )
-      }
+                    value: i ? variationValue : controlValue,
+                  }))
+                );
+              }
+            }}
+          />
+          {selectedExperiment && (
+            <div className="mb-3 bg-light border p-3">
+              <h4>Variation Values</h4>
+              {selectedExperiment.variations.map((v, i) => (
+                <FeatureValueField
+                  key={v.id}
+                  label={v.name}
+                  id={v.id}
+                  value={form.watch(`variations.${i}.value`) || ""}
+                  setValue={(v) => form.setValue(`variations.${i}.value`, v)}
+                  valueType={feature.valueType}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {type === "experiment" && (
         <div>
           <Field

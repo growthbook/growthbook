@@ -441,9 +441,9 @@ export function getDefaultRuleValue({
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
 }): FeatureRule {
-  const hashAttributes = attributeSchema
-    ?.filter((a) => a.hashAttribute)
-    ?.map((a) => a.property) || [];
+  const hashAttributes =
+    attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
+    [];
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
@@ -530,14 +530,14 @@ export function getDefaultRuleValue({
           timestamp: null,
         },
       ],
-    }
+    };
   }
   if (ruleType === "force" || !ruleType) {
     const firstAttr = attributeSchema?.[0];
     const condition = firstAttr
       ? JSON.stringify({
-        [firstAttr.property]: firstAttr.datatype === "boolean" ? "true" : "",
-      })
+          [firstAttr.property]: firstAttr.datatype === "boolean" ? "true" : "",
+        })
       : "";
 
     return {
@@ -558,7 +558,6 @@ export function getDefaultRuleValue({
         },
       ],
     };
-
   }
   throw new Error("Unknown Rule Type: " + ruleType);
 }
