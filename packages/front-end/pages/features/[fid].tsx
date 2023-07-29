@@ -50,6 +50,7 @@ import EditSchemaModal from "@/components/Features/EditSchemaModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -73,6 +74,8 @@ export default function FeaturePage() {
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
+
+  const showNewExperimentRule = useFeatureIsOn("new-experiment-rule");
 
   const { getProjectById, projects } = useDefinitions();
 
@@ -754,11 +757,11 @@ export default function FeaturePage() {
                     setRuleModal({
                       environment: env,
                       i: getRules(data.feature, env).length,
-                      defaultType: "experiment",
+                      defaultType: showNewExperimentRule ? "experiment-ref" : "experiment",
                     });
                     track("Viewed Rule Modal", {
                       source: "add-rule",
-                      type: "experiment",
+                      type: showNewExperimentRule ? "experiment-ref" : "experiment",
                     });
                   }}
                 >

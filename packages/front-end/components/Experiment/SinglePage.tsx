@@ -150,10 +150,10 @@ function drawMetricRow(
       <div className="col-sm-1">
         <div className="small">
           {overrideFields.includes("winRisk") ||
-          overrideFields.includes("loseRisk") ||
-          overrideFields.includes("regressionAdjustmentOverride") ||
-          overrideFields.includes("regressionAdjustmentEnabled") ||
-          overrideFields.includes("regressionAdjustmentDays") ? (
+            overrideFields.includes("loseRisk") ||
+            overrideFields.includes("regressionAdjustmentOverride") ||
+            overrideFields.includes("regressionAdjustmentEnabled") ||
+            overrideFields.includes("regressionAdjustmentDays") ? (
             <span className="font-italic text-purple">override</span>
           ) : (
             <span className="text-muted">default</span>
@@ -436,8 +436,11 @@ export default function SinglePage({
       });
     });
   });
+
+  const linkedFeatures = experiment.linkedFeatures?.length ? features.filter(f => experiment.linkedFeatures?.includes(f.id)) : [];
+
   const numLinkedVisualEditorChanges = visualChangesets.length || 0;
-  const numLinkedFeatureFlagChanges = legacyLinkedFeatures.length || 0;
+  const numLinkedFeatureFlagChanges = (legacyLinkedFeatures.length || 0) + linkedFeatures.length;
   const numLinkedChanges =
     numLinkedVisualEditorChanges + numLinkedFeatureFlagChanges;
 
@@ -468,13 +471,12 @@ export default function SinglePage({
     <div className="container-fluid experiment-details pagecontents pb-3">
       <div className="mb-2 mt-1">
         <Link
-          href={`/experiments${
-            experiment.status === "draft"
+          href={`/experiments${experiment.status === "draft"
               ? "#drafts"
               : experiment.status === "stopped"
-              ? "#stopped"
-              : ""
-          }`}
+                ? "#stopped"
+                : ""
+            }`}
         >
           <a>
             <GBCircleArrowLeft /> Back to all experiments
@@ -920,8 +922,8 @@ export default function SinglePage({
       ) : null}
 
       {experimentPendingWithVisualChanges &&
-      visualChangesets.length > 0 &&
-      !hasSomeVisualChanges ? (
+        visualChangesets.length > 0 &&
+        !hasSomeVisualChanges ? (
         <div className="alert mb-4 py-4 text-center alert-info">
           Click the{" "}
           <OpenVisualEditorLink
@@ -1125,6 +1127,13 @@ export default function SinglePage({
               </>
             ) : (
               <>
+                {linkedFeatures.map((feature, i) => (
+                  <LinkedFeatureFlag
+                    feature={feature}
+                    experiment={experiment}
+                    key={i}
+                  />
+                ))}
                 {legacyLinkedFeatures.map((feature, i) => (
                   <LinkedFeatureFlag
                     feature={feature}
@@ -1147,8 +1156,8 @@ export default function SinglePage({
       </div>
 
       {experimentPendingWithVisualChanges &&
-      visualChangesets.length > 0 &&
-      hasSomeVisualChanges ? (
+        visualChangesets.length > 0 &&
+        hasSomeVisualChanges ? (
         hasSDKWithVisualExperimentsEnabled ? (
           <div className="alert-cool-1 mb-4 text-center px-3 py-4">
             <p className="h4 mb-4">Done setting everything up?</p>
@@ -1288,8 +1297,8 @@ export default function SinglePage({
                       {experiment.hashVersion === 2
                         ? "V2 - Unbiased"
                         : experiment.hashVersion === 1
-                        ? "V1 - Legacy"
-                        : `V${experiment.hashVersion} - Unknown`}
+                          ? "V1 - Legacy"
+                          : `V${experiment.hashVersion} - Unknown`}
                     </strong>{" "}
                     <FaQuestionCircle />
                   </Tooltip>
@@ -1364,7 +1373,7 @@ export default function SinglePage({
                       type="custom"
                     >
                       {experiment.sequentialTestingEnabled ??
-                      !!orgSettings.sequentialTestingEnabled
+                        !!orgSettings.sequentialTestingEnabled
                         ? "Enabled"
                         : "Disabled"}
                     </RightRailSectionGroup>

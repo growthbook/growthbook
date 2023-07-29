@@ -97,7 +97,7 @@ const ExperimentPage = (): ReactElement => {
   return (
     <div>
       <div
-        className="alert-secondary p-2 mb-2 text-center"
+        className="bg-light border-bottom text-dark p-2 mb-2 text-center"
         style={{ marginTop: -5 }}
       >
         This is the {newUi ? "new" : "old"} experiment page.{" "}

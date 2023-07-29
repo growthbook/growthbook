@@ -441,10 +441,9 @@ export function getDefaultRuleValue({
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
 }): FeatureRule {
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   const hashAttributes = attributeSchema
-    .filter((a) => a.hashAttribute)
-    .map((a) => a.property);
+    ?.filter((a) => a.hashAttribute)
+    ?.map((a) => a.property) || [];
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
@@ -512,32 +511,56 @@ export function getDefaultRuleValue({
       ],
     };
   }
-
-  const firstAttr = attributeSchema?.[0];
-  const condition = firstAttr
-    ? JSON.stringify({
+  if (ruleType === "experiment-ref") {
+    return {
+      type: "experiment-ref",
+      description: "",
+      experimentId: "",
+      id: "",
+      variations: [],
+      condition: "",
+      enabled: true,
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
+    }
+  }
+  if (ruleType === "force" || !ruleType) {
+    const firstAttr = attributeSchema?.[0];
+    const condition = firstAttr
+      ? JSON.stringify({
         [firstAttr.property]: firstAttr.datatype === "boolean" ? "true" : "",
       })
-    : "";
+      : "";
 
-  return {
-    type: "force",
-    description: "",
-    id: "",
-    value,
-    enabled: true,
-    condition,
-    scheduleRules: [
-      {
-        enabled: true,
-        timestamp: null,
-      },
-      {
-        enabled: false,
-        timestamp: null,
-      },
-    ],
-  };
+    return {
+      type: "force",
+      description: "",
+      id: "",
+      value,
+      enabled: true,
+      condition,
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
+    };
+
+  }
+  throw new Error("Unknown Rule Type: " + ruleType);
 }
 
 export function isRuleFullyCovered(rule: FeatureRule): boolean {

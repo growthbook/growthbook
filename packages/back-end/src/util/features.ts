@@ -236,7 +236,7 @@ export function getFeatureDefinition({
             const phase = exp.phases[exp.phases.length - 1];
             if (!phase) return null;
 
-            if (phase.condition) {
+            if (phase.condition && phase.condition !== "{}") {
               rule.condition = JSON.parse(
                 replaceSavedGroupsInCondition(phase.condition, groupMap)
               );
@@ -248,7 +248,7 @@ export function getFeatureDefinition({
               rule.hashAttribute = exp.hashAttribute;
             }
 
-            if (phase.namespace) {
+            if (phase.namespace && phase.namespace.enabled && phase.namespace.name) {
               rule.namespace = [
                 phase.namespace.name,
                 // eslint-disable-next-line
