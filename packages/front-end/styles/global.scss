@@ -272,6 +272,20 @@ pre {
       color: #d94032;
     }
   }
+  .guardrail {
+    .ok {
+      color: #55ab5d88;
+    }
+    .warning {
+      color: #d99132;
+    }
+    .danger {
+      color: #d94032;
+    }
+    .non-significant {
+      font-weight: normal;
+    }
+  }
 }
 
 .badge {

@@ -17,8 +17,6 @@ import {
   useRiskVariation,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
-import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResults";
-import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
@@ -161,7 +159,7 @@ const CompactResults: FC<{
       </div>
 
       {guardrails.length > 0 ? (
-        <div className="w-100 overflow-auto">
+        <div className="w-100 overflow-auto mt-4">
           <ResultsTable
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
@@ -170,6 +168,7 @@ const CompactResults: FC<{
             variations={variations}
             rows={rows.filter((r) => r.isGuardrail)}
             guardrails={guardrails}
+            dataForGuardrails={results.variations}
             id={id}
             {...risk}
             tableRowAxis="metric"
@@ -186,40 +185,6 @@ const CompactResults: FC<{
           />
         </div>
       ) : null}
-
-      {(guardrails?.length ?? 0) > 0 && (
-        <div className="mt-1 px-3">
-          <h3 className="mb-3">Guardrails</h3>
-          <div className="row">
-            {guardrails?.map((g) => {
-              const metric = getMetricById(g);
-              if (!metric) return "";
-
-              const data = results?.variations;
-              if (!data) return "";
-
-              const xlargeCols = guardrails?.length === 2 ? 6 : 4;
-              return (
-                <div className={`col-12 col-xl-${xlargeCols} col-lg-6`} key={g}>
-                  {statsEngine === "frequentist" ? (
-                    <PValueGuardrailResults
-                      data={data}
-                      variations={variations}
-                      metric={metric}
-                    />
-                  ) : (
-                    <GuardrailResults
-                      data={data}
-                      variations={variations}
-                      metric={metric}
-                    />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
     </>
   );
 };

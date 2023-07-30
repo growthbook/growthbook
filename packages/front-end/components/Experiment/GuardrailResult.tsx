@@ -1,18 +1,6 @@
 import React, { FC } from "react";
-import { SnapshotVariation } from "back-end/types/experiment-snapshot";
-import clsx from "clsx";
-import {
-  FaCheckCircle,
-  FaExclamation,
-  FaExclamationTriangle,
-  FaQuestionCircle,
-} from "react-icons/fa";
-import { MetricInterface } from "back-end/types/metric";
-import { ExperimentReportVariation } from "back-end/types/report";
-import Link from "next/link";
-import Tooltip from "../Tooltip/Tooltip";
-import MetricTooltipBody from "../Metrics/MetricTooltipBody";
-import MetricValueColumn from "./MetricValueColumn";
+import {SnapshotMetric} from "back-end/types/experiment-snapshot";
+import {FaCheck, FaExclamation, FaExclamationTriangle} from "react-icons/fa";
 
 const WARNING_CUTOFF = 0.65;
 const DANGER_CUTOFF = 0.9;
@@ -22,128 +10,49 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 2,
 });
 
-export function hasEnoughData(value1: number, value2: number): boolean {
-  return Math.max(value1, value2) >= 80 && Math.min(value1, value2) >= 20;
+export function getGuardrailStatus(chance: number): "ok" | "warning" | "danger" | "non-significant" {
+  let status: "ok" | "warning" | "danger" | "non-significant" = "non-significant";
+  if (chance >= 0 && chance < WARNING_CUTOFF) {
+    status = "ok";
+  } else if (chance >= WARNING_CUTOFF && chance < DANGER_CUTOFF) {
+    status = "warning";
+  } else if (chance >= DANGER_CUTOFF) {
+    status = "danger";
+  }
+  return status;
 }
 
 const GuardrailResults: FC<{
-  data: SnapshotVariation[];
-  variations: ExperimentReportVariation[];
-  metric: MetricInterface;
-}> = ({ data, variations, metric }) => {
-  let status: "danger" | "success" | "warning" | "secondary" = "secondary";
-
-  const maxChance = Math.max(
-    ...data.slice(1).map((v) => {
-      if (
-        !hasEnoughData(
-          v.metrics[metric.id]?.value,
-          data[0].metrics[metric.id]?.value
-        )
-      ) {
-        return -1;
-      }
-
-      return 1 - (v.metrics[metric.id]?.chanceToWin ?? 0);
-    })
-  );
-  if (maxChance < 0) {
-    status = "secondary";
-  } else if (maxChance >= DANGER_CUTOFF) {
-    status = "danger";
-  } else if (maxChance >= WARNING_CUTOFF) {
-    status = "warning";
-  } else {
-    status = "success";
-  }
+  stats: SnapshotMetric;
+  enoughData: boolean;
+  className?: string;
+}> = ({
+  stats,
+  enoughData,
+  className = "",
+}) => {
+  const chance = 1 - (stats.chanceToWin ?? 1);
+  let status = getGuardrailStatus(chance);
 
   return (
-    <div className="d-flex flex-column" key={metric.id}>
-      <div
-        className={clsx(
-          "d-flex align-items-center guardrail m-0 p-2",
-          `alert-${status}`
+    <td className={`guardrail result-number ${className}`}>
+      <div className={`variation ${status}`}>
+        {stats && enoughData ? (
+          <>
+            <span style={{fontSize: 16}}>
+              {status === "ok" && <FaCheck className="mr-1" />}
+              {status === "warning" && <FaExclamationTriangle className="mr-1" />}
+              {status === "danger" && <FaExclamation className="mr-1" />}
+            </span>
+            <div className="d-inline-block ml-2" style={{width: 50}}>
+              {percentFormatter.format(chance)}
+            </div>
+          </>
+        ) : (
+          <span className="text-gray font-weight-normal" style={{fontSize: 11}}>not enough data</span>
         )}
-      >
-        {status === "success" && <FaCheckCircle className="mr-1" />}
-        {status === "warning" && <FaExclamationTriangle className="mr-1" />}
-        {status === "danger" && <FaExclamation className="mr-1" />}
-        {status === "secondary" && <FaQuestionCircle className="mr-1" />}
-        <Tooltip
-          body={<MetricTooltipBody metric={metric} />}
-          tipPosition="right"
-        >
-          <Link href={`/metric/${metric.id}`}>
-            <a className="text-black-50 font-weight-bold">{metric.name}</a>
-          </Link>
-        </Tooltip>
       </div>
-      <div>
-        <table className={clsx("table experiment-compact small-padding mb-1")}>
-          <thead>
-            <tr>
-              <th>Variation</th>
-              <th>Value</th>
-              <th className="text-center">Chance of Being Worse</th>
-            </tr>
-          </thead>
-          <tbody>
-            {variations.map((v, i) => {
-              const stats = data[i]?.metrics?.[metric.id];
-              if (!stats) {
-                return (
-                  <tr key={i}>
-                    <td>{v.name}</td>
-                    <td colSpan={2}>
-                      <em>no data yet</em>
-                    </td>
-                  </tr>
-                );
-              }
-
-              const chance = 1 - (stats.chanceToWin ?? 1);
-              return (
-                <tr key={i}>
-                  <th
-                    className={`variation with-variation-right-shadow variation${i} font-weight-normal`}
-                  >
-                    <span className="name">{v.name}</span>
-                  </th>
-                  <MetricValueColumn
-                    metric={metric}
-                    stats={stats}
-                    users={data[i].users}
-                  />
-                  {!i ? (
-                    <td></td>
-                  ) : hasEnoughData(
-                      stats.value,
-                      data[0].metrics[metric.id]?.value
-                    ) ? (
-                    <td
-                      className={clsx("chance result-number align-middle", {
-                        won: i > 0 && chance >= 0 && chance < WARNING_CUTOFF,
-                        lost: i > 0 && chance >= DANGER_CUTOFF,
-                        warning:
-                          i > 0 &&
-                          chance >= WARNING_CUTOFF &&
-                          chance < DANGER_CUTOFF,
-                      })}
-                    >
-                      {percentFormatter.format(chance)}
-                    </td>
-                  ) : (
-                    <td className="text-center">
-                      <em className="text-muted">not enough data</em>
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    </td>
   );
-};
+}
 export default GuardrailResults;

@@ -29,6 +29,9 @@ import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
 import PercentGraph from "./PercentGraph";
 import PValueColumn from "./PValueColumn";
+import GuardrailResults from "@/components/Experiment/GuardrailResult";
+import {SnapshotVariation} from "back-end/types/experiment-snapshot";
+import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResult";
 
 export type ResultsTableProps = {
   id: string;
@@ -39,6 +42,7 @@ export type ResultsTableProps = {
   rows: ExperimentTableRow[];
   // users?: number[];
   metricsAsGuardrails?: boolean;
+  dataForGuardrails?: SnapshotVariation[];
   tableRowAxis: "metric" | "dimension";
   labelHeader: string;
   editMetrics?: () => void;
@@ -86,6 +90,7 @@ export default function ResultsTable({
   pValueCorrection,
   sequentialTestingEnabled = false,
   showAdvanced = false,
+  dataForGuardrails = [],
 }: ResultsTableProps) {
   const { metricDefaults } = useOrganizationMetricDefaults();
   const { ciUpper, ciLower } = useConfidenceLevels();
@@ -234,7 +239,11 @@ export default function ResultsTable({
             ) : null}
             <th style={{ width: 120 }} className="axis-col label text-right">
               {statsEngine === "bayesian" ? (
-                <>Chance to Win</>
+                !metricsAsGuardrails ? (
+                  <>Chance to Win</>
+                ) : (
+                  <div style={{lineHeight: "15px"}}>Chance of Being Worse</div>
+                )
               ) : sequentialTestingEnabled || pValueCorrection ? (
                 <Tooltip
                   innerClassName={"text-left"}
@@ -420,7 +429,11 @@ export default function ResultsTable({
                             newUi={true}
                           />
                         ) : (
-                          <td>todo</td>
+                          <GuardrailResults
+                            stats={stats}
+                            enoughData={enoughData}
+                            className="text-right"
+                          />
                         )
                       ) : !metricsAsGuardrails ? (
                         <PValueColumn
@@ -441,7 +454,12 @@ export default function ResultsTable({
                           newUi={true}
                         />
                       ) : (
-                        <td>todo</td>
+                        <PValueGuardrailResults
+                          stats={stats}
+                          metric={row.metric}
+                          enoughData={enoughData}
+                          className="text-right"
+                        />
                       )
                     ) : (
                       <td></td>

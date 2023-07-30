@@ -15,7 +15,7 @@ import RunQueriesButton, {
 import DateResults from "@/components/Experiment/DateResults";
 import BreakDownResults from "@/components/Experiment/BreakDownResults";
 import CompactResults_old from "@/components/Experiment/CompactResults_old";
-import GuardrailResults from "@/components/Experiment/GuardrailResult";
+import GuardrailResults from "@/components/Experiment/GuardrailResult_old";
 import { useAuth } from "@/services/auth";
 import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import Tab from "@/components/Tabs/Tab";
@@ -35,7 +35,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
-import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResults";
+import PValueGuardrailResults_old from "@/components/Experiment/PValueGuardrailResults_old";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackReport } from "@/services/track";
 
@@ -492,7 +492,7 @@ export default function ReportPage() {
                       return (
                         <div className="col-12 col-xl-4 col-lg-6 mb-3" key={g}>
                           {report.args.statsEngine === "frequentist" ? (
-                            <PValueGuardrailResults
+                            <PValueGuardrailResults_old
                               data={data}
                               variations={variations}
                               metric={metric}
