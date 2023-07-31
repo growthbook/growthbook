@@ -51,6 +51,7 @@ import EditSchemaModal from "@/components/Features/EditSchemaModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
+import { AppFeatures } from "@/types/app-features";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -75,7 +76,9 @@ export default function FeaturePage() {
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
 
-  const showNewExperimentRule = useFeatureIsOn("new-experiment-rule");
+  const showNewExperimentRule = useFeatureIsOn<AppFeatures>(
+    "new-experiment-rule"
+  );
 
   const { getProjectById, projects } = useDefinitions();
 

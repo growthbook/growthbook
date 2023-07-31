@@ -4,6 +4,7 @@ import Collapsible from "react-collapsible";
 import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
 import { FeatureInterface } from "back-end/types/feature";
+import Link from "next/link";
 
 type Props = {
   changeType: "flag" | "visual";
@@ -37,16 +38,7 @@ export default function LinkedChange({
                   style={{ width: 170 }}
                 >
                   <BsFlag />
-                  <div className="ml-1 small">Feature Flag</div>
-                </div>
-                <div
-                  className="col-3 d-flex align-items-center"
-                  style={{ minWidth: 200 }}
-                >
-                  <span className="text-muted hover-label">Key:</span>{" "}
-                  <span className="ml-1 d-inline-block text-ellipsis hover-label">
-                    {feature?.id}
-                  </span>
+                  <div className="ml-1 small">{feature?.id || "Feature"}</div>
                 </div>
                 <div className="col-3 pl-3">
                   <span className="text-muted hover-label">Type:</span>{" "}
@@ -54,15 +46,11 @@ export default function LinkedChange({
                 </div>
                 <div className="flex-1"></div>
                 <div className="col-auto">
-                  <a
-                    href={`/features/${feature?.id}`}
-                    target="_blank"
-                    className="ml-4"
-                    onClick={(e) => e.stopPropagation()}
-                    rel="noreferrer"
-                  >
-                    manage feature <FaExternalLinkAlt />
-                  </a>
+                  <Link href={`/features/${feature?.id}`} className="ml-4">
+                    <a onClick={(e) => e.stopPropagation()}>
+                      View Feature <FaExternalLinkAlt />
+                    </a>
+                  </Link>
                 </div>
               </>
             ) : (

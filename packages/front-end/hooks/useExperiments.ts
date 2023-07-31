@@ -9,9 +9,15 @@ export function useExperiments(project?: string) {
 
   const experiments = useMemo(() => data?.experiments || [], [data]);
 
+  const experimentsMap = useMemo(
+    () => new Map(experiments.map((e) => [e.id, e])),
+    [experiments]
+  );
+
   return {
     loading: !error && !data,
     experiments: experiments,
+    experimentsMap,
     error: error,
     mutateExperiments: mutate,
   };

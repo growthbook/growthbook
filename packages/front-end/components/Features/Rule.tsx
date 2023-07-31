@@ -2,8 +2,13 @@ import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef } from "react";
-import { FaArrowsAlt, FaExclamationTriangle } from "react-icons/fa";
+import {
+  FaArrowsAlt,
+  FaExclamationTriangle,
+  FaExternalLinkAlt,
+} from "react-icons/fa";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, useEnvironments } from "@/services/features";
@@ -27,7 +32,7 @@ interface SortableProps {
   environment: string;
   experiments: Record<string, ExperimentInterfaceStringDates>;
   mutate: () => void;
-  setRuleModal: ({ environment: string, i: number }) => void;
+  setRuleModal: (args: { environment: string; i: number }) => void;
   unreachable?: boolean;
 }
 
@@ -57,6 +62,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const title =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
+
+    const linkedExperiment =
+      rule.type === "experiment-ref" && experiments[rule.experimentId];
+
     const rules = getRules(feature, environment);
     const environments = useEnvironments();
     const permissions = usePermissions();
@@ -109,7 +118,19 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             }}
             className="mx-2"
           >
-            {title}
+            {linkedExperiment ? (
+              <div>
+                Experiment:{" "}
+                <strong className="mr-3">{linkedExperiment.name}</strong>{" "}
+                <Link href={`/experiment/${linkedExperiment.id}`}>
+                  <a>
+                    View Experiment <FaExternalLinkAlt />
+                  </a>
+                </Link>
+              </div>
+            ) : (
+              title
+            )}
             {unreachable ? (
               <Tooltip
                 body={

@@ -12,6 +12,7 @@ import {
 import { FaPencilAlt, FaPlusCircle, FaTimesCircle } from "react-icons/fa";
 import Link from "next/link";
 import clsx from "clsx";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import track from "@/services/track";
 import { GBEdit } from "@/components/Icons";
 import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
@@ -24,6 +25,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import EditDOMMutatonsModal from "@/components/Experiment/EditDOMMutationsModal";
 import LinkedChange from "@/components/Experiment/LinkedChange";
+import { AppFeatures } from "@/types/app-features";
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;
@@ -31,6 +33,7 @@ type Props = {
   mutate: () => void;
   canEditVisualChangesets: boolean;
   setVisualEditorModal: (v: boolean) => void;
+  setFeatureModal: (v: boolean) => void;
   newUi?: boolean;
 };
 
@@ -59,10 +62,10 @@ const drawChange = ({
   hasVisualEditorFeature: boolean;
   canEditVisualChangesets: boolean;
   setEditingVisualChangeset: (vc: VisualChangesetInterface) => void;
-  setEditingVisualChange: ({
-    visualChange: VisualChange,
-    visualChangeIndex: number,
-    visualChangeset: VisualChangesetInterface,
+  setEditingVisualChange: (params: {
+    visualChange: VisualChange;
+    visualChangeIndex: number;
+    visualChangeset: VisualChangesetInterface;
   }) => void;
   deleteVisualChangeset: (id: string) => void;
   simpleUrlPatterns: VisualChangesetURLPattern[];
@@ -256,8 +259,12 @@ export const VisualChangesetTable: FC<Props> = ({
   mutate,
   canEditVisualChangesets,
   setVisualEditorModal,
+  setFeatureModal,
   newUi,
 }: Props) => {
+  const showNewExperimentRule = useFeatureIsOn<AppFeatures>(
+    "new-experiment-rule"
+  );
   const { variations } = experiment;
   const { apiCall } = useAuth();
 
@@ -408,28 +415,48 @@ export const VisualChangesetTable: FC<Props> = ({
       })}
 
       {canEditVisualChangesets && experiment.status === "draft" ? (
-        <div className={`${newUi ? "" : "px-3"} my-2`}>
-          {hasVisualEditorFeature ? (
-            <button
-              className="btn btn-link"
-              onClick={() => {
-                setVisualEditorModal(true);
-                track("Open visual editor modal", {
-                  source: "visual-editor-ui",
-                  action: "add",
-                });
-              }}
-            >
-              <FaPlusCircle className="mr-1" />
-              {newUi ? "Visual Editor change" : "Add Visual Editor page"}
-            </button>
-          ) : (
-            <PremiumTooltip commercialFeature={"visual-editor"}>
-              <div className="btn btn-link disabled">
+        <div className="d-flex">
+          <div className={`${newUi ? "" : "px-3"}`}>
+            {hasVisualEditorFeature ? (
+              <button
+                className="btn btn-link"
+                onClick={() => {
+                  setVisualEditorModal(true);
+                  track("Open visual editor modal", {
+                    source: "visual-editor-ui",
+                    action: "add",
+                  });
+                }}
+              >
                 <FaPlusCircle className="mr-1" />
                 {newUi ? "Visual Editor change" : "Add Visual Editor page"}
-              </div>
-            </PremiumTooltip>
+              </button>
+            ) : (
+              <PremiumTooltip commercialFeature={"visual-editor"}>
+                <div className="btn btn-link disabled">
+                  <FaPlusCircle className="mr-1" />
+                  {newUi ? "Visual Editor change" : "Add Visual Editor page"}
+                </div>
+              </PremiumTooltip>
+            )}
+          </div>
+          {showNewExperimentRule && (
+            <div className="px-3">
+              <button
+                className="btn btn-link"
+                type="button"
+                onClick={() => {
+                  setFeatureModal(true);
+                  track("Open linked feature modal", {
+                    source: "linked-changes",
+                    action: "add",
+                  });
+                }}
+              >
+                <FaPlusCircle className="mr-1" />
+                Feature Flag change
+              </button>
+            </div>
           )}
         </div>
       ) : null}

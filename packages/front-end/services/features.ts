@@ -46,6 +46,11 @@ export interface AttributeData {
   format?: SDKAttributeFormat;
 }
 
+export type NewExperimentRefRule = {
+  type: "experiment-ref-new";
+  name: string;
+} & Omit<ExperimentRule, "type">;
+
 export function validateFeatureValue(
   feature: FeatureInterface,
   value: string,
@@ -440,7 +445,7 @@ export function getDefaultRuleValue({
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
-}): FeatureRule {
+}): FeatureRule | NewExperimentRefRule {
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
@@ -520,6 +525,46 @@ export function getDefaultRuleValue({
       variations: [],
       condition: "",
       enabled: true,
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
+    };
+  }
+  if (ruleType === "experiment-ref-new") {
+    return {
+      type: "experiment-ref-new",
+      description: "",
+      name: "",
+      id: "",
+      condition: "",
+      enabled: true,
+      hashAttribute,
+      trackingKey: "",
+      values: [
+        {
+          value: defaultValue,
+          weight: 0.5,
+          name: "",
+        },
+        {
+          value: value,
+          weight: 0.5,
+          name: "",
+        },
+      ],
+      coverage: 1,
+      namespace: {
+        enabled: false,
+        name: "",
+        range: [0, 0.5],
+      },
       scheduleRules: [
         {
           enabled: true,

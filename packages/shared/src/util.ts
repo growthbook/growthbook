@@ -6,6 +6,7 @@ import {
   ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import uniqid from "uniqid";
 
 export function getAffectedEnvsForExperiment({
@@ -59,4 +60,59 @@ export function includeExperimentInPayload(
   }
 
   return true;
+}
+
+export type MatchingRule = {
+  environmentId: string;
+  i: number;
+  draft: boolean;
+  environmentEnabled: boolean;
+  rule: FeatureRule;
+};
+export function getMatchingRules(
+  feature: FeatureInterface,
+  filter: (rule: FeatureRule) => boolean,
+  environments: string[]
+): MatchingRule[] {
+  const matches: MatchingRule[] = [];
+
+  if (feature.environmentSettings) {
+    Object.entries(feature.environmentSettings).forEach(
+      ([environmentId, settings]) => {
+        if (!environments.includes(environmentId)) return;
+        if (settings.rules) {
+          settings.rules.forEach((rule, i) => {
+            if (filter(rule)) {
+              matches.push({
+                rule,
+                i,
+                draft: false,
+                environmentEnabled: settings.enabled,
+                environmentId,
+              });
+            }
+          });
+        }
+      }
+    );
+  }
+
+  if (feature.draft && feature.draft.active && feature.draft.rules) {
+    Object.entries(feature.draft.rules).forEach(([environmentId, rules]) => {
+      rules.forEach((rule, i) => {
+        if (filter(rule)) {
+          matches.push({
+            rule,
+            i,
+            draft: true,
+            environmentEnabled: !!feature.environmentSettings[environmentId]
+              ?.enabled,
+            environmentId,
+          });
+        }
+      });
+    });
+  }
+
+  return matches;
 }

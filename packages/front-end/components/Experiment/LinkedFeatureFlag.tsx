@@ -1,10 +1,7 @@
-import {
-  ExperimentRefRule,
-  ExperimentRule,
-  FeatureInterface,
-} from "back-end/types/feature";
+import { FeatureInterface } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
+import { MatchingRule } from "shared/util";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import { useEnvironments } from "@/services/features";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
@@ -13,58 +10,50 @@ import Tooltip from "../Tooltip/Tooltip";
 
 type Props = {
   feature: FeatureInterface;
+  rules: MatchingRule[];
   experiment: ExperimentInterfaceStringDates;
 };
 
-export default function LinkedFeatureFlag({ feature, experiment }: Props) {
+export default function LinkedFeatureFlag({
+  feature,
+  rules,
+  experiment,
+}: Props) {
   const environments = useEnvironments();
 
-  // Get all rules in all environments for this experiment
-  const rules: {
-    environmentId: string;
-    i: number;
-    enabled: boolean;
-    rule: ExperimentRule | ExperimentRefRule;
-  }[] = [];
-  Object.entries(feature.environmentSettings).forEach(([env, settings]) => {
-    settings?.rules?.forEach((rule, i) => {
-      if (
-        (rule.type === "experiment-ref" &&
-          experiment.id === rule.experimentId) ||
-        (rule.type === "experiment" &&
-          experiment.trackingKey === (rule.trackingKey || feature.id))
-      ) {
-        rules.push({
-          environmentId: env,
-          enabled: settings?.enabled && rule.enabled !== false,
-          i,
-          rule,
-        });
-      }
-    });
-  });
+  const activeRules = rules.filter(({ rule }) => rule.enabled);
+  const liveRules = activeRules.filter(({ draft }) => !draft);
 
-  const activeRules = rules.filter(({ enabled }) => enabled);
   const uniqueValueMappings = new Set(
     rules.map(({ rule }) =>
-      JSON.stringify(rule.type === "experiment" ? rule.values : rule.variations)
+      JSON.stringify(
+        rule.type === "experiment"
+          ? rule.values
+          : rule.type === "experiment-ref"
+          ? rule.variations
+          : []
+      )
     )
   );
   const rulesAbove = activeRules.some(({ i }) => i > 0);
 
   const environmentInfo = environments.map((env) => {
+    // First, prefer showing a live rule, then draft, then disabled
     const firstMatch =
+      liveRules.find(({ environmentId }) => environmentId === env.id) ||
       activeRules.find(({ environmentId }) => environmentId === env.id) ||
       rules.find(({ environmentId }) => environmentId === env.id);
 
     // Differentiate between enabled, different ways it can be disabled, and missing
-    const state = firstMatch?.enabled
-      ? "active"
-      : firstMatch?.rule?.enabled === false
-      ? "disabledRule"
-      : firstMatch
+    const state = !firstMatch
+      ? "missing"
+      : !firstMatch.environmentEnabled
       ? "disabledEnvironment"
-      : "missing";
+      : !firstMatch.rule.enabled
+      ? "disabledRule"
+      : firstMatch.draft
+      ? "draft"
+      : "active";
 
     return {
       id: env.id,
@@ -82,6 +71,8 @@ export default function LinkedFeatureFlag({ feature, experiment }: Props) {
           ? "The environment is disabled for this feature, so the experiment is not active"
           : state === "disabledRule"
           ? "The experiment is disabled in this environment and is not active"
+          : state === "draft"
+          ? "The experiment rule is still a draft and has not been published yet"
           : "The experiment does not exist in this environment",
     };
   });

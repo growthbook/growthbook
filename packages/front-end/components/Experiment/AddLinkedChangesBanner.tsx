@@ -1,0 +1,79 @@
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { useUser } from "@/services/UserContext";
+import track from "@/services/track";
+import { AppFeatures } from "@/types/app-features";
+import PremiumTooltip from "../Marketing/PremiumTooltip";
+
+export default function AddLinkedChangesBanner({
+  experiment,
+  numLinkedChanges,
+  setFeatureModal,
+  setVisualEditorModal,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  numLinkedChanges: number;
+  setVisualEditorModal: (state: boolean) => unknown;
+  setFeatureModal: (state: boolean) => unknown;
+}) {
+  const showNewExperimentRule = useFeatureIsOn<AppFeatures>(
+    "new-experiment-rule"
+  );
+
+  const { hasCommercialFeature } = useUser();
+  const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
+
+  if (experiment.status !== "draft") return null;
+  if (experiment.archived) return null;
+  // Already has linked changes
+  if (numLinkedChanges > 0) return null;
+
+  return (
+    <div className="alert-cool-1 text-center mb-4 px-3 py-4 position-relative">
+      <p className="h4 mb-4">
+        Implement your experiment variations using{" "}
+        {showNewExperimentRule
+          ? `either our Visual Editor or Feature Flags.`
+          : `our Visual Editor`}
+      </p>
+      <div className="row">
+        <div className="col text-align-center">
+          {hasVisualEditorFeature ? (
+            <button
+              className="btn btn-primary btn-lg mb-3"
+              type="button"
+              onClick={() => {
+                setVisualEditorModal(true);
+                track("Open visual editor modal", {
+                  source: "visual-editor-ui",
+                  action: "add",
+                });
+              }}
+            >
+              Open Visual Editor
+            </button>
+          ) : (
+            <PremiumTooltip commercialFeature={"visual-editor"}>
+              <div className="btn btn-primary btn-lg disabled">
+                Open Visual Editor
+              </div>
+            </PremiumTooltip>
+          )}
+        </div>
+        {showNewExperimentRule && (
+          <div className="col text-align-center">
+            <button
+              className="btn btn-primary btn-lg mb-3"
+              type="button"
+              onClick={() => {
+                setFeatureModal(true);
+              }}
+            >
+              Add Feature Flag
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

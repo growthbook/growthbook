@@ -854,11 +854,23 @@ export async function getFeatureById(
     throw new Error("Could not find feature");
   }
 
+  // Get linked experiments from rule and draft rules
   const experimentIds: Set<string> = new Set();
   const trackingKeys: Set<string> = new Set();
   if (feature.environmentSettings) {
     Object.values(feature.environmentSettings).forEach((env) => {
       env.rules?.forEach((r) => {
+        if (r.type === "experiment") {
+          trackingKeys.add(r.trackingKey || feature.id);
+        } else if (r.type === "experiment-ref") {
+          experimentIds.add(r.experimentId);
+        }
+      });
+    });
+  }
+  if (feature.draft && feature.draft.active && feature.draft.rules) {
+    Object.values(feature.draft.rules).forEach((rules) => {
+      rules.forEach((r) => {
         if (r.type === "experiment") {
           trackingKeys.add(r.trackingKey || feature.id);
         } else if (r.type === "experiment-ref") {

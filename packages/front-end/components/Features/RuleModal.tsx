@@ -7,7 +7,11 @@ import {
 } from "back-end/types/feature";
 import { useMemo, useState } from "react";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { date } from "shared/dates";
+import uniqId from "uniqid";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import {
+  NewExperimentRefRule,
   generateVariationId,
   getDefaultRuleValue,
   getDefaultVariationValue,
@@ -20,11 +24,13 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { AppFeatures } from "@/types/app-features";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
 import SelectField from "../Forms/SelectField";
 import UpgradeModal from "../Settings/UpgradeModal";
+import StatusIndicator from "../Experiment/StatusIndicator";
 import RolloutPercentInput from "./RolloutPercentInput";
 import ConditionInput from "./ConditionInput";
 import FeatureValueField from "./FeatureValueField";
@@ -51,7 +57,9 @@ export default function RuleModal({
 }: Props) {
   const attributeSchema = useAttributeSchema();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const showNewExperimentRule = useFeatureIsOn("new-experiment-rule");
+  const showNewExperimentRule = useFeatureIsOn<AppFeatures>(
+    "new-experiment-rule"
+  );
 
   const { namespaces } = useOrgSettings();
 
@@ -60,7 +68,15 @@ export default function RuleModal({
 
   const { project } = useDefinitions();
 
-  const { experiments } = useExperiments(project);
+  const { experiments, experimentsMap, mutateExperiments } = useExperiments(
+    project
+  );
+
+  const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
+    false
+  );
+
+  const settings = useOrgSettings();
 
   const defaultRuleValues = getDefaultRuleValue({
     defaultValue: getFeatureDefaultValue(feature),
@@ -79,7 +95,7 @@ export default function RuleModal({
     )
   );
 
-  const form = useForm<FeatureRule>({
+  const form = useForm<FeatureRule | NewExperimentRefRule>({
     defaultValues,
   });
   const { apiCall } = useAuth();
@@ -113,16 +129,26 @@ export default function RuleModal({
 
   if (showNewExperimentRule || type === "experiment-ref") {
     ruleTypeOptions.push({
-      label: "A/B Experiment",
-      value: "experiment-ref",
+      label: "New Experiment",
+      value: "experiment-ref-new",
     });
     ruleTypeOptions.push({
-      label: "Legacy Experiment",
-      value: "experiment",
+      label: "Existing Experiment",
+      value: "experiment-ref",
     });
   } else {
     ruleTypeOptions.push({ label: "A/B Experiment", value: "experiment" });
   }
+
+  const experimentOptions = experiments
+    .filter(
+      (e) => e.id === experimentId || (!e.archived && e.status !== "stopped")
+    )
+    .sort((a, b) => b.dateCreated.localeCompare(a.dateCreated))
+    .map((e) => ({
+      label: e.name,
+      value: e.id,
+    }));
 
   return (
     <Modal
@@ -159,26 +185,130 @@ export default function RuleModal({
           }
         }
 
-        const rule = values as FeatureRule;
-
         try {
-          // Validate a proper experiment was chosen and it has a value for every variation id
-          if (rule.type === "experiment-ref") {
-            const exp = experiments.find((e) => e.id === rule.experimentId);
+          if (values.type === "experiment-ref-new") {
+            // Apply same validation as we do for legacy experiment rules
+            const newRule = validateFeatureRule(
+              {
+                ...values,
+                type: "experiment",
+              },
+              feature
+            );
+            if (newRule) {
+              form.reset({
+                ...newRule,
+                type: "experiment-ref-new",
+                name: values.name,
+              });
+              throw new Error(
+                "We fixed some errors in the rule. If it looks correct, submit again."
+              );
+            }
+
+            // All looks good, create experiment
+            const exp: Partial<ExperimentInterfaceStringDates> = {
+              archived: false,
+              autoSnapshots: true,
+              datasource: "",
+              exposureQueryId: "",
+              hashAttribute: values.hashAttribute,
+              metrics: [],
+              activationMetric: "",
+              guardrails: [],
+              name: values.name,
+              hashVersion: 2,
+              owner: "",
+              status: "draft",
+              tags: feature.tags || [],
+              trackingKey: values.trackingKey || feature.id,
+              description: values.description,
+              hypothesis: "",
+              linkedFeatures: [feature.id],
+              attributionModel: settings?.attributionModel || "firstExposure",
+              targetURLRegex: "",
+              ideaSource: "",
+              project: feature.project,
+              variations: values.values.map((v, i) => ({
+                id: uniqId("var_"),
+                key: i + "",
+                name: v.name || (i ? `Variation ${i}` : "Control"),
+                screenshots: [],
+              })),
+              phases: [
+                {
+                  condition: values.condition || "",
+                  coverage: values.coverage ?? 1,
+                  dateStarted: new Date().toISOString().substr(0, 16),
+                  name: "Main",
+                  namespace: values.namespace || {
+                    enabled: false,
+                    name: "",
+                    range: [0, 1],
+                  },
+                  reason: "",
+                  variationWeights: values.values.map((v) => v.weight),
+                },
+              ],
+            };
+            const res = await apiCall<
+              | { experiment: ExperimentInterfaceStringDates }
+              | { duplicateTrackingKey: true; existingId: string }
+            >(
+              `/experiments${
+                allowDuplicateTrackingKey
+                  ? "?allowDuplicateTrackingKey=true"
+                  : ""
+              }`,
+              {
+                method: "POST",
+                body: JSON.stringify(exp),
+              }
+            );
+
+            if ("duplicateTrackingKey" in res) {
+              setAllowDuplicateTrackingKey(true);
+              throw new Error(
+                "Warning: An experiment with that tracking key already exists. To continue anyway, click 'Save' again."
+              );
+            }
+
+            // Experiment created, treat it as an experiment ref rule now
+            console.log("Created experiment", res);
+            values = {
+              type: "experiment-ref",
+              description: "",
+              experimentId: res.experiment.id,
+              id: values.id,
+              condition: "",
+              enabled: values.enabled ?? true,
+              scheduleRules: values.scheduleRules,
+              variations: values.values.map((v, i) => ({
+                value: v.value,
+                variationId: res.experiment.variations[i]?.id || "",
+              })),
+            };
+            console.log("Created experiment-ref rule", values);
+            mutateExperiments();
+          } else if (values.type === "experiment-ref") {
+            // Validate a proper experiment was chosen and it has a value for every variation id
+            const experimentId = values.experimentId;
+            const exp = experiments.find((e) => e.id === experimentId);
             if (!exp) throw new Error("Must select an experiment");
             const variationIds = new Set(exp.variations.map((v) => v.id));
 
-            if (rule.variations.length !== variationIds.size)
+            if (values.variations.length !== variationIds.size)
               throw new Error("Must specify a value for every variation");
 
-            rule.variations.forEach((v) => {
+            values.variations.forEach((v) => {
               if (!variationIds.has(v.variationId)) {
                 throw new Error("Unknown variation id: " + v.variationId);
               }
             });
           }
 
-          const newRule = validateFeatureRule(rule, feature);
+          console.log("Validating rule");
+          const newRule = validateFeatureRule(values, feature);
           if (newRule) {
             form.reset(newRule);
             throw new Error(
@@ -191,14 +321,14 @@ export default function RuleModal({
             ruleIndex: i,
             environment,
             type: values.type,
-            hasCondition: rule.condition && rule.condition.length > 2,
-            hasDescription: rule.description.length > 0,
+            hasCondition: values.condition && values.condition.length > 2,
+            hasDescription: values.description.length > 0,
           });
 
           await apiCall(`/feature/${feature.id}/rule`, {
             method: i === rules.length ? "POST" : "PUT",
             body: JSON.stringify({
-              rule,
+              rule: values,
               environment,
               i,
             }),
@@ -209,9 +339,9 @@ export default function RuleModal({
             source: ruleAction,
             ruleIndex: i,
             environment,
-            type: rule.type,
-            hasCondition: rule.condition && rule.condition.length > 2,
-            hasDescription: rule.description.length > 0,
+            type: values.type,
+            hasCondition: values.condition && values.condition.length > 2,
+            hasDescription: values.description.length > 0,
             error: e.message,
           });
 
@@ -230,6 +360,7 @@ export default function RuleModal({
         readOnly={!!rules[i]}
         disabled={!!rules[i]}
         value={type}
+        sort={false}
         onChange={(v) => {
           const existingCondition = form.watch("condition");
           const newVal = {
@@ -247,6 +378,75 @@ export default function RuleModal({
         }}
         options={ruleTypeOptions}
       />
+      {type === "experiment-ref" && (
+        <div>
+          <SelectField
+            label="Experiment"
+            initialOption="Choose One..."
+            options={experimentOptions}
+            required
+            sort={false}
+            value={experimentId || ""}
+            onChange={(experimentId) => {
+              const exp = experiments.find((e) => e.id === experimentId);
+              if (exp) {
+                const controlValue = getFeatureDefaultValue(feature);
+                const variationValue = getDefaultVariationValue(controlValue);
+                form.setValue("experimentId", experimentId);
+                form.setValue(
+                  "variations",
+                  exp.variations.map((v, i) => ({
+                    variationId: v.id,
+                    value: i ? variationValue : controlValue,
+                  }))
+                );
+              }
+            }}
+            formatOptionLabel={({ value, label }) => {
+              const exp = experimentsMap.get(value);
+              if (exp) {
+                return (
+                  <div className="d-flex flex-wrap">
+                    <div className="flex">
+                      <strong>{exp.name}</strong>
+                    </div>
+                    <div className="ml-4 text-muted">
+                      Created: {date(exp.dateCreated)}
+                    </div>
+                    <div className="ml-auto">
+                      <StatusIndicator
+                        archived={exp.archived}
+                        status={exp.status}
+                      />
+                    </div>
+                  </div>
+                );
+              }
+              return label;
+            }}
+          />
+          {selectedExperiment && (
+            <div className="form-group">
+              <label>Variation Values</label>
+              <div className="mb-3 bg-light border p-3">
+                {selectedExperiment.variations.map((v, i) => (
+                  <FeatureValueField
+                    key={v.id}
+                    label={v.name}
+                    id={v.id}
+                    value={form.watch(`variations.${i}.value`) || ""}
+                    setValue={(v) => form.setValue(`variations.${i}.value`, v)}
+                    valueType={feature.valueType}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+      {type === "experiment-ref-new" && (
+        <Field label="Experiment Name" {...form.register("name")} required />
+      )}
       {type !== "experiment-ref" && (
         <>
           <Field
@@ -301,52 +501,7 @@ export default function RuleModal({
           />
         </div>
       )}
-      {type === "experiment-ref" && (
-        <div>
-          <SelectField
-            label="Experiment"
-            initialOption="Choose One..."
-            options={experiments.map((e) => ({
-              label: e.name,
-              value: e.id,
-            }))}
-            required
-            value={experimentId || ""}
-            onChange={(experimentId) => {
-              form.setValue("experimentId", experimentId);
-
-              const exp = experiments.find((e) => e.id === experimentId);
-              if (exp) {
-                const controlValue = getFeatureDefaultValue(feature);
-                const variationValue = getDefaultVariationValue(controlValue);
-                form.setValue(
-                  "variations",
-                  exp.variations.map((v, i) => ({
-                    variationId: v.id,
-                    value: i ? variationValue : controlValue,
-                  }))
-                );
-              }
-            }}
-          />
-          {selectedExperiment && (
-            <div className="mb-3 bg-light border p-3">
-              <h4>Variation Values</h4>
-              {selectedExperiment.variations.map((v, i) => (
-                <FeatureValueField
-                  key={v.id}
-                  label={v.name}
-                  id={v.id}
-                  value={form.watch(`variations.${i}.value`) || ""}
-                  setValue={(v) => form.setValue(`variations.${i}.value`, v)}
-                  valueType={feature.valueType}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-      {type === "experiment" && (
+      {(type === "experiment" || type === "experiment-ref-new") && (
         <div>
           <Field
             label="Tracking Key"

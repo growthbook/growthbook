@@ -31,4 +31,5 @@ export type AppFeatures = {
   "remote-evaluation": boolean;
   "import-from-x": boolean;
   "demo-datasource": boolean;
+  "new-experiment-rule": boolean;
 };
