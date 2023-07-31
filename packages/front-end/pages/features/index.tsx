@@ -237,7 +237,10 @@ export default function FeaturesPage() {
           </div>
 
           <table className="table gbtable table-hover appbox">
-            <thead>
+            <thead
+              className="sticky-top bg-white shadow-sm z-index-100"
+              style={{ top: "56px" }}
+            >
               <tr>
                 <th></th>
                 <SortableTH field="id">Feature Key</SortableTH>

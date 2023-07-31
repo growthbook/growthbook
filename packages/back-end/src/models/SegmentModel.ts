@@ -13,6 +13,7 @@ const segmentSchema = new mongoose.Schema({
   owner: String,
   datasource: String,
   userIdType: String,
+  description: String,
   name: String,
   sql: String,
   dateCreated: Date,

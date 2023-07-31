@@ -1,7 +1,6 @@
 import { webcrypto as crypto } from "node:crypto";
 import { createHash } from "crypto";
 import uniqid from "uniqid";
-import fetch from "node-fetch";
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import { orgHasPremiumFeature } from "enterprise";
@@ -34,7 +33,10 @@ import { queueProxyUpdate } from "../jobs/proxyUpdate";
 import { ApiFeature, ApiFeatureEnvironment } from "../../types/openapi";
 import { ExperimentInterface, ExperimentPhase } from "../../types/experiment";
 import { VisualChangesetInterface } from "../../types/visual-changeset";
-import { FASTLY_API_TOKEN, FASTLY_SERVICE_ID } from "../util/secrets";
+import {
+  getSurrogateKeysFromSDKPayloadKeys,
+  purgeCDNCache,
+} from "../util/cdn.util";
 import { getEnvironments, getOrganizationById } from "./organizations";
 
 export type AttributeMap = Map<string, string>;
@@ -81,6 +83,8 @@ function generateVisualExperimentsPayload({
     !!e;
   const sdkExperiments: Array<SDKExperiment | null> = visualExperiments.map(
     ({ experiment: e, visualChangeset: v }) => {
+      if (e.status === "stopped" && e.excludeFromPayload) return null;
+
       const phase: ExperimentPhase | null = e.phases.slice(-1)?.[0] ?? null;
       const forcedVariation =
         e.status === "stopped" && e.releasedVariationId
@@ -242,55 +246,19 @@ export async function refreshSDKPayloadCache(
 
   // Purge CDN if used
   // Do this before firing webhooks in case a webhook tries fetching the latest payload from the CDN
-  await purgeCDNCache(organization.id, payloadKeys);
+  // Only purge the specific payloads that are affected
+  const surrogateKeys = getSurrogateKeysFromSDKPayloadKeys(
+    organization.id,
+    payloadKeys
+  );
+
+  await purgeCDNCache(organization.id, surrogateKeys);
 
   // After the SDK payloads are updated, fire any webhooks on the organization
   await queueWebhook(organization.id, payloadKeys, true);
 
   // Update any Proxy servers that are affected by this change
   await queueProxyUpdate(organization.id, payloadKeys);
-}
-
-export function getSurrogateKey(
-  orgId: string,
-  project: string,
-  environment: string
-) {
-  // Fill with default values if missing
-  project = project || "AllProjects";
-  environment = environment || "production";
-
-  const key = `${orgId}_${project}_${environment}`;
-
-  // Protect against environments or projects having unusual characters
-  return key.replace(/[^a-zA-Z0-9_-]/g, "");
-}
-
-export async function purgeCDNCache(
-  orgId: string,
-  payloadKeys: SDKPayloadKey[]
-): Promise<void> {
-  // Only purge when Fastly is used as the CDN (e.g. GrowthBook Cloud)
-  if (!FASTLY_SERVICE_ID || !FASTLY_API_TOKEN) return;
-
-  // Only purge the specific payloads that are affected
-  const surrogateKeys = payloadKeys.map((k) =>
-    getSurrogateKey(orgId, k.project, k.environment)
-  );
-  if (!surrogateKeys.length) return;
-
-  try {
-    await fetch(`https://api.fastly.com/service/${FASTLY_SERVICE_ID}/purge`, {
-      method: "POST",
-      headers: {
-        "Fastly-Key": FASTLY_API_TOKEN,
-        "surrogate-key": surrogateKeys.join(" "),
-        Accept: "application/json",
-      },
-    });
-  } catch (e) {
-    logger.error("Failed to purge cache for " + orgId);
-  }
 }
 
 export type FeatureDefinitionsResponseArgs = {
@@ -379,6 +347,13 @@ export type FeatureDefinitionArgs = {
   includeExperimentNames?: boolean;
   hashSecureAttributes?: boolean;
 };
+export type FeatureDefinitionSDKPayload = {
+  features: Record<string, FeatureDefinition>;
+  experiments?: SDKExperiment[];
+  dateUpdated: Date | null;
+  encryptedFeatures?: string;
+  encryptedExperiments?: string;
+};
 
 export async function getFeatureDefinitions({
   organization,
@@ -389,13 +364,7 @@ export async function getFeatureDefinitions({
   includeDraftExperiments,
   includeExperimentNames,
   hashSecureAttributes,
-}: FeatureDefinitionArgs): Promise<{
-  features: Record<string, FeatureDefinition>;
-  experiments?: SDKExperiment[];
-  dateUpdated: Date | null;
-  encryptedFeatures?: string;
-  encryptedExperiments?: string;
-}> {
+}: FeatureDefinitionArgs): Promise<FeatureDefinitionSDKPayload> {
   // Return cached payload from Mongo if exists
   try {
     const cached = await getSDKPayload({
@@ -832,7 +801,7 @@ any {
   }
 }
 
-function sha256(str: string, salt: string): string {
+export function sha256(str: string, salt: string): string {
   return createHash("sha256")
     .update(salt + str)
     .digest("hex");

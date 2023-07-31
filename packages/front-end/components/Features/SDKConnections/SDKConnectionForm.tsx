@@ -1,7 +1,6 @@
 import {
   CreateSDKConnectionParams,
   SDKConnectionInterface,
-  SDKLanguage,
 } from "back-end/types/sdk-connection";
 import { useForm } from "react-hook-form";
 import React, { useEffect, useState } from "react";
@@ -12,7 +11,6 @@ import {
   FaExclamationTriangle,
   FaInfoCircle,
 } from "react-icons/fa";
-import { BsLightningFill } from "react-icons/bs";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
 import Modal from "@/components/Modal";
@@ -49,7 +47,6 @@ export default function SDKConnectionForm({
 
   const { hasCommercialFeature } = useUser();
 
-  const hasCloudProxyFeature = hasCommercialFeature("cloud-proxy");
   const hasSecureAttributesFeature = hasCommercialFeature(
     "hash-secure-attributes"
   );
@@ -77,7 +74,6 @@ export default function SDKConnectionForm({
       includeExperimentNames: initialValue.includeExperimentNames ?? false,
       proxyEnabled: initialValue.proxy?.enabled ?? false,
       proxyHost: initialValue.proxy?.host ?? "",
-      sseEnabled: initialValue.sseEnabled ?? false,
     },
   });
 
@@ -98,13 +94,6 @@ export default function SDKConnectionForm({
   );
   const hasNoSDKsWithVisualExperimentSupport = languages.every(
     (l) => !languageMapping[l].supportsVisualExperiments
-  );
-  const hasNoSDKsWithSSESupport = languages.every(
-    (l) => !languageMapping[l].supportsSSE
-  );
-
-  const languagesWithSSESupport = Object.entries(languageMapping).filter(
-    ([_, v]) => v.supportsSSE
   );
 
   const projectsOptions = projects.map((p) => ({
@@ -150,12 +139,6 @@ export default function SDKConnectionForm({
           });
           mutate();
         } else {
-          track("Create SDK Connection", {
-            languages: value.languages,
-            encryptPayload: value.encryptPayload,
-            hashSecureAttributes: value.hashSecureAttributes,
-            proxyEnabled: value.proxyEnabled,
-          });
           const res = await apiCall<{ connection: SDKConnectionInterface }>(
             `/sdk-connections`,
             {
@@ -163,6 +146,13 @@ export default function SDKConnectionForm({
               body: JSON.stringify(body),
             }
           );
+          track("Create SDK Connection", {
+            source: "SDKConnectionForm",
+            languages: value.languages,
+            encryptPayload: value.encryptPayload,
+            hashSecureAttributes: value.hashSecureAttributes,
+            proxyEnabled: value.proxyEnabled,
+          });
           mutate();
           await router.push(`/sdks/${res.connection.id}`);
         }
@@ -316,90 +306,12 @@ export default function SDKConnectionForm({
         </>
       )}
 
-      {(!hasNoSDKsWithSSESupport || initialValue.sseEnabled) &&
-        isCloud() &&
-        gb?.isOn("proxy-cloud-sse") && (
-          <div className="mt-3 mb-3">
-            <label htmlFor="sdk-connection-sseEnabled-toggle">
-              <PremiumTooltip
-                commercialFeature="cloud-proxy"
-                body={
-                  <>
-                    <p>
-                      <BsLightningFill className="text-warning" />
-                      <strong>Streaming Updates</strong> allow you to instantly
-                      update any subscribed SDKs when you make any feature
-                      changes in GrowthBook. For front-end SDKs, active users
-                      will see the changes immediately without having to refresh
-                      the page.
-                    </p>
-                    <p>
-                      To take advantage of this feature, ensure that you have
-                      set{" "}
-                      <code className="d-block">
-                        {`{`} autoRefresh: true {`}`}
-                      </code>
-                      in your SDK implementation.
-                    </p>
-                    <div className="mb-1">
-                      The following SDKs currently support real-time updates:
-                    </div>
-                    {languagesWithSSESupport.map(([k, v], i) => (
-                      <span className="nowrap" key={k}>
-                        <SDKLanguageLogo
-                          language={k as SDKLanguage}
-                          size={16}
-                        />
-                        <span
-                          className="ml-1 text-muted font-weight-bold"
-                          style={{ verticalAlign: "top" }}
-                        >
-                          {v.label}
-                        </span>
-                        {i < languagesWithSSESupport.length - 1 && ", "}
-                      </span>
-                    ))}
-
-                    <div className="mt-4" style={{ lineHeight: 1.2 }}>
-                      <p className="mb-1">
-                        <span className="badge badge-purple text-uppercase mr-2">
-                          Beta
-                        </span>
-                        <span className="text-purple">
-                          This is an opt-in beta feature.
-                        </span>
-                      </p>
-                      <p className="text-muted small mb-0">
-                        While in beta, we cannot guarantee 100% reliability of
-                        streaming updates. However, using this feature poses no
-                        risk to any other SDK functionality.
-                      </p>
-                    </div>
-                  </>
-                }
-              >
-                Enable Streaming Updates? <FaInfoCircle />{" "}
-                <span className="badge badge-purple text-uppercase mr-2">
-                  Beta
-                </span>
-              </PremiumTooltip>
-            </label>
-
-            <div className="form-inline">
-              <Toggle
-                id="sdk-connection-sseEnabled-toggle"
-                value={form.watch("sseEnabled")}
-                setValue={(val) => form.setValue("sseEnabled", val)}
-                disabled={!hasCloudProxyFeature}
-              />
-            </div>
-          </div>
-        )}
-
-      {/*todo: deprecate this in favor of sseEnabled switch?*/}
       {isCloud() && gb?.isOn("proxy-cloud") && (
-        <>
-          <div className="mb-3">
+        <div
+          className="d-flex mt-3 mb-3 align-top"
+          style={{ justifyContent: "space-between" }}
+        >
+          <div className="">
             <label htmlFor="sdk-connection-proxy-toggle">
               Use GrowthBook Proxy
             </label>
@@ -413,15 +325,25 @@ export default function SDKConnectionForm({
           </div>
 
           {form.watch("proxyEnabled") && (
-            <Field
-              label="GrowthBook Proxy Host"
-              required
-              placeholder="https://"
-              type="url"
-              {...form.register("proxyHost")}
-            />
+            <div className="ml-3 d-flex align-items-center">
+              <label
+                className="mr-2 mt-3 pt-2"
+                htmlFor="sdk-connection-proxyHost"
+              >
+                Proxy Host URL
+              </label>
+              <Field
+                id="sdk-connection-proxyHost"
+                required
+                placeholder="https://"
+                type="url"
+                containerClassName="mt-3"
+                style={{ width: 400 }}
+                {...form.register("proxyHost")}
+              />
+            </div>
           )}
-        </>
+        </div>
       )}
 
       <div className="form-group mt-4">
