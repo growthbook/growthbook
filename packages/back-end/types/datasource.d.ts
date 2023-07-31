@@ -133,6 +133,7 @@ export interface ExposureQuery {
   query: string;
   hasNameCol?: boolean;
   dimensions: string[];
+  error?: string;
 }
 
 export interface UserIdType {
