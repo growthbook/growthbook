@@ -8,7 +8,7 @@ slug: /app/visual
 
 import Pill from '@site/src/components/Pill';
 
-# Visual Editor 2.0 <Pill>beta</Pill>
+# Visual Editor 2.0
 
 The Visual Editor enables non-technical users to design A/B tests on their site directly in their browser, run them in production, and analyze results, all without writing a single line of code. To use the Visual Editor, you will need to integrate either our [JavaScript](/lib/js) or [ReactJS](/lib/react) SDK to your application (requires a developer).
 
@@ -18,21 +18,21 @@ In March 2023, we released version 2.0 of our Visual Editor, which had many impr
 
 The Visual Editor may not work optimally on client-side rendered apps (e.g. React.js, Vue.js). Consider using [Feature Flags](/app/features) instead for smoother integration. Contact support@growthbook.io if you have any questions.
 
+If you do decide to use a framework like React or Vue, be sure to see our [section on SPA support below](#spa-support).
+
 :::
 
 ## Requirements
 
-To use our Visual Editor, you need to install the [GrowthBook Chrome Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia).
+To **create visual experiments**, all you need is the following:
 
-You will also need a Secret API Key so the Chrome Extension can connect to your GrowthBook instance and save changes. You can create a key on the **Settings -> API Keys** page in GrowthBook (you will need admin permissions to access this). You will be prompted to enter this API key the first time you use the Visual Editor.
+- The [GrowthBook Chrome Extension](https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia) installed on your Chrome Browser.
 
-The application you want to experiment on must also be a front-end web application viewed in a browser. Our Visual Editor does not work for mobile apps (Native or ReactNative) or desktop apps (e.g. Electron). For these unsupported apps, you can use [Feature Flags](/app/features) instead and implement your changes in code.
+To **run your visual experiments** against users in your web app, you additionally need:
 
-:::note
+- The [JavaScript](/lib/js) or [ReactJS](/lib/react) SDK loaded in your web application.
 
-There are additional steps required before you deploy your A/B test to production. See below for more info.
-
-:::
+The application you want to experiment on **must be a front-end web application viewed in a browser**. Our Visual Editor does not work for mobile apps (Native or ReactNative) or desktop apps (e.g. Electron). For unsupported platforms, we recommend using [Feature Flags](/app/features) instead to implement your changes in code.
 
 ## Creating a Visual Experiment
 
