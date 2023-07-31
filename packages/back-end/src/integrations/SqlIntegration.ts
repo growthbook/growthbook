@@ -537,6 +537,15 @@ export default abstract class SqlIntegration
     });
   }
 
+  //Test the validity of a query as cheaply as possible
+  getTestValidityQuery(query: string): string {
+    const explainQuery = `WITH __table as (
+        ${query}
+      )
+      ${this.selectSampleRows("__table", 1)}`;
+    return format(explainQuery, this.getFormatDialect());
+  }
+
   getTestQuery(query: string): string {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);

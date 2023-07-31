@@ -13,6 +13,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
+import Button from "@/components/Button";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 
@@ -75,7 +76,7 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
   }, [experimentExposureQueries]);
 
   const handleActionEditClicked = useCallback(
-    (idx: number) => () => {
+    (idx: number) => async () => {
       setEditingIndex(idx);
       setUiMode("edit");
     },
@@ -100,6 +101,19 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
       // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       copy.settings.queries.exposure[idx] = exposureQuery;
       await onSave(copy);
+    },
+    [dataSource, onSave]
+  );
+
+  const [validatingQuery, setValidatingQuery] = useState(false);
+
+  const handleValidate = useCallback(
+    () => async () => {
+      const copy = cloneDeep<DataSourceInterfaceWithParams>(dataSource);
+      setValidatingQuery(true);
+      // Resaving the document as-is will automatically revalidate any queries in error state
+      await onSave(copy);
+      setValidatingQuery(false);
     },
     [dataSource, onSave]
   );
@@ -174,13 +188,41 @@ export const ExperimentAssignmentQueries: FC<ExperimentAssignmentQueriesProps> =
                     )}
                   </div>
                 </div>
+                {query.error && (
+                  <div
+                    className="alert alert-danger"
+                    style={{ marginTop: "1rem" }}
+                  >
+                    This query had an error with it the last time it ran:{" "}
+                    <div className="font-weight-bold">{query.error}</div>
+                    <div style={{ marginTop: "1rem" }}>
+                      <Button
+                        onClick={handleValidate()}
+                        loading={validatingQuery}
+                      >
+                        Check it again.
+                      </Button>
+                      {canEdit && (
+                        <Button
+                          onClick={handleActionEditClicked(idx)}
+                          style={{ marginLeft: "1rem" }}
+                        >
+                          Edit it now.
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* endregion Title Bar */}
 
               {/* region Actions*/}
 
-              <div className="d-flex align-items-center">
+              <div
+                className="d-flex align-items-center"
+                style={{ height: "fit-content" }}
+              >
                 {canEdit && (
                   <MoreMenu>
                     <button
