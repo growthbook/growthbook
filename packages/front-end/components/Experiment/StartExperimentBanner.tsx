@@ -59,9 +59,9 @@ export function StartExperimentBanner({
   }
 
   if (visualChangesets.length > 0 && !hasSomeVisualChanges) {
-    errors.push(`None of the feature flags linked to this
-            experiment are live. Make sure the environments are enabled and your
-            changes are published.`);
+    errors.push(
+      `You haven't made any changes using the Visual Editor yet. If you are running an A/A test, you can ignore this error.`
+    );
   }
 
   if (visualChangesets.length > 0 && !hasSDKWithVisualExperimentsEnabled) {

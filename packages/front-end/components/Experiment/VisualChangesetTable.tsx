@@ -33,7 +33,7 @@ type Props = {
   mutate: () => void;
   canEditVisualChangesets: boolean;
   setVisualEditorModal: (v: boolean) => void;
-  setFeatureModal: (v: boolean) => void;
+  setFeatureModal?: (v: boolean) => void;
   newUi?: boolean;
 };
 
@@ -132,11 +132,7 @@ const drawChange = ({
           {canEditVisualChangesets && experiment.status === "draft" && (
             <div className="col-auto">
               {hasVisualEditorFeature && (
-                <OpenVisualEditorLink
-                  id={vc.id}
-                  changeIndex={1}
-                  visualEditorUrl={vc.editorUrl}
-                />
+                <OpenVisualEditorLink visualChangeset={vc} />
               )}
               <DeleteButton
                 className="btn-sm ml-4"
@@ -440,7 +436,7 @@ export const VisualChangesetTable: FC<Props> = ({
               </PremiumTooltip>
             )}
           </div>
-          {showNewExperimentRule && (
+          {showNewExperimentRule && setFeatureModal && (
             <div className="px-3">
               <button
                 className="btn btn-link"

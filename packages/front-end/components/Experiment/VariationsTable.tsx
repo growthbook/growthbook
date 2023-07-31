@@ -19,6 +19,7 @@ interface Props {
   canEditVisualChangesets: boolean;
   className?: string;
   setVisualEditorModal: (v: boolean) => void;
+  setFeatureModal?: (v: boolean) => void;
   newUi?: boolean;
 }
 
@@ -92,6 +93,7 @@ const VariationsTable: FC<Props> = ({
   mutate,
   visualChangesets: _visualChangesets,
   setVisualEditorModal,
+  setFeatureModal,
   newUi,
 }) => {
   const { variations } = experiment;
@@ -230,6 +232,7 @@ const VariationsTable: FC<Props> = ({
           mutate={mutate}
           canEditVisualChangesets={canEditVisualChangesets}
           setVisualEditorModal={setVisualEditorModal}
+          setFeatureModal={setFeatureModal}
           newUi={newUi}
         />
       )}

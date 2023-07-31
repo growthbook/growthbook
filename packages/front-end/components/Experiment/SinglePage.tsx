@@ -79,6 +79,7 @@ import Tooltip from "../Tooltip/Tooltip";
 import Button from "../Button";
 import { DocLink } from "../DocLink";
 import FeatureFromExperimentModal from "../Features/FeatureModal/FeatureFromExperimentModal";
+import { openVisualEditor } from "../OpenVisualEditorLink";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import ResultsIndicator from "./ResultsIndicator";
 import EditStatusModal from "./EditStatusModal";
@@ -523,6 +524,10 @@ export default function SinglePage({
           experiment={experiment}
           mutate={mutate}
           close={() => setVisualEditorModal(false)}
+          onCreate={async (vc) => {
+            // Try to immediately open the visual editor
+            await openVisualEditor(vc);
+          }}
         />
       )}
       {statusModal && (
@@ -1046,6 +1051,7 @@ export default function SinglePage({
               canEditExperiment={canEditExperiment}
               canEditVisualChangesets={hasVisualEditorPermission}
               setVisualEditorModal={setVisualEditorModal}
+              setFeatureModal={setFeatureModal}
               newUi={true}
             />
           </div>

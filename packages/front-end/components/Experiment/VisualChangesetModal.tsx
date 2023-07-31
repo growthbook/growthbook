@@ -19,7 +19,8 @@ const VisualChangesetModal: FC<{
   visualChangeset?: VisualChangesetInterface;
   mutate: () => void;
   close: () => void;
-}> = ({ mode, experiment, visualChangeset, mutate, close }) => {
+  onCreate?: (vc: VisualChangesetInterface) => void;
+}> = ({ mode, experiment, visualChangeset, mutate, close, onCreate }) => {
   const { apiCall } = useAuth();
 
   let forceAdvancedMode = false;
@@ -63,18 +64,22 @@ const VisualChangesetModal: FC<{
       ];
     }
     if (mode === "add") {
-      await apiCall(`/experiments/${experiment.id}/visual-changeset`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      const res = await apiCall<{ visualChangeset: VisualChangesetInterface }>(
+        `/experiments/${experiment.id}/visual-changeset`,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        }
+      );
+      mutate();
+      res.visualChangeset && onCreate && onCreate(res.visualChangeset);
     } else {
       await apiCall(`/visual-changesets/${visualChangeset?.id}`, {
         method: "PUT",
         body: JSON.stringify(payload),
       });
+      mutate();
     }
-    mutate();
-    close();
   });
 
   const editorUrlLabel = !showAdvanced
