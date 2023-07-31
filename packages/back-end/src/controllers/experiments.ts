@@ -1626,7 +1626,7 @@ export async function postSnapshot(
     dimensions: dimension ? [dimension] : [],
     sequentialTesting: !!sequentialTestingEnabled,
     sequentialTestingTuningParameter: sequentialTestingTuningParameter,
-    baselineVariation: experiment.variations[0].name,
+    baselineVariationIndex: 0,
   };
 
   const metricMap = await getMetricMap(org.id);

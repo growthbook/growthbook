@@ -40,13 +40,13 @@ export function generateVariationId() {
 
 export function putBaselineVariationFirst(
   variations: ExperimentReportVariation[],
-  baselineVariation: string | null
+  baselineVariationIndex: number | null
 ): ExperimentReportVariation[] {
-  if (!baselineVariation) return variations;
+  if (baselineVariationIndex === null) return variations;
 
   return [
-    ...variations.filter((v) => v.name === baselineVariation),
-    ...variations.filter((v) => v.name !== baselineVariation),
+    variations[baselineVariationIndex],
+    ...variations.filter((v, i) => i !== baselineVariationIndex),
   ];
 }
 

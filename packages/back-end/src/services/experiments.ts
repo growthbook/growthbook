@@ -31,9 +31,9 @@ import { addTags } from "../models/TagModel";
 import { WatchModel } from "../models/WatchModel";
 import { Dimension, ExperimentMetricQueryResponse } from "../types/Integration";
 import {
+  addOrUpdateSnapshotAnalysis,
   createExperimentSnapshotModel,
-  findSnapshotById,
-  updateSnapshot,
+  updateSnapshotAnalysis,
 } from "../models/ExperimentSnapshotModel";
 import {
   Condition,
@@ -508,38 +508,20 @@ export async function createSnapshotAnalysis({
 }): Promise<void> {
   // check if analysis is possible
   if (!isAnalysisAllowed(snapshot.settings, analysisSettings)) {
-    // TODO more informative error message
     throw new Error("Analysis not allowed with this snapshot");
   }
-  // get analysis already exists
-  // TODO allow overwriting running or errored analysis
-  if (getSnapshotAnalysis(snapshot, analysisSettings)) {
-    return;
-  }
 
+  if (snapshot.queries.some((q) => q.status === "failed" || q.status === "running")) {
+    throw new Error("Snapshot queries not available for analysis");
+  }
   const analysis: ExperimentSnapshotAnalysis = {
     results: [],
     status: "running",
     settings: analysisSettings,
     dateCreated: new Date(),
   };
-  snapshot.analyses.push(analysis);
-
-  updateSnapshot(organization.id, snapshot.id, { analyses: snapshot.analyses });
-  // Check data is available in snapshot
-  if (snapshot.queries.some((q) => q.status === "failed")) {
-    analysis.status = "error";
-    analysis.error = "Snapshot has failed queries";
-    updateSnapshot(organization.id, snapshot.id, {
-      analyses: snapshot.analyses,
-    });
-    return;
-  }
-  if (snapshot.queries.some((q) => q.status === "running")) {
-    throw new Error(
-      "Some queries still running. Try to create analysis again later."
-    );
-  }
+  // and analysis to mongo record if it does not exist, overwrite if it does
+  addOrUpdateSnapshotAnalysis(organization.id, snapshot.id, analysis)
 
   // Format data correctly
   const queryMap: QueryMap = await getQueryMap(
@@ -559,22 +541,7 @@ export async function createSnapshotAnalysis({
   analysis.status = "success";
   analysis.error = undefined;
 
-  // fetch snapshot again to prevent race conditions if above gbstats call is slow
-  const refetchedSnapshot = await findSnapshotById(
-    organization.id,
-    snapshot.id
-  );
-  if (!refetchedSnapshot) {
-    throw new Error("Snapshot deleted between creating and writing analysis");
-  }
-  // update matching analysis or set if not found for some reason
-  Object.assign(
-    getSnapshotAnalysis(refetchedSnapshot, analysisSettings) ?? analysis,
-    analysis
-  );
-  updateSnapshot(organization.id, snapshot.id, {
-    analyses: refetchedSnapshot.analyses,
-  });
+  updateSnapshotAnalysis(organization.id, snapshot.id, analysis);
 }
 
 export async function ensureWatching(

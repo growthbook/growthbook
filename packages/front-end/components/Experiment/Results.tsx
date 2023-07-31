@@ -6,7 +6,6 @@ import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { getValidDate, ago } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { ExperimentSnapshotInterface } from "@/../back-end/types/experiment-snapshot";
-import { putBaselineVariationFirst } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -75,11 +74,9 @@ const Results: FC<{
     phase,
     setPhase,
     dimension,
-    analysisSettings,
     setAnalysisSettings,
     mutateSnapshot: mutate,
   } = useSnapshot();
-
   useEffect(() => {
     setPhase(experiment.phases.length - 1);
   }, [experiment.phases.length]);
@@ -110,10 +107,6 @@ const Results: FC<{
       weight: phaseObj?.variationWeights?.[i] || 0,
     };
   });
-  const sortedVariations = putBaselineVariationFirst(
-    variations,
-    analysisSettings?.baselineVariation ?? null
-  );
   const snapshotMetricRegressionAdjustmentStatuses =
     snapshot?.settings?.metricSettings?.map((m) => ({
       metric: m.id,
@@ -238,7 +231,7 @@ const Results: FC<{
             guardrails={experiment.guardrails}
             results={analysis?.results ?? []}
             seriestype={snapshot.dimension}
-            variations={sortedVariations}
+            variations={variations}
             statsEngine={
               analysis?.settings?.statsEngine ?? DEFAULT_STATS_ENGINE
             }
@@ -247,7 +240,7 @@ const Results: FC<{
           <BreakDownResults
             key={snapshot.dimension}
             results={analysis?.results ?? []}
-            variations={sortedVariations}
+            variations={variations}
             metrics={experiment.metrics}
             metricOverrides={experiment.metricOverrides ?? []}
             guardrails={experiment.guardrails}
@@ -283,7 +276,7 @@ const Results: FC<{
             )}
             <CompactResults
               editMetrics={editMetrics}
-              variations={sortedVariations}
+              variations={variations}
               multipleExposures={snapshot.multipleExposures || 0}
               results={analysis.results[0]}
               reportDate={snapshot.dateCreated}
@@ -324,13 +317,13 @@ const Results: FC<{
                         {analysis.settings.statsEngine === "frequentist" ? (
                           <PValueGuardrailResults
                             data={data}
-                            variations={sortedVariations}
+                            variations={variations}
                             metric={metric}
                           />
                         ) : (
                           <GuardrailResults
                             data={data}
-                            variations={sortedVariations}
+                            variations={variations}
                             metric={metric}
                           />
                         )}

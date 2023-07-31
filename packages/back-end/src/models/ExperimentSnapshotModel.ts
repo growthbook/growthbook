@@ -1,6 +1,7 @@
 import mongoose, { FilterQuery } from "mongoose";
 import omit from "lodash/omit";
 import {
+  ExperimentSnapshotAnalysis,
   ExperimentSnapshotInterface,
   LegacyExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
@@ -157,6 +158,45 @@ export async function updateSnapshot(
     {
       $set: updates,
     }
+  );
+}
+
+export async function addOrUpdateSnapshotAnalysis(
+  organization: string,
+  id: string,
+  analysis: ExperimentSnapshotAnalysis
+) {
+  const experimentSnapshotModel = await ExperimentSnapshotModel.updateOne(
+    {
+      organization,
+      id,
+      "analyses.settings": {$ne: analysis.settings}
+    },
+    {
+      $push: {analyses: analysis},
+    }
+  );
+  // if analysis already exist, no matches will be found, so instead
+  // overwrite existing analysis in DB
+  if (experimentSnapshotModel.matchedCount === 0) {
+    await updateSnapshotAnalysis(organization, id, analysis)
+  }
+}
+
+export async function updateSnapshotAnalysis(
+  organization: string,
+  id: string,
+  analysis: ExperimentSnapshotAnalysis
+) {
+  await ExperimentSnapshotModel.updateOne(
+    {
+      organization,
+      id,
+      "analyses.settings": analysis.settings
+    },
+    {
+      $set: { "analyses.$": analysis }
+    },
   );
 }
 

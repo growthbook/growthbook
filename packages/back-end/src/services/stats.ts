@@ -35,7 +35,7 @@ export async function analyzeExperimentMetric(
   statsEngine: StatsEngine = DEFAULT_STATS_ENGINE,
   sequentialTestingEnabled: boolean = false,
   sequentialTestingTuningParameter: number = DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  baselineVariation: string | null = null
+  baselineVariationIndex: number | null = null
 ): Promise<ExperimentMetricAnalysis> {
   if (!rows || !rows.length) {
     return {
@@ -46,7 +46,7 @@ export async function analyzeExperimentMetric(
   }
   const sortedVariations = putBaselineVariationFirst(
     variations,
-    baselineVariation
+    baselineVariationIndex
   );
   const variationIdMap: { [key: string]: number } = {};
   sortedVariations.map((v, i) => {
@@ -70,6 +70,7 @@ data = json.loads("""${JSON.stringify({
       var_id_map: variationIdMap,
       var_names: sortedVariations.map((v) => v.name),
       weights: sortedVariations.map((v) => v.weight),
+      baseline_index: baselineVariationIndex ?? 0,
       ignore_nulls: !!metric.ignoreNulls,
       inverse: !!metric.inverse,
       max_dimensions:
@@ -83,6 +84,7 @@ ignore_nulls = data['ignore_nulls']
 inverse = data['inverse']
 weights = data['weights']
 max_dimensions = data['max_dimensions']
+baseline_index = data['baseline_index']
 
 rows = pd.DataFrame(data['rows'])
 
@@ -124,7 +126,7 @@ result = analyze_metric_df(
 
 print(json.dumps({
   'unknownVariations': list(unknown_var_ids),
-  'dimensions': format_results(result)
+  'dimensions': format_results(result, baseline_index)
 }, allow_nan=False))`,
     {}
   );
@@ -231,7 +233,7 @@ export async function analyzeExperimentResults({
           analysisSettings.statsEngine,
           analysisSettings.sequentialTesting,
           analysisSettings.sequentialTestingTuningParameter,
-          analysisSettings.baselineVariation
+          analysisSettings.baselineVariationIndex
         );
         unknownVariations = unknownVariations.concat(result.unknownVariations);
         multipleExposures = Math.max(

@@ -228,20 +228,19 @@ export default function AnalysisSettingsBar({
               <SelectField
                 label="Baseline Variation"
                 labelClassName="mr-2"
-                options={variations.map((v) => {
+                options={variations.map((v, i) => {
                   return {
                     label: v.name,
-                    value: v.name,
+                    value: i.toString(),
                   };
                 })}
                 value={
-                  analysisSettings?.baselineVariation ||
-                  experiment.variations[0].name
+                  (analysisSettings?.baselineVariationIndex || 0).toString()
                 }
-                onChange={async (v) => {
+                onChange={async (i) => {
                   const newSettings: ExperimentSnapshotAnalysisSettings = {
                     ...analysis.settings,
-                    baselineVariation: v,
+                    baselineVariationIndex: Number(i),
                   };
                   if (!getSnapshotAnalysis(snapshot, newSettings)) {
                     await apiCall(`/snapshot/${snapshot.id}/analysis`, {
