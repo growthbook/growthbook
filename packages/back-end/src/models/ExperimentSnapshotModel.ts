@@ -170,16 +170,16 @@ export async function addOrUpdateSnapshotAnalysis(
     {
       organization,
       id,
-      "analyses.settings": {$ne: analysis.settings}
+      "analyses.settings": { $ne: analysis.settings },
     },
     {
-      $push: {analyses: analysis},
+      $push: { analyses: analysis },
     }
   );
   // if analysis already exist, no matches will be found, so instead
   // overwrite existing analysis in DB
   if (experimentSnapshotModel.matchedCount === 0) {
-    await updateSnapshotAnalysis(organization, id, analysis)
+    await updateSnapshotAnalysis(organization, id, analysis);
   }
 }
 
@@ -192,11 +192,11 @@ export async function updateSnapshotAnalysis(
     {
       organization,
       id,
-      "analyses.settings": analysis.settings
+      "analyses.settings": analysis.settings,
     },
     {
-      $set: { "analyses.$": analysis }
-    },
+      $set: { "analyses.$": analysis },
+    }
   );
 }
 

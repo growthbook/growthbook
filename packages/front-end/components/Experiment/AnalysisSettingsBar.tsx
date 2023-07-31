@@ -234,9 +234,9 @@ export default function AnalysisSettingsBar({
                     value: i.toString(),
                   };
                 })}
-                value={
-                  (analysisSettings?.baselineVariationIndex || 0).toString()
-                }
+                value={(
+                  analysisSettings?.baselineVariationIndex || 0
+                ).toString()}
                 onChange={async (i) => {
                   const newSettings: ExperimentSnapshotAnalysisSettings = {
                     ...analysis.settings,

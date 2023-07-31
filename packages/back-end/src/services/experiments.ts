@@ -511,7 +511,11 @@ export async function createSnapshotAnalysis({
     throw new Error("Analysis not allowed with this snapshot");
   }
 
-  if (snapshot.queries.some((q) => q.status === "failed" || q.status === "running")) {
+  if (
+    snapshot.queries.some(
+      (q) => q.status === "failed" || q.status === "running"
+    )
+  ) {
     throw new Error("Snapshot queries not available for analysis");
   }
   const analysis: ExperimentSnapshotAnalysis = {
@@ -521,7 +525,7 @@ export async function createSnapshotAnalysis({
     dateCreated: new Date(),
   };
   // and analysis to mongo record if it does not exist, overwrite if it does
-  addOrUpdateSnapshotAnalysis(organization.id, snapshot.id, analysis)
+  addOrUpdateSnapshotAnalysis(organization.id, snapshot.id, analysis);
 
   // Format data correctly
   const queryMap: QueryMap = await getQueryMap(
