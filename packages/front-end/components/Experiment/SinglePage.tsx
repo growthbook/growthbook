@@ -855,8 +855,8 @@ export default function SinglePage({
               <div>
                 <FaClock /> <strong>Temporary Rollout Enabled</strong>
                 <div className="my-1">
-                  This experiment has been stopped, but visual changes are still
-                  being applied to give you time to implement them in code.
+                  This experiment has been stopped, but changes are still being
+                  applied to give you time to implement them in code.
                 </div>
                 When you no longer need this rollout, stop it to improve your
                 site performance.{" "}
