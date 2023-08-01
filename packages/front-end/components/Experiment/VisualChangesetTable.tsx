@@ -12,7 +12,6 @@ import {
 import { FaPencilAlt, FaPlusCircle, FaTimesCircle } from "react-icons/fa";
 import Link from "next/link";
 import clsx from "clsx";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import track from "@/services/track";
 import { GBEdit } from "@/components/Icons";
 import OpenVisualEditorLink from "@/components/OpenVisualEditorLink";
@@ -25,7 +24,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import VisualChangesetModal from "@/components/Experiment/VisualChangesetModal";
 import EditDOMMutatonsModal from "@/components/Experiment/EditDOMMutationsModal";
 import LinkedChange from "@/components/Experiment/LinkedChange";
-import { AppFeatures } from "@/types/app-features";
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;
@@ -258,9 +256,6 @@ export const VisualChangesetTable: FC<Props> = ({
   setFeatureModal,
   newUi,
 }: Props) => {
-  const showNewExperimentRule = useFeatureIsOn<AppFeatures>(
-    "new-experiment-rule"
-  );
   const { variations } = experiment;
   const { apiCall } = useAuth();
 
@@ -436,7 +431,7 @@ export const VisualChangesetTable: FC<Props> = ({
               </PremiumTooltip>
             )}
           </div>
-          {showNewExperimentRule && setFeatureModal && (
+          {setFeatureModal && (
             <div className="px-3">
               <button
                 className="btn btn-link"

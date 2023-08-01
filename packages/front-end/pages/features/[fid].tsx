@@ -6,7 +6,6 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useState } from "react";
 import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -51,7 +50,6 @@ import EditSchemaModal from "@/components/Features/EditSchemaModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
-import { AppFeatures } from "@/types/app-features";
 
 export default function FeaturePage() {
   const router = useRouter();
@@ -75,10 +73,6 @@ export default function FeaturePage() {
   const [editProjectModal, setEditProjectModal] = useState(false);
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
-
-  const showNewExperimentRule = useFeatureIsOn<AppFeatures>(
-    "new-experiment-rule"
-  );
 
   const { getProjectById, projects } = useDefinitions();
 
@@ -760,15 +754,11 @@ export default function FeaturePage() {
                     setRuleModal({
                       environment: env,
                       i: getRules(data.feature, env).length,
-                      defaultType: showNewExperimentRule
-                        ? "experiment-ref-new"
-                        : "experiment",
+                      defaultType: "experiment-ref-new",
                     });
                     track("Viewed Rule Modal", {
                       source: "add-rule",
-                      type: showNewExperimentRule
-                        ? "experiment-ref-new"
-                        : "experiment",
+                      type: "experiment",
                     });
                   }}
                 >

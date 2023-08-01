@@ -1,8 +1,6 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
-import { AppFeatures } from "@/types/app-features";
 import PremiumTooltip from "../Marketing/PremiumTooltip";
 
 export default function AddLinkedChangesBanner({
@@ -16,10 +14,6 @@ export default function AddLinkedChangesBanner({
   setVisualEditorModal: (state: boolean) => unknown;
   setFeatureModal: (state: boolean) => unknown;
 }) {
-  const showNewExperimentRule = useFeatureIsOn<AppFeatures>(
-    "new-experiment-rule"
-  );
-
   const { hasCommercialFeature } = useUser();
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
 
@@ -31,10 +25,8 @@ export default function AddLinkedChangesBanner({
   return (
     <div className="alert-cool-1 text-center mb-4 px-3 py-4 position-relative">
       <p className="h4 mb-4">
-        Implement your experiment variations using{" "}
-        {showNewExperimentRule
-          ? `either our Visual Editor or Feature Flags.`
-          : `our Visual Editor`}
+        Implement your experiment variations using either our Visual Editor or
+        Feature Flags.
       </p>
       <div className="row">
         <div className="col text-align-center">
@@ -60,19 +52,17 @@ export default function AddLinkedChangesBanner({
             </PremiumTooltip>
           )}
         </div>
-        {showNewExperimentRule && (
-          <div className="col text-align-center">
-            <button
-              className="btn btn-primary btn-lg mb-3"
-              type="button"
-              onClick={() => {
-                setFeatureModal(true);
-              }}
-            >
-              Add Feature Flag
-            </button>
-          </div>
-        )}
+        <div className="col text-align-center">
+          <button
+            className="btn btn-primary btn-lg mb-3"
+            type="button"
+            onClick={() => {
+              setFeatureModal(true);
+            }}
+          >
+            Add Feature Flag
+          </button>
+        </div>
       </div>
     </div>
   );

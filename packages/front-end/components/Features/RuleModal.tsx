@@ -6,7 +6,6 @@ import {
   ScheduleRule,
 } from "back-end/types/feature";
 import { useMemo, useState } from "react";
-import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { date } from "shared/dates";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -24,7 +23,6 @@ import track from "@/services/track";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { AppFeatures } from "@/types/app-features";
 import Field from "../Forms/Field";
 import Modal from "../Modal";
 import { useAuth } from "../../services/auth";
@@ -57,9 +55,6 @@ export default function RuleModal({
 }: Props) {
   const attributeSchema = useAttributeSchema();
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-  const showNewExperimentRule = useFeatureIsOn<AppFeatures>(
-    "new-experiment-rule"
-  );
 
   const { namespaces } = useOrgSettings();
 
@@ -125,20 +120,10 @@ export default function RuleModal({
   const ruleTypeOptions = [
     { label: "Forced Value", value: "force" },
     { label: "Percentage Rollout", value: "rollout" },
+    { label: "New A/B Experiment", value: "experiment-ref-new" },
+    { label: "Existing A/B Experiment", value: "expeirment-ref" },
+    { label: "Legacy A/B Experiment", value: "experiment" },
   ];
-
-  if (showNewExperimentRule || type === "experiment-ref") {
-    ruleTypeOptions.push({
-      label: "New Experiment",
-      value: "experiment-ref-new",
-    });
-    ruleTypeOptions.push({
-      label: "Existing Experiment",
-      value: "experiment-ref",
-    });
-  } else {
-    ruleTypeOptions.push({ label: "A/B Experiment", value: "experiment" });
-  }
 
   const experimentOptions = experiments
     .filter(
