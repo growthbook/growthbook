@@ -121,7 +121,7 @@ export default function RuleModal({
     { label: "Forced Value", value: "force" },
     { label: "Percentage Rollout", value: "rollout" },
     { label: "New A/B Experiment", value: "experiment-ref-new" },
-    { label: "Existing A/B Experiment", value: "expeirment-ref" },
+    { label: "Existing A/B Experiment", value: "experiment-ref" },
     { label: "Legacy A/B Experiment", value: "experiment" },
   ];
 

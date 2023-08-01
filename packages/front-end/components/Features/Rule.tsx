@@ -23,7 +23,9 @@ import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
 import RuleStatusPill from "./RuleStatusPill";
-import ExperimentRefSummary from "./ExperimentRefSummary";
+import ExperimentRefSummary, {
+  isExperimentRefRuleSkipped,
+} from "./ExperimentRefSummary";
 
 interface SortableProps {
   i: number;
@@ -84,6 +86,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const ruleDisabled =
       scheduleCompletedAndDisabled ||
       upcomingScheduleRule?.enabled ||
+      (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) ||
       !rule.enabled;
 
     return (
@@ -148,8 +151,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           <RuleStatusPill
             rule={rule}
             upcomingScheduleRule={upcomingScheduleRule}
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | boolean | undefined' is not assigna... Remove this comment to see the full error message
-            scheduleCompletedAndDisabled={scheduleCompletedAndDisabled}
+            scheduleCompletedAndDisabled={!!scheduleCompletedAndDisabled}
+            linkedExperiment={linkedExperiment || undefined}
           />
           {rules.length > 1 && canEdit && (
             <div

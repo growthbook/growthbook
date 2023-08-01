@@ -1,23 +1,27 @@
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FeatureRule, ScheduleRule } from "back-end/types/feature";
 import { format as formatTimeZone } from "date-fns-tz";
 import React from "react";
+import { isExperimentRefRuleSkipped } from "./ExperimentRefSummary";
 
 type Props = {
   rule: FeatureRule;
   upcomingScheduleRule: ScheduleRule | null;
   scheduleCompletedAndDisabled: boolean;
+  linkedExperiment?: ExperimentInterfaceStringDates;
 };
 
 export default function RuleStatusPill({
   rule,
   upcomingScheduleRule,
   scheduleCompletedAndDisabled,
+  linkedExperiment,
 }: Props) {
   if (!rule.enabled) {
     return (
       <div className="mr-3">
         <div className="bg-secondary text-light border px-2 rounded">
-          DISABLED
+          Rule Disabled
         </div>
       </div>
     );
@@ -56,6 +60,16 @@ export default function RuleStatusPill({
             new Date(upcomingScheduleRule.timestamp),
             "h:mm a z"
           )}`}
+        </div>
+      </div>
+    );
+  }
+
+  if (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) {
+    return (
+      <div className="mr-3">
+        <div className="bg-secondary text-light border px-2 rounded">
+          Experiment not running
         </div>
       </div>
     );

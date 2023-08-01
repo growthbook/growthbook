@@ -53,6 +53,8 @@ export function includeExperimentInPayload(
 
   if (!experimentHasLinkedChanges(exp)) return false;
 
+  if (!exp.phases?.length) return false;
+
   // Stopped experiments are only included if they are currently releasing a winning variant
   if (exp.status === "stopped") {
     if (exp.excludeFromPayload) return false;

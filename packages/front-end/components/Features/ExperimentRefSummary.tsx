@@ -2,6 +2,7 @@ import { ExperimentRefRule, FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import React, { ReactElement } from "react";
+import { includeExperimentInPayload } from "shared/util";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import ValueDisplay from "./ValueDisplay";
@@ -13,6 +14,13 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
 });
+
+export function isExperimentRefRuleSkipped(
+  experiment: ExperimentInterfaceStringDates
+) {
+  if (experiment.status === "draft") return true;
+  return includeExperimentInPayload(experiment);
+}
 
 function ExperimentSkipped({
   color = "secondary",
