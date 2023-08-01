@@ -761,13 +761,13 @@ export default function FeaturePage() {
                       environment: env,
                       i: getRules(data.feature, env).length,
                       defaultType: showNewExperimentRule
-                        ? "experiment-ref"
+                        ? "experiment-ref-new"
                         : "experiment",
                     });
                     track("Viewed Rule Modal", {
                       source: "add-rule",
                       type: showNewExperimentRule
-                        ? "experiment-ref"
+                        ? "experiment-ref-new"
                         : "experiment",
                     });
                   }}
