@@ -19,7 +19,7 @@ export function isExperimentRefRuleSkipped(
   experiment: ExperimentInterfaceStringDates
 ) {
   if (experiment.status === "draft") return true;
-  return includeExperimentInPayload(experiment);
+  return !includeExperimentInPayload(experiment);
 }
 
 function ExperimentSkipped({
