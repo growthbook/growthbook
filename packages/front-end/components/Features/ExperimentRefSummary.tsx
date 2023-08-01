@@ -1,7 +1,7 @@
 import { ExperimentRefRule, FeatureInterface } from "back-end/types/feature";
 import Link from "next/link";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React from "react";
+import React, { ReactElement } from "react";
 import { getVariationColor } from "@/services/features";
 import ValidateValue from "@/components/Features/ValidateValue";
 import ValueDisplay from "./ValueDisplay";
@@ -22,16 +22,16 @@ function ExperimentSkipped({
 }: {
   color?: string;
   experimentId?: string;
-  message: string;
+  message: string | ReactElement;
   cta?: string;
 }) {
   return (
     <div className="mb-2">
       <div className={`alert alert-${color}`}>
-        <div className="d-flex">
+        <div className="d-flex align-items-center">
           <div className="flex">{message}</div>
           {experimentId && (
-            <div>
+            <div className="ml-auto">
               <Link href={`/experiment/${experimentId}`}>
                 <a className="btn btn-outline-primary">{cta}</a>
               </Link>
@@ -103,12 +103,18 @@ export default function ExperimentRefSummary({
         <div>
           <div className="mb-2">
             <ExperimentSkipped
-              message="This experiment is stopped and a Temporary Rollout is enabled. The winning variation is being served to 100% of users."
+              message={
+                <>
+                  This experiment is stopped and a{" "}
+                  <strong>Temporary Rollout</strong> is enabled. The winning
+                  variation is being served to 100% of users.
+                </>
+              }
               color="info"
               experimentId={experiment.id}
             />
           </div>
-          <ForceSummary feature={feature} value={releasedValue.value} />;
+          <ForceSummary feature={feature} value={releasedValue.value} />
         </div>
       );
     } else {
