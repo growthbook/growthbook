@@ -68,7 +68,7 @@
     "node-fetch": "^2.6.1",
     "nodemailer": "^6.6.0",
     "nunjucks": "^3.2.3",
-    "openid-client": "^5.1.9",
+    "openid-client": "^5.1.10",
     "pg": "^8.6.0",
     "pino-http": "^8.2.1",
     "presto-client": "^0.11.2",
