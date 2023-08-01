@@ -143,6 +143,12 @@ export default function FeatureFromExperimentModal({
     project,
   });
 
+  // Skip features that already have this experiment
+  const validFeatures = features.filter((f) => {
+    if (experiment.linkedFeatures?.includes(f.id)) return false;
+    return true;
+  });
+
   const form = useForm({ defaultValues });
 
   const [showTags, setShowTags] = useState(
@@ -276,7 +282,7 @@ export default function FeatureFromExperimentModal({
     >
       <SelectField
         label="Create New or Use Existing?"
-        options={features.map((f) => ({
+        options={validFeatures.map((f) => ({
           label: f.id + " (" + f.valueType + ")",
           value: f.id,
         }))}
