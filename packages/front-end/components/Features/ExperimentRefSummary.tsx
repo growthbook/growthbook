@@ -190,8 +190,7 @@ export default function ExperimentRefSummary({
               </span>{" "}
               of the namespace and{" "}
               <span className="border px-2 py-1 bg-light rounded">
-                {/* @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call. */}
-                {percentFormatter.format(coverage)}
+                {percentFormatter.format(phase?.coverage || 1)}
               </span>
               <span> exposure)</span>
             </>
