@@ -26,8 +26,6 @@ export default function ChanceToWinColumn({
   snapshotDate,
   baseline,
   stats,
-  className,
-  newUi = false,
 }: {
   metric: MetricInterface;
   status: ExperimentStatus;
@@ -36,8 +34,6 @@ export default function ChanceToWinColumn({
   snapshotDate: Date;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
-  className?: string;
-  newUi?: boolean;
 }) {
   const {
     getMinSampleSizeForMetric,
@@ -72,17 +68,17 @@ export default function ChanceToWinColumn({
   const chanceToWin = stats?.chanceToWin ?? 0;
 
   let sigText = "";
-  let statusClassName = "";
+  let className = "";
   if (shouldHighlight && chanceToWin > ciUpper) {
     sigText = `Significant win as the chance to win is above the ${percentFormatter.format(
       ciUpper
     )} threshold`;
-    statusClassName = "won";
+    className = "won";
   } else if (shouldHighlight && chanceToWin < ciLower) {
     sigText = `Significant loss as the chance to win is below the ${percentFormatter.format(
       ciLower
     )} threshold`;
-    statusClassName = "lost";
+    className = "lost";
   }
   if (
     enoughData &&
@@ -91,29 +87,23 @@ export default function ChanceToWinColumn({
   ) {
     sigText =
       "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
-    statusClassName += " draw";
+    className += " draw";
   }
 
   return (
     <td
       className={clsx(
         "variation chance result-number align-middle d-table-cell",
-        className,
-        statusClassName
+        className
       )}
     >
       {enoughData && suspiciousChange && (
         <div>
           <div className="mb-1 d-flex flex-row">
             <Tooltip
-              body={
-                <div className="text-left" style={{ lineHeight: 1.5 }}>
-                  A suspicious result occurs when the percent change is equal to
-                  or greater than your maximum percent change (
-                  {(metric.maxPercentChange ?? 0) * 100}
-                  %).
-                </div>
-              }
+              body={`A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
+                (metric.maxPercentChange ?? 0) * 100
+              }%).`}
             >
               <span className="badge badge-pill badge-warning">
                 Suspicious Result
@@ -123,19 +113,13 @@ export default function ChanceToWinColumn({
         </div>
       )}
       <Tooltip
-        body={
-          <div className="text-left" style={{ lineHeight: 1.5 }}>
-            {sigText}
-          </div>
-        }
+        body={sigText}
         className="d-block"
         tipPosition={"top"}
         shouldDisplay={sigText !== ""}
       >
         {!baseline?.value || !stats?.value ? (
-          <em className={newUi ? "text-gray font-weight-normal" : ""}>
-            no data
-          </em>
+          <em>no data</em>
         ) : !enoughData ? (
           <NotEnoughData
             experimentStatus={status}
@@ -145,7 +129,6 @@ export default function ChanceToWinColumn({
             minSampleSize={minSampleSize}
             snapshotCreated={snapshotDate}
             phaseStart={startDate}
-            newUi={newUi}
           />
         ) : (
           <>{percentFormatter.format(chanceToWin)}</>

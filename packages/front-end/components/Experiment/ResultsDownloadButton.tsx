@@ -6,7 +6,7 @@ import React, { useMemo } from "react";
 import { FaFileExport } from "react-icons/fa";
 import { Parser } from "json2csv";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { ExperimentTableRow, getRisk } from "@/services/experiments";
+import { ExperimentTableRow, getRiskByVariation } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 
 type CsvRow = {
@@ -75,7 +75,11 @@ export default function ResultsDownloadButton({
           };
           const stats = variation.metrics[m];
           if (!stats) return;
-          const { relativeRisk } = getRisk(index, row, metricDefaults);
+          const { relativeRisk } = getRiskByVariation(
+            index,
+            row,
+            metricDefaults
+          );
           csvRows.push({
             ...(dimensionName && { [dimensionName]: result.name }),
             metric: metric?.name,

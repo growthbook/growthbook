@@ -1,6 +1,6 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
-import { PValueCorrection } from "back-end/types/stats";
+import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { useState } from "react";
 import {
   ExperimentReportResultDimension,
@@ -11,10 +11,16 @@ import {
   MetricDefaults,
   OrganizationSettings,
 } from "back-end/types/organization";
-import { MetricOverride } from "back-end/types/experiment";
+import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
+import { getValidDate } from "shared/dates";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import {
+  defaultLoseRiskThreshold,
+  defaultWinRiskThreshold,
+  formatConversionRate,
+} from "@/services/metrics";
 
 export type ExperimentTableRow = {
   label: string;
@@ -97,6 +103,21 @@ export function shouldHighlight({
 }
 
 export function getRisk(
+  stats: SnapshotMetric,
+  baseline: SnapshotMetric,
+  metric: MetricInterface,
+  metricDefaults: MetricDefaults
+): { risk: number; relativeRisk: number; showRisk: boolean } {
+  const risk = stats.risk?.[metric.inverse ? 0 : 1] ?? 0;
+  const relativeRisk = stats.cr ? risk / stats.cr : 0;
+  const showRisk =
+    stats.cr > 0 &&
+    hasEnoughData(baseline, stats, metric, metricDefaults) &&
+    !isSuspiciousUplift(baseline, stats, metric, metricDefaults);
+  return { risk, relativeRisk, showRisk };
+}
+
+export function getRiskByVariation(
   riskVariation: number,
   row: ExperimentTableRow,
   metricDefaults: MetricDefaults
@@ -492,4 +513,214 @@ export function setAdjustedPValuesOnResults(
       ip.pValue;
   });
   return;
+}
+
+export type RowResults = {
+  directionalStatus: "winning" | "losing";
+  resultsStatus: "won" | "lost" | "draw" | "";
+  resultsReason: string;
+  enoughData: boolean;
+  enoughDataMeta: EnoughDataMeta;
+  significant: boolean;
+  suspiciousChange: boolean;
+  suspiciousChangeReason: string;
+  belowMinChange: boolean;
+  risk: number;
+  relativeRisk: number;
+  riskMeta: RiskMeta;
+};
+export type RiskMeta = {
+  riskStatus: "ok" | "warning" | "danger";
+  showRisk: boolean;
+  riskReason: string;
+};
+export type EnoughDataMeta = {
+  percentComplete: number;
+  percentCompleteNumerator: number;
+  percentCompleteDenominator: number;
+  timeRemainingMs: number | null;
+  showTimeRemaining: boolean;
+};
+export function getRowResults({
+  stats,
+  baseline,
+  metric,
+  metricDefaults,
+  minSampleSize,
+  statsEngine,
+  ciUpper,
+  ciLower,
+  pValueThreshold,
+  snapshotDate,
+  phaseStartDate,
+  isLatestPhase,
+  experimentStatus,
+  displayCurrency,
+}: {
+  stats: SnapshotMetric;
+  baseline: SnapshotMetric;
+  statsEngine: StatsEngine;
+  metric: MetricInterface;
+  metricDefaults: MetricDefaults;
+  minSampleSize: number;
+  ciUpper: number;
+  ciLower: number;
+  pValueThreshold: number;
+  snapshotDate: Date;
+  phaseStartDate: Date;
+  isLatestPhase: boolean;
+  experimentStatus: ExperimentStatus;
+  displayCurrency: string;
+}): RowResults {
+  const percentFormatter = new Intl.NumberFormat(undefined, {
+    style: "percent",
+    maximumFractionDigits: 2,
+  });
+
+  const inverse = metric?.inverse;
+  const directionalStatus: "winning" | "losing" =
+    stats.expected * (inverse ? -1 : 1) > 0 ? "winning" : "losing";
+
+  const significant =
+    statsEngine === "bayesian"
+      ? (stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower
+      : isStatSig(stats.pValueAdjusted ?? stats.pValue ?? 1, pValueThreshold);
+
+  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
+  const percentComplete = Math.max(stats.value, baseline.value) / minSampleSize;
+  const timeRemainingMs =
+    percentComplete > 0.1
+      ? ((snapshotDate.getTime() - getValidDate(phaseStartDate).getTime()) *
+          (1 - percentComplete)) /
+          percentComplete -
+        (Date.now() - snapshotDate.getTime())
+      : null;
+  const showTimeRemaining =
+    timeRemainingMs !== null && isLatestPhase && experimentStatus === "running";
+  const enoughDataMeta: EnoughDataMeta = {
+    percentComplete,
+    percentCompleteNumerator: Math.max(stats.value, baseline.value),
+    percentCompleteDenominator: minSampleSize,
+    timeRemainingMs,
+    showTimeRemaining,
+  };
+
+  const suspiciousChange = isSuspiciousUplift(
+    baseline,
+    stats,
+    metric,
+    metricDefaults
+  );
+  const suspiciousChangeReason = suspiciousChange
+    ? `A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
+        (metric.maxPercentChange ?? 0) * 100
+      }%).`
+    : "";
+
+  const belowMinChange = isBelowMinChange(
+    baseline,
+    stats,
+    metric,
+    metricDefaults
+  );
+
+  const { risk, relativeRisk, showRisk } = getRisk(
+    stats,
+    baseline,
+    metric,
+    metricDefaults
+  );
+  const winRiskThreshold = metric.winRisk ?? defaultWinRiskThreshold;
+  const loseRiskThreshold = metric.loseRisk ?? defaultLoseRiskThreshold;
+  let riskStatus: "ok" | "warning" | "danger" = "ok";
+  if (relativeRisk > winRiskThreshold && relativeRisk < loseRiskThreshold) {
+    riskStatus = "warning";
+  } else if (relativeRisk >= loseRiskThreshold) {
+    riskStatus = "danger";
+  }
+  let riskReason = "";
+  if (metric.type !== "binomial") {
+    riskReason = `${formatConversionRate(
+      metric.type,
+      risk,
+      displayCurrency
+    )}&nbsp;/&nbsp;user`;
+  }
+  const riskMeta: RiskMeta = {
+    riskStatus,
+    showRisk,
+    riskReason,
+  };
+
+  const _shouldHighlight = shouldHighlight({
+    metric,
+    baseline,
+    stats,
+    hasEnoughData: enoughData,
+    suspiciousChange,
+    belowMinChange,
+  });
+
+  let resultsStatus: "won" | "lost" | "draw" | "" = "";
+  let resultsReason = "";
+  if (statsEngine === "bayesian") {
+    if (_shouldHighlight && stats.chanceToWin > ciUpper) {
+      resultsReason = `Significant win as the chance to win is above the ${percentFormatter.format(
+        ciUpper
+      )} threshold`;
+      resultsStatus = "won";
+    } else if (_shouldHighlight && stats.chanceToWin < ciLower) {
+      resultsReason = `Significant loss as the chance to win is below the ${percentFormatter.format(
+        ciLower
+      )} threshold`;
+      resultsStatus = "lost";
+    }
+    if (
+      enoughData &&
+      belowMinChange &&
+      (stats.chanceToWin > ciUpper || stats.chanceToWin < ciLower)
+    ) {
+      resultsReason =
+        "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
+      resultsStatus = "draw";
+    }
+  } else {
+    if (_shouldHighlight && significant && directionalStatus === "winning") {
+      resultsReason = `Significant win as the p-value is below the ${percentFormatter.format(
+        pValueThreshold
+      )} threshold`;
+      resultsStatus = "won";
+    } else if (
+      _shouldHighlight &&
+      significant &&
+      directionalStatus === "losing"
+    ) {
+      resultsReason = `Significant loss as the p-value is above the ${percentFormatter.format(
+        1 - pValueThreshold
+      )} threshold`;
+      resultsStatus = "lost";
+    } else if (enoughData && significant && belowMinChange) {
+      resultsReason =
+        "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
+      resultsStatus = "draw";
+    }
+  }
+
+  // // todo: temp overrides for testing
+  // resultsStatus = "draw";
+
+  return {
+    directionalStatus,
+    resultsStatus,
+    resultsReason,
+    enoughData,
+    enoughDataMeta,
+    significant,
+    suspiciousChange,
+    suspiciousChangeReason,
+    belowMinChange,
+    risk,
+    relativeRisk,
+    riskMeta,
+  };
 }

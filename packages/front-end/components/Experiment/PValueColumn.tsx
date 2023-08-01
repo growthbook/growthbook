@@ -116,7 +116,7 @@ const PValueColumn: FC<{
       className={clsx(
         "variation chance result-number align-middle d-table-cell",
         className,
-        statusClassName
+        { statusClassName: !newUi }
       )}
     >
       {enoughData && suspiciousChange && (

@@ -12,10 +12,11 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { getValidDate } from "shared/dates";
+import { SnapshotVariation } from "back-end/types/experiment-snapshot";
 import {
   ExperimentTableRow,
-  hasEnoughData,
-  isStatSig,
+  getRowResults,
   useDomain,
 } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -23,15 +24,15 @@ import { GBEdit } from "@/components/Icons";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import GuardrailResults from "@/components/Experiment/GuardrailResult";
+import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResult";
+import { useCurrency } from "@/hooks/useCurrency";
 import Tooltip from "../Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
-import ChanceToWinColumn from "./ChanceToWinColumn";
+import ChanceToWinColumn_new from "./ChanceToWinColumn_new";
 import MetricValueColumn from "./MetricValueColumn";
 import PercentGraph from "./PercentGraph";
 import PValueColumn from "./PValueColumn";
-import GuardrailResults from "@/components/Experiment/GuardrailResult";
-import {SnapshotVariation} from "back-end/types/experiment-snapshot";
-import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResult";
 
 export type ResultsTableProps = {
   id: string;
@@ -56,7 +57,7 @@ export type ResultsTableProps = {
   fullStats?: boolean;
   riskVariation: number;
   setRiskVariation: (riskVariation: number) => void;
-  statsEngine?: StatsEngine;
+  statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
   showAdvanced: boolean;
@@ -86,15 +87,21 @@ export default function ResultsTable({
   hasRisk,
   riskVariation,
   setRiskVariation,
-  statsEngine = DEFAULT_STATS_ENGINE,
+  statsEngine,
   pValueCorrection,
   sequentialTestingEnabled = false,
   showAdvanced = false,
   dataForGuardrails = [],
 }: ResultsTableProps) {
-  const { metricDefaults } = useOrganizationMetricDefaults();
+  const {
+    metricDefaults,
+    getMinSampleSizeForMetric,
+  } = useOrganizationMetricDefaults();
   const { ciUpper, ciLower } = useConfidenceLevels();
   const pValueThreshold = usePValueThreshold();
+  const displayCurrency = useCurrency();
+  const orgSettings = useOrgSettings();
+  const domain = useDomain(variations, rows);
 
   const tableContainerRef = useRef<HTMLDivElement | undefined>();
   const [graphCellWidth, setGraphCellWidth] = useState(0);
@@ -128,11 +135,9 @@ export default function ResultsTable({
     onResize();
   }, [showAdvanced]);
 
-  const orgSettings = useOrgSettings();
-
-  const domain = useDomain(variations, rows);
-
   const baselineRow = 0;
+
+  // todo: reconcile positive/negative change coloring with PValueColumn and ChanceToWinColumn (draw, etc)
 
   // todo: fullStats toggle
   // todo: hasRisk toggle. minimally supported now, but should be more thoughtful
@@ -150,7 +155,10 @@ export default function ResultsTable({
   // todo: StatusBanner?
 
   return (
-    <div ref={tableContainerRef} style={{ minWidth: 1000 }}>
+    <div
+      ref={tableContainerRef}
+      style={{ minWidth: showAdvanced ? 1000 : 800 }}
+    >
       {/*      {users ? (
         <table
           className="experiment-results table table-borderless"
@@ -202,7 +210,10 @@ export default function ResultsTable({
       >
         <thead>
           <tr className="results-top-row">
-            <th style={{ width: 180 }} className="axis-col header-label">
+            <th
+              style={{ width: showAdvanced ? 180 : 220 }}
+              className="axis-col header-label"
+            >
               {labelHeader}
               {editMetrics ? (
                 <a
@@ -237,12 +248,17 @@ export default function ResultsTable({
                 </th>
               </>
             ) : null}
-            <th style={{ width: 120 }} className="axis-col label text-right">
+            <th
+              style={{ width: showAdvanced ? 120 : 140 }}
+              className="axis-col label text-right"
+            >
               {statsEngine === "bayesian" ? (
                 !metricsAsGuardrails ? (
                   <>Chance to Win</>
                 ) : (
-                  <div style={{lineHeight: "15px"}}>Chance of Being Worse</div>
+                  <div style={{ lineHeight: "15px" }}>
+                    Chance of Being Worse
+                  </div>
                 )
               ) : sequentialTestingEnabled || pValueCorrection ? (
                 <Tooltip
@@ -292,7 +308,10 @@ export default function ResultsTable({
                 <FaQuestionCircle />
               </Tooltip>
             </th>
-            <th style={{ width: 140 }} className="axis-col label text-right">
+            <th
+              style={{ width: showAdvanced ? 140 : 170 }}
+              className="axis-col label text-right"
+            >
               % Change
             </th>
           </tr>
@@ -350,23 +369,23 @@ export default function ResultsTable({
                   cr: 0,
                   users: 0,
                 };
-                const significant =
-                  j > 0
-                    ? statsEngine === "bayesian"
-                      ? (stats.chanceToWin ?? 0) > ciUpper ||
-                        (stats.chanceToWin ?? 0) < ciLower
-                      : isStatSig(
-                          stats.pValueAdjusted ?? stats.pValue ?? 1,
-                          pValueThreshold
-                        )
-                    : false;
 
-                const enoughData = hasEnoughData(
-                  baseline,
+                const rowResults = getRowResults({
                   stats,
-                  row.metric,
-                  metricDefaults
-                );
+                  baseline,
+                  metric: row.metric,
+                  metricDefaults,
+                  minSampleSize: getMinSampleSizeForMetric(row.metric),
+                  statsEngine,
+                  ciUpper,
+                  ciLower,
+                  pValueThreshold,
+                  snapshotDate: getValidDate(dateCreated),
+                  phaseStartDate: getValidDate(startDate),
+                  isLatestPhase,
+                  experimentStatus: status,
+                  displayCurrency,
+                });
 
                 return (
                   <tr
@@ -375,7 +394,7 @@ export default function ResultsTable({
                   >
                     <td
                       className={`variation with-variation-label variation${j} d-inline-flex align-items-center`}
-                      style={{ width: 180, paddingTop: 6 }}
+                      style={{ width: showAdvanced ? 180 : 220, paddingTop: 6 }}
                     >
                       <span
                         className="label ml-1"
@@ -385,7 +404,7 @@ export default function ResultsTable({
                       </span>
                       <span
                         className="d-inline-block text-ellipsis font-weight-bold"
-                        style={{ width: 125 }}
+                        style={{ width: showAdvanced ? 125 : 165 }}
                       >
                         {v.name}
                       </span>
@@ -412,26 +431,23 @@ export default function ResultsTable({
                     {j > 0 ? (
                       statsEngine === "bayesian" ? (
                         !metricsAsGuardrails ? (
-                          <ChanceToWinColumn
-                            baseline={baseline}
+                          <ChanceToWinColumn_new
                             stats={stats}
-                            status={status}
-                            isLatestPhase={isLatestPhase}
-                            startDate={startDate}
-                            metric={row.metric}
-                            snapshotDate={dateCreated}
-                            className={clsx("text-right results-ctw", {
-                              significant: significant,
-                              "non-significant": !significant,
-                              positive: stats.expected > 0,
-                              negative: stats.expected < 0,
+                            baseline={baseline}
+                            rowResults={rowResults}
+                            showRisk={true}
+                            className={clsx("text-right results-pval", {
+                              significant: rowResults.significant,
+                              "non-significant": !rowResults.significant,
+                              won: rowResults.resultsStatus === "won",
+                              lost: rowResults.resultsStatus === "lost",
+                              draw: rowResults.resultsStatus === "draw",
                             })}
-                            newUi={true}
                           />
                         ) : (
                           <GuardrailResults
                             stats={stats}
-                            enoughData={enoughData}
+                            enoughData={rowResults.enoughData}
                             className="text-right"
                           />
                         )
@@ -446,10 +462,11 @@ export default function ResultsTable({
                           snapshotDate={dateCreated}
                           pValueCorrection={pValueCorrection}
                           className={clsx("text-right results-pval", {
-                            significant: significant,
-                            "non-significant": !significant,
-                            positive: stats.expected > 0,
-                            negative: stats.expected < 0,
+                            significant: rowResults.significant,
+                            "non-significant": !rowResults.significant,
+                            won: rowResults.resultsStatus === "won",
+                            lost: rowResults.resultsStatus === "lost",
+                            draw: rowResults.resultsStatus === "draw",
                           })}
                           newUi={true}
                         />
@@ -457,7 +474,7 @@ export default function ResultsTable({
                         <PValueGuardrailResults
                           stats={stats}
                           metric={row.metric}
-                          enoughData={enoughData}
+                          enoughData={rowResults.enoughData}
                           className="text-right"
                         />
                       )
@@ -478,6 +495,7 @@ export default function ResultsTable({
                           graphWidth={graphCellWidth}
                           height={32}
                           newUi={true}
+                          rowResults={rowResults}
                         />
                       ) : (
                         <AlignedGraph
@@ -492,14 +510,15 @@ export default function ResultsTable({
                         />
                       )}
                     </td>
-                    {j > 0 && row.metric && enoughData ? (
+                    {j > 0 && row.metric && rowResults.enoughData ? (
                       <>
                         <td
                           className={clsx("results-change", {
-                            significant: significant,
-                            "non-significant": !significant,
-                            positive: stats.expected > 0,
-                            negative: stats.expected < 0,
+                            significant: rowResults.significant,
+                            "non-significant": !rowResults.significant,
+                            won: rowResults.resultsStatus === "won",
+                            lost: rowResults.resultsStatus === "lost",
+                            draw: rowResults.resultsStatus === "draw",
                           })}
                         >
                           <div
@@ -509,7 +528,7 @@ export default function ResultsTable({
                             })}
                           >
                             <span className="expectedArrows">
-                              {(stats.expected ?? 0) > 0 ? (
+                              {rowResults.directionalStatus === "winning" ? (
                                 <FaArrowUp />
                               ) : (
                                 <FaArrowDown />

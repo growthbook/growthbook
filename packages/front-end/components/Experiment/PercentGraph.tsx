@@ -1,7 +1,7 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import { hasEnoughData, isStatSig } from "@/services/experiments";
+import { hasEnoughData, isStatSig, RowResults } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import AlignedGraph from "./AlignedGraph";
@@ -16,6 +16,7 @@ export default function PercentGraph({
   graphWidth,
   height,
   newUi = false,
+  rowResults,
 }: {
   metric: MetricInterface;
   baseline: SnapshotMetric;
@@ -26,6 +27,7 @@ export default function PercentGraph({
   graphWidth?: number;
   height?: number;
   newUi?: boolean;
+  rowResults?: RowResults;
 }) {
   const { metricDefaults } = useOrganizationMetricDefaults();
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
@@ -62,6 +64,7 @@ export default function PercentGraph({
       height={height}
       inverse={!!metric?.inverse}
       newUi={newUi}
+      rowResults={rowResults}
     />
   );
 }

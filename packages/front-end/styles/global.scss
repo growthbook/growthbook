@@ -265,14 +265,18 @@ pre {
   }
   .significant {
     font-weight: bold;
-    &.positive {
+    &.won {
       color: #09ac17;
     }
-    &.negative {
+    &.lost {
       color: #d94032;
     }
+    &.draw {
+      color: #8e51f1;
+    }
   }
-  .guardrail {
+  .guardrail, .chance {
+    // for guardrails and embedded risk warning for ChanceToWin
     .ok {
       color: #55ab5d88;
     }
@@ -284,6 +288,9 @@ pre {
     }
     .non-significant {
       font-weight: normal;
+    }
+    .suspicious {
+      color: #ef2bd5;
     }
   }
 }

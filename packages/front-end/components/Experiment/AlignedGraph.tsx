@@ -7,6 +7,7 @@ import { Line } from "@visx/shape";
 import { FaArrowUp, FaArrowDown } from "react-icons/fa";
 import { ViolinPlot } from "@visx/stats";
 import { jStat } from "jstat";
+import { RowResults } from "@/services/experiments";
 
 export interface Props {
   id: string;
@@ -29,8 +30,10 @@ export interface Props {
   barColor?: string;
   sigBarColorPos?: string;
   sigBarColorNeg?: string;
+  barColorDraw?: string;
   expectedColor?: string;
   newUi?: boolean;
+  rowResults?: RowResults;
 }
 
 const AlignedGraph: FC<Props> = ({
@@ -54,7 +57,9 @@ const AlignedGraph: FC<Props> = ({
   barColor = "#aaaaaaaa",
   sigBarColorPos = "#0D8C8Ccc",
   sigBarColorNeg = "#D94032cc",
+  barColorDraw = "rgba(156,137,190,0.8)",
   newUi = false,
+  rowResults,
 }) => {
   if (newUi) {
     sigBarColorPos = "#52be5b";
@@ -116,7 +121,7 @@ const AlignedGraph: FC<Props> = ({
     }
   }
 
-  const barFill =
+  let barFill =
     barFillType === "gradient"
       ? `url(#${gradientId})`
       : significant
@@ -124,6 +129,13 @@ const AlignedGraph: FC<Props> = ({
         ? sigBarColorPos
         : sigBarColorNeg
       : barColor;
+  if (
+    barFillType !== "gradient" &&
+    rowResults?.resultsStatus === "draw" &&
+    rowResults?.significant
+  ) {
+    barFill = barColorDraw;
+  }
 
   return (
     <>
