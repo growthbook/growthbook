@@ -20,9 +20,8 @@ export default function RuleStatusPill({
   if (!rule.enabled) {
     return (
       <div className="mr-3">
-        <div className="bg-secondary text-light border px-2 rounded">
-          Rule Disabled
-        </div>
+        <strong>Skip Rule: </strong>
+        <span className="badge badge-secondary">Disabled</span>
       </div>
     );
   }
@@ -30,8 +29,9 @@ export default function RuleStatusPill({
   if (scheduleCompletedAndDisabled) {
     return (
       <div className="mr-3">
-        <div className="bg-info text-light border px-2 rounded">
-          {`Rule was disabled by schedule rule on ${new Date(
+        <strong>Skip Rule: </strong>
+        <span className="badge badge-info">
+          {`Disabled by a schedule on ${new Date(
             // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
             rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
           ).toLocaleDateString()} at ${formatTimeZone(
@@ -41,7 +41,7 @@ export default function RuleStatusPill({
             ),
             "h:mm a z"
           )}`}
-        </div>
+        </span>
       </div>
     );
   }
@@ -49,8 +49,9 @@ export default function RuleStatusPill({
   if (upcomingScheduleRule) {
     return (
       <div className="mr-3">
-        <div className="bg-info text-light border px-2 rounded">
-          {`Rule will be ${
+        <strong>Skip Rule: </strong>
+        <span className="badge badge-info">
+          {`Will be ${
             upcomingScheduleRule.enabled ? "enabled" : "disabled"
           } on ${new Date(
             // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
@@ -60,7 +61,7 @@ export default function RuleStatusPill({
             new Date(upcomingScheduleRule.timestamp),
             "h:mm a z"
           )}`}
-        </div>
+        </span>
       </div>
     );
   }
@@ -68,9 +69,8 @@ export default function RuleStatusPill({
   if (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) {
     return (
       <div className="mr-3">
-        <div className="bg-secondary text-light border px-2 rounded">
-          Experiment not running
-        </div>
+        <strong>Skip Rule: </strong>
+        <span className="badge badge-secondary">Experiment not running</span>
       </div>
     );
   }
