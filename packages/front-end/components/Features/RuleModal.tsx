@@ -150,6 +150,22 @@ export default function RuleModal({
       value: e.id,
     }));
 
+  function changeRuleType(v: string) {
+    const existingCondition = form.watch("condition");
+    const newVal = {
+      ...getDefaultRuleValue({
+        defaultValue: getFeatureDefaultValue(feature),
+        ruleType: v,
+        attributeSchema,
+      }),
+      description: form.watch("description"),
+    };
+    if (existingCondition && existingCondition !== "{}") {
+      newVal.condition = existingCondition;
+    }
+    form.reset(newVal);
+  }
+
   return (
     <Modal
       open={true}
@@ -362,69 +378,77 @@ export default function RuleModal({
         value={type}
         sort={false}
         onChange={(v) => {
-          const existingCondition = form.watch("condition");
-          const newVal = {
-            ...getDefaultRuleValue({
-              defaultValue: getFeatureDefaultValue(feature),
-              ruleType: v,
-              attributeSchema,
-            }),
-            description: form.watch("description"),
-          };
-          if (existingCondition && existingCondition !== "{}") {
-            newVal.condition = existingCondition;
-          }
-          form.reset(newVal);
+          changeRuleType(v);
         }}
         options={ruleTypeOptions}
       />
       {type === "experiment-ref" && (
         <div>
-          <SelectField
-            label="Experiment"
-            initialOption="Choose One..."
-            options={experimentOptions}
-            required
-            sort={false}
-            value={experimentId || ""}
-            onChange={(experimentId) => {
-              const exp = experiments.find((e) => e.id === experimentId);
-              if (exp) {
-                const controlValue = getFeatureDefaultValue(feature);
-                const variationValue = getDefaultVariationValue(controlValue);
-                form.setValue("experimentId", experimentId);
-                form.setValue(
-                  "variations",
-                  exp.variations.map((v, i) => ({
-                    variationId: v.id,
-                    value: i ? variationValue : controlValue,
-                  }))
-                );
-              }
-            }}
-            formatOptionLabel={({ value, label }) => {
-              const exp = experimentsMap.get(value);
-              if (exp) {
-                return (
-                  <div className="d-flex flex-wrap">
-                    <div className="flex">
-                      <strong>{exp.name}</strong>
+          {experimentOptions.length > 0 ? (
+            <SelectField
+              label="Experiment"
+              initialOption="Choose One..."
+              options={experimentOptions}
+              required
+              sort={false}
+              value={experimentId || ""}
+              onChange={(experimentId) => {
+                const exp = experiments.find((e) => e.id === experimentId);
+                if (exp) {
+                  const controlValue = getFeatureDefaultValue(feature);
+                  const variationValue = getDefaultVariationValue(controlValue);
+                  form.setValue("experimentId", experimentId);
+                  form.setValue(
+                    "variations",
+                    exp.variations.map((v, i) => ({
+                      variationId: v.id,
+                      value: i ? variationValue : controlValue,
+                    }))
+                  );
+                }
+              }}
+              formatOptionLabel={({ value, label }) => {
+                const exp = experimentsMap.get(value);
+                if (exp) {
+                  return (
+                    <div className="d-flex flex-wrap">
+                      <div className="flex">
+                        <strong>{exp.name}</strong>
+                      </div>
+                      <div className="ml-4 text-muted">
+                        Created: {date(exp.dateCreated)}
+                      </div>
+                      <div className="ml-auto">
+                        <StatusIndicator
+                          archived={exp.archived}
+                          status={exp.status}
+                        />
+                      </div>
                     </div>
-                    <div className="ml-4 text-muted">
-                      Created: {date(exp.dateCreated)}
-                    </div>
-                    <div className="ml-auto">
-                      <StatusIndicator
-                        archived={exp.archived}
-                        status={exp.status}
-                      />
-                    </div>
-                  </div>
-                );
-              }
-              return label;
-            }}
-          />
+                  );
+                }
+                return label;
+              }}
+            />
+          ) : (
+            <div className="alert alert-warning">
+              <div className="d-flex align-items-center">
+                {experiments.length > 0
+                  ? `You don't have any elegible experiments yet.`
+                  : `You don't have any existing experiments yet.`}{" "}
+                <button
+                  type="button"
+                  className="btn btn-primary ml-auto"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    changeRuleType("experiment-ref-new");
+                  }}
+                >
+                  Create New Experiment
+                </button>
+              </div>
+            </div>
+          )}
           {selectedExperiment && (
             <div className="form-group">
               <label>Variation Values</label>
