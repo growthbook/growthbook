@@ -222,6 +222,7 @@ export default function SinglePage({
     getSegmentById,
     getMetricById,
     projects,
+    datasources,
     project: currentProject,
   } = useDefinitions();
 
@@ -1112,6 +1113,43 @@ export default function SinglePage({
         editPhase={editPhase}
         newPhase={newPhase}
       />
+
+      {experiment.status === "running" &&
+        !experiment.datasource &&
+        !experiment.id.match(/^exp_sample/) && (
+          <div className="alert-cool-1 mb-5 text-center px-3 py-4">
+            <p className="h4">Use GrowthBook for Analysis</p>
+            {datasources.length > 0 ? (
+              <>
+                <p>
+                  Select a Data Source and metrics so GrowthBook can analyze the
+                  experiment results.
+                </p>
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setReportSettingsOpen(true);
+                  }}
+                >
+                  Select Data Source
+                </button>
+              </>
+            ) : (
+              <>
+                <p>
+                  Connect GrowthBook to your data and use our powerful metrics
+                  and stats engine to automatically analyze your experiment
+                  results.
+                </p>
+                <Link href="/datasources">
+                  <a className="btn btn-primary">Connect to your Data</a>
+                </Link>
+              </>
+            )}
+          </div>
+        )}
 
       <ControlledTabs
         newStyle={true}
