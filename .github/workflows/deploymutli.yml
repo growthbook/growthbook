@@ -1,5 +1,8 @@
 name: Deploymulti
 
+on:
+  push:
+
 jobs:
   # Build and publish the commit to docker
   docker:
