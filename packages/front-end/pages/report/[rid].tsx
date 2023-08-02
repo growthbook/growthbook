@@ -350,6 +350,11 @@ export default function ReportPage() {
                 />
               </div>
             </div>
+            {report.error ? (
+              <div className="alert alert-danger">
+                <strong>Error generating the report: </strong> {report.error}
+              </div>
+            ) : null}
             {refreshError && (
               <div className="alert alert-danger">
                 <strong>Error refreshing data: </strong> {refreshError}

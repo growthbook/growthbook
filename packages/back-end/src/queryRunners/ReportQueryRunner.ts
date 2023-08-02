@@ -88,7 +88,7 @@ export class ReportQueryRunner extends QueryRunner<
     const updates: Partial<ReportInterface> = {
       queries,
       runStarted,
-      error,
+      error: error || "",
       results: result,
     };
     await updateReport(this.model.organization, this.model.id, updates);
