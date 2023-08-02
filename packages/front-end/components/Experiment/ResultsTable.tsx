@@ -27,12 +27,12 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResult";
 import { useCurrency } from "@/hooks/useCurrency";
+import PValueColumn_new from "@/components/Experiment/PValueColumn_new";
 import Tooltip from "../Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn_new from "./ChanceToWinColumn_new";
 import MetricValueColumn from "./MetricValueColumn";
 import PercentGraph from "./PercentGraph";
-import PValueColumn from "./PValueColumn";
 
 export type ResultsTableProps = {
   id: string;
@@ -63,7 +63,6 @@ export type ResultsTableProps = {
   showAdvanced: boolean;
 };
 
-// const numberFormatter = new Intl.NumberFormat();
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
@@ -230,34 +229,39 @@ export default function ResultsTable({
             </th>
             {showAdvanced ? (
               <>
-                <th style={{ width: 110 }} className="axis-col label">
+                <th
+                  style={{ width: 110, lineHeight: "16px" }}
+                  className="axis-col label"
+                >
                   Baseline
-                  <span
-                    className={`variation variation${baselineRow} with-variation-label`}
+                  <div
+                    className={`variation variation${baselineRow} with-variation-label d-inline-flex align-items-center`}
+                    style={{ marginBottom: 2 }}
                   >
-                    <span
-                      className="label ml-1"
-                      style={{ width: 20, height: 20, marginRight: -20 }}
-                    >
+                    <span className="label" style={{ width: 16, height: 16 }}>
                       {baselineRow}
                     </span>
-                  </span>
+                    <span
+                      className="d-inline-block text-ellipsis font-weight-bold"
+                      style={{ width: 80, marginRight: -20 }}
+                    >
+                      {variations[baselineRow].name}
+                    </span>
+                  </div>
                 </th>
                 <th style={{ width: 110 }} className="axis-col label">
                   Value
                 </th>
               </>
             ) : null}
-            <th
-              style={{ width: showAdvanced ? 120 : 140 }}
-              className="axis-col label text-right"
-            >
+            <th style={{ width: 140 }} className="axis-col label text-right">
               {statsEngine === "bayesian" ? (
                 !metricsAsGuardrails ? (
                   <>Chance to Win</>
                 ) : (
-                  <div style={{ lineHeight: "15px" }}>
-                    Chance of Being Worse
+                  <div style={{ lineHeight: "16px" }}>
+                    <span className="nowrap">Chance of</span>{" "}
+                    <span className="nowrap">Being Worse</span>
                   </div>
                 )
               ) : sequentialTestingEnabled || pValueCorrection ? (
@@ -386,6 +390,13 @@ export default function ResultsTable({
                   experimentStatus: status,
                   displayCurrency,
                 });
+                const resultsHighlightClassname = clsx({
+                  significant: rowResults.significant,
+                  "non-significant": !rowResults.significant,
+                  won: rowResults.resultsStatus === "won",
+                  lost: rowResults.resultsStatus === "lost",
+                  draw: rowResults.resultsStatus === "draw",
+                });
 
                 return (
                   <tr
@@ -435,14 +446,15 @@ export default function ResultsTable({
                             stats={stats}
                             baseline={baseline}
                             rowResults={rowResults}
+                            metric={row.metric}
                             showRisk={true}
-                            className={clsx("text-right results-pval", {
-                              significant: rowResults.significant,
-                              "non-significant": !rowResults.significant,
-                              won: rowResults.resultsStatus === "won",
-                              lost: rowResults.resultsStatus === "lost",
-                              draw: rowResults.resultsStatus === "draw",
-                            })}
+                            showSuspicious={true}
+                            showPercentComplete={showAdvanced}
+                            showTimeRemaining={!showAdvanced}
+                            className={clsx(
+                              "text-right results-pval",
+                              resultsHighlightClassname
+                            )}
                           />
                         ) : (
                           <GuardrailResults
@@ -452,23 +464,21 @@ export default function ResultsTable({
                           />
                         )
                       ) : !metricsAsGuardrails ? (
-                        <PValueColumn
-                          baseline={baseline}
+                        <PValueColumn_new
                           stats={stats}
-                          status={status}
-                          isLatestPhase={isLatestPhase}
-                          startDate={startDate}
+                          baseline={baseline}
+                          rowResults={rowResults}
                           metric={row.metric}
-                          snapshotDate={dateCreated}
                           pValueCorrection={pValueCorrection}
-                          className={clsx("text-right results-pval", {
-                            significant: rowResults.significant,
-                            "non-significant": !rowResults.significant,
-                            won: rowResults.resultsStatus === "won",
-                            lost: rowResults.resultsStatus === "lost",
-                            draw: rowResults.resultsStatus === "draw",
-                          })}
-                          newUi={true}
+                          showRisk={true}
+                          showSuspicious={true}
+                          showPercentComplete={showAdvanced}
+                          showTimeRemaining={!showAdvanced}
+                          showUnadjustedPValue={showAdvanced}
+                          className={clsx(
+                            "text-right results-pval",
+                            resultsHighlightClassname
+                          )}
                         />
                       ) : (
                         <PValueGuardrailResults
@@ -513,13 +523,10 @@ export default function ResultsTable({
                     {j > 0 && row.metric && rowResults.enoughData ? (
                       <>
                         <td
-                          className={clsx("results-change", {
-                            significant: rowResults.significant,
-                            "non-significant": !rowResults.significant,
-                            won: rowResults.resultsStatus === "won",
-                            lost: rowResults.resultsStatus === "lost",
-                            draw: rowResults.resultsStatus === "draw",
-                          })}
+                          className={clsx(
+                            "results-change",
+                            resultsHighlightClassname
+                          )}
                         >
                           <div
                             className={clsx("nowrap change", {

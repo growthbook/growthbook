@@ -2,16 +2,12 @@ import clsx from "clsx";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
-import { RowResults } from "@/services/experiments";
+import { pValueFormatter, RowResults } from "@/services/experiments";
 import NotEnoughData_new from "@/components/Experiment/NotEnoughData_new";
 import { GBSuspicious } from "@/components/Icons";
+import useOrgSettings from "@/hooks/useOrgSettings";
 
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
-
-export default function ChanceToWinColumn_new({
+export default function PValueColumn_new({
   stats,
   baseline,
   rowResults,
@@ -20,6 +16,7 @@ export default function ChanceToWinColumn_new({
   showSuspicious = true,
   showPercentComplete = false,
   showTimeRemaining = true,
+  showUnadjustedPValue = false,
   className,
 }: {
   stats: SnapshotMetric;
@@ -30,8 +27,29 @@ export default function ChanceToWinColumn_new({
   showSuspicious?: boolean;
   showPercentComplete?: boolean;
   showTimeRemaining?: boolean;
+  showUnadjustedPValue?: boolean;
   className?: string;
 }) {
+  // todo: move to snapshot property
+  const orgSettings = useOrgSettings();
+  const pValueCorrection = orgSettings?.pValueCorrection;
+
+  let pValText = (
+    <>{stats?.pValue !== undefined ? pValueFormatter(stats.pValue) : ""}</>
+  );
+  if (stats?.pValueAdjusted !== undefined && pValueCorrection) {
+    pValText = showUnadjustedPValue ? (
+      <>
+        <div>
+          {stats?.pValueAdjusted ? pValueFormatter(stats.pValueAdjusted) : ""}
+        </div>
+        <div className="small text-muted">(unadj.:&nbsp;{pValText})</div>
+      </>
+    ) : (
+      <>{stats?.pValueAdjusted ? pValueFormatter(stats.pValueAdjusted) : ""}</>
+    );
+  }
+
   return (
     <td
       className={clsx(
@@ -50,9 +68,9 @@ export default function ChanceToWinColumn_new({
           showPercentComplete={showPercentComplete}
         />
       ) : (
-        <>
+        <div className="d-flex align-items-center justify-content-end">
           <div className="d-inline-block ml-2" style={{ lineHeight: "14px" }}>
-            {percentFormatter.format(stats.chanceToWin ?? 0)}
+            {pValText || "P-value missing"}
           </div>
           {showRisk &&
           rowResults.riskMeta.showRisk &&
@@ -73,7 +91,7 @@ export default function ChanceToWinColumn_new({
               <GBSuspicious />
             </span>
           ) : null}
-        </>
+        </div>
       )}
     </td>
   );

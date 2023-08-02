@@ -27,8 +27,6 @@ const PValueColumn: FC<{
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
   pValueCorrection?: PValueCorrection;
-  className?: string;
-  newUi?: boolean;
 }> = ({
   metric,
   status,
@@ -38,8 +36,6 @@ const PValueColumn: FC<{
   baseline,
   stats,
   pValueCorrection,
-  className,
-  newUi = false,
 }) => {
   const {
     getMinSampleSizeForMetric,
@@ -76,11 +72,11 @@ const PValueColumn: FC<{
   const expectedDirection = isExpectedDirection(stats, metric);
 
   let sigText: string | JSX.Element = "";
-  let statusClassName = "";
+  let className = "";
 
   if (shouldHighlight && statSig && expectedDirection) {
     sigText = `Significant win as the p-value is below ${pValueThreshold} and the change is in the desired direction.`;
-    statusClassName = "won";
+    className = "won";
   } else if (shouldHighlight && statSig && !expectedDirection) {
     sigText = (
       <>
@@ -88,11 +84,11 @@ const PValueColumn: FC<{
         change is <em>not</em> in the desired direction.
       </>
     );
-    statusClassName = "lost";
+    className = "lost";
   } else if (enoughData && belowMinChange && statSig) {
     sigText =
       "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
-    statusClassName += " draw";
+    className += " draw";
   }
 
   let pValText = (
@@ -115,24 +111,18 @@ const PValueColumn: FC<{
     <td
       className={clsx(
         "variation chance result-number align-middle d-table-cell",
-        className,
-        { statusClassName: !newUi }
+        className
       )}
     >
       {enoughData && suspiciousChange && (
         <div>
           <div className="mb-1 d-flex flex-row">
             <Tooltip
-              body={
-                <div className="text-left" style={{ lineHeight: 1.5 }}>
-                  A suspicious result occurs when the percent change is equal to
-                  or greater than your maximum percent change (
-                  {(metric.maxPercentChange ??
-                    metricDefaults?.maxPercentageChange ??
-                    0) * 100}
-                  %).
-                </div>
-              }
+              body={`A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
+                (metric.maxPercentChange ??
+                  metricDefaults?.maxPercentageChange ??
+                  0) * 100
+              }%).`}
             >
               <span className="badge badge-pill badge-warning">
                 Suspicious Result
@@ -142,19 +132,13 @@ const PValueColumn: FC<{
         </div>
       )}
       <Tooltip
-        body={
-          <div className="text-left" style={{ lineHeight: 1.5 }}>
-            {sigText}
-          </div>
-        }
+        body={sigText}
         className="d-block"
         tipPosition={"top"}
         shouldDisplay={sigText !== ""}
       >
         {!baseline?.value || !stats?.value ? (
-          <em className={newUi ? "text-gray font-weight-normal" : ""}>
-            no data
-          </em>
+          <em>no data</em>
         ) : !enoughData ? (
           <NotEnoughData
             experimentStatus={status}
@@ -164,7 +148,6 @@ const PValueColumn: FC<{
             minSampleSize={minSampleSize}
             snapshotCreated={snapshotDate}
             phaseStart={startDate}
-            newUi={newUi}
           />
         ) : (
           <>{pValText || "P-value missing"}</>
