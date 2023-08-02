@@ -47,7 +47,7 @@ async function run() {
         `- Decrypted '${ds.name}' (${ds.id}), re-encrypting with new key and saving...`
       );
       // Update the data source
-      await updateDataSource(ds.id, ds.organization, {
+      await updateDataSource(ds, ds.organization, {
         params: encryptParams(parsed),
       });
     } catch (e) {

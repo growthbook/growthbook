@@ -221,7 +221,7 @@ export async function initializeDatasourceInformationSchema(
   );
 
   // Update the datasource with the informationSchemaId
-  await updateDataSource(datasource.id, organization, {
+  await updateDataSource(datasource, organization, {
     settings: {
       ...datasource.settings,
       informationSchemaId: emptyInformationSchema.id,
