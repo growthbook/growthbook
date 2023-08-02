@@ -28,15 +28,46 @@ Some examples of good feature keys:
 Each feature has a default value that is used when there are no matching rules for the user. A feature that is enabled
 on an environment, with no rules, will use the default value. The default values also depend on the feature type.
 
+Using features in your code is easy. Here's an example from our Javascript SDK:
+
+```js
+// For boolean features
+if (growthbook.isOn("my-feature")) {
+  // ... Do something
+}
+
+// For number, string, and JSON features
+const value = growthbook.getFeatureValue("other-feature", "fallback");
+```
+
+GrowthBook also supports multiple environments, so you can, for example, have a feature enabled in **dev** but not **production**.
+
+You can also change the value of a feature with **Override Rules**. The following types of rules are supported:
+
 ## Override Rules
 
 Default values are overridden by **override rules**. Override rules are used to target specific users or groups of users,
-or when launching A/B tests. For more information, see our page on [override rules](/features/rules).
+or when launching A/B tests.
+
+There are three kinds of rules we support:
+
+- [**Forced Value**](/features/rules#forced-value) - use targeting attributes to assign a subset of users the same value
+- [**Percentage Rollout**](/features/rules#percentage-rollout) - use random sampling to roll out a feature to a percent of users
+- 9**A/B Experiment**](/features/rules#experiment) - run a randomized A/B test between 2 or more feature values
+
+For more information, see our page on [override rules](/features/rules).
 
 ## Feature Types
 
 Features can be a simple ON/OFF flag or a more complex data type (strings, numbers or JSON) which can be used for remote
 configuration. The type of feature you select depends on your use case.
+
+GrowthBook supports 4 types of features:
+
+- **Boolean (on/off)**
+- **Number**
+- **String**
+- **JSON**
 
 ### Boolean (ON/OFF) Flags
 
@@ -55,15 +86,15 @@ For example, if you have a checkout button that is currently blue, you could use
 that sets it to red when ON. This is pretty limiting since you can't easily try other colors in the future without
 changing the code. You may want to use one of the other feature types.
 
+### Number Flags
+
+Similar to string flags, number flags support sending arbitrary numeric values to your application.
+
 ### String Flags
 
 String flag types support sending arbitrary string values to your application. This is useful for remote configuration,
 and also for multivariate A/B testing. For our previous example, you could use a string flag named `button-color` where
 you can easily set the value to 'blue', 'red', 'green', or any other color without changing your code.
-
-### Number Flags
-
-Similar to string flags, number flags support sending arbitrary numeric values to your application.
 
 ### JSON Flags
 
