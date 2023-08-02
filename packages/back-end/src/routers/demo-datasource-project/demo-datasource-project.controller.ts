@@ -1,6 +1,7 @@
 import type { Response } from "express";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import uniqid from "uniqid";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
@@ -51,12 +52,14 @@ const DEMO_DATASOURCE_PARAMS: PostgresConnectionParams = {
   defaultSchema: "",
 };
 
-const ASSET_OWNER = "datascience@growthbook.io";
+const ASSET_OWNER = "";
 const DEMO_TAGS = ["growthbook-demo"];
 
 // Metric constants
+const DENOMINATOR_UNIQUE_ID = uniqid("met_denominator_");
 const DEMO_METRICS: Pick<
   MetricInterface,
+  | "id"
   | "name"
   | "description"
   | "type"
@@ -66,6 +69,7 @@ const DEMO_METRICS: Pick<
   | "aggregation"
 >[] = [
   {
+    id: uniqid("met_"),
     name: "Purchases - Total Revenue (72 hour window)",
     description: "The total amount of USD spent aggregated at the user level",
     type: "revenue",
@@ -73,12 +77,14 @@ const DEMO_METRICS: Pick<
       "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
   },
   {
+    id: uniqid("met_"),
     name: "Purchases - Any Order (72 hour window)",
     description: "Whether the user places any order or not (0/1)",
     type: "binomial",
     sql: "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM orders",
   },
   {
+    id: DENOMINATOR_UNIQUE_ID,
     name: "Purchases - Number of Orders (72 hour window)",
     description: "Total number of discrete orders placed by a user",
     type: "count",
@@ -86,6 +92,7 @@ const DEMO_METRICS: Pick<
       "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\n1 AS value\nFROM orders",
   },
   {
+    id: uniqid("met_"),
     name: "Retention - [1, 14) Days",
     description:
       "Whether the user logged in 1-14 days after experiment exposure",
@@ -96,6 +103,7 @@ const DEMO_METRICS: Pick<
       "SELECT\nuserId AS user_id,\ntimestamp AS timestamp\nFROM pages WHERE path = '/'",
   },
   {
+    id: uniqid("met_"),
     name: "Days Active in Next 7 Days",
     description:
       "Count of times the user was active in the next 7 days after exposure",
@@ -140,7 +148,7 @@ const DEMO_FEATURES: Omit<
             description: "",
             id: "gbdemo-checkout-layout-employee-force-rule",
             value: "dev",
-            condition: "is_employee = true",
+            condition: `{"is_employee":true}`,
             enabled: true,
           },
           {
@@ -321,9 +329,7 @@ export const postDemoDatasourceProject = async (
 
     const ratioMetric = await createMetric({
       ...DEMO_RATIO_METRIC,
-      denominator: metrics.find(
-        (x) => x.name === "Purchases - Number of Orders (72 hour window)"
-      )?.id,
+      denominator: DENOMINATOR_UNIQUE_ID,
       organization: org.id,
       owner: ASSET_OWNER,
       userIdColumns: { user_id: "user_id" },
