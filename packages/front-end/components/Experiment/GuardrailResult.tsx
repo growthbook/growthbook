@@ -25,7 +25,7 @@ export function getGuardrailStatus(
   return status;
 }
 
-const GuardrailResults: FC<{
+const GuardrailResult: FC<{
   stats: SnapshotMetric;
   enoughData: boolean;
   className?: string;
@@ -61,4 +61,4 @@ const GuardrailResults: FC<{
     </td>
   );
 };
-export default GuardrailResults;
+export default GuardrailResult;

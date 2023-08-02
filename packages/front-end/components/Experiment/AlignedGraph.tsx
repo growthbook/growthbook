@@ -57,7 +57,7 @@ const AlignedGraph: FC<Props> = ({
   barColor = "#aaaaaaaa",
   sigBarColorPos = "#0D8C8Ccc",
   sigBarColorNeg = "#D94032cc",
-  barColorDraw = "rgba(156,137,190,0.8)",
+  barColorDraw = "9C89BEcc",
   newUi = false,
   rowResults,
 }) => {

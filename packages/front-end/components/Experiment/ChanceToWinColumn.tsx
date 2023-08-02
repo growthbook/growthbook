@@ -1,17 +1,10 @@
 import clsx from "clsx";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
-import { ExperimentStatus } from "back-end/types/experiment";
-import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import {
-  hasEnoughData,
-  isBelowMinChange,
-  isSuspiciousUplift,
-  shouldHighlight as _shouldHighlight,
-} from "@/services/experiments";
-import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import Tooltip from "../Tooltip/Tooltip";
-import NotEnoughData from "./NotEnoughData";
+import { HiOutlineExclamationCircle } from "react-icons/hi";
+import { RowResults } from "@/services/experiments";
+import NotEnoughData from "@/components/Experiment/NotEnoughData";
+import { GBSuspicious } from "@/components/Icons";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -19,121 +12,69 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 });
 
 export default function ChanceToWinColumn({
-  metric,
-  status,
-  isLatestPhase,
-  startDate,
-  snapshotDate,
-  baseline,
   stats,
+  baseline,
+  rowResults,
+  metric,
+  showRisk = true,
+  showSuspicious = true,
+  showPercentComplete = false,
+  showTimeRemaining = true,
+  className,
 }: {
-  metric: MetricInterface;
-  status: ExperimentStatus;
-  isLatestPhase: boolean;
-  startDate: string;
-  snapshotDate: Date;
-  baseline: SnapshotMetric;
   stats: SnapshotMetric;
+  baseline: SnapshotMetric;
+  rowResults: RowResults;
+  metric: MetricInterface;
+  showRisk?: boolean;
+  showSuspicious?: boolean;
+  showPercentComplete?: boolean;
+  showTimeRemaining?: boolean;
+  className?: string;
 }) {
-  const {
-    getMinSampleSizeForMetric,
-    metricDefaults,
-  } = useOrganizationMetricDefaults();
-
-  const minSampleSize = getMinSampleSizeForMetric(metric);
-  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
-  const suspiciousChange = isSuspiciousUplift(
-    baseline,
-    stats,
-    metric,
-    metricDefaults
-  );
-  const belowMinChange = isBelowMinChange(
-    baseline,
-    stats,
-    metric,
-    metricDefaults
-  );
-  const { ciUpper, ciLower } = useConfidenceLevels();
-
-  const shouldHighlight = _shouldHighlight({
-    metric,
-    baseline,
-    stats,
-    hasEnoughData: enoughData,
-    suspiciousChange,
-    belowMinChange,
-  });
-
-  const chanceToWin = stats?.chanceToWin ?? 0;
-
-  let sigText = "";
-  let className = "";
-  if (shouldHighlight && chanceToWin > ciUpper) {
-    sigText = `Significant win as the chance to win is above the ${percentFormatter.format(
-      ciUpper
-    )} threshold`;
-    className = "won";
-  } else if (shouldHighlight && chanceToWin < ciLower) {
-    sigText = `Significant loss as the chance to win is below the ${percentFormatter.format(
-      ciLower
-    )} threshold`;
-    className = "lost";
-  }
-  if (
-    enoughData &&
-    belowMinChange &&
-    (chanceToWin > ciUpper || chanceToWin < ciLower)
-  ) {
-    sigText =
-      "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
-    className += " draw";
-  }
-
   return (
     <td
       className={clsx(
-        "variation chance result-number align-middle d-table-cell",
+        "variation chance result-number align-middle",
+        rowResults.resultsStatus,
         className
       )}
     >
-      {enoughData && suspiciousChange && (
-        <div>
-          <div className="mb-1 d-flex flex-row">
-            <Tooltip
-              body={`A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
-                (metric.maxPercentChange ?? 0) * 100
-              }%).`}
-            >
-              <span className="badge badge-pill badge-warning">
-                Suspicious Result
-              </span>
-            </Tooltip>
+      {!baseline?.value || !stats?.value ? (
+        <em className="text-gray">no data</em>
+      ) : !rowResults.enoughData ? (
+        <NotEnoughData
+          metric={metric}
+          rowResults={rowResults}
+          showTimeRemaining={showTimeRemaining}
+          showPercentComplete={showPercentComplete}
+        />
+      ) : (
+        <>
+          <div className="d-inline-block ml-2" style={{ lineHeight: "14px" }}>
+            {percentFormatter.format(stats.chanceToWin ?? 0)}
           </div>
-        </div>
+          {showRisk &&
+          rowResults.riskMeta.showRisk &&
+          ["warning", "danger"].includes(rowResults.riskMeta.riskStatus) &&
+          rowResults.resultsStatus !== "lost" ? (
+            <span
+              className={rowResults.riskMeta.riskStatus}
+              style={{ fontSize: 14, marginLeft: 1 }}
+            >
+              <HiOutlineExclamationCircle />
+            </span>
+          ) : null}
+          {showSuspicious && rowResults.suspiciousChange ? (
+            <span
+              className="suspicious"
+              style={{ fontSize: 14, marginLeft: 1 }}
+            >
+              <GBSuspicious />
+            </span>
+          ) : null}
+        </>
       )}
-      <Tooltip
-        body={sigText}
-        className="d-block"
-        tipPosition={"top"}
-        shouldDisplay={sigText !== ""}
-      >
-        {!baseline?.value || !stats?.value ? (
-          <em>no data</em>
-        ) : !enoughData ? (
-          <NotEnoughData
-            experimentStatus={status}
-            isLatestPhase={isLatestPhase}
-            baselineValue={baseline?.value}
-            variationValue={stats?.value}
-            minSampleSize={minSampleSize}
-            snapshotCreated={snapshotDate}
-            phaseStart={startDate}
-          />
-        ) : (
-          <>{percentFormatter.format(chanceToWin)}</>
-        )}
-      </Tooltip>
     </td>
   );
 }

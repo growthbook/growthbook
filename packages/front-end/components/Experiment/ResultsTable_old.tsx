@@ -11,11 +11,11 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "../Tooltip/Tooltip";
 import SelectField from "../Forms/SelectField";
 import AlignedGraph from "./AlignedGraph";
-import ChanceToWinColumn from "./ChanceToWinColumn";
+import ChanceToWinColumn_old from "./ChanceToWinColumn_old";
 import MetricValueColumn from "./MetricValueColumn";
 import PercentGraphColumn from "./PercentGraphColumn";
 import RiskColumn from "./RiskColumn";
-import PValueColumn from "./PValueColumn";
+import PValueColumn_old from "./PValueColumn_old";
 
 export type ResultsTableProps_old = {
   id: string;
@@ -330,7 +330,7 @@ export default function ResultsTable_old({
                     {i > 0 &&
                       fullStats &&
                       (statsEngine === "frequentist" ? (
-                        <PValueColumn
+                        <PValueColumn_old
                           baseline={baseline}
                           stats={stats}
                           status={status}
@@ -341,7 +341,7 @@ export default function ResultsTable_old({
                           pValueCorrection={pValueCorrection}
                         />
                       ) : (
-                        <ChanceToWinColumn
+                        <ChanceToWinColumn_old
                           baseline={baseline}
                           stats={stats}
                           status={status}

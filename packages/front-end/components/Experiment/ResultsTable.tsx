@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { FaArrowDown, FaArrowUp, FaQuestionCircle } from "react-icons/fa";
+import { FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
@@ -24,14 +24,14 @@ import { GBEdit } from "@/components/Icons";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import GuardrailResults from "@/components/Experiment/GuardrailResult";
+import GuardrailResult from "@/components/Experiment/GuardrailResult";
 import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResult";
 import { useCurrency } from "@/hooks/useCurrency";
-import PValueColumn_new from "@/components/Experiment/PValueColumn_new";
+import PValueColumn from "@/components/Experiment/PValueColumn";
 import PercentChangeColumn from "@/components/Experiment/PercentChangeColumn";
 import Tooltip from "../Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
-import ChanceToWinColumn_new from "./ChanceToWinColumn_new";
+import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
 import PercentGraph from "./PercentGraph";
 
@@ -63,11 +63,6 @@ export type ResultsTableProps = {
   sequentialTestingEnabled?: boolean;
   showAdvanced: boolean;
 };
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
 
 export default function ResultsTable({
   id,
@@ -444,7 +439,7 @@ export default function ResultsTable({
                     {j > 0 ? (
                       statsEngine === "bayesian" ? (
                         !metricsAsGuardrails ? (
-                          <ChanceToWinColumn_new
+                          <ChanceToWinColumn
                             stats={stats}
                             baseline={baseline}
                             rowResults={rowResults}
@@ -459,14 +454,14 @@ export default function ResultsTable({
                             )}
                           />
                         ) : (
-                          <GuardrailResults
+                          <GuardrailResult
                             stats={stats}
                             enoughData={rowResults.enoughData}
                             className="text-right"
                           />
                         )
                       ) : !metricsAsGuardrails ? (
-                        <PValueColumn_new
+                        <PValueColumn
                           stats={stats}
                           baseline={baseline}
                           rowResults={rowResults}
