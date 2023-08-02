@@ -25,6 +25,7 @@ import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 import ConditionInput from "../Features/ConditionInput";
 import NamespaceSelector from "../Features/NamespaceSelector";
 import MetricsSelector from "./MetricsSelector";
+import HashVersionSelector from "./HashVersionSelector";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -347,19 +348,9 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           />
         )}
         {isNewExperiment && (
-          <SelectField
-            label="Hashing Algorithm"
-            options={[
-              { label: "V1 - Legacy", value: "1" },
-              { label: "V2 - Unbiased", value: "2" },
-            ]}
-            value={form.watch("hashVersion") + ""}
-            onChange={(v) => {
-              form.setValue("hashVersion", (parseInt(v) || 2) as 1 | 2);
-            }}
-            helpText={
-              "V2 fixes some potential bias issues, but is only supported in newer SDK versions"
-            }
+          <HashVersionSelector
+            value={form.watch("hashVersion") ?? 2}
+            onChange={(v) => form.setValue("hashVersion", v)}
           />
         )}
         <FeatureVariationsInput

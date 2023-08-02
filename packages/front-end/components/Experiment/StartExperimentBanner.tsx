@@ -169,8 +169,12 @@ export function StartExperimentBanner({
 
   // TODO: Do we have a way to validate this or at least give a way for users to dismiss this?
   checklist.push({
-    display:
-      "Your app is passing both attributes and a trackingCallback into the GrowthBook SDK",
+    display: (
+      <>
+        Your app is passing both <code>attributes</code> and a{" "}
+        <code>trackingCallback</code> into the GrowthBook SDK
+      </>
+    ),
     status: "unknown",
     tooltip: "We're not able to verify this automatically at this time",
   });
@@ -230,7 +234,9 @@ export function StartExperimentBanner({
                 ) : item.status === "success" ? (
                   <FaCheckSquare className="text-success" />
                 ) : (
-                  <FaRegSquare />
+                  <Tooltip body={item.tooltip || ""}>
+                    <FaRegSquare />
+                  </Tooltip>
                 )}{" "}
                 {item.display}{" "}
                 {item.tooltip ? <Tooltip body={item.tooltip} /> : ""}

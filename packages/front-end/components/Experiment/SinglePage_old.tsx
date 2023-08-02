@@ -738,10 +738,10 @@ export default function SinglePage_old({
               )}
               <RightRailSectionGroup title="Hashing Algorithm" type="commaList">
                 {experiment.hashVersion === 2
-                  ? "V2 - Unbiased"
+                  ? "V2"
                   : experiment.hashVersion === 1
-                  ? "V1 - Legacy"
-                  : `V${experiment.hashVersion}`}
+                  ? "V1 (Legacy)"
+                  : `V${experiment.hashVersion} (Unknown)`}
               </RightRailSectionGroup>
               {exposureQuery && (
                 <RightRailSectionGroup

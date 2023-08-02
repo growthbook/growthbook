@@ -95,6 +95,7 @@ import VisualChangesetModal from "./VisualChangesetModal";
 import StatusBanner from "./StatusBanner";
 import AddLinkedChangesBanner from "./AddLinkedChangesBanner";
 import { StartExperimentBanner } from "./StartExperimentBanner";
+import { HashVersionTooltip } from "./HashVersionSelector";
 
 function drawMetricRow(
   m: string,
@@ -1236,18 +1237,17 @@ export default function SinglePage({
                   </RightRailSectionGroup>
                 )}
                 <RightRailSectionGroup title="Hashing Algorithm" type="custom">
-                  <Tooltip
-                    body={`V2 fixes some potential bias issues, but is only supported in newer SDK versions`}
-                  >
+                  <HashVersionTooltip>
+                    {" "}
                     <strong>
                       {experiment.hashVersion === 2
-                        ? "V2 - Unbiased"
+                        ? "V2"
                         : experiment.hashVersion === 1
-                        ? "V1 - Legacy"
-                        : `V${experiment.hashVersion} - Unknown`}
+                        ? "V1 (Legacy)"
+                        : `V${experiment.hashVersion} (Unknown)`}
                     </strong>{" "}
                     <FaQuestionCircle />
-                  </Tooltip>
+                  </HashVersionTooltip>
                 </RightRailSectionGroup>
                 {exposureQuery && (
                   <RightRailSectionGroup
