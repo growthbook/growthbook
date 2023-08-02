@@ -1,16 +1,5 @@
-name: Deploy
+name: Deploymulti
 
-on:
-  # Push to the main branch
-  push:
-    branches:
-      - main
-    paths:
-      - "packages/**"
-      - "!**.md"
-      - "yarn.lock"
-      - "Dockerfile"
-      - ".dockerignore"
 jobs:
   # Build and publish the commit to docker
   docker:
@@ -41,7 +30,7 @@ jobs:
           printf '%(%Y-%m-%dT%H:%M:%SZ)T' > buildinfo/DATE
           echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
 
-      - name: Build, tag, and push image to Docker Hub
+      - name: Build, tag, and push a multiplatform image to Docker Hub
         uses: depot/build-push-action@v1
         with:
           push: true
@@ -50,19 +39,4 @@ jobs:
           tags: |
             growthbook/growthbook:latest
             growthbook/growthbook:git-${{ steps.metadata.outputs.sha }}
-
-  # Deploy the back-end for GrowthBook Cloud
-  prod:
-    runs-on: ubuntu-latest
-    needs: [docker]
-    if: ${{ github.repository == 'growthbook/growthbook' }}
-    steps:
-      - name: Configure AWS credentials for GrowthBook Cloud
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Deploy docker image to ECS for GrowthBook Cloud API
-        run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1
+          platforms: linux/amd64,linux/arm64
