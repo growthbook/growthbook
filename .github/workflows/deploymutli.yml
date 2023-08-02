@@ -37,6 +37,6 @@ jobs:
           context: .
           project: vmp2ssvj9r
           tags: |
-            growthbook/growthbook:latest
-            growthbook/growthbook:git-${{ steps.metadata.outputs.sha }}
+            growthbook/growthbook:multiplatform
+            growthbook/growqthbook:git-${{ steps.metadata.outputs.sha }}
           platforms: linux/amd64,linux/arm64
