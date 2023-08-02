@@ -36,6 +36,7 @@ export interface MemberRoleInfo {
   role: MemberRole;
   limitAccessByEnvironment: boolean;
   environments: string[];
+  teams?: any[];
 }
 
 export interface ProjectMemberRole extends MemberRoleInfo {
@@ -236,6 +237,28 @@ export interface OrganizationInterface {
   connections?: OrganizationConnections;
   settings?: OrganizationSettings;
   messages?: OrganizationMessage[];
+}
+
+export interface TeamInterface {
+  id: string;
+  name: string;
+  organization: string;
+  dateCreated: Date;
+  dateUpdated: Date;
+  createdBy: string;
+  description: string;
+  globalRole: MemberRole;
+  projectRoles: [
+    {
+      _id: false;
+      project: string;
+      role: string;
+      limitAccessByEnvironment: boolean;
+      environments: string[];
+    }
+  ];
+  limitAccessByEnvironment: boolean;
+  environments: string[];
 }
 
 export type NamespaceUsage = Record<

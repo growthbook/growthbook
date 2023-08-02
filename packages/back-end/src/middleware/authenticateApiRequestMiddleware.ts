@@ -19,6 +19,7 @@ export default function authenticateApiRequestMiddleware(
   res: Response & { log: Request["log"] },
   next: NextFunction
 ) {
+  console.log("middelwhere ran");
   // Get secret key from Authorization header and store in req
   const authHeader = req.headers.authorization;
   if (!authHeader) {
@@ -39,6 +40,8 @@ export default function authenticateApiRequestMiddleware(
       message: "Missing API key in Authorization header",
     });
   }
+
+  console.log("value", value);
 
   // If using Basic scheme, need to base64 decode and extract the username
   const secretKey =
@@ -142,6 +145,7 @@ function doesUserHavePermission(
   envs?: string[]
 ): boolean {
   try {
+    console.log("doesUserHavePermission ran");
     const userId = apiKeyPartial.userId;
     if (!userId) {
       return false;

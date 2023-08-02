@@ -24,6 +24,7 @@ const baseMemberFields = {
       environments: [String],
     },
   ],
+  team: [String],
 };
 
 const organizationSchema = new mongoose.Schema({

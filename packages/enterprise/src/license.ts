@@ -8,6 +8,7 @@ export type AccountPlan = "oss" | "starter" | "pro" | "pro_sso" | "enterprise";
 export type CommercialFeature =
   | "sso"
   | "advanced-permissions"
+  | "create-teams"
   | "encrypt-features-endpoint"
   | "schedule-feature-flag"
   | "override-metrics"
@@ -62,6 +63,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "cloud-proxy",
     "hash-secure-attributes",
     "livechat",
+    "create-teams",
   ]),
   pro_sso: new Set<CommercialFeature>([
     "sso",
@@ -75,6 +77,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "cloud-proxy",
     "hash-secure-attributes",
     "livechat",
+    "create-teams",
   ]),
   enterprise: new Set<CommercialFeature>([
     "sso",
@@ -90,6 +93,7 @@ export const accountFeatures: CommercialFeaturesMap = {
     "hash-secure-attributes",
     "json-validation",
     "livechat",
+    "create-teams",
   ]),
 };
 
@@ -129,7 +133,8 @@ export function orgHasPremiumFeature(
   org: MinimalOrganization,
   feature: CommercialFeature
 ): boolean {
-  return planHasPremiumFeature(getAccountPlan(org), feature);
+  // return planHasPremiumFeature(getAccountPlan(org), feature);
+  return true;
 }
 
 async function getPublicKey() {

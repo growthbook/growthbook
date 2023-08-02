@@ -18,7 +18,7 @@ export function useSelectOptions(
     const clone = cloneDeep(options);
     if (sort) {
       clone.sort((a, b) => {
-        return a.label.localeCompare(b.label);
+        // return a.label.localeCompare(b.label);
       });
     }
     clone.forEach((o) => {

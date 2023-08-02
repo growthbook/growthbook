@@ -96,6 +96,7 @@ import {
   getExperimentsForActivityFeed,
 } from "../../models/ExperimentModel";
 import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
+import { getTeamById } from "../../models/TeamModel";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -556,6 +557,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   }
 
   const { org } = getOrgFromReq(req);
+  console.log("org", org);
   const {
     invites,
     members,
@@ -596,6 +598,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   const expandedMembers: ExpandedMember[] = [];
   userInfo.forEach(({ id, email, verified, name, _id }) => {
     const memberInfo = members.find((m) => m.id === id);
+    console.log("memberInfo", memberInfo);
     if (!memberInfo) return;
     expandedMembers.push({
       email,
@@ -603,6 +606,11 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       name: name || "",
       ...memberInfo,
       dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
+      // TODO: Below returns an empty object if getTeamById doesn't return anything
+      teams:
+        (memberInfo.teams?.length &&
+          memberInfo.teams?.map(async (t) => await getTeamById(t))) ||
+        [],
     });
   });
 

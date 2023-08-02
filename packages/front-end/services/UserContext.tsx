@@ -149,13 +149,20 @@ export function getPermissionsByRole(
   );
 }
 
+export function getRolesByTeam(teamId: string, user: any) {
+  // const teamPermissions = getTeamById(teamId); // This is on the backend, not the frontend - Do I need to make this an API call?
+  return {
+    ...user,
+    role: "admin",
+  };
+}
+
 export function UserContextProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, apiCall, orgId, setOrganizations } = useAuth();
 
   const [data, setData] = useState<null | UserResponse>(null);
   const [error, setError] = useState("");
   const router = useRouter();
-
   const {
     data: currentOrg,
     mutate: refreshOrganization,
@@ -193,6 +200,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     });
     return userMap;
   }, [currentOrg?.members]);
+
+  console.log("data", data);
 
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   let user = users.get(data?.userId);
@@ -302,41 +311,81 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       project?: string | undefined,
       envs?: string[]
     ): boolean => {
+      console.log("checking permission");
+      console.log("permission", permission);
+      console.log("project", project);
+      console.log("envs", envs);
+      // TODO: Add logic here to handle the case where a user is on a team
       // Get the role based on the project (if specified)
       // Fall back to the user's global role
-      const projectRole =
-        (project && user?.projectRoles?.find((r) => r.project === project)) ||
-        user;
+      // console.log("currentOrg", currentOrg);
+      const projectRoles: any = []; //TODO: Type this array
+      let hasPermission = false;
+
+      console.log("user", user);
+
+      // If this user's permissions are controlled by a team, we need to get the permissions from all teams the user is on
+      if (user?.teams && user?.teams.length > 0) {
+        console.log(
+          "user is on atleast 1 team, we need to handle them differently"
+        );
+        user.teams.forEach((team) => {
+          // -> This needs to get the permissions based on the team, and merge it with the user to return an object similar to the "user" object
+          const teamPermissions = getRolesByTeam(team, user);
+          console.log("teamPermissions", teamPermissions);
+          projectRoles.push(teamPermissions);
+          // projectRoles.push(
+          //   (project &&
+          //     teamPermissions.projectRoles?.find(
+          //       (r) => r.project === project
+          //     )) ||
+          //     teamPermissions
+          // ); f
+        });
+      } else {
+        console.log("no user team");
+        projectRoles.push(
+          (project && user?.projectRoles?.find((r) => r.project === project)) ||
+            user
+        );
+      }
 
       // Missing role entirely, deny access
-      if (!projectRole) {
+      if (!projectRoles.length) {
         return false;
       }
 
-      // Admin role always has permission
-      if (projectRole.role === "admin") return true;
+      console.log("projectRole", projectRoles);
 
-      const permissions = getPermissionsByRole(
-        projectRole.role,
-        currentOrg?.roles || []
-      );
+      projectRoles.forEach((projectRole: any) => {
+        // If hasPermission has been set to true, we don't need to check any more roles
+        if (hasPermission) return;
+        // Admin role always has permission
+        if (projectRole.role === "admin") hasPermission = true;
 
-      // Missing permission
-      if (!permissions.has(permission)) {
-        return false;
-      }
+        const permissions = getPermissionsByRole(
+          projectRole.role,
+          currentOrg?.roles || []
+        );
 
-      // If it's an environment-scoped permission and the user's role has limited access
-      if (envs && projectRole.limitAccessByEnvironment) {
-        for (let i = 0; i < envs.length; i++) {
-          if (!projectRole.environments.includes(envs[i])) {
-            return false;
+        // Missing permission
+        if (permissions.has(permission)) {
+          hasPermission = true;
+        }
+
+        // If it's an environment-scoped permission and the user's role has limited access
+        if (envs && projectRole.limitAccessByEnvironment) {
+          for (let i = 0; i < envs.length; i++) {
+            if (projectRole.environments.includes(envs[i])) {
+              hasPermission = true;
+            }
           }
         }
-      }
+      });
 
       // If it got through all the above checks, the user has permission
-      return true;
+      console.log("hasPermission", hasPermission);
+      return hasPermission;
     },
     [currentOrg?.roles, user]
   );

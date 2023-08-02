@@ -147,6 +147,7 @@ export default function SDKConnectionPage() {
     return <div className="alert alert-danger">Invalid SDK Connection id</div>;
   }
 
+  console.log("permissions", permissions);
   const hasPermission = permissions.check(
     "manageEnvironments",
     connection.project,
