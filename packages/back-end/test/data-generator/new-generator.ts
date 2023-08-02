@@ -2,7 +2,7 @@
 import fs from "fs";
 import { GrowthBook } from "@growthbook/growthbook";
 import { jStat } from "jstat";
-import { int } from "aws-sdk/clients/datapipeline";
+import { addDays } from "date-fns";
 
 type TableData = {
   userId: string;
@@ -48,19 +48,17 @@ interface SimulatorData {
   expKeyPrefix: string;
   startDate: Date;
   currentDate: Date;
-  runLengthDays: int;
+  runLengthDays: number;
 }
 
 function getDateRangeCondition(
   startDate: Date,
-  dateLength: int,
+  dateLength: number,
   startPct: number,
   endPct: number
 ) {
-  const s = new Date(startDate);
-  const e = new Date(startDate);
-  s.setDate(s.getDate() + startPct * dateLength);
-  e.setDate(e.getDate() + endPct * dateLength);
+  const s = addDays(new Date(startDate), startPct * dateLength);
+  const e = addDays(new Date(startDate), endPct * dateLength);
 
   return {
     date: {
@@ -489,7 +487,7 @@ async function simulate(sim: SimulatorData, numUsers: number) {
 
       sim.dataTables.userRetention[j] -= normalInt(20, 40);
     }
-    sim.currentDate.setDate(sim.currentDate.getDate() + 1);
+    sim.currentDate = addDays(sim.currentDate, 1);
   }
 }
 
@@ -517,7 +515,7 @@ function writeCSV(
 
 function generateAndWriteData(
   startDate: Date,
-  runLengthDays: int,
+  runLengthDays: number,
   outputDir: string,
   numUsers: number,
   messyData: boolean,
