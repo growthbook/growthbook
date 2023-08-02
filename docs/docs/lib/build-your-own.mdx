@@ -958,7 +958,7 @@ If set to "enabled", you are able to subscribe to the API for realtime changes t
 
 The URL for subscribing to changes is `{apiHost}/sub/{clientKey}`.
 
-SDK's should not attempt to subscribe to the `/sub/` endpoint unless the header `x-sse-support: enabled` is present on the `/api/features` endpoint response.
+SDKs should not attempt to subscribe to the `/sub/` endpoint unless the header `x-sse-support: enabled` is present on the `/api/features` endpoint response.
 
 An example implementation in JavaScript is below:
 
@@ -972,8 +972,8 @@ channel.addEventListener("features", (event) => {
 
 Some important things to note:
 
-- The connection will close after 60 seconds. It is expected that the SDK implements reconnect logic.
-- The response will be the same as when fetching from the `/api/features/{clientKey}` endpoint except that the `dateUpdated` property will not be present—`features` and optionally `encryptedFeatures` will be present.
+- The SDK should implement reconnect logic to support both client and server dropping the connection.
+- The response will be the same as when fetching from the `/api/features/{clientKey}` endpoint
 
 ### Encrypted Features
 
