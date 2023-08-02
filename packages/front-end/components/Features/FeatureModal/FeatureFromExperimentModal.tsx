@@ -237,17 +237,12 @@ export default function FeatureFromExperimentModal({
         }
 
         if (existing) {
-          // Add to each environment
-          for (const env in featureToCreate.environmentSettings) {
-            await apiCall(`/feature/${featureToCreate.id}/rule`, {
-              method: "POST",
-              body: JSON.stringify({
-                rule: rule,
-                environment: env,
-                i: featureToCreate.environmentSettings[env].rules.length,
-              }),
-            });
-          }
+          await apiCall(`/feature/${featureToCreate.id}/experiment`, {
+            method: "POST",
+            body: JSON.stringify({
+              rule: rule,
+            }),
+          });
         } else {
           featureToCreate.defaultValue = parseDefaultValue(
             values.defaultValue,

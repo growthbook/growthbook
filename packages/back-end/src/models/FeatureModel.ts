@@ -3,6 +3,7 @@ import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
 import { isEqual } from "lodash";
 import {
+  ExperimentRefRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
@@ -541,6 +542,35 @@ export async function addFeatureRule(
     ...getDraftRules(feature, environment),
     rule,
   ]);
+}
+
+export async function addExperimentRefRule(
+  org: OrganizationInterface,
+  user: EventAuditUser,
+  feature: FeatureInterface,
+  rule: ExperimentRefRule
+) {
+  if (!rule.id) {
+    rule.id = generateRuleId();
+  }
+
+  const environments = org.settings?.environments || [];
+  const environmentIds = environments.map((e) => e.id);
+
+  if (!environmentIds.length) {
+    throw new Error(
+      "Must have at least one environment configured to use Feature Flags"
+    );
+  }
+
+  const draft = getDraft(feature);
+
+  environmentIds.forEach((env) => {
+    draft.rules = draft.rules || {};
+    draft.rules[env] = [...getDraftRules(feature, env), rule];
+  });
+
+  await updateDraft(org, user, feature, draft);
 }
 
 export async function editFeatureRule(

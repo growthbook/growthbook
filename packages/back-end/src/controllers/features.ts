@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import {
+  ExperimentRefRule,
   FeatureDraftChanges,
   FeatureInterface,
   FeatureRule,
@@ -23,6 +24,7 @@ import {
   discardDraft,
   updateDraft,
   setJsonSchema,
+  addExperimentRefRule,
 } from "../models/FeatureModel";
 import { getRealtimeUsageByHour } from "../models/RealtimeModel";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
@@ -456,6 +458,37 @@ export async function postFeatureRule(
   req.checkPermissions("createFeatureDrafts", feature.project);
 
   await addFeatureRule(org, res.locals.eventAudit, feature, environment, rule);
+
+  res.status(200).json({
+    status: 200,
+  });
+}
+
+export async function postFeatureExperimentRefRule(
+  req: AuthRequest<{ rule: ExperimentRefRule }, { id: string }>,
+  res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
+) {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.params;
+  const { rule } = req.body;
+  const feature = await getFeature(org.id, id);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+  if (
+    rule.type !== "experiment-ref" ||
+    !rule.experimentId ||
+    !rule.variations ||
+    !rule.variations.length
+  ) {
+    throw new Error("Invalid experiment rule");
+  }
+
+  req.checkPermissions("manageFeatures", feature.project);
+  req.checkPermissions("createFeatureDrafts", feature.project);
+
+  await addExperimentRefRule(org, res.locals.eventAudit, feature, rule);
 
   res.status(200).json({
     status: 200,
