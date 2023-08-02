@@ -28,6 +28,7 @@ import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResult";
 import { useCurrency } from "@/hooks/useCurrency";
 import PValueColumn_new from "@/components/Experiment/PValueColumn_new";
+import PercentChangeColumn from "@/components/Experiment/PercentChangeColumn";
 import Tooltip from "../Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn_new from "./ChanceToWinColumn_new";
@@ -264,7 +265,8 @@ export default function ResultsTable({
                     <span className="nowrap">Being Worse</span>
                   </div>
                 )
-              ) : sequentialTestingEnabled || pValueCorrection ? (
+              ) : !metricsAsGuardrails &&
+                (sequentialTestingEnabled || pValueCorrection) ? (
                 <Tooltip
                   innerClassName={"text-left"}
                   body={getPValueTooltip(
@@ -340,7 +342,7 @@ export default function ResultsTable({
               <tr className="results-label-row">
                 <th
                   colSpan={showAdvanced ? 4 : 2}
-                  className="metric-label pb-2"
+                  className="metric-label pb-1"
                 >
                   {renderLabelColumn(row.label, row.metric, row)}
                 </th>
@@ -450,7 +452,7 @@ export default function ResultsTable({
                             showRisk={true}
                             showSuspicious={true}
                             showPercentComplete={showAdvanced}
-                            showTimeRemaining={!showAdvanced}
+                            showTimeRemaining={false}
                             className={clsx(
                               "text-right results-pval",
                               resultsHighlightClassname
@@ -473,7 +475,7 @@ export default function ResultsTable({
                           showRisk={true}
                           showSuspicious={true}
                           showPercentComplete={showAdvanced}
-                          showTimeRemaining={!showAdvanced}
+                          showTimeRemaining={false}
                           showUnadjustedPValue={showAdvanced}
                           className={clsx(
                             "text-right results-pval",
@@ -520,45 +522,16 @@ export default function ResultsTable({
                         />
                       )}
                     </td>
-                    {j > 0 && row.metric && rowResults.enoughData ? (
-                      <>
-                        <td
-                          className={clsx(
-                            "results-change",
-                            resultsHighlightClassname
-                          )}
-                        >
-                          <div
-                            className={clsx("nowrap change", {
-                              "text-left": showAdvanced,
-                              "text-right": !showAdvanced,
-                            })}
-                          >
-                            <span className="expectedArrows">
-                              {rowResults.directionalStatus === "winning" ? (
-                                <FaArrowUp />
-                              ) : (
-                                <FaArrowDown />
-                              )}
-                            </span>{" "}
-                            <span className="expected bold">
-                              {parseFloat(
-                                ((stats.expected ?? 0) * 100).toFixed(1)
-                              ) + "%"}{" "}
-                            </span>
-                          </div>
-                          {showAdvanced ? (
-                            <div className="text-right nowrap ci">
-                              [{percentFormatter.format(stats.ci?.[0] ?? 0)},{" "}
-                              {percentFormatter.format(stats.ci?.[1] ?? 0)}]
-                            </div>
-                          ) : null}
-                        </td>
-                      </>
+                    {j > 0 ? (
+                      <PercentChangeColumn
+                        metric={row.metric}
+                        stats={stats}
+                        rowResults={rowResults}
+                        showCI={showAdvanced}
+                        className={resultsHighlightClassname}
+                      />
                     ) : (
-                      <>
-                        <td></td>
-                      </>
+                      <td></td>
                     )}
                   </tr>
                 );

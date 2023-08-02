@@ -39,10 +39,8 @@ const PValueGuardrailResults: FC<{
   const pValueThreshold = usePValueThreshold();
 
   const expectedDirection = isExpectedDirection(stats, metric);
-  const statSig = isStatSig(
-    stats.pValueAdjusted ?? stats?.pValue ?? 1,
-    pValueThreshold
-  );
+  // note: do not use pValueAdjusted for guardrails
+  const statSig = isStatSig(stats?.pValue ?? 1, pValueThreshold);
   const status = getPValueGuardrailStatus(expectedDirection, statSig);
 
   return (
@@ -64,13 +62,7 @@ const PValueGuardrailResults: FC<{
               className="d-inline-block ml-2"
               style={{ width: 50, lineHeight: "14px" }}
             >
-              <div>
-                {expectedDirection ? "Better" : "Worse"}
-                {statSig ? "" : "?"}
-              </div>
-              <div>
-                ({pValueFormatter(stats.pValueAdjusted ?? stats.pValue ?? 1)})
-              </div>
+              {pValueFormatter(stats.pValue ?? 1)}
             </div>
           </>
         ) : (
