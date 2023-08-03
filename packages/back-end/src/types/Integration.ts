@@ -303,6 +303,7 @@ export interface SourceIntegrationInterface {
     tableName: string
   ): Promise<{ tableData: null | unknown[] }>;
   getInformationSchema?(): Promise<InformationSchema[]>;
+  getTestValidityQuery?(query: string): string;
   getTestQuery?(query: string): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
