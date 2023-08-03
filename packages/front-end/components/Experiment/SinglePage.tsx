@@ -530,6 +530,7 @@ export default function SinglePage({
             // Try to immediately open the visual editor
             await openVisualEditor(vc);
           }}
+          cta="Open Visual Editor"
         />
       )}
       {statusModal && (
@@ -1088,6 +1089,7 @@ export default function SinglePage({
                     rules={rules}
                     experiment={experiment}
                     key={i}
+                    mutateFeatures={mutateFeatures}
                   />
                 ))}
                 <VisualChangesetTable

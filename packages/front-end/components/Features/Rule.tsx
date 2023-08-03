@@ -99,25 +99,26 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       >
         <div className="d-flex mb-2 align-items-center">
           <div>
-            <div
-              className="text-light border rounded-circle"
-              style={{
-                width: 28,
-                height: 28,
-                lineHeight: "28px",
-                textAlign: "center",
-                background: "#7C45EA",
-                fontWeight: "bold",
-                opacity: ruleDisabled ? 0.5 : 1,
-              }}
-            >
-              {i + 1}
-            </div>
+            <Tooltip body={ruleDisabled ? "This rule will be skipped" : ""}>
+              <div
+                className={`text-light border rounded-circle ${
+                  ruleDisabled ? "bg-secondary" : "bg-purple"
+                }`}
+                style={{
+                  width: 28,
+                  height: 28,
+                  lineHeight: "28px",
+                  textAlign: "center",
+                  fontWeight: "bold",
+                }}
+              >
+                {i + 1}
+              </div>
+            </Tooltip>
           </div>
           <div
             style={{
               flex: 1,
-              opacity: ruleDisabled ? 0.5 : 1,
             }}
             className="mx-2"
           >
@@ -134,7 +135,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             ) : (
               title
             )}
-            {unreachable ? (
+            {unreachable && !ruleDisabled ? (
               <Tooltip
                 body={
                   "A rule above this one will serve to 100% of the traffic, and this rule will never be reached."
@@ -262,7 +263,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             style={{
               flex: 1,
               maxWidth: "100%",
-              opacity: ruleDisabled ? 0.5 : 1,
+              opacity: ruleDisabled ? 0.4 : 1,
             }}
             className="pt-1 position-relative"
           >

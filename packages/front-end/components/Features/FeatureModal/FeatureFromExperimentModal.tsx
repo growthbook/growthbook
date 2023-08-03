@@ -335,27 +335,32 @@ export default function FeatureFromExperimentModal({
             onChange={(val) => {
               form.setValue("valueType", val);
 
-              // Going from free-form type to boolean or number
-              if (val === "boolean" || val === "number") {
-                const transformValue = (v: string) => {
-                  if (val === "boolean") {
-                    return Boolean(v) && v !== "false" ? "true" : "false";
-                  }
+              // Update defaultValue and variation values to match new type
+              const transformValue = (v: string) => {
+                if (val === "boolean") {
+                  return Boolean(v) && v !== "false" ? "true" : "false";
+                } else if (val === "number") {
                   return (Number(v) || 0) + "";
-                };
+                } else if (val === "json") {
+                  if (valueType === "string")
+                    return `{\n  "value": ${JSON.stringify(v)}\n}`;
+                  return `{\n  "value": ${v}\n}`;
+                } else {
+                  return v;
+                }
+              };
 
-                form.setValue(
-                  "defaultValue",
-                  transformValue(form.watch("defaultValue"))
-                );
-                form.setValue(
-                  "variations",
-                  form.watch("variations").map((v) => ({
-                    ...v,
-                    value: transformValue(v.value),
-                  }))
-                );
-              }
+              form.setValue(
+                "defaultValue",
+                transformValue(form.watch("defaultValue"))
+              );
+              form.setValue(
+                "variations",
+                form.watch("variations").map((v) => ({
+                  ...v,
+                  value: transformValue(v.value),
+                }))
+              );
             }}
           />
 

@@ -474,6 +474,10 @@ app.post(
   "/feature/:id/experiment",
   featuresController.postFeatureExperimentRefRule
 );
+app.delete(
+  "/feature/:id/experiment",
+  featuresController.deleteFeatureExperimentRefRule
+);
 app.put("/feature/:id/rule", featuresController.putFeatureRule);
 app.delete("/feature/:id/rule", featuresController.deleteFeatureRule);
 app.post("/feature/:id/reorder", featuresController.postFeatureMoveRule);

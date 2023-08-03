@@ -544,6 +544,41 @@ export async function addFeatureRule(
   ]);
 }
 
+export async function deleteExperimentRefRule(
+  org: OrganizationInterface,
+  user: EventAuditUser,
+  feature: FeatureInterface,
+  experimentId: string
+) {
+  const environments = org.settings?.environments || [];
+  const environmentIds = environments.map((e) => e.id);
+
+  if (!environmentIds.length) {
+    throw new Error(
+      "Must have at least one environment configured to use Feature Flags"
+    );
+  }
+
+  const draft = getDraft(feature);
+
+  let hasChanges = false;
+  environmentIds.forEach((env) => {
+    const rules = getDraftRules(feature, env);
+
+    draft.rules = draft.rules || {};
+
+    const numRules = rules.length;
+    draft.rules[env] = rules.filter(
+      (r) => !(r.type === "experiment-ref" && r.experimentId === experimentId)
+    );
+    if (draft.rules[env].length < numRules) hasChanges = true;
+  });
+
+  if (hasChanges) {
+    await updateDraft(org, user, feature, draft);
+  }
+}
+
 export async function addExperimentRefRule(
   org: OrganizationInterface,
   user: EventAuditUser,

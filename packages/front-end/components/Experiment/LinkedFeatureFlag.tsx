@@ -6,23 +6,32 @@ import LinkedChange from "@/components/Experiment/LinkedChange";
 import { useEnvironments } from "@/services/features";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
 import ForceSummary from "@/components/Features/ForceSummary";
+import { useAuth } from "@/services/auth";
 import Tooltip from "../Tooltip/Tooltip";
+import DeleteButton from "../DeleteButton/DeleteButton";
 
 type Props = {
   feature: FeatureInterface;
   rules: MatchingRule[];
   experiment: ExperimentInterfaceStringDates;
+  mutateFeatures: () => void;
 };
 
 export default function LinkedFeatureFlag({
   feature,
   rules,
   experiment,
+  mutateFeatures,
 }: Props) {
   const environments = useEnvironments();
 
+  const { apiCall } = useAuth();
+
   const activeRules = rules.filter(({ rule }) => rule.enabled);
   const liveRules = activeRules.filter(({ draft }) => !draft);
+
+  // If all matching rules are drafts, it is unpublished
+  const unpublished = !rules.some((r) => !r.draft);
 
   const uniqueValueMappings = new Set(
     rules.map(({ rule }) =>
@@ -100,8 +109,28 @@ export default function LinkedFeatureFlag({
       open={experiment.status === "draft"}
     >
       <div className="mt-2 pb-1 px-3">
-        <div className="font-weight-bold">Feature key</div>
-        <ClickToCopy className="mb-3">{feature.id}</ClickToCopy>
+        <div className="d-flex">
+          <div>
+            <div className="font-weight-bold">Feature key</div>
+            <ClickToCopy className="mb-3">{feature.id}</ClickToCopy>
+          </div>
+          {experiment.status === "draft" && unpublished && (
+            <div className="ml-auto">
+              <DeleteButton
+                displayName="Feature Rule"
+                onClick={async () => {
+                  await apiCall(`/feature/${feature.id}/experiment`, {
+                    method: "DELETE",
+                    body: JSON.stringify({
+                      experimentId: experiment.id,
+                    }),
+                  });
+                  mutateFeatures();
+                }}
+              />
+            </div>
+          )}
+        </div>
 
         <div className="font-weight-bold">Environments</div>
         <div className="mb-3">

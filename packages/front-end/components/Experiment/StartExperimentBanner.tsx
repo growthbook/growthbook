@@ -58,10 +58,11 @@ export function StartExperimentBanner({
   });
 
   // No unpublished feature flags
-  const hasFeatureFlagsErrors = linkedFeatures.some((f) =>
-    f.rules.some(
-      (r) => r.draft || !r.environmentEnabled || r.rule.enabled === false
-    )
+  const hasFeatureFlagsErrors = linkedFeatures.some(
+    (f) =>
+      !f.rules.some(
+        (r) => !r.draft && r.environmentEnabled && r.rule.enabled !== false
+      )
   );
   checklist.push({
     display: "All linked Feature Flag rules are published and enabled",

@@ -33,12 +33,14 @@ export default function LinkedChange({
             </div>
             {changeType === "flag" ? (
               <>
-                <div
-                  className="col-auto text-uppercase d-flex align-items-center"
-                  style={{ width: 170 }}
-                >
+                <div className="col-auto d-flex align-items-center">
                   <BsFlag />
-                  <div className="ml-1 small">{feature?.id || "Feature"}</div>
+                  <code
+                    className="ml-1 text-break"
+                    style={{ color: "inherit" }}
+                  >
+                    {feature?.id || "Feature"}
+                  </code>
                 </div>
                 <div className="col-3 pl-3">
                   <span className="text-muted hover-label">Type:</span>{" "}

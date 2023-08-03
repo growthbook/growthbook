@@ -20,7 +20,8 @@ const VisualChangesetModal: FC<{
   mutate: () => void;
   close: () => void;
   onCreate?: (vc: VisualChangesetInterface) => void;
-}> = ({ mode, experiment, visualChangeset, mutate, close, onCreate }) => {
+  cta?: string;
+}> = ({ mode, experiment, visualChangeset, mutate, close, onCreate, cta }) => {
   const { apiCall } = useAuth();
 
   let forceAdvancedMode = false;
@@ -107,6 +108,7 @@ const VisualChangesetModal: FC<{
         mode === "add" ? "Add" : "Modify"
       } Visual Changes URL targeting`}
       submit={onSubmit}
+      cta={cta}
     >
       <Field
         required
