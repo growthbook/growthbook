@@ -97,7 +97,13 @@ export default function ExperimentRefSummary({
     if (experiment.excludeFromPayload) {
       return (
         <ExperimentSkipped
-          message="This experiment is stopped and disabled. This rule will be skipped."
+          message={
+            <>
+              This experiment is stopped and does not have a{" "}
+              <strong>Temporary Rollout</strong> enabled. This rule will be
+              skipped.
+            </>
+          }
           experimentId={experiment.id}
         />
       );
@@ -145,8 +151,8 @@ export default function ExperimentRefSummary({
     <div>
       {experiment.status === "draft" && (
         <div className="alert alert-warning">
-          The experiment is in a <strong>draft</strong> state. This rule will be
-          skipped.
+          The experiment is in a <strong>draft</strong> state and has not been
+          started yet. This rule will be skipped.
         </div>
       )}
       {phase.condition && phase.condition !== "{}" && (

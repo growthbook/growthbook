@@ -174,6 +174,37 @@ export default function FeatureFromExperimentModal({
 
   const existing = form.watch("existing");
 
+  function updateValuesOnTypeChange(val: FeatureValueType) {
+    // If existing value already matches, do nothing
+    if (val === valueType) return;
+
+    form.setValue("valueType", val);
+
+    // Update defaultValue and variation values to match new type
+    const transformValue = (v: string) => {
+      if (val === "boolean") {
+        return Boolean(v) && v !== "false" ? "true" : "false";
+      } else if (val === "number") {
+        return (Number(v) || 0) + "";
+      } else if (val === "json") {
+        if (valueType === "string")
+          return `{\n  "value": ${JSON.stringify(v)}\n}`;
+        return `{\n  "value": ${v}\n}`;
+      } else {
+        return v;
+      }
+    };
+
+    form.setValue("defaultValue", transformValue(form.watch("defaultValue")));
+    form.setValue(
+      "variations",
+      form.watch("variations").map((v) => ({
+        ...v,
+        value: transformValue(v.value),
+      }))
+    );
+  }
+
   return (
     <Modal
       open
@@ -283,7 +314,16 @@ export default function FeatureFromExperimentModal({
         }))}
         initialOption="Create New Feature"
         value={form.watch("existing")}
-        onChange={(value) => form.setValue("existing", value)}
+        onChange={(value) => {
+          if (value) {
+            const newFeature = validFeatures.find((f) => f.id === value);
+            if (newFeature) {
+              updateValuesOnTypeChange(newFeature.valueType);
+            }
+          }
+
+          form.setValue("existing", value);
+        }}
       />
 
       {!existing && (
@@ -333,34 +373,7 @@ export default function FeatureFromExperimentModal({
           <ValueTypeField
             value={valueType}
             onChange={(val) => {
-              form.setValue("valueType", val);
-
-              // Update defaultValue and variation values to match new type
-              const transformValue = (v: string) => {
-                if (val === "boolean") {
-                  return Boolean(v) && v !== "false" ? "true" : "false";
-                } else if (val === "number") {
-                  return (Number(v) || 0) + "";
-                } else if (val === "json") {
-                  if (valueType === "string")
-                    return `{\n  "value": ${JSON.stringify(v)}\n}`;
-                  return `{\n  "value": ${v}\n}`;
-                } else {
-                  return v;
-                }
-              };
-
-              form.setValue(
-                "defaultValue",
-                transformValue(form.watch("defaultValue"))
-              );
-              form.setValue(
-                "variations",
-                form.watch("variations").map((v) => ({
-                  ...v,
-                  value: transformValue(v.value),
-                }))
-              );
+              updateValuesOnTypeChange(val);
             }}
           />
 
@@ -372,6 +385,14 @@ export default function FeatureFromExperimentModal({
             }}
           />
         </>
+      )}
+
+      {existing && (
+        <div className="alert alert-info">
+          A new rule will be added to every environment in a new draft revision.
+          You will have a chance to review and make changes to the feature
+          before publishing.
+        </div>
       )}
 
       <div className="form-group">
@@ -399,13 +420,6 @@ export default function FeatureFromExperimentModal({
           valueType={valueType}
           helpText="For users not included in the experiment"
         />
-      )}
-
-      {existing && (
-        <div className="alert alert-info">
-          This experiment will be added to a draft revision of the feature. You
-          will have a chance to review and make changes before publishing.
-        </div>
       )}
     </Modal>
   );

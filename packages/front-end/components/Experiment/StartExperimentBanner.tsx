@@ -6,12 +6,7 @@ import Link from "next/link";
 import { MatchingRule } from "shared/util";
 import { MdRocketLaunch } from "react-icons/md";
 import { ReactElement } from "react";
-import {
-  FaCheckSquare,
-  FaMinusSquare,
-  FaRegSquare,
-  FaTimes,
-} from "react-icons/fa";
+import { FaCheckSquare, FaTimes } from "react-icons/fa";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import Button from "../Button";
@@ -43,7 +38,7 @@ export function StartExperimentBanner({
 
   type CheckListItem = {
     display: string | ReactElement;
-    status: "error" | "skip" | "success" | "unknown";
+    status: "error" | "success";
     tooltip?: string | ReactElement;
   };
   const checklist: CheckListItem[] = [];
@@ -58,38 +53,33 @@ export function StartExperimentBanner({
   });
 
   // No unpublished feature flags
-  const hasFeatureFlagsErrors = linkedFeatures.some(
-    (f) =>
-      !f.rules.some(
-        (r) => !r.draft && r.environmentEnabled && r.rule.enabled !== false
-      )
-  );
-  checklist.push({
-    display: "All linked Feature Flag rules are published and enabled",
-    status:
-      linkedFeatures.length === 0
-        ? "skip"
-        : hasFeatureFlagsErrors
-        ? "error"
-        : "success",
-  });
+  if (linkedFeatures.length > 0) {
+    const hasFeatureFlagsErrors = linkedFeatures.some(
+      (f) =>
+        !f.rules.some(
+          (r) => !r.draft && r.environmentEnabled && r.rule.enabled !== false
+        )
+    );
+    checklist.push({
+      display: "All linked Feature Flag rules are published and enabled",
+      status: hasFeatureFlagsErrors ? "error" : "success",
+    });
+  }
 
   // No empty visual changesets
-  const hasSomeVisualChanges = visualChangesets.some((vc) =>
-    vc.visualChanges.some(
-      (changes) => changes.css || changes.js || changes.domMutations?.length > 0
-    )
-  );
-  checklist.push({
-    display:
-      "All linked Visual Editor changes have been configured and saved in the editor",
-    status:
-      visualChangesets.length === 0
-        ? "skip"
-        : hasSomeVisualChanges
-        ? "success"
-        : "error",
-  });
+  if (visualChangesets.length > 0) {
+    const hasSomeVisualChanges = visualChangesets.some((vc) =>
+      vc.visualChanges.some(
+        (changes) =>
+          changes.css || changes.js || changes.domMutations?.length > 0
+      )
+    );
+    checklist.push({
+      display:
+        "All linked Visual Editor changes have been configured and saved in the editor",
+      status: hasSomeVisualChanges ? "success" : "error",
+    });
+  }
 
   // SDK Connection set up
   const projectConnections = connections.filter(
@@ -168,17 +158,21 @@ export function StartExperimentBanner({
     status: hasPhases ? "success" : "error",
   });
 
+  const manualChecklist: (string | ReactElement)[] = [];
+
   // TODO: Do we have a way to validate this or at least give a way for users to dismiss this?
-  checklist.push({
-    display: (
-      <>
-        Your app is passing both <code>attributes</code> and a{" "}
-        <code>trackingCallback</code> into the GrowthBook SDK
-      </>
-    ),
-    status: "unknown",
-    tooltip: "We're not able to verify this automatically at this time",
-  });
+  manualChecklist.push(
+    <>
+      Verify your app is passing both <code>attributes</code> and a{" "}
+      <code>trackingCallback</code> into the GrowthBook SDK
+    </>
+  );
+  manualChecklist.push(
+    <>
+      Verify your app is tracking all of the metrics and goal completions that
+      you want to report on for this test
+    </>
+  );
 
   async function startExperiment() {
     if (!experiment.phases?.length) {
@@ -215,36 +209,36 @@ export function StartExperimentBanner({
             {checklist.map((item, i) => (
               <li
                 key={i}
-                style={
-                  item.status === "skip"
-                    ? {
-                        listStyleType: "none",
-                        opacity: 0.5,
-                        marginLeft: 0,
-                      }
-                    : {
-                        listStyleType: "none",
-                        marginLeft: 0,
-                      }
-                }
+                style={{
+                  listStyleType: "none",
+                  marginLeft: 0,
+                }}
               >
                 {item.status === "error" ? (
                   <FaTimes className="text-danger" />
-                ) : item.status === "skip" ? (
-                  <FaMinusSquare />
                 ) : item.status === "success" ? (
                   <FaCheckSquare className="text-success" />
                 ) : (
-                  <Tooltip body={item.tooltip || ""}>
-                    <FaRegSquare />
-                  </Tooltip>
+                  ""
                 )}{" "}
                 {item.display}{" "}
                 {item.tooltip ? <Tooltip body={item.tooltip} /> : ""}
               </li>
             ))}
           </ul>
+          <small className="text-uppercase">
+            <strong>Manual Checks</strong>
+          </small>{" "}
+          <Tooltip body={"We're not able to verify these automatically"} />
+          <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0 mb-0 pb-0">
+            {manualChecklist.map((item, i) => (
+              <li key={i} style={{ listStyleType: "none", marginLeft: 0 }}>
+                &bull; {item}
+              </li>
+            ))}
+          </ul>
         </div>
+
         {allPassed && (
           <div className="col">
             <p>Everything looks great! Let&apos;s Go!</p>
