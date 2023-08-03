@@ -14,6 +14,8 @@ const aiTokenUsageSchema = new mongoose.Schema({
   lastResetAt: Number,
 });
 
+aiTokenUsageSchema.index({ organization: 1 }, { unique: true });
+
 const AITokenUsageModel = mongoose.model<AITokenUsageDocument>(
   "AITokenUsage",
   aiTokenUsageSchema

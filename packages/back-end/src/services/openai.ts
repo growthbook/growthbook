@@ -28,14 +28,19 @@ const MODEL = "gpt-3.5-turbo-0301";
 const MODEL_TOKEN_LIMIT = 4096;
 // Require a minimum of 30 tokens for responses.
 const MESSAGE_TOKEN_LIMIT = MODEL_TOKEN_LIMIT - 30;
-// TODO fine tune
-const DAILY_TOKEN_LIMIT = 1000000;
+const DAILY_TOKEN_LIMIT = process.env.OPENAI_DAILY_TOKEN_LIMIT || 1000000;
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY || "",
 });
 
-const openai = new OpenAIApi(configuration);
+let _openai: OpenAIApi | null = null;
+export const getOpenAI = () => {
+  if (_openai == null) {
+    _openai = new OpenAIApi(configuration);
+  }
+  return _openai;
+};
 
 /**
  * Function for counting tokens for messages passed to gpt-3.5-turbo-0301.
@@ -90,6 +95,8 @@ export const simpleCompletion = async ({
   temperature?: number;
   organization: OrganizationInterface;
 }) => {
+  const openai = getOpenAI();
+
   const messages: ChatCompletionRequestMessage[] = [
     {
       // In general, gpt-3.5-turbo-0301 does not pay strong attention to the

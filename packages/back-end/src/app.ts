@@ -550,7 +550,7 @@ app.post("/admin/organization/:id/populate", adminController.addSampleData);
 // Meta info
 app.get("/meta/ai", (req, res) => {
   res.json({
-    enabled: !process.env.OPENAI_API_KEY,
+    enabled: !!process.env.OPENAI_API_KEY,
   });
 });
 
