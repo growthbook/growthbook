@@ -298,34 +298,65 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     return new Set(currentOrg?.commercialFeatures || []);
   }, [currentOrg?.commercialFeatures]);
 
+  // permissions: {
+  //   global: {
+  //      createAnalyses: {
+  //     hasPermission: true,
+  //         environments: [],
+  //         limitAccessByEnvironments: false,
+  //   },
+  //     createFeatureDrafts: {
+  //       hasPermission: false,
+  //           environments: [],
+  //           limitAccessByEnvironments: false,
+  //     },
+  //   },
+  // projects: {
+  //   project123: {
+  //     createAnalyses: {
+  //        hasPermission: true,
+  //            environments: [],
+  //            limitAccessByEnvironments: false,
+  //       },
+  //     createFeatureDrafts: {
+  //       hasPermission: true,
+  //           environments: [],
+  //           limitAccessByEnvironments: false,
+  //     },
+  //   },
+  //   project345: {
+  //     createAnalyses: {
+  //       hasPermission: false,
+  //       environments: [],
+  //       limitAccessByEnvironments: false,
+  //     },
+  //     createFeatureDrafts: {
+  //       hasPermission: false,
+  //         environments: [],
+  //         limitAccessByEnvironments: false,
+  //     },
+  // },
+  // },
+  // }
+
   const permissionsCheck = useCallback(
     (
       permission: Permission,
       project?: string | undefined,
       envs?: string[]
     ): boolean => {
-      console.log("user in newPermissionsCheck", user);
-      console.log("checking permission: ", permission);
-      console.log("project: ", project);
-      console.log("envs: ", envs);
+      const globalPermissions = user?.permissions.global;
+      const projectPermissions = user?.permissions.projects;
 
-      // So, this will take in a permission, along with an optional project & an optional environment array
-      // We need to see if the permission passed in, is permitted by user.permissions
-      const permissions = user?.permissions[permission];
-      console.log("permissions", permissions);
-
-      // Check to see if the user's role gives them global permission for this action
-      if (permissions.globalPermissions.hasPermission) {
-        // If no envs are passed in, just return true;
+      // We first need to check the global permissions and if the user has the global permission, return;
+      if (globalPermissions[permission].hasPermission) {
         if (!envs) {
           return true;
-          // If envs are passed in, first check if this permission is limited by environment, if not, return true,
-          // Otherwise, look to see if the env passed in is included in the globalPermissions environments arary. If so, return true, otherwise, return false.
         } else {
-          if (!permissions.globalPermissions.limitAccessByEnvironment) {
+          if (!globalPermissions[permission].limitAccessByEnvironment) {
             return true;
           } else if (
-            permissions.globalPermissions.environments.some((e) =>
+            globalPermissions[permission].environments.some((e) =>
               envs.includes(e)
             )
           ) {
@@ -334,32 +365,20 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // If a project was passed in, and the global permission was false, we need to check the project's permission
+      // If the user doesn't have permission from their global role & a project was passed in, check that project
       if (project) {
-        console.log(
-          "project was passed in & global permission was false, need to check current project's permissions"
-        );
-        const projectLevelPermissions = permissions.projectPermissions.find(
-          (p) => p.projectId === project
-        );
-
-        console.log("projectLevelPermissions", projectLevelPermissions);
-
-        if (!projectLevelPermissions) {
-          return false;
-        }
-
-        if (projectLevelPermissions.hasPermission) {
-          // If no envs are passed in, just return true;
+        const projectToCheck = projectPermissions[project];
+        console.log("projectToCheck", projectToCheck);
+        if (projectToCheck && projectToCheck[permission].hasPermission) {
           if (!envs) {
             return true;
           } else {
-            // If envs are passed in, first check if this permission is limited by environment, if not, return true,
-            // Otherwise, look to see if the env passed in is included in the globalPermissions environments arary. If so, return true, otherwise, return false.
-            if (!projectLevelPermissions.limitAccessByEnvironment) {
+            if (!projectToCheck[permission].limitAccessByEnvironment) {
               return true;
             } else if (
-              projectLevelPermissions.environments.some((e) => envs.includes(e))
+              projectToCheck[permission].environments.some((e) =>
+                envs.includes(e)
+              )
             ) {
               return true;
             }
@@ -370,51 +389,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     },
     [user]
   );
-
-  // const permissionsCheck = useCallback(
-  //   (
-  //     permission: Permission,
-  //     project?: string | undefined,
-  //     envs?: string[]
-  //   ): boolean => {
-  //     // Get the role based on the project (if specified)
-  //     // Fall back to the user's global role
-  //     const projectRole =
-  //       (project && user?.projectRoles?.find((r) => r.project === project)) ||
-  //       user;
-
-  //     // Missing role entirely, deny access
-  //     if (!projectRole) {
-  //       return false;
-  //     }
-
-  //     // Admin role always has permission
-  //     if (projectRole.role === "admin") return true;
-
-  //     const permissions = getPermissionsByRole(
-  //       projectRole.role,
-  //       currentOrg?.roles || []
-  //     );
-
-  //     // Missing permission
-  //     if (!permissions.has(permission)) {
-  //       return false;
-  //     }
-
-  //     // If it's an environment-scoped permission and the user's role has limited access
-  //     if (envs && projectRole.limitAccessByEnvironment) {
-  //       for (let i = 0; i < envs.length; i++) {
-  //         if (!projectRole.environments.includes(envs[i])) {
-  //           return false;
-  //         }
-  //       }
-  //     }
-
-  //     // If it got through all the above checks, the user has permission
-  //     return true;
-  //   },
-  //   [currentOrg?.roles, user]
-  // );
 
   return (
     <UserContext.Provider

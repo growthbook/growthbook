@@ -53,38 +53,35 @@ export const ALL_PERMISSIONS = [
 
 export function getUserPermissions(user: any, org: OrganizationInterface) {
   const roles = getRoles(org);
-  const actionsUserCanPerform = roles.find((r) => r.id === user.role);
+  const globalRolePermissions = roles.find((r) => r.id === user.role);
   const permissions: any = {};
+
+  permissions.global = {};
+
   ALL_PERMISSIONS.forEach((permission) => {
-    const obj = {
-      globalPermissions: {
-        hasPermission:
-          user.role && actionsUserCanPerform?.permissions.includes(permission)
-            ? true
-            : false,
-        limitAccessByEnvironment: user.role.limitAccessByEnvironment || false,
-        environments: user.role.environments || [],
-      },
-      // Now, if this user has projectRoles, we need to loop through them, and see if they have a role for this permission
-      // We also need to check to see if the projectRole limits access by environment
-      // projectPermissions: [],
-      projectPermissions: !user.projectRoles.length
-        ? []
-        : user.projectRoles.map((projectRole: any) => {
-            const actionsUserCanPerformPerProject = roles.find(
-              (r) => r.id === projectRole.role
-            );
-            return {
-              hasPermission: actionsUserCanPerformPerProject?.permissions.includes(
-                permission
-              ),
-              projectId: projectRole.project,
-              limitAccessByEnvironment: projectRole.limitAccessByEnvironment,
-              environments: projectRole.environments || [],
-            };
-          }),
+    permissions.global[permission] = {
+      hasPermission: globalRolePermissions?.permissions.includes(permission)
+        ? true
+        : false,
+      limitAccessByEnvironment: user.role.limitAccessByEnvironment || false,
+      environments: user.role.environments || [],
     };
-    permissions[permission] = obj;
+  });
+
+  permissions.projects = {};
+
+  user.projectRoles.forEach((projectRole: any) => {
+    const projectRolePermissions = roles.find((r) => r.id === projectRole.role);
+    permissions.projects[projectRole.project] = {};
+    ALL_PERMISSIONS.forEach((permission) => {
+      permissions.projects[projectRole.project][permission] = {
+        hasPermission: projectRolePermissions?.permissions.includes(permission)
+          ? true
+          : false,
+        limitAccessByEnvironment: projectRole.limitAccessByEnvironment || false,
+        environments: projectRole.environments || [],
+      };
+    });
   });
   return permissions;
 }
