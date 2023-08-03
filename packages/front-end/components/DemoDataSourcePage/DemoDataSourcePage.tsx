@@ -105,7 +105,7 @@ export const DemoDataSourcePageContainer = () => {
   const [error, setError] = useState<string | null>(null);
 
   const { orgId, apiCall } = useAuth();
-  const { getProjectById, ready } = useDefinitions();
+  const { getProjectById, ready, mutateDefinitions } = useDefinitions();
 
   const demoDataSourceProjectId: string | null = orgId
     ? getDemoDatasourceProjectIdForOrganization(orgId)
@@ -119,6 +119,9 @@ export const DemoDataSourcePageContainer = () => {
   }, [getProjectById, demoDataSourceProjectId]);
 
   const onCreate = useCallback(async () => {
+    setError(null);
+    setSuccess(null);
+
     try {
       await apiCall("/demo-datasource-project", {
         method: "POST",
@@ -137,9 +140,13 @@ export const DemoDataSourcePageContainer = () => {
         );
       }
     }
-  }, [apiCall]);
+    mutateDefinitions();
+  }, [apiCall, mutateDefinitions]);
 
   const onDelete = useCallback(async () => {
+    setError(null);
+    setSuccess(null);
+
     if (!demoDataSourceProjectId) return;
 
     try {
@@ -163,7 +170,8 @@ export const DemoDataSourcePageContainer = () => {
         );
       }
     }
-  }, [apiCall, demoDataSourceProjectId]);
+    mutateDefinitions();
+  }, [apiCall, demoDataSourceProjectId, mutateDefinitions]);
 
   return (
     <DemoDataSourcePage
