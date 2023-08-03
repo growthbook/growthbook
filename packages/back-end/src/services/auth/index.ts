@@ -11,7 +11,6 @@ import {
 import { Permission } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
-import { insertAudit } from "../audit";
 import { getUserByEmail } from "../users";
 import { hasOrganization } from "../../models/OrganizationModel";
 import {
@@ -25,6 +24,7 @@ import {
   EventAuditUserForResponseLocals,
   EventAuditUserLoggedIn,
 } from "../../events/event-types";
+import { insertAudit } from "../../models/AuditModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";

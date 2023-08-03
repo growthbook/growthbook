@@ -1,94 +1,14 @@
-import uniqid from "uniqid";
-import { QueryOptions } from "mongoose";
 import { AuditModel } from "../models/AuditModel";
-import { AuditInterface } from "../../types/audit";
-import { WatchModel } from "../models/WatchModel";
+import { getWatchesByUser } from "../models/WatchModel";
+import { EntityType } from "../types/Audit";
 
-export function insertAudit(data: Partial<AuditInterface>) {
-  return AuditModel.create({
-    ...data,
-    id: uniqid("aud_"),
-  });
-}
-
-export async function findByOrganization(
-  organization: string,
-  options?: QueryOptions
-) {
-  return AuditModel.find(
-    {
-      organization,
-    },
-    options
-  );
-}
-
-export async function findByEntity(
-  organization: string,
-  type: string,
-  id: string,
-  options?: QueryOptions
-) {
-  return AuditModel.find(
-    {
-      organization,
-      "entity.object": type,
-      "entity.id": id,
-    },
-    options
-  );
-}
-
-export async function findByEntityParent(
-  organization: string,
-  type: string,
-  id: string,
-  options?: QueryOptions
-) {
-  return AuditModel.find(
-    {
-      organization,
-      "parent.object": type,
-      "parent.id": id,
-    },
-    options
-  );
-}
-
-export async function findAllByEntityType(
-  organization: string,
-  type: string,
-  options?: QueryOptions
-) {
-  return AuditModel.find(
-    {
-      organization,
-      "entity.object": type,
-    },
-    options
-  );
-}
-
-export async function findAllByEntityTypeParent(
-  organization: string,
-  type: string,
-  options?: QueryOptions
-) {
-  return AuditModel.find(
-    {
-      organization,
-      "parent.object": type,
-    },
-    options
-  );
+export function isValidEntityType(type: string): type is EntityType {
+  return EntityType.includes(type as EntityType);
 }
 
 export async function getWatchedAudits(userId: string, organization: string) {
-  const doc = await WatchModel.findOne({
-    userId,
-    organization,
-  });
-  if (!doc) {
+  const userWatches = await getWatchesByUser(organization, userId);
+  if (!userWatches) {
     return [];
   }
   const startTime = new Date();
@@ -98,7 +18,7 @@ export async function getWatchedAudits(userId: string, organization: string) {
     organization,
     "entity.object": "experiment",
     "entity.id": {
-      $in: doc.experiments,
+      $in: userWatches.experiments,
     },
     event: {
       $in: [
@@ -117,7 +37,7 @@ export async function getWatchedAudits(userId: string, organization: string) {
     organization,
     "entity.object": "feature",
     "entity.id": {
-      $in: doc.features,
+      $in: userWatches.features,
     },
     event: {
       $in: [

@@ -1,5 +1,8 @@
-import mongoose from "mongoose";
+import mongoose, { QueryOptions } from "mongoose";
+import { omit } from "lodash";
+import uniqid from "uniqid";
 import { AuditInterface } from "../../types/audit";
+import { EntityType } from "../types/Audit";
 
 const auditSchema = new mongoose.Schema({
   id: {
@@ -34,7 +37,99 @@ const auditSchema = new mongoose.Schema({
   dateCreated: Date,
 });
 
-// type AuditDocument = mongoose.Document & AuditInterface;
+type AuditDocument = mongoose.Document & AuditInterface;
 
-// TODO: don't export and add toInterface() method https://github.com/growthbook/growthbook/issues/1300
 export const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
+
+/**
+ * Convert the Mongo document to an AuditInterface, omitting Mongo default fields __v, _id
+ * @param doc
+ */
+const toInterface = (doc: AuditDocument): AuditInterface => {
+  return omit(doc.toJSON<AuditDocument>(), ["__v", "_id"]);
+};
+
+export async function insertAudit(data: Partial<AuditInterface>) {
+  const auditDoc = await AuditModel.create({
+    ...data,
+    id: uniqid("aud_"),
+  });
+  return toInterface(auditDoc);
+}
+
+export async function findByOrganization(
+  organization: string,
+  options?: QueryOptions
+): Promise<AuditInterface[]> {
+  const auditDocs = await AuditModel.find(
+    {
+      organization,
+    },
+    options
+  );
+  return auditDocs.map((doc) => toInterface(doc));
+}
+
+export async function findByEntity(
+  organization: string,
+  type: EntityType,
+  id: string,
+  options?: QueryOptions
+) {
+  const auditDocs = await AuditModel.find(
+    {
+      organization,
+      "entity.object": type,
+      "entity.id": id,
+    },
+    options
+  );
+  return auditDocs.map((doc) => toInterface(doc));
+}
+
+export async function findByEntityParent(
+  organization: string,
+  type: EntityType,
+  id: string,
+  options?: QueryOptions
+) {
+  const auditDocs = await AuditModel.find(
+    {
+      organization,
+      "parent.object": type,
+      "parent.id": id,
+    },
+    options
+  );
+  return auditDocs.map((doc) => toInterface(doc));
+}
+
+export async function findAllByEntityType(
+  organization: string,
+  type: EntityType,
+  options?: QueryOptions
+) {
+  const auditDocs = await AuditModel.find(
+    {
+      organization,
+      "entity.object": type,
+    },
+    options
+  );
+  return auditDocs.map((doc) => toInterface(doc));
+}
+
+export async function findAllByEntityTypeParent(
+  organization: string,
+  type: EntityType,
+  options?: QueryOptions
+) {
+  const auditDocs = await AuditModel.find(
+    {
+      organization,
+      "parent.object": type,
+    },
+    options
+  );
+  return auditDocs.map((doc) => toInterface(doc));
+}

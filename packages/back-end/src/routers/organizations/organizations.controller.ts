@@ -42,11 +42,8 @@ import {
 } from "../../../types/organization";
 import {
   auditDetailsUpdate,
-  findAllByEntityType,
-  findAllByEntityTypeParent,
-  findByEntity,
-  findByEntityParent,
   getWatchedAudits,
+  isValidEntityType,
 } from "../../services/audit";
 import { getAllFeatures } from "../../models/FeatureModel";
 import { findDimensionsByOrganization } from "../../models/DimensionModel";
@@ -96,6 +93,13 @@ import {
   getExperimentsForActivityFeed,
 } from "../../models/ExperimentModel";
 import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
+import {
+  findAllByEntityType,
+  findAllByEntityTypeParent,
+  findByEntity,
+  findByEntityParent,
+} from "../../models/AuditModel";
+import { EntityType } from "../../types/Audit";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -189,6 +193,13 @@ export async function getAllHistory(
   const { org } = getOrgFromReq(req);
   const { type } = req.params;
 
+  if (!isValidEntityType(type)) {
+    return res.status(400).json({
+      status: 400,
+      message: `${type} is not a valid entity type. Possible entity types are: ${EntityType}`,
+    });
+  }
+
   const events = await Promise.all([
     findAllByEntityType(org.id, type),
     findAllByEntityTypeParent(org.id, type),
@@ -221,6 +232,13 @@ export async function getHistory(
 ) {
   const { org } = getOrgFromReq(req);
   const { type, id } = req.params;
+
+  if (!isValidEntityType(type)) {
+    return res.status(400).json({
+      status: 400,
+      message: `${type} is not a valid entity type. Possible entity types are: ${EntityType}`,
+    });
+  }
 
   const events = await Promise.all([
     findByEntity(org.id, type, id),
