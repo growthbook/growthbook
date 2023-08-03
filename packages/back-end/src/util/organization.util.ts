@@ -54,36 +54,38 @@ export const ALL_PERMISSIONS = [
 export function getUserPermissions(user: any, org: OrganizationInterface) {
   const roles = getRoles(org);
   const globalRolePermissions = roles.find((r) => r.id === user.role);
-  const permissions: any = {};
+  const userPermissions: any = {};
 
-  permissions.global = {};
+  userPermissions.global = {
+    environments: user.role.environments || [],
+    limitAccessByEnvironment: user.role.limitAccessByEnvironment || false,
+    permissions: {},
+  };
 
   ALL_PERMISSIONS.forEach((permission) => {
-    permissions.global[permission] = {
-      hasPermission: globalRolePermissions?.permissions.includes(permission)
-        ? true
-        : false,
-      limitAccessByEnvironment: user.role.limitAccessByEnvironment || false,
-      environments: user.role.environments || [],
-    };
+    userPermissions.global.permissions[
+      permission
+    ] = globalRolePermissions?.permissions.includes(permission) ? true : false;
   });
 
-  permissions.projects = {};
+  userPermissions.projects = {};
 
   user.projectRoles.forEach((projectRole: any) => {
     const projectRolePermissions = roles.find((r) => r.id === projectRole.role);
-    permissions.projects[projectRole.project] = {};
+    userPermissions.projects[projectRole.project] = {
+      limitAccessByEnvironment: projectRole.limitAccessByEnvironment || false,
+      environments: projectRole.environments || [],
+      permissions: {},
+    };
     ALL_PERMISSIONS.forEach((permission) => {
-      permissions.projects[projectRole.project][permission] = {
-        hasPermission: projectRolePermissions?.permissions.includes(permission)
-          ? true
-          : false,
-        limitAccessByEnvironment: projectRole.limitAccessByEnvironment || false,
-        environments: projectRole.environments || [],
-      };
+      userPermissions.projects[projectRole.project].permissions[
+        permission
+      ] = projectRolePermissions?.permissions.includes(permission)
+        ? true
+        : false;
     });
   });
-  return permissions;
+  return userPermissions;
 }
 
 export function getPermissionsByRole(

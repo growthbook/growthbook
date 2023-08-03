@@ -207,7 +207,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       name: data.userName,
       role: data.admin ? "admin" : "readonly",
       projectRoles: [],
-      permissions: {},
+      userPermissions: {},
     };
   }
   const role =
@@ -298,67 +298,24 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     return new Set(currentOrg?.commercialFeatures || []);
   }, [currentOrg?.commercialFeatures]);
 
-  // permissions: {
-  //   global: {
-  //      createAnalyses: {
-  //     hasPermission: true,
-  //         environments: [],
-  //         limitAccessByEnvironments: false,
-  //   },
-  //     createFeatureDrafts: {
-  //       hasPermission: false,
-  //           environments: [],
-  //           limitAccessByEnvironments: false,
-  //     },
-  //   },
-  // projects: {
-  //   project123: {
-  //     createAnalyses: {
-  //        hasPermission: true,
-  //            environments: [],
-  //            limitAccessByEnvironments: false,
-  //       },
-  //     createFeatureDrafts: {
-  //       hasPermission: true,
-  //           environments: [],
-  //           limitAccessByEnvironments: false,
-  //     },
-  //   },
-  //   project345: {
-  //     createAnalyses: {
-  //       hasPermission: false,
-  //       environments: [],
-  //       limitAccessByEnvironments: false,
-  //     },
-  //     createFeatureDrafts: {
-  //       hasPermission: false,
-  //         environments: [],
-  //         limitAccessByEnvironments: false,
-  //     },
-  // },
-  // },
-  // }
-
   const permissionsCheck = useCallback(
     (
       permission: Permission,
       project?: string | undefined,
       envs?: string[]
     ): boolean => {
-      const globalPermissions = user?.permissions.global;
-      const projectPermissions = user?.permissions.projects;
+      const globalPermissions = user?.userPermissions.global;
+      const projectPermissions = user?.userPermissions.projects;
 
       // We first need to check the global permissions and if the user has the global permission, return;
-      if (globalPermissions[permission].hasPermission) {
+      if (globalPermissions.permissions[permission]) {
         if (!envs) {
           return true;
         } else {
-          if (!globalPermissions[permission].limitAccessByEnvironment) {
+          if (!globalPermissions.limitAccessByEnvironment) {
             return true;
           } else if (
-            globalPermissions[permission].environments.some((e) =>
-              envs.includes(e)
-            )
+            globalPermissions.environments.some((e) => envs.includes(e))
           ) {
             return true;
           }
@@ -369,16 +326,14 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       if (project) {
         const projectToCheck = projectPermissions[project];
         console.log("projectToCheck", projectToCheck);
-        if (projectToCheck && projectToCheck[permission].hasPermission) {
+        if (projectToCheck && projectToCheck.permissions[permission]) {
           if (!envs) {
             return true;
           } else {
-            if (!projectToCheck[permission].limitAccessByEnvironment) {
+            if (!projectToCheck.limitAccessByEnvironment) {
               return true;
             } else if (
-              projectToCheck[permission].environments.some((e) =>
-                envs.includes(e)
-              )
+              projectToCheck.environments.some((e) => envs.includes(e))
             ) {
               return true;
             }

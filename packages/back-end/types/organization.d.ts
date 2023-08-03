@@ -68,7 +68,7 @@ export interface ExpandedMember extends Member {
   email: string;
   name: string;
   verified: boolean;
-  permissions: any;
+  userPermissions: any;
 }
 
 export interface NorthStarMetric {
