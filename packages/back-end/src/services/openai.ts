@@ -3,7 +3,7 @@ import { encoding_for_model, get_encoding } from "@dqbd/tiktoken";
 import { logger } from "../util/logger";
 import { OrganizationInterface } from "../../types/organization";
 import {
-  getTokenUsedByOrganization,
+  getTokensUsedByOrganization,
   updateTokenUsage,
 } from "../models/AITokenUsageModel";
 
@@ -28,7 +28,6 @@ const MODEL = "gpt-3.5-turbo-0301";
 const MODEL_TOKEN_LIMIT = 4096;
 // Require a minimum of 30 tokens for responses.
 const MESSAGE_TOKEN_LIMIT = MODEL_TOKEN_LIMIT - 30;
-const DAILY_TOKEN_LIMIT = process.env.OPENAI_DAILY_TOKEN_LIMIT || 1000000;
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY || "",
@@ -76,8 +75,10 @@ const numTokensFromMessages = (messages: ChatCompletionRequestMessage[]) => {
 export const hasExceededUsageQuota = async (
   organization: OrganizationInterface
 ) => {
-  const numTokensUsed = await getTokenUsedByOrganization(organization);
-  return numTokensUsed > DAILY_TOKEN_LIMIT;
+  const { numTokensUsed, dailyLimit } = await getTokensUsedByOrganization(
+    organization
+  );
+  return numTokensUsed > dailyLimit;
 };
 
 export const simpleCompletion = async ({

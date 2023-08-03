@@ -5,6 +5,7 @@ import { OrganizationInterface } from "../../types/organization";
 
 type AITokenUsageDocument = mongoose.Document & AITokenUsageInterface;
 
+const DAILY_TOKEN_LIMIT = process.env.OPENAI_DAILY_TOKEN_LIMIT || 1000000;
 const RESET_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours
 
 const aiTokenUsageSchema = new mongoose.Schema({
@@ -12,6 +13,7 @@ const aiTokenUsageSchema = new mongoose.Schema({
   organization: String,
   numTokensUsed: Number,
   lastResetAt: Number,
+  dailyLimit: { type: Number, default: DAILY_TOKEN_LIMIT },
 });
 
 aiTokenUsageSchema.index({ organization: 1 }, { unique: true });
@@ -57,12 +59,12 @@ export const updateTokenUsage = async ({
   return toInterface(tokenUsage);
 };
 
-export const getTokenUsedByOrganization = async (
+export const getTokensUsedByOrganization = async (
   organization: OrganizationInterface
-): Promise<AITokenUsageInterface["numTokensUsed"]> => {
-  const tokenUsage = await updateTokenUsage({
+): Promise<Pick<AITokenUsageInterface, "numTokensUsed" | "dailyLimit">> => {
+  const { numTokensUsed, dailyLimit } = await updateTokenUsage({
     organization,
     numTokensUsed: 0,
   });
-  return tokenUsage.numTokensUsed;
+  return { numTokensUsed, dailyLimit };
 };

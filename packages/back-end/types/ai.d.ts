@@ -3,4 +3,5 @@ export interface AITokenUsageInterface {
   organization: string;
   numTokensUsed: number;
   lastResetAt: number;
+  dailyLimit: number;
 }
