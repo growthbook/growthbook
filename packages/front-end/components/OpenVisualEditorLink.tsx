@@ -1,5 +1,6 @@
 import { FC, useCallback, useMemo, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { useFeature } from "@growthbook/growthbook-react";
 import useApi from "@/hooks/useApi";
 import { getApiHost } from "@/services/env";
 import track from "@/services/track";
@@ -20,7 +21,9 @@ const OpenVisualEditorLink: FC<{
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
   const { data: aiFeatureMeta } = useApi<{ enabled: boolean }>(`/meta/ai`);
-  const hasAiEnabled = aiFeatureMeta?.enabled ?? false;
+  const hasAiEnabled =
+    (useFeature("visual-editor-ai-enabled").on && aiFeatureMeta?.enabled) ||
+    false;
 
   const isChromeBrowser = useMemo(() => {
     const ua = navigator.userAgent;
