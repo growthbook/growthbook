@@ -12,9 +12,12 @@ import {
 } from "../../services/organizations";
 import { IS_CLOUD } from "../../util/secrets";
 import { UserModel } from "../../models/UserModel";
-import { WatchModel } from "../../models/WatchModel";
+import {
+  deleteWatchedByEntity,
+  getWatchedByUser,
+  upsertWatch,
+} from "../../models/WatchModel";
 import { getFeature } from "../../models/FeatureModel";
-import { ensureWatching } from "../../services/experiments";
 import { getExperimentById } from "../../models/ExperimentModel";
 
 export async function getUser(req: AuthRequest, res: Response) {
@@ -107,10 +110,7 @@ export async function putUserName(
 export async function getWatchedItems(req: AuthRequest, res: Response) {
   const { org, userId } = getOrgFromReq(req);
   try {
-    const watch = await WatchModel.findOne({
-      userId: userId,
-      organization: org.id,
-    });
+    const watch = await getWatchedByUser(org.id, userId);
     res.status(200).json({
       status: 200,
       experiments: watch?.experiments || [],
@@ -148,9 +148,9 @@ export async function postWatchItem(
     throw new Error(`Could not find ${item}`);
   }
   if (type == "feature") {
-    await ensureWatching(userId, org.id, id, "features");
+    await upsertWatch(userId, org.id, id, "features");
   } else {
-    await ensureWatching(userId, org.id, id, "experiments");
+    await upsertWatch(userId, org.id, id, "experiments");
   }
 
   return res.status(200).json({
@@ -164,20 +164,9 @@ export async function postUnwatchItem(
 ) {
   const { org, userId } = getOrgFromReq(req);
   const { type, id } = req.params;
-  const pluralType = type + "s";
 
   try {
-    await WatchModel.updateOne(
-      {
-        userId: userId,
-        organization: org.id,
-      },
-      {
-        $pull: {
-          [pluralType]: id,
-        },
-      }
-    );
+    await deleteWatchedByEntity(org.id, userId, type, id);
 
     return res.status(200).json({
       status: 200,

@@ -42,7 +42,7 @@ import {
 } from "../../../types/organization";
 import {
   auditDetailsUpdate,
-  getWatchedAudits,
+  getRecentWatchedAudits,
   isValidEntityType,
 } from "../../services/audit";
 import { getAllFeatures } from "../../models/FeatureModel";
@@ -156,7 +156,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 export async function getActivityFeed(req: AuthRequest, res: Response) {
   const { org, userId } = getOrgFromReq(req);
   try {
-    const docs = await getWatchedAudits(userId, org.id);
+    const docs = await getRecentWatchedAudits(userId, org.id);
 
     if (!docs.length) {
       return res.status(200).json({

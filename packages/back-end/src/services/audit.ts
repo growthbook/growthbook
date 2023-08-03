@@ -1,25 +1,24 @@
-import { AuditModel } from "../models/AuditModel";
-import { getWatchesByUser } from "../models/WatchModel";
+import { findByEntityList } from "../models/AuditModel";
+import { getWatchedByUser } from "../models/WatchModel";
 import { EntityType } from "../types/Audit";
 
 export function isValidEntityType(type: string): type is EntityType {
   return EntityType.includes(type as EntityType);
 }
 
-export async function getWatchedAudits(userId: string, organization: string) {
-  const userWatches = await getWatchesByUser(organization, userId);
+export async function getRecentWatchedAudits(
+  userId: string,
+  organization: string
+) {
+  const userWatches = await getWatchedByUser(organization, userId);
+
   if (!userWatches) {
     return [];
   }
   const startTime = new Date();
   startTime.setDate(startTime.getDate() - 7);
 
-  const experiments = await AuditModel.find({
-    organization,
-    "entity.object": "experiment",
-    "entity.id": {
-      $in: userWatches.experiments,
-    },
+  const experimentsFilter = {
     event: {
       $in: [
         "experiment.start",
@@ -31,14 +30,9 @@ export async function getWatchedAudits(userId: string, organization: string) {
     dateCreated: {
       $gte: startTime,
     },
-  });
+  };
 
-  const features = await AuditModel.find({
-    organization,
-    "entity.object": "feature",
-    "entity.id": {
-      $in: userWatches.features,
-    },
+  const featuresFilter = {
     event: {
       $in: [
         "feature.publish",
@@ -51,7 +45,21 @@ export async function getWatchedAudits(userId: string, organization: string) {
     dateCreated: {
       $gte: startTime,
     },
-  });
+  };
+
+  const experiments = await findByEntityList(
+    organization,
+    "experiment",
+    userWatches.experiments,
+    experimentsFilter
+  );
+
+  const features = await findByEntityList(
+    organization,
+    "feature",
+    userWatches.features,
+    featuresFilter
+  );
 
   const all = experiments
     .concat(features)

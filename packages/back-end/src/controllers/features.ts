@@ -33,7 +33,6 @@ import {
   getSurrogateKey,
   verifyDraftsAreEqual,
 } from "../services/features";
-import { ensureWatching } from "../services/experiments";
 import { getExperimentByTrackingKey } from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
@@ -52,6 +51,7 @@ import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
 import { FASTLY_SERVICE_ID } from "../util/secrets";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { upsertWatch } from "../models/WatchModel";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -284,7 +284,7 @@ export async function postFeatures(
   addIdsToRules(feature.environmentSettings, feature.id);
 
   await createFeature(org, res.locals.eventAudit, feature);
-  await ensureWatching(userId, org.id, feature.id, "features");
+  await upsertWatch(userId, org.id, feature.id, "features");
 
   await req.audit({
     event: "feature.create",

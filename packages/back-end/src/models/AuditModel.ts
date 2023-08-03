@@ -1,4 +1,4 @@
-import mongoose, { QueryOptions } from "mongoose";
+import mongoose, { FilterQuery, QueryOptions } from "mongoose";
 import { omit } from "lodash";
 import uniqid from "uniqid";
 import { AuditInterface } from "../../types/audit";
@@ -39,7 +39,7 @@ const auditSchema = new mongoose.Schema({
 
 type AuditDocument = mongoose.Document & AuditInterface;
 
-export const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
+const AuditModel = mongoose.model<AuditInterface>("Audit", auditSchema);
 
 /**
  * Convert the Mongo document to an AuditInterface, omitting Mongo default fields __v, _id
@@ -81,6 +81,27 @@ export async function findByEntity(
       organization,
       "entity.object": type,
       "entity.id": id,
+    },
+    options
+  );
+  return auditDocs.map((doc) => toInterface(doc));
+}
+
+export async function findByEntityList(
+  organization: string,
+  type: EntityType,
+  ids: string[],
+  customFilter?: FilterQuery<AuditDocument>,
+  options?: QueryOptions
+) {
+  const auditDocs = await AuditModel.find(
+    {
+      organization,
+      "entity.object": type,
+      "entity.id": {
+        $in: ids,
+      },
+      ...customFilter,
     },
     options
   );
