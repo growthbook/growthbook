@@ -36,7 +36,7 @@ const CompactResults: FC<{
   metricOverrides: MetricOverride[];
   guardrails?: string[];
   id: string;
-  statsEngine?: StatsEngine;
+  statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
@@ -44,7 +44,7 @@ const CompactResults: FC<{
 }> = ({
   results,
   variations,
-  multipleExposures,
+  multipleExposures = 0,
   editMetrics,
   reportDate,
   startDate,
@@ -52,7 +52,7 @@ const CompactResults: FC<{
   isLatestPhase,
   metrics,
   metricOverrides,
-  guardrails,
+  guardrails = [],
   id,
   statsEngine,
   pValueCorrection,

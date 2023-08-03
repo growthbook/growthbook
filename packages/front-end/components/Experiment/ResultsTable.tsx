@@ -101,12 +101,12 @@ export default function ResultsTable({
   const orgSettings = useOrgSettings();
   const domain = useDomain(variations, rows);
 
-  const tableContainerRef = useRef<HTMLDivElement | undefined>();
+  const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(0);
 
   function onResize() {
     if (!tableContainerRef?.current?.clientWidth) return;
-    const tableWidth = tableContainerRef.current.clientWidth as number;
+    const tableWidth = tableContainerRef.current?.clientWidth as number;
     const firstRowCells = tableContainerRef.current?.querySelectorAll(
       "#main-results thead tr:first-child th:not(.graphCell)"
     );
@@ -156,25 +156,22 @@ export default function ResultsTable({
     showTooltip,
     hideTooltip,
     tooltipOpen,
-    tooltipData,
-    // tooltipLeft = 0,
-    // tooltipTop = 0,
   } = useTooltip();
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
     detectBounds: false,
   });
 
-  const [hoveredMetricRow, setHoveredMetricRow] = useState<number | undefined>(
-    undefined
+  const [hoveredMetricRow, setHoveredMetricRow] = useState<number | null>(
+    null
   );
   const [hoveredVariationRow, setHoveredVariationRow] = useState<
-    number | undefined
-  >(undefined);
-  const [hoveredX, setHoveredX] = useState<number | undefined>(undefined);
-  const [hoveredY, setHoveredY] = useState<number | undefined>(undefined);
-  const [hoverTimeout, setHoverTimeout] = useState<number | undefined>(
-    undefined
+    number | null
+  >(null);
+  const [hoveredX, setHoveredX] = useState<number | null>(null);
+  const [hoveredY, setHoveredY] = useState<number | null>(null);
+  const [hoverTimeout, setHoverTimeout] = useState<number | null>(
+    null
   );
   const hoverRow = (
     metricRow: number,
@@ -183,8 +180,8 @@ export default function ResultsTable({
     settings?: TooltipHoverSettings
   ) => {
     if (
-      hoveredMetricRow !== undefined &&
-      hoveredVariationRow !== undefined &&
+      hoveredMetricRow !== null &&
+      hoveredVariationRow !== null &&
       (hoveredMetricRow !== metricRow || hoveredVariationRow !== variationRow)
     ) {
       closeTooltip();
@@ -193,34 +190,35 @@ export default function ResultsTable({
     hoverTimeout && clearTimeout(hoverTimeout);
 
     const layoutX: TooltipHoverX = settings?.x ?? "mouse-left";
-    let targetTop: number =
-      (event.target?.getBoundingClientRect()?.top ?? 0) + 15;
+    const target = event.target as HTMLElement;
 
+    let targetTop: number =
+      (target.getBoundingClientRect()?.top ?? 0) + 20;
     if (targetTop > TOOLTIP_HEIGHT + 20) {
-      targetTop -= 25 + TOOLTIP_HEIGHT;
+      targetTop -= 30 + TOOLTIP_HEIGHT;
     }
+
     const targetLeft: number =
       layoutX === "mouse-left"
         ? event.clientX + 10
         : layoutX === "element-center"
-        ? ((event.target?.getBoundingClientRect()?.left ?? 0) +
-            (event.target?.getBoundingClientRect()?.right ?? 0)) /
+        ? ((target.getBoundingClientRect()?.left ?? 0) +
+            (target.getBoundingClientRect()?.right ?? 0)) /
             2 -
           TOOLTIP_WIDTH / 2
         : event.clientX - TOOLTIP_WIDTH - 10;
 
     const x =
-      hoveredX !== undefined ? hoveredX : targetLeft - containerBounds.left;
+      hoveredX !== null ? hoveredX : targetLeft - containerBounds.left;
     const y =
-      hoveredY !== undefined ? hoveredY : targetTop - containerBounds.top;
-    if (hoveredX === undefined || hoveredY === undefined) {
+      hoveredY !== null ? hoveredY : targetTop - containerBounds.top;
+    if (hoveredX === null || hoveredY === null) {
       setHoveredX(targetLeft - containerBounds.left);
       setHoveredY(targetTop - containerBounds.top);
     }
     showTooltip({
-      tooltipLeft: x,
-      tooltipTop: y,
-      tooltipData: "foo",
+      tooltipLeft: x ?? 0,
+      tooltipTop: y ?? 0,
     });
     setHoveredMetricRow(metricRow);
     setHoveredVariationRow(variationRow);
@@ -228,20 +226,20 @@ export default function ResultsTable({
   const leaveRow = () => {
     const timeout = setTimeout(() => {
       hideTooltip();
-      setHoveredX(undefined);
-      setHoveredY(undefined);
-      setHoveredMetricRow(undefined);
-      setHoveredVariationRow(undefined);
+      setHoveredX(null);
+      setHoveredY(null);
+      setHoveredMetricRow(null);
+      setHoveredVariationRow(null);
     }, TOOLTIP_TIMEOUT);
     setHoverTimeout(timeout);
   };
   const closeTooltip = () => {
     hoverTimeout && clearTimeout(hoverTimeout);
     hideTooltip();
-    setHoveredX(undefined);
-    setHoveredY(undefined);
-    setHoveredMetricRow(undefined);
-    setHoveredVariationRow(undefined);
+    setHoveredX(null);
+    setHoveredY(null);
+    setHoveredMetricRow(null);
+    setHoveredVariationRow(null);
   };
   useEffect(() => {
     return () => {
@@ -278,7 +276,7 @@ export default function ResultsTable({
             >
               <BsXCircle size={16} />
             </a>
-            <div>{tooltipData}</div>
+            <div>foo</div>
           </div>
         </TooltipWithBounds>
       ) : null}

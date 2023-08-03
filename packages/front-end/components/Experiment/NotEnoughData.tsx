@@ -30,7 +30,7 @@ export default function NotEnoughData({
       </div>
       {showTimeRemaining && rowResults.enoughDataMeta.showTimeRemaining && (
         <small className="text-muted time-remaining">
-          {rowResults.enoughDataMeta.timeRemainingMs > 0 ? (
+          {(rowResults.enoughDataMeta.timeRemainingMs ?? 0) > 0 ? (
             <>
               <span className="nowrap">
                 {formatDistance(
