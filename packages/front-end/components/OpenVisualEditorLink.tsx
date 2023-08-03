@@ -82,8 +82,7 @@ const OpenVisualEditorLink: FC<{
   const apiHost = getApiHost();
   const [errorType, setErrorType] = useState<VisualEditorError | null>(null);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
-  const [isNavigating, setIsNavigating] = useState(false);
-  const [isBypassing, setIsBypassing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const isChromeBrowser = useMemo(() => {
     const ua = navigator.userAgent;
@@ -119,55 +118,49 @@ const OpenVisualEditorLink: FC<{
     return res.key;
   }, [apiCall]);
 
-  const navigate = useCallback(async () => {
-    // in the case a user has clicked 'proceed anyway' when we do not detect the
-    // chrome extension installation, we ignore waiting for the responsem msg
-    // and navigate right away.
-    if (isBypassing) {
-      setIsNavigating(false);
+  const navigate = useCallback(
+    async (options?: { bypass: boolean }) => {
+      if (options?.bypass) {
+        setIsLoading(false);
+        track("Open visual editor", {
+          source: "visual-editor-ui",
+          status: "bypass",
+        });
+        window.location.href = url;
+        return;
+      }
 
-      track("Open visual editor", {
-        source: "visual-editor-ui",
-        status: "bypass",
-      });
+      setIsLoading(true);
 
-      window.location.href = url;
+      try {
+        const key = await getVisualEditorKey();
+        window.postMessage(
+          {
+            type: "GB_REQUEST_OPEN_VISUAL_EDITOR",
+            data: key,
+          },
+          window.location.origin
+        );
 
-      return;
-    }
+        // for backwards compatibility, we force routing to the page if it doesn't
+        // happen automatically after 1.5 seconds. this can be deleted once the
+        // chrome extension is updated to support the postMessage auth token flow
+        setTimeout(() => {
+          setIsLoading(false);
+          window.location.href = url;
+        }, 1500);
+      } catch (e) {
+        setIsLoading(false);
+        setErrorType("api-key-failed");
+        return;
+      }
+    },
+    [url, getVisualEditorKey]
+  );
 
-    setIsNavigating(true);
-
-    let key: string;
-    try {
-      key = await getVisualEditorKey();
-    } catch (e) {
-      setIsNavigating(false);
-      setErrorType("api-key-failed");
-      return;
-    }
-
-    window.postMessage(
-      {
-        type: "GB_REQUEST_OPEN_VISUAL_EDITOR",
-        data: key,
-      },
-      window.location.origin
-    );
-
-    // for backwards-compatibility - if the chrome extension is out-of-date
-    // and does not yet support the postMessage auth token flow, we route to
-    // the page automatically after a certain timeout.
-    // TODO this can be deleted after 0.3.1 of chrome ext is released to
-    // all users
-    setTimeout(() => {
-      setIsNavigating(false);
-      window.location.href = url;
-    }, 1500);
-  }, [url, getVisualEditorKey, isBypassing]);
-
-  // we wait until the visual editor gives us a response message to open a new
-  // window. this ensures that the api key is set upon loading it.
+  // after postMessage is sent, listen for a response from the extension
+  // to confirm that it was received and the extension is installed.
+  // then navigate to the visual editor
   useEffect(() => {
     if (!url) return;
 
@@ -179,9 +172,7 @@ const OpenVisualEditorLink: FC<{
           source: "visual-editor-ui",
           status: "success",
         });
-
-        setIsNavigating(false);
-
+        setIsLoading(false);
         window.location.href = url;
       }
     };
@@ -191,11 +182,6 @@ const OpenVisualEditorLink: FC<{
     return () => window.removeEventListener("message", onMessage);
   }, [url]);
 
-  useEffect(() => {
-    if (!isBypassing) return;
-    navigate();
-  }, [navigate, isBypassing]);
-
   return (
     <>
       <span
@@ -203,6 +189,16 @@ const OpenVisualEditorLink: FC<{
         style={{ width: "144px" }}
         onClick={async (e) => {
           e.preventDefault();
+
+          if (!visualEditorUrl) {
+            e.preventDefault();
+            setShowEditorUrlDialog(true);
+            track("Open visual editor", {
+              source: "visual-editor-ui",
+              status: "missing visualEditorUrl",
+            });
+            return false;
+          }
 
           const isExtensionInstalled = await isChromeExtInstalledLocally();
 
@@ -218,7 +214,7 @@ const OpenVisualEditorLink: FC<{
           navigate();
         }}
       >
-        {isNavigating ? (
+        {isLoading ? (
           <LoadingSpinner />
         ) : (
           <>
@@ -254,7 +250,7 @@ const OpenVisualEditorLink: FC<{
                 }
               : undefined
           }
-          bypass={() => setIsBypassing(true)}
+          bypass={() => navigate({ bypass: true })}
         ></ExtensionDialog>
       )}
     </>
