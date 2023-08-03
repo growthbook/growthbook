@@ -120,16 +120,6 @@ const OpenVisualEditorLink: FC<{
 
   const navigate = useCallback(
     async (options?: { bypass: boolean }) => {
-      if (options?.bypass) {
-        setIsLoading(false);
-        track("Open visual editor", {
-          source: "visual-editor-ui",
-          status: "bypass",
-        });
-        window.location.href = url;
-        return;
-      }
-
       setIsLoading(true);
 
       try {
@@ -141,6 +131,16 @@ const OpenVisualEditorLink: FC<{
           },
           window.location.origin
         );
+
+        if (options?.bypass) {
+          setIsLoading(false);
+          track("Open visual editor", {
+            source: "visual-editor-ui",
+            status: "bypass",
+          });
+          window.location.href = url;
+          return;
+        }
 
         // for backwards compatibility, we force routing to the page if it doesn't
         // happen automatically after 1.5 seconds. this can be deleted once the
