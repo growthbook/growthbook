@@ -6,7 +6,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 
 type DemoDataSourcePageProps = {
-  success: boolean;
+  error: string | null;
+  success: string | null;
   ready: boolean;
   exists: boolean;
   onCreate: () => void;
@@ -17,6 +18,7 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
   onCreate,
   onDelete,
   success,
+  error,
   ready,
   exists,
 }) => {
@@ -48,12 +50,17 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
         {/* Ready state */}
         {ready && (
           <div className="mt-3">
-            {/* Success state when it has been created */}
+            {/* Success state when it has been created or deleted */}
             {success && (
               <>
-                <div className="alert alert-success">
-                  The demo data source project was created successfully.
-                </div>
+                <div className="alert alert-success">{success}</div>
+              </>
+            )}
+
+            {/* Error state */}
+            {error && (
+              <>
+                <div className="alert alert-danger">{error}</div>
               </>
             )}
 
@@ -94,31 +101,54 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
 };
 
 export const DemoDataSourcePageContainer = () => {
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const { orgId } = useAuth();
+  const { orgId, apiCall } = useAuth();
   const { getProjectById, ready } = useDefinitions();
 
+  const demoDataSourceProjectId: string | null = orgId
+    ? getDemoDatasourceProjectIdForOrganization(orgId)
+    : null;
+
   const exists = useMemo((): boolean => {
-    if (!orgId) return false;
-    const demoProjectId = getDemoDatasourceProjectIdForOrganization(orgId);
-    const demoProject = getProjectById(demoProjectId);
+    if (!demoDataSourceProjectId) return false;
+    const demoProject = getProjectById(demoDataSourceProjectId);
 
     return !!demoProject;
-  }, [getProjectById, orgId]);
+  }, [getProjectById, demoDataSourceProjectId]);
 
   const onCreate = useCallback(() => {
     // TODO: Create
+    setError("Not yet implemented");
+    // setSuccess("The demo data source project was created successfully.")
   }, []);
 
-  const onDelete = useCallback(() => {
-    // TODO: Create
-  }, []);
+  const onDelete = useCallback(async () => {
+    if (!demoDataSourceProjectId) return;
+
+    try {
+      await apiCall(
+        `/projects/${demoDataSourceProjectId}?deleteExperiments=1&deleteFeatures=1&deleteMetrics=1&deleteSlackIntegrations=1&deleteDataSources=1`,
+        {
+          method: "DELETE",
+        }
+      );
+      setSuccess("Demo datasource project was successfully deleted.");
+    } catch (e: unknown) {
+      if (typeof e === "string") {
+        setError(e);
+      } else if (e instanceof Error) {
+        setError(e.message);
+      }
+    }
+  }, [apiCall, demoDataSourceProjectId]);
 
   return (
     <DemoDataSourcePage
       ready={ready}
       success={success}
+      error={error}
       exists={exists}
       onDelete={onDelete}
       onCreate={onCreate}
