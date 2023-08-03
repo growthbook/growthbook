@@ -118,11 +118,26 @@ export const DemoDataSourcePageContainer = () => {
     return !!demoProject;
   }, [getProjectById, demoDataSourceProjectId]);
 
-  const onCreate = useCallback(() => {
-    // TODO: Create
-    setError("Not yet implemented");
-    // setSuccess("The demo data source project was created successfully.")
-  }, []);
+  const onCreate = useCallback(async () => {
+    try {
+      await apiCall("/demo-datasource-project", {
+        method: "POST",
+      });
+      setSuccess("The demo data source project was created successfully.");
+    } catch (e: unknown) {
+      console.error(e);
+
+      if (typeof e === "string") {
+        setError(e);
+      } else if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError(
+          "An unknown error occurred when creating the demo datasource project"
+        );
+      }
+    }
+  }, [apiCall]);
 
   const onDelete = useCallback(async () => {
     if (!demoDataSourceProjectId) return;
@@ -136,10 +151,16 @@ export const DemoDataSourcePageContainer = () => {
       );
       setSuccess("Demo datasource project was successfully deleted.");
     } catch (e: unknown) {
+      console.error(e);
+
       if (typeof e === "string") {
         setError(e);
       } else if (e instanceof Error) {
         setError(e.message);
+      } else {
+        setError(
+          "An unknown error occurred when deleting the demo datasource project"
+        );
       }
     }
   }, [apiCall, demoDataSourceProjectId]);
