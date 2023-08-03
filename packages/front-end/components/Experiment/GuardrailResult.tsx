@@ -1,4 +1,4 @@
-import React, { FC } from "react";
+import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { FaCheck, FaExclamation, FaExclamationTriangle } from "react-icons/fa";
 
@@ -25,11 +25,22 @@ export function getGuardrailStatus(
   return status;
 }
 
-const GuardrailResult: FC<{
+interface Props
+  extends DetailedHTMLProps<
+    TdHTMLAttributes<HTMLTableCellElement>,
+    HTMLTableCellElement
+  > {
   stats: SnapshotMetric;
   enoughData: boolean;
   className?: string;
-}> = ({ stats, enoughData, className, ...otherProps }) => {
+}
+
+const GuardrailResult = ({
+  stats,
+  enoughData,
+  className,
+  ...otherProps
+}: Props) => {
   const chance = 1 - (stats.chanceToWin ?? 1);
   const status = getGuardrailStatus(chance);
 

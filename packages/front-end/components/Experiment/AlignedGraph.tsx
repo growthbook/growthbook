@@ -1,4 +1,4 @@
-import React, { FC } from "react";
+import React, { DetailedHTMLProps, FC, HTMLAttributes } from "react";
 import { GridColumns } from "@visx/grid";
 import { Axis, Orientation, AxisLeft } from "@visx/axis";
 import { scaleLinear } from "@visx/scale";
@@ -9,7 +9,8 @@ import { ViolinPlot } from "@visx/stats";
 import { jStat } from "jstat";
 import { RowResults } from "@/services/experiments";
 
-export interface Props {
+interface Props
+  extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
   id: string;
   ci?: [number, number] | [];
   barType?: "pill" | "violin";

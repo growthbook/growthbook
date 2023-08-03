@@ -2,13 +2,25 @@ import clsx from "clsx";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import { FaArrowDown, FaArrowUp } from "react-icons/fa";
-import React from "react";
+import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { RowResults } from "@/services/experiments";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 1,
 });
+
+interface Props
+  extends DetailedHTMLProps<
+    TdHTMLAttributes<HTMLTableCellElement>,
+    HTMLTableCellElement
+  > {
+  metric: MetricInterface;
+  stats: SnapshotMetric;
+  rowResults: RowResults;
+  showCI?: boolean;
+  className?: string;
+}
 
 export default function PercentChangeColumn({
   metric,
@@ -17,13 +29,7 @@ export default function PercentChangeColumn({
   showCI = false,
   className,
   ...otherProps
-}: {
-  metric: MetricInterface;
-  stats: SnapshotMetric;
-  rowResults: RowResults;
-  showCI?: boolean;
-  className?: string;
-}) {
+}: Props) {
   return (
     <td className={clsx("results-change", className)} {...otherProps}>
       {metric && rowResults.enoughData ? (

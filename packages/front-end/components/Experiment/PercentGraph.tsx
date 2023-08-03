@@ -1,10 +1,26 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
+import { DetailedHTMLProps, HTMLAttributes } from "react";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { hasEnoughData, isStatSig, RowResults } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import AlignedGraph from "./AlignedGraph";
+
+interface Props
+  extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
+  metric: MetricInterface;
+  baseline: SnapshotMetric;
+  stats: SnapshotMetric;
+  domain: [number, number];
+  id: string;
+  barType?: "pill" | "violin";
+  graphWidth?: number;
+  height?: number;
+  newUi?: boolean;
+  rowResults?: RowResults;
+  isHovered?: boolean;
+}
 
 export default function PercentGraph({
   metric,
@@ -19,19 +35,7 @@ export default function PercentGraph({
   rowResults,
   isHovered = false,
   ...otherProps
-}: {
-  metric: MetricInterface;
-  baseline: SnapshotMetric;
-  stats: SnapshotMetric;
-  domain: [number, number];
-  id: string;
-  barType?: "pill" | "violin";
-  graphWidth?: number;
-  height?: number;
-  newUi?: boolean;
-  rowResults?: RowResults;
-  isHovered?: boolean;
-}) {
+}: Props) {
   const { metricDefaults } = useOrganizationMetricDefaults();
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
   const { ciUpper, ciLower } = useConfidenceLevels();

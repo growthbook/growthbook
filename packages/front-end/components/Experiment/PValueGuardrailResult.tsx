@@ -1,4 +1,4 @@
-import React, { FC } from "react";
+import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import {
   FaCheck,
@@ -30,12 +30,24 @@ export function getPValueGuardrailStatus(
   return status;
 }
 
-const PValueGuardrailResults: FC<{
+interface Props
+  extends DetailedHTMLProps<
+    TdHTMLAttributes<HTMLTableCellElement>,
+    HTMLTableCellElement
+  > {
   stats: SnapshotMetric;
   metric: MetricInterface;
   enoughData: boolean;
   className?: string;
-}> = ({ stats, metric, enoughData, className, ...otherProps }) => {
+}
+
+const PValueGuardrailResults = ({
+  stats,
+  metric,
+  enoughData,
+  className,
+  ...otherProps
+}: Props) => {
   const pValueThreshold = usePValueThreshold();
 
   const expectedDirection = isExpectedDirection(stats, metric);

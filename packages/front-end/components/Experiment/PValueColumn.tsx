@@ -1,10 +1,27 @@
 import clsx from "clsx";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
+import { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { pValueFormatter, RowResults } from "@/services/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import { GBSuspicious } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
+
+interface Props
+  extends DetailedHTMLProps<
+    TdHTMLAttributes<HTMLTableCellElement>,
+    HTMLTableCellElement
+  > {
+  stats: SnapshotMetric;
+  baseline: SnapshotMetric;
+  rowResults: RowResults;
+  showRisk?: boolean;
+  showSuspicious?: boolean;
+  showPercentComplete?: boolean;
+  showTimeRemaining?: boolean;
+  showUnadjustedPValue?: boolean;
+  className?: string;
+}
 
 export default function PValueColumn({
   stats,
@@ -17,17 +34,7 @@ export default function PValueColumn({
   showUnadjustedPValue = false,
   className,
   ...otherProps
-}: {
-  stats: SnapshotMetric;
-  baseline: SnapshotMetric;
-  rowResults: RowResults;
-  showRisk?: boolean;
-  showSuspicious?: boolean;
-  showPercentComplete?: boolean;
-  showTimeRemaining?: boolean;
-  showUnadjustedPValue?: boolean;
-  className?: string;
-}) {
+}: Props) {
   // todo: move to snapshot property
   const orgSettings = useOrgSettings();
   const pValueCorrection = orgSettings?.pValueCorrection;

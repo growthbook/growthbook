@@ -213,7 +213,7 @@ export default function ResultsTable({
     setHoveredVariationRow(variationRow);
   };
   const leaveRow = () => {
-    const timeout = setTimeout(() => {
+    const timeout = window.setTimeout(() => {
       hideTooltip();
       setHoveredX(null);
       setHoveredY(null);
@@ -242,8 +242,8 @@ export default function ResultsTable({
       hoveredMetricRow !== undefined &&
       hoveredVariationRow !== undefined ? (
         <TooltipWithBounds
-          left={hoveredX}
-          top={hoveredY}
+          left={hoveredX ?? undefined}
+          top={hoveredY ?? undefined}
           style={{ position: "absolute", zIndex: 900 }}
         >
           <div
