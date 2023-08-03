@@ -89,7 +89,11 @@ import {
   getFirstPublishableApiKey,
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
-import { getDefaultRole, getRoles } from "../../util/organization.util";
+import {
+  getDefaultRole,
+  getRoles,
+  getUserPermissions,
+} from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
 import {
   getAllExperiments,
@@ -603,6 +607,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       name: name || "",
       ...memberInfo,
       dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
+      permissions: getUserPermissions(memberInfo, org),
     });
   });
 

@@ -1,4 +1,5 @@
 import {
+  Member,
   MemberRole,
   MemberRoleInfo,
   OrganizationInterface,
@@ -49,6 +50,44 @@ export const ALL_PERMISSIONS = [
   ...PROJECT_SCOPED_PERMISSIONS,
   ...ENV_SCOPED_PERMISSIONS,
 ];
+
+export function getUserPermissions(user: any, org: OrganizationInterface) {
+  const roles = getRoles(org);
+  const actionsUserCanPerform = roles.find((r) => r.id === user.role);
+  const permissions: any = {};
+  ALL_PERMISSIONS.forEach((permission) => {
+    const obj = {
+      globalPermissions: {
+        hasPermission:
+          user.role && actionsUserCanPerform?.permissions.includes(permission)
+            ? true
+            : false,
+        limitAccessByEnvironment: user.role.limitAccessByEnvironment || false,
+        environments: user.role.environments || [],
+      },
+      // Now, if this user has projectRoles, we need to loop through them, and see if they have a role for this permission
+      // We also need to check to see if the projectRole limits access by environment
+      // projectPermissions: [],
+      projectPermissions: !user.projectRoles.length
+        ? []
+        : user.projectRoles.map((projectRole: any) => {
+            const actionsUserCanPerformPerProject = roles.find(
+              (r) => r.id === projectRole.role
+            );
+            return {
+              hasPermission: actionsUserCanPerformPerProject?.permissions.includes(
+                permission
+              ),
+              projectId: projectRole.project,
+              limitAccessByEnvironment: projectRole.limitAccessByEnvironment,
+              environments: projectRole.environments || [],
+            };
+          }),
+    };
+    permissions[permission] = obj;
+  });
+  return permissions;
+}
 
 export function getPermissionsByRole(
   role: MemberRole,
