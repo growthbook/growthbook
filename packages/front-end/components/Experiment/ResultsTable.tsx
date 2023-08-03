@@ -152,27 +152,19 @@ export default function ResultsTable({
 
   // todo: StatusBanner?
 
-  const {
-    showTooltip,
-    hideTooltip,
-    tooltipOpen,
-  } = useTooltip();
+  const { showTooltip, hideTooltip, tooltipOpen } = useTooltip();
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
     detectBounds: false,
   });
 
-  const [hoveredMetricRow, setHoveredMetricRow] = useState<number | null>(
+  const [hoveredMetricRow, setHoveredMetricRow] = useState<number | null>(null);
+  const [hoveredVariationRow, setHoveredVariationRow] = useState<number | null>(
     null
   );
-  const [hoveredVariationRow, setHoveredVariationRow] = useState<
-    number | null
-  >(null);
   const [hoveredX, setHoveredX] = useState<number | null>(null);
   const [hoveredY, setHoveredY] = useState<number | null>(null);
-  const [hoverTimeout, setHoverTimeout] = useState<number | null>(
-    null
-  );
+  const [hoverTimeout, setHoverTimeout] = useState<number | null>(null);
   const hoverRow = (
     metricRow: number,
     variationRow: number,
@@ -192,8 +184,7 @@ export default function ResultsTable({
     const layoutX: TooltipHoverX = settings?.x ?? "mouse-left";
     const target = event.target as HTMLElement;
 
-    let targetTop: number =
-      (target.getBoundingClientRect()?.top ?? 0) + 20;
+    let targetTop: number = (target.getBoundingClientRect()?.top ?? 0) + 20;
     if (targetTop > TOOLTIP_HEIGHT + 20) {
       targetTop -= 30 + TOOLTIP_HEIGHT;
     }
@@ -208,10 +199,8 @@ export default function ResultsTable({
           TOOLTIP_WIDTH / 2
         : event.clientX - TOOLTIP_WIDTH - 10;
 
-    const x =
-      hoveredX !== null ? hoveredX : targetLeft - containerBounds.left;
-    const y =
-      hoveredY !== null ? hoveredY : targetTop - containerBounds.top;
+    const x = hoveredX !== null ? hoveredX : targetLeft - containerBounds.left;
+    const y = hoveredY !== null ? hoveredY : targetTop - containerBounds.top;
     if (hoveredX === null || hoveredY === null) {
       setHoveredX(targetLeft - containerBounds.left);
       setHoveredY(targetTop - containerBounds.top);
