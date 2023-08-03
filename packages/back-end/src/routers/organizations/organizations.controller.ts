@@ -89,7 +89,13 @@ import {
   getFirstPublishableApiKey,
   getUnredactedSecretKey,
 } from "../../models/ApiKeyModel";
-import { getDefaultRole, getRoles } from "../../util/organization.util";
+import {
+  getDefaultRole,
+  getPermissionsByTeamAndRole,
+  getRoles,
+  getUserPermissions,
+  getUserPermissionsAll,
+} from "../../util/organization.util";
 import { deleteUser, findUserById, getAllUsers } from "../../models/UserModel";
 import {
   getAllExperiments,
@@ -557,7 +563,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   }
 
   const { org } = getOrgFromReq(req);
-  console.log("org", org);
+  // console.log("org", org);
   const {
     invites,
     members,
@@ -596,23 +602,41 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   // Add email/name to the organization members array
   const userInfo = await getUsersByIds(members.map((m) => m.id));
   const expandedMembers: ExpandedMember[] = [];
-  userInfo.forEach(({ id, email, verified, name, _id }) => {
-    const memberInfo = members.find((m) => m.id === id);
-    console.log("memberInfo", memberInfo);
+  // userInfo.forEach(({ id, email, verified, name, _id }) => {
+  for (const member of userInfo) {
+    const memberInfo = members.find((m) => m.id === member.id);
+    // console.log("memberInfo", memberInfo);
     if (!memberInfo) return;
+    const projectRoles: any[] = [];
+    projectRoles.push({
+      type: "user",
+      globalRole: memberInfo.role,
+      projectRoles: memberInfo.projectRoles || [],
+    });
+    // Then, get the actual globalRole & projectRoles for each time in the teams array
+    // if (memberInfo.teams && memberInfo.teams.length > 0) {
+    //   for (const team of memberInfo.teams) {
+    //     const teamInfo = await getTeamById(team.id);
+    //     if (teamInfo) {
+    //       projectRoles.push({
+    //         type: "team",
+    //         globalRole: teamInfo.globalRole,
+    //         projectRoles: teamInfo.projectRoles || [],
+    //       });
+    //     }
+    //   }
+    // }
     expandedMembers.push({
-      email,
-      verified,
+      email: member.email,
+      verified: member.verified,
       name: name || "",
       ...memberInfo,
-      dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
-      // TODO: Below returns an empty object if getTeamById doesn't return anything
-      teams:
-        (memberInfo.teams?.length &&
-          memberInfo.teams?.map(async (t) => await getTeamById(t))) ||
-        [],
+      dateCreated: memberInfo.dateCreated || member._id.getTimestamp(),
+      // permissions: getUserPermissions(memberInfo, org),
+      permissionsUpdated: getUserPermissionsAll(memberInfo, org),
+      // permissions: getPermissionsByTeamAndRole(projectRoles, org),
     });
-  });
+  }
 
   return res.status(200).json({
     status: 200,

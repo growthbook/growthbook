@@ -85,6 +85,7 @@ export default function authenticateApiRequestMiddleware(
         project?: string | (string | undefined)[] | undefined,
         envs?: string[] | Set<string>
       ) => {
+        console.log("req.checkPermissions ran");
         let checkProjects: (string | undefined)[];
         if (Array.isArray(project)) {
           checkProjects = project.length > 0 ? project : [undefined];

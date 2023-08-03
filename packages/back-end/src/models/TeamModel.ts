@@ -12,7 +12,7 @@ const teamSchema = new mongoose.Schema({
   dateUpdated: Date,
   createdBy: String,
   description: String,
-  globalRole: String, // Type MemberRole, but that's giving me trouble
+  globalRole: String,
   projectRoles: [
     {
       _id: false,

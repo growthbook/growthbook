@@ -41,6 +41,8 @@ const DiscussionThread: FC<{
     allowNewComments = false;
   }
 
+  console.log("project", project);
+
   const { data, error, mutate } = useApi<{ discussion: DiscussionInterface }>(
     `/discussion/${type}/${id}`
   );

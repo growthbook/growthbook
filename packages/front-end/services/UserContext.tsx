@@ -201,7 +201,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     return userMap;
   }, [currentOrg?.members]);
 
-  console.log("data", data);
+  // console.log("data", data);
 
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   let user = users.get(data?.userId);
@@ -225,6 +225,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const permissionsObj: Record<GlobalPermission, boolean> = {
     ...DEFAULT_PERMISSIONS,
   };
+  // console.log("permissionsObj", permissionsObj);
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MemberRole | undefined' is not a... Remove this comment to see the full error message
   getPermissionsByRole(role, currentOrg?.roles || []).forEach((p) => {
     permissionsObj[p] = true;
@@ -305,6 +306,79 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     return new Set(currentOrg?.commercialFeatures || []);
   }, [currentOrg?.commercialFeatures]);
 
+  const newPermissionsCheck = useCallback(
+    (
+      permission: Permission,
+      project?: string | undefined,
+      envs?: string[]
+    ): boolean => {
+      console.log("user in newPermissionsCheck", user);
+      console.log("checking permission: ", permission);
+      console.log("project: ", project);
+      console.log("envs: ", envs);
+
+      // So, this will take in a permission, along with an optional project & an optional environment array
+      // We need to see if the permission passed in, is permitted by user.permissions
+      const permissions = user?.permissionsUpdated[permission];
+      console.log("permissions", permissions);
+
+      // Check to see if the user's role gives them global permission for this action
+      if (permissions.globalPermissions.hasPermission) {
+        // If no envs are passed in, just return true;
+        if (!envs) {
+          return true;
+          // If envs are passed in, first check if this permission is limited by environment, if not, return true,
+          // Otherwise, look to see if the env passed in is included in the globalPermissions environments arary. If so, return true, otherwise, return false.
+        } else {
+          if (!permissions.globalPermissions.limitAccessByEnvironment) {
+            return true;
+          } else if (
+            permissions.globalPermissions.environments.some((e) =>
+              envs.includes(e)
+            )
+          ) {
+            return true;
+          }
+        }
+      }
+
+      // If a project was passed in, and the global permission was false, we need to check the project's permission
+      if (project) {
+        console.log(
+          "project was passed in & global permission was false, need to check current project's permissions"
+        );
+        const projectLevelPermissions = permissions.projectPermissions.find(
+          (p) => p.projectId === project
+        );
+
+        console.log("projectLevelPermissions", projectLevelPermissions);
+
+        if (!projectLevelPermissions) {
+          return false;
+        }
+
+        if (projectLevelPermissions.hasPermission) {
+          // If no envs are passed in, just return true;
+          if (!envs) {
+            return true;
+          } else {
+            // If envs are passed in, first check if this permission is limited by environment, if not, return true,
+            // Otherwise, look to see if the env passed in is included in the globalPermissions environments arary. If so, return true, otherwise, return false.
+            if (!projectLevelPermissions.limitAccessByEnvironment) {
+              return true;
+            } else if (
+              projectLevelPermissions.environments.some((e) => envs.includes(e))
+            ) {
+              return true;
+            }
+          }
+        }
+      }
+      return false;
+    },
+    [user]
+  );
+
   const permissionsCheck = useCallback(
     (
       permission: Permission,
@@ -312,9 +386,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       envs?: string[]
     ): boolean => {
       console.log("checking permission");
-      console.log("permission", permission);
-      console.log("project", project);
-      console.log("envs", envs);
+      // console.log("permission", permission);
+      // console.log("project", project);
+      // console.log("envs", envs);
       // TODO: Add logic here to handle the case where a user is on a team
       // Get the role based on the project (if specified)
       // Fall back to the user's global role
@@ -412,7 +486,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         roles: currentOrg?.roles || [],
         permissions: {
           ...permissionsObj,
-          check: permissionsCheck,
+          // check: permissionsCheck,
+          check: newPermissionsCheck,
         },
         settings: currentOrg?.organization?.settings || {},
         license: data?.license,

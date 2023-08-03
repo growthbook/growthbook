@@ -76,6 +76,7 @@ export async function processJWT(
   req.name = name || "";
   req.verified = verified || false;
 
+  //TODO: Is this where this is handled on the backend? surely not
   const hasPermission = (
     permission: Permission,
     project?: string,
