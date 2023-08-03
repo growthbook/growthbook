@@ -17,7 +17,8 @@ export const DoesNotExist = () => {
         onCreate={onCreate}
         ready={true}
         exists={false}
-        success={false}
+        success={null}
+        error={null}
       />
     </>
   );
@@ -34,7 +35,8 @@ export const WasCreatedSuccessfully = () => {
         onCreate={onCreate}
         ready={true}
         exists={true}
-        success={true}
+        success="Success!"
+        error={null}
       />
     </>
   );
@@ -51,7 +53,8 @@ export const AlreadyExists = () => {
         onCreate={onCreate}
         ready={true}
         exists={true}
-        success={false}
+        success={null}
+        error={null}
       />
     </>
   );
@@ -68,7 +71,26 @@ export const Loading = () => {
         onCreate={onCreate}
         ready={false}
         exists={false}
-        success={false}
+        success={null}
+        error={null}
+      />
+    </>
+  );
+};
+
+export const WithError = () => {
+  const onDelete = action("onDelete");
+  const onCreate = action("onCreate");
+
+  return (
+    <>
+      <DemoDataSourcePage
+        onDelete={onDelete}
+        onCreate={onCreate}
+        ready={true}
+        exists={false}
+        success={null}
+        error="Some kind of error occurred!"
       />
     </>
   );
