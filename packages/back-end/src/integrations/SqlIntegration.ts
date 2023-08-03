@@ -539,21 +539,17 @@ export default abstract class SqlIntegration
 
   //Test the validity of a query as cheaply as possible
   getTestValidityQuery(query: string): string {
-    const explainQuery = `WITH __table as (
-        ${query}
-      )
-      ${this.selectSampleRows("__table", 1)}`;
-    return format(explainQuery, this.getFormatDialect());
+    return this.getTestQuery(query, 1);
   }
 
-  getTestQuery(query: string): string {
+  getTestQuery(query: string, limit: number = 5): string {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);
     const limitedQuery = replaceSQLVars(
       `WITH __table as (
         ${query}
       )
-      ${this.selectSampleRows("__table", 5)}`,
+      ${this.selectSampleRows("__table", limit)}`,
       {
         startDate,
       }
