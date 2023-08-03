@@ -579,7 +579,7 @@ export function getRowResults({
 
   const inverse = metric?.inverse;
   const directionalStatus: "winning" | "losing" =
-    stats.expected * (inverse ? -1 : 1) > 0 ? "winning" : "losing";
+    (stats.expected ?? 0) * (inverse ? -1 : 1) > 0 ? "winning" : "losing";
 
   const significant =
     statsEngine === "bayesian"
@@ -664,12 +664,12 @@ export function getRowResults({
   let resultsStatus: "won" | "lost" | "draw" | "" = "";
   let resultsReason = "";
   if (statsEngine === "bayesian") {
-    if (_shouldHighlight && stats.chanceToWin > ciUpper) {
+    if (_shouldHighlight && (stats.chanceToWin ?? 0) > ciUpper) {
       resultsReason = `Significant win as the chance to win is above the ${percentFormatter.format(
         ciUpper
       )} threshold`;
       resultsStatus = "won";
-    } else if (_shouldHighlight && stats.chanceToWin < ciLower) {
+    } else if (_shouldHighlight && (stats.chanceToWin ?? 0) < ciLower) {
       resultsReason = `Significant loss as the chance to win is below the ${percentFormatter.format(
         ciLower
       )} threshold`;
@@ -678,7 +678,7 @@ export function getRowResults({
     if (
       enoughData &&
       belowMinChange &&
-      (stats.chanceToWin > ciUpper || stats.chanceToWin < ciLower)
+      ((stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower)
     ) {
       resultsReason =
         "The change is significant, but too small to matter (below the min detectable change threshold). Consider this a draw.";
