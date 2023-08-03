@@ -9,8 +9,10 @@ import TabItem from '@theme/TabItem'
 ```java
 GBFeaturesRepository featuresRepository = GBFeaturesRepository
     .builder()
-    .endpoint("https://cdn.growthbook.io/api/features/<environment_key>")
+    .apiHost("https://cdn.growthbook.io")
+    .clientKey("<environment_key>") // replace with your client key
     .encryptionKey("<client-key-for-decrypting>") // optional, nullable
+    .refreshStrategy(FeatureRefreshStrategy.SERVER_SENT_EVENTS) // optional; options: STALE_WHILE_REVALIDATE, SERVER_SENT_EVENTS (default: STALE_WHILE_REVALIDATE)
     .build();
 
 // Optional callback for getting updates when features are refreshed
@@ -47,7 +49,8 @@ GrowthBook growthBook = new GrowthBook(context);
 
 ```kotlin
 val featuresRepository = GBFeaturesRepository(
-    "https://cdn.growthbook.io/api/features/<environment_key>",
+    "https://cdn.growthbook.io",
+    "<environment_key>",
     "<client-key-for-decrypting>", // optional, nullable
     30,
 ).apply {
