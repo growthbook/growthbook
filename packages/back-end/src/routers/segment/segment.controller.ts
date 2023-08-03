@@ -123,6 +123,7 @@ type CreateSegmentRequest = AuthRequest<{
   userIdType: string;
   name: string;
   sql: string;
+  description: string;
 }>;
 
 type CreateSegmentResponse = {
@@ -145,7 +146,7 @@ export const postSegment = async (
 ) => {
   req.checkPermissions("createSegments");
 
-  const { datasource, name, sql, userIdType } = req.body;
+  const { datasource, name, sql, userIdType, description } = req.body;
 
   const { org, userName } = getOrgFromReq(req);
 
@@ -164,6 +165,7 @@ export const postSegment = async (
     dateCreated: new Date(),
     dateUpdated: new Date(),
     organization: org.id,
+    description,
   });
 
   res.status(200).json({
@@ -183,6 +185,7 @@ type PutSegmentRequest = AuthRequest<
     name: string;
     sql: string;
     owner: string;
+    description: string;
   },
   { id: string }
 >;
@@ -218,7 +221,7 @@ export const putSegment = async (
     throw new Error("You don't have access to that segment");
   }
 
-  const { datasource, name, sql, userIdType, owner } = req.body;
+  const { datasource, name, sql, userIdType, owner, description } = req.body;
 
   const datasourceDoc = await getDataSourceById(datasource, org.id);
   if (!datasourceDoc) {
@@ -232,6 +235,7 @@ export const putSegment = async (
     owner,
     sql,
     dateUpdated: new Date(),
+    description,
   });
 
   res.status(200).json({

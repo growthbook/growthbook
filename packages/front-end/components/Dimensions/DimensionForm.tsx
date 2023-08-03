@@ -28,6 +28,7 @@ const DimensionForm: FC<{
     defaultValues: {
       name: current.name || "",
       sql: current.sql || "",
+      description: current.description || "",
       datasource: (current.id ? current.datasource : datasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
       owner: current.owner || "",
@@ -88,6 +89,7 @@ const DimensionForm: FC<{
           comboBox
           {...form.register("owner")}
         />
+        <Field label="Description" textarea {...form.register("description")} />
         <SelectField
           label="Data Source"
           required
