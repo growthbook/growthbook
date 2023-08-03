@@ -48,7 +48,7 @@ const OpenVisualEditorLink: FC<{
       "v-idx": changeIndex,
       "exp-url": encodeURIComponent(window.location.href),
       "api-host": encodeURIComponent(apiHost),
-      "ai-enabled": hasAiEnabled ? "true" : "false",
+      ...(hasAiEnabled ? { "ai-enabled": "true" } : {}),
     });
 
     return url;
