@@ -35,7 +35,7 @@ const PValueGuardrailResults: FC<{
   metric: MetricInterface;
   enoughData: boolean;
   className?: string;
-}> = ({ stats, metric, enoughData, className = "" }) => {
+}> = ({ stats, metric, enoughData, className, ...otherProps }) => {
   const pValueThreshold = usePValueThreshold();
 
   const expectedDirection = isExpectedDirection(stats, metric);
@@ -44,7 +44,7 @@ const PValueGuardrailResults: FC<{
   const status = getPValueGuardrailStatus(expectedDirection, statSig);
 
   return (
-    <td className={`guardrail result-number ${className}`}>
+    <td className={`guardrail result-number ${className}`} {...otherProps}>
       <div
         className={`variation ${status} d-flex justify-content-end align-items-center`}
       >

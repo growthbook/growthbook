@@ -1,7 +1,5 @@
 import { formatDistance } from "date-fns";
-import { MetricInterface } from "back-end/types/metric";
 import { RowResults } from "@/services/experiments";
-import { useCurrency } from "@/hooks/useCurrency";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -10,21 +8,15 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export default function NotEnoughData({
   rowResults,
-  metric,
   showTimeRemaining = false,
   showPercentComplete = false,
 }: {
   rowResults: RowResults;
-  metric: MetricInterface;
   showTimeRemaining?: boolean;
   showPercentComplete?: boolean;
 }) {
-  const displayCurrency = useCurrency();
-
   const numerator = rowResults.enoughDataMeta.percentCompleteNumerator;
   const denominator = rowResults.enoughDataMeta.percentCompleteDenominator;
-
-  console.log({ type: metric, numerator, displayCurrency });
 
   return (
     <>

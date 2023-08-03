@@ -17,6 +17,8 @@ export default function PercentGraph({
   height,
   newUi = false,
   rowResults,
+  isHovered = false,
+  ...otherProps
 }: {
   metric: MetricInterface;
   baseline: SnapshotMetric;
@@ -28,6 +30,7 @@ export default function PercentGraph({
   height?: number;
   newUi?: boolean;
   rowResults?: RowResults;
+  isHovered?: boolean;
 }) {
   const { metricDefaults } = useOrganizationMetricDefaults();
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
@@ -65,6 +68,8 @@ export default function PercentGraph({
       inverse={!!metric?.inverse}
       newUi={newUi}
       rowResults={rowResults}
+      isHovered={isHovered}
+      {...otherProps}
     />
   );
 }

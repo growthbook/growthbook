@@ -204,7 +204,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   hasStats = true,
 }) => {
   // yaxis = "users";
-  const { containerRef, containerBounds } = useTooltipInPortal({
+  const { containerBounds } = useTooltipInPortal({
     scroll: true,
     detectBounds: true,
   });
@@ -343,7 +343,6 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
               })}
             </div>
             <div
-              ref={containerRef}
               className={styles.dategraph}
               style={{
                 width: width - margin[1] - margin[3],
@@ -376,20 +375,6 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
                     className={styles.crosshair}
                     style={{ transform: `translateX(${tooltipLeft}px)` }}
                   />
-                  {/*{tooltipData && (*/}
-                  {/*  <TooltipWithBounds*/}
-                  {/*    left={tooltipLeft}*/}
-                  {/*    top={tooltipTop}*/}
-                  {/*    className={styles.tooltip}*/}
-                  {/*    unstyled={true}*/}
-                  {/*  >*/}
-                  {/*    {getTooltipContents(*/}
-                  {/*      tooltipData,*/}
-                  {/*      variationNames,*/}
-                  {/*      statsEngine*/}
-                  {/*    )}*/}
-                  {/*  </TooltipWithBounds>*/}
-                  {/*)}*/}
                 </>
               )}
             </div>
@@ -411,7 +396,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
 
                 {variationNames.map((v, i) => {
                   if (yaxis === "uplift" && i === 0) {
-                    return;
+                    return <></>;
                   }
                   // Render a shaded area for error bars for each variation if defined
                   return (
@@ -434,7 +419,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
 
                 {variationNames.map((v, i) => {
                   if (yaxis === "uplift" && i === 0) {
-                    return;
+                    return <></>;
                   }
                   // Render the actual line chart for each variation
                   return (

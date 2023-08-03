@@ -34,6 +34,7 @@ export interface Props {
   expectedColor?: string;
   newUi?: boolean;
   rowResults?: RowResults;
+  isHovered?: boolean;
 }
 
 const AlignedGraph: FC<Props> = ({
@@ -57,13 +58,20 @@ const AlignedGraph: FC<Props> = ({
   barColor = "#aaaaaaaa",
   sigBarColorPos = "#0D8C8Ccc",
   sigBarColorNeg = "#D94032cc",
-  barColorDraw = "9C89BEcc",
+  barColorDraw = "#9C89BEcc",
   newUi = false,
   rowResults,
+  isHovered = false,
+  ...otherProps
 }) => {
   if (newUi) {
     sigBarColorPos = "#52be5b";
     sigBarColorNeg = "#d35a5a";
+    if (isHovered) {
+      sigBarColorPos = "#39cb45";
+      sigBarColorNeg = "#e34040";
+      barColorDraw = "#957dc2";
+    }
   }
 
   if (barType == "violin" && !uplift) {
@@ -139,7 +147,10 @@ const AlignedGraph: FC<Props> = ({
 
   return (
     <>
-      <div className="d-flex aligned-graph align-items-center aligned-graph-row">
+      <div
+        className="d-flex aligned-graph align-items-center aligned-graph-row"
+        {...otherProps}
+      >
         <div className={newUi ? "" : "flex-grow-1"}>
           <div style={{ position: "relative" }}>
             <ParentSize className="graph-container" debounceTime={1000}>
@@ -214,6 +225,7 @@ const AlignedGraph: FC<Props> = ({
                       <>
                         {barType === "violin" && (
                           <ViolinPlot
+                            style={{ transition: "100ms all" }}
                             top={barHeight}
                             width={barThickness}
                             left={xScale(ci?.[0] ?? 0)}
@@ -262,6 +274,7 @@ const AlignedGraph: FC<Props> = ({
                         )}
                         {barType === "pill" && (
                           <rect
+                            style={{ transition: "100ms all" }}
                             x={xScale(ci?.[0] ?? 0)}
                             y={barHeight}
                             width={xScale(ci?.[1] ?? 0) - xScale(ci?.[0] ?? 0)}

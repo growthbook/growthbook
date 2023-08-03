@@ -1,6 +1,5 @@
 import clsx from "clsx";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
-import { MetricInterface } from "back-end/types/metric";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { RowResults } from "@/services/experiments";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
@@ -15,17 +14,16 @@ export default function ChanceToWinColumn({
   stats,
   baseline,
   rowResults,
-  metric,
   showRisk = true,
   showSuspicious = true,
   showPercentComplete = false,
   showTimeRemaining = true,
   className,
+  ...otherProps
 }: {
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
   rowResults: RowResults;
-  metric: MetricInterface;
   showRisk?: boolean;
   showSuspicious?: boolean;
   showPercentComplete?: boolean;
@@ -39,12 +37,12 @@ export default function ChanceToWinColumn({
         rowResults.resultsStatus,
         className
       )}
+      {...otherProps}
     >
       {!baseline?.value || !stats?.value ? (
         <em className="text-gray">no data</em>
       ) : !rowResults.enoughData ? (
         <NotEnoughData
-          metric={metric}
           rowResults={rowResults}
           showTimeRemaining={showTimeRemaining}
           showPercentComplete={showPercentComplete}

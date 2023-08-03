@@ -16,6 +16,7 @@ export default function PercentChangeColumn({
   rowResults,
   showCI = false,
   className,
+  ...otherProps
 }: {
   metric: MetricInterface;
   stats: SnapshotMetric;
@@ -24,9 +25,9 @@ export default function PercentChangeColumn({
   className?: string;
 }) {
   return (
-    <>
+    <td className={clsx("results-change", className)} {...otherProps}>
       {metric && rowResults.enoughData ? (
-        <td className={clsx("results-change", className)}>
+        <>
           <div
             className={clsx("nowrap change", {
               "text-left": showCI,
@@ -50,10 +51,8 @@ export default function PercentChangeColumn({
               {percentFormatter.format(stats.ci?.[1] ?? 0)}]
             </div>
           ) : null}
-        </td>
-      ) : (
-        <td></td>
-      )}
-    </>
+        </>
+      ) : null}
+    </td>
   );
 }

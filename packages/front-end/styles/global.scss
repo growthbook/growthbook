@@ -212,10 +212,33 @@ pre {
   }
 }
 
+.experiment-row-tooltip {
+  position: absolute;
+  display: inline-block;
+  background-color: var(--surface-background-color-alt);
+  box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
+  padding: 3px 8px;
+  border: 1px solid var(--border-color-300);
+  box-sizing: border-box;
+  border-radius: 2px;
+  font-size: 12px;
+  color: var(--text-color-table);
+  z-index: 100;
+  pointer-events: all;
+  transition: 100ms all;
+  //transform-origin: 50% 80%;
+  //transform: scale(1);
+  //&.closed {
+  //  transform: scale(0);
+  //  pointer-events: none;
+  //}
+}
+
 .experiment-results {
   table-layout: fixed;
   width: 100%;
-  th, td {
+  th,
+  td {
     padding: 0 10px;
   }
   th {
@@ -249,7 +272,7 @@ pre {
   .variation {
     font-size: 12px;
   }
-  .results-change{
+  .results-change {
     font-size: 12px;
     .change {
       font-weight: bold;
@@ -267,15 +290,33 @@ pre {
     font-weight: bold;
     &.won {
       color: #09ac17;
+      &.hover {
+        color: #04d716;
+      }
     }
     &.lost {
       color: #d94032;
+      &.hover {
+        color: #e82512;
+      }
     }
     &.draw {
       color: #8e51f1;
+      &.hover {
+        color: #7c2cfa;
+      }
     }
   }
-  .guardrail, .chance {
+  .hover {
+    cursor: pointer;
+    transition: 100ms all;
+    text-shadow: 0 1px 0 rgba(150, 150, 150, 0.75);
+    //background: rgb(127 127 180 / 7%);
+    //text-decoration: underline;
+    //* {text-decoration: underline;}
+  }
+  .guardrail,
+  .chance {
     // for guardrails and embedded risk warning for ChanceToWin
     .ok {
       color: #55ab5d88;

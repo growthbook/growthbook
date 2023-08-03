@@ -29,12 +29,12 @@ const GuardrailResult: FC<{
   stats: SnapshotMetric;
   enoughData: boolean;
   className?: string;
-}> = ({ stats, enoughData, className = "" }) => {
+}> = ({ stats, enoughData, className, ...otherProps }) => {
   const chance = 1 - (stats.chanceToWin ?? 1);
   const status = getGuardrailStatus(chance);
 
   return (
-    <td className={`guardrail result-number ${className}`}>
+    <td className={`guardrail result-number ${className}`} {...otherProps}>
       <div className={`variation ${status}`}>
         {stats && enoughData ? (
           <>

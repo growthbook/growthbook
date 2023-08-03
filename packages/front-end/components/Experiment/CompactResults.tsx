@@ -136,30 +136,27 @@ const CompactResults: FC<{
           {showAdvanced ? "Hide" : "Show"} Advanced
         </button>
       </div>
-      <div className="w-100 overflow-auto">
-        <ResultsTable
-          dateCreated={reportDate}
-          isLatestPhase={isLatestPhase}
-          startDate={startDate}
-          status={status}
-          variations={variations}
-          rows={rows.filter((r) => !r.isGuardrail)}
-          id={id}
-          {...risk}
-          tableRowAxis="metric"
-          labelHeader="Goal Metrics"
-          editMetrics={editMetrics}
-          // users={users}
-          statsEngine={statsEngine}
-          sequentialTestingEnabled={sequentialTestingEnabled}
-          pValueCorrection={pValueCorrection}
-          renderLabelColumn={getRenderLabelColumn(regressionAdjustmentEnabled)}
-          showAdvanced={showAdvanced}
-        />
-      </div>
+      <ResultsTable
+        dateCreated={reportDate}
+        isLatestPhase={isLatestPhase}
+        startDate={startDate}
+        status={status}
+        variations={variations}
+        rows={rows.filter((r) => !r.isGuardrail)}
+        id={id}
+        hasRisk={risk.hasRisk}
+        tableRowAxis="metric"
+        labelHeader="Goal Metrics"
+        editMetrics={editMetrics}
+        statsEngine={statsEngine}
+        sequentialTestingEnabled={sequentialTestingEnabled}
+        pValueCorrection={pValueCorrection}
+        renderLabelColumn={getRenderLabelColumn(regressionAdjustmentEnabled)}
+        showAdvanced={showAdvanced}
+      />
 
       {guardrails.length > 0 ? (
-        <div className="w-100 overflow-auto mt-4">
+        <div className="mt-4">
           <ResultsTable
             dateCreated={reportDate}
             isLatestPhase={isLatestPhase}
@@ -167,10 +164,8 @@ const CompactResults: FC<{
             status={status}
             variations={variations}
             rows={rows.filter((r) => r.isGuardrail)}
-            guardrails={guardrails}
-            dataForGuardrails={results.variations}
             id={id}
-            {...risk}
+            hasRisk={risk.hasRisk}
             tableRowAxis="metric"
             labelHeader="Guardrail Metrics"
             editMetrics={editMetrics}
