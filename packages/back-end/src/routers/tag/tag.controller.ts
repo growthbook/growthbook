@@ -72,7 +72,7 @@ export const deleteTag = async (
   await removeTagFromExperiments({
     organization: org,
     user: res.locals.eventAudit,
-    tag: id,
+    tag: decodeURIComponent(id),
   });
 
   // metrics
