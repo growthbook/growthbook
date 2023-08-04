@@ -13,6 +13,7 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import { MetricType } from "@/../back-end/types/metric";
 import { TrackedEventData } from "@/../back-end/src/types/Integration";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getInitialSettings } from "@/services/datasources";
@@ -56,7 +57,7 @@ const NewDataSourceForm: FC<{
   secondaryCTA,
 }) => {
   const {
-    projects,
+    projects: allProjects,
     project,
     getDatasourceById,
     mutateDefinitions,
@@ -156,7 +157,16 @@ const NewDataSourceForm: FC<{
     form.setValue("metricsToCreate", updatedMetricsToCreate);
   }, [form, trackedEvents]);
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
+
+  // Filter out demo datasource from available projects
+  const projects = allProjects.filter(
+    (p) =>
+      !isDemoDatasourceProject({
+        projectId: p.id,
+        organizationId: orgId || "",
+      })
+  );
 
   if (!datasource) {
     return null;
