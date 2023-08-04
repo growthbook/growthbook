@@ -47,8 +47,7 @@ export function StartExperimentBanner({
   const hasLinkedChanges =
     linkedFeatures.length > 0 || visualChangesets.length > 0;
   checklist.push({
-    display:
-      "At least one linked change (Feature Flag or Visual Editor) added to experiment",
+    display: "Add at least one Linked Feature or Visual Editor change",
     status: hasLinkedChanges ? "success" : "error",
   });
 
@@ -61,7 +60,7 @@ export function StartExperimentBanner({
         )
     );
     checklist.push({
-      display: "All linked Feature Flag rules are published and enabled",
+      display: "Publish and enable all Linked Feature rules",
       status: hasFeatureFlagsErrors ? "error" : "success",
     });
   }
@@ -75,8 +74,7 @@ export function StartExperimentBanner({
       )
     );
     checklist.push({
-      display:
-        "All linked Visual Editor changes have been configured and saved in the editor",
+      display: "Add changes in the Visual Editor",
       status: hasSomeVisualChanges ? "success" : "error",
     });
   }
@@ -96,7 +94,7 @@ export function StartExperimentBanner({
     (connection) => connection.connected
   );
   checklist.push({
-    display: "GrowthBook SDK integrated into your app",
+    display: "Integrate the GrowthBook SDK into your app",
     status: verifiedConnections.length > 0 ? "success" : "error",
     tooltip:
       verifiedConnections.length > 0 ? (
@@ -127,7 +125,7 @@ export function StartExperimentBanner({
   checklist.push({
     display: (
       <>
-        Variation assignment and targeting conditions have been configured.{" "}
+        Configure variation assignment and targeting conditions{" "}
         {hasPhases ? (
           <a
             href="#"
@@ -202,7 +200,7 @@ export function StartExperimentBanner({
   // Prompt them to start with an option to edit the targeting first
   return (
     <div className="appbox p-4 my-4 text-center">
-      <div className="row align-items-center">
+      <div className="row">
         <div className="col-auto text-left">
           <h3 className="text-purple">Pre-launch Check List</h3>
           <ul style={{ fontSize: "1.1em" }} className="ml-0 pl-0">
@@ -239,20 +237,34 @@ export function StartExperimentBanner({
           </ul>
         </div>
 
-        {allPassed && (
-          <div className="col">
+        <div className="col pt-3">
+          {allPassed ? (
             <p>Everything looks great! Let&apos;s Go!</p>
+          ) : (
+            <p>
+              Almost there! Just a few things left{" "}
+              <Tooltip
+                body={
+                  "You can bypass these checks and start the experiment on the Results tab below if needed"
+                }
+              />
+            </p>
+          )}
+          <Tooltip
+            body={allPassed ? "" : "Fix the errors to the left before starting"}
+          >
             <Button
               color="primary"
-              className="btn-lg"
+              className="btn-lg mb-2"
               onClick={async () => {
                 await startExperiment();
               }}
+              disabled={!allPassed}
             >
               Start Experiment <MdRocketLaunch />
             </Button>
-          </div>
-        )}
+          </Tooltip>
+        </div>
       </div>
     </div>
   );

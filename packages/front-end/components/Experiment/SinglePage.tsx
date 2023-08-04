@@ -11,8 +11,8 @@ import {
   FaClock,
   FaExclamationTriangle,
   FaExternalLinkAlt,
+  FaPlusCircle,
   FaQuestionCircle,
-  FaRegLightbulb,
 } from "react-icons/fa";
 import { IdeaInterface } from "back-end/types/idea";
 import { MetricInterface } from "back-end/types/metric";
@@ -32,7 +32,6 @@ import { getScopedSettings } from "shared/settings";
 import { date } from "shared/dates";
 import Collapsible from "react-collapsible";
 import { DiscussionInterface } from "back-end/types/discussion";
-import { RxDesktop } from "react-icons/rx";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { FeatureInterface } from "back-end/types/feature";
@@ -56,6 +55,7 @@ import ClickToCopy from "@/components/Settings/ClickToCopy";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import { useEnvironments, useFeaturesList } from "@/services/features";
+import track from "@/services/track";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -720,62 +720,21 @@ export default function SinglePage({
               <em className="text-muted">None</em>
             )}{" "}
           </div>
-          {numLinkedChanges > 0 ? (
+          {linkedFeatures.length > 0 ? (
             <div
               className="col-auto ml-5 pr-3 d-flex flex-column"
               style={{ height: 42, justifyContent: "space-between" }}
             >
-              <div>Linked changes</div>
-              <div style={{ marginLeft: 4 }}>
-                {linkedFeatures.length === 1 && numLinkedChanges === 1 ? (
-                  <Link href={`/features/${linkedFeatures[0].feature.id}`}>
-                    <a>
-                      <BsFlag /> {linkedFeatures[0].feature.id}
-                    </a>
-                  </Link>
-                ) : (
-                  <>
-                    {linkedFeatures.length > 0 ? (
-                      <>
-                        <Tooltip
-                          body={
-                            <div className="d-flex align-items-center">
-                              <span className="small text-uppercase mr-2">
-                                Feature Flags:
-                              </span>{" "}
-                              {linkedFeatures.length} change
-                              {linkedFeatures.length === 1 ? "" : "s"}
-                            </div>
-                          }
-                        >
-                          <div className="d-inline-block">
-                            <BsFlag style={{ marginLeft: 2 }} />{" "}
-                            <span className="">{linkedFeatures.length}</span>
-                          </div>
-                        </Tooltip>
-                        {visualChangesets.length > 0 ? ", " : null}
-                      </>
-                    ) : null}
-                    {visualChangesets.length > 0 ? (
-                      <Tooltip
-                        body={
-                          <div className="d-flex align-items-center">
-                            <span className="small text-uppercase mr-2">
-                              Visual Editor:
-                            </span>{" "}
-                            {visualChangesets.length} change
-                            {visualChangesets.length === 1 ? "" : "s"}
-                          </div>
-                        }
-                      >
-                        <div className="d-inline-block">
-                          <RxDesktop style={{ marginLeft: 2 }} />{" "}
-                          <span className="">{visualChangesets.length}</span>
-                        </div>
-                      </Tooltip>
-                    ) : null}
-                  </>
-                )}
+              <div>Linked features</div>
+              <div>
+                <Link href={`/features/${linkedFeatures[0].feature.id}`}>
+                  <a>
+                    <BsFlag /> {linkedFeatures[0].feature.id}
+                  </a>
+                </Link>
+                {linkedFeatures.length > 1
+                  ? ` + ${linkedFeatures.length - 1} more`
+                  : ""}
               </div>
             </div>
           ) : null}
@@ -915,8 +874,7 @@ export default function SinglePage({
               }}
               canCreate={canEditExperiment}
               canEdit={canEditExperiment}
-              className="mb-3"
-              containerClassName="mb-1"
+              className="mb-4"
               label="description"
               header="Description"
               headerClassName="h4"
@@ -934,18 +892,14 @@ export default function SinglePage({
               canCreate={canEditExperiment}
               canEdit={canEditExperiment}
               label="hypothesis"
-              header={
-                <>
-                  <FaRegLightbulb /> Hypothesis
-                </>
-              }
+              header={<>Hypothesis</>}
               headerClassName="h4"
-              className="mb-3"
+              className="mb-4"
               containerClassName="mb-1"
             />
 
             {idea && (
-              <div className="mb-3">
+              <div className="mb-4">
                 <div className="d-flex align-items-center">
                   <div className="mr-1">Idea:</div>
                   <div>
@@ -1054,53 +1008,75 @@ export default function SinglePage({
               canEditExperiment={canEditExperiment}
               canEditVisualChangesets={hasVisualEditorPermission}
               setVisualEditorModal={setVisualEditorModal}
-              setFeatureModal={setFeatureModal}
               newUi={true}
             />
           </div>
 
           <div className="mx-4 pb-3">
-            <div className="h3 mb-2">
-              <Tooltip
-                body={
-                  <span style={{ lineHeight: 1.5 }}>
-                    Linked changes are feature flag or visual editor changes
-                    associated with this experiment which are managed within the
-                    GrowthBook app.
-                  </span>
-                }
-              >
-                Linked Changes{" "}
-                <FaQuestionCircle style={{ fontSize: "0.8rem" }} />{" "}
-                <small className="text-muted">({numLinkedChanges})</small>
-              </Tooltip>
-            </div>
             {numLinkedChanges === 0 && experiment.status !== "draft" ? (
-              <>
+              <div className="alert alert-info">
                 This experiment has no feature flag or visual editor changes
                 which are managed within the GrowthBook app. Changes are likely
                 implemented manually.
-              </>
+              </div>
             ) : (
               <>
-                {linkedFeatures.map(({ feature, rules }, i) => (
-                  <LinkedFeatureFlag
-                    feature={feature}
-                    rules={rules}
-                    experiment={experiment}
-                    key={i}
-                    mutateFeatures={mutateFeatures}
-                  />
-                ))}
-                <VisualChangesetTable
-                  experiment={experiment}
-                  visualChangesets={visualChangesets}
-                  mutate={mutate}
-                  canEditVisualChangesets={hasVisualEditorPermission}
-                  setVisualEditorModal={setVisualEditorModal}
-                  setFeatureModal={setFeatureModal}
-                  newUi={true}
-                />
+                {(experiment.status === "draft" ||
+                  linkedFeatures.length > 0) && (
+                  <div className="mb-4">
+                    <div className="h3 mb-2">
+                      Linked Features{" "}
+                      <small className="text-muted">
+                        ({linkedFeatures.length})
+                      </small>
+                    </div>
+                    {linkedFeatures.map(({ feature, rules }, i) => (
+                      <LinkedFeatureFlag
+                        feature={feature}
+                        rules={rules}
+                        experiment={experiment}
+                        key={i}
+                        mutateFeatures={mutateFeatures}
+                      />
+                    ))}
+                    {experiment.status === "draft" &&
+                      hasVisualEditorPermission && (
+                        <button
+                          className="btn btn-link"
+                          type="button"
+                          onClick={() => {
+                            setFeatureModal(true);
+                            track("Open linked feature modal", {
+                              source: "linked-changes",
+                              action: "add",
+                            });
+                          }}
+                        >
+                          <FaPlusCircle className="mr-1" />
+                          Add Feature Flag
+                        </button>
+                      )}
+                  </div>
+                )}
+                {(experiment.status === "draft" ||
+                  visualChangesets.length > 0) && (
+                  <div>
+                    <div className="h3 mb-2">
+                      Visual Editor Changes{" "}
+                      <small className="text-muted">
+                        ({visualChangesets.length})
+                      </small>
+                    </div>
+                    <VisualChangesetTable
+                      experiment={experiment}
+                      visualChangesets={visualChangesets}
+                      mutate={mutate}
+                      canEditVisualChangesets={hasVisualEditorPermission}
+                      setVisualEditorModal={setVisualEditorModal}
+                      newUi={true}
+                    />
+                  </div>
+                )}
               </>
             )}
           </div>

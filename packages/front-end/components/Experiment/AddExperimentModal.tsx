@@ -1,4 +1,4 @@
-import { FC, useState } from "react";
+import { FC, ReactElement, useState } from "react";
 import { IconType } from "react-icons";
 import { GoBeaker, GoGraph } from "react-icons/go";
 import clsx from "clsx";
@@ -14,7 +14,7 @@ type CTA = {
   Icon: IconType;
   onClick: () => void;
   cta: string;
-  description: string;
+  description: string | ReactElement;
   enabled: boolean;
 };
 
@@ -75,8 +75,12 @@ const AddExperimentModal: FC<{
     },
     {
       cta: "Design a New Experiment",
-      description:
-        "Build and run a brand new experiment using Feature Flags or our Visual Editor",
+      description: (
+        <>
+          Build and run a brand new experiment using{" "}
+          <strong>Feature Flags</strong> or our <strong>Visual Editor</strong>
+        </>
+      ),
       Icon: GoBeaker,
       onClick: () => {
         setMode("new");

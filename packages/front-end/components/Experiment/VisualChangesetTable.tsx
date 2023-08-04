@@ -31,7 +31,6 @@ type Props = {
   mutate: () => void;
   canEditVisualChangesets: boolean;
   setVisualEditorModal: (v: boolean) => void;
-  setFeatureModal?: (v: boolean) => void;
   newUi?: boolean;
 };
 
@@ -253,7 +252,6 @@ export const VisualChangesetTable: FC<Props> = ({
   mutate,
   canEditVisualChangesets,
   setVisualEditorModal,
-  setFeatureModal,
   newUi,
 }: Props) => {
   const { variations } = experiment;
@@ -431,24 +429,6 @@ export const VisualChangesetTable: FC<Props> = ({
               </PremiumTooltip>
             )}
           </div>
-          {setFeatureModal && (
-            <div className="px-3">
-              <button
-                className="btn btn-link"
-                type="button"
-                onClick={() => {
-                  setFeatureModal(true);
-                  track("Open linked feature modal", {
-                    source: "linked-changes",
-                    action: "add",
-                  });
-                }}
-              >
-                <FaPlusCircle className="mr-1" />
-                Feature Flag change
-              </button>
-            </div>
-          )}
         </div>
       ) : null}
 
