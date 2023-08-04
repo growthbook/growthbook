@@ -20,6 +20,14 @@ import {
 import { getFeature } from "../../models/FeatureModel";
 import { getExperimentById } from "../../models/ExperimentModel";
 
+function isValidWatchEntityType(type: string): boolean {
+  if (type === "experiment" || type === "feature") {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
   if (!req.userId && usingOpenId()) {
@@ -132,6 +140,14 @@ export async function postWatchItem(
   const { type, id } = req.params;
   let item;
 
+  if (!isValidWatchEntityType(type)) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "Invalid entity type. Type must be either experiment or feature.",
+    });
+  }
+
   if (type === "feature") {
     item = await getFeature(org.id, id);
   } else if (type === "experiment") {
@@ -147,11 +163,13 @@ export async function postWatchItem(
   if (!item) {
     throw new Error(`Could not find ${item}`);
   }
-  if (type == "feature") {
-    await upsertWatch(userId, org.id, id, "features");
-  } else {
-    await upsertWatch(userId, org.id, id, "experiments");
-  }
+
+  await upsertWatch({
+    userId,
+    organization: org.id,
+    item: id,
+    type: type === "experiment" ? "experiments" : "features", // Pluralizes entity type for the Watch model,
+  });
 
   return res.status(200).json({
     status: 200,
@@ -165,8 +183,21 @@ export async function postUnwatchItem(
   const { org, userId } = getOrgFromReq(req);
   const { type, id } = req.params;
 
+  if (!isValidWatchEntityType(type)) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "Invalid entity type. Type must be either experiment or feature.",
+    });
+  }
+
   try {
-    await deleteWatchedByEntity(org.id, userId, type, id);
+    await deleteWatchedByEntity({
+      organization: org.id,
+      userId,
+      type: type === "experiment" ? "experiments" : "features", // Pluralizes entity type for the Watch model
+      item: id,
+    });
 
     return res.status(200).json({
       status: 200,

@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import { omit } from "lodash";
+import { UpdateResult } from "mongodb";
 import { WatchInterface } from "../../types/watch";
 
 const watchSchema = new mongoose.Schema({
@@ -11,6 +12,13 @@ const watchSchema = new mongoose.Schema({
 watchSchema.index({ userId: 1, organization: 1 }, { unique: true });
 
 export type WatchDocument = mongoose.Document & WatchInterface;
+
+interface UpdateWatchOptions {
+  organization: string;
+  userId: string;
+  type: "experiments" | "features";
+  item: string;
+}
 
 const WatchModel = mongoose.model<WatchInterface>("Watch", watchSchema);
 
@@ -36,7 +44,7 @@ export async function getWatchedByUser(
 export async function getExperimentWatchers(
   experimentId: string,
   organization: string
-) {
+): Promise<WatchInterface[]> {
   const watchers = await WatchModel.find({
     experiments: experimentId,
     organization,
@@ -44,12 +52,12 @@ export async function getExperimentWatchers(
   return watchers.map((watcher) => toInterface(watcher));
 }
 
-export async function upsertWatch(
-  userId: string,
-  organization: string,
-  item: string,
-  type: "experiments" | "features"
-) {
+export async function upsertWatch({
+  userId,
+  organization,
+  item,
+  type,
+}: UpdateWatchOptions): Promise<UpdateResult> {
   return await WatchModel.updateOne(
     {
       userId,
@@ -66,13 +74,12 @@ export async function upsertWatch(
   );
 }
 
-export async function deleteWatchedByEntity(
-  organization: string,
-  userId: string,
-  type: string,
-  id: string
-) {
-  const pluralType = type + "s";
+export async function deleteWatchedByEntity({
+  organization,
+  userId,
+  type,
+  item,
+}: UpdateWatchOptions): Promise<UpdateResult> {
   return await WatchModel.updateOne(
     {
       userId: userId,
@@ -80,7 +87,7 @@ export async function deleteWatchedByEntity(
     },
     {
       $pull: {
-        [pluralType]: id,
+        [type]: item,
       },
     }
   );

@@ -284,7 +284,12 @@ export async function postFeatures(
   addIdsToRules(feature.environmentSettings, feature.id);
 
   await createFeature(org, res.locals.eventAudit, feature);
-  await upsertWatch(userId, org.id, feature.id, "features");
+  await upsertWatch({
+    userId,
+    organization: org.id,
+    item: feature.id,
+    type: "features",
+  });
 
   await req.audit({
     event: "feature.create",

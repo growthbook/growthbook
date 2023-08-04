@@ -1,8 +1,8 @@
-import { findByEntityList } from "../models/AuditModel";
+import { findAuditByEntityList } from "../models/AuditModel";
 import { getWatchedByUser } from "../models/WatchModel";
 import { EntityType } from "../types/Audit";
 
-export function isValidEntityType(type: string): type is EntityType {
+export function isValidAuditEntityType(type: string): type is EntityType {
   return EntityType.includes(type as EntityType);
 }
 
@@ -47,14 +47,14 @@ export async function getRecentWatchedAudits(
     },
   };
 
-  const experiments = await findByEntityList(
+  const experiments = await findAuditByEntityList(
     organization,
     "experiment",
     userWatches.experiments,
     experimentsFilter
   );
 
-  const features = await findByEntityList(
+  const features = await findAuditByEntityList(
     organization,
     "feature",
     userWatches.features,

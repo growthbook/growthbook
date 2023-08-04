@@ -604,7 +604,12 @@ export async function postExperiments(
       details: auditDetailsCreate(experiment),
     });
 
-    await upsertWatch(userId, org.id, experiment.id, "experiments");
+    await upsertWatch({
+      userId,
+      organization: org.id,
+      item: experiment.id,
+      type: "experiments",
+    });
 
     res.status(200).json({
       status: 200,
@@ -852,7 +857,12 @@ export async function postExperiment(
   // If there are new tags to add
   await addTagsDiff(org.id, experiment.tags || [], data.tags || []);
 
-  await upsertWatch(userId, org.id, experiment.id, "experiments");
+  await upsertWatch({
+    userId,
+    organization: org.id,
+    item: experiment.id,
+    type: "experiments",
+  });
 
   res.status(200).json({
     status: 200,
@@ -1368,7 +1378,12 @@ export async function postExperimentPhase(
       details: auditDetailsUpdate(experiment, updated),
     });
 
-    await upsertWatch(userId, org.id, experiment.id, "experiments");
+    await upsertWatch({
+      userId,
+      organization: org.id,
+      item: experiment.id,
+      type: "experiments",
+    });
 
     res.status(200).json({
       status: 200,
@@ -1859,7 +1874,12 @@ export async function addScreenshot(
     }),
   });
 
-  await upsertWatch(userId, org.id, experiment.id, "experiments");
+  await upsertWatch({
+    userId,
+    organization: org.id,
+    item: experiment.id,
+    type: "experiments",
+  });
 
   res.status(200).json({
     status: 200,

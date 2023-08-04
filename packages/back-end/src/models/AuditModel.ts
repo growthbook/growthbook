@@ -49,7 +49,9 @@ const toInterface = (doc: AuditDocument): AuditInterface => {
   return omit(doc.toJSON<AuditDocument>(), ["__v", "_id"]);
 };
 
-export async function insertAudit(data: Partial<AuditInterface>) {
+export async function insertAudit(
+  data: Partial<AuditInterface>
+): Promise<AuditInterface> {
   const auditDoc = await AuditModel.create({
     ...data,
     id: uniqid("aud_"),
@@ -57,7 +59,7 @@ export async function insertAudit(data: Partial<AuditInterface>) {
   return toInterface(auditDoc);
 }
 
-export async function findByOrganization(
+export async function findAuditByOrganization(
   organization: string,
   options?: QueryOptions
 ): Promise<AuditInterface[]> {
@@ -70,12 +72,12 @@ export async function findByOrganization(
   return auditDocs.map((doc) => toInterface(doc));
 }
 
-export async function findByEntity(
+export async function findAuditByEntity(
   organization: string,
   type: EntityType,
   id: string,
   options?: QueryOptions
-) {
+): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
     {
       organization,
@@ -87,13 +89,13 @@ export async function findByEntity(
   return auditDocs.map((doc) => toInterface(doc));
 }
 
-export async function findByEntityList(
+export async function findAuditByEntityList(
   organization: string,
   type: EntityType,
   ids: string[],
   customFilter?: FilterQuery<AuditDocument>,
   options?: QueryOptions
-) {
+): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
     {
       organization,
@@ -108,12 +110,12 @@ export async function findByEntityList(
   return auditDocs.map((doc) => toInterface(doc));
 }
 
-export async function findByEntityParent(
+export async function findAuditByEntityParent(
   organization: string,
   type: EntityType,
   id: string,
   options?: QueryOptions
-) {
+): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
     {
       organization,
@@ -125,11 +127,11 @@ export async function findByEntityParent(
   return auditDocs.map((doc) => toInterface(doc));
 }
 
-export async function findAllByEntityType(
+export async function findAllAuditsByEntityType(
   organization: string,
   type: EntityType,
   options?: QueryOptions
-) {
+): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
     {
       organization,
@@ -140,11 +142,11 @@ export async function findAllByEntityType(
   return auditDocs.map((doc) => toInterface(doc));
 }
 
-export async function findAllByEntityTypeParent(
+export async function findAllAuditsByEntityTypeParent(
   organization: string,
   type: EntityType,
   options?: QueryOptions
-) {
+): Promise<AuditInterface[]> {
   const auditDocs = await AuditModel.find(
     {
       organization,

@@ -43,7 +43,7 @@ import {
 import {
   auditDetailsUpdate,
   getRecentWatchedAudits,
-  isValidEntityType,
+  isValidAuditEntityType,
 } from "../../services/audit";
 import { getAllFeatures } from "../../models/FeatureModel";
 import { findDimensionsByOrganization } from "../../models/DimensionModel";
@@ -94,10 +94,10 @@ import {
 } from "../../models/ExperimentModel";
 import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
 import {
-  findAllByEntityType,
-  findAllByEntityTypeParent,
-  findByEntity,
-  findByEntityParent,
+  findAllAuditsByEntityType,
+  findAllAuditsByEntityTypeParent,
+  findAuditByEntity,
+  findAuditByEntityParent,
 } from "../../models/AuditModel";
 import { EntityType } from "../../types/Audit";
 
@@ -193,7 +193,7 @@ export async function getAllHistory(
   const { org } = getOrgFromReq(req);
   const { type } = req.params;
 
-  if (!isValidEntityType(type)) {
+  if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
       status: 400,
       message: `${type} is not a valid entity type. Possible entity types are: ${EntityType}`,
@@ -201,8 +201,8 @@ export async function getAllHistory(
   }
 
   const events = await Promise.all([
-    findAllByEntityType(org.id, type),
-    findAllByEntityTypeParent(org.id, type),
+    findAllAuditsByEntityType(org.id, type),
+    findAllAuditsByEntityTypeParent(org.id, type),
   ]);
 
   const merged = [...events[0], ...events[1]];
@@ -233,7 +233,7 @@ export async function getHistory(
   const { org } = getOrgFromReq(req);
   const { type, id } = req.params;
 
-  if (!isValidEntityType(type)) {
+  if (!isValidAuditEntityType(type)) {
     return res.status(400).json({
       status: 400,
       message: `${type} is not a valid entity type. Possible entity types are: ${EntityType}`,
@@ -241,8 +241,8 @@ export async function getHistory(
   }
 
   const events = await Promise.all([
-    findByEntity(org.id, type, id),
-    findByEntityParent(org.id, type, id),
+    findAuditByEntity(org.id, type, id),
+    findAuditByEntityParent(org.id, type, id),
   ]);
 
   const merged = [...events[0], ...events[1]];
