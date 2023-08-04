@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ago } from "shared/dates";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import ProjectBadges from "@/components/ProjectBadges";
 import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
@@ -12,11 +13,13 @@ import { hasFileConfig } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useAuth } from "@/services/auth";
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
 
   const router = useRouter();
+  const { orgId } = useAuth();
 
   const {
     datasources,
@@ -32,6 +35,14 @@ const DataSources: FC = () => {
   });
 
   const permissions = usePermissions();
+
+  const isDemoProject = isDemoDatasourceProject({
+    projectId: project || "",
+    organizationId: orgId || "",
+  });
+  const buttonTitle = isDemoProject
+    ? "You cannot create a datasource under the demo project"
+    : "";
 
   if (error) {
     return <div className="alert alert-danger">{error}</div>;
@@ -133,6 +144,8 @@ const DataSources: FC = () => {
       {!hasFileConfig() && permissions.check("createDatasources", project) && (
         <button
           className="btn btn-primary"
+          disabled={isDemoProject}
+          title={buttonTitle}
           onClick={(e) => {
             e.preventDefault();
             setNewModalOpen(true);
