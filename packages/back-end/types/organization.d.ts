@@ -16,6 +16,31 @@ export type Permission =
   | EnvScopedPermission
   | ProjectScopedPermission;
 
+export type UserPermissions = {
+  global: {
+    environments: string[];
+    limitAccessByEnvironment: boolean;
+    permissions:
+      | {
+          [key in Permission]: boolean;
+        }
+      | Record<string, never>;
+  };
+  projects:
+    | {
+        [key: string]: {
+          environments: string[];
+          limitAccessByEnvironment: boolean;
+          permissions:
+            | {
+                [key in Permission]: boolean;
+              }
+            | Record<string, never>;
+        };
+      }
+    | Record<string, never>;
+};
+
 export type MemberRole =
   | "readonly"
   | "collaborator"
@@ -68,7 +93,7 @@ export interface ExpandedMember extends Member {
   email: string;
   name: string;
   verified: boolean;
-  userPermissions: any;
+  userPermissions: UserPermissions;
 }
 
 export interface NorthStarMetric {

@@ -1,11 +1,14 @@
-import { Permission } from "back-end/types/organization";
+import { Permission, UserPermissions } from "back-end/types/organization";
 
 export function hasPermission(
-  userPermissions: any,
+  userPermissions: UserPermissions | undefined,
   permission: Permission,
   project?: string | undefined,
   envs?: string[]
 ): boolean {
+  if (!userPermissions) {
+    return false;
+  }
   const globalPermissions = userPermissions.global;
   const projectPermissions = userPermissions.projects;
 
@@ -17,7 +20,7 @@ export function hasPermission(
       if (!globalPermissions.limitAccessByEnvironment) {
         return true;
       } else if (
-        globalPermissions.environments.some((e: any) => envs.includes(e))
+        globalPermissions.environments.some((e: string) => envs.includes(e))
       ) {
         return true;
       }
@@ -34,7 +37,7 @@ export function hasPermission(
         if (!projectToCheck.limitAccessByEnvironment) {
           return true;
         } else if (
-          projectToCheck.environments.some((e: any) => envs.includes(e))
+          projectToCheck.environments.some((e: string) => envs.includes(e))
         ) {
           return true;
         }
@@ -42,5 +45,4 @@ export function hasPermission(
     }
   }
   return false;
-  return true;
 }

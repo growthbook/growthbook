@@ -87,8 +87,7 @@ export interface UserContextValue {
   getUserDisplay: (id: string, fallback?: boolean) => string;
   updateUser: () => Promise<void>;
   refreshOrganization: () => Promise<void>;
-  // permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
-  permissions: any;
+  permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
   settings: OrganizationSettings;
   enterpriseSSO?: SSOConnectionInterface;
   accountPlan?: AccountPlan;
@@ -198,7 +197,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   let user = users.get(data?.userId);
-  console.log("user", user);
   if (!user && data) {
     user = {
       email: data.email,
@@ -209,7 +207,14 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       name: data.userName,
       role: data.admin ? "admin" : "readonly",
       projectRoles: [],
-      userPermissions: {},
+      userPermissions: {
+        global: {
+          environments: [],
+          limitAccessByEnvironment: false,
+          permissions: {},
+        },
+        projects: {},
+      },
     };
   }
   const role =
@@ -300,8 +305,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     return new Set(currentOrg?.commercialFeatures || []);
   }, [currentOrg?.commercialFeatures]);
 
-  const handlePermissionCheck = useCallback(
-    (permission, project, env): boolean => {
+  const permissionsCheck = useCallback(
+    (permission: Permission, project?: string, env?: string[]): boolean => {
       return hasPermission(user?.userPermissions, permission, project, env);
     },
     [user]
@@ -329,8 +334,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         roles: currentOrg?.roles || [],
         permissions: {
           ...permissionsObj,
-          check: (permission, project, env) =>
-            handlePermissionCheck(permission, project, env),
+          check: permissionsCheck,
         },
         settings: currentOrg?.organization?.settings || {},
         license: data?.license,

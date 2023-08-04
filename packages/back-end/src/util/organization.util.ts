@@ -1,10 +1,12 @@
 import {
-  Member,
+  ExpandedMember,
   MemberRole,
   MemberRoleInfo,
   OrganizationInterface,
   Permission,
+  ProjectMemberRole,
   Role,
+  UserPermissions,
 } from "../../types/organization";
 
 export const ENV_SCOPED_PERMISSIONS = [
@@ -51,10 +53,13 @@ export const ALL_PERMISSIONS = [
   ...ENV_SCOPED_PERMISSIONS,
 ];
 
-export function getUserPermissions(user: any, org: OrganizationInterface) {
+export function getUserPermissions(
+  user: ExpandedMember,
+  org: OrganizationInterface
+) {
   const roles = getRoles(org);
   const globalRolePermissions = roles.find((r) => r.id === user.role);
-  const userPermissions: any = {};
+  const userPermissions = <UserPermissions>{};
 
   userPermissions.global = {
     environments: user.environments || [],
@@ -70,7 +75,7 @@ export function getUserPermissions(user: any, org: OrganizationInterface) {
 
   userPermissions.projects = {};
 
-  user.projectRoles.forEach((projectRole: any) => {
+  user.projectRoles?.forEach((projectRole: ProjectMemberRole) => {
     const projectRolePermissions = roles.find((r) => r.id === projectRole.role);
     userPermissions.projects[projectRole.project] = {
       limitAccessByEnvironment: projectRole.limitAccessByEnvironment || false,
