@@ -5,7 +5,8 @@ import {
   FeatureValueType,
 } from "back-end/types/feature";
 import dJSON from "dirty-json";
-import { ReactElement, useState } from "react";
+import React, { ReactElement, useState } from "react";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -153,7 +154,7 @@ export default function FeatureModal({
     featureToDuplicate?.description?.length > 0
   );
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
@@ -170,6 +171,12 @@ export default function FeatureModal({
     disabledMessage =
       "You don't have permission to create feature flag drafts.";
   }
+
+  // We want to show a warning when someone tries to create a feature under the demo project
+  const isCreatingForDemoProject = isDemoDatasourceProject({
+    projectId: project || "",
+    organizationId: orgId || "",
+  });
 
   return (
     <Modal
@@ -226,6 +233,12 @@ export default function FeatureModal({
         await onSuccess(res.feature);
       })}
     >
+      {isCreatingForDemoProject && (
+        <div className="alert alert-warning">
+          You are creating a feature under the demo datasource project.
+        </div>
+      )}
+
       <FeatureKeyField keyField={form.register("id")} />
 
       {showTags ? (
@@ -289,9 +302,9 @@ export default function FeatureModal({
         }}
       />
 
-      {/* 
-          We hide rule configuration when duplicating a feature since the 
-          decision of which rule to display (out of potentially many) in the 
+      {/*
+          We hide rule configuration when duplicating a feature since the
+          decision of which rule to display (out of potentially many) in the
           modal is not deterministic.
       */}
       {!featureToDuplicate && (
