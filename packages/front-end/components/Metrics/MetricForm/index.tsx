@@ -12,6 +12,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
 } from "shared/constants";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -280,7 +281,7 @@ const MetricForm: FC<MetricFormProps> = ({
     },
   });
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
 
   const type = form.watch("type");
 
@@ -306,6 +307,18 @@ const MetricForm: FC<MetricFormProps> = ({
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
   };
+
+  // We want to show a warning when someone tries to create a metric for just the demo project
+  const isExclusivelyForDemoDatasourceProject = useMemo(() => {
+    const projects = value.projects || [];
+
+    if (projects.length !== 1) return false;
+
+    return isDemoDatasourceProject({
+      projectId: projects[0],
+      organizationId: orgId || "",
+    });
+  }, [orgId, value.projects]);
 
   const denominatorOptions = useMemo(() => {
     return metrics
@@ -547,6 +560,11 @@ const MetricForm: FC<MetricFormProps> = ({
             }
           }}
         >
+          {isExclusivelyForDemoDatasourceProject && (
+            <div className="alert alert-warning">
+              You are creating a metric under the demo datasource project.
+            </div>
+          )}
           <div className="form-group">
             <label>Metric Name</label>
             <input
