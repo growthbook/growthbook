@@ -57,8 +57,8 @@ export function getUserPermissions(user: any, org: OrganizationInterface) {
   const userPermissions: any = {};
 
   userPermissions.global = {
-    environments: user.role.environments || [],
-    limitAccessByEnvironment: user.role.limitAccessByEnvironment || false,
+    environments: user.environments || [],
+    limitAccessByEnvironment: user.limitAccessByEnvironment || false,
     permissions: {},
   };
 

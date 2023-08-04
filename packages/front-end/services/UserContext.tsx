@@ -25,6 +25,7 @@ import {
 } from "react";
 import * as Sentry from "@sentry/react";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
+import { hasPermission } from "shared/permissions";
 import { isCloud, isSentryEnabled } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
@@ -86,7 +87,8 @@ export interface UserContextValue {
   getUserDisplay: (id: string, fallback?: boolean) => string;
   updateUser: () => Promise<void>;
   refreshOrganization: () => Promise<void>;
-  permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
+  // permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
+  permissions: any;
   settings: OrganizationSettings;
   enterpriseSSO?: SSOConnectionInterface;
   accountPlan?: AccountPlan;
@@ -298,49 +300,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     return new Set(currentOrg?.commercialFeatures || []);
   }, [currentOrg?.commercialFeatures]);
 
-  const permissionsCheck = useCallback(
-    (
-      permission: Permission,
-      project?: string | undefined,
-      envs?: string[]
-    ): boolean => {
-      const globalPermissions = user?.userPermissions.global;
-      const projectPermissions = user?.userPermissions.projects;
-
-      // We first need to check the global permissions and if the user has the global permission, return;
-      if (globalPermissions.permissions[permission]) {
-        if (!envs) {
-          return true;
-        } else {
-          if (!globalPermissions.limitAccessByEnvironment) {
-            return true;
-          } else if (
-            globalPermissions.environments.some((e) => envs.includes(e))
-          ) {
-            return true;
-          }
-        }
-      }
-
-      // If the user doesn't have permission from their global role & a project was passed in, check that project
-      if (project) {
-        const projectToCheck = projectPermissions[project];
-        console.log("projectToCheck", projectToCheck);
-        if (projectToCheck && projectToCheck.permissions[permission]) {
-          if (!envs) {
-            return true;
-          } else {
-            if (!projectToCheck.limitAccessByEnvironment) {
-              return true;
-            } else if (
-              projectToCheck.environments.some((e) => envs.includes(e))
-            ) {
-              return true;
-            }
-          }
-        }
-      }
-      return false;
+  const handlePermissionCheck = useCallback(
+    (permission, project, env): boolean => {
+      return hasPermission(user?.userPermissions, permission, project, env);
     },
     [user]
   );
@@ -367,7 +329,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         roles: currentOrg?.roles || [],
         permissions: {
           ...permissionsObj,
-          check: permissionsCheck,
+          check: (permission, project, env) =>
+            handlePermissionCheck(permission, project, env),
         },
         settings: currentOrg?.organization?.settings || {},
         license: data?.license,

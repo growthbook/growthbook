@@ -1,13 +1,10 @@
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "enterprise";
+import { hasPermission } from "shared/permissions";
 import { IS_CLOUD } from "../../util/secrets";
 import { AuthRequest } from "../../types/AuthRequest";
 import { markUserAsVerified, UserModel } from "../../models/UserModel";
-import {
-  getOrganizationById,
-  getRole,
-  validateLoginMethod,
-} from "../organizations";
+import { getOrganizationById, validateLoginMethod } from "../organizations";
 import { Permission } from "../../../types/organization";
 import { UserInterface } from "../../../types/user";
 import { AuditInterface } from "../../../types/audit";
@@ -20,7 +17,7 @@ import {
   RefreshTokenCookie,
   SSOConnectionIdCookie,
 } from "../../util/cookie";
-import { getPermissionsByRole } from "../../util/organization.util";
+import { getUserPermissions } from "../../util/organization.util";
 import {
   EventAuditUserForResponseLocals,
   EventAuditUserLoggedIn,
@@ -76,7 +73,7 @@ export async function processJWT(
   req.name = name || "";
   req.verified = verified || false;
 
-  const hasPermission = (
+  const userHasPermission = (
     permission: Permission,
     project?: string,
     envs?: string[]
@@ -85,33 +82,15 @@ export async function processJWT(
       return false;
     }
 
-    // Get the role based on the project (if specified)
-    const projectRole = getRole(req.organization, req.userId, project);
-
-    // Admin role always has permission
-    if (req.admin || projectRole.role === "admin") return true;
-
-    const permissions = getPermissionsByRole(
-      projectRole.role,
-      req.organization
+    const memberInfo = req.organization.members.find(
+      (m) => m.id === req.userId
     );
 
-    // Missing permission
-    if (!permissions.includes(permission)) {
-      return false;
-    }
+    // Generate full list of permissions for the user
+    const userPermissions = getUserPermissions(memberInfo, req.organization);
 
-    // If it's an environment-scoped permission and the user's role has limited access
-    if (envs && projectRole.limitAccessByEnvironment) {
-      for (let i = 0; i < envs.length; i++) {
-        if (!projectRole.environments.includes(envs[i])) {
-          return false;
-        }
-      }
-    }
-
-    // If it got through all the above checks, the user has permission
-    return true;
+    // Check if the user has the permission
+    return hasPermission(userPermissions, permission, project, envs);
   };
 
   // Throw error if permissions don't pass
@@ -127,7 +106,7 @@ export async function processJWT(
       checkProjects = [project];
     }
     for (const p of checkProjects) {
-      if (!hasPermission(permission, p, envs ? [...envs] : undefined)) {
+      if (!userHasPermission(permission, p, envs ? [...envs] : undefined)) {
         throw new Error("You do not have permission to complete that action.");
       }
     }
