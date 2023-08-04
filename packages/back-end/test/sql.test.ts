@@ -37,15 +37,18 @@ describe("backend", () => {
         endDate,
       });
     }).toThrowError(
-      "Unknown helper: unknownFunc. See https://github.com/helpers/handlebars-helpers for available helpers."
+      "Unknown helper: unknownFunc. Available helpers: camelcase, dotcase, kebabcase, lowercase, pascalcase, uppercase, date"
     );
 
     expect(
-      compileSqlTemplate(`SELECT {{date startDate "YYYY"}} as year`, {
-        startDate,
-        endDate,
-      })
-    ).toEqual("SELECT 2021 as year");
+      compileSqlTemplate(
+        `SELECT {{date startDate "hh"}} as hour, {{date startDate "z"}} as tz`,
+        {
+          startDate,
+          endDate,
+        }
+      )
+    ).toEqual("SELECT 10 as hour, UTC as tz");
 
     expect(
       compileSqlTemplate(

@@ -1,12 +1,10 @@
 import { format as sqlFormat, FormatOptions } from "sql-formatter";
 import Handlebars from "handlebars";
-import helpers from "handlebars-helpers";
+import { helpers } from "./handlebarsHelpers";
 
-const hbHelpers = helpers();
-
-// Register all the helpers from handlebars-helpers
-Object.keys(hbHelpers).forEach((helperName) => {
-  Handlebars.registerHelper(helperName, hbHelpers[helperName]);
+// Register all the helpers from handlebarsHelpers
+Object.keys(helpers).forEach((helperName) => {
+  Handlebars.registerHelper(helperName, helpers[helperName]);
 });
 
 function getBaseIdType(objects: string[][], forcedBaseIdType?: string) {
@@ -109,7 +107,7 @@ export function compileSqlTemplate(
     const template = Handlebars.compile(sql, {
       strict: true,
       noEscape: true,
-      knownHelpers: Object.keys(hbHelpers).reduce((acc, helperName) => {
+      knownHelpers: Object.keys(helpers).reduce((acc, helperName) => {
         acc[helperName] = true;
         return acc;
       }, {} as Record<string, true>),
@@ -128,7 +126,9 @@ export function compileSqlTemplate(
     if (e.message.includes("unknown helper")) {
       const helperName = e.message.match(/unknown helper (\w*)/)[1];
       throw new Error(
-        `Unknown helper: ${helperName}. See https://github.com/helpers/handlebars-helpers for available helpers.`
+        `Unknown helper: ${helperName}. Available helpers: ${Object.keys(
+          helpers
+        ).join(", ")}`
       );
     }
     throw new Error(`Error compiling SQL template: ${e.message}`);
