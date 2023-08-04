@@ -82,12 +82,8 @@ export async function processJWT(
       return false;
     }
 
-    const memberInfo = req.organization.members.find(
-      (m) => m.id === req.userId
-    );
-
     // Generate full list of permissions for the user
-    const userPermissions = getUserPermissions(memberInfo, req.organization);
+    const userPermissions = getUserPermissions(req.userId, req.organization);
 
     // Check if the user has the permission
     return hasPermission(userPermissions, permission, project, envs);

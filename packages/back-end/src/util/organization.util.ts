@@ -1,5 +1,4 @@
 import {
-  ExpandedMember,
   MemberRole,
   MemberRoleInfo,
   OrganizationInterface,
@@ -53,17 +52,17 @@ export const ALL_PERMISSIONS = [
   ...ENV_SCOPED_PERMISSIONS,
 ];
 
-export function getUserPermissions(
-  user: ExpandedMember,
-  org: OrganizationInterface
-) {
+export function getUserPermissions(userId: string, org: OrganizationInterface) {
   const roles = getRoles(org);
-  const globalRolePermissions = roles.find((r) => r.id === user.role);
+
+  const memberInfo = org.members.find((m) => m.id === userId);
+
+  const globalRolePermissions = roles.find((r) => r.id === memberInfo?.role);
   const userPermissions = <UserPermissions>{};
 
   userPermissions.global = {
-    environments: user.environments || [],
-    limitAccessByEnvironment: user.limitAccessByEnvironment || false,
+    environments: memberInfo?.environments || [],
+    limitAccessByEnvironment: memberInfo?.limitAccessByEnvironment || false,
     permissions: {},
   };
 
@@ -75,7 +74,7 @@ export function getUserPermissions(
 
   userPermissions.projects = {};
 
-  user.projectRoles?.forEach((projectRole: ProjectMemberRole) => {
+  memberInfo?.projectRoles?.forEach((projectRole: ProjectMemberRole) => {
     const projectRolePermissions = roles.find((r) => r.id === projectRole.role);
     userPermissions.projects[projectRole.project] = {
       limitAccessByEnvironment: projectRole.limitAccessByEnvironment || false,

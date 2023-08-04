@@ -30,7 +30,7 @@ export function hasPermission(
   // If the user doesn't have permission from their global role & a project was passed in, check that project
   if (project) {
     const projectToCheck = projectPermissions[project];
-    if (projectToCheck && projectToCheck.permissions[permission]) {
+    if (projectToCheck?.permissions[permission]) {
       if (!envs) {
         return true;
       } else {

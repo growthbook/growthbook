@@ -601,17 +601,17 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   userInfo.forEach(({ id, email, verified, name, _id }) => {
     const memberInfo = members.find((m) => m.id === id);
     if (!memberInfo) return;
-    const expandedMember: ExpandedMember = {
+
+    const userPermissions = getUserPermissions(id, org);
+
+    return expandedMembers.push({
       email,
       verified,
       name: name || "",
       ...memberInfo,
       dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
-      userPermissions: [],
-    };
-    const userPermissions = getUserPermissions(expandedMember, org);
-    expandedMember.userPermissions = userPermissions;
-    return expandedMembers.push(expandedMember);
+      userPermissions,
+    });
   });
 
   return res.status(200).json({
