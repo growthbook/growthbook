@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
@@ -7,6 +7,7 @@ import {
 } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { getValidDate } from "shared/dates";
+import { isDemoDatasourceProject } from "shared/dist/demo-datasource";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -171,7 +172,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     : null;
   const supportsSQL = datasource?.properties?.queryLanguage === "sql";
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
 
   const onSubmit = form.handleSubmit(async (value) => {
     // Make sure there's an experiment name
@@ -229,6 +230,11 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const status = form.watch("status");
 
+  const isCreatingForDemoProject = isDemoDatasourceProject({
+    projectId: project || "",
+    organizationId: orgId || "",
+  });
+
   return (
     <PagedModal
       header={isNewExperiment ? "New Experiment" : "New Experiment Analysis"}
@@ -244,6 +250,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     >
       <Page display="Basic Info">
         {msg && <div className="alert alert-info">{msg}</div>}
+
+        {isCreatingForDemoProject && (
+          <div className="alert alert-warning">
+            You are creating an experiment under the demo datasource project.
+          </div>
+        )}
+
         <Field label="Name" required minLength={2} {...form.register("name")} />
         {!isImport && !fromFeature && datasource && !isNewExperiment && (
           <Field
