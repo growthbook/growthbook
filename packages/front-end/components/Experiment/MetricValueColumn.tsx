@@ -1,10 +1,20 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
-import { CSSProperties } from "react";
+import { CSSProperties, DetailedHTMLProps, HTMLAttributes } from "react";
 import { formatConversionRate } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 
 const numberFormatter = new Intl.NumberFormat();
+
+interface Props
+  extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
+  metric: MetricInterface;
+  stats: SnapshotMetric;
+  users: number;
+  className?: string;
+  style?: CSSProperties;
+  rowSpan?: number;
+}
 
 export default function MetricValueColumn({
   metric,
@@ -13,17 +23,11 @@ export default function MetricValueColumn({
   className,
   style,
   rowSpan,
-}: {
-  metric: MetricInterface;
-  stats: SnapshotMetric;
-  users: number;
-  className?: string;
-  style?: CSSProperties;
-  rowSpan?: number;
-}) {
+  ...otherProps
+}: Props) {
   const displayCurrency = useCurrency();
   return (
-    <td className={className} style={style} rowSpan={rowSpan}>
+    <td className={className} style={style} rowSpan={rowSpan} {...otherProps}>
       {metric && stats.users ? (
         <>
           <div className="result-number">

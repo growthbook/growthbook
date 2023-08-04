@@ -3,10 +3,11 @@ import React, {
   ReactElement,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
-import { FaQuestionCircle } from "react-icons/fa";
+import { FaArrowDown, FaArrowUp, FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
@@ -19,9 +20,11 @@ import {
   useTooltipInPortal,
 } from "@visx/tooltip";
 import { BsXCircle } from "react-icons/bs";
+import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import {
   ExperimentTableRow,
   getRowResults,
+  RowResults,
   useDomain,
 } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -110,16 +113,14 @@ export default function ResultsTable({
     const firstRowCells = tableContainerRef.current?.querySelectorAll(
       "#main-results thead tr:first-child th:not(.graphCell)"
     );
-    const expectedArrowsTextWidth = 0; // this is the approximate width of the text "↑ XX.X%" inside <AlignedGraph>
     let totalCellWidth = 0;
     if (firstRowCells) {
       for (let i = 0; i < firstRowCells.length; i++) {
-        const cell = firstRowCells[i];
-        totalCellWidth += cell.clientWidth;
+        totalCellWidth += firstRowCells[i].clientWidth;
       }
     }
     const graphWidth = tableWidth - totalCellWidth;
-    setGraphCellWidth(graphWidth - expectedArrowsTextWidth);
+    setGraphCellWidth(graphWidth);
   }
 
   useEffect(() => {
@@ -134,6 +135,66 @@ export default function ResultsTable({
   }, [showAdvanced]);
 
   const baselineRow = 0;
+
+  const rowsResults: (RowResults | null)[][] = useMemo(() => {
+    const rr: (RowResults | null)[][] = [];
+    rows.map((row, i) => {
+      rr.push([]);
+      const baseline = row.variations[baselineRow] || {
+        value: 0,
+        cr: 0,
+        users: 0,
+      };
+      variations.map((v, j) => {
+        let skipVariation = false; // todo: use filter
+        if (j === baselineRow) {
+          skipVariation = true;
+        }
+        if (skipVariation) {
+          rr[i].push(null);
+          return;
+        }
+        const stats = row.variations[j] || {
+          value: 0,
+          cr: 0,
+          users: 0,
+        };
+
+        const rowResults = getRowResults({
+          stats,
+          baseline,
+          metric: row.metric,
+          metricDefaults,
+          minSampleSize: getMinSampleSizeForMetric(row.metric),
+          statsEngine,
+          ciUpper,
+          ciLower,
+          pValueThreshold,
+          snapshotDate: getValidDate(dateCreated),
+          phaseStartDate: getValidDate(startDate),
+          isLatestPhase,
+          experimentStatus: status,
+          displayCurrency,
+        });
+        rr[i].push(rowResults);
+      });
+    });
+    return rr;
+  }, [
+    rows,
+    variations,
+    metricDefaults,
+    getMinSampleSizeForMetric,
+    statsEngine,
+    ciUpper,
+    ciLower,
+    pValueThreshold,
+    dateCreated,
+    startDate,
+    isLatestPhase,
+    status,
+    displayCurrency,
+  ]);
 
   // done: reconcile positive/negative change coloring with PValueColumn and ChanceToWinColumn (draw, etc)
 
@@ -152,12 +213,16 @@ export default function ResultsTable({
 
   // todo: StatusBanner?
 
-  const { showTooltip, hideTooltip, tooltipOpen } = useTooltip();
+  const {
+    showTooltip,
+    hideTooltip,
+    tooltipOpen,
+    tooltipData,
+  } = useTooltip<TooltipData>();
   const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
     detectBounds: false,
   });
-
   const [hoveredMetricRow, setHoveredMetricRow] = useState<number | null>(null);
   const [hoveredVariationRow, setHoveredVariationRow] = useState<number | null>(
     null
@@ -182,10 +247,11 @@ export default function ResultsTable({
     hoverTimeout && clearTimeout(hoverTimeout);
 
     const layoutX: TooltipHoverX = settings?.x ?? "mouse-left";
-    const target = event.target as HTMLElement;
+    const el = event.target as HTMLElement;
+    const target = (el.tagName === "td" ? el : el.closest("td")) ?? el;
 
     let targetTop: number = (target.getBoundingClientRect()?.top ?? 0) + 20;
-    if (targetTop > TOOLTIP_HEIGHT + 20) {
+    if (targetTop > TOOLTIP_HEIGHT + 80) {
       targetTop -= 30 + TOOLTIP_HEIGHT;
     }
 
@@ -205,9 +271,34 @@ export default function ResultsTable({
       setHoveredX(targetLeft - containerBounds.left);
       setHoveredY(targetTop - containerBounds.top);
     }
+
+    const row = rows[metricRow];
+    const baseline = row.variations[baselineRow] || {
+      value: 0,
+      cr: 0,
+      users: 0,
+    };
+    const stats = row.variations[variationRow] || {
+      value: 0,
+      cr: 0,
+      users: 0,
+    };
+    const tooltipData: TooltipData = {
+      metricRow: metricRow,
+      variationRow: variationRow,
+      metric: row.metric,
+      variation: variations[variationRow],
+      stats: stats,
+      baseline: baseline,
+      rowResults: rowsResults[metricRow][variationRow],
+      statsEngine,
+      pValueCorrection,
+      isGuardrail: metricsAsGuardrails,
+    };
     showTooltip({
       tooltipLeft: x ?? 0,
       tooltipTop: y ?? 0,
+      tooltipData: tooltipData,
     });
     setHoveredMetricRow(metricRow);
     setHoveredVariationRow(variationRow);
@@ -265,7 +356,7 @@ export default function ResultsTable({
             >
               <BsXCircle size={16} />
             </a>
-            <div>foo</div>
+            {getTooltipContents(tooltipData)}
           </div>
         </TooltipWithBounds>
       ) : null}
@@ -439,36 +530,15 @@ export default function ResultsTable({
                   </tr>
 
                   {variations.map((v, j) => {
-                    let skipVariation = false; // todo: use filter
-                    if (j === 0) {
-                      // baseline
-                      skipVariation = true;
-                    }
-                    if (skipVariation) {
-                      return null;
-                    }
                     const stats = row.variations[j] || {
                       value: 0,
                       cr: 0,
                       users: 0,
                     };
-
-                    const rowResults = getRowResults({
-                      stats,
-                      baseline,
-                      metric: row.metric,
-                      metricDefaults,
-                      minSampleSize: getMinSampleSizeForMetric(row.metric),
-                      statsEngine,
-                      ciUpper,
-                      ciLower,
-                      pValueThreshold,
-                      snapshotDate: getValidDate(dateCreated),
-                      phaseStartDate: getValidDate(startDate),
-                      isLatestPhase,
-                      experimentStatus: status,
-                      displayCurrency,
-                    });
+                    const rowResults = rowsResults?.[i]?.[j];
+                    if (!rowResults) {
+                      return null;
+                    }
                     const isHovered =
                       hoveredMetricRow === i && hoveredVariationRow === j;
                     const resultsHighlightClassname = clsx({
@@ -516,8 +586,8 @@ export default function ResultsTable({
                             metric={row.metric}
                             stats={baseline}
                             users={baseline?.users || 0}
-                            className="value variation control-col"
                             style={{ backgroundColor: "rgb(127 127 127 / 6%)" }}
+                            className="value variation control-col"
                             rowSpan={row.variations.length - 1}
                           />
                         ) : null}
@@ -526,7 +596,12 @@ export default function ResultsTable({
                             metric={row.metric}
                             stats={stats}
                             users={stats?.users || 0}
-                            className="value variation"
+                            className={clsx("value variation", {
+                              hover: isHovered,
+                            })}
+                            onPointerMove={onPointerMove}
+                            onPointerLeave={onPointerLeave}
+                            onClick={onPointerMove}
                           />
                         ) : null}
                         {j > 0 ? (
@@ -546,6 +621,7 @@ export default function ResultsTable({
                                 )}
                                 onPointerMove={onPointerMove}
                                 onPointerLeave={onPointerLeave}
+                                onClick={onPointerMove}
                               />
                             ) : (
                               <GuardrailResult
@@ -556,6 +632,7 @@ export default function ResultsTable({
                                 })}
                                 onPointerMove={onPointerMove}
                                 onPointerLeave={onPointerLeave}
+                                onClick={onPointerMove}
                               />
                             )
                           ) : !metricsAsGuardrails ? (
@@ -575,6 +652,7 @@ export default function ResultsTable({
                               )}
                               onPointerMove={onPointerMove}
                               onPointerLeave={onPointerLeave}
+                              onClick={onPointerMove}
                             />
                           ) : (
                             <PValueGuardrailResults
@@ -586,6 +664,7 @@ export default function ResultsTable({
                               })}
                               onPointerMove={onPointerMove}
                               onPointerLeave={onPointerLeave}
+                              onClick={onPointerMove}
                             />
                           )
                         ) : (
@@ -614,6 +693,7 @@ export default function ResultsTable({
                               }
                               onPointerLeave={onPointerLeave}
                               className={resultsHighlightClassname}
+                              onClick={onPointerMove}
                             />
                           ) : (
                             <AlignedGraph
@@ -639,6 +719,9 @@ export default function ResultsTable({
                               onPointerMove(e, { x: "mouse-right" })
                             }
                             onPointerLeave={onPointerLeave}
+                            onClick={(e) =>
+                              onPointerMove(e, { x: "mouse-right" })
+                            }
                           />
                         ) : (
                           <td></td>
@@ -723,6 +806,73 @@ function getPercentChangeTooltip(
     );
   }
   return <></>;
+}
+
+interface TooltipData {
+  metricRow: number;
+  variationRow: number;
+  metric: MetricInterface;
+  variation: ExperimentReportVariation;
+  stats: SnapshotMetric;
+  baseline: SnapshotMetric;
+  rowResults: RowResults;
+  statsEngine: StatsEngine;
+  pValueCorrection?: PValueCorrection;
+  isGuardrail: boolean;
+}
+function getTooltipContents(data: TooltipData) {
+  return (
+    <div className="px-2 py-1">
+      <div className="metric-label d-flex align-items-end">
+        <span className="h3 mb-0">{data.metric.name}</span>
+        <span className="text-muted ml-2">({data.metric.type})</span>
+      </div>
+
+      <div
+        className="variation-label mt-1 px-2 py-2 rounded"
+        style={{ backgroundColor: "rgba(127, 127, 127, 0.05)" }}
+      >
+        <div
+          className={`variation variation${data.variationRow} with-variation-label d-inline-flex align-items-center`}
+        >
+          <span className="label" style={{ width: 16, height: 16 }}>
+            {data.variationRow}
+          </span>
+          <span className="d-inline-block text-ellipsis font-weight-bold">
+            {data.variation.name}
+          </span>
+        </div>
+      </div>
+
+      <div
+        className={clsx(
+          "results-overview mt-3 px-2 py-2 rounded",
+          data.rowResults.resultsStatus
+        )}
+      >
+        <div
+          className={clsx(
+            "results-change d-flex",
+            data.rowResults.directionalStatus
+          )}
+        >
+          <div className="mr-1">% Change:</div>
+          <div>
+            <span className="expectedArrows">
+              {data.rowResults.directionalStatus === "winning" ? (
+                <FaArrowUp />
+              ) : (
+                <FaArrowDown />
+              )}
+            </span>{" "}
+            <span className="expected bold">
+              {parseFloat(((data.stats.expected ?? 0) * 100).toFixed(1)) + "%"}{" "}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function getPValueTooltip(
