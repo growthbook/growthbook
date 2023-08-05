@@ -42,6 +42,7 @@ export default function TagsModal({
     <Modal
       open={true}
       close={close}
+      cta={existing?.id ? "Save Changes" : "Create Tag"}
       header={existing?.id ? `Edit Tag: ${existing.id}` : "Create Tag"}
       submit={form.handleSubmit(async (value) => {
         await apiCall(`/tag`, {

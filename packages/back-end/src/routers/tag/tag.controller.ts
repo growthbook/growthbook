@@ -51,7 +51,7 @@ type DeleteTagResponse = {
 };
 
 /**
- * DELETE /tag/:id
+ * DELETE /tag/
  * Delete one tag resource by ID
  * @param req
  * @param res
@@ -66,13 +66,13 @@ export const deleteTag = async (
   req.checkPermissions("manageTags");
 
   const { org } = getOrgFromReq(req);
-  const { id } = req.params;
+  const { id } = req.body;
 
   // experiments
   await removeTagFromExperiments({
     organization: org,
     user: res.locals.eventAudit,
-    tag: decodeURIComponent(id),
+    tag: id,
   });
 
   // metrics

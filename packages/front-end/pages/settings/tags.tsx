@@ -99,8 +99,9 @@ const TagsPage: FC = () => {
                         className="tr-hover"
                         displayName="Tag"
                         onClick={async () => {
-                          await apiCall(`/tag/${encodeURIComponent(t.id)}`, {
+                          await apiCall(`/tag/`, {
                             method: "DELETE",
+                            body: JSON.stringify({ id: t.id }),
                           });
                           mutateDefinitions();
                         }}
