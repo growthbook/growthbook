@@ -54,13 +54,13 @@ interface Props
   left: number;
   top: number;
   data: TooltipData;
-  closeTooltip: () => void;
+  close: () => void;
 }
 export default function ResultsTableTooltip({
   left,
   top,
   data,
-  closeTooltip,
+  close,
   ...otherProps
 }: Props) {
   const displayCurrency = useCurrency();
@@ -95,7 +95,7 @@ export default function ResultsTableTooltip({
             right: 5,
           }}
           className="position-absolute text-link cursor-pointer"
-          onClick={closeTooltip}
+          onClick={close}
         >
           <BsXCircle size={16} />
         </a>

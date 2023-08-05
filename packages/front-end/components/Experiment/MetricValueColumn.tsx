@@ -1,13 +1,16 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
-import { CSSProperties, DetailedHTMLProps, HTMLAttributes } from "react";
+import { CSSProperties, DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { formatConversionRate } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 
 const numberFormatter = new Intl.NumberFormat();
 
 interface Props
-  extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
+  extends DetailedHTMLProps<
+    TdHTMLAttributes<HTMLTableCellElement>,
+    HTMLTableCellElement
+  > {
   metric: MetricInterface;
   stats: SnapshotMetric;
   users: number;

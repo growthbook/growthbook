@@ -74,7 +74,7 @@ export default function ResultsTable({
   isLatestPhase,
   status,
   rows,
-  metricsAsGuardrails,
+  metricsAsGuardrails = false,
   tableRowAxis,
   labelHeader,
   editMetrics,
@@ -277,19 +277,24 @@ export default function ResultsTable({
       cr: 0,
       users: 0,
     };
+    const metric = row.metric;
+    const variation = variations[variationRow];
+    const baselineVariation = variations[baselineRow];
+    const rowResults = rowsResults[metricRow][variationRow];
+    if (!rowResults) return;
     const tooltipData: TooltipData = {
-      metricRow: metricRow,
-      variationRow: variationRow,
-      metric: row.metric,
-      variation: variations[variationRow],
-      stats: stats,
-      baseline: baseline,
-      baselineVariation: variations[baselineRow],
+      metricRow,
+      variationRow,
+      metric,
+      variation,
+      stats,
+      baseline,
+      baselineVariation,
       baselineRow,
-      rowResults: rowsResults[metricRow][variationRow],
+      rowResults,
       statsEngine,
       pValueCorrection,
-      isGuardrail: metricsAsGuardrails,
+      isGuardrail: !!metricsAsGuardrails,
     };
     showTooltip({
       tooltipLeft: x ?? 0,
@@ -326,13 +331,14 @@ export default function ResultsTable({
   return (
     <div className="position-relative" ref={containerRef}>
       {tooltipOpen &&
-      hoveredMetricRow !== undefined &&
-      hoveredVariationRow !== undefined ? (
+        tooltipData &&
+        hoveredMetricRow !== undefined &&
+        hoveredVariationRow !== undefined ? (
         <ResultsTableTooltip
           left={hoveredX ?? 0}
           top={hoveredY ?? 0}
           data={tooltipData}
-          close={closeTooltip}
+          close={() => closeTooltip()}
           onPointerMove={(e) =>
             hoverRow(hoveredMetricRow ?? 0, hoveredVariationRow ?? 0, e)
           }
