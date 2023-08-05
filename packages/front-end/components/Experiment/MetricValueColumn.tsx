@@ -14,6 +14,7 @@ interface Props
   className?: string;
   style?: CSSProperties;
   rowSpan?: number;
+  showRatio?: boolean;
 }
 
 export default function MetricValueColumn({
@@ -23,6 +24,7 @@ export default function MetricValueColumn({
   className,
   style,
   rowSpan,
+  showRatio = true,
   ...otherProps
 }: Props) {
   const displayCurrency = useCurrency();
@@ -33,33 +35,35 @@ export default function MetricValueColumn({
           <div className="result-number">
             {formatConversionRate(metric?.type, stats.cr, displayCurrency)}
           </div>
-          <div className="result-number-sub">
-            <small className="text-muted">
-              <em
-                style={{
-                  display: "inline-block",
-                  lineHeight: "1.3em",
-                  marginTop: "0.2em",
-                }}
-              >
-                <span
+          {showRatio ? (
+            <div className="result-number-sub">
+              <small className="text-muted">
+                <em
                   style={{
-                    whiteSpace: "nowrap",
+                    display: "inline-block",
+                    lineHeight: "1.3em",
+                    marginTop: "0.2em",
                   }}
                 >
-                  {formatConversionRate(
-                    metric.type === "binomial" ? "count" : metric.type,
-                    stats.value,
-                    displayCurrency
+                  <span
+                    style={{
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {formatConversionRate(
+                      metric.type === "binomial" ? "count" : metric.type,
+                      stats.value,
+                      displayCurrency
+                    )}
+                  </span>{" "}
+                  /&nbsp;
+                  {numberFormatter.format(
+                    stats.denominator || stats.users || users
                   )}
-                </span>{" "}
-                /&nbsp;
-                {numberFormatter.format(
-                  stats.denominator || stats.users || users
-                )}
-              </em>
-            </small>
-          </div>
+                </em>
+              </small>
+            </div>
+          ) : null}
         </>
       ) : (
         <em>no data</em>

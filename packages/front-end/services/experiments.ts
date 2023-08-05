@@ -532,7 +532,8 @@ export type RowResults = {
 export type RiskMeta = {
   riskStatus: "ok" | "warning" | "danger";
   showRisk: boolean;
-  riskReason: string;
+  riskFormatted: string;
+  relativeRiskFormatted: string;
 };
 export type EnoughDataMeta = {
   percentComplete: number;
@@ -587,7 +588,10 @@ export function getRowResults({
       : isStatSig(stats.pValueAdjusted ?? stats.pValue ?? 1, pValueThreshold);
 
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
-  const percentComplete = Math.max(stats.value, baseline.value) / minSampleSize;
+  const percentComplete =
+    minSampleSize > 0
+      ? Math.max(stats.value, baseline.value) / minSampleSize
+      : 1;
   const timeRemainingMs =
     percentComplete > 0.1
       ? ((snapshotDate.getTime() - getValidDate(phaseStartDate).getTime()) *
@@ -638,18 +642,19 @@ export function getRowResults({
   } else if (relativeRisk >= loseRiskThreshold) {
     riskStatus = "danger";
   }
-  let riskReason = "";
+  let riskFormatted = "";
   if (metric.type !== "binomial") {
-    riskReason = `${formatConversionRate(
+    riskFormatted = `${formatConversionRate(
       metric.type,
       risk,
       displayCurrency
-    )}&nbsp;/&nbsp;user`;
+    )} / user`;
   }
   const riskMeta: RiskMeta = {
     riskStatus,
     showRisk,
-    riskReason,
+    riskFormatted: riskFormatted,
+    relativeRiskFormatted: percentFormatter.format(relativeRisk),
   };
 
   const _shouldHighlight = shouldHighlight({

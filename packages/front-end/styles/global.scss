@@ -226,12 +226,127 @@ pre {
   z-index: 100;
   pointer-events: all;
   transition: 100ms all;
-  //transform-origin: 50% 80%;
-  //transform: scale(1);
-  //&.closed {
-  //  transform: scale(0);
-  //  pointer-events: none;
-  //}
+
+  .opacity50 {
+    opacity: 0.5;
+  }
+
+  .results-overview {
+    background-color: #66666610;
+    .label {
+      color: var(--text-dark);
+    }
+
+    &.won {
+      background-color: #09ac171a;
+    }
+    &.lost {
+      background-color: #d940321a;
+    }
+    &.draw {
+      background-color: #8e51f11a;
+    }
+    .results-change {
+      &.winning {
+        .value {
+          color: #09ac17;
+        }
+      }
+      &.losing {
+        .value {
+          color: #d94032;
+        }
+      }
+    }
+    .results-chance {
+      &.won {
+        .value {
+          color: #09ac17;
+        }
+      }
+      &.lost {
+        .value {
+          color: #d94032;
+        }
+      }
+      &.draw {
+        .value {
+          color: #8e51f1;
+        }
+      }
+    }
+    .results-flagged-items {
+      .flagged-not-enough-data {
+        .main-text {
+          color: #17a2b8;
+        }
+        //background-color: #17a2b822;
+        border-color: #17a2b866 !important;
+      }
+      .time-remaining {
+        margin-left: 4px;
+        line-height: 10px;
+      }
+      .percent-complete {
+        margin-left: 4px;
+        line-height: 10px;
+      }
+      .ok {
+        color: #55ab5d88;
+        //background-color: #55ab5d22;
+        border-color: #55ab5d66 !important;
+      }
+      .warning {
+        color: #d99132;
+        //background-color: #d9913222;
+        border-color: #d9913266 !important;
+      }
+      .danger {
+        color: #d94032;
+        //background-color: #d9403222;
+        border-color: #d9403266 !important;
+      }
+      .non-significant {
+        font-weight: normal;
+      }
+      .suspicious {
+        color: #ef2bd5;
+        //background-color: #ef2bd522;
+        border-color: #ef2bd566 !important;
+      }
+    }
+  }
+  .results-table {
+    width: 100%;
+    thead {
+      text-align: center;
+    }
+    tr,
+    td {
+      padding-left: 0.35rem;
+      padding-right: 0.35rem;
+    }
+    thead {
+      td {
+        border-bottom: 1px solid var(--border-color-300);
+        color: var(--text-color-muted);
+        vertical-align: bottom !important;
+        line-height: 14px;
+      }
+    }
+    tbody {
+      td {
+        border-bottom: 1px solid var(--border-color-100);
+        &:not(:first-child) {
+          text-align: center;
+          border-left: 1px solid var(--border-color-100);
+        }
+      }
+      td:first-child {
+        max-width: 120px;
+      }
+    }
+  }
 }
 
 .experiment-results {
@@ -311,9 +426,6 @@ pre {
     cursor: pointer;
     transition: 100ms all;
     text-shadow: 0 1px 0 rgba(150, 150, 150, 0.75);
-    //background: rgb(127 127 180 / 7%);
-    //text-decoration: underline;
-    //* {text-decoration: underline;}
   }
   .guardrail,
   .chance {

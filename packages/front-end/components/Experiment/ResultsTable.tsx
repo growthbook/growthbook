@@ -7,20 +7,14 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { FaArrowDown, FaArrowUp, FaQuestionCircle } from "react-icons/fa";
+import { FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
-import {
-  TooltipWithBounds,
-  useTooltip,
-  useTooltipInPortal,
-} from "@visx/tooltip";
-import { BsXCircle } from "react-icons/bs";
-import { SnapshotMetric } from "back-end/types/experiment-snapshot";
+import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import {
   ExperimentTableRow,
   getRowResults,
@@ -37,19 +31,19 @@ import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResul
 import { useCurrency } from "@/hooks/useCurrency";
 import PValueColumn from "@/components/Experiment/PValueColumn";
 import PercentChangeColumn from "@/components/Experiment/PercentChangeColumn";
+import ResultsTableTooltip, {
+  TOOLTIP_HEIGHT,
+  TOOLTIP_TIMEOUT,
+  TOOLTIP_WIDTH,
+  TooltipData,
+  TooltipHoverSettings,
+  TooltipHoverX,
+} from "@/components/Experiment/ResultsTableTooltip";
 import Tooltip from "../Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
 import MetricValueColumn from "./MetricValueColumn";
 import PercentGraph from "./PercentGraph";
-
-const TOOLTIP_WIDTH = 400;
-const TOOLTIP_HEIGHT = 300;
-const TOOLTIP_TIMEOUT = 250;
-type TooltipHoverSettings = {
-  x: TooltipHoverX;
-};
-type TooltipHoverX = "mouse-left" | "mouse-right" | "element-center";
 
 export type ResultsTableProps = {
   id: string;
@@ -290,6 +284,8 @@ export default function ResultsTable({
       variation: variations[variationRow],
       stats: stats,
       baseline: baseline,
+      baselineVariation: variations[baselineRow],
+      baselineRow,
       rowResults: rowsResults[metricRow][variationRow],
       statsEngine,
       pValueCorrection,
@@ -332,33 +328,16 @@ export default function ResultsTable({
       {tooltipOpen &&
       hoveredMetricRow !== undefined &&
       hoveredVariationRow !== undefined ? (
-        <TooltipWithBounds
-          left={hoveredX ?? undefined}
-          top={hoveredY ?? undefined}
-          style={{ position: "absolute", zIndex: 900 }}
-        >
-          <div
-            className="experiment-row-tooltip"
-            style={{ width: TOOLTIP_WIDTH, height: TOOLTIP_HEIGHT }}
-            onPointerMove={(e) =>
-              hoverRow(hoveredMetricRow ?? 0, hoveredVariationRow ?? 0, e)
-            }
-            onPointerLeave={leaveRow}
-          >
-            <a
-              role="button"
-              style={{
-                top: 3,
-                right: 5,
-              }}
-              className="position-absolute text-link cursor-pointer"
-              onClick={closeTooltip}
-            >
-              <BsXCircle size={16} />
-            </a>
-            {getTooltipContents(tooltipData)}
-          </div>
-        </TooltipWithBounds>
+        <ResultsTableTooltip
+          left={hoveredX ?? 0}
+          top={hoveredY ?? 0}
+          data={tooltipData}
+          close={closeTooltip}
+          onPointerMove={(e) =>
+            hoverRow(hoveredMetricRow ?? 0, hoveredVariationRow ?? 0, e)
+          }
+          onPointerLeave={leaveRow}
+        />
       ) : null}
 
       <div
@@ -806,73 +785,6 @@ function getPercentChangeTooltip(
     );
   }
   return <></>;
-}
-
-interface TooltipData {
-  metricRow: number;
-  variationRow: number;
-  metric: MetricInterface;
-  variation: ExperimentReportVariation;
-  stats: SnapshotMetric;
-  baseline: SnapshotMetric;
-  rowResults: RowResults;
-  statsEngine: StatsEngine;
-  pValueCorrection?: PValueCorrection;
-  isGuardrail: boolean;
-}
-function getTooltipContents(data: TooltipData) {
-  return (
-    <div className="px-2 py-1">
-      <div className="metric-label d-flex align-items-end">
-        <span className="h3 mb-0">{data.metric.name}</span>
-        <span className="text-muted ml-2">({data.metric.type})</span>
-      </div>
-
-      <div
-        className="variation-label mt-1 px-2 py-2 rounded"
-        style={{ backgroundColor: "rgba(127, 127, 127, 0.05)" }}
-      >
-        <div
-          className={`variation variation${data.variationRow} with-variation-label d-inline-flex align-items-center`}
-        >
-          <span className="label" style={{ width: 16, height: 16 }}>
-            {data.variationRow}
-          </span>
-          <span className="d-inline-block text-ellipsis font-weight-bold">
-            {data.variation.name}
-          </span>
-        </div>
-      </div>
-
-      <div
-        className={clsx(
-          "results-overview mt-3 px-2 py-2 rounded",
-          data.rowResults.resultsStatus
-        )}
-      >
-        <div
-          className={clsx(
-            "results-change d-flex",
-            data.rowResults.directionalStatus
-          )}
-        >
-          <div className="mr-1">% Change:</div>
-          <div>
-            <span className="expectedArrows">
-              {data.rowResults.directionalStatus === "winning" ? (
-                <FaArrowUp />
-              ) : (
-                <FaArrowDown />
-              )}
-            </span>{" "}
-            <span className="expected bold">
-              {parseFloat(((data.stats.expected ?? 0) * 100).toFixed(1)) + "%"}{" "}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 }
 
 function getPValueTooltip(

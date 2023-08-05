@@ -19,17 +19,17 @@ export default function NotEnoughData({
   const denominator = rowResults.enoughDataMeta.percentCompleteDenominator;
 
   return (
-    <>
+    <div className="not-enough-data">
       <div>
         <div
-          className="text-gray font-weight-normal"
+          className="text-gray font-weight-normal main-text"
           style={{ fontSize: "11px", lineHeight: "14px" }}
         >
           not enough data
         </div>
       </div>
       {showTimeRemaining && rowResults.enoughDataMeta.showTimeRemaining && (
-        <small className="text-muted time-remaining">
+        <div className="small text-muted time-remaining">
           {(rowResults.enoughDataMeta.timeRemainingMs ?? 0) > 0 ? (
             <>
               <span className="nowrap">
@@ -43,10 +43,10 @@ export default function NotEnoughData({
           ) : (
             "try updating now"
           )}
-        </small>
+        </div>
       )}
       {showPercentComplete ? (
-        <small className="text-muted percent-complete">
+        <div className="small text-muted percent-complete">
           <span className="percent-complete-numerator">{numerator}</span>{" "}
           /&nbsp;
           <span className="percent-complete-denominator">{denominator}</span>
@@ -55,8 +55,8 @@ export default function NotEnoughData({
             {percentFormatter.format(rowResults.enoughDataMeta.percentComplete)}
             )
           </span>
-        </small>
+        </div>
       ) : null}
-    </>
+    </div>
   );
 }
