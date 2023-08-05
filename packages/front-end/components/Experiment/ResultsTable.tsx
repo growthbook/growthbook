@@ -37,7 +37,7 @@ import ResultsTableTooltip, {
   TOOLTIP_WIDTH,
   TooltipData,
   TooltipHoverSettings,
-  TooltipHoverX,
+  LayoutX,
 } from "@/components/Experiment/ResultsTableTooltip";
 import Tooltip from "../Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
@@ -224,6 +224,9 @@ export default function ResultsTable({
   const [hoveredX, setHoveredX] = useState<number | null>(null);
   const [hoveredY, setHoveredY] = useState<number | null>(null);
   const [hoverTimeout, setHoverTimeout] = useState<number | null>(null);
+  const resetTimeout = () => {
+    hoverTimeout && clearTimeout(hoverTimeout);
+  };
   const hoverRow = (
     metricRow: number,
     variationRow: number,
@@ -238,15 +241,28 @@ export default function ResultsTable({
       closeTooltip();
       return;
     }
-    hoverTimeout && clearTimeout(hoverTimeout);
 
-    const layoutX: TooltipHoverX = settings?.x ?? "mouse-left";
+    hoverTimeout && clearTimeout(hoverTimeout);
+    if (
+      hoveredMetricRow !== null &&
+      hoveredVariationRow !== null &&
+      hoveredMetricRow === metricRow &&
+      hoveredVariationRow === variationRow
+    ) {
+      // don't recompute tooltip if we're already hovering over the same row
+      return;
+    }
+
+    const layoutX: LayoutX = settings?.x ?? "mouse-left";
     const el = event.target as HTMLElement;
     const target = (el.tagName === "td" ? el : el.closest("td")) ?? el;
 
-    let targetTop: number = (target.getBoundingClientRect()?.top ?? 0) + 20;
+    let yAlign: "top" | "bottom" = "top";
+    let targetTop: number = (target.getBoundingClientRect()?.top ?? 0) + 28;
     if (targetTop > TOOLTIP_HEIGHT + 80) {
-      targetTop -= 30 + TOOLTIP_HEIGHT;
+      targetTop -= 24 + TOOLTIP_HEIGHT;
+      yAlign = "bottom";
+      console.log("use bottom");
     }
 
     const targetLeft: number =
@@ -259,8 +275,6 @@ export default function ResultsTable({
           TOOLTIP_WIDTH / 2
         : event.clientX - TOOLTIP_WIDTH - 10;
 
-    const x = hoveredX !== null ? hoveredX : targetLeft - containerBounds.left;
-    const y = hoveredY !== null ? hoveredY : targetTop - containerBounds.top;
     if (hoveredX === null || hoveredY === null) {
       setHoveredX(targetLeft - containerBounds.left);
       setHoveredY(targetTop - containerBounds.top);
@@ -295,10 +309,10 @@ export default function ResultsTable({
       statsEngine,
       pValueCorrection,
       isGuardrail: !!metricsAsGuardrails,
+      layoutX,
+      yAlign,
     };
     showTooltip({
-      tooltipLeft: x ?? 0,
-      tooltipTop: y ?? 0,
       tooltipData: tooltipData,
     });
     setHoveredMetricRow(metricRow);
@@ -331,17 +345,18 @@ export default function ResultsTable({
   return (
     <div className="position-relative" ref={containerRef}>
       {tooltipOpen &&
-        tooltipData &&
-        hoveredMetricRow !== undefined &&
-        hoveredVariationRow !== undefined ? (
+      tooltipData &&
+      hoveredX !== null &&
+      hoveredY !== null &&
+      hoveredMetricRow !== null &&
+      hoveredVariationRow !== null ? (
         <ResultsTableTooltip
-          left={hoveredX ?? 0}
-          top={hoveredY ?? 0}
+          left={hoveredX}
+          top={hoveredY}
           data={tooltipData}
           close={() => closeTooltip()}
-          onPointerMove={(e) =>
-            hoverRow(hoveredMetricRow ?? 0, hoveredVariationRow ?? 0, e)
-          }
+          onPointerMove={resetTimeout}
+          onClick={resetTimeout}
           onPointerLeave={leaveRow}
         />
       ) : null}
@@ -698,6 +713,7 @@ export default function ResultsTable({
                             metric={row.metric}
                             stats={stats}
                             rowResults={rowResults}
+                            statsEngine={statsEngine}
                             showCI={showAdvanced}
                             className={resultsHighlightClassname}
                             onPointerMove={(e) =>

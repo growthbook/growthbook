@@ -37,7 +37,6 @@ export default function PValueColumn({
   className,
   ...otherProps
 }: Props) {
-  // todo: move to snapshot property
   let pValText = (
     <>{stats?.pValue !== undefined ? pValueFormatter(stats.pValue) : ""}</>
   );

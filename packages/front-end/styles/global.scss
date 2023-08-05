@@ -231,6 +231,34 @@ pre {
     opacity: 0.5;
   }
 
+  .arrow {
+    position: absolute;
+    width: 60px;
+    height: 30px;
+    overflow: hidden;
+    transform: scaleX(0.75) translateX(-50%);
+    pointer-events: none;
+    &::after {
+      left: 20px;
+      content: "";
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 2px;
+      background-color: var(--surface-background-color-alt);
+      border: 1px solid var(--border-color-300);
+      box-sizing: border-box;
+      transform: rotate(45deg);
+      box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
+    }
+    &.top::after {
+      top: 25px;
+    }
+    &.bottom::after {
+      bottom: 25px;
+    }
+  }
+
   .results-overview {
     background-color: #66666610;
     .label {
@@ -246,6 +274,26 @@ pre {
     &.draw {
       background-color: #8e51f11a;
     }
+    .results-status {
+      top: 7px;
+      right: 6px;
+      border-radius: 20px;
+      padding: 2px 8px;
+      font-size: 14px;
+      font-weight: bold;
+      &.won {
+        background-color: #09ac17;
+        color: #fff;
+      }
+      &.lost {
+        background-color: #d94032;
+        color: #fff;
+      }
+      &.draw {
+        background-color: #8e51f1;
+        color: #fff;
+      }
+    }
     .results-change {
       &.winning {
         .value {
@@ -258,7 +306,8 @@ pre {
         }
       }
     }
-    .results-chance {
+    .results-chance,
+    .results-ci {
       &.won {
         .value {
           color: #09ac17;
@@ -321,13 +370,13 @@ pre {
     thead {
       text-align: center;
     }
-    tr,
-    td {
-      padding-left: 0.35rem;
-      padding-right: 0.35rem;
+    td,
+    th {
+      font-size: 11px;
+      padding: 0.15rem 0.35rem;
     }
     thead {
-      td {
+      th {
         border-bottom: 1px solid var(--border-color-300);
         color: var(--text-color-muted);
         vertical-align: bottom !important;

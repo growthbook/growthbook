@@ -4,15 +4,16 @@ import { ExperimentReportVariation } from "back-end/types/report";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { BsXCircle } from "react-icons/bs";
-import { TooltipWithBounds } from "@visx/tooltip";
 import clsx from "clsx";
 import {
   FaArrowDown,
   FaArrowUp,
   FaHourglassHalf,
+  FaInfoCircle,
   FaQuestionCircle,
 } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
+import { MdSwapCalls } from "react-icons/md";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import { pValueFormatter, RowResults } from "@/services/experiments";
 import { GBSuspicious } from "@/components/Icons";
@@ -20,14 +21,15 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import { formatConversionRate } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
+import { capitalizeFirstLetter } from "@/services/utils";
 
 export const TOOLTIP_WIDTH = 400;
-export const TOOLTIP_HEIGHT = 300;
+export const TOOLTIP_HEIGHT = 400;
 export const TOOLTIP_TIMEOUT = 250;
 export type TooltipHoverSettings = {
-  x: TooltipHoverX;
+  x: LayoutX;
 };
-export type TooltipHoverX = "mouse-left" | "mouse-right" | "element-center";
+export type LayoutX = "mouse-left" | "mouse-right" | "element-center";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -47,6 +49,8 @@ export interface TooltipData {
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   isGuardrail: boolean;
+  layoutX: LayoutX;
+  yAlign: "top" | "bottom";
 }
 
 interface Props
@@ -65,7 +69,6 @@ export default function ResultsTableTooltip({
 }: Props) {
   const displayCurrency = useCurrency();
 
-  const variations = [data.baselineVariation, data.variation];
   const rows = [data.baseline, data.stats];
 
   const flags = [
@@ -77,24 +80,83 @@ export default function ResultsTableTooltip({
   ];
   const hasFlaggedItems = flags.some((flag) => flag);
 
+  const metricInverseIconDisplay = data.metric.inverse ? (
+    <Tooltip
+      body="metric is inverse, lower is better"
+      className="inverse-indicator ml-1"
+      tipMinWidth={"180px"}
+    >
+      <MdSwapCalls />
+    </Tooltip>
+  ) : null;
+
+  let pValText = (
+    <>
+      {data.stats?.pValue !== undefined
+        ? pValueFormatter(data.stats.pValue)
+        : ""}
+    </>
+  );
+  if (data.stats?.pValueAdjusted !== undefined && data.pValueCorrection) {
+    pValText = (
+      <>
+        <div>
+          {data.stats?.pValueAdjusted
+            ? pValueFormatter(data.stats.pValueAdjusted)
+            : ""}
+        </div>
+        <div className="small text-muted">(unadj.:&nbsp;{pValText})</div>
+      </>
+    );
+  }
+
+  const arrowLeft =
+    data.layoutX === "mouse-left"
+      ? "10%"
+      : data.layoutX === "mouse-right"
+      ? "90%"
+      : "50%";
+
   return (
-    <TooltipWithBounds
-      left={left}
-      top={top}
-      style={{ position: "absolute", zIndex: 900 }}
+    <div
+      className="experiment-row-tooltip-wrapper"
+      style={{
+        position: "absolute",
+        zIndex: 900,
+        width: TOOLTIP_WIDTH,
+        height: TOOLTIP_HEIGHT,
+        left: left,
+        top: top,
+      }}
     >
       <div
         className="experiment-row-tooltip"
-        style={{ width: TOOLTIP_WIDTH, height: TOOLTIP_HEIGHT }}
+        style={{
+          position: "absolute",
+          width: TOOLTIP_WIDTH,
+          top: data.yAlign === "top" ? 0 : "auto",
+          bottom: data.yAlign === "bottom" ? 0 : "auto",
+        }}
         {...otherProps}
       >
+        {data.yAlign === "top" ? (
+          <div
+            className="arrow top"
+            style={{ position: "absolute", top: -30, left: arrowLeft }}
+          />
+        ) : (
+          <div
+            className="arrow bottom"
+            style={{ position: "absolute", bottom: -30, left: arrowLeft }}
+          />
+        )}
         <a
           role="button"
           style={{
             top: 3,
             right: 5,
           }}
-          className="position-absolute text-link cursor-pointer"
+          className="position-absolute text-gray cursor-pointer"
           onClick={close}
         >
           <BsXCircle size={16} />
@@ -103,16 +165,18 @@ export default function ResultsTableTooltip({
         {/*tooltip contents*/}
         <div className="px-2 py-1">
           <div className="metric-label d-flex align-items-end">
-            <span className="h3 mb-0">{data.metric.name}</span>
+            <span className="h5 mb-0 text-dark">{data.metric.name}</span>
+            {metricInverseIconDisplay}
             <span className="text-muted ml-2">({data.metric.type})</span>
           </div>
 
           <div
-            className="variation-label mt-1 px-2 py-2 rounded"
-            style={{ backgroundColor: "rgba(127, 127, 127, 0.05)" }}
+            className="variation-label mt-2 d-flex justify-content-between"
+            style={{ gap: 8 }}
           >
             <div
               className={`variation variation${data.variationRow} with-variation-label d-inline-flex align-items-center`}
+              style={{ maxWidth: 300 }}
             >
               <span className="label" style={{ width: 16, height: 16 }}>
                 {data.variationRow}
@@ -121,28 +185,35 @@ export default function ResultsTableTooltip({
                 {data.variation.name}
               </span>
             </div>
-
-            <div className="justify-content-end d-flex align-items-center text-muted">
-              <div className="mr-2">baseline:</div>
-              <div
-                className={`variation variation${data.baselineRow} with-variation-label d-inline-flex align-items-center`}
-              >
-                <span className="label" style={{ width: 16, height: 16 }}>
-                  {data.baselineRow}
-                </span>
-                <span className="d-inline-block text-ellipsis font-weight-bold">
-                  {data.baselineVariation.name}
-                </span>
-              </div>
-            </div>
           </div>
 
           <div
             className={clsx(
-              "results-overview mt-3 px-3 py-2 rounded",
+              "results-overview mt-1 px-3 py-2 rounded position-relative",
               data.rowResults.resultsStatus
             )}
           >
+            {["won", "lost", "draw"].includes(data.rowResults.resultsStatus) ? (
+              <div
+                className={clsx(
+                  "results-status border position-absolute d-flex align-items-center",
+                  data.rowResults.resultsStatus
+                )}
+              >
+                <Tooltip
+                  body={data.rowResults.resultsReason}
+                  tipMinWidth={"250px"}
+                >
+                  <span style={{ marginRight: 14 }}>
+                    {capitalizeFirstLetter(data.rowResults.resultsStatus)}
+                  </span>
+                  <FaInfoCircle
+                    className="position-absolute"
+                    style={{ top: 4, right: 4 }}
+                  />
+                </Tooltip>
+              </div>
+            ) : null}
             <div
               className={clsx(
                 "results-change d-flex",
@@ -157,7 +228,9 @@ export default function ResultsTableTooltip({
                 })}
               >
                 <span className="expectedArrows">
-                  {data.rowResults.directionalStatus === "winning" ? (
+                  {data.rowResults.directionalStatus === "winning" ||
+                  (data.rowResults.directionalStatus === "losing" &&
+                    data.metric.inverse) ? (
                     <FaArrowUp />
                   ) : (
                     <FaArrowDown />
@@ -165,8 +238,44 @@ export default function ResultsTableTooltip({
                 </span>{" "}
                 <span className="expected bold">
                   {parseFloat(((data.stats.expected ?? 0) * 100).toFixed(1)) +
-                    "%"}{" "}
+                    "%"}
                 </span>
+                {data.statsEngine === "frequentist" ? (
+                  <span className="plusminus ml-1">
+                    {"±" +
+                      parseFloat(
+                        (
+                          Math.abs(
+                            (data.stats.expected ?? 0) -
+                              (data.stats.ci?.[0] ?? 0)
+                          ) * 100
+                        ).toFixed(1)
+                      ) +
+                      "%"}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+
+            <div
+              className={clsx(
+                "results-ci d-flex mt-1",
+                data.rowResults.resultsStatus
+              )}
+            >
+              <div className="label mr-2">
+                {data.statsEngine === "bayesian"
+                  ? "95% Credible Interval:"
+                  : "95% Confidence Interval:"}
+              </div>
+              <div
+                className={clsx("value nowrap", {
+                  "font-weight-bold": data.rowResults.enoughData,
+                  opacity50: !data.rowResults.enoughData,
+                })}
+              >
+                [{percentFormatter.format(data.stats.ci?.[0] ?? 0)},{" "}
+                {percentFormatter.format(data.stats.ci?.[1] ?? 0)}]
               </div>
             </div>
 
@@ -189,7 +298,7 @@ export default function ResultsTableTooltip({
               >
                 {data.statsEngine === "bayesian"
                   ? percentFormatter.format(data.stats.chanceToWin ?? 0)
-                  : pValueFormatter(data.stats.pValue ?? 1)}
+                  : pValText}
               </div>
             </div>
 
@@ -257,25 +366,41 @@ export default function ResultsTableTooltip({
             ) : null}
           </div>
 
-          <div className="mt-3 results">
+          <div className="mt-3 mb-2 results">
             <table className="table-condensed results-table">
               <thead>
                 <tr>
-                  <td>Variation</td>
-                  <td>Users</td>
-                  <td>Value</td>
-                  <td>Total</td>
+                  <th style={{ width: 130 }}>Variation</th>
+                  <th>Users</th>
+                  <th>Value</th>
+                  <th>Total</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.map((row, i) => {
+                  const rowNumber =
+                    i === 0 ? data.baselineRow : data.variationRow;
+                  const rowName =
+                    i === 0 ? data.baselineVariation.name : data.variation.name;
                   return (
                     <tr key={i}>
-                      <td
-                        className="text-ellipsis"
-                        style={{ maxWidth: "80px" }}
-                      >
-                        {variations[i].name}
+                      <td style={{ width: 130 }}>
+                        <div
+                          className={`variation variation${rowNumber} with-variation-label d-inline-flex align-items-center`}
+                        >
+                          <span
+                            className="label"
+                            style={{ width: 16, height: 16 }}
+                          >
+                            {rowNumber}
+                          </span>
+                          <span
+                            className="d-inline-block text-ellipsis"
+                            style={{ width: 90 }}
+                          >
+                            {rowName}
+                          </span>
+                        </div>
                       </td>
                       <td>{row.users}</td>
                       <MetricValueColumn
@@ -301,6 +426,6 @@ export default function ResultsTableTooltip({
           </div>
         </div>
       </div>
-    </TooltipWithBounds>
+    </div>
   );
 }
