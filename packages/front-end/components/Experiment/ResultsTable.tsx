@@ -7,6 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { CSSTransition } from "react-transition-group";
 import { FaQuestionCircle } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
@@ -262,7 +263,6 @@ export default function ResultsTable({
     if (targetTop > TOOLTIP_HEIGHT + 80) {
       targetTop -= 24 + TOOLTIP_HEIGHT;
       yAlign = "bottom";
-      console.log("use bottom");
     }
 
     const targetLeft: number =
@@ -344,22 +344,29 @@ export default function ResultsTable({
 
   return (
     <div className="position-relative" ref={containerRef}>
-      {tooltipOpen &&
-      tooltipData &&
-      hoveredX !== null &&
-      hoveredY !== null &&
-      hoveredMetricRow !== null &&
-      hoveredVariationRow !== null ? (
+      <CSSTransition
+        key={`${hoveredMetricRow}-${hoveredVariationRow}`}
+        in={
+          tooltipOpen &&
+          tooltipData &&
+          hoveredX !== null &&
+          hoveredY !== null &&
+          hoveredMetricRow !== null &&
+          hoveredVariationRow !== null
+        }
+        classNames="tooltip-animate"
+        appear={true}
+      >
         <ResultsTableTooltip
-          left={hoveredX}
-          top={hoveredY}
+          left={hoveredX ?? 0}
+          top={hoveredY ?? 0}
           data={tooltipData}
           close={() => closeTooltip()}
           onPointerMove={resetTimeout}
           onClick={resetTimeout}
           onPointerLeave={leaveRow}
         />
-      ) : null}
+      </CSSTransition>
 
       <div
         ref={tableContainerRef}
@@ -688,12 +695,19 @@ export default function ResultsTable({
                               newUi={true}
                               rowResults={rowResults}
                               isHovered={isHovered}
-                              onPointerMove={(e) =>
-                                onPointerMove(e, { x: "element-center" })
+                              onPointerMove={
+                                rowResults.enoughData
+                                  ? (e) =>
+                                      onPointerMove(e, { x: "element-center" })
+                                  : null
                               }
-                              onPointerLeave={onPointerLeave}
+                              onPointerLeave={
+                                rowResults.enoughData ? onPointerLeave : null
+                              }
+                              onClick={
+                                rowResults.enoughData ? onPointerMove : null
+                              }
                               className={resultsHighlightClassname}
-                              onClick={onPointerMove}
                             />
                           ) : (
                             <AlignedGraph
@@ -716,12 +730,18 @@ export default function ResultsTable({
                             statsEngine={statsEngine}
                             showCI={showAdvanced}
                             className={resultsHighlightClassname}
-                            onPointerMove={(e) =>
-                              onPointerMove(e, { x: "mouse-right" })
+                            onPointerMove={
+                              rowResults.enoughData
+                                ? (e) => onPointerMove(e, { x: "mouse-right" })
+                                : null
                             }
-                            onPointerLeave={onPointerLeave}
-                            onClick={(e) =>
-                              onPointerMove(e, { x: "mouse-right" })
+                            onPointerLeave={
+                              rowResults.enoughData ? onPointerLeave : null
+                            }
+                            onClick={
+                              rowResults.enoughData
+                                ? (e) => onPointerMove(e, { x: "mouse-right" })
+                                : null
                             }
                           />
                         ) : (

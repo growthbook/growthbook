@@ -69,6 +69,10 @@ export default function ResultsTableTooltip({
 }: Props) {
   const displayCurrency = useCurrency();
 
+  if (!data) {
+    return null;
+  }
+
   const rows = [data.baseline, data.stats];
 
   const flags = [
@@ -125,17 +129,23 @@ export default function ResultsTableTooltip({
         zIndex: 900,
         width: TOOLTIP_WIDTH,
         height: TOOLTIP_HEIGHT,
-        left: left,
-        top: top,
+        left,
+        top,
       }}
     >
       <div
-        className="experiment-row-tooltip"
+        className={clsx("experiment-row-tooltip", {
+          top: data.yAlign === "top",
+          bottom: data.yAlign === "bottom",
+        })}
         style={{
           position: "absolute",
           width: TOOLTIP_WIDTH,
           top: data.yAlign === "top" ? 0 : "auto",
           bottom: data.yAlign === "bottom" ? 0 : "auto",
+          transformOrigin: `${arrowLeft} ${
+            data.yAlign === "top" ? "0%" : "100%"
+          }`,
         }}
         {...otherProps}
       >

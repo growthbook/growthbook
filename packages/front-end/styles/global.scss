@@ -212,6 +212,18 @@ pre {
   }
 }
 
+// wrapper:
+.experiment-row-tooltip-wrapper {
+  &.tooltip-animate-appear .experiment-row-tooltip {
+    opacity: 0;
+    transform: scaleX(60%) scaleY(40%);
+  }
+  &.tooltip-animate-appear-done .experiment-row-tooltip {
+    opacity: 1;
+    transform: scaleX(1) scaleY(1);
+  }
+}
+
 .experiment-row-tooltip {
   position: absolute;
   display: inline-block;
@@ -225,7 +237,7 @@ pre {
   color: var(--text-color-table);
   z-index: 100;
   pointer-events: all;
-  transition: 100ms all;
+  transition: 150ms all ease-in;
 
   .opacity50 {
     opacity: 0.5;
