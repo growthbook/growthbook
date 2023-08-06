@@ -20,6 +20,7 @@ import {
   PROXY_HOST_PUBLIC,
 } from "../util/secrets";
 import { errorStringFromZodResult } from "../util/validation";
+import { purgeCDNCache } from "../util/cdn.util";
 import { generateEncryptionKey, generateSigningKey } from "./ApiKeyModel";
 
 const sdkConnectionSchema = new mongoose.Schema({
@@ -44,7 +45,6 @@ const sdkConnectionSchema = new mongoose.Schema({
   includeDraftExperiments: Boolean,
   includeExperimentNames: Boolean,
   connected: Boolean,
-  sseEnabled: Boolean,
   key: {
     type: String,
     unique: true,
@@ -118,7 +118,6 @@ export const createSDKConnectionValidator = z
     includeExperimentNames: z.boolean().optional(),
     proxyEnabled: z.boolean().optional(),
     proxyHost: z.string().optional(),
-    sseEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -157,7 +156,6 @@ export async function createSDKConnection(params: CreateSDKConnectionParams) {
       version: "",
       error: "",
     }),
-    sseEnabled: false,
   };
 
   if (connection.proxy.enabled && connection.proxy.host) {
@@ -184,7 +182,6 @@ export const editSDKConnectionValidator = z
     includeVisualExperiments: z.boolean().optional(),
     includeDraftExperiments: z.boolean().optional(),
     includeExperimentNames: z.boolean().optional(),
-    sseEnabled: z.boolean().optional(),
   })
   .strict();
 
@@ -222,19 +219,17 @@ export async function editSDKConnection(
   // If we're changing the filter for which features are included, we should ping any
   // connected proxies to update their cache immediately instead of waiting for the TTL
   let needsProxyUpdate = false;
-  if (newProxy.enabled && newProxy.host) {
-    const keysRequiringProxyUpdate = [
-      "project",
-      "environment",
-      "encryptPayload",
-      "hashSecureAttributes",
-    ] as const;
-    keysRequiringProxyUpdate.forEach((key) => {
-      if (key in otherChanges && otherChanges[key] !== connection[key]) {
-        needsProxyUpdate = true;
-      }
-    });
-  }
+  const keysRequiringProxyUpdate = [
+    "project",
+    "environment",
+    "encryptPayload",
+    "hashSecureAttributes",
+  ] as const;
+  keysRequiringProxyUpdate.forEach((key) => {
+    if (key in otherChanges && otherChanges[key] !== connection[key]) {
+      needsProxyUpdate = true;
+    }
+  });
 
   await SDKConnectionModel.updateOne(
     {
@@ -251,11 +246,22 @@ export async function editSDKConnection(
   );
 
   if (needsProxyUpdate) {
-    await queueSingleProxyUpdate({
+    // Purge CDN if used
+    await purgeCDNCache(connection.organization, [connection.key]);
+
+    const newConnection = {
       ...connection,
       ...otherChanges,
       proxy: newProxy,
-    } as SDKConnectionInterface);
+    } as SDKConnectionInterface;
+
+    if (IS_CLOUD) {
+      await queueSingleProxyUpdate(newConnection, true);
+    }
+
+    if (newProxy.enabled && newProxy.host) {
+      await queueSingleProxyUpdate(newConnection, false);
+    }
   }
 }
 
@@ -405,6 +411,5 @@ export function toApiSDKConnectionInterface(
     proxyEnabled: connection.proxy.enabled,
     proxyHost: connection.proxy.host,
     proxySigningKey: connection.proxy.signingKey,
-    sseEnabled: connection.sseEnabled,
   };
 }

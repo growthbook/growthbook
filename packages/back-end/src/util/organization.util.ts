@@ -1,86 +1,10 @@
-import type Stripe from "stripe";
 import {
-  AccountPlan,
-  CommercialFeature,
-  CommercialFeaturesMap,
   MemberRole,
   MemberRoleInfo,
   OrganizationInterface,
   Permission,
   Role,
 } from "../../types/organization";
-import { getLicense } from "../init/license";
-import { IS_CLOUD } from "./secrets";
-
-export function isActiveSubscriptionStatus(
-  status?: Stripe.Subscription.Status
-) {
-  return ["active", "trialing", "past_due"].includes(status || "");
-}
-export const accountFeatures: CommercialFeaturesMap = {
-  oss: new Set<CommercialFeature>([]),
-  starter: new Set<CommercialFeature>([]),
-  pro: new Set<CommercialFeature>([
-    "advanced-permissions",
-    "encrypt-features-endpoint",
-    "schedule-feature-flag",
-    "override-metrics",
-    "regression-adjustment",
-    "sequential-testing",
-    "visual-editor",
-    "cloud-proxy",
-    "hash-secure-attributes",
-  ]),
-  pro_sso: new Set<CommercialFeature>([
-    "sso",
-    "advanced-permissions",
-    "encrypt-features-endpoint",
-    "schedule-feature-flag",
-    "override-metrics",
-    "regression-adjustment",
-    "sequential-testing",
-    "visual-editor",
-    "cloud-proxy",
-    "hash-secure-attributes",
-  ]),
-  enterprise: new Set<CommercialFeature>([
-    "sso",
-    "advanced-permissions",
-    "audit-logging",
-    "encrypt-features-endpoint",
-    "schedule-feature-flag",
-    "override-metrics",
-    "regression-adjustment",
-    "sequential-testing",
-    "visual-editor",
-    "cloud-proxy",
-    "hash-secure-attributes",
-    "json-validation",
-  ]),
-};
-export function getAccountPlan(org: OrganizationInterface): AccountPlan {
-  if (IS_CLOUD) {
-    if (org.enterprise) return "enterprise";
-    if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
-    if (isActiveSubscriptionStatus(org.subscription?.status)) return "pro";
-    return "starter";
-  }
-
-  // For self-hosted deployments
-  return getLicense()?.plan || "oss";
-}
-export function planHasPremiumFeature(
-  plan: AccountPlan,
-  feature: CommercialFeature
-): boolean {
-  return accountFeatures[plan].has(feature);
-}
-export function orgHasPremiumFeature(
-  org: OrganizationInterface,
-  feature: CommercialFeature
-): boolean {
-  return planHasPremiumFeature(getAccountPlan(org), feature);
-}
 
 export const ENV_SCOPED_PERMISSIONS = [
   "publishFeatures",
@@ -158,6 +82,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "createPresentations",
         "publishFeatures",
         "manageFeatures",
+        "manageTags",
         "createFeatureDrafts",
         "manageTargetingAttributes",
         "manageEnvironments",
@@ -176,6 +101,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "createAnalyses",
         "createDimensions",
         "createMetrics",
+        "manageTags",
         "runQueries",
         "editDatasourceSettings",
       ],
@@ -194,6 +120,7 @@ export function getRoles(_organization: OrganizationInterface): Role[] {
         "manageEnvironments",
         "manageNamespaces",
         "manageSavedGroups",
+        "manageTags",
         "runExperiments",
         "createAnalyses",
         "createDimensions",

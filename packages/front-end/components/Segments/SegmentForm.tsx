@@ -38,6 +38,7 @@ const SegmentForm: FC<{
         (current.id ? current.datasource : filteredDatasources[0]?.id) || "",
       userIdType: current.userIdType || "user_id",
       owner: current.owner || "",
+      description: current.description || "",
     },
   });
   const [sqlOpen, setSqlOpen] = useState(false);
@@ -62,7 +63,7 @@ const SegmentForm: FC<{
           close={() => setSqlOpen(false)}
           datasourceId={datasource.id || ""}
           placeholder={`SELECT\n      ${userIdType}, date\nFROM\n      mytable`}
-          requiredColumns={Array.from(requiredColumns)}
+          requiredColumns={requiredColumns}
           value={sql}
           save={async (sql) => form.setValue("sql", sql)}
         />
@@ -91,6 +92,7 @@ const SegmentForm: FC<{
           comboBox
           {...form.register("owner")}
         />
+        <Field label="Description" {...form.register("description")} textarea />
         <SelectField
           label="Data Source"
           required

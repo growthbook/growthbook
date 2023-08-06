@@ -1,5 +1,6 @@
 import cloneDeep from "lodash/cloneDeep";
 import { dateStringArrayBetweenDates, getValidDate } from "shared/dates";
+import { format as formatDate, subDays } from "date-fns";
 import { MetricInterface, MetricType } from "../../types/metric";
 import {
   DataSourceSettings,
@@ -90,7 +91,11 @@ export default abstract class SqlIntegration
   }
 
   isAutoGeneratingMetricsSupported(): boolean {
-    const supportedEventTrackers: SchemaFormat[] = ["segment", "rudderstack"];
+    const supportedEventTrackers: SchemaFormat[] = [
+      "segment",
+      "rudderstack",
+      "ga4",
+    ];
 
     if (
       this.settings.schemaFormat &&
@@ -507,6 +512,10 @@ export default abstract class SqlIntegration
           main_covariate_sum_product:
             parseFloat(row.main_covariate_sum_product) || 0,
         }),
+        ...(row.main_cap_value && { main_cap_value: row.main_cap_value }),
+        ...(row.denominator_cap_value && {
+          denominator_cap_value: row.denominator_cap_value,
+        }),
       };
     });
   }
@@ -528,14 +537,19 @@ export default abstract class SqlIntegration
     });
   }
 
-  getTestQuery(query: string): string {
+  //Test the validity of a query as cheaply as possible
+  getTestValidityQuery(query: string): string {
+    return this.getTestQuery(query, 1);
+  }
+
+  getTestQuery(query: string, limit: number = 5): string {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);
     const limitedQuery = replaceSQLVars(
       `WITH __table as (
         ${query}
       )
-      ${this.selectSampleRows("__table", 5)}`,
+      ${this.selectSampleRows("__table", limit)}`,
       {
         startDate,
       }
@@ -839,6 +853,26 @@ export default abstract class SqlIntegration
     const ignoreConversionEnd =
       settings.attributionModel === "experimentDuration";
 
+    // Get capping settings and final coalesce statement
+    const isPercentileCapped =
+      metric.capping === "percentile" && metric.capValue && metric.capValue < 1;
+    const denominatorIsPercentileCapped =
+      denominator &&
+      denominator.capping === "percentile" &&
+      denominator.capValue &&
+      denominator.capValue < 1;
+    const capCoalesceMetric = this.capCoalesceValue("m.value", metric, "cap");
+    const capCoalesceDenominator = this.capCoalesceValue(
+      "d.value",
+      denominator,
+      "capd"
+    );
+    const capCoalesceCovariate = this.capCoalesceValue(
+      "c.value",
+      metric,
+      "cap"
+    );
+
     // Get rough date filter for metrics to improve performance
     const orderedMetrics = activationMetrics
       .concat(denominatorMetrics)
@@ -1124,6 +1158,18 @@ export default abstract class SqlIntegration
           ${baseIdType}
       )
       ${
+        isPercentileCapped
+          ? `
+        , __capValue AS (
+            ${this.percentileCapSelectClause(
+              metric.capValue ?? 1,
+              "__userMetricAgg"
+            )}
+        )
+        `
+          : ""
+      }
+      ${
         isRatio
           ? `, __userDenominatorAgg AS (
               SELECT
@@ -1157,7 +1203,19 @@ export default abstract class SqlIntegration
                 d.dimension,
                 ${cumulativeDate ? `dr.day,` : ""}
                 d.${baseIdType}
-            )`
+            )
+            ${
+              denominatorIsPercentileCapped
+                ? `
+              , __capValueDenominator AS (
+                ${this.percentileCapSelectClause(
+                  denominator.capValue ?? 1,
+                  "__userDenominatorAgg"
+                )}
+              )
+              `
+                : ""
+            }`
           : ""
       }
       ${
@@ -1187,7 +1245,7 @@ export default abstract class SqlIntegration
       }
       -- One row per variation/dimension with aggregations
       SELECT
-        m.variation,
+        m.variation AS variation,
         ${
           cumulativeDate ? `${this.formatDate("m.day")}` : "m.dimension"
         } AS dimension,
@@ -1197,15 +1255,25 @@ export default abstract class SqlIntegration
           isRegressionAdjusted
         )}' as statistic_type,
         '${metric.type}' as main_metric_type,
-        SUM(COALESCE(m.value, 0)) AS main_sum,
-        SUM(POWER(COALESCE(m.value, 0), 2)) AS main_sum_squares
+        ${
+          isPercentileCapped
+            ? "MAX(COALESCE(cap.cap_value, 0)) as main_cap_value,"
+            : ""
+        }
+        SUM(${capCoalesceMetric}) AS main_sum,
+        SUM(POWER(${capCoalesceMetric}, 2)) AS main_sum_squares
         ${
           isRatio
             ? `,
           '${denominator?.type}' as denominator_metric_type,
-          SUM(COALESCE(d.value, 0)) AS denominator_sum,
-          SUM(POWER(COALESCE(d.value, 0), 2)) AS denominator_sum_squares,
-          SUM(COALESCE(d.value, 0) * COALESCE(m.value, 0)) AS main_denominator_sum_product
+          ${
+            denominatorIsPercentileCapped
+              ? "MAX(COALESCE(capd.cap_value, 0)) as denominator_cap_value,"
+              : ""
+          }
+          SUM(${capCoalesceDenominator}) AS denominator_sum,
+          SUM(POWER(${capCoalesceDenominator}, 2)) AS denominator_sum_squares,
+          SUM(${capCoalesceDenominator} * ${capCoalesceMetric}) AS main_denominator_sum_product
         `
             : ""
         }
@@ -1213,9 +1281,9 @@ export default abstract class SqlIntegration
           isRegressionAdjusted
             ? `,
           '${metric.type}' as covariate_metric_type,
-          SUM(COALESCE(c.value, 0)) AS covariate_sum,
-          SUM(POWER(COALESCE(c.value, 0), 2)) AS covariate_sum_squares,
-          SUM(COALESCE(m.value, 0) * COALESCE(c.value, 0)) AS main_covariate_sum_product
+          SUM(${capCoalesceCovariate}) AS covariate_sum,
+          SUM(POWER(${capCoalesceCovariate}, 2)) AS covariate_sum_squares,
+          SUM(${capCoalesceMetric} * ${capCoalesceCovariate}) AS main_covariate_sum_product
           `
             : ""
         }
@@ -1227,7 +1295,12 @@ export default abstract class SqlIntegration
               d.${baseIdType} = m.${baseIdType}
               ${ratioIsFunnel ? "AND d.value != 0" : ""}
               ${cumulativeDate ? "AND d.day = m.day" : ""}
-            )`
+            )
+            ${
+              denominatorIsPercentileCapped
+                ? "CROSS JOIN __capValueDenominator capd"
+                : ""
+            }`
           : ""
       }
       ${
@@ -1238,6 +1311,7 @@ export default abstract class SqlIntegration
           `
           : ""
       }
+      ${isPercentileCapped ? `CROSS JOIN __capValue cap` : ""}
       ${metric.ignoreNulls ? `WHERE m.value != 0` : ""}
       GROUP BY
         m.variation,
@@ -1245,6 +1319,37 @@ export default abstract class SqlIntegration
     `,
       this.getFormatDialect()
     );
+  }
+  percentileCapSelectClause(capPercentile: number, metricTable: string) {
+    return `
+      SELECT
+        PERCENTILE_CONT(${capPercentile}) WITHIN GROUP (ORDER BY value) AS cap_value
+      FROM ${metricTable}
+      WHERE value IS NOT NULL
+      `;
+  }
+  private capCoalesceValue(
+    valueCol: string,
+    metric: MetricInterface,
+    capTablePrefix: string = "c"
+  ): string {
+    if (metric?.capping === "absolute" && metric.capValue) {
+      return `LEAST(
+        ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
+        ${metric.capValue}
+      )`;
+    }
+    if (
+      metric?.capping === "percentile" &&
+      metric.capValue &&
+      metric.capValue < 1
+    ) {
+      return `LEAST(
+        ${this.ensureFloat(`COALESCE(${valueCol}, 0)`)},
+        ${capTablePrefix}.cap_value
+      )`;
+    }
+    return `COALESCE(${valueCol}, 0)`;
   }
   getExperimentResultsQuery(): string {
     throw new Error("Not implemented");
@@ -1345,6 +1450,20 @@ export default abstract class SqlIntegration
   }
   getSchemaFormatConfig(schemaFormat: SchemaFormat): SchemaFormatConfig {
     switch (schemaFormat) {
+      case "ga4": {
+        return {
+          trackedEventTableName: "events_*",
+          eventColumn: "event_name",
+          timestampColumn: "TIMESTAMP_MICROS(event_timestamp)",
+          userIdColumn: "user_id",
+          anonymousIdColumn: "user_pseudo_id",
+          includesPagesTable: false,
+          includesScreensTable: false,
+          groupByColumns: ["event"],
+          eventHasUniqueTable: false,
+          dateFormat: "yyyyMMdd",
+        };
+      }
       // Segment & Rudderstack
       default: {
         return {
@@ -1356,6 +1475,9 @@ export default abstract class SqlIntegration
           displayNameColumn: "event_text",
           includesPagesTable: true,
           includesScreensTable: true,
+          groupByColumns: ["event", "received_at", "displayName"],
+          eventHasUniqueTable: true,
+          dateFormat: "yyyy-MM-dd",
         };
       }
     }
@@ -1370,18 +1492,33 @@ export default abstract class SqlIntegration
       timestampColumn,
       userIdColumn,
       anonymousIdColumn,
+      eventHasUniqueTable,
+      trackedEventTableName,
     } = this.getSchemaFormatConfig(schemaFormat);
 
     const sqlQuery = `
-    SELECT
-    ${
-      hasUserId ? `${userIdColumn}, ` : ""
-    }${anonymousIdColumn} as anonymous_id, ${timestampColumn} as timestamp
-    ${type === "count" ? `, 1 as value` : ""}
-     FROM ${this.generateTablePath(event)}
-  `;
+      SELECT
+        ${hasUserId ? `${userIdColumn}, ` : ""}
+        ${anonymousIdColumn} as anonymous_id,
+        ${timestampColumn} as timestamp
+        ${type === "count" ? `, 1 as value` : ""}
+      FROM ${this.generateTablePath(
+        eventHasUniqueTable ? event : trackedEventTableName
+      )}
+      ${eventHasUniqueTable ? "" : `WHERE event_name = '${event}'`}
+`;
 
     return format(sqlQuery, this.getFormatDialect());
+  }
+
+  doesMetricExist(
+    existingMetrics: MetricInterface[],
+    sqlQuery: string,
+    type: MetricType
+  ): boolean {
+    return existingMetrics.some(
+      (metric) => metric.sql === sqlQuery && metric.type === type
+    );
   }
   getMetricsToCreate(
     result: {
@@ -1391,7 +1528,8 @@ export default abstract class SqlIntegration
       count: number;
       lastTrackedAt: Date;
     },
-    schemaFormat: SchemaFormat
+    schemaFormat: SchemaFormat,
+    existingMetrics: MetricInterface[]
   ): {
     name: string;
     type: MetricType;
@@ -1401,35 +1539,47 @@ export default abstract class SqlIntegration
       name: string;
       type: MetricType;
       sql: string;
+      exists?: boolean;
     }[] = [];
+
+    const binomialSqlQuery = this.getAutoGeneratedMetricSqlQuery(
+      result.event,
+      result.hasUserId,
+      schemaFormat,
+      "binomial"
+    );
 
     //TODO Build some logic where based on the event, we determine what metrics to create (by default, we create binomial and count) for every event
     metricsToCreate.push({
       name: result.displayName,
       type: "binomial",
-      sql: this.getAutoGeneratedMetricSqlQuery(
-        result.event,
-        result.hasUserId,
-        schemaFormat,
+      exists: this.doesMetricExist(
+        existingMetrics,
+        binomialSqlQuery,
         "binomial"
       ),
+      sql: binomialSqlQuery,
     });
+
+    const countSqlQuery = this.getAutoGeneratedMetricSqlQuery(
+      result.event,
+      result.hasUserId,
+      schemaFormat,
+      "count"
+    );
 
     metricsToCreate.push({
       name: `Count of ${result.displayName}`,
       type: "count",
-      sql: this.getAutoGeneratedMetricSqlQuery(
-        result.event,
-        result.hasUserId,
-        schemaFormat,
-        "count"
-      ),
+      exists: this.doesMetricExist(existingMetrics, countSqlQuery, "count"),
+      sql: countSqlQuery,
     });
 
     return metricsToCreate;
   }
   async getEventsTrackedByDatasource(
-    schemaFormat: SchemaFormat
+    schemaFormat: SchemaFormat,
+    existingMetrics: MetricInterface[]
   ): Promise<
     {
       event: string;
@@ -1447,12 +1597,13 @@ export default abstract class SqlIntegration
       displayNameColumn,
       includesPagesTable,
       includesScreensTable,
+      groupByColumns,
+      eventHasUniqueTable,
+      dateFormat,
     } = this.getSchemaFormatConfig(schemaFormat);
 
-    const currentDateTime = new Date();
-    const SevenDaysAgo = new Date(
-      currentDateTime.valueOf() - 7 * 60 * 60 * 24 * 1000
-    );
+    const today = formatDate(new Date(), dateFormat);
+    const sevenDaysAgo = formatDate(subDays(new Date(), 7), dateFormat);
 
     const sql = `
         SELECT
@@ -1463,14 +1614,15 @@ export default abstract class SqlIntegration
           MAX(${timestampColumn}) as lastTrackedAt
         FROM
           ${this.generateTablePath(trackedEventTableName)}
-          WHERE received_at < '${currentDateTime
-            .toISOString()
-            .slice(
-              0,
-              10
-            )}' AND received_at > '${SevenDaysAgo.toISOString().slice(0, 10)}'
-          AND event NOT IN ('experiment_viewed', 'experiment_started')
-          GROUP BY event, ${timestampColumn}, displayName`;
+        WHERE
+          ${
+            eventHasUniqueTable
+              ? `received_at < '${today}' AND received_at > '${sevenDaysAgo}'`
+              : `_TABLE_SUFFIX BETWEEN '${sevenDaysAgo}' AND'${today}'`
+          } 
+        AND ${eventColumn} NOT IN ('experiment_viewed', 'experiment_started')
+        GROUP BY ${groupByColumns.join(", ")}
+    `;
 
     const results = await this.runQuery(format(sql, this.getFormatDialect()));
 
@@ -1484,12 +1636,7 @@ export default abstract class SqlIntegration
            MAX(${timestampColumn}) as lastTrackedAt
         FROM
            ${this.generateTablePath("pages")}
-        WHERE received_at < '${currentDateTime
-          .toISOString()
-          .slice(0, 10)}' AND received_at > '${SevenDaysAgo.toISOString().slice(
-        0,
-        10
-      )}'`;
+        WHERE received_at < '${today}' AND received_at > '${sevenDaysAgo}'`;
 
       try {
         const pageViewedResults = await this.runQuery(
@@ -1516,12 +1663,7 @@ export default abstract class SqlIntegration
            MAX(${timestampColumn}) as lastTrackedAt
         FROM
            ${this.generateTablePath("screens")}
-        WHERE received_at < '${currentDateTime
-          .toISOString()
-          .slice(0, 10)}' AND received_at > '${SevenDaysAgo.toISOString().slice(
-        0,
-        10
-      )}'`;
+        WHERE received_at < '${today}' AND received_at > '${sevenDaysAgo}'`;
 
       try {
         const screenViewedResults = await this.runQuery(
@@ -1547,7 +1689,11 @@ export default abstract class SqlIntegration
       result.lastTrackedAt = result.lastTrackedAt.value
         ? new Date(result.lastTrackedAt.value)
         : new Date(result.lastTrackedAt);
-      result.metricsToCreate = this.getMetricsToCreate(result, schemaFormat);
+      result.metricsToCreate = this.getMetricsToCreate(
+        result,
+        schemaFormat,
+        existingMetrics
+      );
       return result;
     });
   }
@@ -1829,14 +1975,6 @@ export default abstract class SqlIntegration
     `;
   }
 
-  private capValue(cap: number | undefined, value: string) {
-    if (!cap) {
-      return value;
-    }
-
-    return `LEAST(${cap}, ${value})`;
-  }
-
   private addCaseWhenTimeFilter(
     col: string,
     ignoreConversionEnd: boolean,
@@ -1871,29 +2009,26 @@ export default abstract class SqlIntegration
       }
       // Other custom aggregation
       else if (metric.aggregation) {
-        return this.capValue(
-          metric.cap,
-          replaceCountStar(metric.aggregation, `value`)
-        );
+        return replaceCountStar(metric.aggregation, `value`);
       }
       // Standard aggregation (SUM)
       else {
-        return this.capValue(metric.cap, `SUM(COALESCE(value, 0))`);
+        return `SUM(COALESCE(value, 0))`;
       }
     }
     // Query builder
     else {
       // Count metrics that specify a distinct column to count
       if (metric.type === "count" && metric.column) {
-        return this.capValue(metric.cap, `COUNT(DISTINCT (value))`);
+        return `COUNT(DISTINCT (value))`;
       }
       // Count metrics just do a simple count of rows by default
       else if (metric.type === "count") {
-        return this.capValue(metric.cap, `COUNT(value)`);
+        return `COUNT(value)`;
       }
       // Revenue and duration metrics use MAX by default
       else {
-        return this.capValue(metric.cap, `MAX(COALESCE(value, 0))`);
+        return `MAX(COALESCE(value, 0))`;
       }
     }
   }

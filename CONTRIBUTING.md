@@ -4,14 +4,6 @@ Interested in making GrowthBook better? So are we! This guide should help get yo
 
 If you just want to contribute a client library in a new language and not make changes to the app itself, you can skip the instructions here and view https://docs.growthbook.io/lib/build-your-own instead.
 
-## Quickstart
-
-The fastest way to start contributing to GrowthBook is by using our pre configured devcontainer. A dev container is a Docker container that is specifically configured to provide a full-featured development environment.
-
-1. Install the vscode extension [Remote - Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers). Launch VS code Quick Open `Ctrl + P` then paste the following command `ext install ms-vscode-remote.remote-containers` and press enter.
-2. If you do not have Docker installed follow these instructions [Docker](https://docs.docker.com/engine/install/)
-3. Open the Command Palette `Ctrl + Shift + P` then paste the following command `Remote-Containers: Reopen in Container` and press enter.
-
 ## Requirements
 
 - MacOS or Linux (Windows may work too, but we haven't tested it)
@@ -58,8 +50,12 @@ It's **strongly recommended** that if you are using WSL on Windows that you run 
 docker run -d -p 27017:27017 --name mongo \
   -e MONGO_INITDB_ROOT_USERNAME=root \
   -e MONGO_INITDB_ROOT_PASSWORD=password \
+  -v ~/gb_mongo_data/:/data/db \
   mongo
 ```
+
+The -v is optional and will store the data in your ~/gb_mongo_data directory on your computer. This will allow you to start a new docker container with the same command in case the old one dies preserving your data. Setup can also be shared between devs
+by replacing the contents of that directory with theirs.
 
 If docker isn't running, view [this](https://stackoverflow.com/questions/44678725/cannot-connect-to-the-docker-daemon-at-unix-var-run-docker-sock-is-the-docker).
 Look at [this](https://www.digitalocean.com/community/questions/how-to-fix-docker-got-permission-denied-while-trying-to-connect-to-the-docker-daemon-socket) for other docker issues with Linux
@@ -85,6 +81,7 @@ This repository is a monorepo with the following packages:
 - **packages/front-end** is a Next.js app and contains the full UI of the GrowthBook app.
 - **packages/back-end** is an Express app and serves as the REST api for the front-end.
 - **package/shared** is a collection of Typescript functions and constants shared between the front-end and back-end.
+- **package/enterprise** contains proprietary code governed under the GrowthBook Enterprise license. We typically do not accept outside contributions for this package.
 - **packages/sdk-js** is our javascript SDK (`@growthbook/growthbook` on npm)
 - **packages/sdk-react** is our React SDK (`@growthbook/growthbook-react` on npm)
 - **packages/stats** is our Python stats engine (`gbstats` on PyPi)

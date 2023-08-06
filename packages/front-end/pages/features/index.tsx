@@ -237,7 +237,10 @@ export default function FeaturesPage() {
           </div>
 
           <table className="table gbtable table-hover appbox">
-            <thead>
+            <thead
+              className="sticky-top bg-white shadow-sm"
+              style={{ top: "56px", zIndex: 900 }}
+            >
               <tr>
                 <th></th>
                 <SortableTH field="id">Feature Key</SortableTH>
@@ -405,6 +408,12 @@ export default function FeaturesPage() {
           )}
         </div>
       )}
+
+      <div className="alert alert-info mt-5">
+        Looking for <strong>Attributes</strong>, <strong>Namespaces</strong>,{" "}
+        <strong>Environments</strong>, or <strong>Saved Groups</strong>? They
+        have moved to the <Link href="/sdks">SDK Configuration</Link> tab.
+      </div>
     </div>
   );
 }

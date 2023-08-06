@@ -92,6 +92,9 @@ export interface SchemaFormatConfig {
   // so we'll probably want to build a method that maps unique properties to event tracker type in the future.
   includesPagesTable: boolean;
   includesScreensTable: boolean;
+  groupByColumns: string[];
+  eventHasUniqueTable: boolean;
+  dateFormat: string;
 }
 
 export interface DataSourceProperties {
@@ -130,6 +133,7 @@ export interface ExposureQuery {
   query: string;
   hasNameCol?: boolean;
   dimensions: string[];
+  error?: string;
 }
 
 export interface UserIdType {

@@ -38,7 +38,7 @@ export default function AutoMetricCard({
   const selected =
     sqlPreview && event.metricsToCreate.findIndex((s) => s.sql === sqlPreview);
 
-  const binmomialIndex = event.metricsToCreate.findIndex(
+  const binomialIndex = event.metricsToCreate.findIndex(
     (metric) => metric.type === "binomial"
   );
 
@@ -58,18 +58,25 @@ export default function AutoMetricCard({
             {event.count}
           </Tooltip>
         </td>
-        {event.metricsToCreate[binmomialIndex]?.sql ? (
-          <td className={selected === binmomialIndex ? "bg-light" : ""}>
+        {event.metricsToCreate[binomialIndex]?.sql ? (
+          <td className={selected === binomialIndex ? "bg-light" : ""}>
             <div className="d-flex flex-column justify-content-center align-items-center">
               <Toggle
                 value={
-                  event.metricsToCreate[binmomialIndex].shouldCreate || false
+                  event.metricsToCreate[binomialIndex].shouldCreate || false
                 }
-                id={`${event}-${event.metricsToCreate[binmomialIndex].name}`}
+                disabled={event.metricsToCreate[binomialIndex].exists || false}
+                disabledMessage="This metric has already been created."
+                style={
+                  event.metricsToCreate[binomialIndex].exists
+                    ? { opacity: 0.5 }
+                    : {}
+                }
+                id={`${event}-${event.metricsToCreate[binomialIndex].name}`}
                 setValue={(value) => {
                   const updatedTrackedEvents = cloneDeep(trackedEvents);
                   updatedTrackedEvents[i].metricsToCreate[
-                    binmomialIndex
+                    binomialIndex
                   ].shouldCreate = value;
                   setTrackedEvents(updatedTrackedEvents);
                 }}
@@ -77,10 +84,10 @@ export default function AutoMetricCard({
               <Button
                 color="link"
                 onClick={async () =>
-                  handleSqlPreview(event.metricsToCreate[binmomialIndex].sql)
+                  handleSqlPreview(event.metricsToCreate[binomialIndex].sql)
                 }
               >
-                {selected === binmomialIndex ? "Hide SQL" : "Preview SQL"}
+                {selected === binomialIndex ? "Hide SQL" : "Preview SQL"}
               </Button>
             </div>
           </td>
@@ -95,6 +102,13 @@ export default function AutoMetricCard({
               <Toggle
                 value={event.metricsToCreate[countIndex].shouldCreate || false}
                 id={`${event}-${event.metricsToCreate[countIndex].name}`}
+                disabled={event.metricsToCreate[countIndex].exists || false}
+                disabledMessage="This metric has already been created."
+                style={
+                  event.metricsToCreate[countIndex].exists
+                    ? { opacity: 0.5 }
+                    : {}
+                }
                 setValue={(value) => {
                   const updatedTrackedEvents = cloneDeep(trackedEvents);
                   updatedTrackedEvents[i].metricsToCreate[

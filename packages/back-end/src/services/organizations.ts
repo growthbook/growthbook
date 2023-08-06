@@ -573,7 +573,7 @@ export async function importConfig(
               },
             };
 
-            await updateDataSource(k, organization.id, updates);
+            await updateDataSource(existing, organization.id, updates);
           } else {
             await createDataSource(
               organization.id,

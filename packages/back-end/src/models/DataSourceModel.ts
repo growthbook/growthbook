@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import uniqid from "uniqid";
+import { cloneDeep, isEqual } from "lodash";
 import {
   DataSourceInterface,
   DataSourceParams,
@@ -12,6 +13,7 @@ import {
   encryptParams,
   getSourceIntegrationObject,
   testDataSourceConnection,
+  testQueryValidity,
 } from "../services/datasource";
 import { usingFileConfig, getConfigDatasources } from "../init/config";
 import { upgradeDatasourceObject } from "../util/migrations";
@@ -120,6 +122,28 @@ export async function deleteDatasourceById(id: string, organization: string) {
   });
 }
 
+/**
+ * Deletes data sources where the provided project is the only project of that data source.
+ * @param projectId
+ * @param organizationId
+ */
+export async function deleteAllDataSourcesForAProject({
+  projectId,
+  organizationId,
+}: {
+  projectId: string;
+  organizationId: string;
+}) {
+  if (usingFileConfig()) {
+    throw new Error("Cannot delete. Data sources managed by config.yml");
+  }
+
+  await DataSourceModel.deleteMany({
+    organization: organizationId,
+    projects: [projectId],
+  });
+}
+
 export async function createDataSource(
   organization: string,
   name: string,
@@ -145,15 +169,6 @@ export async function createDataSource(
     (params as GoogleAnalyticsParams).refreshToken = tokens.refresh_token || "";
   }
 
-  // Add any missing exposure query ids
-  if (settings.queries?.exposure) {
-    settings.queries.exposure.forEach((exposure) => {
-      if (!exposure.id) {
-        exposure.id = uniqid("exq_");
-      }
-    });
-  }
-
   const datasource: DataSourceInterface = {
     id,
     name,
@@ -168,6 +183,14 @@ export async function createDataSource(
   };
 
   await testDataSourceConnection(datasource);
+
+  // Add any missing exposure query ids and check query validity
+  settings = await validateExposureQueriesAndAddMissingIds(
+    datasource,
+    settings,
+    true
+  );
+
   const model = (await DataSourceModel.create(
     datasource
   )) as DataSourceDocument;
@@ -183,8 +206,56 @@ export async function createDataSource(
   return toInterface(model);
 }
 
+// Add any missing exposure query ids and validate any new, changed, or previously errored queries
+export async function validateExposureQueriesAndAddMissingIds(
+  datasource: DataSourceInterface,
+  updates: Partial<DataSourceSettings>,
+  forceCheckValidity: boolean = false
+): Promise<Partial<DataSourceSettings>> {
+  const updatesCopy = cloneDeep(updates);
+  if (updatesCopy.queries?.exposure) {
+    await Promise.all(
+      updatesCopy.queries.exposure.map(async (exposure) => {
+        let checkValidity = forceCheckValidity;
+        if (!exposure.id) {
+          exposure.id = uniqid("exq_");
+          checkValidity = true;
+        } else if (!forceCheckValidity) {
+          const existingQuery = datasource.settings.queries?.exposure?.find(
+            (q) => q.id == exposure.id
+          );
+          if (
+            !existingQuery ||
+            !isEqual(existingQuery, exposure) ||
+            existingQuery.error
+          ) {
+            checkValidity = true;
+          }
+        }
+        if (checkValidity) {
+          const integration = getSourceIntegrationObject(datasource);
+          exposure.error = await testQueryValidity(integration, exposure);
+        }
+      })
+    );
+  }
+  return updatesCopy;
+}
+
+// Returns true if there are any actual changes, besides dateUpdated, from the actual datasource
+export function hasActualChanges(
+  datasource: DataSourceInterface,
+  updates: Partial<DataSourceInterface>
+) {
+  const updateKeys = Object.keys(updates).filter(
+    (key) => key !== "dateUpdated"
+  ) as Array<keyof DataSourceInterface>;
+
+  return updateKeys.some((key) => !isEqual(datasource[key], updates[key]));
+}
+
 export async function updateDataSource(
-  id: string,
+  datasource: DataSourceInterface,
   organization: string,
   updates: Partial<DataSourceInterface>
 ) {
@@ -192,18 +263,19 @@ export async function updateDataSource(
     throw new Error("Cannot update. Data sources managed by config.yml");
   }
 
-  // Add any missing exposure query ids
-  if (updates.settings?.queries?.exposure) {
-    updates.settings.queries.exposure.forEach((exposure) => {
-      if (!exposure.id) {
-        exposure.id = uniqid("exq_");
-      }
-    });
+  if (updates.settings) {
+    updates.settings = await validateExposureQueriesAndAddMissingIds(
+      datasource,
+      updates.settings
+    );
+  }
+  if (!hasActualChanges(datasource, updates)) {
+    return;
   }
 
   await DataSourceModel.updateOne(
     {
-      id,
+      id: datasource.id,
       organization,
     },
     {
@@ -245,6 +317,7 @@ export function toDataSourceApiInterface(
       sql: q.query,
       includesNameColumns: !!q.hasNameCol,
       dimensionColumns: q.dimensions,
+      error: q.error,
     })),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
       (q) => ({

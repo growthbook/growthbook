@@ -76,6 +76,9 @@ pre {
 .text-warning-orange {
   color: colors.$warning-orange;
 }
+.bg-warning-orange {
+  background-color: colors.$warning-orange !important;
+}
 .text-gray {
   color: var(--text-color-th);
 }
@@ -190,6 +193,12 @@ pre {
 .btn-light-hover:hover {
   background-color: rgba(154, 110, 248, 0.2);
   color: inherit;
+}
+
+.experiment-status-widget {
+  background-color: var(--surface-background-color);
+  border-radius: 20px !important;
+  overflow: hidden;
 }
 
 .badge {
@@ -465,7 +474,7 @@ pre {
       margin-bottom: 1px;
     }
   }
-  .tab-content {
+  .tab-content:not(.noborder) {
     border-radius: 3px;
     border-color: var(--border-color-300);
   }
@@ -609,6 +618,25 @@ pre {
 }
 .badge-used {
   opacity: 0.5;
+}
+
+.Collapsible__trigger {
+  &:hover {
+    cursor: pointer;
+    color: var(--text-link-color);
+    .hover-label {
+      color: var(--text-link-color) !important;
+    }
+  }
+  .chevron {
+    transition: transform 0.1s;
+    transform: rotate(0deg);
+  }
+  &.is-open {
+    .chevron {
+      transform: rotate(90deg);
+    }
+  }
 }
 
 .code-holder {
@@ -1197,6 +1225,9 @@ pre {
 .w100-1rem {
   width: calc(100% - 2rem);
 }
+.mw100-1rem {
+  max-width: calc(100% - 2rem);
+}
 
 .variation {
   &.with-variation-label {
@@ -1330,7 +1361,7 @@ pre {
   background: colors.$highlight-purple-light;
 }
 .bg-muted-yellow {
-  background: var(--alert-warn-background);
+  background: var(--bg-muted-yellow);
 }
 .bg-main-color {
   background: var(--background-color);
@@ -1618,7 +1649,9 @@ li.metrics a span img {
   .tab-content {
     background-color: var(--surface-background-color);
     padding: 1rem;
-    border: 1px solid var(--border-color-300);
+    &:not(.noborder) {
+      border: 1px solid var(--border-color-300);
+    }
   }
 
   h5 {
@@ -1759,6 +1792,45 @@ li.metrics a span img {
     border-top: 1px solid var(--border-color-200);
     border-bottom: 1px solid var(--border-color-200);
   }
+  .experiment-image-clean {
+    height: 300px;
+    width: 100%;
+    object-fit: scale-down;
+    object-position: 50% 50%;
+  }
+  .carousel {
+    // oldUi
+    .carousel-control-next,
+    .carousel-control-prev {
+      background-color: rgba(68, 68, 68, 0.4);
+    }
+  }
+  .carousel-clean {
+    .carousel-control-next,
+    .carousel-control-prev {
+      background-color: transparent !important;
+    }
+    .carousel-control-next-icon,
+    .carousel-control-prev-icon {
+      width: 30px;
+      height: 30px;
+      border-radius: 50px;
+      background-size: 50%;
+      background-color: colors.$gray-600;
+    }
+  }
+  .carousel-inner {
+    // oldUi
+    img {
+      filter: drop-shadow(0px 4px 15px rgba(0, 0, 0, 0.12));
+    }
+  }
+  .carousel-inner-clean {
+    overflow: visible;
+    img {
+      filter: drop-shadow(0px 4px 10px rgba(0, 0, 0, 0.12));
+    }
+  }
   .results-table {
     font-size: 14px;
     color: var(--text-color-muted);
@@ -1828,6 +1900,37 @@ li.metrics a span img {
           font-size: 10px;
         }
       }
+    }
+  }
+}
+.phase-selector-clean {
+  * {
+    cursor: pointer;
+  }
+  .gb-select__control {
+    height: 32px;
+    min-height: 32px;
+    background-color: var(--surface-background-color-alt) !important;
+  }
+  .gb-select__value-container {
+    padding: 0 0 0 4px;
+    .phase-label {
+      display: none;
+    }
+  }
+  .gb-select__indicator-separator {
+    display: none;
+  }
+  .gb-select__indicator {
+    padding: 0 4px;
+  }
+  &:hover {
+    .gb-select__control {
+      border-color: rgba(154, 110, 248, 0.2) !important;
+      box-shadow: 0 0 0 1px rgba(154, 110, 248, 0.2) inset;
+    }
+    .gb-select__indicator {
+      color: rgba(154, 110, 248, 0.5) !important;
     }
   }
 }
@@ -2356,4 +2459,14 @@ input:disabled {
   }
 }
 
+.alert-cool-1 {
+  border-radius: 5px;
+  color: #4d7693;
+  background: linear-gradient(to top, #c0d6e6, #d5ebf0);
+  .btn-link {
+    color: #007bff;
+  }
+}
+
 @import "./components/react-select.scss";
+@import "./components/demo-datasource-banner";
