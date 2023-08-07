@@ -16,29 +16,19 @@ export type Permission =
   | EnvScopedPermission
   | ProjectScopedPermission;
 
-export type UserPermissions = {
-  global: {
-    environments: string[];
-    limitAccessByEnvironment: boolean;
-    permissions:
-      | {
-          [key in Permission]: boolean;
-        }
-      | Record<string, never>;
-  };
-  projects:
+export type UserPermission = {
+  environments: string[];
+  limitAccessByEnvironment: boolean;
+  permissions:
     | {
-        [key: string]: {
-          environments: string[];
-          limitAccessByEnvironment: boolean;
-          permissions:
-            | {
-                [key in Permission]: boolean;
-              }
-            | Record<string, never>;
-        };
+        [key in Permission]: boolean;
       }
     | Record<string, never>;
+};
+
+export type UserPermissions = {
+  global: UserPermission;
+  projects: { [key: string]: UserPermission } | Record<string, never>;
 };
 
 export type MemberRole =

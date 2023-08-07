@@ -54,39 +54,43 @@ export const ALL_PERMISSIONS = [
 
 export function getUserPermissions(userId: string, org: OrganizationInterface) {
   const roles = getRoles(org);
+  const rolePermissionsMap: Record<string, Set<Permission>> = {};
+
+  roles.forEach((role) => {
+    rolePermissionsMap[role.id] = new Set(role.permissions);
+  });
 
   const memberInfo = org.members.find((m) => m.id === userId);
-
-  const globalRolePermissions = roles.find((r) => r.id === memberInfo?.role);
-  const userPermissions = <UserPermissions>{};
-
-  userPermissions.global = {
-    environments: memberInfo?.environments || [],
-    limitAccessByEnvironment: memberInfo?.limitAccessByEnvironment || false,
-    permissions: {},
+  const userPermissions: UserPermissions = {
+    global: {
+      environments: memberInfo?.environments || [],
+      limitAccessByEnvironment: memberInfo?.limitAccessByEnvironment || false,
+      permissions: {},
+    },
+    projects: {},
   };
 
   ALL_PERMISSIONS.forEach((permission) => {
-    userPermissions.global.permissions[
-      permission
-    ] = globalRolePermissions?.permissions.includes(permission) ? true : false;
+    const hasGlobalPermission =
+      (memberInfo?.role &&
+        rolePermissionsMap[memberInfo?.role].has(permission)) ||
+      false;
+    userPermissions.global.permissions[permission] = hasGlobalPermission;
   });
 
-  userPermissions.projects = {};
-
   memberInfo?.projectRoles?.forEach((projectRole: ProjectMemberRole) => {
-    const projectRolePermissions = roles.find((r) => r.id === projectRole.role);
+    const projectRolePermissions = rolePermissionsMap[projectRole.role];
     userPermissions.projects[projectRole.project] = {
       limitAccessByEnvironment: projectRole.limitAccessByEnvironment || false,
       environments: projectRole.environments || [],
       permissions: {},
     };
     ALL_PERMISSIONS.forEach((permission) => {
+      const hasProjectPermission =
+        projectRolePermissions?.has(permission) || false;
       userPermissions.projects[projectRole.project].permissions[
         permission
-      ] = projectRolePermissions?.permissions.includes(permission)
-        ? true
-        : false;
+      ] = hasProjectPermission;
     });
   });
   return userPermissions;
