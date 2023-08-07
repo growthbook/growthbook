@@ -135,9 +135,6 @@ export default function authenticateApiRequestMiddleware(
     });
 }
 
-/**
- * this is a duplication of the logic in processJwt() -> hasPermission()
- */
 function doesUserHavePermission(
   org: OrganizationInterface,
   permission: Permission,
