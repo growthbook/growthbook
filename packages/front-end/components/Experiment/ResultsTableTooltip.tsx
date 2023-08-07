@@ -70,7 +70,7 @@ interface Props
   extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
   left: number;
   top: number;
-  data: TooltipData;
+  data?: TooltipData;
   close: () => void;
 }
 export default function ResultsTableTooltip({

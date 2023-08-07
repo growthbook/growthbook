@@ -354,6 +354,7 @@ export default function ResultsTable({
           hoveredMetricRow !== null &&
           hoveredVariationRow !== null
         }
+        timeout={0}
         classNames="tooltip-animate"
         appear={true}
       >
@@ -695,17 +696,12 @@ export default function ResultsTable({
                               newUi={true}
                               rowResults={rowResults}
                               isHovered={isHovered}
-                              onPointerMove={
-                                rowResults.enoughData
-                                  ? (e) =>
-                                      onPointerMove(e, { x: "element-center" })
-                                  : null
+                              onPointerMove={(e) =>
+                                onPointerMove(e, { x: "element-center" })
                               }
-                              onPointerLeave={
-                                rowResults.enoughData ? onPointerLeave : null
-                              }
-                              onClick={
-                                rowResults.enoughData ? onPointerMove : null
+                              onPointerLeave={onPointerLeave}
+                              onClick={(e) =>
+                                onPointerMove(e, { x: "element-center" })
                               }
                               className={resultsHighlightClassname}
                             />
@@ -730,18 +726,12 @@ export default function ResultsTable({
                             statsEngine={statsEngine}
                             showCI={showAdvanced}
                             className={resultsHighlightClassname}
-                            onPointerMove={
-                              rowResults.enoughData
-                                ? (e) => onPointerMove(e, { x: "mouse-right" })
-                                : null
+                            onPointerMove={(e) =>
+                              onPointerMove(e, { x: "mouse-right" })
                             }
-                            onPointerLeave={
-                              rowResults.enoughData ? onPointerLeave : null
-                            }
-                            onClick={
-                              rowResults.enoughData
-                                ? (e) => onPointerMove(e, { x: "mouse-right" })
-                                : null
+                            onPointerLeave={onPointerLeave}
+                            onClick={(e) =>
+                              onPointerMove(e, { x: "mouse-right" })
                             }
                           />
                         ) : (

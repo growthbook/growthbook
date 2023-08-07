@@ -1,6 +1,6 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
-import { DetailedHTMLProps, HTMLAttributes } from "react";
+import React, { DetailedHTMLProps, HTMLAttributes } from "react";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import { hasEnoughData, isStatSig, RowResults } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -8,7 +8,7 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import AlignedGraph from "./AlignedGraph";
 
 interface Props
-  extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
+  extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
   metric: MetricInterface;
   baseline: SnapshotMetric;
   stats: SnapshotMetric;
@@ -20,6 +20,9 @@ interface Props
   newUi?: boolean;
   rowResults?: RowResults;
   isHovered?: boolean;
+  onPointerMove?: (e: React.PointerEvent<SVGPathElement>) => void;
+  onPointerLeave?: (e: React.PointerEvent<SVGPathElement>) => void;
+  onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
 }
 
 export default function PercentGraph({
@@ -34,7 +37,9 @@ export default function PercentGraph({
   newUi = false,
   rowResults,
   isHovered = false,
-  ...otherProps
+  onPointerMove,
+  onPointerLeave,
+  onClick,
 }: Props) {
   const { metricDefaults } = useOrganizationMetricDefaults();
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
@@ -73,7 +78,9 @@ export default function PercentGraph({
       newUi={newUi}
       rowResults={rowResults}
       isHovered={isHovered}
-      {...otherProps}
+      onPointerMove={onPointerMove}
+      onPointerLeave={onPointerLeave}
+      onClick={onClick}
     />
   );
 }

@@ -11,7 +11,7 @@ import clsx from "clsx";
 import { RowResults } from "@/services/experiments";
 
 interface Props
-  extends DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement> {
+  extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
   id: string;
   ci?: [number, number] | [];
   barType?: "pill" | "violin";
@@ -37,6 +37,9 @@ interface Props
   newUi?: boolean;
   rowResults?: RowResults;
   isHovered?: boolean;
+  onPointerMove?: (e: React.PointerEvent<SVGPathElement>) => void;
+  onPointerLeave?: (e: React.PointerEvent<SVGPathElement>) => void;
+  onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
 }
 
 const AlignedGraph: FC<Props> = ({
@@ -64,7 +67,9 @@ const AlignedGraph: FC<Props> = ({
   newUi = false,
   rowResults,
   isHovered = false,
-  ...otherProps
+  onPointerMove,
+  onPointerLeave,
+  onClick,
 }) => {
   if (newUi) {
     sigBarColorPos = "#52be5b";
@@ -225,7 +230,9 @@ const AlignedGraph: FC<Props> = ({
                       <>
                         {barType === "violin" && (
                           <ViolinPlot
-                            {...otherProps}
+                            onPointerMove={onPointerMove}
+                            onPointerLeave={onPointerLeave}
+                            onClick={onClick}
                             className={clsx("aligned-graph-violin", {
                               hover: isHovered,
                             })}
@@ -278,7 +285,9 @@ const AlignedGraph: FC<Props> = ({
                         )}
                         {barType === "pill" && (
                           <rect
-                            {...otherProps}
+                            onPointerMove={onPointerMove}
+                            onPointerLeave={onPointerLeave}
+                            onClick={onClick}
                             className={clsx("aligned-graph-pill", {
                               hover: isHovered,
                             })}
