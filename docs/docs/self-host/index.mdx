@@ -30,7 +30,7 @@ services:
       - MONGO_INITDB_ROOT_USERNAME=root
       - MONGO_INITDB_ROOT_PASSWORD=password
     volumes:
-      - ./data:/data/db
+      - mongodata:/data/db
   growthbook:
     image: "growthbook/growthbook:latest"
     ports:
@@ -44,6 +44,7 @@ services:
       - uploads:/usr/local/src/app/packages/back-end/uploads
 volumes:
   uploads:
+  mongodata:
 ```
 
 Then, just run `docker-compose up -d` to start everything and view the app at [http://localhost:3000](http://localhost:3000)
