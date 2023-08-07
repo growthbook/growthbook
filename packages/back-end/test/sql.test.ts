@@ -24,7 +24,7 @@ describe("backend", () => {
     expect(() => {
       compileSqlTemplate(`SELECT {{ unknown }}`, { startDate, endDate });
     }).toThrowError(
-      "Unknown variable: unknown. Available variables: startDateUnix, startDate, startYear, startMonth, startDay, endDateUnix, endDate, endYear, endMonth, endDay, experimentId"
+      "Unknown variable: unknown. Available variables: startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId"
     );
 
     expect(
@@ -42,7 +42,7 @@ describe("backend", () => {
 
     expect(
       compileSqlTemplate(
-        `SELECT {{date startDate "hh"}} as hour, {{date startDate "z"}} as tz`,
+        `SELECT {{date startDateISO "hh"}} as hour, {{date startDate "z"}} as tz`,
         {
           startDate,
           endDate,

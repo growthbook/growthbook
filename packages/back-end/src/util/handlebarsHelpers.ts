@@ -174,7 +174,14 @@ helpers.uppercase = function (str: string) {
   return str.toUpperCase();
 };
 
-helpers.date = function (str: string, formatStr: string) {
+/**
+ * Takes an ISO date string and returns a formatted date string in the given format in UTC time.
+ *
+ * @param dateStr
+ * @param formatStr
+ * @returns
+ */
+helpers.date = function (dateStr: string, formatStr: string) {
   // Convert to UTC as that is what most DBs store
-  return formatInTimeZone(parseISO(str), "UTC", formatStr);
+  return formatInTimeZone(parseISO(dateStr), "UTC", formatStr);
 };
