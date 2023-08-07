@@ -1,7 +1,7 @@
 import Handlebars from "handlebars";
 
 // Adapted from https://github.com/helpers/handlebars-helpers
-import format from "date-fns-tz/format";
+import formatInTimeZone from "date-fns-tz/formatInTimeZone";
 import parseISO from "date-fns/parseISO";
 export const helpers: Record<string, Handlebars.HelperDelegate> = {};
 
@@ -175,5 +175,6 @@ helpers.uppercase = function (str: string) {
 };
 
 helpers.date = function (str: string, formatStr: string) {
-  return format(parseISO(str), formatStr, { timeZone: "UTC" });
+  // Convert to UTC as that is what most DBs store
+  return formatInTimeZone(parseISO(str), "UTC", formatStr);
 };

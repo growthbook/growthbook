@@ -150,6 +150,6 @@ describe("date", function () {
     const fn = compile(
       `{{date '${testDate}' 'yyyy-MM-dd HH:mm:ss z'}}`
     ) as HandlebarsCompileFunction;
-    expect(fn()).toBe("2021-01-05 11:20:15 UTC");
+    expect(fn()).toBe("2021-01-05 10:20:15 UTC");
   });
 });
