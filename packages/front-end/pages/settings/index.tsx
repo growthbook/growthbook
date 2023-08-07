@@ -48,6 +48,7 @@ import ControlledTabs from "@/components/Tabs/ControlledTabs";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import { useCurrency } from "@/hooks/useCurrency";
 import { AppFeatures } from "@/types/app-features";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 export const supportedCurrencies = {
   AED: "UAE Dirham (AED)",
@@ -248,6 +249,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   );
   const displayCurrency = useCurrency();
   const growthbook = useGrowthBook<AppFeatures>();
+  const { datasources } = useDefinitions();
 
   const currencyOptions = Object.entries(
     supportedCurrencies
@@ -319,6 +321,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       displayCurrency,
       secureAttributeSalt: "",
       killswitchConfirmation: false,
+      defaultDataSource: settings.defaultDataSource || "",
     },
   });
   const { apiCall } = useAuth();
@@ -354,6 +357,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     displayCurrency: form.watch("displayCurrency"),
     secureAttributeSalt: form.watch("secureAttributeSalt"),
     killswitchConfirmation: form.watch("killswitchConfirmation"),
+    defaultDataSource: form.watch("defaultDataSource"),
   };
 
   const [cronString, setCronString] = useState("");
@@ -1391,6 +1395,30 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     }}
                   />
                 </div>
+              </div>
+            </div>
+            <div className="divider border-bottom mb-3 mt-3" />
+            <div className="row">
+              <div className="col-sm-3">
+                <h4>Data Source Settings</h4>
+              </div>
+              <div className="col-sm-9">
+                <>
+                  <SelectField
+                    label="Default Data Source (Optional)"
+                    value={form.watch("defaultDataSource") || ""}
+                    options={datasources.map((d) => ({
+                      label: d.name,
+                      value: d.id,
+                    }))}
+                    onChange={(v: string) =>
+                      form.setValue("defaultDataSource", v)
+                    }
+                    isClearable={true}
+                    placeholder="Select a data source..."
+                    helpText="The default data source is the default data source selected when creating metrics and experiments."
+                  />
+                </>
               </div>
             </div>
           </div>
