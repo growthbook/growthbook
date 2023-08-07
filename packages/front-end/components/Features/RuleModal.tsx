@@ -122,8 +122,14 @@ export default function RuleModal({
     { label: "Percentage Rollout", value: "rollout" },
     { label: "New A/B Experiment", value: "experiment-ref-new" },
     { label: "Existing A/B Experiment", value: "experiment-ref" },
-    { label: "Legacy A/B Experiment", value: "experiment" },
   ];
+
+  if (type === "experiment") {
+    ruleTypeOptions.push({
+      label: "A/B Experiment",
+      value: "experiment",
+    });
+  }
 
   const experimentOptions = experiments
     .filter(
@@ -275,7 +281,6 @@ export default function RuleModal({
             }
 
             // Experiment created, treat it as an experiment ref rule now
-            console.log("Created experiment", res);
             values = {
               type: "experiment-ref",
               description: "",
@@ -289,7 +294,6 @@ export default function RuleModal({
                 variationId: res.experiment.variations[i]?.id || "",
               })),
             };
-            console.log("Created experiment-ref rule", values);
             mutateExperiments();
           } else if (values.type === "experiment-ref") {
             // Validate a proper experiment was chosen and it has a value for every variation id
@@ -308,7 +312,6 @@ export default function RuleModal({
             });
           }
 
-          console.log("Validating rule");
           const newRule = validateFeatureRule(values, feature);
           if (newRule) {
             form.reset(newRule);
