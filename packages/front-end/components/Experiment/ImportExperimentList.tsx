@@ -54,7 +54,7 @@ const ImportExperimentList: FC<{
     }),
     [datasource]
   );
-  const { pastExperimentsMinLength } = useOrgSettings();
+  const { pastExperimentsMinLength, defaultDataSource } = useOrgSettings();
 
   const [minUsersFilter, setMinUsersFilter] = useState("100");
   const [minLengthFilter, setMinLengthFilter] = useState(
@@ -139,10 +139,15 @@ const ImportExperimentList: FC<{
           {changeDatasource && supportedDatasources.length > 1 ? (
             <SelectField
               value={data.experiments.datasource}
-              options={supportedDatasources.map((d) => ({
-                value: d.id,
-                label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-              }))}
+              options={supportedDatasources.map((d) => {
+                const isDefaultDataSource = d.id === defaultDataSource;
+                return {
+                  value: d.id,
+                  label: `${d.name}${
+                    d.description ? ` — ${d.description}` : ""
+                  } ${isDefaultDataSource ? " (default)" : ""}`,
+                };
+              })}
               className="portal-overflow-ellipsis"
               onChange={changeDatasource}
             />
