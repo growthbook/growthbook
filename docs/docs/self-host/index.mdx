@@ -54,41 +54,6 @@ For production you may want to use a more scalable and stable solution (ie. AWS 
 You may also want to have a [Growthbook Proxy](/self-host/proxy) running as well for speed, scalability, sercurity, and real-time feature rollouts.
 :::
 
-If you use Apple silicon, modify it like this
-
-```yml
-# docker-compose.yml
-version: "3"
-services:
-  mongo:
-    image: "mongo:latest"
-    environment:
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=password
-    volumes:
-      - ./data:/data/db
-  growthbook:
-    image: "growthbook/growthbook:latest"
-    ports:
-      - "3000:3000"
-      - "3100:3100"
-    depends_on:
-      - mongo
-    environment:
-      - MONGODB_URI=mongodb://root:password@mongo:27017/growthbook?authSource=admin
-    volumes:
-      - uploads:/usr/local/src/app/packages/back-end/uploads
-    platform: linux/amd64
-volumes:
-  uploads:
-```
-
-or use the following command to start the docker-compose
-
-```bash
-DOCKER_DEFAULT_PLATFORM=linux/amd64 docker-compose up -d
-```
-
 ## Docker Tags
 
 Builds are published automatically from the [GitHub repo](https://github.com/growthbook/growthbook) main branch. The most recent commit is tagged with `latest`.
