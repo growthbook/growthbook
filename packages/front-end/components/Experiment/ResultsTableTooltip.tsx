@@ -271,7 +271,7 @@ export default function ResultsTableTooltip({
             (data.isGuardrail && data.rowResults.enoughData) ? (
               <div
                 className={clsx(
-                  "results-status border position-absolute d-flex align-items-center",
+                  "results-status position-absolute d-flex align-items-center",
                   !data.isGuardrail
                     ? data.rowResults.resultsStatus
                     : guardrailStatus

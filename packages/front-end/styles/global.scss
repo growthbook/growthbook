@@ -304,7 +304,7 @@ pre {
         color: #fff;
       }
       &.ok {
-        background-color: #55ab5d;
+        background-color: #55ab95;
         color: #fff;
       }
       &.warning {
@@ -347,7 +347,7 @@ pre {
       }
       &.ok {
         .value {
-          color: #55ab5d;
+          color: #55ab95;
         }
       }
       &.warning {
@@ -378,18 +378,15 @@ pre {
         line-height: 10px;
       }
       .ok {
-        color: #55ab5d88;
-        //background-color: #55ab5d22;
-        border-color: #55ab5d66 !important;
+        color: #55ab95;
+        border-color: #55ab9566 !important;
       }
       .warning {
         color: #d99132;
-        //background-color: #d9913222;
         border-color: #d9913266 !important;
       }
       .danger {
         color: #d94032;
-        //background-color: #d9403222;
         border-color: #d9403266 !important;
       }
       .non-significant {
@@ -517,7 +514,7 @@ pre {
   .chance {
     // for guardrails and embedded risk warning for ChanceToWin
     .ok {
-      color: #55ab5d88;
+      color: #55ab87;
     }
     .warning {
       color: #d99132;
