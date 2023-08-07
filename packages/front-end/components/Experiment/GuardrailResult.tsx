@@ -2,8 +2,8 @@ import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { FaCheck, FaExclamation, FaExclamationTriangle } from "react-icons/fa";
 
-const WARNING_CUTOFF = 0.65;
-const DANGER_CUTOFF = 0.9;
+export const WARNING_CUTOFF = 0.65;
+export const DANGER_CUTOFF = 0.9;
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",

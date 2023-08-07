@@ -8,20 +8,33 @@ import clsx from "clsx";
 import {
   FaArrowDown,
   FaArrowUp,
+  FaCheck,
+  FaExclamation,
+  FaExclamationTriangle,
   FaHourglassHalf,
-  FaInfoCircle,
-  FaQuestionCircle,
+  FaQuestion,
 } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
+import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
-import { pValueFormatter, RowResults } from "@/services/experiments";
+import {
+  isExpectedDirection,
+  pValueFormatter,
+  RowResults,
+} from "@/services/experiments";
 import { GBSuspicious } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import { formatConversionRate } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { capitalizeFirstLetter } from "@/services/utils";
+import {
+  DANGER_CUTOFF,
+  getGuardrailStatus,
+  WARNING_CUTOFF,
+} from "@/components/Experiment/GuardrailResult";
+import { getPValueGuardrailStatus } from "@/components/Experiment/PValueGuardrailResult";
 
 export const TOOLTIP_WIDTH = 400;
 export const TOOLTIP_HEIGHT = 400;
@@ -82,7 +95,47 @@ export default function ResultsTableTooltip({
       data.rowResults.resultsStatus !== "lost",
     data.rowResults.suspiciousChange,
   ];
-  const hasFlaggedItems = flags.some((flag) => flag);
+  const hasFlaggedItems = !data.isGuardrail
+    ? flags.some((flag) => flag)
+    : !data.rowResults.enoughData;
+
+  const guardrailChance = 1 - (data.stats.chanceToWin ?? 1); // bayesian only
+  const expectedDirection = isExpectedDirection(data.stats, data.metric);
+  const guardrailStatus: "ok" | "warning" | "danger" | "non-significant" =
+    data.statsEngine === "bayesian"
+      ? getGuardrailStatus(guardrailChance)
+      : getPValueGuardrailStatus(
+          expectedDirection,
+          data.rowResults.significantUnadjusted
+        );
+  const guardrailReason =
+    data.statsEngine === "bayesian"
+      ? guardrailChance >= 0 && guardrailChance < WARNING_CUTOFF
+        ? `The chance of this variation being worse than the baseline (${percentFormatter.format(
+            guardrailChance
+          )}) is within acceptable limits (<${percentFormatter.format(
+            WARNING_CUTOFF
+          )}).`
+        : guardrailChance >= WARNING_CUTOFF && guardrailChance < DANGER_CUTOFF
+        ? `The chance of this variation being worse than the baseline (${percentFormatter.format(
+            guardrailChance
+          )}) is exceeds the warning threshold (${percentFormatter.format(
+            WARNING_CUTOFF
+          )}).`
+        : guardrailChance >= DANGER_CUTOFF
+        ? `The chance of this variation being worse than the baseline (${percentFormatter.format(
+            guardrailChance
+          )}) is exceeds the danger threshold (${percentFormatter.format(
+            DANGER_CUTOFF
+          )}).`
+        : `Not enough information to determine if this variation is worse than the baseline.`
+      : expectedDirection && data.rowResults.significantUnadjusted
+      ? `The variation is moving in the expected direction and the results are statistically significant.`
+      : !expectedDirection && !data.rowResults.significantUnadjusted
+      ? `The variation appears to be moving in the expected direction. However, the results are not statistically significant.`
+      : !expectedDirection && data.rowResults.significantUnadjusted
+      ? `The variation is not moving in the expected direction and the results are statistically significant.`
+      : `The results are not statistically significant.`;
 
   const metricInverseIconDisplay = data.metric.inverse ? (
     <Tooltip
@@ -174,6 +227,14 @@ export default function ResultsTableTooltip({
 
         {/*tooltip contents*/}
         <div className="px-2 py-1">
+          {data.isGuardrail ? (
+            <div
+              className="uppercase-title text-muted mr-2"
+              style={{ marginBottom: -2, fontSize: "10px" }}
+            >
+              guardrail
+            </div>
+          ) : null}
           <div className="metric-label d-flex align-items-end">
             <span className="h5 mb-0 text-dark">{data.metric.name}</span>
             {metricInverseIconDisplay}
@@ -200,24 +261,53 @@ export default function ResultsTableTooltip({
           <div
             className={clsx(
               "results-overview mt-1 px-3 py-2 rounded position-relative",
-              data.rowResults.resultsStatus
+              { [data.rowResults.resultsStatus]: !data.isGuardrail }
             )}
           >
-            {["won", "lost", "draw"].includes(data.rowResults.resultsStatus) ? (
+            {(!data.isGuardrail &&
+              ["won", "lost", "draw"].includes(
+                data.rowResults.resultsStatus
+              )) ||
+            (data.isGuardrail && data.rowResults.enoughData) ? (
               <div
                 className={clsx(
                   "results-status border position-absolute d-flex align-items-center",
-                  data.rowResults.resultsStatus
+                  !data.isGuardrail
+                    ? data.rowResults.resultsStatus
+                    : guardrailStatus
                 )}
               >
                 <Tooltip
-                  body={data.rowResults.resultsReason}
+                  body={
+                    !data.isGuardrail
+                      ? data.rowResults.resultsReason
+                      : guardrailReason
+                  }
                   tipMinWidth={"250px"}
+                  className="cursor-pointer"
                 >
+                  {data.isGuardrail ? (
+                    <span>
+                      {guardrailStatus === "ok" && <FaCheck className="mr-1" />}
+                      {guardrailStatus === "warning" && (
+                        <FaExclamationTriangle className="mr-1" />
+                      )}
+                      {guardrailStatus === "danger" && (
+                        <FaExclamation className="mr-1" />
+                      )}
+                      {guardrailStatus === "non-significant" && (
+                        <FaQuestion className="mr-1" />
+                      )}
+                    </span>
+                  ) : (
+                    <></>
+                  )}
                   <span style={{ marginRight: 14 }}>
-                    {capitalizeFirstLetter(data.rowResults.resultsStatus)}
+                    {!data.isGuardrail
+                      ? capitalizeFirstLetter(data.rowResults.resultsStatus)
+                      : capitalizeFirstLetter(guardrailStatus)}
                   </span>
-                  <FaInfoCircle
+                  <RxInfoCircled
                     className="position-absolute"
                     style={{ top: 4, right: 4 }}
                   />
@@ -270,7 +360,9 @@ export default function ResultsTableTooltip({
             <div
               className={clsx(
                 "results-ci d-flex mt-1",
-                data.rowResults.resultsStatus
+                !data.isGuardrail
+                  ? data.rowResults.resultsStatus
+                  : guardrailStatus
               )}
             >
               <div className="label mr-2">
@@ -289,28 +381,50 @@ export default function ResultsTableTooltip({
               </div>
             </div>
 
-            <div
-              className={clsx(
-                "results-chance d-flex mt-1",
-                data.rowResults.resultsStatus
-              )}
-            >
-              <div className="label mr-2">
-                {data.statsEngine === "bayesian"
-                  ? "Chance to Win:"
-                  : "P-Value:"}
-              </div>
+            {!data.isGuardrail ? (
               <div
-                className={clsx("value", {
-                  "font-weight-bold": data.rowResults.enoughData,
-                  opacity50: !data.rowResults.enoughData,
-                })}
+                className={clsx(
+                  "results-chance d-flex mt-1",
+                  data.rowResults.resultsStatus
+                )}
               >
-                {data.statsEngine === "bayesian"
-                  ? percentFormatter.format(data.stats.chanceToWin ?? 0)
-                  : pValText}
+                <div className="label mr-2">
+                  {data.statsEngine === "bayesian"
+                    ? "Chance to Win:"
+                    : "P-Value:"}
+                </div>
+                <div
+                  className={clsx("value", {
+                    "font-weight-bold": data.rowResults.enoughData,
+                    opacity50: !data.rowResults.enoughData,
+                  })}
+                >
+                  {data.statsEngine === "bayesian"
+                    ? percentFormatter.format(data.stats.chanceToWin ?? 0)
+                    : pValText}
+                </div>
               </div>
-            </div>
+            ) : (
+              <div
+                className={clsx("results-chance d-flex mt-1", guardrailStatus)}
+              >
+                <div className="label mr-2">
+                  {data.statsEngine === "bayesian"
+                    ? "Chance of Being Worse:"
+                    : "P-Value:"}
+                </div>
+                <div
+                  className={clsx("value", {
+                    "font-weight-bold": data.rowResults.enoughData,
+                    opacity50: !data.rowResults.enoughData,
+                  })}
+                >
+                  {data.statsEngine === "bayesian"
+                    ? percentFormatter.format(1 - (data.stats.chanceToWin ?? 1))
+                    : pValueFormatter(data.stats.pValue ?? 1)}
+                </div>
+              </div>
+            )}
 
             {hasFlaggedItems ? (
               <div
@@ -318,59 +432,69 @@ export default function ResultsTableTooltip({
                 style={{ gap: 12 }}
               >
                 {!data.rowResults.enoughData ? (
-                  <div className="d-flex border rounded p-1 flagged-not-enough-data">
-                    <FaHourglassHalf size={14} className="mr-1 text-info" />
-                    <NotEnoughData
-                      rowResults={data.rowResults}
-                      showTimeRemaining={true}
-                      showPercentComplete={true}
-                    />
-                  </div>
+                  <Tooltip
+                    className="cursor-pointer"
+                    body={data.rowResults.enoughDataMeta.reason}
+                  >
+                    <div className="d-flex border rounded p-1 flagged-not-enough-data">
+                      <FaHourglassHalf size={14} className="mr-1 text-info" />
+                      <NotEnoughData
+                        rowResults={data.rowResults}
+                        showTimeRemaining={true}
+                        showPercentComplete={true}
+                      />
+                    </div>
+                  </Tooltip>
                 ) : null}
 
-                {data.rowResults.riskMeta.showRisk &&
+                {!data.isGuardrail &&
+                data.rowResults.riskMeta.showRisk &&
                 ["warning", "danger"].includes(
                   data.rowResults.riskMeta.riskStatus
                 ) &&
                 data.rowResults.resultsStatus !== "lost" ? (
-                  <div
-                    className={clsx(
-                      "d-flex border rounded p-1 flagged-risk",
-                      data.rowResults.riskMeta.riskStatus
-                    )}
+                  <Tooltip
+                    className="cursor-pointer"
+                    body={data.rowResults.riskMeta.riskReason}
                   >
-                    <HiOutlineExclamationCircle size={18} className="mr-1" />
-                    <div className="risk">
-                      <div
-                        className="risk-value"
-                        style={{ fontSize: "11px", lineHeight: "14px" }}
-                      >
-                        risk: {data.rowResults.riskMeta.relativeRiskFormatted}
-                      </div>
-                      {data.rowResults.riskMeta.riskFormatted ? (
-                        <div className="small text-muted risk-relative">
-                          {data.rowResults.riskMeta.riskFormatted}
+                    <div
+                      className={clsx(
+                        "d-flex border rounded p-1 flagged-risk",
+                        data.rowResults.riskMeta.riskStatus
+                      )}
+                    >
+                      <HiOutlineExclamationCircle size={18} className="mr-1" />
+                      <div className="risk">
+                        <div
+                          className="risk-value"
+                          style={{ fontSize: "11px", lineHeight: "14px" }}
+                        >
+                          risk: {data.rowResults.riskMeta.relativeRiskFormatted}
                         </div>
-                      ) : null}
+                        {data.rowResults.riskMeta.riskFormatted ? (
+                          <div className="small text-muted risk-relative">
+                            {data.rowResults.riskMeta.riskFormatted}
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
-                  </div>
+                  </Tooltip>
                 ) : null}
 
-                {data.rowResults.suspiciousChange ? (
-                  <div className="d-flex border rounded p-1 flagged-suspicious suspicious">
-                    <GBSuspicious size={18} className="mr-1" />
-                    <div className="suspicious-reason">
-                      <Tooltip
-                        popperClassName="text-main"
-                        tipMinWidth={"250px"}
-                        body={data.rowResults.suspiciousChangeReason}
-                      >
+                {!data.isGuardrail && data.rowResults.suspiciousChange ? (
+                  <Tooltip
+                    className="cursor-pointer"
+                    body={data.rowResults.suspiciousChangeReason}
+                  >
+                    <div className="d-flex border rounded p-1 flagged-suspicious suspicious">
+                      <GBSuspicious size={18} className="mr-1" />
+                      <div className="suspicious-reason">
                         <span style={{ fontSize: "11px", lineHeight: "14px" }}>
-                          suspicious <FaQuestionCircle />
+                          suspicious
                         </span>
-                      </Tooltip>
+                      </div>
                     </div>
-                  </div>
+                  </Tooltip>
                 ) : null}
               </div>
             ) : null}

@@ -55,9 +55,8 @@ export function isSuspiciousUplift(
   if (!baseline?.cr || !stats?.cr) return false;
 
   const maxPercentChange =
-    metric.maxPercentChange || metricDefaults?.maxPercentageChange;
+    metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0;
 
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   return Math.abs(baseline.cr - stats.cr) / baseline.cr >= maxPercentChange;
 }
 
@@ -522,6 +521,7 @@ export type RowResults = {
   enoughData: boolean;
   enoughDataMeta: EnoughDataMeta;
   significant: boolean;
+  significantUnadjusted: boolean;
   suspiciousChange: boolean;
   suspiciousChangeReason: string;
   belowMinChange: boolean;
@@ -534,6 +534,7 @@ export type RiskMeta = {
   showRisk: boolean;
   riskFormatted: string;
   relativeRiskFormatted: string;
+  riskReason: string;
 };
 export type EnoughDataMeta = {
   percentComplete: number;
@@ -541,6 +542,7 @@ export type EnoughDataMeta = {
   percentCompleteDenominator: number;
   timeRemainingMs: number | null;
   showTimeRemaining: boolean;
+  reason: string;
 };
 export function getRowResults({
   stats,
@@ -586,8 +588,13 @@ export function getRowResults({
     statsEngine === "bayesian"
       ? (stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower
       : isStatSig(stats.pValueAdjusted ?? stats.pValue ?? 1, pValueThreshold);
+  const significantUnadjusted =
+    statsEngine === "bayesian"
+      ? (stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower
+      : isStatSig(stats.pValue ?? 1, pValueThreshold);
 
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
+  const enoughDataReason = `This metric has a minimum sample size of ${minSampleSize}. There are only ${stats.value} samples in this variation and ${baseline.value} samples in the baseline.`;
   const percentComplete =
     minSampleSize > 0
       ? Math.max(stats.value, baseline.value) / minSampleSize
@@ -607,6 +614,7 @@ export function getRowResults({
     percentCompleteDenominator: minSampleSize,
     timeRemainingMs,
     showTimeRemaining,
+    reason: enoughDataReason,
   };
 
   const suspiciousChange = isSuspiciousUplift(
@@ -616,9 +624,10 @@ export function getRowResults({
     metricDefaults
   );
   const suspiciousChangeReason = suspiciousChange
-    ? `A suspicious result occurs when the percent change is equal to or greater than your maximum percent change (${
-        (metric.maxPercentChange ?? 0) * 100
-      }%).`
+    ? `A suspicious result occurs when the percent change exceeds your maximum percent change (${percentFormatter.format(
+        (metric.maxPercentChange ?? metricDefaults?.maxPercentageChange ?? 0) *
+          100
+      )}).`
     : "";
 
   const belowMinChange = isBelowMinChange(
@@ -637,10 +646,21 @@ export function getRowResults({
   const winRiskThreshold = metric.winRisk ?? defaultWinRiskThreshold;
   const loseRiskThreshold = metric.loseRisk ?? defaultLoseRiskThreshold;
   let riskStatus: "ok" | "warning" | "danger" = "ok";
+  let riskReason = "";
   if (relativeRisk > winRiskThreshold && relativeRisk < loseRiskThreshold) {
     riskStatus = "warning";
+    riskReason = `The relative risk (${percentFormatter.format(
+      relativeRisk
+    )}) exceeds the warning threshold (${percentFormatter.format(
+      winRiskThreshold
+    )}) for this metric.`;
   } else if (relativeRisk >= loseRiskThreshold) {
     riskStatus = "danger";
+    riskReason = `The relative risk (${percentFormatter.format(
+      relativeRisk
+    )}) exceeds the danger threshold (${percentFormatter.format(
+      loseRiskThreshold
+    )}) for this metric.`;
   }
   let riskFormatted = "";
   if (metric.type !== "binomial") {
@@ -655,6 +675,7 @@ export function getRowResults({
     showRisk,
     riskFormatted: riskFormatted,
     relativeRiskFormatted: percentFormatter.format(relativeRisk),
+    riskReason,
   };
 
   const _shouldHighlight = shouldHighlight({
@@ -711,9 +732,6 @@ export function getRowResults({
     }
   }
 
-  // // todo: temp overrides for testing
-  // resultsStatus = "draw";
-
   return {
     directionalStatus,
     resultsStatus,
@@ -721,6 +739,7 @@ export function getRowResults({
     enoughData,
     enoughDataMeta,
     significant,
+    significantUnadjusted,
     suspiciousChange,
     suspiciousChangeReason,
     belowMinChange,

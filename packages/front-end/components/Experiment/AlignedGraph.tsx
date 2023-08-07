@@ -7,6 +7,7 @@ import { Line } from "@visx/shape";
 import { FaArrowUp, FaArrowDown } from "react-icons/fa";
 import { ViolinPlot } from "@visx/stats";
 import { jStat } from "jstat";
+import clsx from "clsx";
 import { RowResults } from "@/services/experiments";
 
 interface Props
@@ -72,6 +73,7 @@ const AlignedGraph: FC<Props> = ({
       sigBarColorPos = "#39cb45";
       sigBarColorNeg = "#e34040";
       barColorDraw = "#957dc2";
+      barColor = "#aaa";
     }
   }
 
@@ -148,10 +150,7 @@ const AlignedGraph: FC<Props> = ({
 
   return (
     <>
-      <div
-        className="d-flex aligned-graph align-items-center aligned-graph-row"
-        {...otherProps}
-      >
+      <div className="d-flex aligned-graph align-items-center aligned-graph-row">
         <div className={newUi ? "" : "flex-grow-1"}>
           <div style={{ position: "relative" }}>
             <ParentSize className="graph-container" debounceTime={1000}>
@@ -226,6 +225,10 @@ const AlignedGraph: FC<Props> = ({
                       <>
                         {barType === "violin" && (
                           <ViolinPlot
+                            {...otherProps}
+                            className={clsx("aligned-graph-violin", {
+                              hover: isHovered,
+                            })}
                             style={{ transition: "100ms all" }}
                             top={barHeight}
                             width={barThickness}
@@ -275,6 +278,10 @@ const AlignedGraph: FC<Props> = ({
                         )}
                         {barType === "pill" && (
                           <rect
+                            {...otherProps}
+                            className={clsx("aligned-graph-pill", {
+                              hover: isHovered,
+                            })}
                             style={{ transition: "100ms all" }}
                             x={xScale(ci?.[0] ?? 0)}
                             y={barHeight}

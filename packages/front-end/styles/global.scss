@@ -212,7 +212,6 @@ pre {
   }
 }
 
-// wrapper:
 .experiment-row-tooltip-wrapper {
   &.tooltip-animate-appear .experiment-row-tooltip {
     opacity: 0;
@@ -223,7 +222,6 @@ pre {
     transform: scaleX(1) scaleY(1);
   }
 }
-
 .experiment-row-tooltip {
   position: absolute;
   display: inline-block;
@@ -237,7 +235,7 @@ pre {
   color: var(--text-color-table);
   z-index: 100;
   pointer-events: all;
-  transition: 150ms all ease-in;
+  transition: 150ms all;
 
   .opacity50 {
     opacity: 0.5;
@@ -305,6 +303,18 @@ pre {
         background-color: #8e51f1;
         color: #fff;
       }
+      &.ok {
+        background-color: #55ab5d;
+        color: #fff;
+      }
+      &.warning {
+        background-color: #d99132;
+        color: #fff;
+      }
+      &.danger {
+        background-color: #d94032;
+        color: #fff;
+      }
     }
     .results-change {
       &.winning {
@@ -333,6 +343,21 @@ pre {
       &.draw {
         .value {
           color: #8e51f1;
+        }
+      }
+      &.ok {
+        .value {
+          color: #55ab5d;
+        }
+      }
+      &.warning {
+        .value {
+          color: #d99132;
+        }
+      }
+      &.danger {
+        .value {
+          color: #d94032;
         }
       }
     }
