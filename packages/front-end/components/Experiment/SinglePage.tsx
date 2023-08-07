@@ -80,6 +80,7 @@ import Button from "../Button";
 import { DocLink } from "../DocLink";
 import FeatureFromExperimentModal from "../Features/FeatureModal/FeatureFromExperimentModal";
 import { openVisualEditor } from "../OpenVisualEditorLink";
+import ConfirmButton from "../Modal/ConfirmButton";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import ResultsIndicator from "./ResultsIndicator";
 import EditStatusModal from "./EditStatusModal";
@@ -824,8 +825,7 @@ export default function SinglePage({
                 <DocLink docSection="temporaryRollout">Learn more</DocLink>
               </div>
               <div className="ml-auto pl-2">
-                <Button
-                  color="primary"
+                <ConfirmButton
                   onClick={async () => {
                     await apiCall(`/experiment/${experiment.id}`, {
                       method: "POST",
@@ -835,9 +835,24 @@ export default function SinglePage({
                     });
                     mutate();
                   }}
+                  modalHeader="Stop Temporary Rollout"
+                  confirmationText={
+                    <>
+                      <p>
+                        Are you sure you want to stop the Temporary Rollout?
+                      </p>
+                      <p>
+                        This will completely stop serving traffic to the winning
+                        variation.
+                      </p>
+                    </>
+                  }
+                  cta="Stop Rollout"
                 >
-                  Stop Temporary Rollout
-                </Button>
+                  <button className="btn btn-primary">
+                    Stop Temporary Rollout
+                  </button>
+                </ConfirmButton>
               </div>
             </div>
           </div>

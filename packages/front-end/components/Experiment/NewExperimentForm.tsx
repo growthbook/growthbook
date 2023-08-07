@@ -25,7 +25,6 @@ import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 import ConditionInput from "../Features/ConditionInput";
 import NamespaceSelector from "../Features/NamespaceSelector";
 import MetricsSelector from "./MetricsSelector";
-import HashVersionSelector from "./HashVersionSelector";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -345,12 +344,6 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
             helpText={
               "Will be hashed and used to assign a variation to each user that views the experiment"
             }
-          />
-        )}
-        {isNewExperiment && (
-          <HashVersionSelector
-            value={form.watch("hashVersion") ?? 2}
-            onChange={(v) => form.setValue("hashVersion", v)}
           />
         )}
         <FeatureVariationsInput
