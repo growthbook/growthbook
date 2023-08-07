@@ -522,6 +522,7 @@ export type RowResults = {
   enoughDataMeta: EnoughDataMeta;
   significant: boolean;
   significantUnadjusted: boolean;
+  significantReason: string;
   suspiciousChange: boolean;
   suspiciousChangeReason: string;
   belowMinChange: boolean;
@@ -584,14 +585,35 @@ export function getRowResults({
   const directionalStatus: "winning" | "losing" =
     (stats.expected ?? 0) * (inverse ? -1 : 1) > 0 ? "winning" : "losing";
 
-  const significant =
-    statsEngine === "bayesian"
-      ? (stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower
-      : isStatSig(stats.pValueAdjusted ?? stats.pValue ?? 1, pValueThreshold);
-  const significantUnadjusted =
-    statsEngine === "bayesian"
-      ? (stats.chanceToWin ?? 0) > ciUpper || (stats.chanceToWin ?? 0) < ciLower
-      : isStatSig(stats.pValue ?? 1, pValueThreshold);
+  let significant: boolean;
+  let significantUnadjusted: boolean;
+  let significantReason = "";
+  if (statsEngine === "bayesian") {
+    if (
+      (stats.chanceToWin ?? 0) > ciUpper ||
+      (stats.chanceToWin ?? 0) < ciLower
+    ) {
+      significant = true;
+      significantUnadjusted = true;
+    } else {
+      significant = false;
+      significantUnadjusted = false;
+      significantReason = `This metric is not statistically significant. The chance to win it outside the CI interval [${percentFormatter.format(
+        ciLower
+      )}, ${percentFormatter.format(ciUpper)}].`;
+    }
+  } else {
+    significant = isStatSig(
+      stats.pValueAdjusted ?? stats.pValue ?? 1,
+      pValueThreshold
+    );
+    significantUnadjusted = isStatSig(stats.pValue ?? 1, pValueThreshold);
+    if (!significant) {
+      significantReason = `This metric is not statistically significant. The p-value (${pValueFormatter(
+        stats.pValueAdjusted ?? stats.pValue ?? 1
+      )}) is greater than the threshold (${pValueFormatter(pValueThreshold)}).`;
+    }
+  }
 
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
   const enoughDataReason = `This metric has a minimum sample size of ${minSampleSize}. There are only ${stats.value} samples in this variation and ${baseline.value} samples in the baseline.`;
@@ -740,6 +762,7 @@ export function getRowResults({
     enoughDataMeta,
     significant,
     significantUnadjusted,
+    significantReason,
     suspiciousChange,
     suspiciousChangeReason,
     belowMinChange,

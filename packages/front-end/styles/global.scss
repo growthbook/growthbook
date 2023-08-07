@@ -303,6 +303,13 @@ pre {
         background-color: #8e51f1;
         color: #fff;
       }
+      &.non-significant {
+        border: 1px solid #66666666;
+        box-sizing: border-box;
+        color: #666666;
+        font-weight: normal;
+        font-size: 12px;
+      }
       &.ok {
         background-color: #55ab95;
         color: #fff;
@@ -394,7 +401,6 @@ pre {
       }
       .suspicious {
         color: #ef2bd5;
-        //background-color: #ef2bd522;
         border-color: #ef2bd566 !important;
       }
     }
