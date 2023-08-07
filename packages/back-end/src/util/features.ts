@@ -232,6 +232,9 @@ export function getFeatureDefinition({
 
             if (!includeExperimentInPayload(exp)) return null;
 
+            // Never include experiment drafts
+            if (exp.status === "draft") return null;
+
             // Get current experiment phase and use it to set rule properties
             const phase = exp.phases[exp.phases.length - 1];
             if (!phase) return null;

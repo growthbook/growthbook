@@ -93,7 +93,14 @@ export default function ExperimentRefSummary({
     );
   }
 
-  if (experiment.status === "stopped") {
+  const releasedValue =
+    experiment.status === "stopped" && !experiment.excludeFromPayload
+      ? rule.variations.find(
+          (v) => v.variationId === experiment.releasedVariationId
+        )
+      : null;
+
+  if (experiment.status === "stopped" && !releasedValue) {
     if (experiment.excludeFromPayload) {
       return (
         <ExperimentSkipped
@@ -109,36 +116,12 @@ export default function ExperimentRefSummary({
       );
     }
 
-    const releasedValue = rule.variations.find(
-      (v) => v.variationId === experiment.releasedVariationId
+    return (
+      <ExperimentSkipped
+        message="This experiment is stopped, but a winning variation was not selected. This rule will be skipped"
+        experimentId={experiment.id}
+      />
     );
-    if (releasedValue) {
-      return (
-        <div>
-          <div className="mb-2">
-            <ExperimentSkipped
-              message={
-                <>
-                  This experiment is stopped and a{" "}
-                  <strong>Temporary Rollout</strong> is enabled. The winning
-                  variation is being served to 100% of users.
-                </>
-              }
-              color="info"
-              experimentId={experiment.id}
-            />
-          </div>
-          <ForceSummary feature={feature} value={releasedValue.value} />
-        </div>
-      );
-    } else {
-      return (
-        <ExperimentSkipped
-          message="This experiment is stopped, but a winner was not selected. This rule will be skipped"
-          experimentId={experiment.id}
-        />
-      );
-    }
   }
 
   const hasNamespace = phase.namespace && phase.namespace.enabled;
@@ -153,6 +136,14 @@ export default function ExperimentRefSummary({
         <div className="alert alert-warning">
           The experiment is in a <strong>draft</strong> state and has not been
           started yet. This rule will be skipped.
+        </div>
+      )}
+      {experiment.status === "stopped" && (
+        <div className="alert alert-info">
+          This experiment is stopped and a <strong>Temporary Rollout</strong> is
+          enabled. All users in the experiment will receive the winning
+          variation. If this is no longer needed, you can stop it from the
+          Experiment page.
         </div>
       )}
       {phase.condition && phase.condition !== "{}" && (
@@ -211,96 +202,104 @@ export default function ExperimentRefSummary({
           )}
         </div>
       </div>
-      <strong>SERVE</strong>
-      <table className="table mt-1 mb-3 bg-light gbtable">
-        <tbody>
-          {experiment.variations.map((variation, j) => {
-            const value =
-              variations.find((v) => v.variationId === variation.id)?.value ??
-              "null";
+      {releasedValue ? (
+        <ForceSummary feature={feature} value={releasedValue.value} />
+      ) : (
+        <>
+          <strong>SERVE</strong>
+          <table className="table mt-1 mb-3 bg-light gbtable">
+            <tbody>
+              {experiment.variations.map((variation, j) => {
+                const value =
+                  variations.find((v) => v.variationId === variation.id)
+                    ?.value ?? "null";
 
-            const weight = phase.variationWeights?.[j] || 0;
+                const weight = phase.variationWeights?.[j] || 0;
 
-            return (
-              <tr key={j}>
-                <td
-                  className="text-muted position-relative"
-                  style={{ fontSize: "0.9em", width: 25 }}
-                >
-                  <div
-                    style={{
-                      width: "6px",
-                      position: "absolute",
-                      top: 0,
-                      bottom: 0,
-                      left: 0,
-                      backgroundColor: getVariationColor(j),
-                    }}
-                  />
-                  {j}.
-                </td>
-                <td>
-                  <ValueDisplay value={value} type={type} />
-                  <ValidateValue value={value} feature={feature} />
-                </td>
-                <td>{variation.name}</td>
-                <td>
-                  <div className="d-flex">
-                    <div
-                      style={{
-                        width: "4em",
-                        maxWidth: "4em",
-                        margin: "0 0 0 auto",
-                      }}
+                return (
+                  <tr key={j}>
+                    <td
+                      className="text-muted position-relative"
+                      style={{ fontSize: "0.9em", width: 25 }}
                     >
-                      {percentFormatter.format(weight)}
-                    </div>
-                  </div>
+                      <div
+                        style={{
+                          width: "6px",
+                          position: "absolute",
+                          top: 0,
+                          bottom: 0,
+                          left: 0,
+                          backgroundColor: getVariationColor(j),
+                        }}
+                      />
+                      {j}.
+                    </td>
+                    <td>
+                      <ValueDisplay value={value} type={type} />
+                      <ValidateValue value={value} feature={feature} />
+                    </td>
+                    <td>{variation.name}</td>
+                    <td>
+                      <div className="d-flex">
+                        <div
+                          style={{
+                            width: "4em",
+                            maxWidth: "4em",
+                            margin: "0 0 0 auto",
+                          }}
+                        >
+                          {percentFormatter.format(weight)}
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              <tr>
+                <td colSpan={4}>
+                  <ExperimentSplitVisual
+                    values={experiment.variations.map((variation, j) => {
+                      return {
+                        name: variation.name,
+                        value:
+                          variations.find((v) => v.variationId === variation.id)
+                            ?.value ?? "null",
+                        weight: phase.variationWeights?.[j] || 0,
+                      };
+                    })}
+                    coverage={effectiveCoverage}
+                    label="Traffic split"
+                    unallocated="Not included (skips this rule)"
+                    type={type}
+                    showValues={false}
+                    stackLeft={true}
+                    showPercentages={true}
+                  />
                 </td>
               </tr>
-            );
-          })}
-          <tr>
-            <td colSpan={4}>
-              <ExperimentSplitVisual
-                values={experiment.variations.map((variation, j) => {
-                  return {
-                    name: variation.name,
-                    value:
-                      variations.find((v) => v.variationId === variation.id)
-                        ?.value ?? "null",
-                    weight: phase.variationWeights?.[j] || 0,
-                  };
-                })}
-                coverage={effectiveCoverage}
-                label="Traffic split"
-                unallocated="Not included (skips this rule)"
-                type={type}
-                showValues={false}
-                stackLeft={true}
-                showPercentages={true}
-              />
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <div className="row align-items-center">
-        <div className="col-auto">
-          <strong>TRACK</strong>
-        </div>
-        <div className="col">
-          {" "}
-          the result using the key{" "}
-          <span className="mr-1 border px-2 py-1 bg-light rounded">
-            {experiment.trackingKey}
-          </span>{" "}
-        </div>
-        <div className="col-auto">
-          <Link href={`/experiment/${experiment.id}`}>
-            <a className="btn btn-outline-primary">View details and results</a>
-          </Link>
-        </div>
-      </div>
+            </tbody>
+          </table>
+          <div className="row align-items-center">
+            <div className="col-auto">
+              <strong>TRACK</strong>
+            </div>
+            <div className="col">
+              {" "}
+              the result using the key{" "}
+              <span className="mr-1 border px-2 py-1 bg-light rounded">
+                {experiment.trackingKey}
+              </span>{" "}
+            </div>
+            <div className="col-auto">
+              <Link href={`/experiment/${experiment.id}`}>
+                <a className="btn btn-outline-primary">
+                  View details and results
+                </a>
+              </Link>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

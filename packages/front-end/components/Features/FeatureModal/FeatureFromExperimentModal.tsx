@@ -145,6 +145,7 @@ export default function FeatureFromExperimentModal({
 
   // Skip features that already have this experiment
   const validFeatures = features.filter((f) => {
+    if (f.archived) return false;
     if (experiment.linkedFeatures?.includes(f.id)) return false;
     return true;
   });

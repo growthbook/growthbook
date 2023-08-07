@@ -6,7 +6,7 @@ import Link from "next/link";
 import { MatchingRule } from "shared/util";
 import { MdRocketLaunch } from "react-icons/md";
 import { ReactElement } from "react";
-import { FaCheckSquare, FaTimes } from "react-icons/fa";
+import { FaCheckSquare, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import Button from "../Button";
@@ -94,30 +94,30 @@ export function StartExperimentBanner({
     (connection) => connection.connected
   );
   checklist.push({
-    display: "Integrate the GrowthBook SDK into your app",
+    display: (
+      <>
+        Integrate the GrowthBook SDK into your app.{" "}
+        <Link href="/sdks">
+          <a>
+            {connections.length > 0
+              ? "Manage SDK Connections"
+              : "Create an SDK Connection"}{" "}
+            <FaExternalLinkAlt />
+          </a>
+        </Link>
+      </>
+    ),
     status: verifiedConnections.length > 0 ? "success" : "error",
     tooltip:
-      verifiedConnections.length > 0 ? (
-        ""
-      ) : matchingConnections.length > 0 ? (
-        "Your SDK Connection has not been verified to be working yet"
-      ) : projectConnections.length > 0 ? (
-        <>
-          You must edit your SDK Connection to include Visual Experiments.{" "}
-          <Link href="/sdks">View SDK Connections</Link>
-        </>
-      ) : connections.length > 0 ? (
-        <>
-          You have SDK Connections configured, but not for this
-          experiment&apos;s project.{" "}
-          <Link href="/sdks">View SDK Connections</Link>
-        </>
-      ) : (
-        <>
-          You don&apos;t have any SDK Connections configured yet.{" "}
-          <Link href="/sdks">Create an SDK Connection</Link>
-        </>
-      ),
+      verifiedConnections.length > 0
+        ? ""
+        : matchingConnections.length > 0
+        ? "Your SDK Connection has not been verified to be working yet"
+        : projectConnections.length > 0
+        ? "You must edit your SDK Connection to include Visual Experiments."
+        : connections.length > 0
+        ? "You have SDK Connections configured, but not for this experiment&apos;s project."
+        : "You don't have any SDK Connections configured yet.",
   });
 
   // Experiment has phases
@@ -168,7 +168,7 @@ export function StartExperimentBanner({
   manualChecklist.push(
     <>
       Verify your app is tracking all of the metrics and goal completions that
-      you want to report on for this test
+      you plan to include in the analysis
     </>
   );
 
@@ -212,15 +212,16 @@ export function StartExperimentBanner({
                   marginLeft: 0,
                 }}
               >
-                {item.status === "error" ? (
-                  <FaTimes className="text-danger" />
-                ) : item.status === "success" ? (
-                  <FaCheckSquare className="text-success" />
-                ) : (
-                  ""
-                )}{" "}
-                {item.display}{" "}
-                {item.tooltip ? <Tooltip body={item.tooltip} /> : ""}
+                <Tooltip body={item.tooltip || ""}>
+                  {item.status === "error" ? (
+                    <FaTimes className="text-danger" />
+                  ) : item.status === "success" ? (
+                    <FaCheckSquare className="text-success" />
+                  ) : (
+                    ""
+                  )}{" "}
+                  {item.display}
+                </Tooltip>
               </li>
             ))}
           </ul>
