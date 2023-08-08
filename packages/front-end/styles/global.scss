@@ -450,7 +450,12 @@ pre {
   th {
     vertical-align: bottom;
     &.axis-col {
-      border-bottom: 1px solid var(--text-link-hover-color);
+      position: sticky;
+      top: 50px;
+      background-color: var(--surface-background-color);
+      z-index: 940;
+      box-shadow: 0 -1px 0 var(--text-link-hover-color) inset;
+      //border-bottom: 1px solid var(--text-link-hover-color);
       &.header-label {
         padding-bottom: 5px;
         font-size: 16px;

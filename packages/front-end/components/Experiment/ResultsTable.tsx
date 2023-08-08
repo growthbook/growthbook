@@ -358,7 +358,7 @@ export default function ResultsTable({
         ref={tableContainerRef}
         style={{ minWidth: showAdvanced ? 1000 : 800 }}
       >
-        <div className="w-100 overflow-auto">
+        <div className="w-100">
           <table
             id="main-results"
             className="experiment-results table-borderless table-sm"
@@ -445,36 +445,38 @@ export default function ResultsTable({
                   )}
                 </th>
                 <th
-                  className="axis-col graphCell position-relative"
-                  style={{ maxWidth: graphCellWidth }}
+                  className="axis-col graphCell"
+                  style={{ maxWidth: graphCellWidth, zIndex: 941 }}
                 >
-                  <AlignedGraph
-                    id={`${id}_axis`}
-                    domain={domain}
-                    significant={true}
-                    showAxis={true}
-                    axisOnly={true}
-                    graphWidth={graphCellWidth}
-                    height={45}
-                    newUi={true}
-                  />
-                  <Tooltip
-                    className={"position-absolute"}
-                    style={{
-                      bottom: 8,
-                      right: -18,
-                      color: "var(--text-link-hover-color)",
-                    }}
-                    innerClassName={"text-left"}
-                    body={getPercentChangeTooltip(
-                      statsEngine ?? DEFAULT_STATS_ENGINE,
-                      hasRisk,
-                      !!sequentialTestingEnabled,
-                      pValueCorrection ?? null
-                    )}
-                  >
-                    <RxInfoCircled />
-                  </Tooltip>
+                  <div className="position-relative">
+                    <AlignedGraph
+                      id={`${id}_axis`}
+                      domain={domain}
+                      significant={true}
+                      showAxis={true}
+                      axisOnly={true}
+                      graphWidth={graphCellWidth}
+                      height={45}
+                      newUi={true}
+                    />
+                    <Tooltip
+                      className={"position-absolute"}
+                      style={{
+                        bottom: 8,
+                        right: -18,
+                        color: "var(--text-link-hover-color)",
+                      }}
+                      innerClassName={"text-left"}
+                      body={getPercentChangeTooltip(
+                        statsEngine ?? DEFAULT_STATS_ENGINE,
+                        hasRisk,
+                        !!sequentialTestingEnabled,
+                        pValueCorrection ?? null
+                      )}
+                    >
+                      <RxInfoCircled />
+                    </Tooltip>
+                  </div>
                 </th>
                 <th
                   style={{ width: showAdvanced ? 140 : 170 }}
