@@ -65,9 +65,25 @@ const sidebars = {
       ],
     },
     {
-      type: "doc",
-      id: "experiments",
+      type: "category",
       label: "Running Experiments",
+      collapsed: true,
+      link: {
+        type: "doc",
+        id: "experiments",
+      },
+      items: [
+        {
+          type: "doc",
+          id: "feature-flag-experiments",
+          label: "Feature Flags",
+        },
+        {
+          type: "doc",
+          id: "visual-editor",
+          label: "Visual Editor",
+        },
+      ],
     },
     {
       type: "category",
@@ -76,7 +92,7 @@ const sidebars = {
       items: [
         {
           type: "category",
-          label: "Data Warehouses",
+          label: "Connecting to Your Data Warehouse",
           collapsed: true,
           link: {
             type: "doc",
@@ -147,7 +163,7 @@ const sidebars = {
             type: "doc",
             id: "experimentation-analysis/data-source-configuration",
           },
-          label: "Event trackers",
+          label: "Data Source Configuration",
           items: [
             {
               type: "doc",
@@ -280,11 +296,6 @@ const sidebars = {
               label: "Aggregate Data",
             },
           ],
-        },
-        {
-          type: "doc",
-          id: "visual-editor",
-          label: "Visual Editor",
         },
       ],
     },
