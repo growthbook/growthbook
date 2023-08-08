@@ -463,8 +463,6 @@ export default function SinglePage({
 
   const experimentHasPhases = phases.length > 0;
 
-  const [showDescriptionField, setShowDescriptionField] = useState(false);
-
   return (
     <div className="container-fluid experiment-details pagecontents pb-3">
       <div className="mb-2 mt-1">
@@ -882,37 +880,22 @@ export default function SinglePage({
         >
           <div className="mx-4 pt-3 border-top">
             <div>
-              {!experiment.description && !showDescriptionField ? (
-                <a
-                  href="#"
-                  className="badge badge-light badge-pill mb-3 mr-3"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setShowDescriptionField(true);
-                  }}
-                >
-                  + description
-                </a>
-              ) : (
-                <MarkdownInlineEdit
-                  value={experiment.description ?? ""}
-                  save={async (description) => {
-                    await apiCall(`/experiment/${experiment.id}`, {
-                      method: "POST",
-                      body: JSON.stringify({ description }),
-                    });
-                    mutate();
-                  }}
-                  canCreate={canEditExperiment}
-                  canEdit={canEditExperiment}
-                  className="mb-4"
-                  label="description"
-                  header="Description"
-                  headerClassName="h4"
-                  autoOpen={!experiment.description}
-                  onCancel={() => setShowDescriptionField(false)}
-                />
-              )}
+              <MarkdownInlineEdit
+                value={experiment.description ?? ""}
+                save={async (description) => {
+                  await apiCall(`/experiment/${experiment.id}`, {
+                    method: "POST",
+                    body: JSON.stringify({ description }),
+                  });
+                  mutate();
+                }}
+                canCreate={canEditExperiment}
+                canEdit={canEditExperiment}
+                className="mb-4"
+                label="description"
+                header="Description"
+                headerClassName="h3"
+              />
 
               <MarkdownInlineEdit
                 value={experiment.hypothesis ?? ""}
@@ -927,7 +910,7 @@ export default function SinglePage({
                 canEdit={canEditExperiment}
                 label="hypothesis"
                 header={<>Hypothesis</>}
-                headerClassName="h4"
+                headerClassName="h3"
                 className="mb-4"
                 containerClassName="mb-1"
               />

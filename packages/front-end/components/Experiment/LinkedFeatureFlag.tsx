@@ -4,7 +4,6 @@ import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import { MatchingRule } from "shared/util";
 import LinkedChange from "@/components/Experiment/LinkedChange";
 import { useEnvironments } from "@/services/features";
-import ClickToCopy from "@/components/Settings/ClickToCopy";
 import ForceSummary from "@/components/Features/ForceSummary";
 import { useAuth } from "@/services/auth";
 import Tooltip from "../Tooltip/Tooltip";
@@ -45,6 +44,8 @@ export default function LinkedFeatureFlag({
     )
   );
   const rulesAbove = activeRules.some(({ i }) => i > 0);
+
+  const isLegacy = rules.some((r) => r.rule.type === "experiment");
 
   const environmentInfo = environments.map((env) => {
     // First, prefer showing a live rule, then draft, then disabled
@@ -110,10 +111,14 @@ export default function LinkedFeatureFlag({
     >
       <div className="mt-2 pb-1 px-3">
         <div className="d-flex">
-          <div>
-            <div className="font-weight-bold">Feature key</div>
-            <ClickToCopy className="mb-3">{feature.id}</ClickToCopy>
-          </div>
+          {isLegacy && (
+            <div className="alert alert-warning">
+              <FaExclamationTriangle /> This feature contains a legacy
+              experiment rule. Changes to this experiment (targeting conditions,
+              variations, etc.) will not by synced to the feature flag
+              automatically.
+            </div>
+          )}
           {experiment.status === "draft" && unpublished && (
             <div className="ml-auto">
               <DeleteButton

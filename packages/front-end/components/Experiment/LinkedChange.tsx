@@ -26,8 +26,8 @@ export default function LinkedChange({
     <div className="linked-change border bg-light my-3">
       <Collapsible
         trigger={
-          <div className="px-3 py-3 row">
-            <div className="col-auto d-flex align-items-center">
+          <div className="px-3 py-3 row  text-dark">
+            <div className="col-auto d-flex align-items-center  text-dark">
               <FaAngleRight className="chevron" />
             </div>
             {changeType === "flag" ? (
@@ -55,14 +55,17 @@ export default function LinkedChange({
             ) : (
               <>
                 <div className="col-auto d-flex align-items-center">
-                  <span className="text-muted hover-label">Page:</span>{" "}
-                  <span className="ml-1 d-inline-block text-ellipsis hover-label">
+                  <span className="text-muted">Page:</span>{" "}
+                  <span
+                    className="ml-1 d-inline-block text-ellipsis"
+                    style={{ width: 300 }}
+                  >
                     {page}
                   </span>
                 </div>
-                <div className="col-auto ml-auto">
-                  <span className="text-muted hover-label">Changes:</span>{" "}
-                  <span className="hover-label">
+                <div className="col-auto">
+                  <span className="text-muted">Changes:</span>{" "}
+                  <span>
                     {(changes?.length || 0) > 0 ? (
                       changes?.join(" + ")
                     ) : (

@@ -418,13 +418,15 @@ export const VisualChangesetTable: FC<Props> = ({
                 }}
               >
                 <FaPlusCircle className="mr-1" />
-                {newUi ? "Visual Editor change" : "Add Visual Editor page"}
+                {newUi ? "Add Visual Editor Change" : "Add Visual Editor page"}
               </button>
             ) : (
               <PremiumTooltip commercialFeature={"visual-editor"}>
                 <div className="btn btn-link disabled">
                   <FaPlusCircle className="mr-1" />
-                  {newUi ? "Visual Editor change" : "Add Visual Editor page"}
+                  {newUi
+                    ? "Add Visual Editor Change"
+                    : "Add Visual Editor page"}
                 </div>
               </PremiumTooltip>
             )}
