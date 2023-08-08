@@ -455,6 +455,9 @@ export default function SinglePage({
 
   const numLinkedChanges = visualChangesets.length + linkedFeatures.length;
 
+  const hasActualLinkedChanges =
+    visualChangesets.length > 0 || !!experiment.linkedFeatures?.length;
+
   // Get name or email of all active users watching this experiment
   const usersWatching = (watcherIds?.data?.userIds || [])
     .map((id) => users.get(id))
@@ -462,6 +465,8 @@ export default function SinglePage({
     .map((u) => u?.name || u?.email);
 
   const experimentHasPhases = phases.length > 0;
+
+  const safeToEdit = experiment.status === "draft" || !hasActualLinkedChanges;
 
   return (
     <div className="container-fluid experiment-details pagecontents pb-3">
@@ -599,10 +604,20 @@ export default function SinglePage({
               </button>
             )}
             {canRunExperiment && (
-              <button
-                className="dropdown-item"
-                onClick={async (e) => {
-                  e.preventDefault();
+              <ConfirmButton
+                modalHeader="Archive Experiment"
+                confirmationText={
+                  <div>
+                    <p>Are you sure you want to archive this experiment?</p>
+                    {!safeToEdit ? (
+                      <div className="alert alert-danger">
+                        This will immediately stop all linked Feature Flags and
+                        Visual Changes from running
+                      </div>
+                    ) : null}
+                  </div>
+                }
+                onClick={async () => {
                   try {
                     await apiCall(`/experiment/${experiment.id}/archive`, {
                       method: "POST",
@@ -612,9 +627,12 @@ export default function SinglePage({
                     console.error(e);
                   }
                 }}
+                cta="Archive"
               >
-                Archive
-              </button>
+                <button className="dropdown-item" type="button">
+                  Archive
+                </button>
+              </ConfirmButton>
             )}
             {canCreateAnalyses && experiment.archived && (
               <button
@@ -640,6 +658,14 @@ export default function SinglePage({
                 useIcon={false}
                 text="Delete"
                 displayName="Experiment"
+                additionalMessage={
+                  !safeToEdit ? (
+                    <div className="alert alert-danger">
+                      Deleting this experiment will also affect all linked
+                      Feature Flags and Visual Changes
+                    </div>
+                  ) : null
+                }
                 onClick={async () => {
                   await apiCall<{ status: number; message?: string }>(
                     `/experiment/${experiment.id}`,
@@ -955,7 +981,7 @@ export default function SinglePage({
 
           <div className="mb-4 mx-4">
             <HeaderWithEdit
-              edit={editTargeting || undefined}
+              edit={safeToEdit && editTargeting ? editTargeting : undefined}
               containerClassName="mb-2"
             >
               Targeting
@@ -1035,7 +1061,7 @@ export default function SinglePage({
           </div>
 
           <HeaderWithEdit
-            edit={editVariations ?? undefined}
+            edit={editVariations && safeToEdit ? editVariations : undefined}
             className="h3 mb-2"
             containerClassName="mx-4 mb-1"
           >

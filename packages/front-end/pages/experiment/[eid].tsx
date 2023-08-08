@@ -172,6 +172,16 @@ const ExperimentPage = (): ReactElement => {
           mutate={mutate}
           current={experiment.project}
           apiEndpoint={`/experiment/${experiment.id}`}
+          additionalMessage={
+            experiment.status !== "draft" &&
+            (experiment.linkedFeatures?.length ||
+              experiment.hasVisualChangesets) ? (
+              <div className="alert alert-danger">
+                Changing the project may prevent your linked Feature Flags and
+                Visual Changes from being sent to users.
+              </div>
+            ) : null
+          }
         />
       )}
       {phaseModalOpen && (
