@@ -986,11 +986,7 @@ export default function SinglePage({
                         Experiment Key{" "}
                         <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
                       </th>
-                      <td>
-                        <ClickToCopy compact={true}>
-                          {experiment.trackingKey}
-                        </ClickToCopy>
-                      </td>
+                      <td>{experiment.trackingKey}</td>
                     </tr>
                     <tr>
                       <th className="pr-5">
@@ -1023,10 +1019,8 @@ export default function SinglePage({
                     <tr>
                       <th>Traffic</th>
                       <td>
-                        {Math.floor(lastPhase.coverage * 100)}%{" "}
-                        <span className="text-muted">included,</span>{" "}
-                        {formatTrafficSplit(lastPhase.variationWeights)}{" "}
-                        <span className="text-muted">split</span>
+                        {Math.floor(lastPhase.coverage * 100)}% included,{" "}
+                        {formatTrafficSplit(lastPhase.variationWeights)} split
                       </td>
                     </tr>
                     <tr>
