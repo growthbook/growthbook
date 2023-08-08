@@ -23,7 +23,6 @@ import {
 import { getMetricsByIds, insertMetric } from "../models/MetricModel";
 import { checkSrm, sumSquaresFromStats } from "../util/stats";
 import { addTags } from "../models/TagModel";
-import { WatchModel } from "../models/WatchModel";
 import { Dimension, ExperimentMetricQueryResponse } from "../types/Integration";
 import { createExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import {
@@ -481,39 +480,6 @@ export async function createSnapshot({
   });
 
   return queryRunner;
-}
-
-export async function ensureWatching(
-  userId: string,
-  orgId: string,
-  item: string,
-  type: "experiments" | "features"
-) {
-  await WatchModel.updateOne(
-    {
-      userId,
-      organization: orgId,
-    },
-    {
-      $addToSet: {
-        [type]: item,
-      },
-    },
-    {
-      upsert: true,
-    }
-  );
-}
-
-export async function getExperimentWatchers(
-  experimentId: string,
-  orgId: string
-) {
-  const watchers = await WatchModel.find({
-    experiments: experimentId,
-    organization: orgId,
-  });
-  return watchers;
 }
 
 function getExperimentMetric(
