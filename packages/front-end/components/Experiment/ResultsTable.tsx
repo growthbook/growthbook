@@ -439,7 +439,7 @@ export default function ResultsTable({
                   </>
                 ) : null}
                 <th
-                  style={{ width: 140 * tableCellScale }}
+                  style={{ width: 120 * tableCellScale }}
                   className="axis-col label text-right"
                 >
                   {statsEngine === "bayesian" ? (

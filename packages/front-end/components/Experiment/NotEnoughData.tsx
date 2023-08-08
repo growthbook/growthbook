@@ -1,4 +1,5 @@
 import { formatDistance } from "date-fns";
+import { CSSProperties } from "react";
 import { RowResults } from "@/services/experiments";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -10,20 +11,22 @@ export default function NotEnoughData({
   rowResults,
   showTimeRemaining = false,
   showPercentComplete = false,
+  style,
 }: {
   rowResults: RowResults;
   showTimeRemaining?: boolean;
   showPercentComplete?: boolean;
+  style?: CSSProperties;
 }) {
   const numerator = rowResults.enoughDataMeta.percentCompleteNumerator;
   const denominator = rowResults.enoughDataMeta.percentCompleteDenominator;
 
   return (
-    <div className="not-enough-data">
+    <div className="not-enough-data" style={style}>
       <div>
         <div
           className="font-weight-normal main-text"
-          style={{ fontSize: "10.5px", lineHeight: "14px", marginLeft: -20 }}
+          style={{ fontSize: "10.5px", lineHeight: "14px" }}
         >
           not enough data
         </div>
