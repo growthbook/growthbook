@@ -35,7 +35,6 @@ import {
   getFeatureDefinitions,
   verifyDraftsAreEqual,
 } from "../services/features";
-import { ensureWatching } from "../services/experiments";
 import {
   getExperimentByTrackingKey,
   getExperimentsByIds,
@@ -57,6 +56,7 @@ import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
 import { FASTLY_SERVICE_ID } from "../util/secrets";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { upsertWatch } from "../models/WatchModel";
 import { getSurrogateKeysFromSDKPayloadKeys } from "../util/cdn.util";
 import { SDKPayloadKey } from "../../types/sdk-payload";
 
@@ -292,7 +292,12 @@ export async function postFeatures(
   addIdsToRules(feature.environmentSettings, feature.id);
 
   await createFeature(org, res.locals.eventAudit, feature);
-  await ensureWatching(userId, org.id, feature.id, "features");
+  await upsertWatch({
+    userId,
+    organization: org.id,
+    item: feature.id,
+    type: "features",
+  });
 
   await req.audit({
     event: "feature.create",

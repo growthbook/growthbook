@@ -312,9 +312,9 @@ export default function RuleModal({
             });
           }
 
-          const newRule = validateFeatureRule(values, feature);
-          if (newRule) {
-            form.reset(newRule);
+          const correctedRule = validateFeatureRule(values, feature);
+          if (correctedRule) {
+            form.reset(correctedRule);
             throw new Error(
               "We fixed some errors in the rule. If it looks correct, submit again."
             );

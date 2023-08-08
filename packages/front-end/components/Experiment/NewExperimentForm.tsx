@@ -108,7 +108,10 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     defaultValues: {
       project: initialValue?.project || project || "",
       trackingKey: initialValue?.trackingKey || "",
-      datasource: initialValue?.datasource || datasources?.[0]?.id || "",
+      datasource:
+        initialValue?.datasource || settings.defaultDataSource
+          ? settings.defaultDataSource
+          : datasources?.[0]?.id || "",
       exposureQueryId:
         getExposureQuery(
           initialValue?.datasource
@@ -412,12 +415,16 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 value={form.watch("datasource") ?? ""}
                 onChange={(v) => form.setValue("datasource", v)}
                 initialOption="Manual"
-                options={datasources.map((d) => ({
-                  value: d.id,
-                  label: `${d.name}${
-                    d.description ? ` — ${d.description}` : ""
-                  }`,
-                }))}
+                options={datasources.map((d) => {
+                  const isDefaultDataSource =
+                    d.id === settings.defaultDataSource;
+                  return {
+                    value: d.id,
+                    label: `${d.name}${
+                      d.description ? ` — ${d.description}` : ""
+                    }${isDefaultDataSource ? " (default)" : ""}`,
+                  };
+                })}
                 className="portal-overflow-ellipsis"
               />
             )}

@@ -11,8 +11,6 @@ import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
   createSnapshot,
-  ensureWatching,
-  getExperimentWatchers,
   getManualSnapshotData,
 } from "../services/experiments";
 import { MetricStats } from "../../types/metric";
@@ -85,6 +83,7 @@ import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { findProjectById } from "../models/ProjectModel";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
+import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
 
 export async function getExperiments(
   req: AuthRequest<
@@ -607,7 +606,12 @@ export async function postExperiments(
       details: auditDetailsCreate(experiment),
     });
 
-    await ensureWatching(userId, org.id, experiment.id, "experiments");
+    await upsertWatch({
+      userId,
+      organization: org.id,
+      item: experiment.id,
+      type: "experiments",
+    });
 
     res.status(200).json({
       status: 200,
@@ -856,7 +860,12 @@ export async function postExperiment(
   // If there are new tags to add
   await addTagsDiff(org.id, experiment.tags || [], data.tags || []);
 
-  await ensureWatching(userId, org.id, experiment.id, "experiments");
+  await upsertWatch({
+    userId,
+    organization: org.id,
+    item: experiment.id,
+    type: "experiments",
+  });
 
   res.status(200).json({
     status: 200,
@@ -1372,7 +1381,12 @@ export async function postExperimentPhase(
       details: auditDetailsUpdate(experiment, updated),
     });
 
-    await ensureWatching(userId, org.id, experiment.id, "experiments");
+    await upsertWatch({
+      userId,
+      organization: org.id,
+      item: experiment.id,
+      type: "experiments",
+    });
 
     res.status(200).json({
       status: 200,
@@ -1863,7 +1877,12 @@ export async function addScreenshot(
     }),
   });
 
-  await ensureWatching(userId, org.id, experiment.id, "experiments");
+  await upsertWatch({
+    userId,
+    organization: org.id,
+    item: experiment.id,
+    type: "experiments",
+  });
 
   res.status(200).json({
     status: 200,
