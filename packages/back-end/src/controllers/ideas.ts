@@ -15,9 +15,7 @@ import { getOrgFromReq, userHasAccess } from "../services/organizations";
 import {
   getImpactEstimate,
   ImpactEstimateModel,
-  createImpactEstimate,
 } from "../models/ImpactEstimateModel";
-import { ImpactEstimateInterface } from "../../types/impact-estimate";
 import { IdeaDocument } from "../models/IdeasModel";
 import { getExperimentByIdea } from "../models/ExperimentModel";
 
