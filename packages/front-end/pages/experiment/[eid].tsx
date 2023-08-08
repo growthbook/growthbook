@@ -26,7 +26,7 @@ import track from "@/services/track";
 
 const ExperimentPage = (): ReactElement => {
   const [newUi, setNewUi] = useLocalStorage<boolean>(
-    "single-page-new-ui-v1",
+    "experiment-results-new-ui-v1",
     true
   );
   const SinglePageComponent = newUi ? SinglePage : SinglePage_old;
