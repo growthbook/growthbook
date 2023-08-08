@@ -71,9 +71,7 @@ const Carousel: FC<{
           )}
         </Modal>
       )}
-      <div
-        className="carousel-inner"
-      >
+      <div className="carousel-inner">
         {Children.map(children, (child, i) => {
           if (!isValidElement(child)) return null;
           return (

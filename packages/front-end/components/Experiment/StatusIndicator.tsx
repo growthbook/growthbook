@@ -13,7 +13,7 @@ const StatusIndicator: FC<{
   if (archived) {
     return (
       <div className={clsx(styles.container, className, "text-muted")}>
-        <FaArchive className="mr-1"/>
+        <FaArchive className="mr-1" />
         Archived
       </div>
     );
@@ -24,21 +24,21 @@ const StatusIndicator: FC<{
         <div
           className={clsx(styles.container, className, "text-warning-orange")}
         >
-          <BsConeStriped className="mr-1"/>
+          <BsConeStriped className="mr-1" />
           Draft
         </div>
       );
     case "running":
       return (
         <div className={clsx(styles.container, className, "text-info")}>
-          <FaPlay className="mr-1"/>
+          <FaPlay className="mr-1" />
           Running
         </div>
       );
     case "stopped":
       return (
         <div className={clsx(styles.container, className, "text-secondary")}>
-          <FaStop className="mr-1"/>
+          <FaStop className="mr-1" />
           Stopped
         </div>
       );

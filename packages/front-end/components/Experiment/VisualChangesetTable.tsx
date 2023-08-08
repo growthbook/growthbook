@@ -68,9 +68,7 @@ const drawChange = ({
   regexUrlPatterns: VisualChangesetURLPattern[];
 }) => {
   return (
-    <div
-      className={clsx("pb-3", {"mt-2": i !== 0,})}
-    >
+    <div className={clsx("pb-3", { "mt-2": i !== 0 })}>
       <div className="mt-2 px-3">
         <div className="row mt-1 mb-3 d-flex align-items-start">
           <div className="col">
@@ -251,12 +249,6 @@ export const VisualChangesetTable: FC<Props> = ({
 
   const { hasCommercialFeature } = useUser();
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
-
-  const hasAnyPositionMutations = visualChangesets.some((vc) =>
-    vc.visualChanges.some(
-      (v) => v.domMutations.filter((m) => m.attribute === "position").length > 0
-    )
-  );
 
   const [
     editingVisualChangeset,
