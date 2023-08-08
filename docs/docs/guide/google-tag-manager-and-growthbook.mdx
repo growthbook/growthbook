@@ -73,7 +73,10 @@ In the subsequent sections, we will learn how to fill in the SDK parameters such
         }
       });
 
-      // TODO: Instrument DOM with AB test logic
+      gb.loadFeatures().then(function() {
+        // TODO: Instrument DOM with AB test logic
+        // NOTE: We may wish to remove `gb.loadFeatures()` and instead manually implement experiment logic
+      });
     }
   })();
 </script>
