@@ -156,8 +156,8 @@ export function StartExperimentBanner({
   );
   manualChecklist.push(
     <>
-      Verify your app is tracking all of the metrics and goal completions that
-      you plan to include in the analysis
+      Verify your app is tracking events for all of the metrics that you plan to
+      include in the analysis
     </>
   );
 
@@ -255,8 +255,7 @@ export function StartExperimentBanner({
               }
             >
               <button
-                className="btn-primary btn-lg mb-2"
-                style={{ opacity: 0.7 }}
+                className="btn btn-primary btn-lg mb-2 disabled"
                 type="button"
               >
                 Start Experiment <MdRocketLaunch />

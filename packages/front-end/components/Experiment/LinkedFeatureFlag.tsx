@@ -1,4 +1,4 @@
-import { FeatureInterface } from "back-end/types/feature";
+import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FaCheck, FaExclamationTriangle } from "react-icons/fa";
 import { MatchingRule } from "shared/util";
@@ -15,6 +15,26 @@ type Props = {
   experiment: ExperimentInterfaceStringDates;
   mutateFeatures: () => void;
 };
+
+function getValues(
+  rule: FeatureRule,
+  experiment: ExperimentInterfaceStringDates
+): string[] {
+  let values: string[] = [];
+
+  if (rule.type === "experiment") {
+    values = rule.values.map((v) => v.value);
+  } else if (rule.type === "experiment-ref") {
+    values = experiment.variations.map((v) => {
+      const value = rule.variations.find(
+        (variation) => variation.variationId === v.id
+      );
+      return value?.value ?? "";
+    });
+  }
+
+  return values;
+}
 
 export default function LinkedFeatureFlag({
   feature,
@@ -33,15 +53,7 @@ export default function LinkedFeatureFlag({
   const unpublished = !rules.some((r) => !r.draft);
 
   const uniqueValueMappings = new Set(
-    rules.map(({ rule }) =>
-      JSON.stringify(
-        rule.type === "experiment"
-          ? rule.values
-          : rule.type === "experiment-ref"
-          ? rule.variations
-          : []
-      )
-    )
+    rules.map(({ rule }) => JSON.stringify(getValues(rule, experiment)))
   );
   const rulesAbove = activeRules.some(({ i }) => i > 0);
 
