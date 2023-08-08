@@ -4,8 +4,8 @@ import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "../../util/secrets";
 import { UserInterface } from "../../../types/user";
 import {
-  AuthRefreshModel,
   createRefreshToken,
+  deleteRefreshToken,
   getUserIdFromAuthRefreshToken,
 } from "../../models/AuthRefreshModel";
 import { RefreshTokenCookie } from "../../util/cookie";
@@ -72,9 +72,7 @@ export class LocalAuthConnection implements AuthConnection {
   async logout(req: Request): Promise<string> {
     const refreshToken = RefreshTokenCookie.getValue(req);
     if (refreshToken) {
-      await AuthRefreshModel.deleteOne({
-        token: refreshToken,
-      });
+      deleteRefreshToken(refreshToken);
     }
     return "";
   }

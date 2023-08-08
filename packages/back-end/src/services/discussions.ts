@@ -1,42 +1,8 @@
-import uniqid from "uniqid";
 import { Comment, DiscussionParentType } from "../../types/discussion";
-import { DiscussionModel } from "../models/DiscussionModel";
-
-export async function getDiscussionByParent(
-  organization: string,
-  parentType: DiscussionParentType,
-  parentId: string
-) {
-  return await DiscussionModel.findOne({
-    organization,
-    parentType,
-    parentId,
-  });
-}
-
-export async function getAllDiscussionsByOrg(organization: string) {
-  return await DiscussionModel.find({
-    organization,
-  });
-}
-
-export async function getAllDiscussionsByOrgFromDate(
-  organization: string,
-  date: Date
-) {
-  return await DiscussionModel.find({
-    organization,
-    dateUpdated: { $gte: date },
-  });
-}
-
-export async function getLastNDiscussions(organization: string, num: number) {
-  return await DiscussionModel.find({
-    organization,
-  })
-    .sort({ dateUpdated: -1 })
-    .limit(num);
-}
+import {
+  createDiscussion,
+  getDiscussionByParent,
+} from "../models/DiscussionModel";
 
 export async function addComment(
   organization: string,
@@ -68,12 +34,5 @@ export async function addComment(
   }
 
   // Doesn't exist, create it
-  await DiscussionModel.create({
-    id: uniqid("com_"),
-    organization,
-    parentType,
-    parentId,
-    comments: [newComment],
-    dateUpdated: new Date(),
-  });
+  createDiscussion({ organization, parentType, parentId, comment: newComment });
 }

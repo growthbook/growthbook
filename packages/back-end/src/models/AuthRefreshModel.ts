@@ -35,7 +35,10 @@ export const AuthRefreshModel = mongoose.model<AuthRefreshInterface>(
   authRefreshSchema
 );
 
-export async function createRefreshToken(req: Request, user: UserInterface) {
+export async function createRefreshToken(
+  req: Request,
+  user: UserInterface
+): Promise<string> {
   const token = crypto.randomBytes(32).toString("base64");
 
   const authRefreshDoc: AuthRefreshInterface = {
@@ -49,6 +52,12 @@ export async function createRefreshToken(req: Request, user: UserInterface) {
   await AuthRefreshModel.create(authRefreshDoc);
 
   return token;
+}
+
+export async function deleteRefreshToken(refreshToken: string) {
+  await AuthRefreshModel.deleteOne({
+    token: refreshToken,
+  });
 }
 
 export async function getUserIdFromAuthRefreshToken(

@@ -1,13 +1,13 @@
 import { Response } from "express";
 import { AuthRequest } from "../types/AuthRequest";
 import { DiscussionParentType } from "../../types/discussion";
-import {
-  addComment,
-  getDiscussionByParent,
-  getLastNDiscussions,
-} from "../services/discussions";
+import { addComment } from "../services/discussions";
 import { getFileUploadURL } from "../services/files";
 import { getOrgFromReq } from "../services/organizations";
+import {
+  getDiscussionByParent,
+  getLastNDiscussions,
+} from "../models/DiscussionModel";
 
 export async function postDiscussions(
   req: AuthRequest<
