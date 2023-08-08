@@ -784,7 +784,6 @@ export default function SinglePage({
                 <StatusIndicator
                   archived={experiment.archived}
                   status={experiment.status}
-                  newUi={true}
                 />
               </div>
               {experiment.status === "stopped" && experiment.results && (
@@ -792,7 +791,7 @@ export default function SinglePage({
                   className="d-flex border-left"
                   style={{ height: 30, lineHeight: "30px" }}
                 >
-                  <ResultsIndicator results={experiment.results} newUi={true} />
+                  <ResultsIndicator results={experiment.results} />
                 </div>
               )}
             </div>
@@ -1091,12 +1090,8 @@ export default function SinglePage({
           <div className="mx-1 mb-3">
             <VariationsTable
               experiment={experiment}
-              visualChangesets={visualChangesets}
-              mutate={mutate}
               canEditExperiment={canEditExperiment}
-              canEditVisualChangesets={hasVisualEditorPermission}
-              setVisualEditorModal={setVisualEditorModal}
-              newUi={true}
+              mutate={mutate}
             />
           </div>
 
@@ -1137,7 +1132,6 @@ export default function SinglePage({
                   mutate={mutate}
                   canEditVisualChangesets={hasVisualEditorPermission}
                   setVisualEditorModal={setVisualEditorModal}
-                  newUi={true}
                 />
               </>
             )}
@@ -1510,7 +1504,7 @@ export default function SinglePage({
             onTriggerClosing={() => setCustomReportsOpen(false)}
             transitionTime={150}
           >
-            <ExperimentReportsList experiment={experiment} newUi={true} />
+            <ExperimentReportsList experiment={experiment} />
           </Collapsible>
         </div>
       ) : null}
