@@ -10,6 +10,7 @@ import {
 } from "../models/SdkConnectionModel";
 import { SDKConnectionInterface } from "../../types/sdk-connection";
 import { cancellableFetch } from "../util/http.util";
+import { logger } from "../util/logger";
 
 const PROXY_UPDATE_JOB_NAME = "proxyUpdate";
 type ProxyUpdateJob = Job<{
@@ -26,11 +27,22 @@ export default function addProxyUpdateJob(ag: Agenda) {
   agenda.define(PROXY_UPDATE_JOB_NAME, async (job: ProxyUpdateJob) => {
     const connectionId = job.attrs.data?.connectionId;
     const useCloudProxy = job.attrs.data?.useCloudProxy;
-    if (!connectionId) return;
+    if (!connectionId) {
+      logger.error(
+        "proxyUpdate: No connectionId provided for proxy update job",
+        { connectionId, useCloudProxy }
+      );
+      return;
+    }
 
     const connection = await findSDKConnectionById(connectionId);
-    if (!connection) return;
-    if (!connectionSupportsProxyUpdate(connection)) return;
+    if (!connection) {
+      logger.error("proxyUpdate: Could not find sdk connection", {
+        connectionId,
+        useCloudProxy,
+      });
+      return;
+    }
 
     // TODO This probably needs to renamed
     const defs = await getFeatureDefinitions({
@@ -152,7 +164,7 @@ export async function queueProxyUpdate(
 
 function connectionSupportsProxyUpdate(
   connection: SDKConnectionInterface,
-  useCloudProxy: boolean = false
+  useCloudProxy: boolean
 ) {
   if (useCloudProxy) {
     return IS_CLOUD;

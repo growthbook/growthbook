@@ -30,10 +30,8 @@ import {
   addIdsToRules,
   arrayMove,
   getFeatureDefinitions,
-  getSurrogateKey,
   verifyDraftsAreEqual,
 } from "../services/features";
-import { ensureWatching } from "../services/experiments";
 import { getExperimentByTrackingKey } from "../models/ExperimentModel";
 import { FeatureUsageRecords } from "../../types/realtime";
 import {
@@ -52,6 +50,9 @@ import { logger } from "../util/logger";
 import { addTagsDiff } from "../models/TagModel";
 import { FASTLY_SERVICE_ID } from "../util/secrets";
 import { EventAuditUserForResponseLocals } from "../events/event-types";
+import { upsertWatch } from "../models/WatchModel";
+import { getSurrogateKeysFromSDKPayloadKeys } from "../util/cdn.util";
+import { SDKPayloadKey } from "../../types/sdk-payload";
 
 class UnrecoverableApiError extends Error {
   constructor(message: string) {
@@ -180,10 +181,11 @@ export async function getFeaturesPublic(req: Request, res: Response) {
     // If using Fastly, add surrogate key header for cache purging
     if (FASTLY_SERVICE_ID) {
       // Purge by org, API Key, or payload contents
+      const payloadKey: SDKPayloadKey = { environment, project };
       const surrogateKeys = [
         organization,
         key,
-        getSurrogateKey(organization, project, environment),
+        ...getSurrogateKeysFromSDKPayloadKeys(organization, [payloadKey]),
       ];
       res.set("Surrogate-Key", surrogateKeys.join(" "));
     }
@@ -284,7 +286,12 @@ export async function postFeatures(
   addIdsToRules(feature.environmentSettings, feature.id);
 
   await createFeature(org, res.locals.eventAudit, feature);
-  await ensureWatching(userId, org.id, feature.id, "features");
+  await upsertWatch({
+    userId,
+    organization: org.id,
+    item: feature.id,
+    type: "features",
+  });
 
   await req.audit({
     event: "feature.create",
