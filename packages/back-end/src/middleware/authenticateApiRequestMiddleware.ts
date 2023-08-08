@@ -1,7 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { ApiRequestLocals } from "../../types/api";
 import { lookupOrganizationByApiKey } from "../models/ApiKeyModel";
-import { insertAudit } from "../services/audit";
 import { getOrganizationById, getRole } from "../services/organizations";
 import { getCustomLogProps } from "../util/logger";
 import { EventAuditUserApiKey } from "../events/event-types";
@@ -13,6 +12,7 @@ import {
 } from "../../types/organization";
 import { getPermissionsByRole } from "../util/organization.util";
 import { ApiKeyInterface } from "../../types/apikey";
+import { insertAudit } from "../models/AuditModel";
 
 export default function authenticateApiRequestMiddleware(
   req: Request & ApiRequestLocals,
