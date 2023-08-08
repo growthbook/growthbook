@@ -41,13 +41,16 @@ export async function getIdeas(
 }
 
 export async function getEstimatedImpact(
-  req: AuthRequest<{ metric: string; segment?: string }>,
+  req: AuthRequest<{ metric: string; segment?: string; ideaId?: string }>,
   res: Response
 ) {
   req.checkPermissions("createIdeas", "");
-  req.checkPermissions("runQueries", "");
 
-  const { metric, segment } = req.body;
+  const { metric, segment, ideaId } = req.body;
+
+  const idea = await getIdeaById(ideaId || "");
+
+  req.checkPermissions("createIdeas", idea?.project || "");
 
   const { org } = getOrgFromReq(req);
   const estimate = await getImpactEstimate(
@@ -56,32 +59,6 @@ export async function getEstimatedImpact(
     org.settings?.metricAnalysisDays || 30,
     segment
   );
-
-  res.status(200).json({
-    status: 200,
-    estimate,
-  });
-}
-
-export async function postEstimatedImpactManual(
-  req: AuthRequest<ImpactEstimateInterface>,
-  res: Response
-) {
-  req.checkPermissions("createIdeas", "");
-  req.checkPermissions("runQueries", "");
-
-  const { org } = getOrgFromReq(req);
-  const { conversionsPerDay, metric } = req.body;
-
-  if (!metric) {
-    throw new Error("Missing required metric.");
-  }
-
-  const estimate = await createImpactEstimate({
-    organization: org.id,
-    metric,
-    conversionsPerDay,
-  });
 
   res.status(200).json({
     status: 200,

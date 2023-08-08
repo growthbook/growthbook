@@ -5,6 +5,9 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { getValidDate, ago, datetime, date } from "shared/dates";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { IdeaInterface } from "back-end/types/idea";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import useApi from "@/hooks/useApi";
@@ -49,6 +52,12 @@ export default function ReportPage() {
   const { data, error, mutate } = useApi<{ report: ReportInterface }>(
     `/report/${rid}`
   );
+  const { data: experimentData } = useApi<{
+    experiment: ExperimentInterfaceStringDates;
+    idea?: IdeaInterface;
+    visualChangesets: VisualChangesetInterface[];
+  }>(`/experiment/${data?.report.experimentId}`);
+
   const {
     permissions,
     userId,
@@ -266,7 +275,10 @@ export default function ReportPage() {
                 )}
               </div>
               <div className="col-auto">
-                {permissions.check("runQueries", "") && (
+                {permissions.check(
+                  "runQueries",
+                  experimentData?.experiment.project || ""
+                ) && (
                   <form
                     onSubmit={async (e) => {
                       e.preventDefault();
@@ -381,7 +393,10 @@ export default function ReportPage() {
                       ago(report.args.startDate) +
                       ". Give it a little longer and click the 'Refresh' button to check again."}
                   {!report.results &&
-                    permissions.check("runQueries", "") &&
+                    permissions.check(
+                      "runQueries",
+                      experimentData?.experiment.project || ""
+                    ) &&
                     `Click the "Refresh" button.`}
                 </div>
               )}

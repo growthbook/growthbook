@@ -1525,8 +1525,6 @@ export async function cancelSnapshot(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries", "");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const snapshot = await findSnapshotById(org.id, id);
@@ -1536,6 +1534,17 @@ export async function cancelSnapshot(
       message: "No snapshot found with that id",
     });
   }
+
+  const experiment = await getExperimentById(org.id, snapshot.experiment);
+
+  if (!experiment) {
+    return res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+  }
+
+  req.checkPermissions("runQueries", experiment.project || "");
 
   const integration = await getIntegrationFromDatasourceId(
     snapshot.organization,
@@ -1563,15 +1572,8 @@ export async function postSnapshot(
   >,
   res: Response
 ) {
-  req.checkPermissions("runQueries", "");
-
   const { org } = getOrgFromReq(req);
-  const orgSettings = org.settings || {};
-
-  let { statsEngine, regressionAdjustmentEnabled } = req.body;
-  const { metricRegressionAdjustmentStatuses } = req.body;
   const { id } = req.params;
-  const { phase, dimension } = req.body;
   const experiment = await getExperimentById(org.id, id);
 
   if (!experiment) {
@@ -1581,6 +1583,14 @@ export async function postSnapshot(
     });
     return;
   }
+
+  req.checkPermissions("runQueries", experiment.project || "");
+
+  const orgSettings = org.settings || {};
+
+  let { statsEngine, regressionAdjustmentEnabled } = req.body;
+  const { metricRegressionAdjustmentStatuses } = req.body;
+  const { phase, dimension } = req.body;
 
   if (!experiment.phases[phase]) {
     res.status(404).json({
@@ -1894,6 +1904,7 @@ export async function cancelPastExperiments(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
+  // Passing in an empty string for "project" since pastExperiments don't have projects
   req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
