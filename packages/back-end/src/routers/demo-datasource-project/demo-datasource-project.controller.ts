@@ -42,13 +42,13 @@ const DEMO_DATASOURCE_SETTINGS: DataSourceSettings = {
 };
 
 const DEMO_DATASOURCE_PARAMS: PostgresConnectionParams = {
-  user: "lukesonnet",
-  host: "localhost",
-  database: "sample",
-  password: "",
+  user: "gbdemoreader",
+  host: "sample-data.growthbook.io",
+  database: "growthbook",
+  password: "WnGeRgTPwEu4",
   port: 5432,
   ssl: false,
-  defaultSchema: "",
+  defaultSchema: "sample",
 };
 
 const ASSET_OWNER = "";
