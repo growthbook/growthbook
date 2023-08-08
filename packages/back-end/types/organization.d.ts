@@ -16,14 +16,16 @@ export type Permission =
   | EnvScopedPermission
   | ProjectScopedPermission;
 
+export type PermissionsObject =
+  | {
+      [key in Permission]: boolean;
+    }
+  | Record<string, boolean>;
+
 export type UserPermission = {
   environments: string[];
   limitAccessByEnvironment: boolean;
-  permissions:
-    | {
-        [key in Permission]: boolean;
-      }
-    | Record<string, never>;
+  permissions: PermissionsObject;
 };
 
 export type UserPermissions = {

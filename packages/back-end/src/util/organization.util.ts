@@ -3,6 +3,7 @@ import {
   MemberRoleInfo,
   OrganizationInterface,
   Permission,
+  PermissionsObject,
   ProjectMemberRole,
   Role,
   UserPermissions,
@@ -52,13 +53,25 @@ export const ALL_PERMISSIONS = [
   ...ENV_SCOPED_PERMISSIONS,
 ];
 
-export function getUserPermissions(userId: string, org: OrganizationInterface) {
+export function getUserPermissions(
+  userId: string,
+  org: OrganizationInterface
+): UserPermissions {
   const roles = getRoles(org);
   const rolePermissionsMap: Record<string, Set<Permission>> = {};
 
   roles.forEach((role) => {
     rolePermissionsMap[role.id] = new Set(role.permissions);
   });
+
+  function roleToPermissionMap(memberRole: MemberRole): PermissionsObject {
+    const permissions: PermissionsObject = {};
+    ALL_PERMISSIONS.forEach((permission) => {
+      permissions[permission] =
+        (memberRole && rolePermissionsMap[memberRole].has(permission)) || false;
+    });
+    return permissions;
+  }
 
   const memberInfo = org.members.find((m) => m.id === userId);
   const userPermissions: UserPermissions = {
@@ -70,28 +83,22 @@ export function getUserPermissions(userId: string, org: OrganizationInterface) {
     projects: {},
   };
 
-  ALL_PERMISSIONS.forEach((permission) => {
-    const hasGlobalPermission =
-      (memberInfo?.role &&
-        rolePermissionsMap[memberInfo?.role].has(permission)) ||
-      false;
-    userPermissions.global.permissions[permission] = hasGlobalPermission;
-  });
+  // If no member info, return empty permissions
+  if (!memberInfo) {
+    return userPermissions;
+  }
+
+  userPermissions.global.permissions = roleToPermissionMap(memberInfo.role);
 
   memberInfo?.projectRoles?.forEach((projectRole: ProjectMemberRole) => {
-    const projectRolePermissions = rolePermissionsMap[projectRole.role];
     userPermissions.projects[projectRole.project] = {
       limitAccessByEnvironment: projectRole.limitAccessByEnvironment || false,
       environments: projectRole.environments || [],
       permissions: {},
     };
-    ALL_PERMISSIONS.forEach((permission) => {
-      const hasProjectPermission =
-        projectRolePermissions?.has(permission) || false;
-      userPermissions.projects[projectRole.project].permissions[
-        permission
-      ] = hasProjectPermission;
-    });
+    userPermissions.projects[
+      projectRole.project
+    ].permissions = roleToPermissionMap(projectRole.role);
   });
   return userPermissions;
 }

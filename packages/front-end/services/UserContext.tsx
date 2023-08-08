@@ -306,8 +306,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   }, [currentOrg?.commercialFeatures]);
 
   const permissionsCheck = useCallback(
-    (permission: Permission, project?: string, env?: string[]): boolean => {
-      return hasPermission(user?.userPermissions, permission, project, env);
+    (permission: Permission, project?: string, envs?: string[]): boolean => {
+      return hasPermission(user?.userPermissions, permission, project, envs);
     },
     [user]
   );

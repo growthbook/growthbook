@@ -14,18 +14,20 @@ export function hasPermission(
     return false;
   }
 
-  // Small utility method to check if the user has permission
   function checkPermissions(userPermissions: UserPermission) {
-    if (userPermissions.permissions[permissionToCheck]) {
-      if (!envs || !userPermissions.limitAccessByEnvironment) {
-        return true;
-      } else {
-        return userPermissions.environments.some((e: string) =>
-          envs.includes(e)
-        );
-      }
+    if (!userPermissions.permissions[permissionToCheck]) {
+      return false;
     }
-    return false;
+
+    if (!envs || !userPermissions.limitAccessByEnvironment) {
+      return true;
+    }
+    envs.forEach((env) => {
+      if (!userPermissions.environments.includes(env)) {
+        return false;
+      }
+    });
+    return true;
   }
 
   if (checkPermissions(userPermissions.global)) {
