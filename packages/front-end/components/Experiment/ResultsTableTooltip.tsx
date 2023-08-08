@@ -3,7 +3,7 @@ import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
-import { BsXCircle } from "react-icons/bs";
+import { BsXCircle, BsHourglassSplit } from "react-icons/bs";
 import clsx from "clsx";
 import {
   FaArrowDown,
@@ -11,7 +11,6 @@ import {
   FaCheck,
   FaExclamation,
   FaExclamationTriangle,
-  FaHourglassHalf,
   FaQuestion,
 } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
@@ -37,8 +36,8 @@ import {
 import { getPValueGuardrailStatus } from "@/components/Experiment/PValueGuardrailResult";
 
 export const TOOLTIP_WIDTH = 400;
-export const TOOLTIP_HEIGHT = 400;
-export const TOOLTIP_TIMEOUT = 250;
+export const TOOLTIP_HEIGHT = 400; // Used for over/under layout calculation. Actual height may vary.
+export const TOOLTIP_TIMEOUT = 250; // Mouse-out delay before closing
 export type TooltipHoverSettings = {
   x: LayoutX;
 };
@@ -260,9 +259,10 @@ export default function ResultsTableTooltip({
 
           <div
             className={clsx(
-              "results-overview mt-1 px-3 pt-3 pb-2 rounded position-relative",
+              "results-overview mt-1 px-3 pb-2 rounded position-relative",
               { [data.rowResults.resultsStatus]: !data.isGuardrail }
             )}
+            style={{ paddingTop: 12 }}
           >
             {(!data.isGuardrail &&
               ["won", "lost", "draw"].includes(
@@ -284,25 +284,22 @@ export default function ResultsTableTooltip({
               >
                 <Tooltip
                   body={
-                    !data.isGuardrail ? (
-                      data.rowResults.significant ? (
-                        data.rowResults.resultsReason
-                      ) : (
-                        <>
-                          <p className="mb-0">
-                            {data.rowResults.significantReason}
-                          </p>
-                          {data.pValueCorrection ? (
-                            <p className="mt-2 mb-0">
-                              Note that p-values have been corrected using the{" "}
-                              {data.pValueCorrection} method.
-                            </p>
-                          ) : null}
-                        </>
-                      )
-                    ) : (
-                      guardrailReason
-                    )
+                    <>
+                      <p className="mb-0">
+                        {!data.isGuardrail
+                          ? data.rowResults.significant
+                            ? data.rowResults.resultsReason
+                            : data.rowResults.significantReason
+                          : guardrailReason}
+                      </p>
+                      {data.statsEngine === "frequentist" &&
+                      data.pValueCorrection ? (
+                        <p className="mt-2 mb-0">
+                          Note that p-values have been corrected using the{" "}
+                          {data.pValueCorrection} method.
+                        </p>
+                      ) : null}
+                    </>
                   }
                   tipMinWidth={"250px"}
                   className="cursor-pointer"
@@ -323,7 +320,7 @@ export default function ResultsTableTooltip({
                   ) : (
                     <></>
                   )}
-                  <span style={{ marginRight: 14 }}>
+                  <span style={{ marginRight: 12 }}>
                     {!data.isGuardrail
                       ? data.rowResults.significant
                         ? capitalizeFirstLetter(data.rowResults.resultsStatus)
@@ -332,7 +329,7 @@ export default function ResultsTableTooltip({
                   </span>
                   <RxInfoCircled
                     className="position-absolute"
-                    style={{ top: 4, right: 4 }}
+                    style={{ top: 3, right: 4, fontSize: "14px" }}
                   />
                 </Tooltip>
               </div>
@@ -459,8 +456,8 @@ export default function ResultsTableTooltip({
                     className="cursor-pointer"
                     body={data.rowResults.enoughDataMeta.reason}
                   >
-                    <div className="d-flex border rounded p-1 flagged-not-enough-data">
-                      <FaHourglassHalf size={14} className="mr-1 text-info" />
+                    <div className="flagged d-flex border rounded p-1 flagged-not-enough-data">
+                      <BsHourglassSplit size={15} className="mr-1 text-info" />
                       <NotEnoughData
                         rowResults={data.rowResults}
                         showTimeRemaining={true}
@@ -482,7 +479,7 @@ export default function ResultsTableTooltip({
                   >
                     <div
                       className={clsx(
-                        "d-flex border rounded p-1 flagged-risk",
+                        "flagged d-flex border rounded p-1 flagged-risk",
                         data.rowResults.riskMeta.riskStatus
                       )}
                     >
@@ -509,12 +506,12 @@ export default function ResultsTableTooltip({
                     className="cursor-pointer"
                     body={data.rowResults.suspiciousChangeReason}
                   >
-                    <div className="d-flex border rounded p-1 flagged-suspicious suspicious">
+                    <div className="flagged d-flex border rounded p-1 flagged-suspicious suspicious">
                       <GBSuspicious size={18} className="mr-1" />
                       <div className="suspicious-reason">
-                        <span style={{ fontSize: "11px", lineHeight: "14px" }}>
+                        <div style={{ fontSize: "11px", lineHeight: "14px" }}>
                           suspicious
-                        </span>
+                        </div>
                       </div>
                     </div>
                   </Tooltip>

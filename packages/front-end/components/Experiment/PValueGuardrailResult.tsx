@@ -7,6 +7,7 @@ import {
   FaQuestion,
 } from "react-icons/fa";
 import { MetricInterface } from "back-end/types/metric";
+import clsx from "clsx";
 import {
   isExpectedDirection,
   isStatSig,
@@ -53,10 +54,17 @@ const PValueGuardrailResults = ({
   const expectedDirection = isExpectedDirection(stats, metric);
   // note: do not use pValueAdjusted for guardrails
   const statSig = isStatSig(stats?.pValue ?? 1, pValueThreshold);
-  const status = getPValueGuardrailStatus(expectedDirection, statSig);
+  const status = !enoughData
+    ? ""
+    : getPValueGuardrailStatus(expectedDirection, statSig);
 
   return (
-    <td className={`guardrail result-number ${className}`} {...otherProps}>
+    <td
+      className={clsx("guardrail result-number", className, {
+        "non-significant": !enoughData,
+      })}
+      {...otherProps}
+    >
       <div
         className={`variation ${status} d-flex justify-content-end align-items-center`}
       >
@@ -78,10 +86,7 @@ const PValueGuardrailResults = ({
             </div>
           </>
         ) : (
-          <span
-            className="text-gray font-weight-normal"
-            style={{ fontSize: 11 }}
-          >
+          <span className="font-weight-normal" style={{ fontSize: 11 }}>
             not enough data
           </span>
         )}

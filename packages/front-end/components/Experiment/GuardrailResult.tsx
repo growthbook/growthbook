@@ -1,6 +1,7 @@
 import React, { DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { FaCheck, FaExclamation, FaExclamationTriangle } from "react-icons/fa";
+import clsx from "clsx";
 
 export const WARNING_CUTOFF = 0.65;
 export const DANGER_CUTOFF = 0.9;
@@ -42,10 +43,15 @@ const GuardrailResult = ({
   ...otherProps
 }: Props) => {
   const chance = 1 - (stats.chanceToWin ?? 1);
-  const status = getGuardrailStatus(chance);
+  const status = !enoughData ? "" : getGuardrailStatus(chance);
 
   return (
-    <td className={`guardrail result-number ${className}`} {...otherProps}>
+    <td
+      className={clsx("guardrail result-number", className, {
+        "non-significant": !enoughData,
+      })}
+      {...otherProps}
+    >
       <div className={`variation ${status}`}>
         {stats && enoughData ? (
           <>
@@ -61,10 +67,7 @@ const GuardrailResult = ({
             </div>
           </>
         ) : (
-          <span
-            className="text-gray font-weight-normal"
-            style={{ fontSize: 11 }}
-          >
+          <span className="font-weight-normal" style={{ fontSize: 11 }}>
             not enough data
           </span>
         )}

@@ -22,7 +22,7 @@ export default function NotEnoughData({
     <div className="not-enough-data">
       <div>
         <div
-          className="text-gray font-weight-normal main-text"
+          className="font-weight-normal main-text"
           style={{ fontSize: "11px", lineHeight: "14px" }}
         >
           not enough data

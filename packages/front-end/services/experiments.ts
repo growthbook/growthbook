@@ -616,7 +616,7 @@ export function getRowResults({
   }
 
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
-  const enoughDataReason = `This metric has a minimum sample size of ${minSampleSize}. There are only ${stats.value} samples in this variation and ${baseline.value} samples in the baseline.`;
+  const enoughDataReason = `This metric has a minimum total of ${minSampleSize}; this value must be reached in one variation before results are displayed. The total metric value of the variation is ${stats.value} and the baseline total is ${baseline.value}.`;
   const percentComplete =
     minSampleSize > 0
       ? Math.max(stats.value, baseline.value) / minSampleSize

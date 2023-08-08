@@ -34,9 +34,9 @@ export default function PercentChangeColumn({
   ...otherProps
 }: Props) {
   return (
-    <td className={clsx("results-change", className)} {...otherProps}>
+    <>
       {metric && rowResults.enoughData ? (
-        <>
+        <td className={clsx("results-change", className)} {...otherProps}>
           <div
             className={clsx("nowrap change", {
               "text-left": showCI,
@@ -73,8 +73,10 @@ export default function PercentChangeColumn({
               {percentFormatter.format(stats.ci?.[1] ?? 0)}]
             </div>
           ) : null}
-        </>
-      ) : null}
-    </td>
+        </td>
+      ) : (
+        <td />
+      )}
+    </>
   );
 }

@@ -8,7 +8,7 @@ import React, {
   useState,
 } from "react";
 import { CSSTransition } from "react-transition-group";
-import { FaQuestionCircle } from "react-icons/fa";
+import { RxInfoCircled } from "react-icons/rx";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
@@ -190,22 +190,7 @@ export default function ResultsTable({
     status,
     displayCurrency,
   ]);
-
-  // done: reconcile positive/negative change coloring with PValueColumn and ChanceToWinColumn (draw, etc)
-
-  // todo: fullStats toggle
   // todo: hasRisk toggle. minimally supported now, but should be more thoughtful
-  // done: some CI info in the % Change column (togglable?)
-  // todo: tooltips
-
-  // done: highlighting, risk (SelectField?), significance, etc
-  //    Risk is always in the tooltip, and continue to be shaded as it currently is wrt the
-  //    acceptable and unacceptable risk levels.
-  //
-  //    However, we only surface it in the Chance To Win column if:
-  //      - CTW > 95% (or threshold) AND risk of Variation is NOT acceptable
-  //      - OR if CTW < 5% (or 100-threshold) AND risk of Control is NOT acceptable.
-
   // todo: StatusBanner?
 
   const {
@@ -449,10 +434,11 @@ export default function ResultsTable({
                         !!sequentialTestingEnabled,
                         pValueCorrection ?? null,
                         orgSettings.pValueThreshold ?? 0.05,
-                        tableRowAxis
+                        tableRowAxis,
+                        showAdvanced
                       )}
                     >
-                      P-value <FaQuestionCircle />
+                      P-value <RxInfoCircled />
                     </Tooltip>
                   ) : (
                     <>P-value</>
@@ -487,7 +473,7 @@ export default function ResultsTable({
                       pValueCorrection ?? null
                     )}
                   >
-                    <FaQuestionCircle />
+                    <RxInfoCircled />
                   </Tooltip>
                 </th>
                 <th
@@ -823,7 +809,8 @@ function getPValueTooltip(
   sequentialTestingEnabled: boolean,
   pValueCorrection: PValueCorrection,
   pValueThreshold: number,
-  tableRowAxis: "dimension" | "metric"
+  tableRowAxis: "dimension" | "metric",
+  showAdvanced: boolean
 ) {
   return (
     <>
@@ -844,7 +831,10 @@ function getPValueTooltip(
           {tableRowAxis === "dimension"
             ? "all dimension values, non-guardrail metrics, and variations"
             : "all non-guardrail metrics and variations"}
-          . The unadjusted p-values are returned in parentheses.
+          .
+          {showAdvanced
+            ? " The unadjusted p-values are returned in parentheses."
+            : ""}
         </div>
       )}
     </>

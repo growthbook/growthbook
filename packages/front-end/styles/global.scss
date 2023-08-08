@@ -304,9 +304,9 @@ pre {
         color: #fff;
       }
       &.non-significant {
-        border: 1px solid #66666666;
+        border: 1px solid #7a7a7a66;
         box-sizing: border-box;
-        color: #666666;
+        color: #7a7a7a;
         font-weight: normal;
         font-size: 12px;
       }
@@ -369,39 +369,41 @@ pre {
       }
     }
     .results-flagged-items {
+      .flagged {
+        min-height: 38px;
+      }
       .flagged-not-enough-data {
         .main-text {
           color: #17a2b8;
         }
-        //background-color: #17a2b822;
-        border-color: #17a2b866 !important;
+        border-color: #17a2b888 !important;
       }
       .time-remaining {
         margin-left: 4px;
-        line-height: 10px;
+        line-height: 12px;
       }
       .percent-complete {
         margin-left: 4px;
-        line-height: 10px;
+        line-height: 12px;
       }
       .ok {
         color: #55ab95;
-        border-color: #55ab9566 !important;
+        border-color: #55ab9588 !important;
       }
       .warning {
         color: #d99132;
-        border-color: #d9913266 !important;
+        border-color: #d9913288 !important;
       }
       .danger {
         color: #d94032;
-        border-color: #d9403266 !important;
+        border-color: #d9403288 !important;
       }
       .non-significant {
         font-weight: normal;
       }
       .suspicious {
         color: #ef2bd5;
-        border-color: #ef2bd566 !important;
+        border-color: #ef2bd588 !important;
       }
     }
   }
@@ -488,20 +490,23 @@ pre {
     }
   }
   .non-significant {
-    color: var(--text-color-muted);
+    color: #707070;
+    &.hover {
+      color: #888888;
+    }
   }
   .significant {
     font-weight: bold;
     &.won {
       color: #09ac17;
       &.hover {
-        color: #04d716;
+        color: #11ce21;
       }
     }
     &.lost {
-      color: #d94032;
+      color: #ce3729;
       &.hover {
-        color: #e82512;
+        color: #ee1500;
       }
     }
     &.draw {
@@ -514,7 +519,6 @@ pre {
   .hover {
     cursor: pointer;
     transition: 100ms all;
-    text-shadow: 0 1px 0 rgba(150, 150, 150, 0.75);
   }
   .guardrail,
   .chance {
