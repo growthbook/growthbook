@@ -178,6 +178,7 @@ export interface OrganizationSettings {
   displayCurrency?: string;
   secureAttributeSalt?: string;
   killswitchConfirmation?: boolean;
+  defaultDataSource?: string;
 }
 
 export interface SubscriptionQuote {

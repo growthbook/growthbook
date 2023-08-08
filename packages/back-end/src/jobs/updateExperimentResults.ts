@@ -13,7 +13,6 @@ import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
 import {
   createSnapshot,
-  getExperimentWatchers,
   getRegressionAdjustmentInfo,
 } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
@@ -28,6 +27,7 @@ import {
   ExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
 import { findProjectById } from "../models/ProjectModel";
+import { getExperimentWatchers } from "../models/WatchModel";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;

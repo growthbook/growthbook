@@ -130,10 +130,10 @@ export default function RuleModal({
         const rule = values as FeatureRule;
 
         try {
-          const newRule = validateFeatureRule(rule, feature);
-          if (newRule) {
+          const correctedRule = validateFeatureRule(rule, feature);
+          if (correctedRule) {
             // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'FeatureRule' is not assignable t... Remove this comment to see the full error message
-            form.reset(newRule);
+            form.reset(correctedRule);
             throw new Error(
               "We fixed some errors in the rule. If it looks correct, submit again."
             );
