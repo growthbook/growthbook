@@ -204,7 +204,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
   hasStats = true,
 }) => {
   // yaxis = "users";
-  const { containerBounds } = useTooltipInPortal({
+  const { containerRef, containerBounds } = useTooltipInPortal({
     scroll: true,
     detectBounds: true,
   });
@@ -343,6 +343,7 @@ const ExperimentDateGraph: FC<ExperimentDateGraphProps> = ({
               })}
             </div>
             <div
+              ref={containerRef}
               className={styles.dategraph}
               style={{
                 width: width - margin[1] - margin[3],
