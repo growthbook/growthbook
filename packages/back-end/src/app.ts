@@ -381,6 +381,10 @@ app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
+app.post(
+  "/experiment/:id/targeting",
+  experimentsController.postExperimentTargeting
+);
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
 app.put(
   "/experiment/:id/phase/:phase",

@@ -12,7 +12,6 @@ import { getScopedSettings } from "shared/settings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExposureQuery } from "@/services/datasources";
-import { useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
@@ -23,7 +22,6 @@ import Modal from "../Modal";
 import Field from "../Forms/Field";
 import SelectField from "../Forms/SelectField";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
-import HashVersionSelector from "./HashVersionSelector";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -77,15 +75,11 @@ const AnalysisForm: FC<{
     }
   }
 
-  const attributeSchema = useAttributeSchema();
-
   const phaseObj = experiment.phases[phase];
 
   const form = useForm({
     defaultValues: {
       trackingKey: experiment.trackingKey || "",
-      hashAttribute: experiment.hashAttribute || "",
-      hashVersion: experiment.hashVersion || 2,
       datasource: experiment.datasource || "",
       exposureQueryId:
         getExposureQuery(
@@ -171,9 +165,6 @@ const AnalysisForm: FC<{
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const exposureQueryId = form.watch("exposureQueryId");
   const exposureQuery = exposureQueries.find((e) => e.id === exposureQueryId);
-
-  const hasHashAttributes =
-    attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
   return (
     <Modal
@@ -267,24 +258,6 @@ const AnalysisForm: FC<{
         {...form.register("trackingKey")}
         helpText="Will match against the experiment_id column in your data source"
         disabled={!canRunExperiment}
-      />
-      <SelectField
-        label="Assignment Attribute"
-        labelClassName="font-weight-bold"
-        options={attributeSchema
-          .filter((s) => !hasHashAttributes || s.hashAttribute)
-          .map((s) => ({ label: s.property, value: s.property }))}
-        value={form.watch("hashAttribute")}
-        onChange={(v) => {
-          form.setValue("hashAttribute", v);
-        }}
-        helpText={
-          "Will be hashed and used to assign a variation to each user that views the experiment"
-        }
-      />
-      <HashVersionSelector
-        value={form.watch("hashVersion")}
-        onChange={(v) => form.setValue("hashVersion", v)}
       />
       {editVariationIds && (
         <div className="form-group">

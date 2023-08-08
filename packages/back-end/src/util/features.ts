@@ -280,7 +280,7 @@ export function getFeatureDefinition({
               // If a variation has been rolled out to 100%
               rule.force = getJSONValue(feature.valueType, variation.value);
             }
-            // Running or draft experiment
+            // Running experiment
             else {
               rule.variations = exp.variations.map((v) => {
                 const variation = r.variations.find(
@@ -329,7 +329,7 @@ export function getFeatureDefinition({
 
             rule.meta = r.values.map((v, i) => ({
               key: i + "",
-              ...(v.name !== undefined ? { name: v.name } : {}),
+              ...(v.name ? { name: v.name } : {}),
             }));
 
             if (r.trackingKey) {

@@ -35,6 +35,7 @@ import { DiscussionInterface } from "back-end/types/discussion";
 import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { FeatureInterface } from "back-end/types/feature";
+import { MdInfoOutline } from "react-icons/md";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -56,6 +57,7 @@ import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import track from "@/services/track";
+import { formatTrafficSplit } from "@/services/utils";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -182,6 +184,7 @@ export interface Props {
   newPhase?: (() => void) | null;
   editPhases?: (() => void) | null;
   editPhase?: ((i: number | null) => void) | null;
+  editTargeting?: (() => void) | null;
 }
 
 type ResultsTab = "results" | "config";
@@ -200,6 +203,7 @@ export default function SinglePage({
   newPhase,
   editPhases,
   editPhase,
+  editTargeting,
 }: Props) {
   const [metaInfoOpen, setMetaInfoOpen] = useLocalStorage<boolean>(
     `experiment-page__${experiment.id}__meta-info-open`,
@@ -243,9 +247,6 @@ export default function SinglePage({
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
   const lastPhase = phases[lastPhaseIndex] as
-    | undefined
-    | ExperimentPhaseStringDates;
-  const phase = phases[phaseIndex || 0] as
     | undefined
     | ExperimentPhaseStringDates;
   const startDate = phases?.[0]?.dateStarted
@@ -461,6 +462,8 @@ export default function SinglePage({
     .map((u) => u?.name || u?.email);
 
   const experimentHasPhases = phases.length > 0;
+
+  const [showDescriptionField, setShowDescriptionField] = useState(false);
 
   return (
     <div className="container-fluid experiment-details pagecontents pb-3">
@@ -877,41 +880,58 @@ export default function SinglePage({
           onTriggerClosing={() => setMetaInfoOpen(false)}
           transitionTime={150}
         >
-          <div className="mx-4 mb-3 pt-3 border-top">
-            <MarkdownInlineEdit
-              value={experiment.description ?? ""}
-              save={async (description) => {
-                await apiCall(`/experiment/${experiment.id}`, {
-                  method: "POST",
-                  body: JSON.stringify({ description }),
-                });
-                mutate();
-              }}
-              canCreate={canEditExperiment}
-              canEdit={canEditExperiment}
-              className="mb-4"
-              label="description"
-              header="Description"
-              headerClassName="h4"
-            />
+          <div className="mx-4 pt-3 border-top">
+            <div>
+              {!experiment.description && !showDescriptionField ? (
+                <a
+                  href="#"
+                  className="badge badge-light badge-pill mb-3 mr-3"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowDescriptionField(true);
+                  }}
+                >
+                  + description
+                </a>
+              ) : (
+                <MarkdownInlineEdit
+                  value={experiment.description ?? ""}
+                  save={async (description) => {
+                    await apiCall(`/experiment/${experiment.id}`, {
+                      method: "POST",
+                      body: JSON.stringify({ description }),
+                    });
+                    mutate();
+                  }}
+                  canCreate={canEditExperiment}
+                  canEdit={canEditExperiment}
+                  className="mb-4"
+                  label="description"
+                  header="Description"
+                  headerClassName="h4"
+                  autoOpen={!experiment.description}
+                  onCancel={() => setShowDescriptionField(false)}
+                />
+              )}
 
-            <MarkdownInlineEdit
-              value={experiment.hypothesis ?? ""}
-              save={async (hypothesis) => {
-                await apiCall(`/experiment/${experiment.id}`, {
-                  method: "POST",
-                  body: JSON.stringify({ hypothesis }),
-                });
-                mutate();
-              }}
-              canCreate={canEditExperiment}
-              canEdit={canEditExperiment}
-              label="hypothesis"
-              header={<>Hypothesis</>}
-              headerClassName="h4"
-              className="mb-4"
-              containerClassName="mb-1"
-            />
+              <MarkdownInlineEdit
+                value={experiment.hypothesis ?? ""}
+                save={async (hypothesis) => {
+                  await apiCall(`/experiment/${experiment.id}`, {
+                    method: "POST",
+                    body: JSON.stringify({ hypothesis }),
+                  });
+                  mutate();
+                }}
+                canCreate={canEditExperiment}
+                canEdit={canEditExperiment}
+                label="hypothesis"
+                header={<>Hypothesis</>}
+                headerClassName="h4"
+                className="mb-4"
+                containerClassName="mb-1"
+              />
+            </div>
 
             {idea && (
               <div className="mb-4">
@@ -950,67 +970,96 @@ export default function SinglePage({
             )}
           </div>
 
-          <div className="mx-4 mb-4">
-            <div className="h3 mb-2">
+          <div className="mb-4 mx-4">
+            <HeaderWithEdit
+              edit={editTargeting || undefined}
+              containerClassName="mb-2"
+            >
               Targeting
-              {editPhase && newPhase ? (
-                <a
-                  role="button"
-                  className="ml-1"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    phase ? editPhase(lastPhaseIndex) : newPhase();
-                  }}
-                >
-                  <GBEdit />
-                </a>
-              ) : null}
-            </div>
-            {phase ? (
-              <div className="appbox px-3 py-2">
-                {lastPhase?.coverage !== undefined ? (
-                  <div className="my-2">
-                    <span className="font-weight-bold">Traffic coverage:</span>{" "}
-                    {Math.floor(lastPhase.coverage * 100)}%
-                  </div>
-                ) : null}
-                {lastPhase?.condition && lastPhase.condition !== "{}" ? (
-                  <div className="my-2">
-                    <div className="font-weight-bold">Conditions:</div>
-                    <ConditionDisplay condition={lastPhase.condition} />
-                  </div>
-                ) : (
-                  <div className="my-2 text-muted">No targeting conditions</div>
-                )}
-                {hasNamespace ? (
-                  <div className="my-2">
-                    <span className="font-weight-bold">Namespace:</span>{" "}
-                    {lastPhase.namespace.name} (
-                    {percentFormatter.format(namespaceRange)})
-                  </div>
-                ) : null}
+            </HeaderWithEdit>
+            {lastPhase ? (
+              <div className="row">
+                <div className="col">
+                  <table className="table table-sm w-auto">
+                    <tr>
+                      <th>
+                        Experiment Key{" "}
+                        <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
+                      </th>
+                      <td>
+                        <ClickToCopy compact={true}>
+                          {experiment.trackingKey}
+                        </ClickToCopy>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th className="pr-5">
+                        Assignment Attribute{" "}
+                        <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
+                          <MdInfoOutline className="text-info" />
+                        </Tooltip>
+                      </th>
+                      <td>
+                        {experiment.hashAttribute || "id"}{" "}
+                        {
+                          <HashVersionTooltip>
+                            <small className="text-muted ml-1">
+                              (V{experiment.hashVersion || 2} hashing)
+                            </small>
+                          </HashVersionTooltip>
+                        }
+                      </td>
+                    </tr>
+                    <tr>
+                      <th>Targeting Conditions</th>
+                      <td>
+                        {lastPhase.condition && lastPhase.condition !== "{}" ? (
+                          <ConditionDisplay condition={lastPhase.condition} />
+                        ) : (
+                          <em>No conditions</em>
+                        )}
+                      </td>
+                    </tr>
+                    <tr>
+                      <th>Traffic</th>
+                      <td>
+                        {Math.floor(lastPhase.coverage * 100)}%{" "}
+                        <span className="text-muted">included,</span>{" "}
+                        {formatTrafficSplit(lastPhase.variationWeights)}{" "}
+                        <span className="text-muted">split</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <th>
+                        Namespace{" "}
+                        <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration -> Namespaces">
+                          <MdInfoOutline className="text-info" />
+                        </Tooltip>
+                      </th>
+                      <td>
+                        {hasNamespace ? (
+                          <>
+                            {lastPhase.namespace.name}{" "}
+                            <span className="text-muted">
+                              ({percentFormatter.format(namespaceRange)})
+                            </span>
+                          </>
+                        ) : (
+                          <em>Global (all users)</em>
+                        )}
+                      </td>
+                    </tr>
+                  </table>
+                </div>
               </div>
             ) : (
-              <div className="">
-                <p className="alert alert-info mb-1">
-                  No targeting or traffic allocation set.
-                  {newPhase && (
-                    <a
-                      role="button"
-                      className="text-link ml-2"
-                      onClick={newPhase}
-                    >
-                      Edit targeting
-                    </a>
-                  )}
-                </p>
-              </div>
+              <em>No targeting configured yet</em>
             )}
           </div>
 
           <HeaderWithEdit
             edit={editVariations ?? undefined}
-            className="h3 mt-1 mb-2"
+            className="h3 mb-2"
             containerClassName="mx-4 mb-1"
           >
             Variations
@@ -1104,7 +1153,7 @@ export default function SinglePage({
         linkedFeatures={linkedFeatures}
         visualChangesets={visualChangesets}
         mutateExperiment={mutate}
-        editPhase={editPhase}
+        editTargeting={editTargeting}
         newPhase={newPhase}
       />
 
@@ -1221,27 +1270,6 @@ export default function SinglePage({
                     </Tooltip>
                   )}
                 </RightRailSectionGroup>
-                {experiment.hashAttribute && (
-                  <RightRailSectionGroup
-                    title="Assignment Attribute"
-                    type="commaList"
-                  >
-                    {experiment.hashAttribute}
-                  </RightRailSectionGroup>
-                )}
-                <RightRailSectionGroup title="Hashing Algorithm" type="custom">
-                  <HashVersionTooltip>
-                    {" "}
-                    <strong>
-                      {experiment.hashVersion === 2
-                        ? "V2"
-                        : experiment.hashVersion === 1
-                        ? "V1 (Legacy)"
-                        : `V${experiment.hashVersion} (Unknown)`}
-                    </strong>{" "}
-                    <FaQuestionCircle />
-                  </HashVersionTooltip>
-                </RightRailSectionGroup>
                 {exposureQuery && (
                   <RightRailSectionGroup
                     title="Assignment Query"
@@ -1264,7 +1292,7 @@ export default function SinglePage({
                     {segment?.name}
                   </RightRailSectionGroup>
                 )}
-                {experiment.activationMetric && (
+                {datasource && experiment.activationMetric && (
                   <RightRailSectionGroup
                     title="Activation Metric"
                     type="commaList"
@@ -1272,7 +1300,7 @@ export default function SinglePage({
                     {activationMetric?.name}
                   </RightRailSectionGroup>
                 )}
-                {experiment.queryFilter && (
+                {datasource && experiment.queryFilter && (
                   <RightRailSectionGroup title="Custom Filter" type="custom">
                     <Code
                       language={datasource?.properties?.queryLanguage ?? "none"}
@@ -1281,17 +1309,22 @@ export default function SinglePage({
                     />
                   </RightRailSectionGroup>
                 )}
-                <RightRailSectionGroup title="Attribution Model" type="custom">
-                  <AttributionModelTooltip>
-                    <strong>
-                      {experiment.attributionModel === "experimentDuration"
-                        ? "Experiment Duration"
-                        : "First Exposure"}
-                    </strong>{" "}
-                    <FaQuestionCircle />
-                  </AttributionModelTooltip>
-                </RightRailSectionGroup>
-                {statsEngine === "frequentist" && (
+                {datasource && (
+                  <RightRailSectionGroup
+                    title="Attribution Model"
+                    type="custom"
+                  >
+                    <AttributionModelTooltip>
+                      <strong>
+                        {experiment.attributionModel === "experimentDuration"
+                          ? "Experiment Duration"
+                          : "First Exposure"}
+                      </strong>{" "}
+                      <FaQuestionCircle />
+                    </AttributionModelTooltip>
+                  </RightRailSectionGroup>
+                )}
+                {statsEngine === "frequentist" && datasource && (
                   <>
                     <RightRailSectionGroup
                       title={

@@ -26,27 +26,30 @@ export default function RuleStatusPill({
     );
   }
 
-  if (scheduleCompletedAndDisabled) {
-    return (
-      <div className="mr-3">
-        <strong>Skip Rule: </strong>
-        <span className="badge badge-info">
-          {`Disabled by a schedule on ${new Date(
-            // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-            rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
-          ).toLocaleDateString()} at ${formatTimeZone(
-            new Date(
-              // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-              rule.scheduleRules[rule.scheduleRules.length - 1].timestamp
-            ),
-            "h:mm a z"
-          )}`}
-        </span>
-      </div>
-    );
+  if (
+    scheduleCompletedAndDisabled &&
+    rule.scheduleRules &&
+    rule.scheduleRules.length > 0
+  ) {
+    const lastRule = rule.scheduleRules[rule.scheduleRules.length - 1];
+    if (lastRule && lastRule.timestamp) {
+      return (
+        <div className="mr-3">
+          <strong>Skip Rule: </strong>
+          <span className="badge badge-info">
+            {`Disabled by a schedule on ${new Date(
+              lastRule.timestamp
+            ).toLocaleDateString()} at ${formatTimeZone(
+              new Date(lastRule.timestamp),
+              "h:mm a z"
+            )}`}
+          </span>
+        </div>
+      );
+    }
   }
 
-  if (upcomingScheduleRule) {
+  if (upcomingScheduleRule && upcomingScheduleRule.timestamp) {
     return (
       <div className="mr-3">
         <strong>Skip Rule: </strong>
@@ -54,10 +57,8 @@ export default function RuleStatusPill({
           {`Will be ${
             upcomingScheduleRule.enabled ? "enabled" : "disabled"
           } on ${new Date(
-            // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
             upcomingScheduleRule.timestamp
           ).toLocaleDateString()} at ${formatTimeZone(
-            // @ts-expect-error TS(2769) If you come across this, please fix it!: No overload matches this call.
             new Date(upcomingScheduleRule.timestamp),
             "h:mm a z"
           )}`}

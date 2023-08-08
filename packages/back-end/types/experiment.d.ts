@@ -156,3 +156,12 @@ export type ExperimentInterfaceStringDates = Omit<
 };
 
 export type Changeset = Partial<ExperimentInterface>;
+
+export type ExperimentTargetingData = Pick<
+  ExperimentPhaseStringDates,
+  "condition" | "coverage" | "namespace" | "seed" | "variationWeights"
+> &
+  Pick<
+    ExperimentInterfaceStringDates,
+    "hashAttribute" | "hashVersion" | "trackingKey"
+  >;

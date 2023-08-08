@@ -150,6 +150,7 @@ export interface Props {
   newPhase?: (() => void) | null;
   editPhases?: (() => void) | null;
   editPhase?: ((i: number | null) => void) | null;
+  editTargeting?: (() => void) | null;
 }
 
 export default function SinglePage_old({

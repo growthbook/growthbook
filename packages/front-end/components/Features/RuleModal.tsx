@@ -5,7 +5,7 @@ import {
   FeatureRule,
   ScheduleRule,
 } from "back-end/types/feature";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { date } from "shared/dates";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
@@ -101,11 +101,7 @@ export default function RuleModal({
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
   const experimentId = form.watch("experimentId");
-  const selectedExperiment = useMemo(() => {
-    if (!experimentId) return null;
-    const exp = experiments.find((e) => e.id === experimentId) || null;
-    return exp;
-  }, [experimentId, experiments]);
+  const selectedExperiment = experimentsMap.get(experimentId) || null;
 
   if (showUpgradeModal) {
     return (
@@ -298,7 +294,7 @@ export default function RuleModal({
           } else if (values.type === "experiment-ref") {
             // Validate a proper experiment was chosen and it has a value for every variation id
             const experimentId = values.experimentId;
-            const exp = experiments.find((e) => e.id === experimentId);
+            const exp = experimentsMap.get(experimentId);
             if (!exp) throw new Error("Must select an experiment");
             const variationIds = new Set(exp.variations.map((v) => v.id));
 
@@ -381,7 +377,7 @@ export default function RuleModal({
               sort={false}
               value={experimentId || ""}
               onChange={(experimentId) => {
-                const exp = experiments.find((e) => e.id === experimentId);
+                const exp = experimentsMap.get(experimentId);
                 if (exp) {
                   const controlValue = getFeatureDefaultValue(feature);
                   const variationValue = getDefaultVariationValue(controlValue);

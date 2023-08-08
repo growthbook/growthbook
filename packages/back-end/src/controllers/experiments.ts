@@ -56,6 +56,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhase,
   ExperimentStatus,
+  ExperimentTargetingData,
   Variation,
 } from "../../types/experiment";
 import { getMetricById, getMetricMap } from "../models/MetricModel";
@@ -1299,6 +1300,110 @@ export async function putExperimentPhase(
   res.status(200).json({
     status: 200,
   });
+}
+
+export async function postExperimentTargeting(
+  req: AuthRequest<ExperimentTargetingData, { id: string }>,
+  res: Response
+) {
+  const { org, userId } = getOrgFromReq(req);
+  const { id } = req.params;
+
+  const {
+    condition,
+    coverage,
+    hashAttribute,
+    hashVersion,
+    namespace,
+    trackingKey,
+    variationWeights,
+    seed,
+  } = req.body;
+
+  const changes: Changeset = {};
+
+  const experiment = await getExperimentById(org.id, id);
+
+  if (!experiment) {
+    res.status(404).json({
+      status: 404,
+      message: "Experiment not found",
+    });
+    return;
+  }
+
+  req.checkPermissions("createAnalyses", experiment.project);
+
+  const envs = getAffectedEnvsForExperiment({
+    experiment,
+  });
+  envs.length > 0 &&
+    req.checkPermissions("runExperiments", experiment.project, envs);
+
+  const phases = [...experiment.phases];
+
+  // Already has phases
+  if (phases.length) {
+    phases[phases.length - 1] = {
+      ...phases[phases.length - 1],
+      condition,
+      coverage,
+      namespace,
+      variationWeights,
+      seed,
+    };
+  } else {
+    phases.push({
+      condition,
+      coverage,
+      dateStarted: new Date(),
+      name: "Main",
+      namespace,
+      reason: "",
+      variationWeights,
+      seed,
+    });
+  }
+  changes.phases = phases;
+
+  changes.hashAttribute = hashAttribute;
+  changes.hashVersion = hashVersion;
+  if (trackingKey) changes.trackingKey = trackingKey;
+
+  // TODO: validation
+  try {
+    const updated = await updateExperiment({
+      organization: org,
+      experiment,
+      user: res.locals.eventAudit,
+      changes,
+    });
+
+    await req.audit({
+      event: "experiment.update",
+      entity: {
+        object: "experiment",
+        id: experiment.id,
+      },
+      details: auditDetailsUpdate(experiment, updated),
+    });
+
+    await upsertWatch({
+      userId,
+      organization: org.id,
+      item: experiment.id,
+      type: "experiments",
+    });
+
+    res.status(200).json({
+      status: 200,
+    });
+  } catch (e) {
+    res.status(400).json({
+      status: 400,
+      message: e.message || "Failed to edit experiment targeting",
+    });
+  }
 }
 
 export async function postExperimentPhase(

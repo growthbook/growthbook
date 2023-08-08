@@ -23,6 +23,7 @@ import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import track from "@/services/track";
+import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 
 const ExperimentPage = (): ReactElement => {
   const [newUi, setNewUi] = useLocalStorage<boolean>(
@@ -44,6 +45,7 @@ const ExperimentPage = (): ReactElement => {
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
   const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
+  const [targetingModalOpen, setTargetingModalOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -92,6 +94,9 @@ const ExperimentPage = (): ReactElement => {
   const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
   const editPhase = canRunExperiment
     ? (i: number | null) => setEditPhaseId(i)
+    : null;
+  const editTargeting = canRunExperiment
+    ? () => setTargetingModalOpen(true)
     : null;
 
   return (
@@ -191,6 +196,13 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
         />
       )}
+      {targetingModalOpen && (
+        <EditTargetingModal
+          close={() => setTargetingModalOpen(false)}
+          mutate={mutate}
+          experiment={experiment}
+        />
+      )}
       <div className="container-fluid">
         <SnapshotProvider experiment={experiment}>
           <SinglePageComponent
@@ -207,6 +219,7 @@ const ExperimentPage = (): ReactElement => {
             newPhase={newPhase}
             editPhases={editPhases}
             editPhase={editPhase}
+            editTargeting={editTargeting}
           />
         </SnapshotProvider>
       </div>

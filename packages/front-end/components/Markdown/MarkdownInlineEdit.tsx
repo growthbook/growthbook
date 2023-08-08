@@ -16,6 +16,8 @@ type Props = {
   header?: string | JSX.Element;
   headerClassName?: string;
   editClassName?: string;
+  autoOpen?: boolean;
+  onCancel?: () => void;
 };
 
 export default function MarkdownInlineEdit({
@@ -29,8 +31,10 @@ export default function MarkdownInlineEdit({
   header = "",
   headerClassName = "h3",
   editClassName = "a",
+  autoOpen = false,
+  onCancel,
 }: Props) {
-  const [edit, setEdit] = useState(false);
+  const [edit, setEdit] = useState(autoOpen);
   const [val, setVal] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -61,7 +65,10 @@ export default function MarkdownInlineEdit({
           cta={"Save"}
           error={error ?? undefined}
           autofocus={true}
-          onCancel={() => setEdit(false)}
+          onCancel={() => {
+            setEdit(false);
+            onCancel && onCancel();
+          }}
         />
       </form>
     );

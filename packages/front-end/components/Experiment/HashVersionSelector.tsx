@@ -8,7 +8,8 @@ export function HashVersionTooltip({ children }: { children: ReactNode }) {
     <Tooltip
       body={
         <>
-          V2 hashing supported in the following SDKs and versions:
+          V2 fixes potential bias issues when using similarly named tracking
+          keys, but is only supported in the following SDKs and versions:
           <ul>
             <li>JavaScript &gt;= 0.23.0</li>
             <li>React &gt;= 0.12.0</li>
@@ -22,6 +23,7 @@ export function HashVersionTooltip({ children }: { children: ReactNode }) {
             <li>Flutter - no support yet</li>
             <li>C# - no support yet</li>
           </ul>
+          Unsupported SDKs will fall back to using V1 automatically.
         </>
       }
     >
@@ -50,8 +52,8 @@ export default function HashVersionSelector({
       }}
       helpText={
         <>
-          V2 fixes potential bias issues when using similarly named features,
-          but is only supported in{" "}
+          V2 fixes potential bias issues when using similarly named tracking
+          keys, but is only supported in{" "}
           <HashVersionTooltip>
             <span className="text-primary">
               some SDK versions <FaQuestionCircle />

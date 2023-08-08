@@ -18,8 +18,8 @@ export function StartExperimentBanner({
   visualChangesets,
   connections,
   mutateExperiment,
-  editPhase,
   newPhase,
+  editTargeting,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: {
@@ -30,7 +30,7 @@ export function StartExperimentBanner({
   connections: SDKConnectionInterface[];
   mutateExperiment: () => unknown | Promise<unknown>;
   newPhase?: (() => void) | null;
-  editPhase?: ((i: number | null) => void) | null;
+  editTargeting?: (() => void) | null;
 }) {
   const { apiCall } = useAuth();
 
@@ -125,32 +125,20 @@ export function StartExperimentBanner({
   checklist.push({
     display: (
       <>
-        Configure variation assignment and targeting conditions{" "}
-        {hasPhases ? (
+        Configure variation assignment and targeting behavior{" "}
+        {editTargeting ? (
           <a
             href="#"
             className="ml-2"
             onClick={(e) => {
               e.preventDefault();
-              if (editPhase) editPhase(experiment.phases.length - 1);
-              track("Edit phase", { source: "experiment-start-banner" });
+              editTargeting();
+              track("Edit targeting", { source: "experiment-start-banner" });
             }}
           >
             Edit Targeting
           </a>
-        ) : (
-          <a
-            href="#"
-            className="ml-2"
-            onClick={(e) => {
-              e.preventDefault();
-              if (newPhase) newPhase();
-              track("Add phase", { source: "experiment-start-banner" });
-            }}
-          >
-            Add Targeting
-          </a>
-        )}
+        ) : null}
       </>
     ),
     status: hasPhases ? "success" : "error",
