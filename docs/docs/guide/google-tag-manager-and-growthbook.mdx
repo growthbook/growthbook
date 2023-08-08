@@ -73,8 +73,8 @@ In the subsequent sections, we will learn how to fill in the SDK parameters such
         }
       });
 
+      // TODO: Instrument DOM with AB test logic
       gb.loadFeatures().then(function() {
-        // TODO: Instrument DOM with AB test logic
         // NOTE: We may wish to remove `gb.loadFeatures()` and instead manually implement experiment logic
       });
     }
@@ -260,7 +260,7 @@ Recall that in this strategy, we define our experiments and their rulesets inlin
 
 Let's get started with our test instrumentation. We'll consider a hypothetical landing page where there are 2 features that need to be changed on the DOM based on feature flag settings: a large button (#button1) which we can optionally turn green, and a sticky banner (#banner1) which we can alter with custom text.
 
-Find the section of our snippet above beginning with `// TODO: Instrument DOM with AB test logic`. We will replace this comment with a snippet that will fetch the feature flag definitions and then apply test-specific DOM changes. Our earlier code snippet now becomes:
+Find the section of our snippet above beginning with `// TODO: Instrument DOM with AB test logic`. We will replace this section, including the loadFeatures() call, with a snippet that will run an inline experiment and apply test-specific DOM changes. Our earlier code snippet now becomes:
 
 ```html
 <script>
