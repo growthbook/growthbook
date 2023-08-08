@@ -18,6 +18,7 @@ import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
 import StatusBanner from "@/components/Experiment/StatusBanner";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -81,6 +82,11 @@ const Results: FC<{
   const permissions = usePermissions();
   const { getDatasourceById } = useDefinitions();
 
+  const [advancedResults, setAdvancedResults] = useLocalStorage<boolean>(
+    `experiment-page__${experiment.id}__advanced-results`,
+    false
+  );
+
   if (error) {
     return <div className="alert alert-danger m-3">{error.message}</div>;
   }
@@ -115,6 +121,14 @@ const Results: FC<{
         ?.regressionAdjustmentEnabled,
     })) || [];
 
+  const showCompactResults =
+    !draftMode &&
+    hasData &&
+    snapshot &&
+    analysis &&
+    analysis.results?.[0] &&
+    !analysis?.settings?.dimensions?.length;
+
   return (
     <>
       <StatusBanner
@@ -139,6 +153,9 @@ const Results: FC<{
             metricRegressionAdjustmentStatuses
           }
           onRegressionAdjustmentChange={onRegressionAdjustmentChange}
+          showAdvancedResultsToggle={showCompactResults}
+          advancedResults={advancedResults}
+          setAdvancedResults={setAdvancedResults}
         />
       ) : null}
 
@@ -265,47 +282,41 @@ const Results: FC<{
             sequentialTestingEnabled={analysis?.settings?.sequentialTesting}
           />
         ))}
-      {!draftMode &&
-        hasData &&
-        snapshot &&
-        analysis &&
-        analysis.results?.[0] &&
-        !analysis?.settings?.dimensions?.length && (
-          <>
-            {reportDetailsLink && (
-              <div className="float-right pr-3">
-                <FilterSummary
-                  experiment={experiment}
-                  phase={phaseObj}
-                  snapshot={snapshot}
-                />
-              </div>
-            )}
-            <CompactResults
-              editMetrics={editMetrics}
-              variations={variations}
-              multipleExposures={snapshot.multipleExposures || 0}
-              results={analysis.results[0]}
-              reportDate={snapshot.dateCreated}
-              startDate={phaseObj?.dateStarted ?? ""}
-              isLatestPhase={phase === experiment.phases.length - 1}
-              status={experiment.status}
-              metrics={experiment.metrics}
-              metricOverrides={experiment.metricOverrides ?? []}
-              guardrails={experiment.guardrails}
-              id={experiment.id}
-              statsEngine={analysis.settings.statsEngine}
-              pValueCorrection={pValueCorrection}
-              regressionAdjustmentEnabled={
-                analysis.settings?.regressionAdjusted
-              }
-              metricRegressionAdjustmentStatuses={
-                snapshotMetricRegressionAdjustmentStatuses
-              }
-              sequentialTestingEnabled={analysis.settings?.sequentialTesting}
-            />
-          </>
-        )}
+      {showCompactResults && (
+        <>
+          {reportDetailsLink && (
+            <div className="float-right pr-3">
+              <FilterSummary
+                experiment={experiment}
+                phase={phaseObj}
+                snapshot={snapshot}
+              />
+            </div>
+          )}
+          <CompactResults
+            editMetrics={editMetrics}
+            variations={variations}
+            multipleExposures={snapshot.multipleExposures || 0}
+            results={analysis.results[0]}
+            reportDate={snapshot.dateCreated}
+            startDate={phaseObj?.dateStarted ?? ""}
+            isLatestPhase={phase === experiment.phases.length - 1}
+            status={experiment.status}
+            metrics={experiment.metrics}
+            metricOverrides={experiment.metricOverrides ?? []}
+            guardrails={experiment.guardrails}
+            id={experiment.id}
+            statsEngine={analysis.settings.statsEngine}
+            pValueCorrection={pValueCorrection}
+            regressionAdjustmentEnabled={analysis.settings?.regressionAdjusted}
+            metricRegressionAdjustmentStatuses={
+              snapshotMetricRegressionAdjustmentStatuses
+            }
+            sequentialTestingEnabled={analysis.settings?.sequentialTesting}
+            showAdvanced={advancedResults}
+          />
+        </>
+      )}
     </>
   );
 };

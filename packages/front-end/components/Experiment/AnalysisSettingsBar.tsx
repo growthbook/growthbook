@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   ExperimentReportVariation,
   MetricRegressionAdjustmentStatus,
@@ -129,6 +129,9 @@ export default function AnalysisSettingsBar({
   regressionAdjustmentHasValidMetrics,
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
+  showAdvancedResultsToggle = false,
+  advancedResults = false,
+  setAdvancedResults,
 }: {
   mutateExperiment: () => void;
   editMetrics?: () => void;
@@ -141,6 +144,9 @@ export default function AnalysisSettingsBar({
   regressionAdjustmentHasValidMetrics?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
+  showAdvancedResultsToggle?: boolean;
+  advancedResults?: boolean;
+  setAdvancedResults?: (show: boolean) => void;
 }) {
   const {
     experiment,
@@ -217,6 +223,32 @@ export default function AnalysisSettingsBar({
               labelClassName="mr-2"
             />
           </div>
+          {showAdvancedResultsToggle ? (
+            <div className="col-auto">
+              <label
+                htmlFor={"toggle-show-advanced"}
+                className={`d-flex btn my-0 pl-2 pr-1 py-1 form-inline align-items-center`}
+              >
+                <div
+                  className="text-right"
+                  style={{ fontSize: "11px", lineHeight: "12px" }}
+                >
+                  show
+                  <br />
+                  advanced
+                </div>
+                <Toggle
+                  id="toggle-show-advanced"
+                  value={advancedResults}
+                  setValue={(value) => {
+                    setAdvancedResults?.(value);
+                  }}
+                  className={`m-0`}
+                  style={{ transform: "scale(0.8)" }}
+                />
+              </label>
+            </div>
+          ) : null}
           <div style={{ flex: 1 }} />
           <div className="col-auto">
             {regressionAdjustmentAvailable && (

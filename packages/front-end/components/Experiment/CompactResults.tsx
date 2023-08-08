@@ -41,6 +41,7 @@ const CompactResults: FC<{
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
+  showAdvanced?: boolean;
 }> = ({
   results,
   variations,
@@ -59,6 +60,7 @@ const CompactResults: FC<{
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
   sequentialTestingEnabled,
+  showAdvanced = false,
 }) => {
   const { getMetricById, ready } = useDefinitions();
 
@@ -117,8 +119,6 @@ const CompactResults: FC<{
   }, [results, variations]);
   const risk = useRiskVariation(variations.length, rows);
 
-  const [showAdvanced, setShowAdvanced] = React.useState(false);
-
   return (
     <>
       <div className="">
@@ -127,14 +127,6 @@ const CompactResults: FC<{
           users={users}
           multipleExposures={multipleExposures}
         />
-      </div>
-      <div>
-        <button
-          className="btn btn-link btn-sm"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-        >
-          {showAdvanced ? "Hide" : "Show"} Advanced
-        </button>
       </div>
       <ResultsTable
         dateCreated={reportDate}
