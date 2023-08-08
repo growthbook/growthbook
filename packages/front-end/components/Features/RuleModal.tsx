@@ -9,6 +9,8 @@ import { useState } from "react";
 import { date } from "shared/dates";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { getMatchingRules } from "shared/util";
+import { FaBell } from "react-icons/fa";
 import {
   NewExperimentRefRule,
   generateVariationId,
@@ -17,6 +19,8 @@ import {
   getFeatureDefaultValue,
   getRules,
   useAttributeSchema,
+  useEnvironments,
+  useFeaturesList,
   validateFeatureRule,
 } from "@/services/features";
 import track from "@/services/track";
@@ -78,6 +82,25 @@ export default function RuleModal({
     ruleType: defaultType,
     attributeSchema,
   });
+
+  const { features } = useFeaturesList();
+  const environments = useEnvironments();
+  const hasLegacyExperimentRules = features.some(
+    (f) =>
+      getMatchingRules(
+        f,
+        (r) => r.type === "experiment",
+        environments.map((e) => e.id)
+      ).length > 0
+  );
+  const hasNewExperimentRules = features.some(
+    (f) =>
+      getMatchingRules(
+        f,
+        (r) => r.type === "experiment-ref",
+        environments.map((e) => e.id)
+      ).length > 0
+  );
 
   const defaultValues = {
     ...defaultRuleValues,
@@ -152,6 +175,11 @@ export default function RuleModal({
     }
     form.reset(newVal);
   }
+
+  const showNewExperimentRuleMessage =
+    hasLegacyExperimentRules &&
+    !hasNewExperimentRules &&
+    (type === "experiment-ref" || type === "experiment-ref-new");
 
   return (
     <Modal
@@ -366,6 +394,25 @@ export default function RuleModal({
         }}
         options={ruleTypeOptions}
       />
+      {showNewExperimentRuleMessage ? (
+        <div className="appbox p-3 bg-light">
+          <h4 className="text-purple">
+            <FaBell /> We&apos;ve changed how Experiment rules work!
+          </h4>
+          <div className="mb-1">
+            You can now choose to either link to an existing Experiment or
+            create a new one from scratch.
+          </div>
+          <div className="mb-2">
+            Targeting and assignment logic is now controlled by the Experiment
+            instead of the Feature rule.
+          </div>
+          <div className="small text-muted">
+            <strong>Note:</strong> This only affects new Experiment rules;
+            existing ones will continue to behave how they used to.
+          </div>
+        </div>
+      ) : null}
       {type === "experiment-ref" && (
         <div>
           {experimentOptions.length > 0 ? (
