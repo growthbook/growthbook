@@ -113,7 +113,10 @@ const AlignedGraph: FC<Props> = ({
     [sigBarColorNeg, sigBarColorPos] = [sigBarColorPos, sigBarColorNeg];
   }
   // rough number of columns:
-  const numTicks = 6;
+  let numTicks = 6;
+  if (newUi) {
+    numTicks = Math.max(graphWidth / 75, 3);
+  }
   // todo: make ticks programic based roughtly on the width
   // todo: make the significant threashold centralized, and adjustable.
 
@@ -233,9 +236,12 @@ const AlignedGraph: FC<Props> = ({
                             onPointerMove={onPointerMove}
                             onPointerLeave={onPointerLeave}
                             onClick={onClick}
-                            className={clsx("aligned-graph-violin", {
-                              hover: isHovered,
-                            })}
+                            className={clsx(
+                              "hover-target aligned-graph-violin",
+                              {
+                                hover: isHovered,
+                              }
+                            )}
                             style={{ transition: "100ms all" }}
                             top={barHeight}
                             width={barThickness}
@@ -288,7 +294,7 @@ const AlignedGraph: FC<Props> = ({
                             onPointerMove={onPointerMove}
                             onPointerLeave={onPointerLeave}
                             onClick={onClick}
-                            className={clsx("aligned-graph-pill", {
+                            className={clsx("hover-target aligned-graph-pill", {
                               hover: isHovered,
                             })}
                             style={{ transition: "100ms all" }}
@@ -309,6 +315,7 @@ const AlignedGraph: FC<Props> = ({
                             x: xScale(expected ?? 0),
                             y: barHeight + barThickness,
                           }}
+                          style={{ pointerEvents: "none" }}
                         />
                       </>
                     )}

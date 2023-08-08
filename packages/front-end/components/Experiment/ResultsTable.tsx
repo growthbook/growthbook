@@ -101,12 +101,13 @@ export default function ResultsTable({
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
   const [graphCellWidth, setGraphCellWidth] = useState(0);
+  const [tableCellScale, setTableCellScale] = useState(1);
 
   function onResize() {
     if (!tableContainerRef?.current?.clientWidth) return;
     const tableWidth = tableContainerRef.current?.clientWidth as number;
     const firstRowCells = tableContainerRef.current?.querySelectorAll(
-      "#main-results thead tr:first-child th:not(.graphCell)"
+      "#main-results thead tr:first-child th:not(.graph-cell)"
     );
     let totalCellWidth = 0;
     if (firstRowCells) {
@@ -116,6 +117,7 @@ export default function ResultsTable({
     }
     const graphWidth = tableWidth - totalCellWidth;
     setGraphCellWidth(graphWidth);
+    setTableCellScale(Math.max(Math.min(1, tableWidth / 1000), 0.5));
   }
 
   useEffect(() => {
@@ -239,28 +241,41 @@ export default function ResultsTable({
       return;
     }
 
-    const layoutX: LayoutX = settings?.x ?? "mouse-left";
+    const layoutX: LayoutX = settings?.x ?? "element-right";
+    const offsetX = settings?.offsetX ?? 0;
+    const offsetY = settings?.offsetY ?? 0;
     const el = event.target as HTMLElement;
-    const target = (el.tagName === "td" ? el : el.closest("td")) ?? el;
+    const target = settings?.targetClassName
+      ? (el.classList.contains(settings.targetClassName)
+          ? el
+          : el.closest(`.${settings.targetClassName}`)) ?? el
+      : (el.tagName === "td" ? el : el.closest("td")) ?? el;
 
     let yAlign: "top" | "bottom" = "top";
-    let targetTop: number = (target.getBoundingClientRect()?.top ?? 0) + 28;
+    let targetTop: number =
+      (target.getBoundingClientRect()?.top ?? 0) + 30 + offsetY;
     if (targetTop > TOOLTIP_HEIGHT + 80) {
-      targetTop -= 24 + TOOLTIP_HEIGHT;
+      targetTop -= 28 + TOOLTIP_HEIGHT - offsetY;
       yAlign = "bottom";
     }
 
     const targetLeft: number =
-      layoutX === "mouse-left"
+      (layoutX === "mouse-left"
         ? event.clientX + 10
+        : layoutX === "mouse-right"
+        ? event.clientX - TOOLTIP_WIDTH - 10
+        : layoutX === "element-left"
+        ? (target.getBoundingClientRect()?.left ?? 0) - TOOLTIP_WIDTH + 5
+        : layoutX === "element-right"
+        ? (target.getBoundingClientRect()?.right ?? 0) - 5
         : layoutX === "element-center"
         ? ((target.getBoundingClientRect()?.left ?? 0) +
             (target.getBoundingClientRect()?.right ?? 0)) /
             2 -
           TOOLTIP_WIDTH / 2
-        : event.clientX - TOOLTIP_WIDTH - 10;
+        : event.clientX + 10) + offsetX;
 
-    if (hoveredX === null || hoveredY === null) {
+    if (hoveredX === null && hoveredY === null) {
       setHoveredX(targetLeft - containerBounds.left);
       setHoveredY(targetTop - containerBounds.top);
     }
@@ -354,10 +369,7 @@ export default function ResultsTable({
         />
       </CSSTransition>
 
-      <div
-        ref={tableContainerRef}
-        style={{ minWidth: showAdvanced ? 1000 : 800 }}
-      >
+      <div ref={tableContainerRef} style={{ minWidth: 600 }}>
         <div className="w-100">
           <table
             id="main-results"
@@ -366,7 +378,10 @@ export default function ResultsTable({
             <thead>
               <tr className="results-top-row">
                 <th
-                  style={{ width: showAdvanced ? 180 : 220 }}
+                  style={{
+                    lineHeight: "16px",
+                    width: (showAdvanced ? 180 : 220) * tableCellScale,
+                  }}
                   className="axis-col header-label"
                 >
                   {labelHeader}
@@ -386,7 +401,11 @@ export default function ResultsTable({
                 {showAdvanced ? (
                   <>
                     <th
-                      style={{ width: 110, lineHeight: "16px" }}
+                      style={{
+                        width: 110 * tableCellScale,
+                        lineHeight: "16px",
+                        zIndex: 801,
+                      }}
                       className="axis-col label"
                     >
                       Baseline
@@ -402,24 +421,33 @@ export default function ResultsTable({
                         </span>
                         <span
                           className="d-inline-block text-ellipsis font-weight-bold"
-                          style={{ width: 80, marginRight: -20 }}
+                          style={{
+                            width: 80 * tableCellScale,
+                            marginRight: -20,
+                          }}
                         >
                           {variations[baselineRow].name}
                         </span>
                       </div>
                     </th>
-                    <th style={{ width: 110 }} className="axis-col label">
+                    <th
+                      style={{ width: 110 * tableCellScale }}
+                      className="axis-col label"
+                    >
                       Value
                     </th>
                   </>
                 ) : null}
                 <th
-                  style={{ width: 140 }}
+                  style={{ width: 140 * tableCellScale }}
                   className="axis-col label text-right"
                 >
                   {statsEngine === "bayesian" ? (
                     !metricsAsGuardrails ? (
-                      <>Chance to Win</>
+                      <div style={{ lineHeight: "16px" }}>
+                        <span className="nowrap">Chance</span>{" "}
+                        <span className="nowrap">to Win</span>
+                      </div>
                     ) : (
                       <div style={{ lineHeight: "16px" }}>
                         <span className="nowrap">Chance of</span>{" "}
@@ -430,13 +458,17 @@ export default function ResultsTable({
                     (sequentialTestingEnabled || pValueCorrection) ? (
                     <Tooltip
                       innerClassName={"text-left"}
-                      body={getPValueTooltip(
-                        !!sequentialTestingEnabled,
-                        pValueCorrection ?? null,
-                        orgSettings.pValueThreshold ?? 0.05,
-                        tableRowAxis,
-                        showAdvanced
-                      )}
+                      body={
+                        <div style={{ lineHeight: 1.5 }}>
+                          {getPValueTooltip(
+                            !!sequentialTestingEnabled,
+                            pValueCorrection ?? null,
+                            orgSettings.pValueThreshold ?? 0.05,
+                            tableRowAxis,
+                            showAdvanced
+                          )}
+                        </div>
+                      }
                     >
                       P-value <RxInfoCircled />
                     </Tooltip>
@@ -445,8 +477,8 @@ export default function ResultsTable({
                   )}
                 </th>
                 <th
-                  className="axis-col graphCell"
-                  style={{ maxWidth: graphCellWidth, zIndex: 941 }}
+                  className="axis-col graph-cell"
+                  style={{ maxWidth: graphCellWidth }}
                 >
                   <div className="position-relative">
                     <AlignedGraph
@@ -459,30 +491,33 @@ export default function ResultsTable({
                       height={45}
                       newUi={true}
                     />
-                    <Tooltip
-                      className={"position-absolute"}
-                      style={{
-                        bottom: 8,
-                        right: -18,
-                        color: "var(--text-link-hover-color)",
-                      }}
-                      innerClassName={"text-left"}
-                      body={getPercentChangeTooltip(
-                        statsEngine ?? DEFAULT_STATS_ENGINE,
-                        hasRisk,
-                        !!sequentialTestingEnabled,
-                        pValueCorrection ?? null
-                      )}
-                    >
-                      <RxInfoCircled />
-                    </Tooltip>
                   </div>
                 </th>
                 <th
-                  style={{ width: showAdvanced ? 140 : 170 }}
+                  style={{
+                    width:
+                      (showAdvanced ? 140 : 120) *
+                      Math.max(0.75, tableCellScale),
+                  }}
                   className="axis-col label text-right"
                 >
-                  % Change
+                  <div style={{ lineHeight: "16px" }}>
+                    <Tooltip
+                      innerClassName={"text-left"}
+                      body={
+                        <div style={{ lineHeight: 1.5 }}>
+                          {getPercentChangeTooltip(
+                            statsEngine ?? DEFAULT_STATS_ENGINE,
+                            hasRisk,
+                            !!sequentialTestingEnabled,
+                            pValueCorrection ?? null
+                          )}
+                        </div>
+                      }
+                    >
+                      % Change <RxInfoCircled />
+                    </Tooltip>
+                  </div>
                 </th>
               </tr>
             </thead>
@@ -559,7 +594,7 @@ export default function ResultsTable({
                         <td
                           className={`variation with-variation-label variation${j} d-inline-flex align-items-center`}
                           style={{
-                            width: showAdvanced ? 180 : 220,
+                            width: (showAdvanced ? 180 : 220) * tableCellScale,
                             paddingTop: 6,
                           }}
                         >
@@ -571,7 +606,10 @@ export default function ResultsTable({
                           </span>
                           <span
                             className="d-inline-block text-ellipsis font-weight-bold"
-                            style={{ width: showAdvanced ? 125 : 165 }}
+                            style={{
+                              width:
+                                (showAdvanced ? 125 : 165) * tableCellScale,
+                            }}
                           >
                             {v.name}
                           </span>
@@ -685,11 +723,18 @@ export default function ResultsTable({
                               rowResults={rowResults}
                               isHovered={isHovered}
                               onPointerMove={(e) =>
-                                onPointerMove(e, { x: "element-center" })
+                                onPointerMove(e, {
+                                  x: "element-center",
+                                  targetClassName: "hover-target",
+                                  offsetY: -5,
+                                })
                               }
                               onPointerLeave={onPointerLeave}
                               onClick={(e) =>
-                                onPointerMove(e, { x: "element-center" })
+                                onPointerMove(e, {
+                                  x: "element-center",
+                                  offsetY: -5,
+                                })
                               }
                               className={resultsHighlightClassname}
                             />
@@ -715,11 +760,17 @@ export default function ResultsTable({
                             showCI={showAdvanced}
                             className={resultsHighlightClassname}
                             onPointerMove={(e) =>
-                              onPointerMove(e, { x: "mouse-right" })
+                              onPointerMove(e, {
+                                x: "element-left",
+                                offsetX: showAdvanced ? 5 : 50,
+                              })
                             }
                             onPointerLeave={onPointerLeave}
                             onClick={(e) =>
-                              onPointerMove(e, { x: "mouse-right" })
+                              onPointerMove(e, {
+                                x: "element-left",
+                                offsetX: showAdvanced ? 5 : 50,
+                              })
                             }
                           />
                         ) : (

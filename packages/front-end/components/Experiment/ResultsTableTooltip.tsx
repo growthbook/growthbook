@@ -40,8 +40,16 @@ export const TOOLTIP_HEIGHT = 400; // Used for over/under layout calculation. Ac
 export const TOOLTIP_TIMEOUT = 250; // Mouse-out delay before closing
 export type TooltipHoverSettings = {
   x: LayoutX;
+  offsetX?: number;
+  offsetY?: number;
+  targetClassName?: string;
 };
-export type LayoutX = "mouse-left" | "mouse-right" | "element-center";
+export type LayoutX =
+  | "mouse-left"
+  | "mouse-right"
+  | "element-center"
+  | "element-left"
+  | "element-right";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -167,10 +175,12 @@ export default function ResultsTableTooltip({
   }
 
   const arrowLeft =
-    data.layoutX === "mouse-left"
-      ? "10%"
-      : data.layoutX === "mouse-right"
-      ? "90%"
+    data.layoutX === "mouse-left" || data.layoutX === "element-right"
+      ? "3%"
+      : data.layoutX === "mouse-right" || data.layoutX === "element-left"
+      ? "97%"
+      : data.layoutX === "element-center"
+      ? "50%"
       : "50%";
 
   return (
@@ -178,7 +188,6 @@ export default function ResultsTableTooltip({
       className="experiment-row-tooltip-wrapper"
       style={{
         position: "absolute",
-        zIndex: 900,
         width: TOOLTIP_WIDTH,
         height: TOOLTIP_HEIGHT,
         left,

@@ -1219,7 +1219,7 @@ export default function SinglePage({
         setActive={(tab: ResultsTab) => setResultsTab(tab ?? "results")}
         active={resultsTab}
       >
-        <Tab id="results" display="Results" padding={false}>
+        <Tab id="results" anchor="results" display="Results" padding={false}>
           <div className="mb-2" style={{ overflowX: "initial" }}>
             <Results
               experiment={experiment}

@@ -67,7 +67,10 @@ const GuardrailResult = ({
             </div>
           </>
         ) : (
-          <span className="font-weight-normal" style={{ fontSize: 11 }}>
+          <span
+            className="font-weight-normal"
+            style={{ fontSize: 10.5, marginLeft: -20 }}
+          >
             not enough data
           </span>
         )}

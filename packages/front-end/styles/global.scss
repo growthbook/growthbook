@@ -213,6 +213,7 @@ pre {
 }
 
 .experiment-row-tooltip-wrapper {
+  z-index: 820;
   &.tooltip-animate-appear .experiment-row-tooltip {
     opacity: 0;
     transform: scaleX(60%) scaleY(40%);
@@ -233,7 +234,6 @@ pre {
   border-radius: 2px;
   font-size: 12px;
   color: var(--text-color-table);
-  z-index: 100;
   pointer-events: all;
   transition: 150ms all;
 
@@ -244,9 +244,10 @@ pre {
   .arrow {
     position: absolute;
     width: 60px;
+    margin-left: -30px;
     height: 30px;
     overflow: hidden;
-    transform: scaleX(0.75) translateX(-50%);
+    transform: scaleX(0.75);
     pointer-events: none;
     &::after {
       left: 20px;
@@ -451,11 +452,13 @@ pre {
     vertical-align: bottom;
     &.axis-col {
       position: sticky;
-      top: 50px;
+      top: 55px;
       background-color: var(--surface-background-color);
-      z-index: 940;
+      z-index: 800;
       box-shadow: 0 -1px 0 var(--text-link-hover-color) inset;
-      //border-bottom: 1px solid var(--text-link-hover-color);
+      &.graph-cell {
+        z-index: 801;
+      }
       &.header-label {
         padding-bottom: 5px;
         font-size: 16px;
@@ -543,6 +546,10 @@ pre {
     .suspicious {
       color: #ef2bd5;
     }
+  }
+  .visx-axis-left .visx-axis-line {
+    // axis line has a 0.5 pixel offset. reverse it
+    transform: translateY(-0.5px);
   }
 }
 
