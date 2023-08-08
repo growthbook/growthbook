@@ -11,6 +11,7 @@ import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import Button from "../Button";
 import Tooltip from "../Tooltip/Tooltip";
+import ConfirmButton from "../Modal/ConfirmButton";
 
 export function StartExperimentBanner({
   experiment,
@@ -230,29 +231,38 @@ export function StartExperimentBanner({
           {allPassed ? (
             <p>Everything looks great! Let&apos;s Go!</p>
           ) : (
-            <p>
-              Almost there! Just a few things left{" "}
-              <Tooltip
-                body={
-                  "You can bypass these checks and start the experiment on the Results tab below if needed"
-                }
-              />
-            </p>
+            <p>Almost there! Just a few things left</p>
           )}
-          <Tooltip
-            body={allPassed ? "" : "Fix the errors to the left before starting"}
-          >
+          {allPassed ? (
             <Button
               color="primary"
               className="btn-lg mb-2"
               onClick={async () => {
                 await startExperiment();
               }}
-              disabled={!allPassed}
             >
               Start Experiment <MdRocketLaunch />
             </Button>
-          </Tooltip>
+          ) : (
+            <ConfirmButton
+              cta="Yes, Start Anyway"
+              onClick={async () => {
+                await startExperiment();
+              }}
+              modalHeader="Start Experiment"
+              confirmationText={
+                "You haven't completed the pre-launch checklist.  Are you sure you still want to start?"
+              }
+            >
+              <button
+                className="btn-primary btn-lg mb-2"
+                style={{ opacity: 0.7 }}
+                type="button"
+              >
+                Start Experiment <MdRocketLaunch />
+              </button>
+            </ConfirmButton>
+          )}
         </div>
       </div>
     </div>
