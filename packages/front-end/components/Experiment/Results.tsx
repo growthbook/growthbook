@@ -19,6 +19,7 @@ import StatusBanner from "@/components/Experiment/StatusBanner";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { GBCuped, GBSequential } from "@/components/Icons";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -316,6 +317,60 @@ const Results: FC<{
             showAdvanced={advancedResults}
           />
         </>
+      )}
+
+      {hasData && (
+        <div className="row align-items-center mx-2 my-3">
+          <div className="col-auto small" style={{ lineHeight: 1.2 }}>
+            <div className="text-muted mb-1">
+              The above results were computed with:
+            </div>
+            <div>
+              <span className="text-muted">Engine:</span>{" "}
+              <span>
+                {analysis?.settings?.statsEngine === "frequentist"
+                  ? "Frequentist"
+                  : "Bayesian"}
+              </span>
+            </div>
+            {analysis?.settings?.statsEngine === "frequentist" && (
+              <>
+                <div>
+                  <span className="text-muted">
+                    <GBCuped size={13} /> CUPED:
+                  </span>{" "}
+                  <span>
+                    {analysis?.settings?.regressionAdjusted
+                      ? "Enabled"
+                      : "Disabled"}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted">
+                    <GBSequential size={13} /> Sequential:
+                  </span>{" "}
+                  <span>
+                    {analysis?.settings?.sequentialTesting
+                      ? "Enabled"
+                      : "Disabled"}
+                  </span>
+                </div>
+              </>
+            )}
+            <div>
+              <span className="text-muted">Run date:</span>{" "}
+              <span>
+                {getValidDate(snapshot?.dateCreated ?? "").toLocaleString([], {
+                  year: "numeric",
+                  month: "numeric",
+                  day: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}
+              </span>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

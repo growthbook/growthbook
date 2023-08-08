@@ -335,7 +335,7 @@ const Results_old: FC<{
             )}
           </>
         )}
-      {!hasData && (
+      {hasData && (
         <div className="row align-items-center mx-2 my-3">
           <div className="col-auto small" style={{ lineHeight: 1.2 }}>
             <div className="text-muted mb-1">
