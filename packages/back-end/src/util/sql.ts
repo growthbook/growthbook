@@ -1,6 +1,7 @@
 import { format as sqlFormat, FormatOptions } from "sql-formatter";
 import Handlebars from "handlebars";
 import { helpers } from "./handlebarsHelpers";
+import { SourceIntegrationInterface } from "../types/Integration";
 
 // Register all the helpers from handlebarsHelpers
 Object.keys(helpers).forEach((helperName) => {
@@ -61,10 +62,13 @@ export type SQLVars = {
   startDate: Date;
   endDate?: Date;
   experimentId?: string;
+  eventName?: string;
+  valueColumn?: string;
 };
 export function compileSqlTemplate(
+  integration: SourceIntegrationInterface,
   sql: string,
-  { startDate, endDate, experimentId }: SQLVars
+  { startDate, endDate, experimentId, eventName, valueColumn }: SQLVars
 ) {
   // If there's no end date, use a near future date by default
   // We want to use at least 24 hours in the future in case of timezone issues
@@ -104,19 +108,42 @@ export function compileSqlTemplate(
     experimentId,
   };
 
+  if (eventName) {
+    replacements.eventName = eventName;
+  }
+
+  if (valueColumn) {
+    replacements.valueColumn = valueColumn;
+  }
+
   try {
     // TODO: Do sql escaping instead of html escaping for any new replacements
     const template = Handlebars.compile(sql, {
       strict: true,
       noEscape: true,
-      knownHelpers: Object.keys(helpers).reduce((acc, helperName) => {
-        acc[helperName] = true;
-        return acc;
-      }, {} as Record<string, true>),
+      knownHelpers: Object.keys(helpers).reduce(
+        (acc, helperName) => {
+          acc[helperName] = true;
+          return acc;
+        },
+        { ensureFloat: true } as Record<string, true>
+      ),
       knownHelpersOnly: true,
     });
-    return template(replacements);
+    return template(replacements, {
+      helpers: { ensureFloat: integration.ensureFloat },
+    });
   } catch (e) {
+    if (e.message.includes("eventName")) {
+      throw new Error(
+        "Error compiling SQL template: You must set eventName first."
+      );
+    }
+    if (e.message.includes("valueColumn")) {
+      throw new Error(
+        "Error compiling SQL template: You must set valueColumn first."
+      );
+    }
     if (e.message.includes("not defined in [object Object]")) {
       const variableName = e.message.match(/"(.+?)"/)[1];
       throw new Error(

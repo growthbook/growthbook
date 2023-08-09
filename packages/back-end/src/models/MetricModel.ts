@@ -52,6 +52,8 @@ const metricSchema = new mongoose.Schema({
   userIdColumns: {},
   status: String,
   sql: String,
+  eventName: String,
+  valueColumn: String,
   aggregation: String,
   timestampColumn: String,
   queryFormat: String,

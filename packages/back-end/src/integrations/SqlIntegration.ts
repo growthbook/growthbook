@@ -238,7 +238,7 @@ export default abstract class SqlIntegration
     return match;
   }
 
-  getPastExperimentQuery(params: PastExperimentParams) {
+  getPastExperimentQuery(params: PastExperimentParams): string {
     // TODO: for past experiments, UNION all exposure queries together
     const experimentQueries = (
       this.settings.queries?.exposure || []
@@ -268,7 +268,7 @@ export default abstract class SqlIntegration
             count(distinct ${q.userIdType}) as users
           FROM
             (
-              ${compileSqlTemplate(q.query, { startDate: params.from })}
+              ${compileSqlTemplate(this, q.query, { startDate: params.from })}
             ) e${i}
           WHERE
             ${this.castUserDateCol("timestamp")} > ${this.toTimestamp(
@@ -538,20 +538,32 @@ export default abstract class SqlIntegration
   }
 
   //Test the validity of a query as cheaply as possible
-  getTestValidityQuery(query: string): string {
-    return this.getTestQuery(query, 1);
+  getTestValidityQuery(
+    query: string,
+    eventName?: string,
+    valueColumn?: string
+  ): string {
+    return this.getTestQuery(query, eventName, valueColumn, 1);
   }
 
-  getTestQuery(query: string, limit: number = 5): string {
+  getTestQuery(
+    query: string,
+    eventName?: string,
+    valueColumn?: string,
+    limit: number = 5
+  ): string {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);
     const limitedQuery = compileSqlTemplate(
+      this,
       `WITH __table as (
         ${query}
       )
       ${this.selectSampleRows("__table", limit)}`,
       {
         startDate,
+        eventName,
+        valueColumn,
       }
     );
     return format(limitedQuery, this.getFormatDialect());
@@ -806,18 +818,26 @@ export default abstract class SqlIntegration
     }
     // Replace any placeholders in the user defined dimension SQL
     if (dimension?.type === "user") {
-      dimension.dimension.sql = compileSqlTemplate(dimension.dimension.sql, {
-        startDate: settings.startDate,
-        endDate: settings.endDate,
-        experimentId: settings.experimentId,
-      });
+      dimension.dimension.sql = compileSqlTemplate(
+        this,
+        dimension.dimension.sql,
+        {
+          startDate: settings.startDate,
+          endDate: settings.endDate,
+          experimentId: settings.experimentId,
+          eventName: metric.eventName,
+          valueColumn: metric.valueColumn,
+        }
+      );
     }
     // Replace any placeholders in the segment SQL
     if (segment?.sql) {
-      segment.sql = compileSqlTemplate(segment.sql, {
+      segment.sql = compileSqlTemplate(this, segment.sql, {
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
+        eventName: metric.eventName,
+        valueColumn: metric.valueColumn,
       });
     }
 
@@ -932,10 +952,12 @@ export default abstract class SqlIntegration
     WITH
       ${idJoinSQL}
       __rawExperiment as (
-        ${compileSqlTemplate(exposureQuery.query, {
+        ${compileSqlTemplate(this, exposureQuery.query, {
           startDate: settings.startDate,
           endDate: settings.endDate,
           experimentId: settings.experimentId,
+          eventName: metric.eventName,
+          valueColumn: metric.valueColumn,
         })}
       ),
       __experiment as (${this.getExperimentCTE({
@@ -1803,10 +1825,12 @@ export default abstract class SqlIntegration
         ${
           queryFormat === "sql"
             ? `(
-              ${compileSqlTemplate(metric.sql || "", {
+              ${compileSqlTemplate(this, metric.sql || "", {
                 startDate,
                 endDate: endDate || undefined,
                 experimentId,
+                eventName: metric.eventName,
+                valueColumn: metric.valueColumn,
               })}
               )`
             : (schema && !metric.table?.match(/\./) ? schema + "." : "") +
@@ -2094,7 +2118,7 @@ export default abstract class SqlIntegration
             ${id2}
           FROM
             (
-              ${compileSqlTemplate(join.query, {
+              ${compileSqlTemplate(this, join.query, {
                 startDate: from,
                 endDate: to,
                 experimentId,
@@ -2118,7 +2142,7 @@ export default abstract class SqlIntegration
           user_id,
           anonymous_id
         FROM
-          (${compileSqlTemplate(settings.queries.pageviewsQuery, {
+          (${compileSqlTemplate(this, settings.queries.pageviewsQuery, {
             startDate: from,
             endDate: to,
             experimentId,

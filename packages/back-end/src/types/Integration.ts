@@ -304,7 +304,11 @@ export interface SourceIntegrationInterface {
   ): Promise<{ tableData: null | unknown[] }>;
   getInformationSchema?(): Promise<InformationSchema[]>;
   getTestValidityQuery?(query: string): string;
-  getTestQuery?(query: string): string;
+  getTestQuery?(
+    query: string,
+    eventName?: string,
+    valueColumn?: string
+  ): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
@@ -324,4 +328,5 @@ export interface SourceIntegrationInterface {
     schemaFormat: SchemaFormat,
     type: MetricType
   ): string;
+  ensureFloat(col: string): string;
 }

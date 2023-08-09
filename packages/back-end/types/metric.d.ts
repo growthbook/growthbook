@@ -64,6 +64,8 @@ export interface MetricInterface {
   status?: MetricStatus;
   sql?: string;
   aggregation?: string;
+  eventName?: string;
+  valueColumn?: string;
   // Query Builder Props (alternative to sql)
   table?: string;
   column?: string;

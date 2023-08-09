@@ -574,12 +574,14 @@ export async function testLimitedQuery(
   req: AuthRequest<{
     query: string;
     datasourceId: string;
+    eventName?: string;
+    valueColumn?: string;
   }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
 
-  const { query, datasourceId } = req.body;
+  const { query, datasourceId, eventName, valueColumn } = req.body;
 
   const datasource = await getDataSourceById(datasourceId, org.id);
   if (!datasource) {
@@ -593,7 +595,12 @@ export async function testLimitedQuery(
     datasource?.projects?.length ? datasource.projects : ""
   );
 
-  const { results, sql, duration, error } = await testQuery(datasource, query);
+  const { results, sql, duration, error } = await testQuery(
+    datasource,
+    query,
+    eventName,
+    valueColumn
+  );
 
   res.status(200).json({
     status: 200,

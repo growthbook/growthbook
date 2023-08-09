@@ -90,23 +90,43 @@ These queries are very simple and just need to return columns for each of the id
 SELECT user_id, device_id FROM logins
 ```
 
-#### SQL Template Variables
+#### SQL Templates
 
-Within your queries, there are several placeholder variables you can use. These will be replaced with strings before being run based on your experiment. This can be useful for giving hints to SQL optimization engines to improve query performance.
+We use [Handlebars](https://handlebarsjs.com/guide/#language-features) to compile the assignment sql, identity queries, etc. into what is actually called to your database.
 
-The variables are:
+You can use any of the in-built variables that Growthbook automatically sets:
 
-- **startDate** - `YYYY-MM-DD HH:mm:ss` of the earliest data that needs to be included
-- **startYear** - Just the `YYYY` of the startDate
-- **startMonth** - Just the `MM` of the startDate
-- **startDay** - Just the `DD` of the startDate
-- **startDateUnix** - Unix timestamp of the startDate (seconds since Jan 1, 1970)
-- **endDate** - `YYYY-MM-DD HH:mm:ss` of the latest data that needs to be included
-- **endYear** - Just the `YYYY` of the endDate
-- **endMonth** - Just the `MM` of the endDate
-- **endDay** - Just the `DD` of the endDate
-- **endDateUnix** - Unix timestamp of the endDate (seconds since Jan 1, 1970)
+- **startDate** - `yyyy-MM-dd HH:mm:ss` of the earliest data that needs to be included
+- **startDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the startDate in ISO format. This can then be used with the `date` helper to achieve whatever [format](#dateformat) you like (ex. `{{date startDateISO "dd.MM.yyyy"}}`)
+- **endDate** - `yyyy-MM-dd HH:mm:ss` of the latest data that needs to be included
+- **endDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the endDate in ISO format. This can then be used with the `date` helper to achieve whatever [format](#dateformat) you like (ex. `{{date endDateISO "dd.MM.yyyy"}}`)
 - **experimentId** - Either a specific experiment id OR `%` if you should include all experiments
+
+You can also use any of the in-built helper functions:
+
+- **ensureFloat** - Forces the value to be a float. ex. `{{ensureFloat "2.5"}}` depending on your sql variant might compile for example to `CAST("2.5" as double)`
+- **camelcase** - ex. `{{camelcase "My database"}}` compiles to `myDatabase`.
+- **dotcase** - ex. `{{dotcase "My database"}}` compiles to `my.database`.
+- **kebabcase** - ex. `{{kebabcase "My database"}}` compiles to `my-database`.
+- **lowercase** - ex. `{{lowercase "My database"}}` compiles to `my database`.
+- **pascalcase** - ex. `{{pascalcase "My database"}}` compiles to `MyDatabase`.
+- **uppercase** - ex. `{{uppercase "My database"}}` compiles to `MY DATABASE`.
+  <a id="dateformat"/>
+- **date** - Format an ISO date according to this [format](https://date-fns.org/v2.29.3/docs/format), being careful not to mix up months (MM) and minutes (mm). ex. `{{date startDateISO "dd.MM.yyyy"}}` might compile to `30.0.1.2023`. The most common codes are:
+
+<ul>
+
+| code | meaning   |
+| ---- | --------- |
+| yyyy | year      |
+| MM   | month     |
+| dd   | day       |
+| HH   | hour      |
+| mm   | minutes   |
+| ss   | seconds   |
+| t    | timestamp |
+
+</ul>
 
 For example:
 
@@ -124,7 +144,11 @@ WHERE
   AND experiment_id LIKE '{{ experimentId }}'
 ```
 
-**Note:** The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use `'{{ startDate }}'` instead of just `{{ startDate }}`)
+:::note
+
+The inserted values do not have surrounding quotes, so you must add those yourself (e.g. use <code>'{{&nbsp;startDate&nbsp;}}'</code> instead of just <code>{{&nbsp;startDate&nbsp;}}</code>)
+
+:::
 
 ### Jupyter Notebook Query Runner
 

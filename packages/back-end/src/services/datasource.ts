@@ -134,7 +134,9 @@ export async function testDataSourceConnection(
 
 export async function testQuery(
   datasource: DataSourceInterface,
-  query: string
+  query: string,
+  eventName?: string,
+  valueColumn?: string
 ): Promise<{
   results?: TestQueryRow[];
   duration?: number;
@@ -148,7 +150,7 @@ export async function testQuery(
     throw new Error("Unable to test query.");
   }
 
-  const sql = integration.getTestQuery(query);
+  const sql = integration.getTestQuery(query, eventName, valueColumn);
   try {
     const { results, duration } = await integration.runTestQuery(sql);
     return {

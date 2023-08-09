@@ -47,6 +47,13 @@ import { useCurrency } from "@/hooks/useCurrency";
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
 
+function safeTableName(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^-a-zA-Z0-9_]+/g, "");
+}
+
 export type MetricFormProps = {
   initialStep?: number;
   current: Partial<MetricInterface>;
@@ -251,6 +258,8 @@ const MetricForm: FC<MetricFormProps> = ({
         current.conversionWindowHours || getDefaultConversionWindowHours(),
       conversionDelayHours: current.conversionDelayHours || 0,
       sql: current.sql || "",
+      eventName: current.eventName || "",
+      valueColumn: current.valueColumn || "",
       aggregation: current.aggregation || "",
       conditions: current.conditions || [],
       userIdTypes: current.userIdTypes || [],
@@ -301,6 +310,8 @@ const MetricForm: FC<MetricFormProps> = ({
     tags: form.watch("tags"),
     projects: form.watch("projects"),
     sql: form.watch("sql"),
+    eventName: form.watch("eventName"),
+    valueColumn: form.watch("valueColumn"),
     conditions: form.watch("conditions"),
     regressionAdjustmentOverride: form.watch("regressionAdjustmentOverride"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
@@ -509,6 +520,8 @@ const MetricForm: FC<MetricFormProps> = ({
           requiredColumns={requiredColumns}
           value={value.sql}
           save={async (sql) => form.setValue("sql", sql)}
+          eventName={form.watch("eventName")}
+          valueColumn={form.watch("valueColumn")}
         />
       )}
       <PagedModal
@@ -537,8 +550,7 @@ const MetricForm: FC<MetricFormProps> = ({
             if (supportsSQL && selectedDataSource && !value.sql) {
               const [userTypes, sql] = getInitialMetricQuery(
                 selectedDataSource,
-                value.type,
-                value.name
+                value.type
               );
 
               form.setValue("sql", sql);
@@ -686,6 +698,25 @@ const MetricForm: FC<MetricFormProps> = ({
                     }))}
                     label="Identifier Types Supported"
                   />
+                  {value.sql && value.sql.includes("eventName") && (
+                    <div className="form-group">
+                      <Field
+                        label="Event Name"
+                        placeholder={safeTableName(value.name)}
+                        helpText="The event name associated with this metric.  This can then be referenced in your sql template as {{eventName}}."
+                        {...form.register("eventName")}
+                      />
+                    </div>
+                  )}
+                  {value.sql && value.sql.includes("valueColumn") && (
+                    <div className="form-group">
+                      <Field
+                        label="Value Column"
+                        helpText="The column in your datawarehouse table with the metric data.  This can then be referenced in your sql template as {{valueColumn}}."
+                        {...form.register("valueColumn")}
+                      ></Field>
+                    </div>
+                  )}
                   <div className="form-group">
                     <label>Query</label>
                     {value.sql && (

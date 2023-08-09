@@ -975,6 +975,23 @@ const MetricPage: FC = () => {
                           {metric.userIdTypes}
                         </RightRailSectionGroup>
                       )}
+                      {metric.eventName && (
+                        <RightRailSectionGroup title="Event Name" type="custom">
+                          <span className="font-weight-bold">
+                            {metric.eventName}
+                          </span>
+                        </RightRailSectionGroup>
+                      )}
+                      {metric.valueColumn && (
+                        <RightRailSectionGroup
+                          title="Value Column"
+                          type="custom"
+                        >
+                          <span className="font-weight-bold">
+                            {metric.valueColumn}
+                          </span>
+                        </RightRailSectionGroup>
+                      )}
                       <RightRailSectionGroup title="Metric SQL" type="custom">
                         <Code language="sql" code={metric.sql} />
                       </RightRailSectionGroup>

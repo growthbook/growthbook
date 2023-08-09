@@ -325,5 +325,9 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       };
     });
   }
+
+  ensureFloat(col: string): string {
+    return col;
+  }
 };
 export default GoogleAnalytics;
