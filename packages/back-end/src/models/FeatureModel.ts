@@ -1,7 +1,9 @@
 import mongoose, { FilterQuery } from "mongoose";
 import cloneDeep from "lodash/cloneDeep";
 import omit from "lodash/omit";
+import { isEqual } from "lodash";
 import {
+  ExperimentRefRule,
   FeatureDraftChanges,
   FeatureEnvironment,
   FeatureInterface,
@@ -30,6 +32,11 @@ import {
 import { EventAuditUser } from "../events/event-types";
 import { saveRevision } from "./FeatureRevisionModel";
 import { createEvent } from "./EventModel";
+import {
+  addLinkedFeatureToExperiment,
+  getExperimentMapForFeature,
+  removeLinkedFeatureFromExperiment,
+} from "./ExperimentModel";
 
 const featureSchema = new mongoose.Schema({
   id: String,
@@ -59,11 +66,19 @@ const featureSchema = new mongoose.Schema({
       enabled: Boolean,
       condition: String,
       description: String,
+      experimentId: String,
       values: [
         {
           _id: false,
           value: String,
           weight: Number,
+        },
+      ],
+      variations: [
+        {
+          _id: false,
+          variationId: String,
+          value: String,
         },
       ],
       namespace: {},
@@ -78,6 +93,7 @@ const featureSchema = new mongoose.Schema({
   environmentSettings: {},
   draft: {},
   revision: {},
+  linkedExperiments: [String],
   jsonSchema: {},
 });
 
@@ -119,13 +135,35 @@ export async function getFeature(
   return feature ? upgradeFeatureInterface(toInterface(feature)) : null;
 }
 
+export async function getFeaturesByIds(
+  organization: string,
+  ids: string[]
+): Promise<FeatureInterface[]> {
+  return (
+    await FeatureModel.find({ organization, id: { $in: ids } })
+  ).map((m) => upgradeFeatureInterface(toInterface(m)));
+}
+
 export async function createFeature(
   org: OrganizationInterface,
   user: EventAuditUser,
   data: FeatureInterface
 ) {
-  const feature = await FeatureModel.create(data);
+  const linkedExperiments = getLinkedExperiments(data);
+  const feature = await FeatureModel.create({
+    ...data,
+    linkedExperiments,
+  });
   await saveRevision(toInterface(feature));
+
+  if (linkedExperiments.length > 0) {
+    await Promise.all(
+      linkedExperiments.map(async (exp) => {
+        await addLinkedFeatureToExperiment(org, user, exp, data.id);
+      })
+    );
+  }
+
   onFeatureCreate(org, user, feature);
 }
 
@@ -135,6 +173,15 @@ export async function deleteFeature(
   feature: FeatureInterface
 ) {
   await FeatureModel.deleteOne({ organization: org.id, id: feature.id });
+
+  if (feature.linkedExperiments) {
+    await Promise.all(
+      feature.linkedExperiments.map(async (exp) => {
+        await removeLinkedFeatureFromExperiment(org, user, exp, feature.id);
+      })
+    );
+  }
+
   onFeatureDelete(org, user, feature);
 }
 
@@ -177,14 +224,28 @@ async function logFeatureUpdatedEvent(
   previous: FeatureInterface,
   current: FeatureInterface
 ): Promise<string | undefined> {
-  const savedGroupMap = await getSavedGroupMap(organization);
+  const groupMap = await getSavedGroupMap(organization);
+  const experimentMap = await getExperimentMapForFeature(
+    organization.id,
+    current.id
+  );
 
   const payload: FeatureUpdatedNotificationEvent = {
     object: "feature",
     event: "feature.updated",
     data: {
-      current: getApiFeatureObj(current, organization, savedGroupMap),
-      previous: getApiFeatureObj(previous, organization, savedGroupMap),
+      current: getApiFeatureObj({
+        feature: current,
+        organization,
+        groupMap,
+        experimentMap,
+      }),
+      previous: getApiFeatureObj({
+        feature: previous,
+        organization,
+        groupMap,
+        experimentMap,
+      }),
     },
     user,
   };
@@ -207,14 +268,23 @@ async function logFeatureCreatedEvent(
   user: EventAuditUser,
   feature: FeatureInterface
 ): Promise<string | undefined> {
-  const savedGroupMap = await getSavedGroupMap(organization);
+  const groupMap = await getSavedGroupMap(organization);
+  const experimentMap = await getExperimentMapForFeature(
+    organization.id,
+    feature.id
+  );
 
   const payload: FeatureCreatedNotificationEvent = {
     object: "feature",
     event: "feature.created",
     user,
     data: {
-      current: getApiFeatureObj(feature, organization, savedGroupMap),
+      current: getApiFeatureObj({
+        feature,
+        organization,
+        groupMap,
+        experimentMap,
+      }),
     },
   };
 
@@ -235,14 +305,23 @@ async function logFeatureDeletedEvent(
   user: EventAuditUser,
   previousFeature: FeatureInterface
 ): Promise<string | undefined> {
-  const savedGroupMap = await getSavedGroupMap(organization);
+  const groupMap = await getSavedGroupMap(organization);
+  const experimentMap = await getExperimentMapForFeature(
+    organization.id,
+    previousFeature.id
+  );
 
   const payload: FeatureDeletedNotificationEvent = {
     object: "feature",
     event: "feature.deleted",
     user,
     data: {
-      previous: getApiFeatureObj(previousFeature, organization, savedGroupMap),
+      previous: getApiFeatureObj({
+        feature: previousFeature,
+        organization,
+        groupMap,
+        experimentMap,
+      }),
     },
   };
 
@@ -303,26 +382,60 @@ export async function updateFeature(
   feature: FeatureInterface,
   updates: Partial<FeatureInterface>
 ): Promise<FeatureInterface> {
-  const dateUpdated = new Date();
+  const allUpdates = {
+    ...updates,
+    dateUpdated: new Date(),
+  };
+  const updatedFeature = {
+    ...feature,
+    ...allUpdates,
+  };
+
+  // Refresh linkedExperiments if needed
+  const linkedExperiments = getLinkedExperiments(updatedFeature);
+  const experimentsAdded = new Set<string>();
+  const experimentsRemoved = new Set<string>();
+  if (!isEqual(linkedExperiments, feature.linkedExperiments)) {
+    allUpdates.linkedExperiments = linkedExperiments;
+    updatedFeature.linkedExperiments = linkedExperiments;
+
+    // New experiments this feature was added to
+    linkedExperiments.forEach((exp) => {
+      if (!feature.linkedExperiments?.includes(exp)) {
+        experimentsAdded.add(exp);
+      }
+    });
+    // Experiments this feature was removed from
+    feature.linkedExperiments?.forEach((exp) => {
+      if (!linkedExperiments.includes(exp)) {
+        experimentsRemoved.add(exp);
+      }
+    });
+  }
 
   await FeatureModel.updateOne(
     { organization: feature.organization, id: feature.id },
     {
-      $set: {
-        ...updates,
-        dateUpdated,
-      },
+      $set: allUpdates,
     }
   );
 
-  const updatedFeature = {
-    ...feature,
-    ...updates,
-    dateUpdated,
-  };
+  if (experimentsAdded.size > 0) {
+    await Promise.all(
+      [...experimentsAdded].map(async (exp) => {
+        await addLinkedFeatureToExperiment(org, user, exp, feature.id);
+      })
+    );
+  }
+  if (experimentsRemoved.size > 0) {
+    await Promise.all(
+      [...experimentsRemoved].map(async (exp) => {
+        await removeLinkedFeatureFromExperiment(org, user, exp, feature.id);
+      })
+    );
+  }
 
   onFeatureUpdate(org, user, feature, updatedFeature);
-
   return updatedFeature;
 }
 
@@ -429,6 +542,70 @@ export async function addFeatureRule(
     ...getDraftRules(feature, environment),
     rule,
   ]);
+}
+
+export async function deleteExperimentRefRule(
+  org: OrganizationInterface,
+  user: EventAuditUser,
+  feature: FeatureInterface,
+  experimentId: string
+) {
+  const environments = org.settings?.environments || [];
+  const environmentIds = environments.map((e) => e.id);
+
+  if (!environmentIds.length) {
+    throw new Error(
+      "Must have at least one environment configured to use Feature Flags"
+    );
+  }
+
+  const draft = getDraft(feature);
+
+  let hasChanges = false;
+  environmentIds.forEach((env) => {
+    const rules = getDraftRules(feature, env);
+
+    draft.rules = draft.rules || {};
+
+    const numRules = rules.length;
+    draft.rules[env] = rules.filter(
+      (r) => !(r.type === "experiment-ref" && r.experimentId === experimentId)
+    );
+    if (draft.rules[env].length < numRules) hasChanges = true;
+  });
+
+  if (hasChanges) {
+    await updateDraft(org, user, feature, draft);
+  }
+}
+
+export async function addExperimentRefRule(
+  org: OrganizationInterface,
+  user: EventAuditUser,
+  feature: FeatureInterface,
+  rule: ExperimentRefRule
+) {
+  if (!rule.id) {
+    rule.id = generateRuleId();
+  }
+
+  const environments = org.settings?.environments || [];
+  const environmentIds = environments.map((e) => e.id);
+
+  if (!environmentIds.length) {
+    throw new Error(
+      "Must have at least one environment configured to use Feature Flags"
+    );
+  }
+
+  const draft = getDraft(feature);
+
+  environmentIds.forEach((env) => {
+    draft.rules = draft.rules || {};
+    draft.rules[env] = [...getDraftRules(feature, env), rule];
+  });
+
+  await updateDraft(org, user, feature, draft);
 }
 
 export async function editFeatureRule(
@@ -630,4 +807,30 @@ export async function publishDraft(
 
   await saveRevision(updatedFeature);
   return updatedFeature;
+}
+
+function getLinkedExperiments(feature: FeatureInterface) {
+  const expIds: Set<string> = new Set();
+  // Published rules
+  if (feature.environmentSettings) {
+    Object.values(feature.environmentSettings).forEach((env) => {
+      env.rules?.forEach((rule) => {
+        if (rule.type === "experiment-ref") {
+          expIds.add(rule.experimentId);
+        }
+      });
+    });
+  }
+  // Draft rules
+  if (feature.draft && feature.draft.active && feature.draft.rules) {
+    Object.values(feature.draft.rules).forEach((rules) => {
+      rules.forEach((rule) => {
+        if (rule.type === "experiment-ref") {
+          expIds.add(rule.experimentId);
+        }
+      });
+    });
+  }
+
+  return [...expIds];
 }

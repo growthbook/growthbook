@@ -15,8 +15,7 @@ const Carousel: FC<{
   deleteImage?: (i: number) => Promise<void>;
   children: ReactNode;
   maxChildHeight?: number;
-  newUi?: boolean;
-}> = ({ children, deleteImage, maxChildHeight, newUi }) => {
+}> = ({ children, deleteImage, maxChildHeight }) => {
   const [active, setActive] = useState(0);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -45,7 +44,7 @@ const Carousel: FC<{
   }
 
   return (
-    <div className={clsx("carousel slide my-2", { "carousel-clean": newUi })}>
+    <div className="carousel slide my-2">
       {modalOpen && currentChild && (
         <Modal
           open={true}
@@ -72,9 +71,7 @@ const Carousel: FC<{
           )}
         </Modal>
       )}
-      <div
-        className={clsx("carousel-inner", { "carousel-inner-clean": newUi })}
-      >
+      <div className="carousel-inner">
         {Children.map(children, (child, i) => {
           if (!isValidElement(child)) return null;
           return (
