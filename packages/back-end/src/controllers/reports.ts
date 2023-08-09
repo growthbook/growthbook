@@ -248,7 +248,11 @@ export async function putReport(
     throw new Error("Unknown report id");
   }
 
-  const experiment = await getExperimentById(org.id, report.experimentId || "");
+  let experiment: ExperimentInterface | null = null;
+
+  if (report.experimentId) {
+    experiment = await getExperimentById(org.id, report.experimentId || "");
+  }
 
   req.checkPermissions("runQueries", experiment?.project || "");
 
@@ -320,7 +324,11 @@ export async function cancelReport(
     throw new Error("Could not cancel query");
   }
 
-  const experiment = await getExperimentById(org.id, report.experimentId || "");
+  let experiment: ExperimentInterface | null = null;
+
+  if (report.experimentId) {
+    experiment = await getExperimentById(org.id, report.experimentId || "");
+  }
 
   req.checkPermissions("runQueries", experiment?.project || "");
 

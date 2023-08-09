@@ -46,7 +46,11 @@ export async function getEstimatedImpact(
 
   const { metric, segment, ideaId } = req.body;
 
-  const idea = await getIdeaById(ideaId || "");
+  let idea: IdeaInterface | null = null;
+
+  if (ideaId) {
+    idea = await getIdeaById(ideaId || "");
+  }
 
   req.checkPermissions("runQueries", idea?.project || "");
 
