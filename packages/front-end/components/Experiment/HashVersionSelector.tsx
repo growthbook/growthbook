@@ -17,13 +17,14 @@ export function HashVersionTooltip({ children }: { children: ReactNode }) {
             <li>Ruby &gt;= 1.0.0</li>
             <li>Python &gt;= 1.0.0</li>
             <li>Java &gt;= 0.6.0</li>
-            <li>Go - latest</li>
+            <li>Go &gt;= 0.1.4</li>
             <li>Kotlin - no support yet</li>
             <li>Swift - no support yet</li>
             <li>Flutter - no support yet</li>
             <li>C# - no support yet</li>
           </ul>
-          Unsupported SDKs will fall back to using V1 automatically.
+          Unsupported SDKs will fall back to using the V1 algorithm
+          automatically.
         </>
       }
     >

@@ -9,6 +9,8 @@ import {
 import dJSON from "dirty-json";
 import { ReactElement, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import Link from "next/link";
+import { FaExternalLinkAlt } from "react-icons/fa";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -390,9 +392,15 @@ export default function FeatureFromExperimentModal({
 
       {existing && (
         <div className="alert alert-info">
-          A new rule will be added to every environment in a new draft revision.
-          You will have a chance to review and make changes to the feature
-          before publishing.
+          A rule will be added to the bottom of every environment in a new draft
+          revision. For more control over placement, you can add Experiment
+          rules directly from the{" "}
+          <Link href={`/features/${existing}`}>
+            <a>
+              Feature page <FaExternalLinkAlt />
+            </a>
+          </Link>{" "}
+          instead.
         </div>
       )}
 
