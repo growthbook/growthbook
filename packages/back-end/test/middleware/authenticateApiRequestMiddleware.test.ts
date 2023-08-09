@@ -143,10 +143,43 @@ describe("REST API auth middleware", () => {
       });
     });
 
+    it("should allow keys with the right level of environment access when multiple envs are passed in", () => {
+      const permission: Permission = "createMetrics";
+      const project = undefined;
+      const environments = ["production", "staging"];
+
+      verifyApiKeyPermission({
+        apiKey: userKey,
+        permission,
+        organization,
+        environments,
+        project,
+      });
+    });
+
     it("should throw an error for user API keys where the user does not have access to the project", () => {
       const permission: Permission = "manageFeatures";
       const project = "prj_xyz987";
       const environments = ["production"];
+
+      expect(() => {
+        verifyApiKeyPermission({
+          apiKey: {
+            ...userKey,
+            userId: "u_anotheruser456",
+          },
+          permission,
+          organization,
+          environments,
+          project,
+        });
+      }).toThrowError();
+    });
+
+    it("should throw an error for user API keys when the user doesn't access to all environments passed in", () => {
+      const permission: Permission = "createMetrics";
+      const project = undefined;
+      const environments = ["production", "development"];
 
       expect(() => {
         verifyApiKeyPermission({
