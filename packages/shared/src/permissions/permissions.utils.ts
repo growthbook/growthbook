@@ -14,20 +14,15 @@ export function hasPermission(
     return false;
   }
 
-  function checkPermissions(userPermissions: UserPermission) {
-    if (!userPermissions.permissions[permissionToCheck]) {
+  function checkPermissions(userPermission: UserPermission) {
+    if (!userPermission.permissions[permissionToCheck]) {
       return false;
     }
 
-    if (!envs || !userPermissions.limitAccessByEnvironment) {
+    if (!envs || !userPermission.limitAccessByEnvironment) {
       return true;
     }
-    envs.forEach((env) => {
-      if (!userPermissions.environments.includes(env)) {
-        return false;
-      }
-    });
-    return true;
+    return userPermission.environments.some((e: string) => envs.includes(e));
   }
 
   if (checkPermissions(userPermissions.global)) {
