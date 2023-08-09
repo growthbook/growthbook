@@ -21,14 +21,8 @@ export function hasPermission(
 
     if (!envs || !userPermission.limitAccessByEnvironment) {
       return true;
-    } else {
-      for (let i = 0; i < envs.length; i++) {
-        if (!userPermission.environments.includes(envs[i])) {
-          return false;
-        }
-      }
     }
-    return true;
+    return envs.every((env) => userPermission.environments.includes(env));
   }
 
   if (checkPermissions(userPermissions.global)) {
