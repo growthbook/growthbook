@@ -48,12 +48,12 @@ export interface PermissionFunctions {
   check(permission: GlobalPermission): boolean;
   check(
     permission: EnvScopedPermission,
-    project: string | undefined,
+    project: string[] | string | undefined,
     envs: string[]
   ): boolean;
   check(
     permission: ProjectScopedPermission,
-    project: string | undefined
+    project: string[] | string | undefined
   ): boolean;
 }
 
@@ -306,10 +306,27 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   }, [currentOrg?.commercialFeatures]);
 
   const permissionsCheck = useCallback(
-    (permission: Permission, project?: string, envs?: string[]): boolean => {
-      return hasPermission(user?.userPermissions, permission, project, envs);
+    (
+      permission: Permission,
+      projects?: string[] | string,
+      envs?: string[]
+    ): boolean => {
+      let checkProjects: (string | undefined)[];
+      console.log("project", projects);
+      if (Array.isArray(projects)) {
+        checkProjects = projects.length > 0 ? projects : [undefined];
+      } else {
+        checkProjects = [projects];
+      }
+      for (const p of checkProjects) {
+        console.log("p", p);
+        if (!hasPermission(user?.userPermissions, permission, p, envs)) {
+          return false;
+        }
+      }
+      return true;
     },
-    [user]
+    [user?.userPermissions]
   );
 
   return (
