@@ -403,126 +403,135 @@ export default function ResultsTable({
                     </a>
                   ) : null}
                 </th>
-                {showAdvanced ? (
+                {!noMetrics ? (
                   <>
+                    {showAdvanced ? (
+                      <>
+                        <th
+                          style={{
+                            width: 110 * tableCellScale,
+                            lineHeight: "16px",
+                          }}
+                          className="axis-col label"
+                        >
+                          Baseline
+                          <div
+                            className={`variation variation${baselineRow} with-variation-label d-inline-flex align-items-center`}
+                            style={{ marginBottom: 2 }}
+                          >
+                            <span
+                              className="label"
+                              style={{ width: 16, height: 16 }}
+                            >
+                              {baselineRow}
+                            </span>
+                            <span
+                              className="d-inline-block text-ellipsis font-weight-bold"
+                              style={{
+                                width: 80 * tableCellScale,
+                                marginRight: -20,
+                              }}
+                            >
+                              {variations[baselineRow].name}
+                            </span>
+                          </div>
+                        </th>
+                        <th
+                          style={{ width: 110 * tableCellScale }}
+                          className="axis-col label"
+                        >
+                          Value
+                        </th>
+                      </>
+                    ) : null}
+                    <th
+                      style={{ width: 120 * tableCellScale }}
+                      className="axis-col label text-right has-tooltip"
+                    >
+                      {statsEngine === "bayesian" ? (
+                        !metricsAsGuardrails ? (
+                          <div style={{ lineHeight: "16px", marginBottom: 2 }}>
+                            <span className="nowrap">Chance</span>{" "}
+                            <span className="nowrap">to Win</span>
+                          </div>
+                        ) : (
+                          <div style={{ lineHeight: "16px", marginBottom: 2 }}>
+                            <span className="nowrap">Chance of</span>{" "}
+                            <span className="nowrap">Being Worse</span>
+                          </div>
+                        )
+                      ) : !metricsAsGuardrails &&
+                        (sequentialTestingEnabled || pValueCorrection) ? (
+                        <Tooltip
+                          innerClassName={"text-left"}
+                          body={
+                            <div style={{ lineHeight: 1.5 }}>
+                              {getPValueTooltip(
+                                !!sequentialTestingEnabled,
+                                pValueCorrection ?? null,
+                                orgSettings.pValueThreshold ?? 0.05,
+                                tableRowAxis,
+                                showAdvanced
+                              )}
+                            </div>
+                          }
+                        >
+                          P-value <RxInfoCircled />
+                        </Tooltip>
+                      ) : (
+                        <>P-value</>
+                      )}
+                    </th>
+                    <th
+                      className="axis-col graph-cell"
+                      style={{ maxWidth: graphCellWidth }}
+                    >
+                      <div className="position-relative">
+                        <AlignedGraph
+                          id={`${id}_axis`}
+                          domain={domain}
+                          significant={true}
+                          showAxis={true}
+                          axisOnly={true}
+                          graphWidth={graphCellWidth}
+                          height={45}
+                          newUi={true}
+                        />
+                      </div>
+                    </th>
                     <th
                       style={{
-                        width: 110 * tableCellScale,
-                        lineHeight: "16px",
+                        width:
+                          (showAdvanced ? 140 : 120) *
+                          Math.max(0.75, tableCellScale),
                       }}
-                      className="axis-col label"
+                      className="axis-col label text-right has-tooltip"
                     >
-                      Baseline
-                      <div
-                        className={`variation variation${baselineRow} with-variation-label d-inline-flex align-items-center`}
-                        style={{ marginBottom: 2 }}
-                      >
-                        <span
-                          className="label"
-                          style={{ width: 16, height: 16 }}
+                      <div style={{ lineHeight: "16px", marginBottom: 2 }}>
+                        <Tooltip
+                          innerClassName={"text-left"}
+                          body={
+                            <div style={{ lineHeight: 1.5 }}>
+                              {getPercentChangeTooltip(
+                                statsEngine ?? DEFAULT_STATS_ENGINE,
+                                hasRisk,
+                                !!sequentialTestingEnabled,
+                                pValueCorrection ?? null
+                              )}
+                            </div>
+                          }
                         >
-                          {baselineRow}
-                        </span>
-                        <span
-                          className="d-inline-block text-ellipsis font-weight-bold"
-                          style={{
-                            width: 80 * tableCellScale,
-                            marginRight: -20,
-                          }}
-                        >
-                          {variations[baselineRow].name}
-                        </span>
+                          % Change <RxInfoCircled />
+                        </Tooltip>
                       </div>
-                    </th>
-                    <th
-                      style={{ width: 110 * tableCellScale }}
-                      className="axis-col label"
-                    >
-                      Value
                     </th>
                   </>
-                ) : null}
-                <th
-                  style={{ width: 120 * tableCellScale }}
-                  className="axis-col label text-right has-tooltip"
-                >
-                  {statsEngine === "bayesian" ? (
-                    !metricsAsGuardrails ? (
-                      <div style={{ lineHeight: "16px", marginBottom: 2 }}>
-                        <span className="nowrap">Chance</span>{" "}
-                        <span className="nowrap">to Win</span>
-                      </div>
-                    ) : (
-                      <div style={{ lineHeight: "16px", marginBottom: 2 }}>
-                        <span className="nowrap">Chance of</span>{" "}
-                        <span className="nowrap">Being Worse</span>
-                      </div>
-                    )
-                  ) : !metricsAsGuardrails &&
-                    (sequentialTestingEnabled || pValueCorrection) ? (
-                    <Tooltip
-                      innerClassName={"text-left"}
-                      body={
-                        <div style={{ lineHeight: 1.5 }}>
-                          {getPValueTooltip(
-                            !!sequentialTestingEnabled,
-                            pValueCorrection ?? null,
-                            orgSettings.pValueThreshold ?? 0.05,
-                            tableRowAxis,
-                            showAdvanced
-                          )}
-                        </div>
-                      }
-                    >
-                      P-value <RxInfoCircled />
-                    </Tooltip>
-                  ) : (
-                    <>P-value</>
-                  )}
-                </th>
-                <th
-                  className="axis-col graph-cell"
-                  style={{ maxWidth: graphCellWidth }}
-                >
-                  <div className="position-relative">
-                    <AlignedGraph
-                      id={`${id}_axis`}
-                      domain={domain}
-                      significant={true}
-                      showAxis={true}
-                      axisOnly={true}
-                      graphWidth={graphCellWidth}
-                      height={45}
-                      newUi={true}
-                    />
-                  </div>
-                </th>
-                <th
-                  style={{
-                    width:
-                      (showAdvanced ? 140 : 120) *
-                      Math.max(0.75, tableCellScale),
-                  }}
-                  className="axis-col label text-right has-tooltip"
-                >
-                  <div style={{ lineHeight: "16px", marginBottom: 2 }}>
-                    <Tooltip
-                      innerClassName={"text-left"}
-                      body={
-                        <div style={{ lineHeight: 1.5 }}>
-                          {getPercentChangeTooltip(
-                            statsEngine ?? DEFAULT_STATS_ENGINE,
-                            hasRisk,
-                            !!sequentialTestingEnabled,
-                            pValueCorrection ?? null
-                          )}
-                        </div>
-                      }
-                    >
-                      % Change <RxInfoCircled />
-                    </Tooltip>
-                  </div>
-                </th>
+                ) : (
+                  <th
+                    className="axis-col label"
+                    colSpan={showAdvanced ? 5 : 3}
+                  />
+                )}
               </tr>
             </thead>
 
