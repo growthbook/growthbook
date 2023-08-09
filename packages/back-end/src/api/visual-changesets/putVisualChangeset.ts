@@ -3,6 +3,7 @@ import { VisualChangesetInterface } from "../../../types/visual-changeset";
 import { getExperimentById } from "../../models/ExperimentModel";
 import {
   findVisualChangesetById,
+  toVisualChangesetApiInterface,
   updateVisualChangeset,
 } from "../../models/VisualChangesetModel";
 import { createApiRequestHandler } from "../../util/handler";
@@ -40,7 +41,12 @@ export const putVisualChangeset = createApiRequestHandler(
 
     return {
       nModified: res.nModified,
-      visualChangeset: updatedVisualChangeset as VisualChangesetInterface,
+      visualChangeset: updatedVisualChangeset
+        ? toVisualChangesetApiInterface(updatedVisualChangeset)
+        : {
+            ...toVisualChangesetApiInterface(visualChangeset),
+            ...(req.body as Partial<VisualChangesetInterface>),
+          },
     };
   }
 );
