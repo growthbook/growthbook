@@ -8,10 +8,8 @@ import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import SinglePage from "@/components/Experiment/SinglePage";
-import SinglePage_old from "@/components/Experiment/SinglePage_old";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import usePermissions from "@/hooks/usePermissions";
 import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
@@ -22,16 +20,9 @@ import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
-import track from "@/services/track";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 
 const ExperimentPage = (): ReactElement => {
-  const [newUi, setNewUi] = useLocalStorage<boolean>(
-    "single-page-new-ui-v1",
-    true
-  );
-  const SinglePageComponent = newUi ? SinglePage : SinglePage_old;
-
   const permissions = usePermissions();
   const router = useRouter();
   const { eid } = router.query;
@@ -101,26 +92,6 @@ const ExperimentPage = (): ReactElement => {
 
   return (
     <div>
-      <div
-        className="bg-light border-bottom text-dark p-2 mb-2 text-center"
-        style={{ marginTop: -5 }}
-      >
-        This is the {newUi ? "new" : "old"} experiment page.{" "}
-        <a
-          role="button"
-          className="a"
-          onClick={() => {
-            track("Switched Experiment Page UI", {
-              to: newUi ? "old" : "new",
-            });
-            setNewUi(!newUi);
-          }}
-        >
-          {newUi
-            ? "Switch back to the old page?"
-            : "Try the new experiment page?"}
-        </a>
-      </div>
       {metricsModalOpen && (
         <EditMetricsForm
           experiment={experiment}
@@ -215,7 +186,7 @@ const ExperimentPage = (): ReactElement => {
       )}
       <div className="container-fluid">
         <SnapshotProvider experiment={experiment}>
-          <SinglePageComponent
+          <SinglePage
             experiment={experiment}
             idea={idea}
             visualChangesets={visualChangesets}
