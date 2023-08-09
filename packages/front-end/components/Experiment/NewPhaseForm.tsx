@@ -72,6 +72,9 @@ const NewPhaseForm: FC<{
     refreshWatching();
   });
 
+  const hasLinkedChanges =
+    !!experiment.linkedFeatures?.length || experiment.hasVisualChangesets;
+
   return (
     <Modal
       header={firstPhase ? "Start Experiment" : "New Experiment Phase"}
@@ -82,6 +85,12 @@ const NewPhaseForm: FC<{
       closeCta="Cancel"
       size="lg"
     >
+      {hasLinkedChanges && (
+        <div className="alert alert-danger">
+          <strong>Warning:</strong> Starting a new phase will immediately affect
+          all linked Feature Flags and Visual Changes.
+        </div>
+      )}
       <div className="row">
         <Field
           label="Name"
