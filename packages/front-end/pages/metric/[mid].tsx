@@ -73,7 +73,6 @@ const MetricPage: FC = () => {
     getMetricById,
     metrics,
     segments,
-    project,
   } = useDefinitions();
   const settings = useOrgSettings();
   const [editModalOpen, setEditModalOpen] = useState<boolean | number>(false);
@@ -92,7 +91,6 @@ const MetricPage: FC = () => {
     storageKeySum,
     "day"
   );
-  const [queryError, setQueryError] = useState("");
 
   const [hoverDate, setHoverDate] = useState<number | null>(null);
   const onHoverCallback = (ret: { d: number | null }) => {
@@ -538,11 +536,6 @@ const MetricPage: FC = () => {
                   <hr />
                   {!!datasource && (
                     <div>
-                      {queryError ? (
-                        <div className="alert alert-danger mt-2">
-                          {queryError}
-                        </div>
-                      ) : null}
                       <div className="row mb-1 align-items-center">
                         <div className="col-auto">
                           <h3 className="d-inline-block mb-0">Data Preview</h3>
@@ -563,7 +556,7 @@ const MetricPage: FC = () => {
                               {canEditMetric &&
                                 permissions.check(
                                   "runQueries",
-                                  project || ""
+                                  metric.projects || ""
                                 ) && (
                                   <a
                                     onClick={(e) => {
@@ -580,11 +573,13 @@ const MetricPage: FC = () => {
                         </div>
                         <div style={{ flex: 1 }} />
                         <div className="col-auto">
-                          {permissions.check("runQueries", project || "") && (
+                          {permissions.check(
+                            "runQueries",
+                            metric.projects || ""
+                          ) && (
                             <form
                               onSubmit={async (e) => {
                                 e.preventDefault();
-                                setQueryError("");
                                 try {
                                   await apiCall(
                                     `/metric/${metric.id}/analysis`,
@@ -595,7 +590,6 @@ const MetricPage: FC = () => {
                                   mutate();
                                 } catch (e) {
                                   console.error(e);
-                                  setQueryError(e.message);
                                 }
                               }}
                             >

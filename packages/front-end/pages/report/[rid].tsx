@@ -56,7 +56,11 @@ export default function ReportPage() {
     experiment: ExperimentInterfaceStringDates;
     idea?: IdeaInterface;
     visualChangesets: VisualChangesetInterface[];
-  }>(`/experiment/${data?.report.experimentId}`);
+  }>(
+    data?.report?.experimentId
+      ? `/experiment/${data.report.experimentId}`
+      : null
+  );
 
   const {
     permissions,

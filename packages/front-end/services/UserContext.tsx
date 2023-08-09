@@ -47,12 +47,12 @@ export interface PermissionFunctions {
   check(permission: GlobalPermission): boolean;
   check(
     permission: EnvScopedPermission,
-    project: string | undefined,
+    project: string[] | string | undefined,
     envs: string[]
   ): boolean;
   check(
     permission: ProjectScopedPermission,
-    project: string | undefined
+    project: string[] | string | undefined
   ): boolean;
 }
 
@@ -296,14 +296,12 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     return new Set(currentOrg?.commercialFeatures || []);
   }, [currentOrg?.commercialFeatures]);
 
-  const permissionsCheck = useCallback(
+  const hasPermission = useCallback(
     (
       permission: Permission,
-      project?: string | undefined,
+      project: string | undefined,
       envs?: string[]
     ): boolean => {
-      // Get the role based on the project (if specified)
-      // Fall back to the user's global role
       const projectRole =
         (project && user?.projectRoles?.find((r) => r.project === project)) ||
         user;
@@ -339,6 +337,29 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       return true;
     },
     [currentOrg?.roles, user]
+  );
+
+  const permissionsCheck = useCallback(
+    (
+      permission: Permission,
+      project?: string[] | string | undefined, // This should also take in an array of strings like the backend.
+      envs?: string[]
+    ): boolean => {
+      let checkProjects: (string | undefined)[];
+      if (Array.isArray(project)) {
+        checkProjects = project.length > 0 ? project : [undefined];
+      } else {
+        checkProjects = [project];
+      }
+      for (const p of checkProjects) {
+        if (!hasPermission(permission, p, envs ? [...envs] : undefined)) {
+          return false;
+        }
+      }
+
+      return true;
+    },
+    [hasPermission]
   );
 
   return (

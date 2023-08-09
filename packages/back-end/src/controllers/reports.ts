@@ -23,6 +23,7 @@ import { generateReportNotebook } from "../services/notebook";
 import { getOrgFromReq } from "../services/organizations";
 import { reportArgsFromSnapshot } from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
+import { ExperimentInterface } from "../../types/experiment";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -196,7 +197,11 @@ export async function refreshReport(
     throw new Error("Unknown report id");
   }
 
-  const experiment = await getExperimentById(org.id, report.experimentId || "");
+  let experiment: ExperimentInterface | null = null;
+
+  if (report.experimentId) {
+    experiment = await getExperimentById(org.id, report.experimentId || "");
+  }
 
   req.checkPermissions("runQueries", experiment?.project || "");
 

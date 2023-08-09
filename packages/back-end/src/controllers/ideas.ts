@@ -48,7 +48,7 @@ export async function getEstimatedImpact(
 
   const idea = await getIdeaById(ideaId || "");
 
-  req.checkPermissions("createIdeas", idea?.project || "");
+  req.checkPermissions("runQueries", idea?.project || "");
 
   const { org } = getOrgFromReq(req);
   const estimate = await getImpactEstimate(

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import useApi from "@/hooks/useApi";
@@ -28,7 +28,6 @@ const NorthStarMetricDisplay = ({
   const { project } = useDefinitions();
   const permissions = usePermissions();
   const { apiCall } = useAuth();
-  const [queryError, setQueryError] = useState("");
 
   const { data, error, mutate } = useApi<{
     metric: MetricInterface;
@@ -82,18 +81,16 @@ const NorthStarMetricDisplay = ({
         ) : (
           <div className="mb-4">
             <h4 className="my-3">{metric.name}</h4>
-            {permissions.check("runQueries", project) && (
+            {permissions.check("runQueries", metric.projects || "") && (
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
-                  setQueryError("");
                   try {
                     await apiCall(`/metric/${metric.id}/analysis`, {
                       method: "POST",
                     });
                     mutate();
                   } catch (e) {
-                    setQueryError(e.message);
                     console.error(e);
                   }
                 }}
@@ -109,9 +106,6 @@ const NorthStarMetricDisplay = ({
                 />
               </form>
             )}
-            {queryError ? (
-              <div className="alert alert-danger my-3">{queryError}</div>
-            ) : null}
             {hasQueries && status === "failed" && (
               <div className="alert alert-danger my-3">
                 Error running the analysis.
