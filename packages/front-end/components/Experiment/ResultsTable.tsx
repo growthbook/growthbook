@@ -68,6 +68,7 @@ export type ResultsTableProps = {
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
   showAdvanced: boolean;
+  isTabActive: boolean;
 };
 
 export default function ResultsTable({
@@ -87,7 +88,8 @@ export default function ResultsTable({
   statsEngine,
   pValueCorrection,
   sequentialTestingEnabled = false,
-  showAdvanced = false,
+  showAdvanced,
+  isTabActive,
 }: ResultsTableProps) {
   const {
     metricDefaults,
@@ -100,7 +102,7 @@ export default function ResultsTable({
   const domain = useDomain(variations, rows);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
-  const [graphCellWidth, setGraphCellWidth] = useState(0);
+  const [graphCellWidth, setGraphCellWidth] = useState(200);
   const [tableCellScale, setTableCellScale] = useState(1);
 
   function onResize() {
@@ -116,7 +118,7 @@ export default function ResultsTable({
       }
     }
     const graphWidth = tableWidth - totalCellWidth;
-    setGraphCellWidth(graphWidth);
+    setGraphCellWidth(Math.max(graphWidth, 200));
     setTableCellScale(Math.max(Math.min(1, tableWidth / 1000), 0.5));
   }
 
@@ -129,7 +131,7 @@ export default function ResultsTable({
   }, []);
   useEffect(() => {
     onResize();
-  }, [showAdvanced]);
+  }, [showAdvanced, isTabActive]);
 
   const baselineRow = 0;
 
@@ -442,7 +444,7 @@ export default function ResultsTable({
                 ) : null}
                 <th
                   style={{ width: 120 * tableCellScale }}
-                  className="axis-col label text-right"
+                  className="axis-col label text-right has-tooltip"
                 >
                   {statsEngine === "bayesian" ? (
                     !metricsAsGuardrails ? (
@@ -501,7 +503,7 @@ export default function ResultsTable({
                       (showAdvanced ? 140 : 120) *
                       Math.max(0.75, tableCellScale),
                   }}
-                  className="axis-col label text-right"
+                  className="axis-col label text-right has-tooltip"
                 >
                   <div style={{ lineHeight: "16px", marginBottom: 2 }}>
                     <Tooltip

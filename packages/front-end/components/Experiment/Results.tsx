@@ -43,6 +43,7 @@ const Results: FC<{
   regressionAdjustmentHasValidMetrics?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
+  isTabActive?: boolean;
 }> = ({
   experiment,
   mutateExperiment,
@@ -58,6 +59,7 @@ const Results: FC<{
   regressionAdjustmentHasValidMetrics = false,
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
+  isTabActive = true,
 }) => {
   const { apiCall } = useAuth();
 
@@ -315,6 +317,7 @@ const Results: FC<{
             }
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
             showAdvanced={advancedResults}
+            isTabActive={isTabActive}
           />
         </>
       )}

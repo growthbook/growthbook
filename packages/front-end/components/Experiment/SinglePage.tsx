@@ -187,7 +187,6 @@ export interface Props {
   editPhases?: (() => void) | null;
   editPhase?: ((i: number | null) => void) | null;
   editTargeting?: (() => void) | null;
-  newUi?: boolean;
 }
 
 type ResultsTab = "results" | "config";
@@ -207,7 +206,6 @@ export default function SinglePage({
   editPhases,
   editPhase,
   editTargeting,
-  newUi = true,
 }: Props) {
   let alreadyUsingNewPage = false;
   try {
@@ -217,6 +215,12 @@ export default function SinglePage({
   } catch (e) {
     // Ignore localStorage errors
   }
+
+  const [newUi, setNewUi] = useLocalStorage<boolean>(
+    "experiment-results-new-ui-v1",
+    true
+  );
+
   const [hideNewExperimentHelp, setHideNewExperimentHelp] = useLocalStorage(
     `experiment-page__hide-new-experiment-help`,
     alreadyUsingNewPage
@@ -1242,6 +1246,29 @@ export default function SinglePage({
       <a id="config" style={{ position: "relative", top: -70 }}></a>
       <a id="results" style={{ position: "relative", top: -70 }}></a>
 
+      { resultsTab === "results" && experiment.status !== "draft" ? (
+        <div
+          className="alert-secondary px-4 py-2 text-center float-right rounded small"
+          style={{ maxWidth: "calc(100% - 340px)" }}
+        >
+          <AiOutlineInfoCircle size={16} className="mr-1" />
+          You are using the {newUi ? "new" : "old"} experiment results view.{" "}
+          <a
+            role="button"
+            className="a"
+            onClick={() => {
+              track("Switched Experiment Results UI", {
+                switchTo: newUi ? "old" : "new",
+              });
+              setNewUi(!newUi);
+            }}
+          >
+            {newUi
+              ? "Switch back to the old view?"
+              : "Try the new experiment results view?"}
+          </a>
+        </div>
+      ): null}
       <ControlledTabs
         newStyle={true}
         className="mt-3 mb-4"
@@ -1255,6 +1282,7 @@ export default function SinglePage({
         setActive={(tab: ResultsTab) => setResultsTab(tab ?? "results")}
         active={resultsTab}
       >
+
         <Tab id="results" display="Results" padding={false}>
           <div className="mb-2" style={{ overflowX: "initial" }}>
             {!experimentHasPhases ? (
@@ -1290,6 +1318,7 @@ export default function SinglePage({
                     metricRegressionAdjustmentStatuses
                   }
                   onRegressionAdjustmentChange={onRegressionAdjustmentChange}
+                  isTabActive={resultsTab === "results"}
                 />
               ) : (
                 <Results_old

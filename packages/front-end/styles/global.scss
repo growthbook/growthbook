@@ -456,6 +456,9 @@ pre {
       background-color: var(--surface-background-color);
       z-index: 800;
       box-shadow: 0 -1px 0 var(--text-link-hover-color) inset;
+      &.has-tooltip {
+        z-index: 801;
+      }
       &.header-label {
         padding-bottom: 5px;
         font-size: 16px;

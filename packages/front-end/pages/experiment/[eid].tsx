@@ -21,15 +21,8 @@ import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
-import track from "@/services/track";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 const ExperimentPage = (): ReactElement => {
-  const [newUi, setNewUi] = useLocalStorage<boolean>(
-    "experiment-results-new-ui-v1",
-    true
-  );
-
   const permissions = usePermissions();
   const router = useRouter();
   const { eid } = router.query;
@@ -99,26 +92,6 @@ const ExperimentPage = (): ReactElement => {
 
   return (
     <div>
-      <div
-        className="alert-secondary p-2 mb-2 text-center"
-        style={{ marginTop: -5 }}
-      >
-        You are using the {newUi ? "new" : "old"} experiment results view.{" "}
-        <a
-          role="button"
-          className="a"
-          onClick={() => {
-            track("Switched Experiment Results UI", {
-              switchTo: newUi ? "old" : "new",
-            });
-            setNewUi(!newUi);
-          }}
-        >
-          {newUi
-            ? "Switch back to the old view?"
-            : "Try the new experiment results view?"}
-        </a>
-      </div>
       {metricsModalOpen && (
         <EditMetricsForm
           experiment={experiment}
@@ -228,7 +201,6 @@ const ExperimentPage = (): ReactElement => {
             editPhases={editPhases}
             editPhase={editPhase}
             editTargeting={editTargeting}
-            newUi={newUi}
           />
         </SnapshotProvider>
       </div>
