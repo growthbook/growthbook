@@ -195,9 +195,17 @@ export default function SinglePage({
   editPhases,
   editPhase,
 }: Props) {
+  let alreadyUsingNewPage = false;
+  try {
+    if (window.localStorage.getItem("single-page-new-ui-v1") === "true") {
+      alreadyUsingNewPage = true;
+    }
+  } catch (e) {
+    // Ignore localStorage errors
+  }
   const [hideNewExperimentHelp, setHideNewExperimentHelp] = useLocalStorage(
     `experiment-page__hide-new-experiment-help`,
-    false
+    alreadyUsingNewPage
   );
 
   const [metaInfoOpen, setMetaInfoOpen] = useLocalStorage<boolean>(
@@ -811,7 +819,7 @@ export default function SinglePage({
           >
             <div
               className="text-gray py-1 rounded text-center d-flex align-items-center justify-content-center"
-              style={{ backgroundColor: "#f993", width: 530 }}
+              style={{ backgroundColor: "#e499ff33", width: 530 }}
             >
               <AiOutlineInfoCircle size={16} className="mr-1" />
               <div>
