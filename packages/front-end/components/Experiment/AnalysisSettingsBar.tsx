@@ -1,4 +1,7 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentPhaseStringDates,
+} from "back-end/types/experiment";
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
 import React, { useState } from "react";
@@ -9,9 +12,10 @@ import {
 import { StatsEngine } from "back-end/types/stats";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
 import { OrganizationSettings } from "back-end/types/organization";
-import { ago, datetime } from "shared/dates";
+import { ago, date, datetime } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
+import { AiOutlineInfoCircle } from "react-icons/ai";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
@@ -117,6 +121,8 @@ function isOutdated(
   return { outdated: false, reason: "" };
 }
 
+const numberFormatter = new Intl.NumberFormat();
+
 export default function AnalysisSettingsBar({
   mutateExperiment,
   editMetrics,
@@ -132,6 +138,9 @@ export default function AnalysisSettingsBar({
   showAdvancedResultsToggle = false,
   advancedResults = false,
   setAdvancedResults,
+  newUi = false,
+  users,
+  phases,
 }: {
   mutateExperiment: () => void;
   editMetrics?: () => void;
@@ -147,6 +156,9 @@ export default function AnalysisSettingsBar({
   showAdvancedResultsToggle?: boolean;
   advancedResults?: boolean;
   setAdvancedResults?: (show: boolean) => void;
+  newUi?: boolean;
+  users?: number[];
+  phases?: ExperimentPhaseStringDates[];
 }) {
   const {
     experiment,
@@ -158,6 +170,7 @@ export default function AnalysisSettingsBar({
     phase,
     setDimension,
   } = useSnapshot();
+  const phaseObj = phases?.[phase];
 
   const { getDatasourceById } = useDefinitions();
   const orgSettings = useOrgSettings();
@@ -203,7 +216,8 @@ export default function AnalysisSettingsBar({
       )}
       {experiment && (
         <div className="row align-items-center p-3">
-          {experiment.phases &&
+          {!newUi &&
+            experiment.phases &&
             (alwaysShowPhaseSelector || experiment.phases.length > 1) && (
               <div className="col-auto form-inline">
                 <PhaseSelector
@@ -311,6 +325,70 @@ export default function AnalysisSettingsBar({
               </PremiumTooltip>
             )}
           </div>
+          {phaseObj ? (
+            <div className="col-auto ml-3">
+              <div className="text-muted text-right">
+                <div className="text-muted" style={{ fontSize: "11px" }}>
+                  {date(phaseObj?.dateStarted ?? "")} —{" "}
+                  {phaseObj?.dateEnded ? date(phaseObj?.dateEnded) : "now"}
+                </div>
+
+                {users ? (
+                  <Tooltip
+                    body={
+                      <table className="table-tiny mb-0">
+                        <tr>
+                          <td className="border-bottom pr-3">Variation</td>
+                          {variations.map((v, i) => (
+                            <td
+                              key={i}
+                              className={`border-bottom variation with-variation-label variation${i}`}
+                            >
+                              <span
+                                className="label"
+                                style={{
+                                  width: 14,
+                                  height: 14,
+                                  marginBottom: 2,
+                                }}
+                              >
+                                {i}
+                              </span>
+                            </td>
+                          ))}
+                          <td className="border-bottom font-weight-bold">
+                            Total
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="font-weight-bold pr-3">Users</td>
+                          {variations.map((v, i) => (
+                            <td key={i}>
+                              {numberFormatter.format(users?.[i] ?? 0)}
+                            </td>
+                          ))}
+                          <td>
+                            {numberFormatter.format(
+                              users.reduce((a, b) => a + b, 0)
+                            )}
+                          </td>
+                        </tr>
+                      </table>
+                    }
+                  >
+                    <div className="text-muted" style={{ fontSize: "11px" }}>
+                      total users:{" "}
+                      {numberFormatter.format(users.reduce((a, b) => a + b, 0))}{" "}
+                      <AiOutlineInfoCircle
+                        size={12}
+                        style={{ position: "relative", top: -1 }}
+                      />
+                    </div>
+                  </Tooltip>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
           <div className="col-auto">
             {hasData &&
               (outdated && status !== "running" ? (
@@ -444,6 +522,12 @@ export default function AnalysisSettingsBar({
               trackingKey={experiment.trackingKey}
               dimension={dimension}
               project={experiment.project}
+              showPhaseSelector={
+                newUi &&
+                experiment.phases.length > 1 &&
+                (alwaysShowPhaseSelector || experiment.phases.length > 1)
+              }
+              mutateExperiment={mutateExperiment}
             />
           </div>
         </div>

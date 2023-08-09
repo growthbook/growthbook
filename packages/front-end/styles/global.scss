@@ -1557,6 +1557,14 @@ pre {
   }
 }
 
+.table-tiny {
+  th,
+  td {
+    font-size: 10px;
+    padding: 0.15rem 0.35rem;
+  }
+}
+
 .tooltip-experimentDateGraph {
   td.won {
     background-color: var(--win-background);
