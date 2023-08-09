@@ -1,10 +1,16 @@
 import { z } from "zod";
+import { ApiVisualChangeset } from "../../../types/openapi";
+import {
+  findVisualChangesetById,
+  toVisualChangesetApiInterface,
+} from "../../models/VisualChangesetModel";
 import { hasExceededUsageQuota, simpleCompletion } from "../../services/openai";
 import { createApiRequestHandler } from "../../util/handler";
 
 const OPENAI_ENABLED = !!process.env.OPENAI_API_KEY;
 
 interface PostCopyTransformResponse {
+  visualChangeset: ApiVisualChangeset;
   original: string;
   transformed: string | undefined;
   dailyLimitReached: boolean;
@@ -15,13 +21,9 @@ const transformModes = ["energetic", "concise", "humorous"] as const;
 const validation = {
   bodySchema: z
     .object({
+      visualChangesetId: z.string(),
       copy: z.string(),
       mode: z.enum(transformModes),
-      metadata: z.object({
-        title: z.string(),
-        description: z.string(),
-        url: z.string().url(),
-      }),
     })
     .strict(),
   querySchema: z.never(),
@@ -43,10 +45,18 @@ export const postCopyTransform = createApiRequestHandler(validation)(
   async (req): Promise<PostCopyTransformResponse> => {
     if (!OPENAI_ENABLED) throw new Error("OPENAI_API_KEY not defined");
 
-    const { copy, mode } = req.body;
+    const { copy, mode, visualChangesetId } = req.body;
+
+    const visualChangeset = await findVisualChangesetById(
+      visualChangesetId,
+      req.organization.id
+    );
+
+    if (!visualChangeset) throw new Error("Visual Changeset not found");
 
     if (await hasExceededUsageQuota(req.organization)) {
       return {
+        visualChangeset: toVisualChangesetApiInterface(visualChangeset),
         original: copy,
         transformed: undefined,
         dailyLimitReached: true,
@@ -61,6 +71,7 @@ export const postCopyTransform = createApiRequestHandler(validation)(
     });
 
     return {
+      visualChangeset: toVisualChangesetApiInterface(visualChangeset),
       original: copy,
       transformed,
       dailyLimitReached: false,
