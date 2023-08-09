@@ -319,7 +319,7 @@ const Results: FC<{
         </>
       )}
 
-      {hasData && (
+      {!draftMode && hasData ? (
         <div className="row align-items-center mx-2 my-3">
           <div className="col-auto small" style={{ lineHeight: 1.2 }}>
             <div className="text-muted mb-1">
@@ -371,7 +371,7 @@ const Results: FC<{
             </div>
           </div>
         </div>
-      )}
+      ) : null}
     </>
   );
 };

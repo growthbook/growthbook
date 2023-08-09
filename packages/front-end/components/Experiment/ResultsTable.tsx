@@ -192,6 +192,9 @@ export default function ResultsTable({
     status,
     displayCurrency,
   ]);
+
+  const noMetrics = rows.length === 0;
+
   // todo: hasRisk toggle. minimally supported now, but should be more thoughtful
   // todo: StatusBanner?
 
@@ -404,7 +407,6 @@ export default function ResultsTable({
                       style={{
                         width: 110 * tableCellScale,
                         lineHeight: "16px",
-                        zIndex: 801,
                       }}
                       className="axis-col label"
                     >
@@ -444,12 +446,12 @@ export default function ResultsTable({
                 >
                   {statsEngine === "bayesian" ? (
                     !metricsAsGuardrails ? (
-                      <div style={{ lineHeight: "16px" }}>
+                      <div style={{ lineHeight: "16px", marginBottom: 2 }}>
                         <span className="nowrap">Chance</span>{" "}
                         <span className="nowrap">to Win</span>
                       </div>
                     ) : (
-                      <div style={{ lineHeight: "16px" }}>
+                      <div style={{ lineHeight: "16px", marginBottom: 2 }}>
                         <span className="nowrap">Chance of</span>{" "}
                         <span className="nowrap">Being Worse</span>
                       </div>
@@ -501,7 +503,7 @@ export default function ResultsTable({
                   }}
                   className="axis-col label text-right"
                 >
-                  <div style={{ lineHeight: "16px" }}>
+                  <div style={{ lineHeight: "16px", marginBottom: 2 }}>
                     <Tooltip
                       innerClassName={"text-left"}
                       body={
@@ -545,7 +547,7 @@ export default function ResultsTable({
                     >
                       {renderLabelColumn(row.label, row.metric, row)}
                     </th>
-                    <th>
+                    <th className="graph-cell">
                       <AlignedGraph
                         id={`${id}_axis`}
                         domain={domain}
@@ -557,7 +559,7 @@ export default function ResultsTable({
                         newUi={true}
                       />
                     </th>
-                    <th></th>
+                    <th />
                   </tr>
 
                   {variations.map((v, j) => {
@@ -704,7 +706,7 @@ export default function ResultsTable({
                         ) : (
                           <td></td>
                         )}
-                        <td>
+                        <td className="graph-cell">
                           {j > 0 ? (
                             <PercentGraph
                               barType={
@@ -793,7 +795,7 @@ export default function ResultsTable({
                       </>
                     ) : null}
                     <td></td>
-                    <td>
+                    <td className="graph-cell">
                       <AlignedGraph
                         id={`${id}_axis`}
                         domain={domain}
@@ -811,6 +813,26 @@ export default function ResultsTable({
               );
             })}
           </table>
+
+          {noMetrics ? (
+            <div className="metric-label py-2" style={{ marginLeft: 10 }}>
+              <div className="metriclabel text-muted font-weight-bold">
+                No metrics yet
+              </div>
+              {!metricsAsGuardrails ? (
+                <div className="small mt-1 mb-2">
+                  Add metrics to start tracking the performance of your
+                  experiment.
+                </div>
+              ) : (
+                <div className="small mt-1 mb-2">
+                  Add guardrail metrics to ensure that your experiment is not
+                  harming any metrics that you aren&apos;t specifically trying
+                  to improve.
+                </div>
+              )}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

@@ -147,31 +147,27 @@ const CompactResults: FC<{
         showAdvanced={showAdvanced}
       />
 
-      {guardrails.length > 0 ? (
-        <div className="mt-4">
-          <ResultsTable
-            dateCreated={reportDate}
-            isLatestPhase={isLatestPhase}
-            startDate={startDate}
-            status={status}
-            variations={variations}
-            rows={rows.filter((r) => r.isGuardrail)}
-            id={id}
-            hasRisk={risk.hasRisk}
-            tableRowAxis="metric"
-            labelHeader="Guardrail Metrics"
-            editMetrics={editMetrics}
-            metricsAsGuardrails={true}
-            statsEngine={statsEngine}
-            sequentialTestingEnabled={sequentialTestingEnabled}
-            pValueCorrection={pValueCorrection}
-            renderLabelColumn={getRenderLabelColumn(
-              regressionAdjustmentEnabled
-            )}
-            showAdvanced={showAdvanced}
-          />
-        </div>
-      ) : null}
+      <div className="mt-4">
+        <ResultsTable
+          dateCreated={reportDate}
+          isLatestPhase={isLatestPhase}
+          startDate={startDate}
+          status={status}
+          variations={variations}
+          rows={rows.filter((r) => r.isGuardrail)}
+          id={id}
+          hasRisk={risk.hasRisk}
+          tableRowAxis="metric"
+          labelHeader="Guardrail Metrics"
+          editMetrics={editMetrics}
+          metricsAsGuardrails={true}
+          statsEngine={statsEngine}
+          sequentialTestingEnabled={sequentialTestingEnabled}
+          pValueCorrection={pValueCorrection}
+          renderLabelColumn={getRenderLabelColumn(regressionAdjustmentEnabled)}
+          showAdvanced={showAdvanced}
+        />
+      </div>
     </>
   );
 };

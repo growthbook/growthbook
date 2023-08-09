@@ -456,9 +456,6 @@ pre {
       background-color: var(--surface-background-color);
       z-index: 800;
       box-shadow: 0 -1px 0 var(--text-link-hover-color) inset;
-      &.graph-cell {
-        z-index: 801;
-      }
       &.header-label {
         padding-bottom: 5px;
         font-size: 16px;
@@ -469,6 +466,9 @@ pre {
         padding-bottom: 5px;
       }
     }
+  }
+  .graph-cell {
+    padding: 0;
   }
   .result-number {
     font-weight: bold;
