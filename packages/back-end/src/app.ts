@@ -380,6 +380,10 @@ app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
+app.post(
+  "/experiment/:id/targeting",
+  experimentsController.postExperimentTargeting
+);
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
 app.put(
   "/experiment/:id/phase/:phase",
@@ -469,6 +473,14 @@ app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
 app.post("/feature/:id/draft", featuresController.postFeatureDraft);
 app.post("/feature/:id/rule", featuresController.postFeatureRule);
+app.post(
+  "/feature/:id/experiment",
+  featuresController.postFeatureExperimentRefRule
+);
+app.delete(
+  "/feature/:id/experiment",
+  featuresController.deleteFeatureExperimentRefRule
+);
 app.put("/feature/:id/rule", featuresController.putFeatureRule);
 app.delete("/feature/:id/rule", featuresController.deleteFeatureRule);
 app.post("/feature/:id/reorder", featuresController.postFeatureMoveRule);
