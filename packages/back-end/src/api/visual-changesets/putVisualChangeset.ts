@@ -1,4 +1,5 @@
 import { PutVisualChangesetResponse } from "../../../types/openapi";
+import { VisualChangesetInterface } from "../../../types/visual-changeset";
 import { getExperimentById } from "../../models/ExperimentModel";
 import {
   findVisualChangesetById,
@@ -32,8 +33,14 @@ export const putVisualChangeset = createApiRequestHandler(
       user: req.eventAudit,
     });
 
+    const updatedVisualChangeset = await findVisualChangesetById(
+      req.params.id,
+      req.organization.id
+    );
+
     return {
       nModified: res.nModified,
+      visualChangeset: updatedVisualChangeset as VisualChangesetInterface,
     };
   }
 );
