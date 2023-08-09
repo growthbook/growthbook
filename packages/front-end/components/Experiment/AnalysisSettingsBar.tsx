@@ -337,7 +337,7 @@ export default function AnalysisSettingsBar({
                 </div>
               ))}
           </div>
-          {permissions.check("runQueries", "") &&
+          {permissions.check("runQueries", experiment.project || "") &&
             experiment.metrics.length > 0 && (
               <div className="col-auto">
                 {experiment.datasource &&
@@ -448,37 +448,38 @@ export default function AnalysisSettingsBar({
           </div>
         </div>
       )}
-      {permissions.check("runQueries", "") && datasource && (
-        <div className="px-3">
-          {refreshError && (
-            <div className="alert alert-danger">
-              <strong>Error updating data: </strong> {refreshError}
-            </div>
-          )}
-          <div className="row">
-            {latest && status !== "succeeded" && (
-              <div className="col-auto pb-3">
-                <ViewAsyncQueriesButton
-                  queries={latest.queries.map((q) => q.query)}
-                  error={latest.error}
-                  color={clsx(
-                    {
-                      danger: status === "failed",
-                      info: status === "running",
-                    },
-                    " "
-                  )}
-                  display={
-                    status === "failed"
-                      ? "View Update Errors"
-                      : "View Running Queries"
-                  }
-                />
+      {permissions.check("runQueries", experiment?.project || "") &&
+        datasource && (
+          <div className="px-3">
+            {refreshError && (
+              <div className="alert alert-danger">
+                <strong>Error updating data: </strong> {refreshError}
               </div>
             )}
+            <div className="row">
+              {latest && status !== "succeeded" && (
+                <div className="col-auto pb-3">
+                  <ViewAsyncQueriesButton
+                    queries={latest.queries.map((q) => q.query)}
+                    error={latest.error}
+                    color={clsx(
+                      {
+                        danger: status === "failed",
+                        info: status === "running",
+                      },
+                      " "
+                    )}
+                    display={
+                      status === "failed"
+                        ? "View Update Errors"
+                        : "View Running Queries"
+                    }
+                  />
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 }

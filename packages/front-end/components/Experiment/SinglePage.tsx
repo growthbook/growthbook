@@ -59,6 +59,7 @@ import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
+import Results_old from "@/components/Experiment/Results_old";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -186,6 +187,7 @@ export interface Props {
   editPhases?: (() => void) | null;
   editPhase?: ((i: number | null) => void) | null;
   editTargeting?: (() => void) | null;
+  newUi?: boolean;
 }
 
 type ResultsTab = "results" | "config";
@@ -205,6 +207,7 @@ export default function SinglePage({
   editPhases,
   editPhase,
   editTargeting,
+  newUi = true,
 }: Props) {
   let alreadyUsingNewPage = false;
   try {
@@ -1266,28 +1269,49 @@ export default function SinglePage({
                 </button>
               </div>
             ) : experiment.status !== "draft" ? (
-              <Results
-                experiment={experiment}
-                mutateExperiment={mutate}
-                draftMode={
-                  experiment.status === "draft" || !experimentHasPhases
-                }
-                editMetrics={editMetrics ?? undefined}
-                editResult={editResult ?? undefined}
-                editPhases={editPhases ?? undefined}
-                alwaysShowPhaseSelector={true}
-                reportDetailsLink={false}
-                statsEngine={statsEngine}
-                regressionAdjustmentAvailable={regressionAdjustmentAvailable}
-                regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                regressionAdjustmentHasValidMetrics={
-                  regressionAdjustmentHasValidMetrics
-                }
-                metricRegressionAdjustmentStatuses={
-                  metricRegressionAdjustmentStatuses
-                }
-                onRegressionAdjustmentChange={onRegressionAdjustmentChange}
-              />
+              // todo: use a modified Results instead of StatusBanner while in draft mode
+              newUi ? (
+                <Results
+                  experiment={experiment}
+                  mutateExperiment={mutate}
+                  draftMode={!experimentHasPhases}
+                  editMetrics={editMetrics ?? undefined}
+                  editResult={editResult ?? undefined}
+                  editPhases={editPhases ?? undefined}
+                  alwaysShowPhaseSelector={true}
+                  reportDetailsLink={false}
+                  statsEngine={statsEngine}
+                  regressionAdjustmentAvailable={regressionAdjustmentAvailable}
+                  regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                  regressionAdjustmentHasValidMetrics={
+                    regressionAdjustmentHasValidMetrics
+                  }
+                  metricRegressionAdjustmentStatuses={
+                    metricRegressionAdjustmentStatuses
+                  }
+                  onRegressionAdjustmentChange={onRegressionAdjustmentChange}
+                />
+              ) : (
+                <Results_old
+                  experiment={experiment}
+                  mutateExperiment={mutate}
+                  editMetrics={editMetrics ?? undefined}
+                  editResult={editResult ?? undefined}
+                  editPhases={editPhases ?? undefined}
+                  alwaysShowPhaseSelector={true}
+                  reportDetailsLink={false}
+                  statsEngine={statsEngine}
+                  regressionAdjustmentAvailable={regressionAdjustmentAvailable}
+                  regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+                  regressionAdjustmentHasValidMetrics={
+                    regressionAdjustmentHasValidMetrics
+                  }
+                  metricRegressionAdjustmentStatuses={
+                    metricRegressionAdjustmentStatuses
+                  }
+                  onRegressionAdjustmentChange={onRegressionAdjustmentChange}
+                />
+              )
             ) : (
               <StatusBanner
                 mutateExperiment={mutate}

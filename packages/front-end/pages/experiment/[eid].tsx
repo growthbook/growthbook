@@ -228,6 +228,7 @@ const ExperimentPage = (): ReactElement => {
             editPhases={editPhases}
             editPhase={editPhase}
             editTargeting={editTargeting}
+            newUi={newUi}
           />
         </SnapshotProvider>
       </div>
