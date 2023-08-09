@@ -57,10 +57,10 @@ const drawChange = ({
   hasVisualEditorFeature: boolean;
   canEditVisualChangesets: boolean;
   setEditingVisualChangeset: (vc: VisualChangesetInterface) => void;
-  setEditingVisualChange: ({
-    visualChange: VisualChange,
-    visualChangeIndex: number,
-    visualChangeset: VisualChangesetInterface,
+  setEditingVisualChange: (params: {
+    visualChange: VisualChange;
+    visualChangeIndex: number;
+    visualChangeset: VisualChangesetInterface;
   }) => void;
   deleteVisualChangeset: (id: string) => void;
   simpleUrlPatterns: VisualChangesetURLPattern[];
@@ -116,11 +116,7 @@ const drawChange = ({
           {canEditVisualChangesets && experiment.status === "draft" && (
             <div className="col-auto">
               {hasVisualEditorFeature && (
-                <OpenVisualEditorLink
-                  id={vc.id}
-                  changeIndex={1}
-                  visualEditorUrl={vc.editorUrl}
-                />
+                <OpenVisualEditorLink visualChangeset={vc} />
               )}
               <DeleteButton
                 className="btn-sm ml-4"
