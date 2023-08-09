@@ -124,7 +124,6 @@ export default function SDKConnectionForm({
         }
         if (!value.includeVisualExperiments) {
           value.includeDraftExperiments = false;
-          value.includeExperimentNames = false;
         }
 
         const body: Omit<CreateSDKConnectionParams, "organization"> = {
@@ -269,42 +268,38 @@ export default function SDKConnectionForm({
                     />
                   </div>
                 </div>
-
-                <div className="mt-3">
-                  <Tooltip
-                    body={
-                      <>
-                        <p>
-                          This can help add context when debugging or tracking
-                          events.
-                        </p>
-                        <div>
-                          However, this could expose potentially sensitive
-                          information to your users if enabled for a client-side
-                          or mobile application.
-                        </div>
-                      </>
-                    }
-                  >
-                    <label htmlFor="sdk-connection-include-experiment-meta">
-                      Include experiment/variation names? <FaInfoCircle />
-                    </label>
-                  </Tooltip>
-                  <div>
-                    <Toggle
-                      id="sdk-connection-include-experiment-meta"
-                      value={form.watch("includeExperimentNames")}
-                      setValue={(val) =>
-                        form.setValue("includeExperimentNames", val)
-                      }
-                    />
-                  </div>
-                </div>
               </>
             )}
           </div>
         </>
       )}
+
+      <div className="mt-3 mb-3">
+        <Tooltip
+          body={
+            <>
+              <p>
+                This can help add context when debugging or tracking events.
+              </p>
+              <div>
+                However, this could expose potentially sensitive information to
+                your users if enabled for a client-side or mobile application.
+              </div>
+            </>
+          }
+        >
+          <label htmlFor="sdk-connection-include-experiment-meta">
+            Include experiment/variation names? <FaInfoCircle />
+          </label>
+        </Tooltip>
+        <div>
+          <Toggle
+            id="sdk-connection-include-experiment-meta"
+            value={form.watch("includeExperimentNames")}
+            setValue={(val) => form.setValue("includeExperimentNames", val)}
+          />
+        </div>
+      </div>
 
       {isCloud() && gb?.isOn("proxy-cloud") && (
         <div

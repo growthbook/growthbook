@@ -138,7 +138,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     : false;
 
   try {
-    logger.info("Start Refreshing Results for expeirment " + experimentId);
+    logger.info("Start Refreshing Results for experiment " + experimentId);
     const datasource = await getDataSourceById(
       experiment.datasource || "",
       experiment.organization
@@ -192,7 +192,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     const currentSnapshot = queryRunner.model;
 
     logger.info(
-      "Successfully Refreshed Results for expeirment " + experimentId
+      "Successfully Refreshed Results for experiment " + experimentId
     );
 
     if (lastSnapshot) {

@@ -123,6 +123,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
       name: initialValue?.name || "",
       hypothesis: initialValue?.hypothesis || "",
       activationMetric: initialValue?.activationMetric || "",
+      hashVersion: initialValue?.hashVersion || 2,
       attributionModel:
         initialValue?.attributionModel ??
         settings?.attributionModel ??
@@ -327,6 +328,13 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           </div>
         )}
         {isNewExperiment && (
+          <ConditionInput
+            defaultValue={""}
+            labelClassName="font-weight-bold"
+            onChange={(value) => form.setValue("phases.0.condition", value)}
+          />
+        )}
+        {isNewExperiment && (
           <SelectField
             label="Assign variation based on attribute"
             options={attributeSchema
@@ -397,81 +405,71 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
           />
         )}
       </Page>
-      <Page display={isNewExperiment ? "Targeting and Goals" : "Goals"}>
-        {isNewExperiment && (
-          <div className="alert alert-info">
-            You will have a chance to review and change these settings before
-            starting your experiment.
-          </div>
-        )}
-        <div style={{ minHeight: 350 }}>
-          {isNewExperiment && (
-            <ConditionInput
-              defaultValue={""}
-              labelClassName="font-weight-bold"
-              onChange={(value) => form.setValue("phases.0.condition", value)}
-            />
-          )}
-          {(!isImport || fromFeature) && (
-            <SelectField
-              label="Data Source"
-              labelClassName="font-weight-bold"
-              value={form.watch("datasource") ?? ""}
-              onChange={(v) => form.setValue("datasource", v)}
-              initialOption="Manual"
-              options={datasources.map((d) => {
-                const isDefaultDataSource = d.id === settings.defaultDataSource;
-                return {
-                  value: d.id,
-                  label: `${d.name}${
-                    d.description ? ` — ${d.description}` : ""
-                  }${isDefaultDataSource ? " (default)" : ""}`,
-                };
-              })}
-              className="portal-overflow-ellipsis"
-            />
-          )}
-          {datasource?.properties?.exposureQueries && (
-            <SelectField
-              label="Experiment Assignment Table"
-              labelClassName="font-weight-bold"
-              value={form.watch("exposureQueryId") ?? ""}
-              onChange={(v) => form.setValue("exposureQueryId", v)}
-              initialOption="Choose..."
-              required
-              options={exposureQueries.map((q) => {
-                return {
-                  label: q.name,
-                  value: q.id,
-                };
-              })}
-            />
-          )}
-          <div className="form-group">
-            <label className="font-weight-bold mb-1">Goal Metrics</label>
-            <div className="mb-1 font-italic">
-              Metrics you are trying to improve with this experiment.
+      {!isNewExperiment && (
+        <Page display={"Analysis Settings"}>
+          <div style={{ minHeight: 350 }}>
+            {(!isImport || fromFeature) && (
+              <SelectField
+                label="Data Source"
+                labelClassName="font-weight-bold"
+                value={form.watch("datasource") ?? ""}
+                onChange={(v) => form.setValue("datasource", v)}
+                initialOption="Manual"
+                options={datasources.map((d) => {
+                  const isDefaultDataSource =
+                    d.id === settings.defaultDataSource;
+                  return {
+                    value: d.id,
+                    label: `${d.name}${
+                      d.description ? ` — ${d.description}` : ""
+                    }${isDefaultDataSource ? " (default)" : ""}`,
+                  };
+                })}
+                className="portal-overflow-ellipsis"
+              />
+            )}
+            {datasource?.properties?.exposureQueries && (
+              <SelectField
+                label="Experiment Assignment Table"
+                labelClassName="font-weight-bold"
+                value={form.watch("exposureQueryId") ?? ""}
+                onChange={(v) => form.setValue("exposureQueryId", v)}
+                initialOption="Choose..."
+                required
+                options={exposureQueries.map((q) => {
+                  return {
+                    label: q.name,
+                    value: q.id,
+                  };
+                })}
+              />
+            )}
+            <div className="form-group">
+              <label className="font-weight-bold mb-1">Goal Metrics</label>
+              <div className="mb-1 font-italic">
+                Metrics you are trying to improve with this experiment.
+              </div>
+              <MetricsSelector
+                selected={form.watch("metrics") ?? []}
+                onChange={(metrics) => form.setValue("metrics", metrics)}
+                datasource={datasource?.id}
+              />
             </div>
-            <MetricsSelector
-              selected={form.watch("metrics") ?? []}
-              onChange={(metrics) => form.setValue("metrics", metrics)}
-              datasource={datasource?.id}
-            />
-          </div>
-          <div className="form-group">
-            <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-            <div className="mb-1 font-italic">
-              Metrics you want to monitor, but are NOT specifically trying to
-              improve.
+            <div className="form-group">
+              <label className="font-weight-bold mb-1">Guardrail Metrics</label>
+              <div className="mb-1 font-italic">
+                Metrics you want to monitor, but are NOT specifically trying to
+                improve.
+              </div>
+              <MetricsSelector
+                selected={form.watch("guardrails") ?? []}
+                onChange={(metrics) => form.setValue("guardrails", metrics)}
+                datasource={datasource?.id}
+              />
             </div>
-            <MetricsSelector
-              selected={form.watch("guardrails") ?? []}
-              onChange={(metrics) => form.setValue("guardrails", metrics)}
-              datasource={datasource?.id}
-            />
           </div>
-        </div>
-      </Page>
+        </Page>
+      )}
     </PagedModal>
   );
 };
