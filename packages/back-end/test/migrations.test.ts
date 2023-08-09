@@ -866,6 +866,7 @@ describe("Experiment Migration", () => {
     const upgraded = {
       trackingKey: "test",
       hashAttribute: "",
+      hashVersion: 2,
       releasedVariationId: "",
       attributionModel: "experimentDuration",
       variations: [

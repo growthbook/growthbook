@@ -2,25 +2,11 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "back-end/types/experiment";
-import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { FC } from "react";
-import clsx from "clsx";
 import { useAuth } from "@/services/auth";
-import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "../Carousel";
 import ScreenshotUpload from "../EditExperiment/ScreenshotUpload";
-
-interface Props {
-  experiment: ExperimentInterfaceStringDates;
-  visualChangesets: VisualChangesetInterface[];
-  mutate: () => void;
-  canEditExperiment: boolean;
-  canEditVisualChangesets: boolean;
-  className?: string;
-  setVisualEditorModal: (v: boolean) => void;
-  newUi?: boolean;
-}
 
 const ScreenshotCarousel: FC<{
   index: number;
@@ -29,7 +15,6 @@ const ScreenshotCarousel: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   maxChildHeight?: number;
-  newUi?: boolean;
 }> = ({
   canEditExperiment,
   experiment,
@@ -37,7 +22,6 @@ const ScreenshotCarousel: FC<{
   variation,
   mutate,
   maxChildHeight,
-  newUi,
 }) => {
   const { apiCall } = useAuth();
 
@@ -67,11 +51,10 @@ const ScreenshotCarousel: FC<{
             }
       }
       maxChildHeight={maxChildHeight}
-      newUi={newUi}
     >
       {variation.screenshots.map((s) => (
         <img
-          className={newUi ? "experiment-image-clean" : "experiment-image"}
+          className="experiment-image"
           key={s.path}
           src={s.path}
           style={{
@@ -85,14 +68,16 @@ const ScreenshotCarousel: FC<{
   );
 };
 
+interface Props {
+  experiment: ExperimentInterfaceStringDates;
+  canEditExperiment: boolean;
+  mutate: () => void;
+}
+
 const VariationsTable: FC<Props> = ({
   experiment,
   canEditExperiment,
-  canEditVisualChangesets,
   mutate,
-  visualChangesets: _visualChangesets,
-  setVisualEditorModal,
-  newUi,
 }) => {
   const { variations } = experiment;
   const phases = experiment.phases || [];
@@ -101,8 +86,6 @@ const VariationsTable: FC<Props> = ({
   const weights = lastPhase?.variationWeights ?? null;
   const percentages =
     (weights?.length || 0) > 0 ? trafficSplitPercentages(weights) : null;
-
-  const visualChangesets = _visualChangesets || [];
 
   const hasDescriptions = variations.some((v) => !!v.description?.trim());
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
@@ -116,54 +99,42 @@ const VariationsTable: FC<Props> = ({
         }}
       >
         <table
-          className={clsx("table table-bordered mx-3", {
-            "bg-light mw100-1rem": newUi,
-            "w100-1rem": !newUi,
-          })}
-          style={newUi ? { width: "auto" } : {}}
+          className="table table-bordered mx-3 bg-light mw100-1rem"
+          style={{ width: "auto" }}
         >
           <thead>
             <tr>
               {variations.map((v, i) => (
                 <th
                   key={i}
-                  className={`variation with-variation-label variation${i} ${
-                    !(hasDescriptions || hasUniqueIDs || newUi)
-                      ? "with-variation-border-bottom"
-                      : "pb-2"
-                  }`}
-                  style={{
-                    borderBottom:
-                      hasDescriptions || hasUniqueIDs || newUi ? 0 : undefined,
-                  }}
+                  className={`variation with-variation-label variation${i}`}
+                  style={{ borderBottom: 0 }}
                 >
                   <span className="label">{i}</span>
                   <span className="name">{v.name}</span>
                 </th>
               ))}
             </tr>
-            {hasDescriptions || hasUniqueIDs || newUi ? (
-              <tr>
-                {variations.map((v, i) => (
-                  <td
-                    className={`variation with-variation-border-bottom variation${i} pt-0 pb-1 align-bottom`}
-                    style={{ borderTop: 0 }}
-                    key={i}
-                    scope="col"
-                  >
-                    {hasDescriptions ? <div>{v.description}</div> : null}
-                    {hasUniqueIDs ? (
-                      <code className="small">ID: {v.key}</code>
-                    ) : null}
-                    {newUi && percentages?.[i] !== undefined ? (
-                      <div className="text-right text-muted">
-                        Split: {percentages[i].toFixed(0)}%
-                      </div>
-                    ) : null}
-                  </td>
-                ))}
-              </tr>
-            ) : null}
+            <tr>
+              {variations.map((v, i) => (
+                <th
+                  className={`variation with-variation-border-bottom variation${i} pt-0 pb-1 align-bottom font-weight-normal`}
+                  style={{ borderTop: 0 }}
+                  key={i}
+                  scope="col"
+                >
+                  {hasDescriptions ? <div>{v.description}</div> : null}
+                  {hasUniqueIDs ? (
+                    <code className="small">ID: {v.key}</code>
+                  ) : null}
+                  {percentages?.[i] !== undefined ? (
+                    <div className="text-right text-muted">
+                      Split: {percentages[i].toFixed(0)}%
+                    </div>
+                  ) : null}
+                </th>
+              ))}
+            </tr>
           </thead>
 
           <tbody>
@@ -171,9 +142,7 @@ const VariationsTable: FC<Props> = ({
               {variations.map((v, i) => (
                 <td
                   key={i}
-                  className={`align-${newUi ? "middle" : "top"} ${
-                    canEditExperiment ? "pb-1" : ""
-                  }`}
+                  className={`align-middle ${canEditExperiment ? "pb-1" : ""}`}
                   style={{
                     minWidth: "17.5rem",
                     maxWidth: "27rem",
@@ -191,8 +160,7 @@ const VariationsTable: FC<Props> = ({
                         canEditExperiment={canEditExperiment}
                         experiment={experiment}
                         mutate={mutate}
-                        maxChildHeight={newUi ? 200 : undefined}
-                        newUi={newUi}
+                        maxChildHeight={200}
                       />
                     ) : null}
                   </div>
@@ -202,17 +170,12 @@ const VariationsTable: FC<Props> = ({
             {canEditExperiment && (
               <tr>
                 {variations.map((v, i) => (
-                  <td
-                    key={`b${i}`}
-                    className={`pt-0 ${newUi ? "pb-0" : "pb-1"}`}
-                    style={{ borderTop: 0 }}
-                  >
+                  <td key={`b${i}`} className="py-0" style={{ borderTop: 0 }}>
                     <div>
                       <ScreenshotUpload
                         variation={i}
                         experiment={experiment.id}
                         onSuccess={() => mutate()}
-                        newUi={newUi}
                       />
                     </div>
                   </td>
@@ -222,17 +185,6 @@ const VariationsTable: FC<Props> = ({
           </tbody>
         </table>
       </div>
-
-      {!newUi && (
-        <VisualChangesetTable
-          experiment={experiment}
-          visualChangesets={visualChangesets}
-          mutate={mutate}
-          canEditVisualChangesets={canEditVisualChangesets}
-          setVisualEditorModal={setVisualEditorModal}
-          newUi={newUi}
-        />
-      )}
     </div>
   );
 };
