@@ -30,7 +30,7 @@ const ImportExperimentList: FC<{
   showQueries?: boolean;
   changeDatasource?: (id: string) => void;
 }> = ({ onImport, importId, showQueries = true, changeDatasource }) => {
-  const { getDatasourceById, ready, datasources } = useDefinitions();
+  const { getDatasourceById, ready, datasources, project } = useDefinitions();
   const permissions = usePermissions();
   const { apiCall } = useAuth();
   const { data, error, mutate } = useApi<{
@@ -171,7 +171,7 @@ const ImportExperimentList: FC<{
             last updated {ago(data.experiments.runStarted ?? "")}
           </div>
         </div>
-        {permissions.check("runQueries", "") && (
+        {!permissions.check("runQueries", project || "") && (
           <div className="col-auto">
             <form
               onSubmit={async (e) => {
