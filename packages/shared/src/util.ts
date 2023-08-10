@@ -46,7 +46,8 @@ export function experimentHasLinkedChanges(
 }
 
 export function includeExperimentInPayload(
-  exp: ExperimentInterface | ExperimentInterfaceStringDates
+  exp: ExperimentInterface | ExperimentInterfaceStringDates,
+  linkedFeatures: FeatureInterface[] = []
 ): boolean {
   // Archived experiments are always excluded
   if (exp.archived) return false;
@@ -62,6 +63,28 @@ export function includeExperimentInPayload(
   if (exp.status === "stopped") {
     if (exp.excludeFromPayload) return false;
     if (!exp.releasedVariationId) return false;
+  }
+
+  // If there are only linked features, make sure the rules/envs are published
+  if (linkedFeatures.length > 0 && !exp.hasVisualChangesets) {
+    const hasFeaturesWithPublishedRules = linkedFeatures.some((feature) => {
+      if (feature.archived) return false;
+      const rules = getMatchingRules(
+        feature,
+        (r) => r.type === "experiment-ref" && r.experimentId === exp.id,
+        Object.keys(feature.environmentSettings)
+      );
+      return rules.some((r) => {
+        if (r.draft) return false;
+        if (!r.environmentEnabled) return false;
+        if (r.rule.enabled === false) return false;
+        return true;
+      });
+    });
+
+    if (!hasFeaturesWithPublishedRules) {
+      return false;
+    }
   }
 
   return true;

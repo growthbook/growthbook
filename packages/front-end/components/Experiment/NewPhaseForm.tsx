@@ -4,6 +4,7 @@ import {
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
+import { v4 as uuidv4 } from "uuid";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { getEqualWeights } from "@/services/utils";
@@ -12,6 +13,9 @@ import Field from "../Forms/Field";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 import ConditionInput from "../Features/ConditionInput";
 import NamespaceSelector from "../Features/NamespaceSelector";
+import Toggle from "../Forms/Toggle";
+import Tooltip from "../Tooltip/Tooltip";
+import { NewBucketingSDKList } from "./HashVersionSelector";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -25,7 +29,7 @@ const NewPhaseForm: FC<{
   const prevPhase: Partial<ExperimentPhaseStringDates> =
     experiment.phases[experiment.phases.length - 1] || {};
 
-  const form = useForm<ExperimentPhaseStringDates>({
+  const form = useForm<ExperimentPhaseStringDates & { reseed: boolean }>({
     defaultValues: {
       name: prevPhase.name || "Main",
       coverage: prevPhase.coverage || 1,
@@ -40,6 +44,7 @@ const NewPhaseForm: FC<{
         name: "",
         range: [0, 0.5],
       },
+      reseed: firstPhase ? false : true,
     },
   });
 
@@ -57,15 +62,19 @@ const NewPhaseForm: FC<{
   const submit = form.handleSubmit(async (value) => {
     if (!isValid) throw new Error("Variation weights must sum to 1");
 
-    const body = {
-      ...value,
-    };
+    const { reseed, ...phase } = value;
+
+    if (reseed) {
+      phase.seed = uuidv4();
+    } else {
+      phase.seed = prevPhase?.seed || "";
+    }
 
     await apiCall<{ status: number; message?: string }>(
       `/experiment/${experiment.id}/phase`,
       {
         method: "POST",
-        body: JSON.stringify(body),
+        body: JSON.stringify(phase),
       }
     );
     mutate();
@@ -85,8 +94,8 @@ const NewPhaseForm: FC<{
       closeCta="Cancel"
       size="lg"
     >
-      {hasLinkedChanges && (
-        <div className="alert alert-danger">
+      {hasLinkedChanges && experiment.status !== "stopped" && (
+        <div className="alert alert-warning">
           <strong>Warning:</strong> Starting a new phase will immediately affect
           all linked Feature Flags and Visual Changes.
         </div>
@@ -99,23 +108,21 @@ const NewPhaseForm: FC<{
           {...form.register("name")}
         />
       </div>
-      <div className="row">
-        {!firstPhase && (
-          <Field
-            containerClassName="col-12"
-            label="Reason for Starting New Phase"
-            textarea
-            {...form.register("reason")}
-            placeholder="(optional)"
-          />
-        )}
+      {!firstPhase && (
         <Field
-          containerClassName="col-12"
+          label="Reason for Starting New Phase"
+          textarea
+          {...form.register("reason")}
+          placeholder="(optional)"
+        />
+      )}
+      {!hasLinkedChanges && (
+        <Field
           label="Start Time (UTC)"
           type="datetime-local"
           {...form.register("dateStarted")}
         />
-      </div>
+      )}
 
       <ConditionInput
         defaultValue={form.watch("condition")}
@@ -148,6 +155,39 @@ const NewPhaseForm: FC<{
         featureId={experiment.trackingKey}
         trackingKey={experiment.trackingKey}
       />
+
+      {!firstPhase && (
+        <div className="form-group">
+          <Toggle
+            id="reseed-traffic"
+            value={form.watch("reseed")}
+            setValue={(reseed) => form.setValue("reseed", reseed)}
+          />{" "}
+          <label htmlFor="reseed-traffic" className="text-dark">
+            Re-randomize Traffic
+          </label>{" "}
+          <span className="badge badge-purple badge-pill ml-3">
+            recommended
+          </span>
+          <small className="form-text text-muted">
+            Removes carryover bias. Returning visitors will be re-bucketed and
+            may start seeing a different variation from before. Only supported
+            in{" "}
+            <Tooltip
+              body={
+                <>
+                  Only supported in the following SDKs:
+                  <NewBucketingSDKList />
+                  Unsupported SDKs and versions will simply ignore this setting
+                  and continue with the previous randomization.
+                </>
+              }
+            >
+              <span className="text-primary">some SDKs</span>
+            </Tooltip>
+          </small>
+        </div>
+      )}
     </Modal>
   );
 };
