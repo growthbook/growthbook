@@ -453,6 +453,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 selected={form.watch("metrics") ?? []}
                 onChange={(metrics) => form.setValue("metrics", metrics)}
                 datasource={datasource?.id}
+                project={project}
               />
             </div>
             <div className="form-group">
@@ -465,6 +466,7 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
                 selected={form.watch("guardrails") ?? []}
                 onChange={(metrics) => form.setValue("guardrails", metrics)}
                 datasource={datasource?.id}
+                project={project}
               />
             </div>
           </div>
