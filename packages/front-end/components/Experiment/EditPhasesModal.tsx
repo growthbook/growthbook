@@ -23,6 +23,8 @@ export default function EditPhasesModal({
   const isDraft = experiment.status === "draft";
   const isMultiPhase = experiment.phases.length > 1;
   const hasStoppedPhases = experiment.phases.some((p) => p.dateEnded);
+  const hasLinkedChanges =
+    !!experiment.linkedFeatures?.length || experiment.hasVisualChangesets;
 
   const [editPhase, setEditPhase] = useState<number | null>(
     isDraft && !isMultiPhase ? 0 : null
@@ -70,6 +72,12 @@ export default function EditPhasesModal({
       size="lg"
       closeCta="Close"
     >
+      {!isDraft && hasLinkedChanges && (
+        <div className="alert alert-danger">
+          <strong>Warning:</strong> Editing phases will immediately affect all
+          linked Feature Flags and Visual Changes.
+        </div>
+      )}
       <table className="table gbtable mb-2">
         <thead>
           <tr>
