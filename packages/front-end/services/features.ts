@@ -49,6 +49,7 @@ export interface AttributeData {
 export type NewExperimentRefRule = {
   type: "experiment-ref-new";
   name: string;
+  autoStart: boolean;
 } & Omit<ExperimentRule, "type">;
 
 export function validateFeatureValue(
@@ -542,6 +543,7 @@ export function getDefaultRuleValue({
       type: "experiment-ref-new",
       description: "",
       name: "",
+      autoStart: true,
       id: "",
       condition: "",
       enabled: true,

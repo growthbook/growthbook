@@ -10,7 +10,8 @@ import { date } from "shared/dates";
 import uniqId from "uniqid";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { getMatchingRules } from "shared/util";
-import { FaBell } from "react-icons/fa";
+import { FaBell, FaExternalLinkAlt } from "react-icons/fa";
+import Link from "next/link";
 import {
   NewExperimentRefRule,
   generateVariationId,
@@ -33,6 +34,7 @@ import { useAuth } from "../../services/auth";
 import SelectField from "../Forms/SelectField";
 import UpgradeModal from "../Settings/UpgradeModal";
 import StatusIndicator from "../Experiment/StatusIndicator";
+import Toggle from "../Forms/Toggle";
 import RolloutPercentInput from "./RolloutPercentInput";
 import ConditionInput from "./ConditionInput";
 import FeatureValueField from "./FeatureValueField";
@@ -250,7 +252,7 @@ export default function RuleModal({
               name: values.name,
               hashVersion: 2,
               owner: "",
-              status: "draft",
+              status: values.autoStart ? "running" : "draft",
               tags: feature.tags || [],
               trackingKey: values.trackingKey || feature.id,
               description: values.description,
@@ -312,7 +314,16 @@ export default function RuleModal({
               id: values.id,
               condition: "",
               enabled: values.enabled ?? true,
-              scheduleRules: values.scheduleRules,
+              scheduleRules: [
+                {
+                  enabled: true,
+                  timestamp: null,
+                },
+                {
+                  enabled: false,
+                  timestamp: null,
+                },
+              ],
               variations: values.values.map((v, i) => ({
                 value: v.value,
                 variationId: res.experiment.variations[i]?.id || "",
@@ -480,6 +491,16 @@ export default function RuleModal({
               </div>
             </div>
           )}
+          {selectedExperiment && rules[i] && (
+            <div className="alert alert-info">
+              <Link href={`/experiment/${selectedExperiment.id}`}>
+                <a className="alert-link">
+                  View the Experiment <FaExternalLinkAlt />
+                </a>
+              </Link>{" "}
+              to make changes to assignment or targeting conditions.
+            </div>
+          )}
           {selectedExperiment && (
             <div className="form-group">
               <label>Variation Values</label>
@@ -609,13 +630,33 @@ export default function RuleModal({
           )}
         </div>
       )}
-      <ScheduleInputs
-        defaultValue={defaultValues.scheduleRules || []}
-        onChange={(value) => form.setValue("scheduleRules", value)}
-        scheduleToggleEnabled={scheduleToggleEnabled}
-        setScheduleToggleEnabled={setScheduleToggleEnabled}
-        setShowUpgradeModal={setShowUpgradeModal}
-      />
+      {type !== "experiment-ref-new" ? (
+        <ScheduleInputs
+          defaultValue={defaultValues.scheduleRules || []}
+          onChange={(value) => form.setValue("scheduleRules", value)}
+          scheduleToggleEnabled={scheduleToggleEnabled}
+          setScheduleToggleEnabled={setScheduleToggleEnabled}
+          setShowUpgradeModal={setShowUpgradeModal}
+        />
+      ) : (
+        <div className="mt-3">
+          <Toggle
+            value={form.watch("autoStart")}
+            setValue={(v) => form.setValue("autoStart", v)}
+            id="auto-start-new-experiment"
+          />{" "}
+          <label htmlFor="auto-start-new-experiment" className="text-dark">
+            Start Experiment Immediately
+          </label>
+          <div>
+            <small className="form-text text-muted">
+              If On, the experiment will start serving traffic as soon as the
+              feature is published. Leave Off if you want to make additional
+              changes before starting.
+            </small>
+          </div>
+        </div>
+      )}
     </Modal>
   );
 }
