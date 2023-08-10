@@ -312,14 +312,12 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       envs?: string[]
     ): boolean => {
       let checkProjects: (string | undefined)[];
-      console.log("project", projects);
       if (Array.isArray(projects)) {
         checkProjects = projects.length > 0 ? projects : [undefined];
       } else {
         checkProjects = [projects];
       }
       for (const p of checkProjects) {
-        console.log("p", p);
         if (!hasPermission(user?.userPermissions, permission, p, envs)) {
           return false;
         }
