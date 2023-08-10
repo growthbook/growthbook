@@ -477,7 +477,10 @@ export default function SinglePage({
   const numLinkedChanges = visualChangesets.length + linkedFeatures.length;
 
   const hasActualLinkedChanges =
-    visualChangesets.length > 0 || !!experiment.linkedFeatures?.length;
+    visualChangesets.length > 0 ||
+    linkedFeatures.some(({ rules }) =>
+      rules.some((r) => !r.draft && r.rule.type === "experiment-ref")
+    );
 
   // Get name or email of all active users watching this experiment
   const usersWatching = (watcherIds?.data?.userIds || [])
@@ -1034,6 +1037,10 @@ export default function SinglePage({
             <HeaderWithEdit
               edit={safeToEdit && editTargeting ? editTargeting : undefined}
               containerClassName="mb-2"
+              disabledMessage={
+                !safeToEdit &&
+                "Cannot edit targeting settings while the experiment is running."
+              }
             >
               Targeting
             </HeaderWithEdit>
@@ -1113,8 +1120,11 @@ export default function SinglePage({
 
           <HeaderWithEdit
             edit={editVariations && safeToEdit ? editVariations : undefined}
-            className="h3 mb-2"
-            containerClassName="mx-4 mb-1"
+            containerClassName="mx-4 mb-2"
+            disabledMessage={
+              !safeToEdit &&
+              "Cannot edit variations while the experiment is running."
+            }
           >
             Variations
           </HeaderWithEdit>
