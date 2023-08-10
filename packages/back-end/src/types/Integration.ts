@@ -94,6 +94,14 @@ export type ExperimentMetricQueryParams = {
   denominatorMetrics: MetricInterface[];
   dimension: Dimension | null;
   segment: SegmentInterface | null;
+  unitsTableName?: string;
+};
+
+export type ExperimentUnitsQueryParams = {
+  settings: ExperimentSnapshotSettings;
+  dimension: Dimension | null;
+  segment: SegmentInterface | null;
+  unitsTableName: string;
 };
 
 export type PastExperimentParams = {
@@ -187,6 +195,10 @@ export type ExperimentMetricQueryResponse = {
   covariate_sum?: number;
   covariate_sum_squares?: number;
   main_covariate_sum_product?: number;
+}[];
+export type ExperimentUnitsQueryResponse = {
+  dimension: string;
+  // TODO
 }[];
 export interface SourceIntegrationConstructor {
   new (
@@ -308,11 +320,14 @@ export interface SourceIntegrationInterface {
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
+  getExperimentMetricFromTempQuery(params: ExperimentMetricQueryParams): string;
+  getExperimentUnitsQuery(params: ExperimentUnitsQueryParams): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
   runMetricValueQuery(query: string): Promise<MetricValueQueryResponse>;
   runExperimentMetricQuery(
     query: string
   ): Promise<ExperimentMetricQueryResponse>;
+  runExperimentUnitsQuery(query: string): Promise<ExperimentUnitsQueryResponse>;
   runPastExperimentQuery(query: string): Promise<PastExperimentResponse>;
   getEventsTrackedByDatasource?: (
     schemaFormat: SchemaFormat,

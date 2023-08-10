@@ -35,6 +35,7 @@ export type ExperimentResultsQueryParams = {
   analysisSettings: ExperimentSnapshotAnalysisSettings;
   variationNames: string[];
   metricMap: Map<string, MetricInterface>;
+  queryParentId: string;
 };
 
 export const startExperimentResultQueries = async (
@@ -52,6 +53,7 @@ export const startExperimentResultQueries = async (
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
   const snapshotSettings = params.snapshotSettings;
+  const queryParentId = params.queryParentId;
   const metricMap = params.metricMap;
 
   const activationMetrics: MetricInterface[] = [];
@@ -87,6 +89,11 @@ export const startExperimentResultQueries = async (
 
   const queries: Queries = [];
 
+  // TODO fix with proper prefix from SourceIntegrationInterface
+  const unitsTableName = `sample.${queryParentId}`;
+  // TODO reliably learn whether we will depend on existing table
+  const useUnitsTable = true; // again set it in SourceIntegrationInterface?
+
   const promises = selectedMetrics.map(async (m) => {
     const denominatorMetrics: MetricInterface[] = [];
     if (m.denominator) {
@@ -103,11 +110,14 @@ export const startExperimentResultQueries = async (
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
+      unitsTableName: unitsTableName,
     };
     queries.push(
       await startQuery(
         m.id,
-        integration.getExperimentMetricQuery(params),
+        useUnitsTable
+          ? integration.getExperimentMetricFromTempQuery(params)
+          : integration.getExperimentMetricQuery(params),
         (query) => integration.runExperimentMetricQuery(query),
         (rows) => rows
       )
