@@ -632,19 +632,19 @@ export default abstract class SqlIntegration
     // Note: the aliases below are needed for clickhouse
     return `
       SELECT
-        initial.${baseIdType},
+        initial.${baseIdType} AS ${baseIdType},
         ${
           isRegressionAdjusted
             ? `
-          initial.preexposure_start,
-          initial.preexposure_end,`
+          MIN(initial.preexposure_start) AS preexposure_start,
+          MIN(initial.preexposure_end) AS preexposure_end,`
             : ""
         }
-        t${metrics.length - 1}.conversion_start as conversion_start
+        MIN(t${metrics.length - 1}.conversion_start) AS conversion_start
         ${
           ignoreConversionEnd
             ? ""
-            : `, t${metrics.length - 1}.conversion_end as conversion_end`
+            : `, MIN(t${metrics.length - 1}.conversion_end) AS conversion_end`
         }
       FROM
         ${initialTable} initial
@@ -670,7 +670,9 @@ export default abstract class SqlIntegration
                   : `AND ${alias}.timestamp <= ${prevAlias}.conversion_end`
               }`;
           })
-          .join("\n AND ")}`;
+          .join("\n AND ")}
+      GROUP BY
+        initial.${baseIdType}`;
   }
 
   private getDimensionColumn(baseIdType: string, dimension: Dimension | null) {
@@ -1178,31 +1180,31 @@ export default abstract class SqlIntegration
         -- One row per user
         SELECT
           e.${baseIdType} as ${baseIdType},
-          MIN(e.dimension) as dimension,
-          MIN(e.variation) as variation,
-          MIN(${this.dateTrunc(
+          e.dimension as dimension,
+          e.variation as variation,
+          ${this.dateTrunc(
             "e.first_exposure_timestamp"
-          )}) as first_exposure_date,
+          )} as first_exposure_date,
           ${
             isRegressionAdjusted
-              ? `MIN(e.preexposure_start) AS preexposure_start,
-                 MIN(e.preexposure_end) AS preexposure_end,`
+              ? `e.preexposure_start AS preexposure_start,
+                 e.preexposure_end AS preexposure_end,`
               : ""
           }
-          MIN(${this.getMetricConversionBase(
+          ${this.getMetricConversionBase(
             "conversion_start",
             denominatorMetrics.length > 0,
             activationMetrics.length > 0 && dimension?.type !== "activation"
-          )}) as conversion_start
+          )} as conversion_start
           ${
             ignoreConversionEnd
               ? ""
-              : `, MIN(${this.getMetricConversionBase(
+              : `, ${this.getMetricConversionBase(
                   "conversion_end",
                   denominatorMetrics.length > 0,
                   activationMetrics.length > 0 &&
                     dimension?.type !== "activation"
-                )}) as conversion_end`
+                )} as conversion_end`
           }
         FROM
           __experiment e
@@ -1221,8 +1223,6 @@ export default abstract class SqlIntegration
               ? `JOIN __denominatorUsers du ON (du.${baseIdType} = e.${baseIdType})`
               : ""
           }
-        GROUP BY
-          e.${baseIdType}
       )
       ${
         cumulativeDate
