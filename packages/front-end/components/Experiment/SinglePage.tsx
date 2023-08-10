@@ -1128,7 +1128,7 @@ export default function SinglePage({
 
           <div className="mx-4 pb-3">
             {numLinkedChanges === 0 && experiment.status !== "draft" ? (
-              <div className="alert alert-info">
+              <div className="alert bg-light border">
                 This experiment has no feature flag or visual editor changes
                 which are managed within the GrowthBook app. Changes are likely
                 implemented manually.
