@@ -1256,7 +1256,7 @@ export default function SinglePage({
       <a id="config" style={{ position: "relative", top: -70 }}></a>
       <a id="results" style={{ position: "relative", top: -70 }}></a>
 
-      { resultsTab === "results" && experiment.status !== "draft" ? (
+      {resultsTab === "results" && experiment.status !== "draft" ? (
         <div
           className="alert-secondary px-4 py-2 text-center float-right rounded small"
           style={{ maxWidth: "calc(100% - 340px)" }}
@@ -1278,7 +1278,7 @@ export default function SinglePage({
               : "Try the new experiment results view?"}
           </a>
         </div>
-      ): null}
+      ) : null}
       <ControlledTabs
         newStyle={true}
         className="mt-3 mb-4"
@@ -1292,7 +1292,6 @@ export default function SinglePage({
         setActive={(tab: ResultsTab) => setResultsTab(tab ?? "results")}
         active={resultsTab}
       >
-
         <Tab id="results" display="Results" padding={false}>
           <div className="mb-2" style={{ overflowX: "initial" }}>
             {!experimentHasPhases ? (

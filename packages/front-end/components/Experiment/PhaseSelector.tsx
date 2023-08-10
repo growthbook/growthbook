@@ -56,11 +56,7 @@ export default function PhaseSelector({
         setPhase(parseInt(value) || 0);
       }}
       sort={false}
-      label={
-        header !== undefined
-        ? header
-        : (newUi ? undefined : "Phase")
-      }
+      label={header !== undefined ? header : newUi ? undefined : "Phase"}
       labelClassName="mr-2"
       className={newUi ? "phase-selector-clean" : undefined}
       isSearchable={false}
