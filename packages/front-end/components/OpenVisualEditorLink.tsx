@@ -164,9 +164,9 @@ const OpenVisualEditorLink: FC<{
     if (!url) return;
 
     const onMessage = (
-      event: MessageEvent<{ type?: "GB_RESPONSE_OPEN_VISUAL_EDITOR" }>
+      event: MessageEvent<{ type?: "GB_RESPONSE_OPEN_VISUAL_EDITOR" } | null>
     ) => {
-      if (event.data.type === "GB_RESPONSE_OPEN_VISUAL_EDITOR") {
+      if (event.data?.type === "GB_RESPONSE_OPEN_VISUAL_EDITOR") {
         track("Open visual editor", {
           source: "visual-editor-ui",
           status: "success",
