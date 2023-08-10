@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useState } from "react";
 import { SavedGroupInterface } from "back-end/types/saved-group";
 import { useForm } from "react-hook-form";
 import { useAuth } from "../services/auth";
@@ -8,6 +8,7 @@ import { useDefinitions } from "../services/DefinitionsContext";
 import Modal from "./Modal";
 import Field from "./Forms/Field";
 import SelectField from "./Forms/SelectField";
+import StringArrayField from "./Forms/StringArrayField";
 
 const SavedGroupForm: FC<{
   close: () => void;
@@ -20,12 +21,15 @@ const SavedGroupForm: FC<{
 
   const { mutateDefinitions } = useDefinitions();
 
+  const [rawTextMode, setRawTextMode] = useState(false);
+  const [rawText, setRawText] = useState(current.values?.join(", ") || "");
+
   const form = useForm({
     defaultValues: {
       groupName: current.groupName || "",
       owner: current.owner || "",
       attributeKey: current.attributeKey || "",
-      groupList: current.values?.join(", ") || "",
+      groupList: current.values || [],
       id: current.id || "",
     },
   });
@@ -75,14 +79,44 @@ const SavedGroupForm: FC<{
         }))}
         helpText={current.attributeKey && "This field can not be edited."}
       />
-      <Field
-        label="Create list of comma separated values"
-        required
-        textarea
-        {...form.register("groupList")}
-      />
+      {rawTextMode ? (
+        <Field
+          containerClassName="mb-0"
+          label="Create list of comma separated values"
+          required
+          textarea
+          value={rawText}
+          onChange={(e) => {
+            setRawText(e.target.value);
+            form.setValue("groupList", e.target.value.trim().split(","));
+          }}
+        />
+      ) : (
+        <StringArrayField
+          containerClassName="mb-0"
+          label="Create list of values"
+          value={form.watch("groupList")}
+          onChange={(values) => {
+            form.setValue("groupList", values);
+            setRawText(values.join(", "));
+          }}
+          placeholder="Enter some values..."
+          delimiters={["Enter", "Tab"]}
+        />
+      )}
+      <a
+        className="d-flex flex-column align-items-end"
+        href="#"
+        style={{ fontSize: "0.8em" }}
+        onClick={(e) => {
+          e.preventDefault();
+          setRawTextMode((prev) => !prev);
+        }}
+      >
+        Switch to {rawTextMode ? "token" : "raw text"} mode
+      </a>
       {current.id && (
-        <div className="alert alert-warning">
+        <div className="alert alert-warning mt-2">
           <b>Warning:</b> Updating this group will automatically update any
           feature that has an override rule that uses this group.
         </div>

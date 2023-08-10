@@ -12,10 +12,21 @@ import {
 } from "../../services/organizations";
 import { IS_CLOUD } from "../../util/secrets";
 import { UserModel } from "../../models/UserModel";
-import { WatchModel } from "../../models/WatchModel";
+import {
+  deleteWatchedByEntity,
+  getWatchedByUser,
+  upsertWatch,
+} from "../../models/WatchModel";
 import { getFeature } from "../../models/FeatureModel";
-import { ensureWatching } from "../../services/experiments";
 import { getExperimentById } from "../../models/ExperimentModel";
+
+function isValidWatchEntityType(type: string): boolean {
+  if (type === "experiment" || type === "feature") {
+    return true;
+  } else {
+    return false;
+  }
+}
 
 export async function getUser(req: AuthRequest, res: Response) {
   // If using SSO, auto-create users in Mongo who we don't recognize yet
@@ -107,10 +118,7 @@ export async function putUserName(
 export async function getWatchedItems(req: AuthRequest, res: Response) {
   const { org, userId } = getOrgFromReq(req);
   try {
-    const watch = await WatchModel.findOne({
-      userId: userId,
-      organization: org.id,
-    });
+    const watch = await getWatchedByUser(org.id, userId);
     res.status(200).json({
       status: 200,
       experiments: watch?.experiments || [],
@@ -132,6 +140,14 @@ export async function postWatchItem(
   const { type, id } = req.params;
   let item;
 
+  if (!isValidWatchEntityType(type)) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "Invalid entity type. Type must be either experiment or feature.",
+    });
+  }
+
   if (type === "feature") {
     item = await getFeature(org.id, id);
   } else if (type === "experiment") {
@@ -147,11 +163,13 @@ export async function postWatchItem(
   if (!item) {
     throw new Error(`Could not find ${item}`);
   }
-  if (type == "feature") {
-    await ensureWatching(userId, org.id, id, "features");
-  } else {
-    await ensureWatching(userId, org.id, id, "experiments");
-  }
+
+  await upsertWatch({
+    userId,
+    organization: org.id,
+    item: id,
+    type: type === "experiment" ? "experiments" : "features", // Pluralizes entity type for the Watch model,
+  });
 
   return res.status(200).json({
     status: 200,
@@ -164,20 +182,22 @@ export async function postUnwatchItem(
 ) {
   const { org, userId } = getOrgFromReq(req);
   const { type, id } = req.params;
-  const pluralType = type + "s";
+
+  if (!isValidWatchEntityType(type)) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "Invalid entity type. Type must be either experiment or feature.",
+    });
+  }
 
   try {
-    await WatchModel.updateOne(
-      {
-        userId: userId,
-        organization: org.id,
-      },
-      {
-        $pull: {
-          [pluralType]: id,
-        },
-      }
-    );
+    await deleteWatchedByEntity({
+      organization: org.id,
+      userId,
+      type: type === "experiment" ? "experiments" : "features", // Pluralizes entity type for the Watch model
+      item: id,
+    });
 
     return res.status(200).json({
       status: 200,

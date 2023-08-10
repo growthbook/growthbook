@@ -114,6 +114,9 @@ tags:
   - name: FeatureEnvironment_model
     x-displayName: FeatureEnvironment
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureEnvironment" />
+  - name: FeatureExperimentRefRule_model
+    x-displayName: FeatureExperimentRefRule
+    description: <SchemaDefinition schemaRef="#/components/schemas/FeatureExperimentRefRule" />
   - name: FeatureExperimentRule_model
     x-displayName: FeatureExperimentRule
     description: <SchemaDefinition schemaRef="#/components/schemas/FeatureExperimentRule" />
@@ -633,6 +636,11 @@ paths:
                   type: boolean
                 hashAttribute:
                   type: string
+                hashVersion:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
@@ -823,6 +831,11 @@ paths:
                   type: boolean
                 hashAttribute:
                   type: string
+                hashVersion:
+                  type: number
+                  enum:
+                    - 1
+                    - 2
                 releasedVariationId:
                   type: string
                 excludeFromPayload:
@@ -2177,6 +2190,7 @@ components:
         - $ref: '#/components/schemas/FeatureForceRule'
         - $ref: '#/components/schemas/FeatureRolloutRule'
         - $ref: '#/components/schemas/FeatureExperimentRule'
+        - $ref: '#/components/schemas/FeatureExperimentRefRule'
     FeatureDefinition:
       type: object
       required:
@@ -2336,6 +2350,40 @@ components:
                 type: number
               name:
                 type: string
+    FeatureExperimentRefRule:
+      type: object
+      required:
+        - description
+        - id
+        - enabled
+        - type
+        - variations
+        - experimentId
+      properties:
+        description:
+          type: string
+        id:
+          type: string
+        enabled:
+          type: boolean
+        type:
+          type: string
+        condition:
+          type: string
+        variations:
+          type: array
+          items:
+            type: object
+            required:
+              - value
+              - variationId
+            properties:
+              value:
+                type: string
+              variationId:
+                type: string
+        experimentId:
+          type: string
     SdkConnection:
       type: object
       required:
@@ -2404,6 +2452,7 @@ components:
         - hypothesis
         - description
         - hashAttribute
+        - hashVersion
         - tags
         - owner
         - archived
@@ -2443,6 +2492,11 @@ components:
           type: boolean
         hashAttribute:
           type: string
+        hashVersion:
+          type: number
+          enum:
+            - 1
+            - 2
         variations:
           type: array
           items:
@@ -3024,6 +3078,7 @@ x-tagGroups:
       - Feature_model
       - FeatureDefinition_model
       - FeatureEnvironment_model
+      - FeatureExperimentRefRule_model
       - FeatureExperimentRule_model
       - FeatureForceRule_model
       - FeatureRolloutRule_model
