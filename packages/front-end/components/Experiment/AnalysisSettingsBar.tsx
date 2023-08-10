@@ -297,30 +297,26 @@ export default function AnalysisSettingsBar({
               ) : (
                 <div
                   className="text-muted"
-                  style={{ width: 100, fontSize: "0.8em" }}
+                  style={{ maxWidth: 130, fontSize: "0.8em" }}
                 >
                   <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
                     last updated
                   </div>
-                  <div
-                    className="d-inline-block"
-                    style={{ lineHeight: 1 }}
-                    title={datetime(snapshot?.dateCreated ?? "")}
-                  >
-                    {ago(snapshot?.dateCreated ?? "")}
-                  </div>
-                  {status === "partially-succeeded" && (
-                    <Tooltip
-                      body={
-                        <div className="text-left">
-                          Some of the queries had an error. The partial results
-                          are displayed below
-                        </div>
-                      }
+                  <div className="d-flex align-items-center">
+                    <div
+                      style={{ lineHeight: 1 }}
+                      title={datetime(snapshot?.dateCreated ?? "")}
                     >
-                      <FaExclamationTriangle className="text-danger ml-1" />
-                    </Tooltip>
-                  )}
+                      {ago(snapshot?.dateCreated ?? "")}
+                    </div>
+                    {status === "partially-succeeded" && (
+                      <div>
+                        <Tooltip body="Some of the queries had an error. The partial results are displayed below">
+                          <FaExclamationTriangle className="text-danger ml-1" />
+                        </Tooltip>
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
           </div>
