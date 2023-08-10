@@ -104,18 +104,22 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const hasHashAttributes =
     attributeSchema.filter((x) => x.hashAttribute).length > 0;
 
+  const initialDatasource =
+    initialValue?.datasource ||
+    (settings.defaultDataSource
+      ? settings.defaultDataSource
+      : datasources?.[0]?.id) ||
+    "";
+
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
       project: initialValue?.project || project || "",
       trackingKey: initialValue?.trackingKey || "",
-      datasource:
-        initialValue?.datasource || settings.defaultDataSource
-          ? settings.defaultDataSource
-          : datasources?.[0]?.id || "",
+      datasource: initialDatasource,
       exposureQueryId:
         getExposureQuery(
-          initialValue?.datasource
-            ? getDatasourceById(initialValue.datasource)?.settings
+          initialDatasource
+            ? getDatasourceById(initialDatasource)?.settings
             : undefined,
           initialValue?.exposureQueryId,
           initialValue?.userIdType
