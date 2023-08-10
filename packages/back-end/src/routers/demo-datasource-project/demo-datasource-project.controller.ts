@@ -47,7 +47,7 @@ const DEMO_DATASOURCE_PARAMS: PostgresConnectionParams = {
   database: "growthbook",
   password: "WnGeRgTPwEu4",
   port: 5432,
-  ssl: false,
+  ssl: true,
   defaultSchema: "sample",
 };
 
