@@ -44,12 +44,8 @@ export type TooltipHoverSettings = {
   offsetY?: number;
   targetClassName?: string;
 };
-export type LayoutX =
-  | "mouse-left"
-  | "mouse-right"
-  | "element-center"
-  | "element-left"
-  | "element-right";
+export type LayoutX = "element-center" | "element-left" | "element-right";
+export type YAlign = "top" | "bottom";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -70,7 +66,7 @@ export interface TooltipData {
   pValueCorrection?: PValueCorrection;
   isGuardrail: boolean;
   layoutX: LayoutX;
-  yAlign: "top" | "bottom";
+  yAlign: YAlign;
 }
 
 interface Props
@@ -175,9 +171,9 @@ export default function ResultsTableTooltip({
   }
 
   const arrowLeft =
-    data.layoutX === "mouse-left" || data.layoutX === "element-right"
+    data.layoutX === "element-right"
       ? "3%"
-      : data.layoutX === "mouse-right" || data.layoutX === "element-left"
+      : data.layoutX === "element-left"
       ? "97%"
       : data.layoutX === "element-center"
       ? "50%"

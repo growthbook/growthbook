@@ -1048,68 +1048,71 @@ export default function SinglePage({
               <div className="row">
                 <div className="col">
                   <table className="table table-sm w-auto">
-                    <tr>
-                      <th>
-                        Experiment Key{" "}
-                        <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
-                      </th>
-                      <td>{experiment.trackingKey}</td>
-                    </tr>
-                    <tr>
-                      <th className="pr-5">
-                        Assignment Attribute{" "}
-                        <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
-                          <MdInfoOutline className="text-info" />
-                        </Tooltip>
-                      </th>
-                      <td>
-                        {experiment.hashAttribute || "id"}{" "}
-                        {
-                          <HashVersionTooltip>
-                            <small className="text-muted ml-1">
-                              (V{experiment.hashVersion || 2} hashing)
-                            </small>
-                          </HashVersionTooltip>
-                        }
-                      </td>
-                    </tr>
-                    <tr>
-                      <th>Targeting Conditions</th>
-                      <td>
-                        {lastPhase.condition && lastPhase.condition !== "{}" ? (
-                          <ConditionDisplay condition={lastPhase.condition} />
-                        ) : (
-                          <em>No conditions</em>
-                        )}
-                      </td>
-                    </tr>
-                    <tr>
-                      <th>Traffic</th>
-                      <td>
-                        {Math.floor(lastPhase.coverage * 100)}% included,{" "}
-                        {formatTrafficSplit(lastPhase.variationWeights)} split
-                      </td>
-                    </tr>
-                    <tr>
-                      <th>
-                        Namespace{" "}
-                        <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration -> Namespaces">
-                          <MdInfoOutline className="text-info" />
-                        </Tooltip>
-                      </th>
-                      <td>
-                        {hasNamespace ? (
-                          <>
-                            {lastPhase.namespace.name}{" "}
-                            <span className="text-muted">
-                              ({percentFormatter.format(namespaceRange)})
-                            </span>
-                          </>
-                        ) : (
-                          <em>Global (all users)</em>
-                        )}
-                      </td>
-                    </tr>
+                    <tbody>
+                      <tr>
+                        <th>
+                          Experiment Key{" "}
+                          <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
+                        </th>
+                        <td>{experiment.trackingKey}</td>
+                      </tr>
+                      <tr>
+                        <th className="pr-5">
+                          Assignment Attribute{" "}
+                          <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
+                            <MdInfoOutline className="text-info" />
+                          </Tooltip>
+                        </th>
+                        <td>
+                          {experiment.hashAttribute || "id"}{" "}
+                          {
+                            <HashVersionTooltip>
+                              <small className="text-muted ml-1">
+                                (V{experiment.hashVersion || 2} hashing)
+                              </small>
+                            </HashVersionTooltip>
+                          }
+                        </td>
+                      </tr>
+                      <tr>
+                        <th>Targeting Conditions</th>
+                        <td>
+                          {lastPhase.condition &&
+                          lastPhase.condition !== "{}" ? (
+                            <ConditionDisplay condition={lastPhase.condition} />
+                          ) : (
+                            <em>No conditions</em>
+                          )}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th>Traffic</th>
+                        <td>
+                          {Math.floor(lastPhase.coverage * 100)}% included,{" "}
+                          {formatTrafficSplit(lastPhase.variationWeights)} split
+                        </td>
+                      </tr>
+                      <tr>
+                        <th>
+                          Namespace{" "}
+                          <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration -> Namespaces">
+                            <MdInfoOutline className="text-info" />
+                          </Tooltip>
+                        </th>
+                        <td>
+                          {hasNamespace ? (
+                            <>
+                              {lastPhase.namespace.name}{" "}
+                              <span className="text-muted">
+                                ({percentFormatter.format(namespaceRange)})
+                              </span>
+                            </>
+                          ) : (
+                            <em>Global (all users)</em>
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
                   </table>
                 </div>
               </div>

@@ -39,6 +39,7 @@ import ResultsTableTooltip, {
   TooltipData,
   TooltipHoverSettings,
   LayoutX,
+  YAlign,
 } from "@/components/Experiment/ResultsTableTooltip";
 import Tooltip from "../Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
@@ -112,10 +113,8 @@ export default function ResultsTable({
       "#main-results thead tr:first-child th:not(.graph-cell)"
     );
     let totalCellWidth = 0;
-    if (firstRowCells) {
-      for (let i = 0; i < firstRowCells.length; i++) {
-        totalCellWidth += firstRowCells[i].clientWidth;
-      }
+    for (let i = 0; i < firstRowCells.length; i++) {
+      totalCellWidth += firstRowCells[i].clientWidth;
     }
     const graphWidth = tableWidth - totalCellWidth;
     setGraphCellWidth(Math.max(graphWidth, 200));
@@ -126,12 +125,8 @@ export default function ResultsTable({
     window.addEventListener("resize", onResize, false);
     return () => window.removeEventListener("resize", onResize, false);
   }, []);
-  useLayoutEffect(() => {
-    onResize();
-  }, []);
-  useEffect(() => {
-    onResize();
-  }, [showAdvanced, isTabActive]);
+  useLayoutEffect(onResize, []);
+  useEffect(onResize, [showAdvanced, isTabActive]);
 
   const baselineRow = 0;
 
@@ -197,9 +192,6 @@ export default function ResultsTable({
 
   const noMetrics = rows.length === 0;
 
-  // todo: hasRisk toggle. minimally supported now, but should be more thoughtful
-  // todo: StatusBanner?
-
   const {
     showTooltip,
     hideTooltip,
@@ -217,8 +209,15 @@ export default function ResultsTable({
   const [hoveredX, setHoveredX] = useState<number | null>(null);
   const [hoveredY, setHoveredY] = useState<number | null>(null);
   const [hoverTimeout, setHoverTimeout] = useState<number | null>(null);
+  const clearHover = () => {
+    hideTooltip();
+    setHoveredX(null);
+    setHoveredY(null);
+    setHoveredMetricRow(null);
+    setHoveredVariationRow(null);
+  };
   const resetTimeout = () => {
-    hoverTimeout && clearTimeout(hoverTimeout);
+    if (hoverTimeout) clearTimeout(hoverTimeout);
   };
   const hoverRow = (
     metricRow: number,
@@ -234,8 +233,7 @@ export default function ResultsTable({
       closeTooltip();
       return;
     }
-
-    hoverTimeout && clearTimeout(hoverTimeout);
+    resetTimeout();
     if (
       hoveredMetricRow !== null &&
       hoveredVariationRow !== null &&
@@ -256,23 +254,19 @@ export default function ResultsTable({
           : el.closest(`.${settings.targetClassName}`)) ?? el
       : (el.tagName === "td" ? el : el.closest("td")) ?? el;
 
-    let yAlign: "top" | "bottom" = "top";
+    let yAlign: YAlign = "top";
     let targetTop: number =
       (target.getBoundingClientRect()?.top ?? 0) + 30 + offsetY;
     if (targetTop > TOOLTIP_HEIGHT + 80) {
-      targetTop -= 28 + TOOLTIP_HEIGHT - offsetY;
+      targetTop -= 29 + TOOLTIP_HEIGHT - offsetY;
       yAlign = "bottom";
     }
 
     const targetLeft: number =
-      (layoutX === "mouse-left"
-        ? event.clientX + 10
-        : layoutX === "mouse-right"
-        ? event.clientX - TOOLTIP_WIDTH - 10
-        : layoutX === "element-left"
-        ? (target.getBoundingClientRect()?.left ?? 0) - TOOLTIP_WIDTH + 5
+      (layoutX === "element-left"
+        ? (target.getBoundingClientRect()?.left ?? 0) - TOOLTIP_WIDTH + 25
         : layoutX === "element-right"
-        ? (target.getBoundingClientRect()?.right ?? 0) - 5
+        ? (target.getBoundingClientRect()?.right ?? 0) - 25
         : layoutX === "element-center"
         ? ((target.getBoundingClientRect()?.left ?? 0) +
             (target.getBoundingClientRect()?.right ?? 0)) /
@@ -301,49 +295,38 @@ export default function ResultsTable({
     const baselineVariation = variations[baselineRow];
     const rowResults = rowsResults[metricRow][variationRow];
     if (!rowResults) return;
-    const tooltipData: TooltipData = {
-      metricRow,
-      variationRow,
-      metric,
-      variation,
-      stats,
-      baseline,
-      baselineVariation,
-      baselineRow,
-      rowResults,
-      statsEngine,
-      pValueCorrection,
-      isGuardrail: !!metricsAsGuardrails,
-      layoutX,
-      yAlign,
-    };
     showTooltip({
-      tooltipData: tooltipData,
+      tooltipData: {
+        metricRow,
+        variationRow,
+        metric,
+        variation,
+        stats,
+        baseline,
+        baselineVariation,
+        baselineRow,
+        rowResults,
+        statsEngine,
+        pValueCorrection,
+        isGuardrail: !!metricsAsGuardrails,
+        layoutX,
+        yAlign,
+      },
     });
     setHoveredMetricRow(metricRow);
     setHoveredVariationRow(variationRow);
   };
   const leaveRow = () => {
-    const timeout = window.setTimeout(() => {
-      hideTooltip();
-      setHoveredX(null);
-      setHoveredY(null);
-      setHoveredMetricRow(null);
-      setHoveredVariationRow(null);
-    }, TOOLTIP_TIMEOUT);
+    const timeout = window.setTimeout(clearHover, TOOLTIP_TIMEOUT);
     setHoverTimeout(timeout);
   };
   const closeTooltip = () => {
-    hoverTimeout && clearTimeout(hoverTimeout);
-    hideTooltip();
-    setHoveredX(null);
-    setHoveredY(null);
-    setHoveredMetricRow(null);
-    setHoveredVariationRow(null);
+    resetTimeout();
+    clearHover();
   };
   useEffect(() => {
     return () => {
-      hoverTimeout && clearTimeout(hoverTimeout);
+      if (hoverTimeout) clearTimeout(hoverTimeout);
     };
   }, [hoverTimeout]);
 
@@ -367,7 +350,7 @@ export default function ResultsTable({
           left={hoveredX ?? 0}
           top={hoveredY ?? 0}
           data={tooltipData}
-          close={() => closeTooltip()}
+          close={closeTooltip}
           onPointerMove={resetTimeout}
           onClick={resetTimeout}
           onPointerLeave={leaveRow}
