@@ -44,6 +44,7 @@
     "diff": "^5.0.0",
     "diff2html": "^3.4.11",
     "dirty-json": "^0.9.2",
+    "enterprise": "0.0.1",
     "fuse.js": "^6.6.2",
     "js-yaml": "^4.1.0",
     "json-stringify-pretty-compact": "^3.0.0",
@@ -74,10 +75,10 @@
     "react-syntax-highlighter": "^15.5.0",
     "react-textarea-autosize": "^8.3.4",
     "shared": "0.0.1",
-    "enterprise": "0.0.1",
     "spectacle": "^8.3.0",
     "swr": "^0.5.4",
     "uniqid": "^5.3.0",
+    "uuid": "^9.0.0",
     "zod": "^3.20.6"
   },
   "devDependencies": {
