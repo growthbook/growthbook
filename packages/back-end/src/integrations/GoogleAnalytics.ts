@@ -327,7 +327,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
   }
 
   ensureFloat(col: string): string {
-    return col;
+    return `CAST(${col} as FLOAT64)`;
   }
 };
 export default GoogleAnalytics;
