@@ -77,7 +77,8 @@ const ExtensionDialog: FC<{
 const OpenVisualEditorLink: FC<{
   openSettings?: () => void;
   visualChangeset: VisualChangesetInterface;
-}> = ({ openSettings, visualChangeset }) => {
+  newlyCreatedChangesetId: string | null;
+}> = ({ openSettings, visualChangeset, newlyCreatedChangesetId }) => {
   const apiHost = getApiHost();
   const [errorType, setErrorType] = useState<VisualEditorError | null>(null);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
@@ -180,6 +181,16 @@ const OpenVisualEditorLink: FC<{
 
     return () => window.removeEventListener("message", onMessage);
   }, [url]);
+
+  // automatically navigate to newly created changesets
+  useEffect(() => {
+    if (
+      !newlyCreatedChangesetId ||
+      newlyCreatedChangesetId !== visualChangeset.id
+    )
+      return;
+    navigate();
+  }, [newlyCreatedChangesetId, navigate, visualChangeset.id]);
 
   return (
     <>
