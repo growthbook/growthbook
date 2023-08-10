@@ -1,49 +1,20 @@
----
-title: Data Source Configuration
-description: This document outlines how to configure data source
-sidebar_label: Data Source Configuration
-slug: /app/datasources
----
-
-# Data Source Configuration
-
-## Overview
-
-Data Sources are how GrowthBook connects to your data warehouse so that it can pull those aggregated statistics in order to compute metrics and experiment results. Each Data Source defines how to connect to your data, what version of SQL to use when querying your data, and can provide templates for what the SQL to connect to your Data Source should look like depending upon which event tracker software you use. GrowthBook works with your existing SQL data, no matter where it is located and no matter what shape or format it is in, whether you have a strongly normalized schema, a single “events” table with JSON fields, or something in between.
-
-## Supported Event Schemas
-
-When adding a new Data Source in Growthbook from /datasources page we first guide you to select what event tracker software you use, or you can choose custom if you don't use any of the popular third party event trackers that we support. Telling us which event tracker you use, gives us an idea on the likely shape of your data. This will help us generate the correct sql to extract out the aggregated statistics from your site with as little modification on your end as possible. Here is Growthbook's current list of event trackers that we support with links for more details on how to set them up with GrowthBook:
-
-- [Amplitude](/event-trackers/amplitude)
-- [CleverTap](/event-trackers/clevertap)
-- [Firebase](/event-trackers/firebase)
-- [Freshpaint](/event-trackers/freshpaint)
-- [Fullstory](/event-trackers/fullstory)
-- [Google Analytics 4 (BigQuery only)](/guide/GA4-google-analytics)
-- [Heap Analytics](/event-trackers/heap)
-- [Jitsu](/event-trackers/jitsu)
-- [Keen IO](/event-trackers/keenio)
-- [Matomo](/guide/matomo)
-- [Mixpanel](/guide/mixpanel)
-- [MParticle](/event-trackers/mparticle)
-- [RudderStack](/guide/rudderstack)
-- [Segment](/event-trackers/segment)
-- [Snowplow](/event-trackers/snowplow)
-
-If you do not use any of those you choose [Custom Data Source](/event-trackers/custom) and define some of the sql yourself.
-
 ## Configuration Settings
 
-Once you have chosen your event tracker and data source type and successfully connected, you will be given an opportunity to modify your configuration settings. For many applications Growthbook will have choosen the correct configuration settings straight out of the box based upon which event tracker you choose. In some instances you may need to tweak them slightly, or in the case of using a custom datasource, define them more explicitly.
+Once you have chosen your event tracker and data source type and successfully connected, you will be given an
+opportunity to modify your configuration settings. For many applications GrowthBook will have chosen the correct
+configuration settings straight out of the box based upon which event tracker you choose. In some instances you may need
+to tweak them slightly, or in the case of using a custom datasource, define them more explicitly.
 
 ### Identifier Types
 
-These are all of the types of identifiers you use to split traffic in an experiment and track metric conversions. Common examples are `user_id`, `anonymous_id`, `device_id`, and `ip_address`.
+These are all the types of identifiers you use to split traffic in an experiment and track metric conversions. Common
+examples are `user_id`, `anonymous_id`, `device_id`, and `ip_address`.
 
 ### Experiment Assignment Queries
 
-An experiment assignment query returns which users were part of which experiment, what variation they saw, and when they saw it. Each assignment query is tied to a single identifier type (defined above). You can also have multiple assignment queries if you store that data in different tables, for example one from your email system and one from your back-end.
+An experiment assignment query returns which users were part of which experiment, what variation they saw, and when they
+saw it. Each assignment query is tied to a single identifier type (defined above). You can also have multiple assignment
+queries if you store that data in different tables, for example one from your email system and one from your back-end.
 
 The end result of the query should return data like this:
 
@@ -171,7 +142,3 @@ Below are the data sources that currently support the Schema Browser:
 - PrestoDB (and Trino) - _Requires a Default Catalog_
 - Redshift
 - Snowflake
-
-:::note
-If you added a supported data source prior to GrowthBook v2.0, you can generate the schema manually by clicking "Data Sources" on the left-nav, selecting the data source, and then clicking the "View Schema Browser" button and following the on-screen prompt.
-:::
