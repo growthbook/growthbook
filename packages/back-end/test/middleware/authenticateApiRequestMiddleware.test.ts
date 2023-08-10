@@ -177,9 +177,9 @@ describe("REST API auth middleware", () => {
     });
 
     it("should throw an error for user API keys when the user doesn't access to all environments passed in", () => {
-      const permission: Permission = "createMetrics";
+      const permission: Permission = "runExperiments";
       const project = undefined;
-      const environments = ["production", "development"];
+      const environments = ["production", "staging"];
 
       expect(() => {
         verifyApiKeyPermission({
