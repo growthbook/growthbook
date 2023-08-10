@@ -171,7 +171,7 @@ const ImportExperimentList: FC<{
             last updated {ago(data.experiments.runStarted ?? "")}
           </div>
         </div>
-        {!permissions.check("runQueries", project || "") && (
+        {permissions.check("runQueries", project || "") && (
           <div className="col-auto">
             <form
               onSubmit={async (e) => {
