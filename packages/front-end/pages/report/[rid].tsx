@@ -571,6 +571,7 @@ export default function ReportPage() {
                         }
                         sequentialTestingEnabled={sequentialTestingEnabled}
                         showAdvanced={advancedResults}
+                        isTabActive={true}
                       />
                     </div>
                   ) : (
