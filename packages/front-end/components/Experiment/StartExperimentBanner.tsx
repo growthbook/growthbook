@@ -21,6 +21,7 @@ export function StartExperimentBanner({
   mutateExperiment,
   newPhase,
   editTargeting,
+  onStart,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: {
@@ -32,6 +33,7 @@ export function StartExperimentBanner({
   mutateExperiment: () => unknown | Promise<unknown>;
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
+  onStart: () => void;
 }) {
   const { apiCall } = useAuth();
 
@@ -182,6 +184,7 @@ export function StartExperimentBanner({
       source: "experiment-start-banner",
       action: "main CTA",
     });
+    onStart && onStart();
   }
 
   const allPassed = !checklist.some((c) => c.status === "error");
