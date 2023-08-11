@@ -102,7 +102,7 @@ const ExperimentsGetStarted = ({
               setDataSourceOpen(false);
             }}
             // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean' is not assignable to type '(source:... Remove this comment to see the full error message
-            importSampleData={
+            showImportSampleData={
               !hasDataSource &&
               allowImport &&
               !hasSampleExperiment &&

@@ -1,17 +1,16 @@
 import { FeatureInterface } from "back-end/types/feature";
 import router from "next/router";
-import React, { ReactNode, useState } from "react";
+import React, { ReactNode, useMemo, useState } from "react";
 import ReactPlayer from "react-player";
 import Link from "next/link";
 import clsx from "clsx";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { hasFileConfig } from "@/services/env";
-import track from "@/services/track";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissions from "@/hooks/usePermissions";
 import FeatureModal from "../Features/FeatureModal";
@@ -39,7 +38,6 @@ export type Task = {
 export default function GuidedGetStarted({
   features,
   experiments,
-  mutate,
 }: {
   features: FeatureInterface[];
   experiments: ExperimentInterfaceStringDates[];
@@ -53,35 +51,21 @@ export default function GuidedGetStarted({
 
   const { data: SDKData } = useSDKConnections();
 
-  const { metrics } = useDefinitions();
+  const { metrics, getProjectById } = useDefinitions();
   const settings = useOrgSettings();
-  const { datasources, mutateDefinitions } = useDefinitions();
-  const { apiCall } = useAuth();
+  const { datasources } = useDefinitions();
+  const { apiCall, orgId } = useAuth();
   const { refreshOrganization } = useUser();
-  const hasDataSource = datasources.length > 0;
-  const hasMetrics =
-    metrics.filter((m) => !m.id.match(/^met_sample/)).length > 0;
-  const hasExperiments =
-    experiments.filter((m) => !m.id.match(/^exp_sample/)).length > 0;
-  const allowImport = !(hasMetrics || hasExperiments) && !hasFileConfig();
 
-  const hasSampleExperiment = experiments.filter((m) =>
-    m.id.match(/^exp_sample/)
-  )[0];
+  const demoDataSourceProjectId: string | null = orgId
+    ? getDemoDatasourceProjectIdForOrganization(orgId)
+    : null;
+  const demoProjectExists = useMemo((): boolean => {
+    if (!demoDataSourceProjectId) return false;
+    const demoProject = getProjectById(demoDataSourceProjectId);
 
-  const importSampleData = (source: string) => async () => {
-    const res = await apiCall<{
-      experiment: string;
-    }>(`/organization/sample-data`, {
-      method: "POST",
-    });
-    await mutateDefinitions();
-    await mutate();
-    track("Add Sample Data", {
-      source,
-    });
-    await router.push("/experiment/" + res.experiment);
-  };
+    return !!demoProject;
+  }, [getProjectById, demoDataSourceProjectId]);
 
   const steps: Task[] = [
     {
@@ -267,13 +251,7 @@ export default function GuidedGetStarted({
                   Skip Step
                 </button>
               }
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean' is not assignable to type '(source:... Remove this comment to see the full error message
-              importSampleData={
-                !hasDataSource &&
-                allowImport &&
-                !hasSampleExperiment &&
-                importSampleData("datasource-form")
-              }
+              showImportSampleData={!demoProjectExists}
             />
           )}
         </>
