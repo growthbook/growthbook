@@ -44,10 +44,21 @@ interface FeatureDefinitionRule {
   weights?: number[];
   variations?: any[];
   hashAttribute?: string;
+  hashVersion?: number;
+  seed?: string;
   namespace?: [string, number, number];
   key?: string;
   coverage?: number;
   condition?: any;
+  meta?: VariationMeta[];
+  name?: string;
+  phase?: string;
+}
+
+interface VariationMeta = {
+  passthrough?: boolean;
+  key?: string;
+  name?: string;
 }
 ```
 

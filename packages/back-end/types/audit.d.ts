@@ -1,12 +1,4 @@
-export type EntityType =
-  | "experiment"
-  | "feature"
-  | "metric"
-  | "datasource"
-  | "comment"
-  | "user"
-  | "organization"
-  | "savedGroup";
+import { EntityType } from "../src/types/Audit";
 
 export type EventType =
   | "experiment.create"

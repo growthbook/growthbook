@@ -31,6 +31,7 @@ export function getRecentlyDeletedTables(
         (updatedSchemaRecord) =>
           updatedSchemaRecord.schemaName === schema.schemaName
       );
+      if (!schema.tables) return;
       schema.tables.forEach((table) => {
         // If this table has an id, then it exists in the informationSchemaTables collection
         if (table.id) {
@@ -160,6 +161,7 @@ export async function fetchTableData(
   let tableName = "";
   informationSchema.databases.forEach((database) => {
     database.schemas.forEach((schema) => {
+      if (!schema.tables) return;
       schema.tables.forEach((table) => {
         if (table.id === tableId) {
           databaseName = database.databaseName;

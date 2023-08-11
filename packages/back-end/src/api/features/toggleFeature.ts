@@ -1,4 +1,5 @@
 import { ToggleFeatureResponse } from "../../../types/openapi";
+import { getExperimentMapForFeature } from "../../models/ExperimentModel";
 import {
   getFeature,
   toggleMultipleEnvironments,
@@ -57,8 +58,17 @@ export const toggleFeature = createApiRequestHandler(toggleFeatureValidator)(
     }
 
     const groupMap = await getSavedGroupMap(req.organization);
+    const experimentMap = await getExperimentMapForFeature(
+      req.organization.id,
+      updatedFeature.id
+    );
     return {
-      feature: getApiFeatureObj(updatedFeature, req.organization, groupMap),
+      feature: getApiFeatureObj({
+        feature: updatedFeature,
+        organization: req.organization,
+        groupMap,
+        experimentMap,
+      }),
     };
   }
 );
