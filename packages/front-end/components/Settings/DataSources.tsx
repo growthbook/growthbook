@@ -129,6 +129,17 @@ const DataSources: FC = () => {
             require minimal read-only permissions, so you can be sure your
             source data remains secure.
           </p>
+          {!demoDataSourceExists && !currentProjectIsDemo && (
+            <>
+              <p>
+                You can also create a{" "}
+                <Link href="/demo-datasource-project">
+                  <a className="info">demo datasource project</a>
+                </Link>
+                .
+              </p>
+            </>
+          )}
           {hasFileConfig() && (
             <div className="alert alert-info">
               It looks like you have a <code>config.yml</code> file. Data
