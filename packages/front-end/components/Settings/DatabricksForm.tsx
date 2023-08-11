@@ -72,6 +72,7 @@ const DatabricksForm: FC<{
           helpText="Selecting a default catalog unlocks access to GrowthBook's Schema Browser."
           value={params.catalog || ""}
           onChange={onParamChange}
+          name="catalog"
         />
       </div>
     </div>
