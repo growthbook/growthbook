@@ -6,12 +6,12 @@ import { ago } from "shared/dates";
 import ProjectBadges from "@/components/ProjectBadges";
 import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
-import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import { DocLink } from "@/components/DocLink";
 import { hasFileConfig } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import NewDataSourceFormUpdated from "./NewDataSourceFormUpdated";
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
@@ -146,7 +146,7 @@ const DataSources: FC = () => {
       )}
 
       {newModalOpen && (
-        <NewDataSourceForm
+        <NewDataSourceFormUpdated
           existing={false}
           data={{
             name: "My Datasource",

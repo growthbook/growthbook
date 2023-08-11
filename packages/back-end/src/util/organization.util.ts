@@ -74,6 +74,7 @@ export function getUserPermissions(
   }
 
   const memberInfo = org.members.find((m) => m.id === userId);
+  // if membe
   const userPermissions: UserPermissions = {
     global: {
       environments: memberInfo?.environments || [],
