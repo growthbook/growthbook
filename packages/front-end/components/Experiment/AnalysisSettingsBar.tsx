@@ -244,7 +244,7 @@ export default function AnalysisSettingsBar({
                 className={`d-flex btn my-0 pl-2 pr-1 py-1 form-inline align-items-center`}
               >
                 <div
-                  className="text-right"
+                  className="text-right text-dark"
                   style={{ fontSize: "11px", lineHeight: "12px" }}
                 >
                   show
@@ -307,7 +307,7 @@ export default function AnalysisSettingsBar({
                             for CUPED regression adjustment.
                           </p>
                           <p className="mb-0">
-                            Please check your metric defintions, as well as any
+                            Please check your metric definitions, as well as any
                             experiment-level metric overrides.
                           </p>
                         </>

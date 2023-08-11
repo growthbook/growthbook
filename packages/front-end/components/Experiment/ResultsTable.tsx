@@ -617,7 +617,7 @@ export default function ResultsTable({
                             stats={baseline}
                             users={baseline?.users || 0}
                             style={{ backgroundColor: "rgb(127 127 127 / 6%)" }}
-                            className="value variation control-col"
+                            className="value variation"
                             rowSpan={row.variations.length - 1}
                           />
                         ) : null}
@@ -643,7 +643,7 @@ export default function ResultsTable({
                                 rowResults={rowResults}
                                 showRisk={true}
                                 showSuspicious={true}
-                                showPercentComplete={showAdvanced}
+                                showPercentComplete={false}
                                 showTimeRemaining={false}
                                 className={clsx(
                                   "text-right results-pval",
@@ -673,7 +673,7 @@ export default function ResultsTable({
                               pValueCorrection={pValueCorrection}
                               showRisk={true}
                               showSuspicious={true}
-                              showPercentComplete={showAdvanced}
+                              showPercentComplete={false}
                               showTimeRemaining={false}
                               showUnadjustedPValue={showAdvanced}
                               className={clsx(
@@ -842,8 +842,8 @@ function getPercentChangeTooltip(
   if (hasRisk && statsEngine === "bayesian") {
     return (
       <>
-        This is a 95% credible interval. The true value is more likely to be in
-        the thicker parts of the graph.
+        The interval is a 95% credible interval. The true value is more likely
+        to be in the thicker parts of the graph.
       </>
     );
   }
@@ -851,8 +851,9 @@ function getPercentChangeTooltip(
     return (
       <>
         <p className="mb-0">
-          This is a 95% confidence interval. If you re-ran the experiment 100
-          times, the true value would be in this range 95% of the time.
+          The interval is a 95% confidence interval. If you re-ran the
+          experiment 100 times, the true value would be in this range 95% of the
+          time.
         </p>
         {sequentialTestingEnabled && (
           <p className="mt-4 mb-0">

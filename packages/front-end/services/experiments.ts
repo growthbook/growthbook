@@ -223,7 +223,8 @@ export function useDomain(
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
-  let lowerBound: number, upperBound: number;
+  let lowerBound = 0;
+  let upperBound = 0;
   rows.forEach((row) => {
     const baseline = row.variations[0];
     if (!baseline) return;
@@ -248,8 +249,9 @@ export function useDomain(
       if (!upperBound || ci[1] > upperBound) upperBound = ci[1];
     });
   });
-  // @ts-expect-error TS(2454) If you come across this, please fix it!: Variable 'lowerBound' is used before being assigne... Remove this comment to see the full error message
-  return [lowerBound || 0, upperBound || 0];
+  lowerBound = lowerBound <= 0 ? lowerBound : 0;
+  upperBound = upperBound >= 0 ? lowerBound : 0;
+  return [lowerBound, upperBound];
 }
 
 export function applyMetricOverrides(
