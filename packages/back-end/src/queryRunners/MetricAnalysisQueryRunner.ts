@@ -20,6 +20,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
       await this.startQuery(
         "metric",
         this.integration.getMetricValueQuery(params),
+        [],
         (query) => this.integration.runMetricValueQuery(query),
         (rows) => processMetricValueQueryResponse(rows)
       ),

@@ -257,6 +257,47 @@ export abstract class QueryRunner<
     }
   }
 
+  public async executeQuery<
+    Rows extends Record<string, string | boolean | number>[],
+    // eslint-disable-next-line
+    ProcessedRows extends Record<string, any>
+  >(
+    query: string,
+    timer: NodeJS.Timer,
+    doc: QueryInterface,
+    run: (query: string) => Promise<Rows>,
+    process: (rows: Rows) => ProcessedRows
+  ): Promise<void> {
+    // Run the query in the background
+    logger.debug("Start executing query in background");
+    run(query)
+      .then(async (rows) => {
+        clearInterval(timer);
+        logger.debug("Query succeeded");
+        await updateQuery(doc, {
+          finishedAt: new Date(),
+          status: "succeeded",
+          rawResult: rows,
+          result: process(rows),
+        });
+        this.onQueryFinish();
+      })
+      .catch(async (e) => {
+        clearInterval(timer);
+        logger.debug("Query failed: " + e.message);
+        updateQuery(doc, {
+          finishedAt: new Date(),
+          status: "failed",
+          error: e.message,
+        })
+          .then(() => {
+            this.onQueryFinish();
+          })
+          .catch((e) => logger.error(e));
+      });
+    return;
+  }
+
   public async startQuery<
     Rows extends Record<string, string | boolean | number>[],
     // eslint-disable-next-line
@@ -264,11 +305,11 @@ export abstract class QueryRunner<
   >(
     name: string,
     query: string,
+    parentQueryIds: string[],
     run: (query: string) => Promise<Rows>,
     process: (rows: Rows) => ProcessedRows
   ): Promise<QueryPointer> {
     logger.debug("Running query: " + name);
-
     // Re-use recent identical query
     if (this.useCache) {
       logger.debug("Trying to reuse existing query");
@@ -339,33 +380,49 @@ export abstract class QueryRunner<
       });
     }, 30000);
 
-    // Run the query in the background
-    logger.debug("Start executing query in background");
-    run(query)
-      .then(async (rows) => {
-        clearInterval(timer);
-        logger.debug("Query succeeded");
-        await updateQuery(doc, {
-          finishedAt: new Date(),
-          status: "succeeded",
-          rawResult: rows,
-          result: process(rows),
-        });
-        this.onQueryFinish();
-      })
-      .catch(async (e) => {
-        clearInterval(timer);
-        logger.debug("Query failed: " + e.message);
-        updateQuery(doc, {
-          finishedAt: new Date(),
-          status: "failed",
-          error: e.message,
-        })
-          .then(() => {
-            this.onQueryFinish();
-          })
-          .catch((e) => logger.error(e));
-      });
+    // Wait for parent queries
+    if (parentQueryIds.length) {
+      const check = () => {
+        getQueriesByIds(this.model.organization, parentQueryIds).then(
+          async (queries) => {
+            const runningQueries = queries.filter(
+              (q) => q.status === "running"
+            );
+            const failedQueries = queries.filter((q) => q.status === "failed");
+            if (failedQueries.length) {
+              const msg = `Parent queries ${failedQueries.map(
+                (q) => q.id
+              )} failed.`;
+              clearInterval(timer);
+              logger.debug("Query failed: " + msg);
+              updateQuery(doc, {
+                finishedAt: new Date(),
+                status: "failed",
+                error: msg,
+              })
+                .then(() => {
+                  this.onQueryFinish();
+                })
+                .catch((e) => logger.error(e));
+            } else if (runningQueries.length) {
+              logger.debug(
+                `Parent queries ${runningQueries.map(
+                  (q) => q.id
+                )} still running.`
+              );
+              // Still running, check again after a delay
+              setTimeout(check, 1000);
+            } else {
+              this.executeQuery(query, timer, doc, run, process);
+            }
+          }
+        );
+        return false;
+      };
+      setTimeout(check, 100);
+    } else {
+      this.executeQuery(query, timer, doc, run, process);
+    }
 
     return {
       name,

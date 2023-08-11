@@ -19,6 +19,7 @@ import {
   ExperimentMetricStats,
   ExperimentQueryResponses,
   ExperimentResults,
+  ExperimentUnitsQueryParams,
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
@@ -45,6 +46,7 @@ export const startExperimentResultQueries = async (
   startQuery: (
     name: string,
     query: string,
+    parentQueryIds: string[],
     // eslint-disable-next-line
     run: (query: string) => Promise<any[]>,
     // eslint-disable-next-line
@@ -94,6 +96,19 @@ export const startExperimentResultQueries = async (
   // TODO reliably learn whether we will depend on existing table
   const useUnitsTable = true; // again set it in SourceIntegrationInterface?
 
+  const unitQueryParams: ExperimentUnitsQueryParams = {
+    dimension: dimensionObj,
+    segment: segmentObj,
+    settings: snapshotSettings,
+  };
+  const unitQuery = await startQuery(
+    queryParentId,
+    integration.getExperimentUnitsTableQuery(unitQueryParams, unitsTableName),
+    [],
+    (query) => integration.runExperimentUnitsQuery(query),
+    (rows) => rows
+  );
+
   const promises = selectedMetrics.map(async (m) => {
     const denominatorMetrics: MetricInterface[] = [];
     if (m.denominator) {
@@ -110,21 +125,22 @@ export const startExperimentResultQueries = async (
       metric: m,
       segment: segmentObj,
       settings: snapshotSettings,
+      useUnitsTable: useUnitsTable,
       unitsTableName: unitsTableName,
     };
-    queries.push(
-      await startQuery(
-        m.id,
-        useUnitsTable
-          ? integration.getExperimentMetricFromTempQuery(params)
-          : integration.getExperimentMetricQuery(params),
-        (query) => integration.runExperimentMetricQuery(query),
-        (rows) => rows
-      )
+    const metricQuery = await startQuery(
+      m.id,
+      integration.getExperimentMetricQuery(params),
+      [unitQuery.query],
+      (query) => integration.runExperimentMetricQuery(query),
+      (rows) => rows
     );
+    queries.push(metricQuery);
   });
   await Promise.all(promises);
 
+  // TODO eventually also store query graph to help with front-end, or even
+  // build it first and then have the queries start based on that
   return queries;
 };
 
@@ -139,7 +155,6 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
-
     if (
       this.integration.getSourceProperties().separateExperimentResultQueries
     ) {
@@ -276,6 +291,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       await this.startQuery(
         "results",
         query,
+        [],
         () =>
           this.integration.getExperimentResults(
             snapshotSettings,

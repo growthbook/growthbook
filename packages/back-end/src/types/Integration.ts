@@ -94,15 +94,14 @@ export type ExperimentMetricQueryParams = {
   denominatorMetrics: MetricInterface[];
   dimension: Dimension | null;
   segment: SegmentInterface | null;
+  useUnitsTable: boolean;
   unitsTableName?: string;
 };
 
-export type ExperimentUnitsQueryParams = {
-  settings: ExperimentSnapshotSettings;
-  dimension: Dimension | null;
-  segment: SegmentInterface | null;
-  unitsTableName: string;
-};
+export type ExperimentUnitsQueryParams = Pick<
+  ExperimentMetricQueryParams,
+  "settings" | "dimension" | "segment"
+>;
 
 export type PastExperimentParams = {
   from: Date;
@@ -320,8 +319,10 @@ export interface SourceIntegrationInterface {
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
-  getExperimentMetricFromTempQuery(params: ExperimentMetricQueryParams): string;
-  getExperimentUnitsQuery(params: ExperimentUnitsQueryParams): string;
+  getExperimentUnitsTableQuery(
+    params: ExperimentUnitsQueryParams,
+    unitsTableName: string
+  ): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
   runMetricValueQuery(query: string): Promise<MetricValueQueryResponse>;
   runExperimentMetricQuery(

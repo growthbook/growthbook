@@ -65,7 +65,6 @@ import { VisualChangesetInterface } from "../../types/visual-changeset";
 import { findProjectById } from "../models/ProjectModel";
 import { MetricAnalysisQueryRunner } from "../queryRunners/MetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
-import { ExperimentUnitsQueryRunner } from "../queryRunners/ExperimentUnitsQueryRunner";
 import { getReportVariations, getMetricForSnapshot } from "./reports";
 import { getIntegrationFromDatasourceId } from "./datasource";
 import { analyzeExperimentMetric } from "./stats";
@@ -467,21 +466,6 @@ export async function createSnapshot({
     experiment.datasource,
     true
   );
-
-  const unitsQueryRunner = new ExperimentUnitsQueryRunner(
-    snapshot,
-    integration,
-    useCache
-  );
-  // TODO better handling of query order/dependency
-  await unitsQueryRunner.startAnalysis({
-    analysisSettings,
-    snapshotSettings: data.settings,
-    variationNames: experiment.variations.map((v) => v.name),
-    metricMap,
-    queryParentId: snapshot.id,
-  });
-  await unitsQueryRunner.waitForResults();
 
   const queryRunner = new ExperimentResultsQueryRunner(
     snapshot,

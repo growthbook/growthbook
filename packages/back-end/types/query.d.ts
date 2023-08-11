@@ -1,6 +1,7 @@
 import { QueryLanguage } from "./datasource";
 
 export type QueryStatus =
+  | "waiting"
   | "running"
   | "failed"
   | "partially-succeeded"

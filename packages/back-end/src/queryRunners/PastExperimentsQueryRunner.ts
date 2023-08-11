@@ -25,6 +25,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
       await this.startQuery(
         "experiments",
         this.integration.getPastExperimentQuery(params),
+        [],
         (query) => this.integration.runPastExperimentQuery(query),
         (rows) => this.processPastExperimentQueryResponse(rows)
       ),
