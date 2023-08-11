@@ -1,9 +1,9 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import React, { FC, useCallback, useState } from "react";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 
 type DemoDataSourcePageProps = {
   error: string | null;
@@ -104,19 +104,12 @@ export const DemoDataSourcePageContainer = () => {
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const { orgId, apiCall } = useAuth();
-  const { getProjectById, ready, mutateDefinitions } = useDefinitions();
-
-  const demoDataSourceProjectId: string | null = orgId
-    ? getDemoDatasourceProjectIdForOrganization(orgId)
-    : null;
-
-  const exists = useMemo((): boolean => {
-    if (!demoDataSourceProjectId) return false;
-    const demoProject = getProjectById(demoDataSourceProjectId);
-
-    return !!demoProject;
-  }, [getProjectById, demoDataSourceProjectId]);
+  const {
+    projectId: demoDataSourceProjectId,
+    exists,
+  } = useDemoDataSourceProject();
+  const { apiCall } = useAuth();
+  const { ready, mutateDefinitions } = useDefinitions();
 
   const onCreate = useCallback(async () => {
     setError(null);

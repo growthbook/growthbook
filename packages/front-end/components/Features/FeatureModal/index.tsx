@@ -6,20 +6,20 @@ import {
 } from "back-end/types/feature";
 import dJSON from "dirty-json";
 import React, { ReactElement, useState } from "react";
-import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
-  getDefaultValue,
-  validateFeatureValue,
-  useEnvironments,
   genDuplicatedKey,
+  getDefaultValue,
+  useEnvironments,
+  validateFeatureValue,
 } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
 import usePermissions from "@/hooks/usePermissions";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FeatureValueField from "../FeatureValueField";
 import FeatureKeyField from "./FeatureKeyField";
 import EnvironmentSelect from "./EnvironmentSelect";
@@ -154,7 +154,7 @@ export default function FeatureModal({
     featureToDuplicate?.description?.length > 0
   );
 
-  const { apiCall, orgId } = useAuth();
+  const { apiCall } = useAuth();
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const environmentSettings = form.watch("environmentSettings");
@@ -173,10 +173,7 @@ export default function FeatureModal({
   }
 
   // We want to show a warning when someone tries to create a feature under the demo project
-  const isCreatingForDemoProject = isDemoDatasourceProject({
-    projectId: project || "",
-    organizationId: orgId || "",
-  });
+  const { currentProjectIsDemo } = useDemoDataSourceProject();
 
   return (
     <Modal
@@ -233,7 +230,7 @@ export default function FeatureModal({
         await onSuccess(res.feature);
       })}
     >
-      {isCreatingForDemoProject && (
+      {currentProjectIsDemo && (
         <div className="alert alert-warning">
           You are creating a feature under the demo datasource project.
         </div>
