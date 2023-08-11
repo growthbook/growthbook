@@ -188,6 +188,7 @@ const MetricForm: FC<MetricFormProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
+  const [sqlDirty, setSqlDirty] = useState(edit);
 
   const displayCurrency = useCurrency();
 
@@ -403,6 +404,24 @@ const MetricForm: FC<MetricFormProps> = ({
     name: "conditions",
   });
 
+  // Automatically reset sql to default values whenever the user changes anything
+  // that would cause the default sql to change. However if the user has manually
+  // editted the sql to be something other than the default, we will preserve their
+  // changes. They will still be able to still reset their sql to the default
+  // manually if they like by clicking the "Reset to default SQL" button.
+  useEffect(() => {
+    if (supportsSQL && selectedDataSource && !sqlDirty) {
+      const [userTypes, sql] = getInitialMetricQuery(
+        selectedDataSource,
+        value.type,
+        value.name
+      );
+      form.setValue("sql", sql);
+      form.setValue("userIdTypes", userTypes);
+      form.setValue("queryFormat", "sql");
+    }
+  }, [value.name, value.type, selectedDataSource, sqlDirty, supportsSQL, form]);
+
   const onSubmit = form.handleSubmit(async (value) => {
     const {
       winRisk,
@@ -511,7 +530,15 @@ const MetricForm: FC<MetricFormProps> = ({
           }
           requiredColumns={requiredColumns}
           value={value.sql}
-          save={async (sql) => form.setValue("sql", sql)}
+          save={async (sql) => {
+            form.setValue("sql", sql);
+            const [, defaultSql] = getInitialMetricQuery(
+              selectedDataSource,
+              value.type,
+              value.name
+            );
+            setSqlDirty(sql != defaultSql);
+          }}
         />
       )}
       <PagedModal
@@ -535,19 +562,6 @@ const MetricForm: FC<MetricFormProps> = ({
           display="Basic Info"
           validate={async () => {
             validateBasicInfo(form.getValues());
-
-            // Initial metric SQL based on the data source
-            if (supportsSQL && selectedDataSource && !value.sql) {
-              const [userTypes, sql] = getInitialMetricQuery(
-                selectedDataSource,
-                value.type,
-                value.name
-              );
-
-              form.setValue("sql", sql);
-              form.setValue("userIdTypes", userTypes);
-              form.setValue("queryFormat", "sql");
-            }
           }}
         >
           <div className="form-group">
@@ -597,7 +611,9 @@ const MetricForm: FC<MetricFormProps> = ({
           <SelectField
             label="Data Source"
             value={value.datasource || ""}
-            onChange={(v) => form.setValue("datasource", v)}
+            onChange={(v) => {
+              form.setValue("datasource", v);
+            }}
             options={(datasources || []).map((d) => {
               const defaultDatasource = d.id === settings.defaultDataSource;
               return {
@@ -617,7 +633,9 @@ const MetricForm: FC<MetricFormProps> = ({
             <RadioSelector
               name="type"
               value={value.type}
-              setValue={(val: MetricType) => form.setValue("type", val)}
+              setValue={(val: MetricType) => {
+                form.setValue("type", val);
+              }}
               options={metricTypeOptions}
             />
           </div>
@@ -710,6 +728,18 @@ const MetricForm: FC<MetricFormProps> = ({
                       >
                         {value.sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
                       </button>
+                      {sqlDirty && (
+                        <button
+                          className="btn btn-outline-primary ml-2"
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setSqlDirty(false); // This will cause useEffect hook to reset to default.
+                          }}
+                        >
+                          Reset to default SQL
+                        </button>
+                      )}
                     </div>
                   </div>
                   {value.type !== "binomial" && (
