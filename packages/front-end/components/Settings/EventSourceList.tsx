@@ -49,62 +49,6 @@ export default function EventSourceList({ onSelect, selected }: Props) {
             />
           </div>
         ))}
-        <div className="my-2">
-          <h4>Don&apos;t see yours?</h4>
-          <p>
-            If your organization doesn&apos;t use one of the event trackers
-            listed above, select the <strong>Start from Scratch</strong> option
-            below and we&apos;ll guide you through the setup process.
-          </p>
-        </div>
-        <div className={`row`}>
-          <div className="col-4">
-            <a
-              className={`btn btn-light-hover btn-outline-${
-                "custom" === schema ? "selected" : "primary"
-              } mb-3 py-3`}
-              onClick={(e) => {
-                e.preventDefault();
-                setSchema("custom");
-                setDatasource({
-                  name: "My Datasource",
-                  settings: {},
-                  projects: project ? [project] : [],
-                });
-                // no options for custom:
-                form.setValue(`settings.schemaOptions`, {});
-
-                // set to all possible types:
-                setPossibleTypes(dataSourceConnections.map((o) => o.type));
-                // jump to next step
-                setStep(1);
-              }}
-            >
-              <h4>Set up Manually</h4>
-              <p className="mb-0 text-dark">
-                Manually configure your data schema and analytics queries.
-              </p>
-            </a>
-          </div>
-          {importSampleData && (
-            <div className="col-4">
-              <a
-                className={`btn btn-light-hover btn-outline-${
-                  "custom" === schema ? "selected" : "primary"
-                } mb-3 py-3 ml-auto`}
-                onClick={async (e) => {
-                  e.preventDefault();
-                  await importSampleData("new data source form");
-                }}
-              >
-                <h4>Use Sample Dataset</h4>
-                <p className="mb-0 text-dark">
-                  Explore GrowthBook with a pre-loaded sample dataset.
-                </p>
-              </a>
-            </div>
-          )}
-        </div>
         {!expand && (
           <div
             style={{
