@@ -13,6 +13,7 @@ import Field from "../Forms/Field";
 import { GBAddCircle } from "../Icons";
 import SelectField from "../Forms/SelectField";
 import CodeTextArea from "../Forms/CodeTextArea";
+import StringArrayField from "../Forms/StringArrayField";
 import styles from "./ConditionInput.module.scss";
 
 interface Props {
@@ -34,6 +35,7 @@ export default function ConditionInput(props: Props) {
   const [conds, setConds] = useState(
     () => jsonToConds(props.defaultValue, attributes) || []
   );
+  const [rawTextMode, setRawTextMode] = useState(false);
 
   const attributeSchema = useAttributeSchema();
 
@@ -144,40 +146,48 @@ export default function ConditionInput(props: Props) {
           {conds.map(({ field, operator, value }, i) => {
             const attribute = attributes.get(field);
 
+            if (!attribute) {
+              console.error("Attribute not found in attribute Map.");
+              return;
+            }
+
             const savedGroupOptions = savedGroups
               // First, limit to groups with the correct attribute
               .filter((g) => g.attributeKey === field)
               // Then, transform into the select option format
               .map((g) => ({ label: g.groupName, value: g.id }));
 
-            const onChange = (
+            const handleCondsChange = (value: string, name: string) => {
+              const newConds = [...conds];
+              newConds[i] = { ...newConds[i] };
+              newConds[i][name] = value;
+              setConds(newConds);
+            };
+
+            const handleFieldChange = (
               e: React.ChangeEvent<HTMLSelectElement | HTMLInputElement>
             ) => {
               const name = e.target.name;
               const value: string | number = e.target.value;
 
-              const newConds = [...conds];
-              newConds[i] = { ...newConds[i] };
-              newConds[i][name] = value;
-              setConds(newConds);
+              handleCondsChange(value, name);
             };
 
-            const onSelectFieldChange = (value: string, name: string) => {
-              const newConds = [...conds];
-              newConds[i] = { ...newConds[i] };
-              newConds[i][name] = value;
-              setConds(newConds);
+            const handleListChange = (values: string[]) => {
+              const name = "value";
+              const value: string | number = values.join(",");
+              handleCondsChange(value, name);
             };
 
             const operatorOptions =
-              attribute?.datatype === "boolean"
+              attribute.datatype === "boolean"
                 ? [
                     { label: "is true", value: "$true" },
                     { label: "is false", value: "$false" },
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : attribute?.array
+                : attribute.array
                 ? [
                     { label: "includes", value: "$includes" },
                     { label: "does not include", value: "$notIncludes" },
@@ -186,7 +196,7 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : attribute?.enum?.length || 0 > 0
+                : attribute.enum?.length || 0 > 0
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -195,33 +205,33 @@ export default function ConditionInput(props: Props) {
                     { label: "exists", value: "$exists" },
                     { label: "does not exist", value: "$notExists" },
                   ]
-                : attribute?.datatype === "string"
+                : attribute.datatype === "string"
                 ? [
                     {
                       label: "is equal to",
-                      value: attribute?.format === "version" ? "$veq" : "$eq",
+                      value: attribute.format === "version" ? "$veq" : "$eq",
                     },
                     {
                       label: "is not equal to",
-                      value: attribute?.format === "version" ? "$vne" : "$ne",
+                      value: attribute.format === "version" ? "$vne" : "$ne",
                     },
                     { label: "matches regex", value: "$regex" },
                     { label: "does not match regex", value: "$notRegex" },
                     {
                       label: "is greater than",
-                      value: attribute?.format === "version" ? "$vgt" : "$gt",
+                      value: attribute.format === "version" ? "$vgt" : "$gt",
                     },
                     {
                       label: "is greater than or equal to",
-                      value: attribute?.format === "version" ? "$vgte" : "$gte",
+                      value: attribute.format === "version" ? "$vgte" : "$gte",
                     },
                     {
                       label: "is less than",
-                      value: attribute?.format === "version" ? "$vlt" : "$lt",
+                      value: attribute.format === "version" ? "$vlt" : "$lt",
                     },
                     {
                       label: "is less than or equal to",
-                      value: attribute?.format === "version" ? "$vlte" : "$lte",
+                      value: attribute.format === "version" ? "$vlte" : "$lte",
                     },
                     { label: "is in the list", value: "$in" },
                     { label: "is not in the list", value: "$nin" },
@@ -231,7 +241,7 @@ export default function ConditionInput(props: Props) {
                       ? savedGroupOperators
                       : []),
                   ]
-                : attribute?.datatype === "secureString"
+                : attribute.datatype === "secureString"
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -243,7 +253,7 @@ export default function ConditionInput(props: Props) {
                       ? savedGroupOperators
                       : []),
                   ]
-                : attribute?.datatype === "number"
+                : attribute.datatype === "number"
                 ? [
                     { label: "is equal to", value: "$eq" },
                     { label: "is not equal to", value: "$ne" },
@@ -307,7 +317,7 @@ export default function ConditionInput(props: Props) {
                       options={operatorOptions}
                       sort={false}
                       onChange={(v) => {
-                        onSelectFieldChange(v, "operator");
+                        handleCondsChange(v, "operator");
                       }}
                     />
                   </div>
@@ -326,7 +336,7 @@ export default function ConditionInput(props: Props) {
                       options={savedGroupOptions}
                       value={value}
                       onChange={(v) => {
-                        onSelectFieldChange(v, "value");
+                        handleCondsChange(v, "value");
                       }}
                       name="value"
                       initialOption="Choose group..."
@@ -334,51 +344,71 @@ export default function ConditionInput(props: Props) {
                       required
                     />
                   ) : ["$in", "$nin"].includes(operator) ? (
-                    <Field
-                      textarea
-                      value={value}
-                      onChange={onChange}
-                      name="value"
-                      minRows={1}
-                      className={styles.matchingInput}
-                      containerClassName="col-sm-12 col-md mb-2"
-                      helpText="separate values by comma"
-                      required
-                    />
-                  ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  attribute.enum.length ? (
+                    <div className="d-flex align-items-end flex-column col-sm-12 col-md mb-1">
+                      {rawTextMode ? (
+                        <Field
+                          textarea
+                          value={value}
+                          onChange={handleFieldChange}
+                          name="value"
+                          minRows={1}
+                          className={styles.matchingInput}
+                          helpText="separate values by comma"
+                          required
+                        />
+                      ) : (
+                        <StringArrayField
+                          containerClassName="w-100"
+                          value={value ? value.trim().split(",") : []}
+                          onChange={handleListChange}
+                          placeholder="Enter some values..."
+                          delimiters={["Enter", "Tab"]}
+                          required
+                        />
+                      )}
+                      <a
+                        href="#"
+                        style={{ fontSize: "0.5em" }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setRawTextMode((prev) => !prev);
+                        }}
+                      >
+                        Switch to {rawTextMode ? "token" : "raw text"} mode
+                      </a>
+                    </div>
+                  ) : attribute.enum.length ? (
                     <SelectField
-                      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                       options={attribute.enum.map((v) => ({
                         label: v,
                         value: v,
                       }))}
                       value={value}
                       onChange={(v) => {
-                        onSelectFieldChange(v, "value");
+                        handleCondsChange(v, "value");
                       }}
                       name="value"
                       initialOption="Choose One..."
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
-                  ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  attribute.datatype === "number" ? (
+                  ) : attribute.datatype === "number" ? (
                     <Field
                       type="number"
                       step="any"
                       value={value}
-                      onChange={onChange}
+                      onChange={handleFieldChange}
                       name="value"
                       className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"
                       required
                     />
-                  ) : // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-                  ["string", "secureString"].includes(attribute.datatype) ? (
+                  ) : ["string", "secureString"].includes(
+                      attribute.datatype
+                    ) ? (
                     <Field
                       value={value}
-                      onChange={onChange}
+                      onChange={handleFieldChange}
                       name="value"
                       className={styles.matchingInput}
                       containerClassName="col-sm-12 col-md mb-2"

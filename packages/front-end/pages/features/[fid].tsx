@@ -754,7 +754,7 @@ export default function FeaturePage() {
                     setRuleModal({
                       environment: env,
                       i: getRules(data.feature, env).length,
-                      defaultType: "experiment",
+                      defaultType: "experiment-ref-new",
                     });
                     track("Viewed Rule Modal", {
                       source: "add-rule",

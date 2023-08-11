@@ -152,6 +152,7 @@ export async function postSampleData(
       trackingKey: "sample-experiment",
       exposureQueryId: "",
       hashAttribute: "",
+      hashVersion: 2,
       releasedVariationId: "",
       tags: [],
       results: "won",
@@ -254,6 +255,13 @@ export async function deleteDataSource(
     "createDatasources",
     datasource?.projects?.length ? datasource.projects : ""
   );
+
+  // Make sure this data source isn't the organizations default
+  if (org.settings?.defaultDataSource === datasource.id) {
+    throw new Error(
+      "Error: This is the default data source for your organization. You must select a new default data source in your Organization Settings before deleting this one."
+    );
+  }
 
   // Make sure there are no metrics
   const metrics = await getMetricsByDatasource(

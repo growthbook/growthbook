@@ -235,8 +235,11 @@ const MetricForm: FC<MetricFormProps> = ({
   const form = useForm({
     defaultValues: {
       datasource:
-        ("datasource" in current ? current.datasource : datasources[0]?.id) ||
-        "",
+        ("datasource" in current
+          ? current.datasource
+          : settings.defaultDataSource
+          ? settings.defaultDataSource
+          : datasources[0]?.id) || "",
       name: current.name || "",
       description: current.description || "",
       type: current.type || "binomial",
@@ -613,10 +616,15 @@ const MetricForm: FC<MetricFormProps> = ({
             label="Data Source"
             value={value.datasource || ""}
             onChange={(v) => form.setValue("datasource", v)}
-            options={(datasources || []).map((d) => ({
-              value: d.id,
-              label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-            }))}
+            options={(datasources || []).map((d) => {
+              const defaultDatasource = d.id === settings.defaultDataSource;
+              return {
+                value: d.id,
+                label: `${d.name}${
+                  d.description ? ` — ${d.description}` : ""
+                } ${defaultDatasource ? " (default)" : ""}`,
+              };
+            })}
             className="portal-overflow-ellipsis"
             name="datasource"
             initialOption="Manual"

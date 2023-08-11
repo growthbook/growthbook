@@ -561,7 +561,10 @@ function getTablePrefix(params: DataSourceParams) {
       params.schema || "public"
     }.`;
   }
-
+  // Athena
+  else if ("catalog" in params && "database" in params) {
+    return `${params.catalog}.${params.database}.`;
+  }
   return "";
 }
 
