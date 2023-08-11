@@ -34,7 +34,12 @@ export function getRecentlyDeletedTables(
       if (!schema.tables) return;
       schema.tables.forEach((table) => {
         // If this table has an id, then it exists in the informationSchemaTables collection
-        if (table.id) {
+        if (
+          table.id &&
+          updatedInformationSchema[correspondingIndex].schemas[
+            correspondingSchemaIndex
+          ].tables
+        ) {
           const correspondingTableIndex = updatedInformationSchema[
             correspondingIndex
           ].schemas[correspondingSchemaIndex].tables.findIndex(
@@ -93,32 +98,25 @@ export async function mergeStaleInformationSchemaWithUpdate(
       }
       if (!schema.tables) return;
       schema.tables.forEach((table) => {
-        const correspondingTableIndex = staleInformationSchema[
-          correspondingIndex
-        ].schemas[correspondingSchemaIndex].tables.findIndex(
+        const staleInformationSchemaTables =
+          staleInformationSchema[correspondingIndex].schemas[
+            correspondingSchemaIndex
+          ]?.tables || [];
+        const correspondingTableIndex = staleInformationSchemaTables.findIndex(
           (staleTableRecord) => staleTableRecord.tableName === table.tableName
         );
 
-        if (correspondingTableIndex > -1) {
-          table.dateCreated =
-            staleInformationSchema[correspondingIndex].schemas[
-              correspondingSchemaIndex
-            ].tables[correspondingTableIndex].dateCreated;
-          table.id =
-            staleInformationSchema[correspondingIndex].schemas[
-              correspondingSchemaIndex
-            ].tables[correspondingTableIndex].id;
-          if (
-            table.numOfColumns ===
-            staleInformationSchema[correspondingIndex].schemas[
-              correspondingSchemaIndex
-            ].tables[correspondingTableIndex].numOfColumns
-          ) {
+        if (
+          correspondingTableIndex > -1 &&
+          staleInformationSchemaTables[correspondingTableIndex]
+        ) {
+          const correspondingTable =
+            staleInformationSchemaTables[correspondingTableIndex];
+          table.dateCreated = correspondingTable.dateCreated;
+          table.id = correspondingTable.id;
+          if (table.numOfColumns === correspondingTable.numOfColumns) {
             // If the number of columns hasn't changed, then we should set the dateUpdated to the stale date.
-            table.dateUpdated =
-              staleInformationSchema[correspondingIndex].schemas[
-                correspondingSchemaIndex
-              ].tables[correspondingTableIndex].dateUpdated;
+            table.dateUpdated = correspondingTable.dateUpdated;
           } else {
             if (table.id) {
               // If numOfColumns has changed & the table has an id, then it needs to be updated.
