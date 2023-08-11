@@ -96,7 +96,6 @@ import StatusIndicator from "./StatusIndicator";
 import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
 import VariationsTable from "./VariationsTable";
 import VisualChangesetModal from "./VisualChangesetModal";
-import StatusBanner from "./StatusBanner";
 import AddLinkedChangesBanner from "./AddLinkedChangesBanner";
 import { StartExperimentBanner } from "./StartExperimentBanner";
 import { HashVersionTooltip } from "./HashVersionSelector";
@@ -225,7 +224,9 @@ export default function SinglePage({
   );
   const [resultsTab, setResultsTab] = useLocalStorage<ResultsTab>(
     `experiment-page__${experiment.id}__results-tab`,
-    "results"
+    experiment.status === "draft" && experiment.datasource
+      ? "config"
+      : "results"
   );
   const [customReportsOpen, setCustomReportsOpen] = useLocalStorage<boolean>(
     `experiment-page__${experiment.id}__custom-reports-open`,
@@ -243,10 +244,15 @@ export default function SinglePage({
     getMetricById,
     projects,
     datasources,
+    metrics,
     project: currentProject,
   } = useDefinitions();
 
   const router = useRouter();
+
+  const datasourceHasMetrics = !experiment.datasource
+    ? metrics.length > 0
+    : metrics.some((m) => m.datasource === experiment.datasource);
 
   const { phase: phaseIndex, snapshot } = useSnapshot();
   const { data: reportsData } = useApi<{
@@ -469,11 +475,10 @@ export default function SinglePage({
 
   const numLinkedChanges = visualChangesets.length + linkedFeatures.length;
 
-  const hasActualLinkedChanges =
-    visualChangesets.length > 0 ||
-    linkedFeatures.some(({ rules }) =>
-      rules.some((r) => !r.draft && r.rule.type === "experiment-ref")
-    );
+  const hasLiveLinkedChanges = includeExperimentInPayload(
+    experiment,
+    features.filter((f) => experiment.linkedFeatures?.includes(f.id))
+  );
 
   // Get name or email of all active users watching this experiment
   const usersWatching = (watcherIds?.data?.userIds || [])
@@ -483,7 +488,7 @@ export default function SinglePage({
 
   const experimentHasPhases = phases.length > 0;
 
-  const safeToEdit = experiment.status === "draft" || !hasActualLinkedChanges;
+  const safeToEdit = experiment.status !== "running" || !hasLiveLinkedChanges;
 
   return (
     <div className="container-fluid experiment-details pagecontents pb-3">
@@ -883,53 +888,50 @@ export default function SinglePage({
         )}
       </div>
 
-      {experiment.status === "stopped" &&
-        includeExperimentInPayload(experiment) && (
-          <div className="alert alert-warning mb-3">
-            <div className="d-flex align-items-center">
-              <div>
-                <FaClock /> <strong>Temporary Rollout Enabled</strong>
-                <div className="my-1">
-                  This experiment has been stopped, but changes are still being
-                  applied to give you time to implement them in code.
-                </div>
-                When you no longer need this rollout, stop it to improve your
-                site performance.{" "}
-                <DocLink docSection="temporaryRollout">Learn more</DocLink>
+      {experiment.status === "stopped" && hasLiveLinkedChanges && (
+        <div className="alert alert-warning mb-3">
+          <div className="d-flex align-items-center">
+            <div>
+              <FaClock /> <strong>Temporary Rollout Enabled</strong>
+              <div className="my-1">
+                This experiment has been stopped, but changes are still being
+                applied to give you time to implement them in code.
               </div>
-              <div className="ml-auto pl-2">
-                <ConfirmButton
-                  onClick={async () => {
-                    await apiCall(`/experiment/${experiment.id}`, {
-                      method: "POST",
-                      body: JSON.stringify({
-                        excludeFromPayload: true,
-                      }),
-                    });
-                    mutate();
-                  }}
-                  modalHeader="Stop Temporary Rollout"
-                  confirmationText={
-                    <>
-                      <p>
-                        Are you sure you want to stop the Temporary Rollout?
-                      </p>
-                      <p>
-                        This will completely stop serving traffic to the winning
-                        variation.
-                      </p>
-                    </>
-                  }
-                  cta="Stop Rollout"
-                >
-                  <button className="btn btn-primary">
-                    Stop Temporary Rollout
-                  </button>
-                </ConfirmButton>
-              </div>
+              When you no longer need this rollout, stop it to improve your site
+              performance.{" "}
+              <DocLink docSection="temporaryRollout">Learn more</DocLink>
+            </div>
+            <div className="ml-auto pl-2">
+              <ConfirmButton
+                onClick={async () => {
+                  await apiCall(`/experiment/${experiment.id}`, {
+                    method: "POST",
+                    body: JSON.stringify({
+                      excludeFromPayload: true,
+                    }),
+                  });
+                  mutate();
+                }}
+                modalHeader="Stop Temporary Rollout"
+                confirmationText={
+                  <>
+                    <p>Are you sure you want to stop the Temporary Rollout?</p>
+                    <p>
+                      This will completely stop serving traffic to the winning
+                      variation.
+                    </p>
+                  </>
+                }
+                cta="Stop Rollout"
+              >
+                <button className="btn btn-primary">
+                  Stop Temporary Rollout
+                </button>
+              </ConfirmButton>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
       <AddLinkedChangesBanner
         experiment={experiment}
@@ -1027,12 +1029,8 @@ export default function SinglePage({
 
           <div className="mb-4 mx-4">
             <HeaderWithEdit
-              edit={safeToEdit && editTargeting ? editTargeting : undefined}
+              edit={(safeToEdit ? editTargeting : newPhase) || undefined}
               containerClassName="mb-2"
-              disabledMessage={
-                !safeToEdit &&
-                "Cannot edit targeting settings while the experiment is running."
-              }
             >
               Targeting
             </HeaderWithEdit>
@@ -1206,6 +1204,7 @@ export default function SinglePage({
         mutateExperiment={mutate}
         editTargeting={editTargeting}
         newPhase={newPhase}
+        onStart={() => setResultsTab("results")}
       />
 
       {experiment.status === "running" &&
@@ -1274,7 +1273,13 @@ export default function SinglePage({
                   Add Experiment Phase
                 </button>
               </div>
-            ) : experiment.status !== "draft" ? (
+            ) : experiment.status === "draft" ? (
+              <div className="alert bg-light border">
+                Your experiment is still in a <strong>draft</strong> state. You
+                must click the &quot;Start Experiment&quot; button above to see
+                results.
+              </div>
+            ) : (
               <Results
                 experiment={experiment}
                 mutateExperiment={mutate}
@@ -1294,11 +1299,6 @@ export default function SinglePage({
                 }
                 onRegressionAdjustmentChange={onRegressionAdjustmentChange}
               />
-            ) : (
-              <StatusBanner
-                mutateExperiment={mutate}
-                editResult={editResult ?? undefined}
-              />
             )}
           </div>
         </Tab>
@@ -1306,7 +1306,7 @@ export default function SinglePage({
         <Tab id="config" anchor="config" display="Configure" padding={false}>
           <div className="mb-4 mx-2">
             <RightRailSection
-              title="Experiment Settings"
+              title="Analysis Settings"
               open={() => setReportSettingsOpen(true)}
               canOpen={canEditExperiment}
             >
@@ -1417,33 +1417,61 @@ export default function SinglePage({
               canOpen={(editMetrics && !experiment.archived) ?? undefined}
             >
               <div className="appbox p-3">
-                <div className="row mb-1 text-muted">
-                  <div className="col-5">Goals</div>
-                  <div className="col-5">
-                    Conversion {ignoreConversionEnd ? "Delay" : "Window"}{" "}
-                    <Tooltip
-                      body={
-                        ignoreConversionEnd
-                          ? `Wait this long after viewing the experiment before we start counting conversions for a user.`
-                          : `After a user sees the experiment, only include
+                {experiment.metrics.length > 0 ? (
+                  <>
+                    <div className="row mb-1 text-muted">
+                      <div className="col-5">Goals</div>
+                      <div className="col-5">
+                        Conversion {ignoreConversionEnd ? "Delay" : "Window"}{" "}
+                        <Tooltip
+                          body={
+                            ignoreConversionEnd
+                              ? `Wait this long after viewing the experiment before we start counting conversions for a user.`
+                              : `After a user sees the experiment, only include
                         metric conversions within the specified time window.`
-                      }
-                    >
-                      <FaQuestionCircle />
-                    </Tooltip>
+                          }
+                        >
+                          <FaQuestionCircle />
+                        </Tooltip>
+                      </div>
+                      <div className="col-sm-2">Behavior</div>
+                    </div>
+                    {experiment.metrics.map((m) => {
+                      const metric = getMetricById(m);
+                      return drawMetricRow(
+                        m,
+                        metric,
+                        experiment,
+                        ignoreConversionEnd
+                      );
+                    })}
+                  </>
+                ) : datasourceHasMetrics ? (
+                  <div>
+                    This experiment doesn&apos;t have any metrics yet.
+                    {editMetrics && !experiment.archived && (
+                      <button
+                        className="btn btn-primary btn-sm ml-2"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          editMetrics();
+                        }}
+                      >
+                        Add Metrics
+                      </button>
+                    )}
                   </div>
-                  <div className="col-sm-2">Behavior</div>
-                </div>
+                ) : (
+                  <div>
+                    You don&apos;t have any metrics defined yet.{" "}
+                    <Link href="/metrics">
+                      <a>
+                        Manage Metrics <FaExternalLinkAlt />
+                      </a>
+                    </Link>
+                  </div>
+                )}
                 <>
-                  {experiment.metrics.map((m) => {
-                    const metric = getMetricById(m);
-                    return drawMetricRow(
-                      m,
-                      metric,
-                      experiment,
-                      ignoreConversionEnd
-                    );
-                  })}
                   {(experiment.guardrails?.length ?? 0) > 0 && (
                     <>
                       <div className="row mb-1 mt-3 text-muted">

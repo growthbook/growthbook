@@ -240,9 +240,13 @@ export function getFeatureDefinition({
             if (!phase) return null;
 
             if (phase.condition && phase.condition !== "{}") {
-              rule.condition = JSON.parse(
-                replaceSavedGroupsInCondition(phase.condition, groupMap)
-              );
+              try {
+                rule.condition = JSON.parse(
+                  replaceSavedGroupsInCondition(phase.condition, groupMap)
+                );
+              } catch (e) {
+                // ignore condition parse errors here
+              }
             }
 
             rule.coverage = phase.coverage;
