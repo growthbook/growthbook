@@ -1,8 +1,10 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import Link from "next/link";
-import { FaChartBar, FaCog } from "react-icons/fa";
+import { FaChartBar, FaCog, FaStop, FaUsers } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
+import { useMemo } from "react";
+import { daysBetween } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import { GBCircleArrowLeft } from "@/components/Icons";
 import WatchButton from "@/components/WatchButton";
@@ -13,8 +15,9 @@ import TabButtons from "@/components/Tabs/TabButtons";
 import TabButton from "@/components/Tabs/TabButton";
 import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
-import StatusIndicator from "../StatusIndicator";
 import ResultsIndicator from "../ResultsIndicator";
+import { useSnapshot } from "../SnapshotProvider";
+import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import { ExperimentTab, getDates } from ".";
 
 export interface Props {
@@ -27,9 +30,15 @@ export interface Props {
   setStatusModal: (open: boolean) => void;
   setAuditModal: (open: boolean) => void;
   setWatchersModal: (open: boolean) => void;
+  editResult?: () => void;
   safeToEdit: boolean;
   usersWatching: (string | undefined)[];
 }
+
+const shortNumberFormatter = Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
 
 export default function ExperimentHeader({
   tab,
@@ -43,10 +52,13 @@ export default function ExperimentHeader({
   setWatchersModal,
   safeToEdit,
   usersWatching,
+  editResult,
 }: Props) {
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissions = usePermissions();
+
+  const { analysis } = useSnapshot();
 
   const canCreateAnalyses = permissions.check(
     "createAnalyses",
@@ -64,6 +76,16 @@ export default function ExperimentHeader({
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
 
   const { startDate, endDate } = getDates(experiment);
+
+  const totalUsers = useMemo(() => {
+    let users = 0;
+    analysis?.results?.forEach((dim) => {
+      dim?.variations?.forEach((v) => {
+        users += v.users;
+      });
+    });
+    return users;
+  }, [analysis]);
 
   return (
     <div
@@ -99,6 +121,34 @@ export default function ExperimentHeader({
           </div>
 
           <div className="flex-1 col"></div>
+
+          {experiment.status === "running" ? (
+            <div className="col-auto">
+              <button
+                className="btn btn-primary rounded-pill"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (editResult) {
+                    editResult();
+                  }
+                }}
+                disabled={!editResult}
+              >
+                Stop Experiment <FaStop className="ml-2" />
+              </button>
+            </div>
+          ) : experiment.status === "stopped" && experiment.results ? (
+            <div className="col-auto">
+              <div className="experiment-status-widget border d-flex">
+                <div
+                  className="d-flex border-left"
+                  style={{ height: 30, lineHeight: "30px" }}
+                >
+                  <ResultsIndicator results={experiment.results} />
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           <div className="col-auto">
             <WatchButton itemType="experiment" item={experiment.id} />
@@ -241,35 +291,32 @@ export default function ExperimentHeader({
             </TabButtons>
           </div>
           <div className="col-auto ml-auto"></div>
-          <div className="col-auto experiment-dates text-center">
+          <div className="col-auto mr-2">
+            {experiment.archived ? (
+              <div className="badge badge-secondary">archived</div>
+            ) : (
+              <ExperimentStatusIndicator status={experiment.status} />
+            )}
+          </div>
+
+          {experiment.status !== "draft" && totalUsers > 0 && (
+            <div className="col-auto text-gray mr-2">
+              <div className="px-2 py-1 rounded">
+                <FaUsers />{" "}
+                <code className="text-dark">
+                  {shortNumberFormatter.format(totalUsers)}
+                </code>{" "}
+                users
+              </div>
+            </div>
+          )}
+          <div className="col-auto experiment-dates">
             <div className="mt-1 small text-gray">
               {startDate && (
                 <>
-                  {startDate}
-                  {endDate && <> — {endDate}</>}
+                  {startDate} — {endDate ? endDate : "now"} (
+                  {daysBetween(startDate, endDate || new Date())} days)
                 </>
-              )}
-            </div>
-          </div>
-
-          <div className="col-auto">
-            <div className="experiment-status-widget border d-flex">
-              <div
-                className="d-flex px-3"
-                style={{ height: 30, lineHeight: "30px" }}
-              >
-                <StatusIndicator
-                  archived={experiment.archived}
-                  status={experiment.status}
-                />
-              </div>
-              {experiment.status === "stopped" && experiment.results && (
-                <div
-                  className="d-flex border-left"
-                  style={{ height: 30, lineHeight: "30px" }}
-                >
-                  <ResultsIndicator results={experiment.results} />
-                </div>
               )}
             </div>
           </div>

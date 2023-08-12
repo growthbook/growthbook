@@ -170,7 +170,7 @@ export default function ResultsTab({
             editMetrics={editMetrics ?? undefined}
             editResult={editResult ?? undefined}
             editPhases={editPhases ?? undefined}
-            alwaysShowPhaseSelector={true}
+            alwaysShowPhaseSelector={false}
             reportDetailsLink={false}
             statsEngine={statsEngine}
             regressionAdjustmentAvailable={regressionAdjustmentAvailable}

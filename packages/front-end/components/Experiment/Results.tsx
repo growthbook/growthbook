@@ -16,11 +16,11 @@ import DateResults from "@/components/Experiment/DateResults";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
 import GuardrailResults from "@/components/Experiment/GuardrailResult";
-import StatusBanner from "@/components/Experiment/StatusBanner";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import PValueGuardrailResults from "./PValueGuardrailResults";
+import AnalysisSettingsSummary from "./TabbedPage/AnalysisSettingsSummary";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -46,7 +46,6 @@ const Results: FC<{
 }> = ({
   experiment,
   editMetrics,
-  editResult,
   editPhases,
   mutateExperiment,
   alwaysShowPhaseSelector = false,
@@ -120,9 +119,9 @@ const Results: FC<{
 
   return (
     <>
-      <StatusBanner
-        mutateExperiment={mutateExperiment}
-        editResult={editResult}
+      <AnalysisSettingsSummary
+        experiment={experiment}
+        mutate={mutateExperiment}
       />
       <AnalysisSettingsBar
         mutateExperiment={mutateExperiment}

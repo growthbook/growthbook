@@ -241,6 +241,7 @@ export default function TabbedPage({
         setWatchersModal={setWatchersModal}
         duplicate={duplicate}
         usersWatching={usersWatching}
+        editResult={editResult || undefined}
       />
       <div className="container pagecontents pb-4">
         {tab === "setup" && (

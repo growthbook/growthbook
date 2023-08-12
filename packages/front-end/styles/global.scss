@@ -102,12 +102,12 @@ pre {
 #experiment-page-tabs {
   font-size: 1.2em;
   .active-tab {
-    color: colors.$highlight-purple;
+    color: var(--text-color-primary);
     background: linear-gradient(
-      var(--form-multivalue-background-color),
-      var(--surface-background-color-alt)
+      var(--background-primary-light),
+      var(--background-color)
     );
-    border-bottom-color: var(--surface-background-color-alt);
+    border-bottom-color: var(--background-color);
   }
 }
 
