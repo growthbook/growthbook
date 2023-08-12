@@ -36,9 +36,9 @@ export function getRecentlyDeletedTables(
         // If this table has an id, then it exists in the informationSchemaTables collection
         if (
           table.id &&
-          updatedInformationSchema[correspondingIndex].schemas[
+          updatedInformationSchema?.[correspondingIndex]?.schemas?.[
             correspondingSchemaIndex
-          ].tables
+          ]?.tables
         ) {
           const correspondingTableIndex = updatedInformationSchema[
             correspondingIndex
