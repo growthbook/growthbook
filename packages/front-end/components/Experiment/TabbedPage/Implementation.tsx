@@ -12,9 +12,7 @@ import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
 import HeaderWithEdit from "../../Layout/HeaderWithEdit";
-import { GBAddCircle } from "../../Icons";
 import Tooltip from "../../Tooltip/Tooltip";
-import ExpandablePhaseSummary from "../ExpandablePhaseSummary";
 import { HashVersionTooltip } from "../HashVersionSelector";
 import { LinkedFeature } from ".";
 
@@ -23,8 +21,6 @@ export interface Props {
   visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
   newPhase?: (() => void) | null;
-  editPhases?: (() => void) | null;
-  editPhase?: ((i: number | null) => void) | null;
   editTargeting?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
@@ -38,8 +34,6 @@ export default function Implementation({
   visualChangesets,
   mutate,
   newPhase,
-  editPhases,
-  editPhase,
   editTargeting,
   safeToEdit,
   setFeatureModal,
@@ -83,7 +77,7 @@ export default function Implementation({
       </div>
 
       <div className="row mb-4">
-        <div className="col">
+        <div className="col-md-6 col-lg-8 col-12">
           <div className="appbox p-3 h-100 mb-0">
             {numLinkedChanges === 0 && experiment.status !== "draft" ? (
               <div className="alert alert-info mb-0">
@@ -153,133 +147,89 @@ export default function Implementation({
             )}
           </div>
         </div>
-        <div className="col-auto">
-          <div className="d-flex flex-column h-100">
-            <div className="appbox p-3 mb-3">
-              <HeaderWithEdit
-                edit={(safeToEdit ? editTargeting : newPhase) || undefined}
-                className="h4"
-                containerClassName="mb-3"
-              >
-                Targeting
-              </HeaderWithEdit>
-              {lastPhase ? (
-                <div className="row">
-                  <div className="col">
-                    <table className="table table-sm w-auto">
-                      <tbody>
-                        <tr>
-                          <th>
-                            Experiment Key{" "}
-                            <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
-                          </th>
-                          <td>{experiment.trackingKey}</td>
-                        </tr>
-                        <tr>
-                          <th className="pr-5">
-                            Assignment Attribute{" "}
-                            <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
-                              <MdInfoOutline className="text-info" />
-                            </Tooltip>
-                          </th>
-                          <td>
-                            {experiment.hashAttribute || "id"}{" "}
-                            {
-                              <HashVersionTooltip>
-                                <small className="text-muted ml-1">
-                                  (V{experiment.hashVersion || 2} hashing)
-                                </small>
-                              </HashVersionTooltip>
-                            }
-                          </td>
-                        </tr>
-                        <tr>
-                          <th>Targeting Conditions</th>
-                          <td>
-                            {lastPhase.condition &&
-                            lastPhase.condition !== "{}" ? (
-                              <ConditionDisplay
-                                condition={lastPhase.condition}
-                              />
-                            ) : (
-                              <em>No conditions</em>
-                            )}
-                          </td>
-                        </tr>
-                        <tr>
-                          <th>Traffic</th>
-                          <td>
-                            {Math.floor(lastPhase.coverage * 100)}% included,{" "}
-                            {formatTrafficSplit(lastPhase.variationWeights)}{" "}
-                            split
-                          </td>
-                        </tr>
-                        <tr>
-                          <th>
-                            Namespace{" "}
-                            <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration -> Namespaces">
-                              <MdInfoOutline className="text-info" />
-                            </Tooltip>
-                          </th>
-                          <td>
-                            {hasNamespace ? (
-                              <>
-                                {lastPhase.namespace.name}{" "}
-                                <span className="text-muted">
-                                  ({percentFormatter.format(namespaceRange)})
-                                </span>
-                              </>
-                            ) : (
-                              <em>Global (all users)</em>
-                            )}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
+        <div className="col-md-6 col-lg-4 col-12">
+          <div className="appbox p-3 h-100 mb-0">
+            <HeaderWithEdit
+              edit={(safeToEdit ? editTargeting : newPhase) || undefined}
+              className="h3"
+              containerClassName="mb-3"
+            >
+              Targeting
+            </HeaderWithEdit>
+            {lastPhase ? (
+              <div className="row">
+                <div className="col">
+                  <div className="mb-3">
+                    <div className="mb-1">
+                      <strong>Experiment Key</strong>{" "}
+                      <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
+                    </div>
+                    <div>{experiment.trackingKey}</div>
+                  </div>
+                  <div className="mb-3">
+                    <div className="mb-1">
+                      <strong>Assignment Attribute</strong>{" "}
+                      <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
+                        <MdInfoOutline className="text-info" />
+                      </Tooltip>
+                    </div>
+                    <div>
+                      {experiment.hashAttribute || "id"}{" "}
+                      {
+                        <HashVersionTooltip>
+                          <small className="text-muted ml-1">
+                            (V{experiment.hashVersion || 2} hashing)
+                          </small>
+                        </HashVersionTooltip>
+                      }
+                    </div>
+                  </div>
+                  <div className="mb-3">
+                    <div className="mb-1">
+                      <strong>Targeting Conditions</strong>
+                    </div>
+                    <div>
+                      {lastPhase.condition && lastPhase.condition !== "{}" ? (
+                        <ConditionDisplay condition={lastPhase.condition} />
+                      ) : (
+                        <em>No conditions</em>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mb-3">
+                    <div className="mb-1">
+                      <strong>Traffic</strong>
+                    </div>
+                    <div>
+                      {Math.floor(lastPhase.coverage * 100)}% included,{" "}
+                      {formatTrafficSplit(lastPhase.variationWeights)} split
+                    </div>
+                  </div>
+                  <div className="mb-3">
+                    <div className="mb-1">
+                      <strong>Namespace</strong>{" "}
+                      <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration -> Namespaces">
+                        <MdInfoOutline className="text-info" />
+                      </Tooltip>
+                    </div>
+                    <div>
+                      {hasNamespace ? (
+                        <>
+                          {lastPhase.namespace.name}{" "}
+                          <span className="text-muted">
+                            ({percentFormatter.format(namespaceRange)})
+                          </span>
+                        </>
+                      ) : (
+                        <em>Global (all users)</em>
+                      )}
+                    </div>
                   </div>
                 </div>
-              ) : (
-                <em>No targeting configured yet</em>
-              )}
-            </div>
-
-            <div className="appbox p-3 mb-0">
-              <HeaderWithEdit
-                edit={
-                  editPhases && !experiment.archived ? editPhases : undefined
-                }
-                className="h4"
-                containerClassName="mb-3"
-              >
-                Experiment Phases
-              </HeaderWithEdit>
-              {phases.length > 0 ? (
-                <div>
-                  {experiment.phases.map((phase, i) => (
-                    <ExpandablePhaseSummary
-                      key={i}
-                      phase={phase}
-                      i={i}
-                      editPhase={editPhase ?? undefined}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center p-3">
-                  <em>No experiment phases defined.</em>
-                  {newPhase && (
-                    <div className="mt-2">
-                      <button
-                        className="btn btn-outline-primary btn-sm"
-                        onClick={newPhase}
-                      >
-                        <GBAddCircle /> Add a Phase
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <em>No targeting configured yet</em>
+            )}
           </div>
         </div>
       </div>

@@ -81,7 +81,6 @@ export default function TabbedPage({
   idea,
   editVariations,
   visualChangesets,
-  editPhase,
   editPhases,
   editTargeting,
   newPhase,
@@ -236,8 +235,6 @@ export default function TabbedPage({
               setFeatureModal={setFeatureModal}
               setVisualEditorModal={setVisualEditorModal}
               visualChangesets={visualChangesets}
-              editPhase={editPhase}
-              editPhases={editPhases}
               editTargeting={editTargeting}
               newPhase={newPhase}
               linkedFeatures={linkedFeatures}

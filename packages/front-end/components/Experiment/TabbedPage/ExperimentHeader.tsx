@@ -71,21 +71,23 @@ export default function ExperimentHeader({
       style={{ marginLeft: -8, marginRight: -8, marginTop: -3 }}
     >
       <div className="container-fluid pagecontents">
-        <div className="row align-items-center">
+        <div className="row align-items-top">
           <div className="col-auto">
-            <Link
-              href={`/experiments${
-                experiment.status === "draft"
-                  ? "#drafts"
-                  : experiment.status === "stopped"
-                  ? "#stopped"
-                  : ""
-              }`}
-            >
-              <a>
-                <GBCircleArrowLeft /> Back to all experiments
-              </a>
-            </Link>
+            <div style={{ marginTop: -8, marginBottom: 8 }}>
+              <Link
+                href={`/experiments${
+                  experiment.status === "draft"
+                    ? "#drafts"
+                    : experiment.status === "stopped"
+                    ? "#stopped"
+                    : ""
+                }`}
+              >
+                <a>
+                  <GBCircleArrowLeft /> Back to all experiments
+                </a>
+              </Link>
+            </div>
 
             <HeaderWithEdit
               className="h1 mb-0"
