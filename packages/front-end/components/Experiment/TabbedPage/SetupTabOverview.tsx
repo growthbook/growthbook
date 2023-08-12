@@ -1,7 +1,4 @@
-import { FaExternalLinkAlt } from "react-icons/fa";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import Link from "next/link";
-import { IdeaInterface } from "back-end/types/idea";
 import MarkdownInlineEdit from "@/components/Markdown/MarkdownInlineEdit";
 import { useAuth } from "@/services/auth";
 import usePermissions from "@/hooks/usePermissions";
@@ -12,7 +9,6 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   safeToEdit: boolean;
-  idea?: IdeaInterface;
   editVariations?: (() => void) | null;
 }
 
@@ -21,7 +17,6 @@ export default function SetupTabOverview({
   mutate,
   safeToEdit,
   editVariations,
-  idea,
 }: Props) {
   const { apiCall } = useAuth();
 
@@ -36,7 +31,7 @@ export default function SetupTabOverview({
   return (
     <div>
       <div className="pl-1 mb-3">
-        <h2>What&apos;s being tested?</h2>
+        <h2>About this test</h2>
       </div>
 
       <div className="appbox bg-white mb-4 p-3">
@@ -75,42 +70,6 @@ export default function SetupTabOverview({
             className="mb-3"
             containerClassName="mb-1"
           />
-
-          {idea && (
-            <div className="mb-3">
-              <div className="d-flex align-items-center">
-                <div className="mr-1">Idea:</div>
-                <div>
-                  {idea.impactScore > 0 && (
-                    <div
-                      className="badge badge-primary mr-1"
-                      title="Impact Score"
-                    >
-                      {idea.impactScore}
-                      <small>/100</small>
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div>
-                <Link href={`/idea/${idea.id}`}>
-                  <a
-                    style={{
-                      maxWidth: 200,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      display: "inline-block",
-                      whiteSpace: "nowrap",
-                      verticalAlign: "middle",
-                    }}
-                    title={idea.text}
-                  >
-                    <FaExternalLinkAlt /> {idea.text}
-                  </a>
-                </Link>
-              </div>
-            </div>
-          )}
 
           <HeaderWithEdit
             edit={editVariations && safeToEdit ? editVariations : undefined}

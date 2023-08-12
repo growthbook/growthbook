@@ -98,7 +98,10 @@ const VariationsTable: FC<Props> = ({
           overflowX: "auto",
         }}
       >
-        <table className="table table-bordered mx-2 bg-light mw100-1rem">
+        <table
+          className="table table-bordered mx-3 bg-light mw100-1rem"
+          style={{ width: "auto" }}
+        >
           <thead>
             <tr>
               {variations.map((v, i) => (

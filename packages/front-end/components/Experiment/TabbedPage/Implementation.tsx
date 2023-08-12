@@ -5,6 +5,7 @@ import {
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { FaPlusCircle } from "react-icons/fa";
 import { MdInfoOutline } from "react-icons/md";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import usePermissions from "@/hooks/usePermissions";
 import { VisualChangesetTable } from "@/components/Experiment/VisualChangesetTable";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -14,7 +15,9 @@ import { formatTrafficSplit } from "@/services/utils";
 import HeaderWithEdit from "../../Layout/HeaderWithEdit";
 import Tooltip from "../../Tooltip/Tooltip";
 import { HashVersionTooltip } from "../HashVersionSelector";
-import { LinkedFeature } from ".";
+import { StartExperimentBanner } from "../StartExperimentBanner";
+import AddLinkedChangesBanner from "../AddLinkedChangesBanner";
+import { ExperimentTab, LinkedFeature } from ".";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -26,7 +29,10 @@ export interface Props {
   setVisualEditorModal: (open: boolean) => void;
   safeToEdit: boolean;
   linkedFeatures: LinkedFeature[];
+  legacyFeatures: LinkedFeature[];
   mutateFeatures: () => void;
+  setTab: (tab: ExperimentTab) => void;
+  connections: SDKConnectionInterface[];
 }
 
 export default function Implementation({
@@ -40,6 +46,9 @@ export default function Implementation({
   setVisualEditorModal,
   mutateFeatures,
   linkedFeatures,
+  legacyFeatures,
+  setTab,
+  connections,
 }: Props) {
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -68,171 +77,235 @@ export default function Implementation({
     canEditExperiment &&
     permissions.check("runExperiments", experiment.project, []);
 
-  const numLinkedChanges = visualChangesets.length + linkedFeatures.length;
+  const hasLinkedChanges =
+    visualChangesets.length > 0 || linkedFeatures.length > 0;
+  const hasAnyChanges = hasLinkedChanges || legacyFeatures.length > 0;
+
+  if (!hasAnyChanges) {
+    if (experiment.status === "draft") {
+      return (
+        <>
+          <AddLinkedChangesBanner
+            experiment={experiment}
+            numLinkedChanges={0}
+            setFeatureModal={setFeatureModal}
+            setVisualEditorModal={setVisualEditorModal}
+          />
+          <div className="mt-1">
+            <StartExperimentBanner
+              experiment={experiment}
+              mutateExperiment={mutate}
+              linkedFeatures={linkedFeatures}
+              visualChangesets={visualChangesets}
+              onStart={() => setTab("results")}
+              editTargeting={editTargeting}
+              connections={connections}
+              noMargin={true}
+            />
+          </div>
+        </>
+      );
+    }
+    return (
+      <div className="alert alert-info mb-0">
+        This experiment has no feature flag or visual editor changes which are
+        managed within the GrowthBook app. Changes are likely implemented
+        manually.
+      </div>
+    );
+  }
 
   return (
-    <div>
+    <div className="mb-4">
       <div className="pl-1 mb-3">
-        <h2>How was it implemented?</h2>
+        <h2>Implementation</h2>
       </div>
-
-      <div className="row mb-4">
-        <div className="col-md-6 col-lg-8 col-12">
+      <div className="row">
+        <div className={hasLinkedChanges ? "col-md-8 col-12 mb-3" : "col"}>
           <div className="appbox p-3 h-100 mb-0">
-            {numLinkedChanges === 0 && experiment.status !== "draft" ? (
-              <div className="alert alert-info mb-0">
-                This experiment has no feature flag or visual editor changes
-                which are managed within the GrowthBook app. Changes are likely
-                implemented manually.
+            {(experiment.status === "draft" || linkedFeatures.length > 0) && (
+              <div className="mb-4">
+                <div className="h4 mb-2">
+                  Linked Features{" "}
+                  <small className="text-muted">
+                    ({linkedFeatures.length})
+                  </small>
+                </div>
+                {linkedFeatures.map(({ feature, rules }, i) => (
+                  <LinkedFeatureFlag
+                    feature={feature}
+                    rules={rules}
+                    experiment={experiment}
+                    key={i}
+                    mutateFeatures={mutateFeatures}
+                  />
+                ))}
+                {experiment.status === "draft" && hasVisualEditorPermission && (
+                  <button
+                    className="btn btn-link"
+                    type="button"
+                    onClick={() => {
+                      setFeatureModal(true);
+                      track("Open linked feature modal", {
+                        source: "linked-changes",
+                        action: "add",
+                      });
+                    }}
+                  >
+                    <FaPlusCircle className="mr-1" />
+                    Add Feature Flag
+                  </button>
+                )}
               </div>
-            ) : (
-              <>
-                {(experiment.status === "draft" ||
-                  linkedFeatures.length > 0) && (
-                  <div className="mb-4">
-                    <div className="h4 mb-2">
-                      Linked Features{" "}
-                      <small className="text-muted">
-                        ({linkedFeatures.length})
-                      </small>
-                    </div>
-                    {linkedFeatures.map(({ feature, rules }, i) => (
-                      <LinkedFeatureFlag
-                        feature={feature}
-                        rules={rules}
-                        experiment={experiment}
-                        key={i}
-                        mutateFeatures={mutateFeatures}
-                        open={true}
-                      />
-                    ))}
-                    {experiment.status === "draft" &&
-                      hasVisualEditorPermission && (
-                        <button
-                          className="btn btn-link"
-                          type="button"
-                          onClick={() => {
-                            setFeatureModal(true);
-                            track("Open linked feature modal", {
-                              source: "linked-changes",
-                              action: "add",
-                            });
-                          }}
-                        >
-                          <FaPlusCircle className="mr-1" />
-                          Add Feature Flag
-                        </button>
-                      )}
-                  </div>
-                )}
-                {(experiment.status === "draft" ||
-                  visualChangesets.length > 0) && (
-                  <div>
-                    <div className="h4 mb-2">
-                      Visual Editor Changes{" "}
-                      <small className="text-muted">
-                        ({visualChangesets.length})
-                      </small>
-                    </div>
-                    <VisualChangesetTable
-                      experiment={experiment}
-                      visualChangesets={visualChangesets}
-                      mutate={mutate}
-                      canEditVisualChangesets={hasVisualEditorPermission}
-                      setVisualEditorModal={setVisualEditorModal}
-                    />
-                  </div>
-                )}
-              </>
+            )}
+            {(experiment.status === "draft" || visualChangesets.length > 0) && (
+              <div>
+                <div className="h4 mb-2">
+                  Visual Editor Changes{" "}
+                  <small className="text-muted">
+                    ({visualChangesets.length})
+                  </small>
+                </div>
+                <VisualChangesetTable
+                  experiment={experiment}
+                  visualChangesets={visualChangesets}
+                  mutate={mutate}
+                  canEditVisualChangesets={hasVisualEditorPermission}
+                  setVisualEditorModal={setVisualEditorModal}
+                />
+              </div>
+            )}
+            {legacyFeatures.length > 0 && (
+              <div className="mt-4">
+                <div className="h4 mb-2">
+                  Legacy Features{" "}
+                  <small className="text-muted">
+                    ({legacyFeatures.length})
+                  </small>
+                </div>
+                <div className="alert alert-info">
+                  These features have rules that reference this Experiment Key,
+                  but contain their own targeting settings. Changes you make to
+                  this experiment will have no effect on these features.
+                </div>
+
+                {legacyFeatures.map(({ feature, rules }, i) => (
+                  <LinkedFeatureFlag
+                    feature={feature}
+                    rules={rules}
+                    experiment={experiment}
+                    key={i}
+                    mutateFeatures={mutateFeatures}
+                    open={false}
+                  />
+                ))}
+              </div>
             )}
           </div>
         </div>
-        <div className="col-md-6 col-lg-4 col-12">
-          <div className="appbox p-3 h-100 mb-0">
-            <HeaderWithEdit
-              edit={(safeToEdit ? editTargeting : newPhase) || undefined}
-              className="h3"
-              containerClassName="mb-3"
-            >
-              Targeting
-            </HeaderWithEdit>
-            {lastPhase ? (
-              <div className="row">
-                <div className="col">
-                  <div className="mb-3">
-                    <div className="mb-1">
-                      <strong>Experiment Key</strong>{" "}
-                      <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
+        {hasLinkedChanges && (
+          <div className="col-md-4 col-lg-4 col-12 mb-3">
+            <div className="appbox p-3 h-100 mb-0">
+              <HeaderWithEdit
+                edit={(safeToEdit ? editTargeting : newPhase) || undefined}
+                className="h3"
+                containerClassName="mb-3"
+              >
+                Targeting
+              </HeaderWithEdit>
+              {lastPhase ? (
+                <div className="row">
+                  <div className="col">
+                    <div className="mb-3">
+                      <div className="mb-1">
+                        <strong>Experiment Key</strong>{" "}
+                        <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
+                      </div>
+                      <div>{experiment.trackingKey}</div>
                     </div>
-                    <div>{experiment.trackingKey}</div>
-                  </div>
-                  <div className="mb-3">
-                    <div className="mb-1">
-                      <strong>Assignment Attribute</strong>{" "}
-                      <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
-                        <MdInfoOutline className="text-info" />
-                      </Tooltip>
+                    <div className="mb-3">
+                      <div className="mb-1">
+                        <strong>Assignment Attribute</strong>{" "}
+                        <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
+                          <MdInfoOutline className="text-info" />
+                        </Tooltip>
+                      </div>
+                      <div>
+                        {experiment.hashAttribute || "id"}{" "}
+                        {
+                          <HashVersionTooltip>
+                            <small className="text-muted ml-1">
+                              (V{experiment.hashVersion || 2} hashing)
+                            </small>
+                          </HashVersionTooltip>
+                        }
+                      </div>
                     </div>
-                    <div>
-                      {experiment.hashAttribute || "id"}{" "}
-                      {
-                        <HashVersionTooltip>
-                          <small className="text-muted ml-1">
-                            (V{experiment.hashVersion || 2} hashing)
-                          </small>
-                        </HashVersionTooltip>
-                      }
+                    <div className="mb-3">
+                      <div className="mb-1">
+                        <strong>Targeting Conditions</strong>
+                      </div>
+                      <div>
+                        {lastPhase.condition && lastPhase.condition !== "{}" ? (
+                          <ConditionDisplay condition={lastPhase.condition} />
+                        ) : (
+                          <em>No conditions</em>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="mb-3">
-                    <div className="mb-1">
-                      <strong>Targeting Conditions</strong>
+                    <div className="mb-3">
+                      <div className="mb-1">
+                        <strong>Traffic</strong>
+                      </div>
+                      <div>
+                        {Math.floor(lastPhase.coverage * 100)}% included,{" "}
+                        {formatTrafficSplit(lastPhase.variationWeights)} split
+                      </div>
                     </div>
-                    <div>
-                      {lastPhase.condition && lastPhase.condition !== "{}" ? (
-                        <ConditionDisplay condition={lastPhase.condition} />
-                      ) : (
-                        <em>No conditions</em>
-                      )}
-                    </div>
-                  </div>
-                  <div className="mb-3">
-                    <div className="mb-1">
-                      <strong>Traffic</strong>
-                    </div>
-                    <div>
-                      {Math.floor(lastPhase.coverage * 100)}% included,{" "}
-                      {formatTrafficSplit(lastPhase.variationWeights)} split
-                    </div>
-                  </div>
-                  <div className="mb-3">
-                    <div className="mb-1">
-                      <strong>Namespace</strong>{" "}
-                      <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration -> Namespaces">
-                        <MdInfoOutline className="text-info" />
-                      </Tooltip>
-                    </div>
-                    <div>
-                      {hasNamespace ? (
-                        <>
-                          {lastPhase.namespace.name}{" "}
-                          <span className="text-muted">
-                            ({percentFormatter.format(namespaceRange)})
-                          </span>
-                        </>
-                      ) : (
-                        <em>Global (all users)</em>
-                      )}
+                    <div className="mb-3">
+                      <div className="mb-1">
+                        <strong>Namespace</strong>{" "}
+                        <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration -> Namespaces">
+                          <MdInfoOutline className="text-info" />
+                        </Tooltip>
+                      </div>
+                      <div>
+                        {hasNamespace ? (
+                          <>
+                            {lastPhase.namespace.name}{" "}
+                            <span className="text-muted">
+                              ({percentFormatter.format(namespaceRange)})
+                            </span>
+                          </>
+                        ) : (
+                          <em>Global (all users)</em>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <em>No targeting configured yet</em>
-            )}
+              ) : (
+                <em>No targeting configured yet</em>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
+
+      {experiment.status === "draft" && (
+        <div className="mt-1">
+          <StartExperimentBanner
+            experiment={experiment}
+            mutateExperiment={mutate}
+            linkedFeatures={linkedFeatures}
+            visualChangesets={visualChangesets}
+            onStart={() => setTab("results")}
+            editTargeting={editTargeting}
+            connections={connections}
+            noMargin={true}
+          />
+        </div>
+      )}
     </div>
   );
 }

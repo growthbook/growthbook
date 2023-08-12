@@ -22,6 +22,7 @@ export function StartExperimentBanner({
   newPhase,
   editTargeting,
   onStart,
+  noMargin,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: {
@@ -34,6 +35,7 @@ export function StartExperimentBanner({
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   onStart: () => void;
+  noMargin?: boolean;
 }) {
   const { apiCall } = useAuth();
 
@@ -191,7 +193,7 @@ export function StartExperimentBanner({
 
   // Prompt them to start with an option to edit the targeting first
   return (
-    <div className="appbox p-4 my-4 text-center">
+    <div className={`appbox p-4 ${noMargin ? "" : "my-4"} text-center`}>
       <div className="row">
         <div className="col-auto text-left">
           <h3 className="text-purple">Pre-launch Check List</h3>

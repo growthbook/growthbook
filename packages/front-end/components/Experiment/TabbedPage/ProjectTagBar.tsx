@@ -1,5 +1,7 @@
-import { FaExclamationTriangle } from "react-icons/fa";
+import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { IdeaInterface } from "back-end/types/idea";
+import Link from "next/link";
 import { GBEdit } from "@/components/Icons";
 import SortedTags from "@/components/Tags/SortedTags";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -10,12 +12,14 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   editTags?: (() => void) | null;
   editProject?: (() => void) | null;
+  idea?: IdeaInterface;
 }
 
 export default function ProjectTagBar({
   experiment,
   editProject,
   editTags,
+  idea,
 }: Props) {
   const {
     projects,
@@ -74,7 +78,7 @@ export default function ProjectTagBar({
           )}
         </div>
       ) : null}
-      <div className="col-auto pr-3 ml-2">
+      <div className="col-auto">
         Tags:{" "}
         {experiment.tags?.length > 0 ? (
           <span className="d-inline-block" style={{ maxWidth: 250 }}>
@@ -96,7 +100,7 @@ export default function ProjectTagBar({
           </a>
         )}
       </div>
-      <div className="col-auto pr-3 ml-2 mr-4">
+      <div className="col-auto">
         Owner:{" "}
         {ownerName ? (
           <strong>{ownerName}</strong>
@@ -104,6 +108,27 @@ export default function ProjectTagBar({
           <em className="text-muted">None</em>
         )}{" "}
       </div>
+
+      {idea && (
+        <div className="col-auto">
+          Idea:{" "}
+          <Link href={`/idea/${idea.id}`}>
+            <a
+              style={{
+                maxWidth: 160,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                display: "inline-block",
+                whiteSpace: "nowrap",
+                verticalAlign: "middle",
+              }}
+              title={idea.text}
+            >
+              <FaExternalLinkAlt /> {idea.text}
+            </a>
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

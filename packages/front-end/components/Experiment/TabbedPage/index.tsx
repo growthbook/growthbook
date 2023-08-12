@@ -11,7 +11,8 @@ import {
   getMatchingRules,
   includeExperimentInPayload,
 } from "shared/util";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { FaChartBar } from "react-icons/fa";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
@@ -20,6 +21,7 @@ import HistoryTable from "@/components/HistoryTable";
 import { openVisualEditor } from "@/components/OpenVisualEditorLink";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
+import useSDKConnections from "@/hooks/useSDKConnections";
 import EditStatusModal from "../EditStatusModal";
 import VisualChangesetModal from "../VisualChangesetModal";
 import EditExperimentNameForm from "../EditExperimentNameForm";
@@ -99,29 +101,56 @@ export default function TabbedPage({
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
 
-  const { features, mutate: mutateFeatures } = useFeaturesList(false);
-  const linkedFeatures: LinkedFeature[] = [];
-  const environments = useEnvironments();
-  const environmentIds = environments.map((e) => e.id);
-  features.forEach((feature) => {
-    const rules = getMatchingRules(
-      feature,
-      (rule) =>
-        (rule.type === "experiment" &&
-          experiment.trackingKey === (rule.trackingKey || feature.id)) ||
-        (rule.type === "experiment-ref" && rule.experimentId === experiment.id),
-      environmentIds
-    );
+  const setTabAndScroll = (tab: ExperimentTab) => {
+    setTab(tab);
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
+  };
 
-    if (rules.length > 0) {
-      linkedFeatures.push({ feature, rules });
-    }
-  });
+  const { features, mutate: mutateFeatures } = useFeaturesList(false);
+  const environments = useEnvironments();
+
+  const { linkedFeatures, legacyFeatures } = useMemo(() => {
+    const environmentIds = environments.map((e) => e.id);
+
+    const linkedFeatures: LinkedFeature[] = [];
+    const legacyFeatures: LinkedFeature[] = [];
+
+    features.forEach((feature) => {
+      const refRules = getMatchingRules(
+        feature,
+        (rule) =>
+          rule.type === "experiment-ref" && rule.experimentId === experiment.id,
+        environmentIds
+      );
+      if (refRules.length > 0) {
+        linkedFeatures.push({ feature, rules: refRules });
+        return;
+      }
+
+      const legacyRules = getMatchingRules(
+        feature,
+        (rule) =>
+          rule.type === "experiment" &&
+          (rule.trackingKey || feature.id) === experiment.trackingKey,
+        environmentIds
+      );
+      if (legacyRules.length > 0) {
+        legacyFeatures.push({ feature, rules: legacyRules });
+      }
+    });
+
+    return { linkedFeatures, legacyFeatures };
+  }, [features, environments, experiment.id, experiment.trackingKey]);
 
   const hasLiveLinkedChanges = includeExperimentInPayload(
     experiment,
     features.filter((f) => experiment.linkedFeatures?.includes(f.id))
   );
+
+  const { data: sdkConnectionsData } = useSDKConnections();
 
   const watcherIds = useApi<{
     userIds: string[];
@@ -203,7 +232,7 @@ export default function TabbedPage({
       <ExperimentHeader
         experiment={experiment}
         tab={tab}
-        setTab={setTab}
+        setTab={setTabAndScroll}
         mutate={mutate}
         safeToEdit={safeToEdit}
         setAuditModal={setAuditModal}
@@ -213,20 +242,20 @@ export default function TabbedPage({
         duplicate={duplicate}
         usersWatching={usersWatching}
       />
-      <div className="container pagecontents">
+      <div className="container pagecontents pb-4">
         {tab === "setup" && (
           <div className="pt-3">
             <ProjectTagBar
               experiment={experiment}
               editProject={editProject}
               editTags={editTags}
+              idea={idea}
             />
             <SetupTabOverview
               experiment={experiment}
               mutate={mutate}
               safeToEdit={safeToEdit}
               editVariations={editVariations}
-              idea={idea}
             />
             <Implementation
               experiment={experiment}
@@ -238,8 +267,24 @@ export default function TabbedPage({
               editTargeting={editTargeting}
               newPhase={newPhase}
               linkedFeatures={linkedFeatures}
+              legacyFeatures={legacyFeatures}
               mutateFeatures={mutateFeatures}
+              connections={sdkConnectionsData?.connections || []}
+              setTab={setTabAndScroll}
             />
+            {experiment.status !== "draft" && (
+              <div className="mt-3 mb-2 text-center">
+                <button
+                  className="btn btn-lg btn-primary"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setTabAndScroll("results");
+                  }}
+                >
+                  <FaChartBar /> View Results
+                </button>
+              </div>
+            )}
           </div>
         )}
         {tab === "results" && (
