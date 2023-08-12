@@ -99,6 +99,18 @@ pre {
   }
 }
 
+#experiment-page-tabs {
+  font-size: 1.2em;
+  .active-tab {
+    color: colors.$highlight-purple;
+    background: linear-gradient(
+      var(--form-multivalue-background-color),
+      var(--surface-background-color-alt)
+    );
+    border-bottom-color: var(--surface-background-color-alt);
+  }
+}
+
 .w-100px {
   width: 100px !important;
 }

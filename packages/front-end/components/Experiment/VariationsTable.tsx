@@ -91,17 +91,14 @@ const VariationsTable: FC<Props> = ({
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
 
   return (
-    <div className="mx-1">
+    <div>
       <div
-        className="mb-2 fade-mask-1rem"
+        className="fade-mask-1rem"
         style={{
           overflowX: "auto",
         }}
       >
-        <table
-          className="table table-bordered mx-3 bg-light mw100-1rem"
-          style={{ width: "auto" }}
-        >
+        <table className="table table-bordered mx-2 bg-light mw100-1rem">
           <thead>
             <tr>
               {variations.map((v, i) => (
