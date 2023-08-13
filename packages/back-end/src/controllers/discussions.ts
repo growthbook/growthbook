@@ -8,6 +8,7 @@ import {
 } from "../services/discussions";
 import { getFileUploadURL } from "../services/files";
 import { getOrgFromReq } from "../services/organizations";
+import { sortCommentsByOrder } from "../util/discussions";
 
 export async function postDiscussions(
   req: AuthRequest<
@@ -149,12 +150,16 @@ export async function putComment(
 export async function getDiscussion(
   req: AuthRequest<
     null,
-    { parentId: string; parentType: DiscussionParentType }
+    { parentId: string; parentType: DiscussionParentType },
+    {
+      order: "asc" | "desc";
+    }
   >,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
   const { parentId, parentType } = req.params;
+  const { order } = req.query;
 
   try {
     const discussion = await getDiscussionByParent(
@@ -162,6 +167,8 @@ export async function getDiscussion(
       parentType,
       parentId
     );
+
+    if (discussion) sortCommentsByOrder(discussion.comments, order);
     res.status(200).json({
       status: 200,
       discussion,

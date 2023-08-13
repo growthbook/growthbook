@@ -50,12 +50,14 @@ import EditSchemaModal from "@/components/Features/EditSchemaModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
+import SelectField from "@/components/Forms/SelectField";
 
 export default function FeaturePage() {
   const router = useRouter();
   const { fid } = router.query;
 
   const [edit, setEdit] = useState(false);
+  const [commentsOrder, setCommentsOrder] = useState<"asc" | "desc">("desc");
   const [editValidator, setEditValidator] = useState(false);
   const [showSchema, setShowSchema] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
@@ -775,8 +777,24 @@ export default function FeaturePage() {
 
       <div className="mb-4">
         <h3>Comments</h3>
+        <div className="mb-4">
+          <SelectField
+            label="Order by"
+            className="default w-25 "
+            value={commentsOrder}
+            onChange={(v: "asc" | "desc") => {
+              setCommentsOrder(v);
+            }}
+            options={[
+              { label: "Newest First", value: "desc" },
+              { label: "Oldest First", value: "asc" },
+            ]}
+          />
+        </div>
+
         <DiscussionThread
           type="feature"
+          order={commentsOrder}
           id={data.feature.id}
           project={data.feature.project}
         />
