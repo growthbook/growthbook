@@ -1,7 +1,6 @@
 import { QueryLanguage } from "./datasource";
 
 export type QueryStatus =
-  | "waiting"
   | "running"
   | "failed"
   | "partially-succeeded"
@@ -29,4 +28,5 @@ export interface QueryInterface {
   result?: Record<string, any>;
   rawResult?: Record<string, number | string | boolean>[];
   error?: string;
+  parentQueryIds?: string[];
 }

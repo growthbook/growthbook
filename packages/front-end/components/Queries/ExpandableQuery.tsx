@@ -102,7 +102,11 @@ const ExpandableQuery: FC<{
       {query.status === "running" && (
         <div className="alert alert-info">
           <em>
-            Running for{" "}
+            Running
+            {query.parentQueryIds?.length
+              ? " or waiting for parent queries"
+              : ""}{" "}
+            for{" "}
             {formatDistanceStrict(getValidDate(query.startedAt), new Date())}
           </em>
         </div>

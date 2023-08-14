@@ -369,6 +369,7 @@ export abstract class QueryRunner<
       datasource: this.integration.datasource,
       organization: this.integration.organization,
       language: this.integration.getSourceProperties().queryLanguage,
+      parentQueryIds: parentQueryIds,
     });
     logger.debug("Created new query object in Mongo: " + doc.id);
 
@@ -410,8 +411,8 @@ export abstract class QueryRunner<
                   (q) => q.id
                 )} still running.`
               );
-              // Still running, check again after a delay
-              setTimeout(check, 1000);
+              // Still running, check again after 500 ms
+              setTimeout(check, 500);
             } else {
               this.executeQuery(query, timer, doc, run, process);
             }

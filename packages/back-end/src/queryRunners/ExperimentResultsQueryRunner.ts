@@ -107,6 +107,7 @@ export const startExperimentResultQueries = async (
       segment: segmentObj,
       settings: snapshotSettings,
       unitsTableName: unitsTableName,
+      includeIdJoins: true,
     };
     unitQuery = await startQuery(
       queryParentId,

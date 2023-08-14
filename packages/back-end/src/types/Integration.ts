@@ -98,10 +98,13 @@ export type ExperimentMetricQueryParams = {
   unitsTableName?: string;
 };
 
-export type ExperimentUnitsQueryParams = Pick<
-  ExperimentMetricQueryParams,
-  "settings" | "dimension" | "segment" | "unitsTableName"
->;
+export type ExperimentUnitsQueryParams = {
+  settings: ExperimentSnapshotSettings;
+  dimension: Dimension | null;
+  segment: SegmentInterface | null;
+  unitsTableName?: string;
+  includeIdJoins: boolean;
+};
 
 export type PastExperimentParams = {
   from: Date;

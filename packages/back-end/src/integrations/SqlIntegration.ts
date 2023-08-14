@@ -861,7 +861,7 @@ export default abstract class SqlIntegration
       dimension?.type === "experiment" ? dimension.id : null;
 
     return `
-    ${idJoinSQL}
+    ${params.includeIdJoins ? idJoinSQL : ""}
     __rawExperiment AS (
       ${replaceSQLVars(exposureQuery.query, {
         startDate: settings.startDate,
@@ -1053,6 +1053,12 @@ export default abstract class SqlIntegration
         metric.userIdTypes || [],
         ...activationMetrics.map((m) => m.userIdTypes || []),
         ...denominatorMetrics.map((m) => m.userIdTypes || []),
+        dimension?.type === "user" && !params.useUnitsTable
+          ? [dimension.dimension.userIdType || "user_id"]
+          : [],
+        segment && !params.useUnitsTable
+          ? [segment.userIdType || "user_id"]
+          : [],
       ],
       settings.startDate,
       settings.endDate,
@@ -1084,7 +1090,10 @@ export default abstract class SqlIntegration
       ${idJoinSQL}
       ${
         !params.useUnitsTable
-          ? `${this.getExperimentUnitsQuery({ ...params })},`
+          ? `${this.getExperimentUnitsQuery({
+              ...params,
+              includeIdJoins: false,
+            })},`
           : ""
       }
       __experiment AS (

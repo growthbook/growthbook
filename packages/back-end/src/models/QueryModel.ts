@@ -37,6 +37,7 @@ const querySchema = new mongoose.Schema({
   result: {},
   rawResult: [],
   error: String,
+  parentQueryIds: [],
 });
 
 type QueryDocument = mongoose.Document & QueryInterface;
@@ -136,6 +137,7 @@ export async function createNewQuery({
   datasource,
   language,
   query,
+  parentQueryIds = [],
   result = null,
   error = null,
 }: {
@@ -143,6 +145,7 @@ export async function createNewQuery({
   datasource: string;
   language: QueryLanguage;
   query: string;
+  parentQueryIds?: string[];
   result?: null | Record<string, unknown>;
   error?: null | string;
 }): Promise<QueryInterface> {
@@ -159,6 +162,7 @@ export async function createNewQuery({
     status: result ? "succeeded" : error ? "failed" : "running",
     result: result || undefined,
     error: error || undefined,
+    parentQueryIds: parentQueryIds,
   };
   const doc = await QueryModel.create(data);
   return toInterface(doc);
