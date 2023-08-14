@@ -140,7 +140,7 @@ const BigQueryForm: FC<{
           value={params.defaultDataset || ""}
           onChange={onParamChange}
           placeholder=""
-          helpText="The default dataset GrowthBook will use when building queries and discovering metrics for this data source."
+          helpText="This will be help GrowthBook generate the initial SQL queries used to define things like Metrics and Experiment Assignments."
         />
       </div>
     </div>

@@ -14,6 +14,7 @@ export interface Props {
   setPossibleTypes: any;
   form: any;
   dataSourceConnections: any;
+  importSampleData: any;
 }
 
 export default function EventSourceList({
@@ -26,6 +27,7 @@ export default function EventSourceList({
   setPossibleTypes,
   form,
   dataSourceConnections,
+  importSampleData,
 }: Props) {
   const [expand, setExpand] = useState(false);
 
@@ -87,7 +89,7 @@ export default function EventSourceList({
               Source.
             </p>
           </div>
-          <div className={`row`}>
+          <div className="form-group d-flex">
             <div className="col-6">
               <a
                 className={`btn btn-light-hover btn-outline-primary mb-3 py-3`}
@@ -108,30 +110,29 @@ export default function EventSourceList({
                   setStep(1);
                 }}
               >
-                <h4>Create Custom Data Source</h4>
+                <h4>Start Custom Setup</h4>
                 <p className="mb-0 text-dark">
-                  Manually configure your data schema and analytics queries.
+                  We&apos;ll guide you through how to manually configure a Data
+                  Source.
                 </p>
               </a>
             </div>
-            {/* {importSampleData && (
-                <div className="col-6">
-                  <a
-                    className={`btn btn-light-hover btn-outline-${
-                      "custom" === schema ? "selected" : "primary"
-                    } mb-3 py-3 ml-auto`}
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      await importSampleData("new data source form");
-                    }}
-                  >
-                    <h4>Use Sample Dataset</h4>
-                    <p className="mb-0 text-dark">
-                      Explore GrowthBook with a pre-loaded sample dataset.
-                    </p>
-                  </a>
-                </div>
-              )} */}
+            {importSampleData && (
+              <div className="col-6">
+                <a
+                  className="btn btn-light-hover btn-outline-primary mb-3 py-3 ml-auto"
+                  onClick={async (e) => {
+                    e.preventDefault();
+                    await importSampleData("new data source form");
+                  }}
+                >
+                  <h4>Use Sample Dataset</h4>
+                  <p className="mb-0 text-dark">
+                    Explore GrowthBook with a pre-loaded sample dataset.
+                  </p>
+                </a>
+              </div>
+            )}
           </div>
         </div>
         {!expand && (

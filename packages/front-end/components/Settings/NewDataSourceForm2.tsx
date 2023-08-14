@@ -373,9 +373,11 @@ const NewDataSourceForm: FC<{
       <div>
         <h4>Select Your Event Tracker</h4>
         <p>
-          GrowthBook works by connecting to your existing analytics
-          infrastructure and has built-in support for a number of popular event
-          trackers.
+          GrowthBook doesn&apos;t store a copy of your data, but instead
+          connects to your existing data warehouse via minimal,{" "}
+          <code>read-only</code> queries. We have built-in support for a number
+          of popular event trackers, but also support advanced integrations as
+          well.
         </p>
         {/* <p></p> */}
         <EventSourceList
@@ -391,6 +393,7 @@ const NewDataSourceForm: FC<{
           setPossibleTypes={setPossibleTypes}
           form={form}
           dataSourceConnections={dataSourceConnections}
+          importSampleData={importSampleData}
         />
         {/* <div className="my-2">
           <strong style={{ fontSize: "1.2em" }}>Don&apos;t see yours?</strong>
@@ -482,7 +485,7 @@ const NewDataSourceForm: FC<{
           />
         </div>
         <SelectField
-          label="Choose Your Data Warehouse"
+          label="Select the data warehouse where your event data is stored"
           // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           value={datasource.type}
           onChange={(value) => {
@@ -506,7 +509,7 @@ const NewDataSourceForm: FC<{
           }}
           disabled={existing || possibleTypes.length === 1}
           required
-          helpText="Select the data warehouse where your event data is stored."
+          // helpText="This should be the data warehouse where your event data is stored."
           autoFocus={true}
           placeholder="Choose Type..."
           options={dataSourceConnections
