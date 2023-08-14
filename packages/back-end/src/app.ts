@@ -94,6 +94,7 @@ import { projectRouter } from "./routers/project/project.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
+import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 
 const app = express();
@@ -461,6 +462,8 @@ app.use("/dimensions", dimensionRouter);
 app.use("/sdk-connections", sdkConnectionRouter);
 
 app.use("/projects", projectRouter);
+
+app.use("/demo-datasource-project", demoDatasourceProjectRouter);
 
 // Features
 app.get("/feature", featuresController.getFeatures);
