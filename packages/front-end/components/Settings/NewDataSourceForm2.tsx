@@ -330,8 +330,6 @@ const NewDataSourceForm: FC<{
   const isFinalStep = step === 2 || (!hasStep2 && step === 1);
   const updateSettingsRequired = isFinalStep && dataSourceId && step !== 1;
 
-  console.log("dataSourceConnections", dataSourceConnections);
-
   const submit =
     step === 0
       ? null

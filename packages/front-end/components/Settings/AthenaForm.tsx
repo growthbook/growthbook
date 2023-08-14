@@ -12,7 +12,7 @@ const AthenaForm: FC<{
   return (
     <div className="row">
       {!isCloud() && (
-        <div className="col-md-12">
+        <div>
           <Field
             label="Authentication Method"
             options={[
@@ -35,7 +35,7 @@ const AthenaForm: FC<{
           />
         </div>
       )}
-      <div className="form-group col-md-12">
+      <div className="row">
         <label>AWS Region</label>
         <input
           type="text"
@@ -46,7 +46,7 @@ const AthenaForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group">
         <label>Workgroup (optional)</label>
         <input
           type="text"
@@ -59,7 +59,7 @@ const AthenaForm: FC<{
       </div>
       {(isCloud() || params.authType !== "auto") && (
         <>
-          <div className="form-group col-md-12">
+          <div className="form-group">
             <label>AWS Access Key</label>
             <input
               type="text"
@@ -71,7 +71,7 @@ const AthenaForm: FC<{
               placeholder={existing ? "(Keep existing)" : ""}
             />
           </div>
-          <div className="form-group col-md-12">
+          <div className="form-group">
             <label>Access Secret</label>
             <input
               type="text"
@@ -86,7 +86,7 @@ const AthenaForm: FC<{
           </div>
         </>
       )}
-      <div className="form-group col-md-12">
+      <div className="form-group">
         <label>Default Catalog (optional)</label>
         <input
           type="text"
@@ -96,7 +96,7 @@ const AthenaForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group">
         <label>Default Database (optional)</label>
         <input
           type="text"
@@ -106,7 +106,7 @@ const AthenaForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group">
         <label>S3 Results URL</label>
         <input
           type="text"

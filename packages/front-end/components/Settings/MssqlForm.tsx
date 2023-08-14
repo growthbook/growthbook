@@ -24,7 +24,7 @@ const MssqlForm: FC<{
         }}
       />
       <div className="row">
-        <div className="form-group col-md-12">
+        <div className="form-group">
           <label>Server</label>
           <input
             type="text"
@@ -35,7 +35,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group">
           <label>Port</label>
           <input
             type="number"
@@ -46,7 +46,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group">
           <label>Database</label>
           <input
             type="text"
@@ -57,7 +57,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group">
           <label>User</label>
           <input
             type="text"
@@ -68,7 +68,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group">
           <label>Password</label>
           <input
             type="text"
@@ -80,7 +80,7 @@ const MssqlForm: FC<{
             placeholder={existing ? "(Keep existing)" : ""}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group">
           <label>Default Schema</label>
           <input
             type="text"
@@ -93,7 +93,7 @@ const MssqlForm: FC<{
         </div>
       </div>
       <div className="row mt-2">
-        <div className="col-md-12">
+        <div>
           <div className="form-group">
             <label htmlFor="trust-server-cert" className="mr-2">
               Trust server certificate{" "}

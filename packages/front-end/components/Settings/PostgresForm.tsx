@@ -21,7 +21,7 @@ const PostgresForm: FC<{
         }}
       />
       <div className="row">
-        <div className="form-group col-md-12">
+        <div className="form-group">
           <label>Host</label>
           <input
             type="text"
@@ -32,7 +32,7 @@ const PostgresForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group">
           <label>Port</label>
           <input
             type="number"
@@ -43,7 +43,7 @@ const PostgresForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group">
           <label>Database</label>
           <input
             type="text"
@@ -54,7 +54,7 @@ const PostgresForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group">
           <label>User</label>
           <input
             type="text"
@@ -65,7 +65,7 @@ const PostgresForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group">
           <label>Password</label>
           <input
             type="text"
@@ -78,7 +78,7 @@ const PostgresForm: FC<{
             placeholder={existing ? "(Keep existing)" : ""}
           />
         </div>
-        <div className="form-group col-md-12">
+        <div className="form-group">
           <label>Default Schema</label>
           <input
             type="text"

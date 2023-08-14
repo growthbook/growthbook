@@ -8,7 +8,7 @@ const SnowflakeForm: FC<{
 }> = ({ params, existing, onParamChange }) => {
   return (
     <div className="row">
-      <div className="form-group col-md-12">
+      <div className="form-group">
         <label>Account</label>
         <input
           type="text"
@@ -20,7 +20,7 @@ const SnowflakeForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group">
         <label>Username</label>
         <input
           type="text"
@@ -31,7 +31,7 @@ const SnowflakeForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group">
         <label>Password</label>
         <input
           type="text"
@@ -44,7 +44,7 @@ const SnowflakeForm: FC<{
           placeholder={existing ? "(Keep existing)" : ""}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group">
         <label>Database</label>
         <input
           type="text"
@@ -55,7 +55,7 @@ const SnowflakeForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group">
         <label>Schema</label>
         <input
           type="text"
@@ -66,7 +66,7 @@ const SnowflakeForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group">
         <label>Warehouse</label>
         <input
           type="text"
@@ -77,7 +77,7 @@ const SnowflakeForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group">
         <label>Role</label>
         <input
           type="text"

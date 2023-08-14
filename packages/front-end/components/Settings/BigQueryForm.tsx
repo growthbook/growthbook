@@ -11,9 +11,9 @@ const BigQueryForm: FC<{
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
 }> = ({ params, setParams, existing, onParamChange }) => {
   return (
-    <div className="row">
+    <div>
       {!isCloud() && (
-        <div className="col-md-12">
+        <div>
           <Field
             label="Authentication Method"
             options={[
@@ -38,7 +38,7 @@ const BigQueryForm: FC<{
       )}
       {(isCloud() || params.authType !== "auto") && (
         <>
-          <div className="form-group col-md-12">
+          <div className="row">
             <div className="custom-file">
               <input
                 type="file"
@@ -91,7 +91,7 @@ const BigQueryForm: FC<{
               </label>
             </div>
           </div>
-          <div className="form-group col-md-12">
+          <div className="form-group">
             {params && params.projectId ? (
               <ul>
                 <li>
@@ -113,7 +113,7 @@ const BigQueryForm: FC<{
           </div>
         </>
       )}
-      <div className="form-group col-md-12">
+      <div className="form-group">
         <label>
           Project ID{" "}
           <Tooltip body="The default project ID GrowthBook will use when creating queries and discovering metrics. You can find this value from your BigQuery project info card on your BigQuery Dashboard, or the name of the top level SQL item in the BigQuery console SQL workspace. This value can be edited later if needed." />
@@ -128,7 +128,7 @@ const BigQueryForm: FC<{
           helpText="The default project ID GrowthBook will use when connecting to your data."
         />
       </div>
-      <div className="form-group col-md-12">
+      <div className="form-group">
         <label>
           Dataset (Recommended){" "}
           <Tooltip body="Specifying a dataset here allows GrowthBook to create working assignment and metric queries, and enables the automatic discovery metrics. You can find this from your BigQuery console SQL workspace. This value can be edited later if needed." />
