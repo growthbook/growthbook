@@ -1021,7 +1021,9 @@ export async function getExperimentMapForFeature(
   });
 
   return new Map(
-    experiments.filter(includeExperimentInPayload).map((e) => [e.id, e])
+    experiments
+      .filter((e) => includeExperimentInPayload(e))
+      .map((e) => [e.id, e])
   );
 }
 
@@ -1044,7 +1046,9 @@ export async function getAllPayloadExperiments(
   });
 
   return new Map(
-    experiments.filter(includeExperimentInPayload).map((e) => [e.id, e])
+    experiments
+      .filter((e) => includeExperimentInPayload(e))
+      .map((e) => [e.id, e])
   );
 }
 
@@ -1102,7 +1106,7 @@ export const getPayloadKeys = (
   linkedFeatures?: FeatureInterface[]
 ): SDKPayloadKey[] => {
   // If experiment is not included in the SDK payload
-  if (!includeExperimentInPayload(experiment)) {
+  if (!includeExperimentInPayload(experiment, linkedFeatures)) {
     return [];
   }
 

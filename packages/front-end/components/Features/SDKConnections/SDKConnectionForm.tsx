@@ -92,9 +92,10 @@ export default function SDKConnectionForm({
   const selectedLanguagesWithoutEncryptionSupport = languages.filter(
     (l) => !languageMapping[l].supportsEncryption
   );
-  const hasNoSDKsWithVisualExperimentSupport = languages.every(
-    (l) => !languageMapping[l].supportsVisualExperiments
-  );
+
+  const showVisualEditorSettings =
+    !languages.length ||
+    languages.some((l) => languageMapping[l].supportsVisualExperiments);
 
   const projectsOptions = projects.map((p) => ({
     label: p.name,
@@ -217,7 +218,7 @@ export default function SDKConnectionForm({
         options={environments.map((e) => ({ label: e.id, value: e.id }))}
       />
 
-      {!hasNoSDKsWithVisualExperimentSupport && (
+      {showVisualEditorSettings && (
         <>
           <label>Visual experiments</label>
           <div className="border rounded pt-2 pb-3 px-3">

@@ -124,6 +124,13 @@ export default function EditPhaseModal({
         showPreview={false}
       />
 
+      <Field
+        {...form.register("seed")}
+        label="Hash Seed"
+        placeholder={experiment.trackingKey}
+        helpText="Used to determine which variation is assigned to users"
+      />
+
       <NamespaceSelector
         form={form}
         featureId={experiment.trackingKey}
