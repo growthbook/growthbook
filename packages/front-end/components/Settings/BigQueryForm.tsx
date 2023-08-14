@@ -130,7 +130,7 @@ const BigQueryForm: FC<{
       </div>
       <div className="form-group col-md-12">
         <label>
-          Dataset{" "}
+          Dataset (Recommended){" "}
           <Tooltip body="Specifying a dataset here allows GrowthBook to create working assignment and metric queries, and enables the automatic discovery metrics. You can find this from your BigQuery console SQL workspace. This value can be edited later if needed." />
         </label>
         <Field

@@ -472,8 +472,19 @@ const NewDataSourceForm: FC<{
         {selectedSchema && selectedSchema.intro && (
           <div className="mb-4">{selectedSchema.intro}</div>
         )}
+        <div className="form-group">
+          <label>Name</label>
+          <input
+            type="text"
+            className="form-control"
+            name="name"
+            required
+            onChange={onChange}
+            value={datasource.name}
+          />
+        </div>
         <SelectField
-          label="Data Source Type"
+          label="Choose Your Data Warehouse"
           // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           value={datasource.type}
           onChange={(value) => {
@@ -497,6 +508,7 @@ const NewDataSourceForm: FC<{
           }}
           disabled={existing || possibleTypes.length === 1}
           required
+          helpText="Select the data warehouse where your event data is stored."
           autoFocus={true}
           placeholder="Choose Type..."
           options={dataSourceConnections
@@ -510,17 +522,6 @@ const NewDataSourceForm: FC<{
               };
             })}
         />
-        <div className="form-group">
-          <label>Display Name</label>
-          <input
-            type="text"
-            className="form-control"
-            name="name"
-            required
-            onChange={onChange}
-            value={datasource.name}
-          />
-        </div>
         <div className="form-group">
           <label>Description</label>
           <textarea
