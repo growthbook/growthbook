@@ -91,23 +91,32 @@ export const startExperimentResultQueries = async (
 
   const queries: Queries = [];
 
-  // TODO fix with proper prefix from SourceIntegrationInterface
-  const unitsTableName = `sample.${queryParentId}`;
-  // TODO reliably learn whether we will depend on existing table
-  const useUnitsTable = true; // again set it in SourceIntegrationInterface?
+  let unitQuery: QueryPointer;
+  let useUnitsTable = false;
+  let unitsTableName: string;
 
-  const unitQueryParams: ExperimentUnitsQueryParams = {
-    dimension: dimensionObj,
-    segment: segmentObj,
-    settings: snapshotSettings,
-  };
-  const unitQuery = await startQuery(
-    queryParentId,
-    integration.getExperimentUnitsTableQuery(unitQueryParams, unitsTableName),
-    [],
-    (query) => integration.runExperimentUnitsQuery(query),
-    (rows) => rows
-  );
+  if (
+    integration.getSourceProperties().supportsWritingTables &&
+    integration.params.writeDataset
+  ) {
+    unitsTableName = `growthbook_tmp_units_${queryParentId}`;
+    useUnitsTable = true;
+
+    const unitQueryParams: ExperimentUnitsQueryParams = {
+      dimension: dimensionObj,
+      segment: segmentObj,
+      settings: snapshotSettings,
+      unitsTableName: unitsTableName,
+    };
+    unitQuery = await startQuery(
+      queryParentId,
+      integration.getExperimentUnitsTableQuery(unitQueryParams),
+      [],
+      (query) => integration.runExperimentUnitsQuery(query),
+      (rows) => rows
+    );
+    queries.push(unitQuery);
+  }
 
   const promises = selectedMetrics.map(async (m) => {
     const denominatorMetrics: MetricInterface[] = [];
@@ -131,7 +140,7 @@ export const startExperimentResultQueries = async (
     const metricQuery = await startQuery(
       m.id,
       integration.getExperimentMetricQuery(params),
-      [unitQuery.query],
+      useUnitsTable ? [unitQuery.query] : [],
       (query) => integration.runExperimentMetricQuery(query),
       (rows) => rows
     );

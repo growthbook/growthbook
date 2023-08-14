@@ -133,6 +133,17 @@ const BigQueryForm: FC<{
           placeholder="(optional)"
         />
       </div>
+      <div className="form-group col-md-12">
+        <label>(experimental) Dataset for Temporary Snapshot Tables</label>
+        <input
+          type="text"
+          className="form-control"
+          name="writeDataset"
+          value={params.writeDataset || ""}
+          onChange={onParamChange}
+          placeholder="(experimental; optional)"
+        />
+      </div>
     </div>
   );
 };

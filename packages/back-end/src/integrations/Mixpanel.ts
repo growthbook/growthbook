@@ -60,7 +60,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
   getExperimentUnitsTableQuery(): string {
     throw new Error("Method not implemented.");
   }
-  runExperimentUnitsQuery(): Promise<ExperimentMetricQueryResponse> {
+  runExperimentUnitsQuery(): Promise<[]> {
     throw new Error("Method not implemented.");
   }
 

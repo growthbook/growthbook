@@ -5,4 +5,5 @@ export interface BigQueryConnectionParams {
   privateKey?: string;
   defaultProject: string;
   defaultDataset: string;
+  writeDataset?: string;
 }

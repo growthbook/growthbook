@@ -16,6 +16,9 @@ export default class BigQuery extends SqlIntegration {
       encryptedParams
     );
   }
+  isWritingTablesSupported(): boolean {
+    return true;
+  }
   getFormatDialect(): FormatDialect {
     return "bigquery";
   }
@@ -39,6 +42,7 @@ export default class BigQuery extends SqlIntegration {
   }
 
   async runQuery(sql: string) {
+    // TODO consider adding labels to help track impact
     const client = this.getClient();
 
     const [job] = await client.createQueryJob({
@@ -48,6 +52,10 @@ export default class BigQuery extends SqlIntegration {
     });
     const [rows] = await job.getQueryResults();
     return rows;
+  }
+
+  createUnitsTableOptions() {
+    return `OPTIONS(expiration_timestamp=TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL 6 HOUR))`;
   }
   toTimestamp(date: Date) {
     return `DATETIME("${date.toISOString().substr(0, 19).replace("T", " ")}")`;
