@@ -23,6 +23,7 @@ export function StartExperimentBanner({
   editTargeting,
   onStart,
   noMargin,
+  openSetupTab,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: {
@@ -34,8 +35,9 @@ export function StartExperimentBanner({
   mutateExperiment: () => unknown | Promise<unknown>;
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
-  onStart: () => void;
+  onStart?: () => void;
   noMargin?: boolean;
+  openSetupTab?: () => void;
 }) {
   const { apiCall } = useAuth();
 
@@ -45,6 +47,7 @@ export function StartExperimentBanner({
     display: string | ReactElement;
     status: "error" | "success";
     tooltip?: string | ReactElement;
+    action?: ReactElement | null;
   };
   const checklist: CheckListItem[] = [];
 
@@ -52,8 +55,20 @@ export function StartExperimentBanner({
   const hasLinkedChanges =
     linkedFeatures.length > 0 || visualChangesets.length > 0;
   checklist.push({
-    display: "Add at least one Linked Feature or Visual Editor change",
+    display: "Add at least one Linked Feature or Visual Editor change.",
     status: hasLinkedChanges ? "success" : "error",
+    action:
+      openSetupTab && !hasLinkedChanges ? (
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            openSetupTab();
+          }}
+        >
+          Setup Experiment
+        </a>
+      ) : null,
   });
 
   // No unpublished feature flags
@@ -65,8 +80,19 @@ export function StartExperimentBanner({
         )
     );
     checklist.push({
-      display: "Publish and enable all Linked Feature rules",
+      display: "Publish and enable all Linked Feature rules.",
       status: hasFeatureFlagsErrors ? "error" : "success",
+      action: openSetupTab ? (
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            openSetupTab();
+          }}
+        >
+          Manage Linked Features
+        </a>
+      ) : null,
     });
   }
 
@@ -79,8 +105,19 @@ export function StartExperimentBanner({
       )
     );
     checklist.push({
-      display: "Add changes in the Visual Editor",
+      display: "Add changes in the Visual Editor.",
       status: hasSomeVisualChanges ? "success" : "error",
+      action: openSetupTab ? (
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            openSetupTab();
+          }}
+        >
+          Manage Visual Changes
+        </a>
+      ) : null,
     });
   }
 
@@ -99,18 +136,16 @@ export function StartExperimentBanner({
     (connection) => connection.connected
   );
   checklist.push({
-    display: (
-      <>
-        Integrate the GrowthBook SDK into your app.{" "}
-        <Link href="/sdks">
-          <a>
-            {connections.length > 0
-              ? "Manage SDK Connections"
-              : "Create an SDK Connection"}{" "}
-            <FaExternalLinkAlt />
-          </a>
-        </Link>
-      </>
+    display: "Integrate the GrowthBook SDK into your app.",
+    action: (
+      <Link href="/sdks">
+        <a>
+          {connections.length > 0
+            ? "Manage SDK Connections"
+            : "Create an SDK Connection"}{" "}
+          <FaExternalLinkAlt />
+        </a>
+      </Link>
     ),
     status: verifiedConnections.length > 0 ? "success" : "error",
     tooltip:
@@ -128,24 +163,19 @@ export function StartExperimentBanner({
   // Experiment has phases
   const hasPhases = experiment.phases.length > 0;
   checklist.push({
-    display: (
-      <>
-        Configure variation assignment and targeting behavior{" "}
-        {editTargeting ? (
-          <a
-            href="#"
-            className="ml-2"
-            onClick={(e) => {
-              e.preventDefault();
-              editTargeting();
-              track("Edit targeting", { source: "experiment-start-banner" });
-            }}
-          >
-            Edit Targeting
-          </a>
-        ) : null}
-      </>
-    ),
+    display: "Configure variation assignment and targeting behavior.",
+    action: editTargeting ? (
+      <a
+        href="#"
+        onClick={(e) => {
+          e.preventDefault();
+          editTargeting();
+          track("Edit targeting", { source: "experiment-start-banner" });
+        }}
+      >
+        Edit Targeting
+      </a>
+    ) : null,
     status: hasPhases ? "success" : "error",
   });
 
@@ -204,6 +234,7 @@ export function StartExperimentBanner({
                 style={{
                   listStyleType: "none",
                   marginLeft: 0,
+                  marginBottom: 3,
                 }}
               >
                 <Tooltip body={item.tooltip || ""}>
@@ -215,6 +246,9 @@ export function StartExperimentBanner({
                     ""
                   )}{" "}
                   {item.display}
+                  {item.action ? (
+                    <span className="ml-2">{item.action}</span>
+                  ) : null}
                 </Tooltip>
               </li>
             ))}

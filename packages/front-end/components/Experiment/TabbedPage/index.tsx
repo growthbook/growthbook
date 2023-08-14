@@ -151,6 +151,7 @@ export default function TabbedPage({
   );
 
   const { data: sdkConnectionsData } = useSDKConnections();
+  const connections = sdkConnectionsData?.connections || [];
 
   const watcherIds = useApi<{
     userIds: string[];
@@ -270,7 +271,7 @@ export default function TabbedPage({
               linkedFeatures={linkedFeatures}
               legacyFeatures={legacyFeatures}
               mutateFeatures={mutateFeatures}
-              connections={sdkConnectionsData?.connections || []}
+              connections={connections}
               setTab={setTabAndScroll}
             />
             {experiment.status !== "draft" && (
@@ -296,6 +297,11 @@ export default function TabbedPage({
             editPhases={editPhases}
             editResult={editResult}
             newPhase={newPhase}
+            connections={connections}
+            linkedFeatures={linkedFeatures}
+            setTab={setTab}
+            visualChangesets={visualChangesets}
+            editTargeting={editTargeting}
           />
         )}
       </div>

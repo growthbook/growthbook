@@ -20,7 +20,6 @@ import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import PValueGuardrailResults from "./PValueGuardrailResults";
-import AnalysisSettingsSummary from "./TabbedPage/AnalysisSettingsSummary";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -119,10 +118,6 @@ const Results: FC<{
 
   return (
     <>
-      <AnalysisSettingsSummary
-        experiment={experiment}
-        mutate={mutateExperiment}
-      />
       <AnalysisSettingsBar
         mutateExperiment={mutateExperiment}
         editMetrics={editMetrics}

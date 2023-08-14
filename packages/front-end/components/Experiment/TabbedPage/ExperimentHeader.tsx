@@ -89,8 +89,12 @@ export default function ExperimentHeader({
 
   return (
     <div
-      className="bg-white px-3 pt-3 border-bottom"
-      style={{ marginLeft: -8, marginRight: -8, marginTop: -3 }}
+      className="bg-white px-3 pt-3 border-bottom shadow-sm"
+      style={{
+        marginLeft: -8,
+        marginRight: -8,
+        marginTop: -3,
+      }}
     >
       <div className="container-fluid pagecontents">
         <div className="row align-items-top">
