@@ -105,11 +105,10 @@ const OpenVisualEditorLink: FC<{
       "vc-id": visualChangeset.id,
       "v-idx": 1,
       "exp-url": encodeURIComponent(window.location.href),
-      "api-host": encodeURIComponent(apiHost),
     });
 
     return url;
-  }, [apiHost, visualChangeset.editorUrl, visualChangeset.id]);
+  }, [visualChangeset.editorUrl, visualChangeset.id]);
 
   const getVisualEditorKey = useCallback(async () => {
     const res = await apiCall<{ key: string }>("/visual-editor/key", {
@@ -127,7 +126,10 @@ const OpenVisualEditorLink: FC<{
         window.postMessage(
           {
             type: "GB_REQUEST_OPEN_VISUAL_EDITOR",
-            data: key,
+            data: {
+              apiHost,
+              apiKey: key,
+            },
           },
           window.location.origin
         );
@@ -141,21 +143,13 @@ const OpenVisualEditorLink: FC<{
           window.location.href = url;
           return;
         }
-
-        // for backwards compatibility, we force routing to the page if it doesn't
-        // happen automatically after 1.5 seconds. this can be deleted once the
-        // chrome extension is updated to support the postMessage auth token flow
-        setTimeout(() => {
-          setIsLoading(false);
-          window.location.href = url;
-        }, 1500);
       } catch (e) {
         setIsLoading(false);
         setErrorType("api-key-failed");
         return;
       }
     },
-    [url, getVisualEditorKey]
+    [url, getVisualEditorKey, apiHost]
   );
 
   // after postMessage is sent, listen for a response from the extension
