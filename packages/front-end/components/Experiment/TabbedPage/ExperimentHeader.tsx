@@ -89,7 +89,7 @@ export default function ExperimentHeader({
 
   return (
     <div
-      className="bg-white px-3 pt-3 border-bottom shadow-sm"
+      className="bg-white px-3 pt-3 border-bottom"
       style={{
         marginLeft: -8,
         marginRight: -8,

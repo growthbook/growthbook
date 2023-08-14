@@ -1,17 +1,11 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import {
-  FaAngleRight,
-  FaChartBar,
-  FaCog,
-  FaDatabase,
-  FaFlask,
-  FaTable,
-} from "react-icons/fa";
+import { FaChartBar, FaDatabase, FaFlask, FaTable } from "react-icons/fa";
 import React, { ReactElement, useState } from "react";
 import { GiPieChart } from "react-icons/gi";
 import { HiCursorClick } from "react-icons/hi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { GBEdit } from "@/components/Icons";
 import AnalysisForm from "../AnalysisForm";
 
 export interface Props {
@@ -134,44 +128,40 @@ export default function AnalysisSettingsSummary({ experiment, mutate }: Props) {
         />
       )}
       <div className="row align-items-center text-muted">
-        {items.map((item, i) => (
-          <React.Fragment key={i}>
-            {i > 0 ? (
-              <div>
-                <FaAngleRight />
-              </div>
-            ) : null}
-            <Tooltip
-              body={
-                item.tooltip ? (
-                  <div className="text-center">{item.tooltip}</div>
-                ) : (
-                  ""
-                )
-              }
-            >
-              <div key={i} className="col-auto px-3">
-                <div>
-                  {item.icon ? <>{item.icon} </> : null}
-                  {item.value}
-                </div>
-              </div>
-            </Tooltip>
-          </React.Fragment>
-        ))}
-        <div className="ml-auto"></div>
         <div className="col-auto">
+          Analysis Settings{" "}
           <a
             href="#"
-            style={{ fontSize: "1.2em" }}
             onClick={(e) => {
               e.preventDefault();
               setAnalysisModal(true);
             }}
           >
-            <FaCog />
+            <GBEdit />
           </a>
         </div>
+        {items.map((item, i) => (
+          <Tooltip
+            body={
+              item.tooltip ? (
+                <div className="text-center">{item.tooltip}</div>
+              ) : (
+                ""
+              )
+            }
+            key={i}
+          >
+            <div
+              key={i}
+              className={`col-auto px-3 ${i > 0 ? "border-left" : ""}`}
+            >
+              <div>
+                {item.icon ? <>{item.icon} </> : null}
+                {item.value}
+              </div>
+            </div>
+          </Tooltip>
+        ))}
       </div>
     </div>
   );
