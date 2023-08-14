@@ -29,13 +29,12 @@ const MODEL_TOKEN_LIMIT = 4096;
 // Require a minimum of 30 tokens for responses.
 const MESSAGE_TOKEN_LIMIT = MODEL_TOKEN_LIMIT - 30;
 
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY || "",
-});
-
 let _openai: OpenAIApi | null = null;
 export const getOpenAI = () => {
   if (_openai == null) {
+    const configuration = new Configuration({
+      apiKey: process.env.OPENAI_API_KEY || "",
+    });
     _openai = new OpenAIApi(configuration);
   }
   return _openai;
