@@ -104,7 +104,6 @@ const OpenVisualEditorLink: FC<{
     url = appendQueryParamsToURL(url, {
       "vc-id": visualChangeset.id,
       "v-idx": 1,
-      "exp-url": encodeURIComponent(window.location.href),
     });
 
     return url;
@@ -129,6 +128,7 @@ const OpenVisualEditorLink: FC<{
             data: {
               apiHost,
               apiKey: key,
+              experimentUrl: window.location.href,
             },
           },
           window.location.origin
