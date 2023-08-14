@@ -104,7 +104,6 @@ const OpenVisualEditorLink: FC<{
     url = appendQueryParamsToURL(url, {
       "vc-id": visualChangeset.id,
       "v-idx": 1,
-      "exp-url": encodeURIComponent(window.location.href),
     });
 
     return url;
