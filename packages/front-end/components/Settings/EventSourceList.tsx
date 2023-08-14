@@ -7,9 +7,26 @@ import styles from "./EventSourceList.module.scss";
 export interface Props {
   selected?: SchemaFormat;
   onSelect: (schema: eventSchema) => void;
+  setSchema: any;
+  setDatasource: any;
+  project: any;
+  setStep: any;
+  setPossibleTypes: any;
+  form: any;
+  dataSourceConnections: any;
 }
 
-export default function EventSourceList({ onSelect, selected }: Props) {
+export default function EventSourceList({
+  onSelect,
+  selected,
+  setSchema,
+  setDatasource,
+  project,
+  setStep,
+  setPossibleTypes,
+  form,
+  dataSourceConnections,
+}: Props) {
   const [expand, setExpand] = useState(false);
 
   return (
@@ -46,9 +63,77 @@ export default function EventSourceList({ onSelect, selected }: Props) {
               style={{
                 backgroundImage: `url(${s.logo})`,
               }}
-            />
+            >
+              {s.value === "custom" ? (
+                <>
+                  <h4>Don&apos;t See Yours?</h4>
+                  <p className="mb-0 text-dark">
+                    Manually configure your data schema and analytics queries.
+                  </p>
+                </>
+              ) : (
+                ""
+              )}
+            </a>
           </div>
         ))}
+        <div>
+          <div className="my-2">
+            <h4>Don&apos;t See Yours?</h4>
+            <p>
+              If your organization uses an event tracker that isn&apos;t listed
+              above, or if you use a complex data pipeline with multiple event
+              trackers and custom data processing, we suggest a Custom Data
+              Source.
+            </p>
+          </div>
+          <div className={`row`}>
+            <div className="col-6">
+              <a
+                className={`btn btn-light-hover btn-outline-primary mb-3 py-3`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSchema("custom");
+                  setDatasource({
+                    name: "My Datasource",
+                    settings: {},
+                    projects: project ? [project] : [],
+                  });
+                  // no options for custom:
+                  form.setValue(`settings.schemaOptions`, {});
+
+                  // set to all possible types:
+                  setPossibleTypes(dataSourceConnections.map((o) => o.type));
+                  // jump to next step
+                  setStep(1);
+                }}
+              >
+                <h4>Create Custom Data Source</h4>
+                <p className="mb-0 text-dark">
+                  Manually configure your data schema and analytics queries.
+                </p>
+              </a>
+            </div>
+            {/* {importSampleData && (
+                <div className="col-6">
+                  <a
+                    className={`btn btn-light-hover btn-outline-${
+                      "custom" === schema ? "selected" : "primary"
+                    } mb-3 py-3 ml-auto`}
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      await importSampleData("new data source form");
+                    }}
+                  >
+                    <h4>Use Sample Dataset</h4>
+                    <p className="mb-0 text-dark">
+                      Explore GrowthBook with a pre-loaded sample dataset.
+                    </p>
+                  </a>
+                </div>
+              )} */}
+          </div>
+        </div>
         {!expand && (
           <div
             style={{

@@ -467,6 +467,33 @@ export const eventSchemas: eventSchema[] = [
       </>
     ),
   },
+  // {
+  //   value: "custom",
+  //   label: "Add Custom Data Source",
+  //   types: [
+  //     "bigquery",
+  //     "athena",
+  //     "databricks",
+  //     "snowflake",
+  //     "athena",
+  //     "redshift",
+  //     "postgres",
+  //     "google_analytics",
+  //     "presto",
+  //     "mysql",
+  //     "mssql",
+  //     "clickhouse",
+  //     "mixpanel",
+  //   ],
+  //   // logo: "/images/3rd-party-logos/clevertap.png",
+  //   popular: false,
+  //   intro: (
+  //     <>
+  //       If your organization has a complex data pipeline, using multiple event
+  //       trackers and custom data processing, you can still use GrowthBook
+  //     </>
+  //   ),
+  // },
 ];
 
 export const dataSourceConnections: {
