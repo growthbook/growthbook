@@ -1,8 +1,4 @@
-import {
-  ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates,
-} from "back-end/types/experiment";
-import { date } from "shared/dates";
+import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { IdeaInterface } from "back-end/types/idea";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { FeatureInterface } from "back-end/types/feature";
@@ -22,35 +18,20 @@ import { openVisualEditor } from "@/components/OpenVisualEditorLink";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import DiscussionThread from "@/components/DiscussionThread";
 import EditStatusModal from "../EditStatusModal";
 import VisualChangesetModal from "../VisualChangesetModal";
 import EditExperimentNameForm from "../EditExperimentNameForm";
+import StatusBanner from "../StatusBanner";
+import { useSnapshot } from "../SnapshotProvider";
 import ExperimentHeader from "./ExperimentHeader";
 import ProjectTagBar from "./ProjectTagBar";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
+import TemporaryRolloutBanner from "./TemporaryRolloutBanner";
 
 export type ExperimentTab = "setup" | "results";
-
-export function getDates(experiment: ExperimentInterfaceStringDates) {
-  const phases = experiment.phases || [];
-  const lastPhaseIndex = phases.length - 1;
-  const lastPhase = phases[lastPhaseIndex] as
-    | undefined
-    | ExperimentPhaseStringDates;
-  const startDate = phases?.[0]?.dateStarted
-    ? date(phases[0].dateStarted)
-    : null;
-  const endDate =
-    phases.length > 0
-      ? lastPhase?.dateEnded
-        ? date(lastPhase.dateEnded ?? "")
-        : "now"
-      : null;
-
-  return { startDate, endDate };
-}
 
 export type LinkedFeature = {
   feature: FeatureInterface;
@@ -100,6 +81,10 @@ export default function TabbedPage({
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
+
+  const { phase, setPhase } = useSnapshot();
+  const viewingOldPhase =
+    experiment.phases.length > 0 && phase < experiment.phases.length - 1;
 
   const setTabAndScroll = (tab: ExperimentTab) => {
     setTab(tab);
@@ -243,53 +228,89 @@ export default function TabbedPage({
         duplicate={duplicate}
         usersWatching={usersWatching}
         editResult={editResult || undefined}
+        connections={connections}
+        linkedFeatures={linkedFeatures}
+        visualChangesets={visualChangesets}
+        editTargeting={editTargeting}
+        newPhase={newPhase}
+        editPhases={editPhases}
       />
       <div className="container pagecontents pb-4">
-        {tab === "setup" && (
+        {experiment.status === "stopped" && (
           <div className="pt-3">
-            <ProjectTagBar
+            <TemporaryRolloutBanner
               experiment={experiment}
-              editProject={editProject}
-              editTags={editTags}
-              idea={idea}
-            />
-            <SetupTabOverview
-              experiment={experiment}
-              mutate={mutate}
-              safeToEdit={safeToEdit}
-              editVariations={editVariations}
-            />
-            <Implementation
-              experiment={experiment}
-              mutate={mutate}
-              safeToEdit={safeToEdit}
-              setFeatureModal={setFeatureModal}
-              setVisualEditorModal={setVisualEditorModal}
-              visualChangesets={visualChangesets}
-              editTargeting={editTargeting}
-              newPhase={newPhase}
               linkedFeatures={linkedFeatures}
-              legacyFeatures={legacyFeatures}
-              mutateFeatures={mutateFeatures}
-              connections={connections}
-              setTab={setTabAndScroll}
+              mutate={mutate}
             />
-            {experiment.status !== "draft" && (
-              <div className="mt-3 mb-2 text-center">
-                <button
-                  className="btn btn-lg btn-primary"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setTabAndScroll("results");
-                  }}
-                >
-                  <FaChartBar /> View Results
-                </button>
-              </div>
-            )}
+            <StatusBanner
+              mutateExperiment={mutate}
+              editResult={editResult || undefined}
+            />
           </div>
         )}
-        {tab === "results" && (
+        {viewingOldPhase && (
+          <div className="alert alert-warning mt-3">
+            You are viewing the {tab} of a previous experiment phase.{" "}
+            {tab === "setup" ? "Editing has been disabled. " : ""}
+            <a
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                setPhase(experiment.phases.length - 1);
+              }}
+            >
+              Switch to the latest phase
+            </a>
+          </div>
+        )}
+        <div
+          className="pt-3"
+          style={{ display: tab === "setup" ? "block" : "none" }}
+        >
+          <ProjectTagBar
+            experiment={experiment}
+            editProject={!viewingOldPhase ? editProject : undefined}
+            editTags={!viewingOldPhase ? editTags : undefined}
+            idea={idea}
+          />
+          <SetupTabOverview
+            experiment={experiment}
+            mutate={mutate}
+            safeToEdit={safeToEdit}
+            editVariations={!viewingOldPhase ? editVariations : undefined}
+            disableEditing={viewingOldPhase}
+          />
+          <Implementation
+            experiment={experiment}
+            mutate={mutate}
+            safeToEdit={safeToEdit}
+            setFeatureModal={setFeatureModal}
+            setVisualEditorModal={setVisualEditorModal}
+            visualChangesets={visualChangesets}
+            editTargeting={!viewingOldPhase ? editTargeting : undefined}
+            newPhase={!viewingOldPhase ? newPhase : undefined}
+            linkedFeatures={linkedFeatures}
+            legacyFeatures={legacyFeatures}
+            mutateFeatures={mutateFeatures}
+            connections={connections}
+            setTab={setTabAndScroll}
+          />
+          {experiment.status !== "draft" && (
+            <div className="mt-3 mb-2 text-center">
+              <button
+                className="btn btn-lg btn-primary"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setTabAndScroll("results");
+                }}
+              >
+                <FaChartBar /> View Results
+              </button>
+            </div>
+          )}
+        </div>
+        <div style={{ display: tab === "results" ? "block" : "none" }}>
           <ResultsTab
             experiment={experiment}
             mutate={mutate}
@@ -303,7 +324,19 @@ export default function TabbedPage({
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
           />
-        )}
+        </div>
+      </div>
+
+      <div className="bg-white mt-4 border-top">
+        <div className="py-4 container pagecontents">
+          <h3>Comments</h3>
+          <DiscussionThread
+            type="experiment"
+            id={experiment.id}
+            allowNewComments={!experiment.archived}
+            project={experiment.project}
+          />
+        </div>
       </div>
     </div>
   );

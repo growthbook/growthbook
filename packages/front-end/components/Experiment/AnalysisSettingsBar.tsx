@@ -127,6 +127,7 @@ export default function AnalysisSettingsBar({
   editPhases,
   variations,
   alwaysShowPhaseSelector = false,
+  hidePhaseSelector = false,
   statsEngine,
   regressionAdjustmentAvailable,
   regressionAdjustmentEnabled,
@@ -139,6 +140,7 @@ export default function AnalysisSettingsBar({
   editPhases?: () => void;
   variations: ExperimentReportVariation[];
   alwaysShowPhaseSelector?: boolean;
+  hidePhaseSelector?: boolean;
   statsEngine: StatsEngine;
   regressionAdjustmentAvailable?: boolean;
   regressionAdjustmentEnabled?: boolean;
@@ -202,6 +204,7 @@ export default function AnalysisSettingsBar({
       {experiment && (
         <div className="row align-items-center p-3">
           {experiment.phases &&
+            !hidePhaseSelector &&
             (alwaysShowPhaseSelector || experiment.phases.length > 1) && (
               <div className="col-auto form-inline">
                 <PhaseSelector

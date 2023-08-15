@@ -1,9 +1,7 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FeatureInterface } from "back-end/types/feature";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import Link from "next/link";
-import { MatchingRule } from "shared/util";
 import { MdRocketLaunch } from "react-icons/md";
 import { ReactElement } from "react";
 import { FaCheckSquare, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
@@ -12,6 +10,7 @@ import { useAuth } from "@/services/auth";
 import Button from "../Button";
 import Tooltip from "../Tooltip/Tooltip";
 import ConfirmButton from "../Modal/ConfirmButton";
+import { LinkedFeature } from "./TabbedPage";
 
 export function StartExperimentBanner({
   experiment,
@@ -22,22 +21,19 @@ export function StartExperimentBanner({
   newPhase,
   editTargeting,
   onStart,
-  noMargin,
   openSetupTab,
+  className,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  linkedFeatures: {
-    feature: FeatureInterface;
-    rules: MatchingRule[];
-  }[];
+  linkedFeatures: LinkedFeature[];
   visualChangesets: VisualChangesetInterface[];
   connections: SDKConnectionInterface[];
   mutateExperiment: () => unknown | Promise<unknown>;
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   onStart?: () => void;
-  noMargin?: boolean;
   openSetupTab?: () => void;
+  className?: string;
 }) {
   const { apiCall } = useAuth();
 
@@ -223,7 +219,7 @@ export function StartExperimentBanner({
 
   // Prompt them to start with an option to edit the targeting first
   return (
-    <div className={`appbox p-4 ${noMargin ? "" : "my-4"} text-center`}>
+    <div className={className ?? `appbox p-4 my-4`}>
       <div className="row">
         <div className="col-auto text-left">
           <h3 className="text-purple">Pre-launch Check List</h3>
@@ -266,7 +262,7 @@ export function StartExperimentBanner({
           </ul>
         </div>
 
-        <div className="col pt-3">
+        <div className="col pt-3 text-center">
           {allPassed ? (
             <p>Everything looks great! Let&apos;s Go!</p>
           ) : (
@@ -274,7 +270,7 @@ export function StartExperimentBanner({
           )}
           {allPassed ? (
             <Button
-              color="primary"
+              color="teal"
               className="btn-lg mb-2"
               onClick={async () => {
                 await startExperiment();
@@ -294,7 +290,7 @@ export function StartExperimentBanner({
               }
             >
               <button
-                className="btn btn-primary btn-lg mb-2 disabled"
+                className="btn btn-teal btn-lg mb-2 disabled"
                 type="button"
               >
                 Start Experiment <MdRocketLaunch />

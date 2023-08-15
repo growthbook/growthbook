@@ -1,10 +1,16 @@
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentPhaseStringDates,
+} from "back-end/types/experiment";
 import Link from "next/link";
 import { FaChartBar, FaCog, FaStop, FaUsers } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
-import { useMemo } from "react";
-import { daysBetween } from "shared/dates";
+import { useMemo, useState } from "react";
+import { date, daysBetween } from "shared/dates";
+import { MdRocketLaunch } from "react-icons/md";
+import { SDKConnectionInterface } from "back-end/types/sdk-connection";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { useAuth } from "@/services/auth";
 import { GBCircleArrowLeft } from "@/components/Icons";
 import WatchButton from "@/components/WatchButton";
@@ -15,10 +21,14 @@ import TabButtons from "@/components/Tabs/TabButtons";
 import TabButton from "@/components/Tabs/TabButton";
 import usePermissions from "@/hooks/usePermissions";
 import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
+import Modal from "@/components/Modal";
+import Dropdown from "@/components/Dropdown/Dropdown";
+import DropdownLink from "@/components/Dropdown/DropdownLink";
 import ResultsIndicator from "../ResultsIndicator";
 import { useSnapshot } from "../SnapshotProvider";
+import { StartExperimentBanner } from "../StartExperimentBanner";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
-import { ExperimentTab, getDates } from ".";
+import { ExperimentTab, LinkedFeature } from ".";
 
 export interface Props {
   tab: ExperimentTab;
@@ -33,12 +43,34 @@ export interface Props {
   editResult?: () => void;
   safeToEdit: boolean;
   usersWatching: (string | undefined)[];
+  linkedFeatures: LinkedFeature[];
+  visualChangesets: VisualChangesetInterface[];
+  connections: SDKConnectionInterface[];
+  newPhase?: (() => void) | null;
+  editTargeting?: (() => void) | null;
+  editPhases?: (() => void) | null;
 }
 
 const shortNumberFormatter = Intl.NumberFormat("en-US", {
   notation: "compact",
   maximumFractionDigits: 1,
 });
+
+function PhaseDateSummary({ phase }: { phase?: ExperimentPhaseStringDates }) {
+  const startDate = phase && phase.dateStarted ? date(phase.dateStarted) : null;
+  const endDate = phase && phase.dateEnded ? date(phase.dateEnded) : null;
+
+  if (!startDate) return null;
+
+  return (
+    <span>
+      {startDate} — {endDate || "now"}
+      <span className="ml-2">
+        ({daysBetween(startDate, endDate || new Date())} days)
+      </span>
+    </span>
+  );
+}
 
 export default function ExperimentHeader({
   tab,
@@ -53,10 +85,20 @@ export default function ExperimentHeader({
   safeToEdit,
   usersWatching,
   editResult,
+  connections,
+  linkedFeatures,
+  visualChangesets,
+  editTargeting,
+  newPhase,
+  editPhases,
 }: Props) {
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissions = usePermissions();
+
+  const { phase, setPhase } = useSnapshot();
+
+  const [startExperiment, setStartExperiment] = useState(false);
 
   const { analysis } = useSnapshot();
 
@@ -74,8 +116,6 @@ export default function ExperimentHeader({
     }
   }
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
-
-  const { startDate, endDate } = getDates(experiment);
 
   const totalUsers = useMemo(() => {
     let users = 0;
@@ -96,6 +136,36 @@ export default function ExperimentHeader({
         marginTop: -3,
       }}
     >
+      {startExperiment && experiment.status === "draft" && (
+        <Modal
+          open={true}
+          size="lg"
+          close={() => setStartExperiment(false)}
+          header="Start Experiment"
+        >
+          <div className="alert alert-info">
+            When you start this experiment, all linked Feature Flags rules and
+            Visual Editor changes will be activated and users will begin to see
+            your variations. Double check the list below to make sure
+            you&apos;re ready.
+          </div>
+          <StartExperimentBanner
+            connections={connections}
+            experiment={experiment}
+            linkedFeatures={linkedFeatures}
+            mutateExperiment={mutate}
+            visualChangesets={visualChangesets}
+            editTargeting={editTargeting}
+            newPhase={newPhase}
+            openSetupTab={tab !== "setup" ? () => setTab("setup") : undefined}
+            onStart={() => {
+              setTab("results");
+              setStartExperiment(false);
+            }}
+            className=""
+          />
+        </Modal>
+      )}
       <div className="container-fluid pagecontents">
         <div className="row align-items-top">
           <div className="col-auto">
@@ -126,10 +196,10 @@ export default function ExperimentHeader({
 
           <div className="flex-1 col"></div>
 
-          {experiment.status === "running" ? (
-            <div className="col-auto">
+          <div className="col-auto">
+            {experiment.status === "running" ? (
               <button
-                className="btn btn-primary rounded-pill"
+                className="btn btn-primary"
                 onClick={(e) => {
                   e.preventDefault();
                   if (editResult) {
@@ -140,9 +210,7 @@ export default function ExperimentHeader({
               >
                 Stop Experiment <FaStop className="ml-2" />
               </button>
-            </div>
-          ) : experiment.status === "stopped" && experiment.results ? (
-            <div className="col-auto">
+            ) : experiment.status === "stopped" && experiment.results ? (
               <div className="experiment-status-widget border d-flex">
                 <div
                   className="d-flex border-left"
@@ -151,8 +219,18 @@ export default function ExperimentHeader({
                   <ResultsIndicator results={experiment.results} />
                 </div>
               </div>
-            </div>
-          ) : null}
+            ) : experiment.status === "draft" ? (
+              <button
+                className="btn btn-teal"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setStartExperiment(true);
+                }}
+              >
+                Start Experiment <MdRocketLaunch />
+              </button>
+            ) : null}
+          </div>
 
           <div className="col-auto">
             <WatchButton itemType="experiment" item={experiment.id} />
@@ -174,6 +252,11 @@ export default function ExperimentHeader({
               >
                 Audit log
               </button>
+              {editPhases && (
+                <button className="dropdown-item" onClick={() => editPhases()}>
+                  Edit phases
+                </button>
+              )}
               <button
                 className="dropdown-item"
                 onClick={() => setWatchersModal(true)}
@@ -314,16 +397,29 @@ export default function ExperimentHeader({
               </div>
             </div>
           )}
-          <div className="col-auto experiment-dates">
-            <div className="mt-1 small text-gray">
-              {startDate && (
-                <>
-                  {startDate} — {endDate ? endDate : "now"} (
-                  {daysBetween(startDate, endDate || new Date())} days)
-                </>
-              )}
+          {experiment.phases.length > 1 ? (
+            <div className="col-auto">
+              <Dropdown
+                toggle={<PhaseDateSummary phase={experiment.phases[phase]} />}
+                uuid="experiment-phase-selector"
+              >
+                {experiment.phases.map((p, i) => (
+                  <DropdownLink
+                    onClick={() => {
+                      setPhase(i);
+                    }}
+                    key={i}
+                  >
+                    <PhaseDateSummary phase={p} />
+                  </DropdownLink>
+                ))}
+              </Dropdown>
             </div>
-          </div>
+          ) : experiment.phases.length > 0 ? (
+            <div className="col-auto">
+              <PhaseDateSummary phase={experiment.phases[phase]} />
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

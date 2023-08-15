@@ -35,6 +35,7 @@ const Results: FC<{
   editPhases?: () => void;
   mutateExperiment: () => void;
   alwaysShowPhaseSelector?: boolean;
+  hidePhaseSelector?: boolean;
   reportDetailsLink?: boolean;
   statsEngine: StatsEngine;
   regressionAdjustmentAvailable?: boolean;
@@ -48,6 +49,7 @@ const Results: FC<{
   editPhases,
   mutateExperiment,
   alwaysShowPhaseSelector = false,
+  hidePhaseSelector = false,
   reportDetailsLink = true,
   statsEngine,
   regressionAdjustmentAvailable = false,
@@ -124,6 +126,7 @@ const Results: FC<{
         variations={variations}
         editPhases={editPhases}
         alwaysShowPhaseSelector={alwaysShowPhaseSelector}
+        hidePhaseSelector={hidePhaseSelector}
         statsEngine={statsEngine}
         regressionAdjustmentAvailable={regressionAdjustmentAvailable}
         regressionAdjustmentEnabled={regressionAdjustmentEnabled}

@@ -17,6 +17,7 @@ import Tooltip from "../../Tooltip/Tooltip";
 import { HashVersionTooltip } from "../HashVersionSelector";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import AddLinkedChangesBanner from "../AddLinkedChangesBanner";
+import { useSnapshot } from "../SnapshotProvider";
 import { ExperimentTab, LinkedFeature } from ".";
 
 export interface Props {
@@ -50,14 +51,13 @@ export default function Implementation({
   setTab,
   connections,
 }: Props) {
+  const { phase: phaseIndex } = useSnapshot();
+
   const phases = experiment.phases || [];
-  const lastPhaseIndex = phases.length - 1;
-  const lastPhase = phases[lastPhaseIndex] as
-    | undefined
-    | ExperimentPhaseStringDates;
-  const hasNamespace = lastPhase?.namespace && lastPhase.namespace.enabled;
+  const phase = phases[phaseIndex] as undefined | ExperimentPhaseStringDates;
+  const hasNamespace = phase?.namespace && phase.namespace.enabled;
   const namespaceRange = hasNamespace
-    ? lastPhase.namespace.range[1] - lastPhase.namespace.range[0]
+    ? phase.namespace.range[1] - phase.namespace.range[0]
     : 1;
 
   const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -100,7 +100,7 @@ export default function Implementation({
               onStart={() => setTab("results")}
               editTargeting={editTargeting}
               connections={connections}
-              noMargin={true}
+              className="appbox p-4"
             />
           </div>
         </>
@@ -213,7 +213,7 @@ export default function Implementation({
               >
                 Targeting
               </HeaderWithEdit>
-              {lastPhase ? (
+              {phase ? (
                 <div className="row">
                   <div className="col">
                     <div className="mb-3">
@@ -246,8 +246,8 @@ export default function Implementation({
                         <strong>Targeting Conditions</strong>
                       </div>
                       <div>
-                        {lastPhase.condition && lastPhase.condition !== "{}" ? (
-                          <ConditionDisplay condition={lastPhase.condition} />
+                        {phase.condition && phase.condition !== "{}" ? (
+                          <ConditionDisplay condition={phase.condition} />
                         ) : (
                           <em>No conditions</em>
                         )}
@@ -258,8 +258,8 @@ export default function Implementation({
                         <strong>Traffic</strong>
                       </div>
                       <div>
-                        {Math.floor(lastPhase.coverage * 100)}% included,{" "}
-                        {formatTrafficSplit(lastPhase.variationWeights)} split
+                        {Math.floor(phase.coverage * 100)}% included,{" "}
+                        {formatTrafficSplit(phase.variationWeights)} split
                       </div>
                     </div>
                     <div className="mb-3">
@@ -272,7 +272,7 @@ export default function Implementation({
                       <div>
                         {hasNamespace ? (
                           <>
-                            {lastPhase.namespace.name}{" "}
+                            {phase.namespace.name}{" "}
                             <span className="text-muted">
                               ({percentFormatter.format(namespaceRange)})
                             </span>
@@ -302,7 +302,7 @@ export default function Implementation({
             onStart={() => setTab("results")}
             editTargeting={editTargeting}
             connections={connections}
-            noMargin={true}
+            className="appbox p-4"
           />
         </div>
       )}

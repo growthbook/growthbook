@@ -152,6 +152,19 @@ pre {
   font-weight: bold;
 }
 
+.btn-teal {
+  @include button-variant(
+    colors.$teal,
+    darken(colors.$teal, 7.5%),
+    darken(colors.$teal, 10%),
+    lighten(colors.$teal, 5%),
+    lighten(colors.$teal, 10%),
+    darken(colors.$teal, 30%)
+  );
+  white-space: nowrap;
+  font-weight: 600;
+}
+
 .btn-outline-primary {
   @include button-outline-variant(
     colors.$highlight-purple,

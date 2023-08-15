@@ -10,6 +10,7 @@ export interface Props {
   mutate: () => void;
   safeToEdit: boolean;
   editVariations?: (() => void) | null;
+  disableEditing?: boolean;
 }
 
 export default function SetupTabOverview({
@@ -17,16 +18,16 @@ export default function SetupTabOverview({
   mutate,
   safeToEdit,
   editVariations,
+  disableEditing,
 }: Props) {
   const { apiCall } = useAuth();
 
   const permissions = usePermissions();
 
-  const canCreateAnalyses = permissions.check(
-    "createAnalyses",
-    experiment.project
-  );
-  const canEditExperiment = !experiment.archived && canCreateAnalyses;
+  const canCreateAnalyses =
+    !disableEditing && permissions.check("createAnalyses", experiment.project);
+  const canEditExperiment =
+    !experiment.archived && !disableEditing && canCreateAnalyses;
 
   return (
     <div>
