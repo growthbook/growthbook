@@ -708,15 +708,17 @@ const MetricForm: FC<MetricFormProps> = ({
                       />
                     </div>
                   )}
-                  {value.sql && value.sql.includes("valueColumn") && (
-                    <div className="form-group">
-                      <Field
-                        label="Value Column"
-                        helpText="The column in your datawarehouse table with the metric data.  This can then be referenced in your sql template as {{valueColumn}}."
-                        {...form.register("valueColumn")}
-                      ></Field>
-                    </div>
-                  )}
+                  {value.sql &&
+                    value.sql.includes("valueColumn") &&
+                    value.type != "binomial" && (
+                      <div className="form-group">
+                        <Field
+                          label="Value Column"
+                          helpText="The column in your datawarehouse table with the metric data.  This can then be referenced in your sql template as {{valueColumn}}."
+                          {...form.register("valueColumn")}
+                        ></Field>
+                      </div>
+                    )}
                   <div className="form-group">
                     <label>Query</label>
                     {value.sql && (
