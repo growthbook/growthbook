@@ -388,7 +388,6 @@ const NewDataSourceForm: FC<{
               onClick={() => setStep(1)}
             >
               <div className={styles.ctaButton}>
-                <div className={styles.ctaIconContainer}></div>
                 <div>
                   <h3 className={styles.ctaText}>Guided Setup</h3>
                   <p>
@@ -408,7 +407,6 @@ const NewDataSourceForm: FC<{
                 }}
               >
                 <div className={styles.ctaButton}>
-                  <div className={styles.ctaIconContainer}></div>
                   <div>
                     <h3 className={styles.ctaText}>Use our Sample Database</h3>
                     <p>
@@ -439,7 +437,6 @@ const NewDataSourceForm: FC<{
               }}
             >
               <div className={styles.ctaButton}>
-                <div className={styles.ctaIconContainer}></div>
                 <div>
                   <h3 className={styles.ctaText}>Custom Setup (Advanced)</h3>
                   <p>
@@ -451,6 +448,9 @@ const NewDataSourceForm: FC<{
             </div>
           </div>
         </div>
+        {secondaryCTA && (
+          <div className="col-12 text-center">{secondaryCTA}</div>
+        )}
       </div>
     );
   } else if (step === 1) {
@@ -499,9 +499,6 @@ const NewDataSourceForm: FC<{
             setStep(2);
           }}
         />
-        {secondaryCTA && (
-          <div className="col-12 text-center">{secondaryCTA}</div>
-        )}
       </div>
     );
   } else if (step === 2) {
