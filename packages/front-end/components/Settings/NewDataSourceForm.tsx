@@ -291,6 +291,22 @@ const NewDataSourceForm: FC<{
     });
   };
 
+  const handleCustomSetup = () => {
+    setSchema("custom");
+    setDatasource({
+      name: "My Datasource",
+      settings: {},
+      projects: project ? [project] : [],
+    });
+    // no options for custom:
+    form.setValue(`settings.schemaOptions`, {});
+
+    // set to all possible types:
+    setPossibleTypes(dataSourceConnections.map((o) => o.type));
+    // jump to next step
+    setStep(2);
+  };
+
   const setSchemaSettings = (s: eventSchema) => {
     setSchema(s.value);
     form.setValue("settings.schemaFormat", s.value);
@@ -421,19 +437,7 @@ const NewDataSourceForm: FC<{
               className={clsx(styles.ctaContainer, !importSampleData && "w-50")}
               onClick={(e) => {
                 e.preventDefault();
-                setSchema("custom");
-                setDatasource({
-                  name: "My Datasource",
-                  settings: {},
-                  projects: project ? [project] : [],
-                });
-                // no options for custom:
-                form.setValue(`settings.schemaOptions`, {});
-
-                // set to all possible types:
-                setPossibleTypes(dataSourceConnections.map((o) => o.type));
-                // jump to next step
-                setStep(2);
+                handleCustomSetup();
               }}
             >
               <div className={styles.ctaButton}>
@@ -478,25 +482,13 @@ const NewDataSourceForm: FC<{
         </p>
         <EventSourceList
           onSelect={(s) => {
-            setSchemaSettings(s);
-            // jump to next step
-            setStep(2);
-          }}
-          selectCustomOption={(e) => {
-            e.preventDefault();
-            setSchema("custom");
-            setDatasource({
-              name: "My Datasource",
-              settings: {},
-              projects: project ? [project] : [],
-            });
-            // no options for custom:
-            form.setValue(`settings.schemaOptions`, {});
-
-            // set to all possible types:
-            setPossibleTypes(dataSourceConnections.map((o) => o.type));
-            // jump to next step
-            setStep(2);
+            if (s.value === "custom") {
+              handleCustomSetup();
+            } else {
+              setSchemaSettings(s);
+              // jump to next step
+              setStep(2);
+            }
           }}
         />
       </div>

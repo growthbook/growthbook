@@ -6,14 +6,9 @@ import styles from "./EventSourceList.module.scss";
 export interface Props {
   selected?: SchemaFormat;
   onSelect: (schema: eventSchema) => void;
-  selectCustomOption: (event: React.MouseEvent<HTMLAnchorElement>) => void;
 }
 
-export default function EventSourceList({
-  onSelect,
-  selected,
-  selectCustomOption,
-}: Props) {
+export default function EventSourceList({ onSelect, selected }: Props) {
   return (
     <>
       <div
@@ -62,7 +57,13 @@ export default function EventSourceList({
               <a
                 className={`btn btn-light-hover btn-outline-primary
                mb-3 py-3`}
-                onClick={(e) => selectCustomOption(e)}
+                onClick={(e) => {
+                  e.preventDefault();
+                  onSelect({
+                    value: "custom",
+                    label: "Custom",
+                  });
+                }}
               >
                 <h4>Use Custom Source</h4>
                 <p className="mb-0 text-dark">
