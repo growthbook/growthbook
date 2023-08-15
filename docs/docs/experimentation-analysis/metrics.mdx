@@ -94,7 +94,6 @@ You can also use any of the in-built variables that Growthbook automatically set
 
 You can also use any of the in-built helper functions:
 
-- **ensureFloat** - Forces the value to be a float. ex. `{{ensureFloat "2.5"}}` depending on your sql variant might compile for example to `CAST("2.5" as double)`
 - **camelcase** - ex. `{{camelcase "My event"}}` compiles to `myEvent`.
 - **dotcase** - ex. `{{dotcase "My event"}}` compiles to `my.event`.
 - **kebabcase** - ex. `{{kebabcase "My event"}}` compiles to `my-event`.
@@ -124,7 +123,7 @@ For example you could have the following reusable sql template that could be use
 SELECT
   user_id as user_id,
   received_at as timestamp,
-  {{ensureFloat valueColumn}} as value
+  {{valueColumn}} as value
 FROM
   database.{{eventName}}
 WHERE

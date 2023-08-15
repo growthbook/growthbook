@@ -328,5 +328,4 @@ export interface SourceIntegrationInterface {
     schemaFormat: SchemaFormat,
     type: MetricType
   ): string;
-  ensureFloat(col: string): string;
 }

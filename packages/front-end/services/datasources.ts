@@ -175,7 +175,7 @@ FROM
       ? ""
       : type === "count"
       ? "\n  1 as value"
-      : `,\n  {{ensureFloat valueColumn}} as value`
+      : `,\n  {{valueColumn}} as value`
   }
 FROM
   ${tablePrefix}{{eventName}}`;
@@ -281,7 +281,7 @@ FROM
       ? ""
       : type === "count"
       ? ",\n  1 as value"
-      : ",\n  {{ensureFloat valueColumn}} as value"
+      : ",\n  {{valueColumn}} as value"
   }
 FROM
   ${tablePrefix}{{eventName}}`;
@@ -327,7 +327,7 @@ WHERE
       ? ""
       : type === "count"
       ? ",\n  1 as value"
-      : ",\n  {{ensureFloat valueColumn}} as value"
+      : ",\n  {{valueColumn}} as value"
   }
 FROM
   ${tablePrefix}{{eventName}}`;
@@ -388,7 +388,7 @@ FROM
       ? ""
       : type === "count"
       ? ",\n  1 as value"
-      : ",\n  {{ensureFloat valueColumn}} as value"
+      : ",\n  {{valueColumn}} as value"
   }
 FROM
   ${tablePrefix}_log_link_visit_action`;
@@ -437,7 +437,7 @@ FROM
       ? ""
       : type === "count"
       ? ",\n  1 as value"
-      : ",\n  {{ensureFloat valueColumn}} as value"
+      : ",\n  {{valueColumn}} as value"
   }
 FROM
   ${tablePrefix}{{eventName}}`;
@@ -486,7 +486,7 @@ WHERE
       ? ""
       : type === "count"
       ? ",\n  1 as value"
-      : ",\n  {{ensureFloat valueColumn}} as value"
+      : ",\n  {{valueColumn}} as value"
   }
 FROM
   ${tablePrefix}{{eventName}}`;
@@ -532,7 +532,7 @@ WHERE
       ? ""
       : type === "count"
       ? ",\n  1 as value"
-      : ",\n  {{ensureFloat valueColumn}} as value"
+      : ",\n  {{valueColumn}} as value"
   }
   FROM
     ${tablePrefix}{{eventName}}`;

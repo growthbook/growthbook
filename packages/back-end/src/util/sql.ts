@@ -1,6 +1,5 @@
 import { format as sqlFormat, FormatOptions } from "sql-formatter";
 import Handlebars from "handlebars";
-import { SourceIntegrationInterface } from "../types/Integration";
 import { helpers } from "./handlebarsHelpers";
 
 // Register all the helpers from handlebarsHelpers
@@ -66,7 +65,6 @@ export type SQLVars = {
   valueColumn?: string;
 };
 export function compileSqlTemplate(
-  integration: SourceIntegrationInterface,
   sql: string,
   { startDate, endDate, experimentId, eventName, valueColumn }: SQLVars
 ) {
@@ -121,18 +119,13 @@ export function compileSqlTemplate(
     const template = Handlebars.compile(sql, {
       strict: true,
       noEscape: true,
-      knownHelpers: Object.keys(helpers).reduce(
-        (acc, helperName) => {
-          acc[helperName] = true;
-          return acc;
-        },
-        { ensureFloat: true } as Record<string, true>
-      ),
+      knownHelpers: Object.keys(helpers).reduce((acc, helperName) => {
+        acc[helperName] = true;
+        return acc;
+      }, {} as Record<string, true>),
       knownHelpersOnly: true,
     });
-    return template(replacements, {
-      helpers: { ensureFloat: integration.ensureFloat },
-    });
+    return template(replacements);
   } catch (e) {
     if (e.message.includes("eventName")) {
       throw new Error(

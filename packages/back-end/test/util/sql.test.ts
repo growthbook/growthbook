@@ -5,19 +5,15 @@ import {
   format,
   replaceCountStar,
 } from "../../src/util/sql";
-import Athena from "../../src/integrations/Athena";
 
 describe("backend", () => {
   it("compiles SQL template", () => {
-    // @ts-expect-error - mocking SqlIntegration
-    const sqlIntegration = new Athena();
     const startDate = new Date(Date.UTC(2021, 0, 5, 10, 20, 15));
     const endDate = new Date(Date.UTC(2022, 1, 9, 11, 30, 12));
     const experimentId = "my-experiment";
 
     expect(
       compileSqlTemplate(
-        sqlIntegration,
         `SELECT '{{ startDate }}' as full, '{{startYear}}' as year, '{{ startMonth}}' as month, '{{startDay }}' as day`,
         { startDate, endDate }
       )
@@ -27,14 +23,13 @@ describe("backend", () => {
 
     expect(
       compileSqlTemplate(
-        sqlIntegration,
         `SELECT {{valueColumn}} as value from db.{{eventName}}`,
         { startDate, endDate, eventName: "purchase", valueColumn: "amount" }
       )
     ).toEqual("SELECT amount as value from db.purchase");
 
     expect(() => {
-      compileSqlTemplate(sqlIntegration, `SELECT {{ eventName }}`, {
+      compileSqlTemplate(`SELECT {{ eventName }}`, {
         startDate,
         endDate,
       });
@@ -43,7 +38,7 @@ describe("backend", () => {
     );
 
     expect(() => {
-      compileSqlTemplate(sqlIntegration, `SELECT {{ valueColumn }} as value`, {
+      compileSqlTemplate(`SELECT {{ valueColumn }} as value`, {
         startDate,
         endDate,
       });
@@ -52,7 +47,7 @@ describe("backend", () => {
     );
 
     expect(() => {
-      compileSqlTemplate(sqlIntegration, `SELECT {{ unknown }}`, {
+      compileSqlTemplate(`SELECT {{ unknown }}`, {
         startDate,
         endDate,
       });
@@ -61,14 +56,14 @@ describe("backend", () => {
     );
 
     expect(
-      compileSqlTemplate(sqlIntegration, `SELECT {{lowercase "HELLO"}}`, {
+      compileSqlTemplate(`SELECT {{lowercase "HELLO"}}`, {
         startDate,
         endDate,
       })
     ).toEqual("SELECT hello");
 
     expect(() => {
-      compileSqlTemplate(sqlIntegration, `SELECT {{unknownFunc "HELLO"}}`, {
+      compileSqlTemplate(`SELECT {{unknownFunc "HELLO"}}`, {
         startDate,
         endDate,
       });
@@ -78,7 +73,6 @@ describe("backend", () => {
 
     expect(
       compileSqlTemplate(
-        sqlIntegration,
         `SELECT {{date startDateISO "hh"}} as hour, {{date startDate "z"}} as tz`,
         {
           startDate,
@@ -89,7 +83,6 @@ describe("backend", () => {
 
     expect(
       compileSqlTemplate(
-        sqlIntegration,
         `SELECT '{{ endDate }}' as full, '{{endYear}}' as year, '{{ endMonth}}' as month, '{{endDay }}' as day`,
         { startDate, endDate }
       )
@@ -99,7 +92,6 @@ describe("backend", () => {
 
     expect(
       compileSqlTemplate(
-        sqlIntegration,
         `time > {{startDateUnix}} && time < {{ endDateUnix }}`,
         {
           startDate,
@@ -109,41 +101,19 @@ describe("backend", () => {
     ).toEqual(`time > 1609842015 && time < 1644406212`);
 
     expect(
-      compileSqlTemplate(
-        sqlIntegration,
-        `SELECT * WHERE expid LIKE '{{experimentId}}'`,
-        {
-          startDate,
-          endDate,
-        }
-      )
+      compileSqlTemplate(`SELECT * WHERE expid LIKE '{{experimentId}}'`, {
+        startDate,
+        endDate,
+      })
     ).toEqual(`SELECT * WHERE expid LIKE '%'`);
 
     expect(
-      compileSqlTemplate(
-        sqlIntegration,
-        `SELECT * WHERE expid LIKE '{{experimentId}}'`,
-        {
-          startDate,
-          endDate,
-          experimentId,
-        }
-      )
+      compileSqlTemplate(`SELECT * WHERE expid LIKE '{{experimentId}}'`, {
+        startDate,
+        endDate,
+        experimentId,
+      })
     ).toEqual(`SELECT * WHERE expid LIKE 'my-experiment'`);
-
-    expect(
-      compileSqlTemplate(
-        sqlIntegration,
-        `SELECT {{ensureFloat valueColumn}} WHERE eventType = '{{eventName}}'`,
-        {
-          startDate,
-          endDate,
-          experimentId,
-          eventName: "purchase",
-          valueColumn: "amount",
-        }
-      )
-    ).toEqual(`SELECT CAST(amount as double) WHERE eventType = 'purchase'`);
   });
 
   it("determines identifier joins correctly", () => {

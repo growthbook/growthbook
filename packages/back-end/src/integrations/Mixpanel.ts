@@ -605,7 +605,7 @@ function is${name}(event) {
     endDate?: Date,
     experimentId?: string
   ) {
-    return compileSqlTemplate(this, getMixpanelPropertyColumn(col), {
+    return compileSqlTemplate(getMixpanelPropertyColumn(col), {
       startDate,
       endDate,
       experimentId,
@@ -670,9 +670,5 @@ function is${name}(event) {
 ${getAggregateFunctions()}
 
     `;
-  }
-
-  ensureFloat(col: string): string {
-    return col;
   }
 }
