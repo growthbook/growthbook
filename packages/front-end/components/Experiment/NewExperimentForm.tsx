@@ -259,6 +259,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
         {currentProjectIsDemo && (
           <div className="alert alert-warning">
             You are creating an experiment under the demo datasource project.
+            This experiment will be deleted when the demo datasource project is
+            deleted.
           </div>
         )}
 

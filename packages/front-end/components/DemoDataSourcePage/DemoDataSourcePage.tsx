@@ -36,8 +36,9 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
           All created resources will be deleted when the project is deleted.
         </p>
         <p>
-          If you accidentally delete something in the demo project and would
-          like to restore it, you can delete the whole project and recreate it.
+          If you accidentally delete one of our sample metrics, experiments or
+          features in the demo project and would like to restore it, you can
+          delete the whole project and recreate it.
         </p>
 
         {/* Loading */}
