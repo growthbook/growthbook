@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+import argparse
 from dataclasses import dataclass
 import json
 from decimal import Decimal
@@ -30,8 +31,9 @@ ENV_FILE = "./test/integrations/.env"
 
 CONNECTION_FAILED_ERROR = "runner configured, but connection failed"
 
-config = {**dotenv_values(ENV_FILE)}
+CONFIG = {**dotenv_values(ENV_FILE)}
 
+print(CONFIG)
 @dataclass
 class QueryResult:
     rows: list[dict]
@@ -73,10 +75,10 @@ class sqlRunner(ABC):
 class mysqlRunner(sqlRunner):
     def open_connection(self):
         self.connection = mysql.connector.connect(
-            host=config["MYSQL_TEST_HOST"],
-            user=config["MYSQL_TEST_USER"],
-            database=config["MYSQL_TEST_DATABASE"],
-            password=config["MYSQL_TEST_PASSWORD"],
+            host=CONFIG["MYSQL_TEST_HOST"],
+            user=CONFIG["MYSQL_TEST_USER"],
+            database=CONFIG["MYSQL_TEST_DATABASE"],
+            password=CONFIG["MYSQL_TEST_PASSWORD"],
         )
         self.cursor_kwargs = {"dictionary": True, "buffered": True}
 
@@ -89,9 +91,9 @@ class mysqlRunner(sqlRunner):
 class postgresRunner(sqlRunner):
     def open_connection(self):
         self.connection = psycopg2.connect(
-            host=config["POSTGRES_TEST_HOST"],
-            user=config["POSTGRES_TEST_USER"],
-            dbname=config["POSTGRES_TEST_DATABASE"],
+            host=CONFIG["POSTGRES_TEST_HOST"],
+            user=CONFIG["POSTGRES_TEST_USER"],
+            dbname=CONFIG["POSTGRES_TEST_DATABASE"],
         )
         self.cursor_kwargs = {"cursor_factory": psycopg2.extras.RealDictCursor}
 
@@ -107,11 +109,11 @@ class postgresRunner(sqlRunner):
 class snowflakeRunner(sqlRunner):
     def open_connection(self):
         self.connection = snowflake.connector.connect(
-            user=config["SNOWFLAKE_TEST_USER"],
-            password=config["SNOWFLAKE_TEST_PASSWORD"],
-            account=config["SNOWFLAKE_TEST_ACCOUNT"],
-            database=config["SNOWFLAKE_TEST_DATABASE"],
-            schema=config["SNOWFLAKE_TEST_SCHEMA"],
+            user=CONFIG["SNOWFLAKE_TEST_USER"],
+            password=CONFIG["SNOWFLAKE_TEST_PASSWORD"],
+            account=CONFIG["SNOWFLAKE_TEST_ACCOUNT"],
+            database=CONFIG["SNOWFLAKE_TEST_DATABASE"],
+            schema=CONFIG["SNOWFLAKE_TEST_SCHEMA"],
         )
         self.cursor_kwargs = {"cursor_class": snowflake.connector.DictCursor}
 
@@ -125,11 +127,11 @@ class snowflakeRunner(sqlRunner):
 class prestoRunner(sqlRunner):
     def open_connection(self):
         self.connection = prestodb.dbapi.connect(
-            host=config["PRESTO_TEST_HOST"],
-            port=config["PRESTO_TEST_PORT"],
-            user=config["PRESTO_TEST_USER"],
-            catalog=config["PRESTO_TEST_CATALOG"],
-            schema=config["PRESTO_TEST_SCHEMA"],
+            host=CONFIG["PRESTO_TEST_HOST"],
+            port=CONFIG["PRESTO_TEST_PORT"],
+            user=CONFIG["PRESTO_TEST_USER"],
+            catalog=CONFIG["PRESTO_TEST_CATALOG"],
+            schema=CONFIG["PRESTO_TEST_SCHEMA"],
         )
         self.cursor_kwargs = {}
 
@@ -145,9 +147,9 @@ class prestoRunner(sqlRunner):
 class databricksRunner(sqlRunner):
     def open_connection(self):
         self.connection = databricks_sql.connect(
-            server_hostname=config["DATABRICKS_TEST_HOST"],
-            http_path=config["DATABRICKS_TEST_PATH"],
-            access_token=config["DATABRICKS_TEST_TOKEN"],
+            server_hostname=CONFIG["DATABRICKS_TEST_HOST"],
+            http_path=CONFIG["DATABRICKS_TEST_PATH"],
+            access_token=CONFIG["DATABRICKS_TEST_TOKEN"],
         )
 
     def run_query(self, sql: str) -> QueryResult:
@@ -161,7 +163,7 @@ class bigqueryRunner(sqlRunner):
     def open_connection(self):
         self.connection = bigquery.Client(
             credentials=service_account.Credentials.from_service_account_file(
-                config["GOOGLE_APPLICATION_CREDENTIALS"]
+                CONFIG["GOOGLE_APPLICATION_CREDENTIALS"]
             )
         )
 
@@ -182,10 +184,10 @@ class bigqueryRunner(sqlRunner):
 class clickhouseRunner(sqlRunner):
     def open_connection(self):
         self.connection = clickhouse_connect.get_client(
-            host=config['CLICKHOUSE_CLOUD_HOSTNAME'],
+            host=CONFIG['CLICKHOUSE_CLOUD_HOSTNAME'],
             port=8443, 
-            username=config['CLICKHOUSE_CLOUD_USERNAME'], 
-            password=config['CLICKHOUSE_CLOUD_PASSWORD'],
+            username=CONFIG['CLICKHOUSE_CLOUD_USERNAME'], 
+            password=CONFIG['CLICKHOUSE_CLOUD_PASSWORD'],
         )
         self.cursor_kwargs = {}
 
@@ -202,9 +204,9 @@ class mssqlRunner(sqlRunner):
         self.connection = pyodbc.connect(
             'DRIVER={{ODBC Driver 18 for SQL Server}};SERVER={server};ENCRYPT=yes;UID={username};PWD={password}'
         ).format(
-            server=config['MSSQL_TEST_SERVER'],
-            username=config['MSSQL_TEST_USER'],
-            password=config['MSSQL_TEST_PASSWORD']    
+            server=CONFIG['MSSQL_TEST_SERVER'],
+            username=CONFIG['MSSQL_TEST_USER'],
+            password=CONFIG['MSSQL_TEST_PASSWORD']    
         )
 
     def run_query(self, sql: str) -> QueryResult:
@@ -215,10 +217,10 @@ class mssqlRunner(sqlRunner):
 class redshiftRunner(sqlRunner):
     def open_connection(self):
         self.connection = redshift_connector.connect(
-            host=config['REDSHIFT_TEST_HOST'],
-            database=config['REDSHIFT_TEST_DATABASE'],
-            user=config['REDSHIFT_TEST_USER'],
-            password=config['REDSHIFT_TEST_PASSWORD']
+            host=CONFIG['REDSHIFT_TEST_HOST'],
+            database=CONFIG['REDSHIFT_TEST_DATABASE'],
+            user=CONFIG['REDSHIFT_TEST_USER'],
+            password=CONFIG['REDSHIFT_TEST_PASSWORD']
         )
 
     def run_query(self, sql: str) -> QueryResult:
@@ -233,10 +235,10 @@ class mssqlRunner(sqlRunner):
     def open_connection(self):
         self.connection = pyodbc.connect(
             'DRIVER=ODBC Driver 17 for SQL Server;SERVER={server};ENCRYPT=yes;UID={username};PWD={password};DATABASE={database};TrustServerCertificate=yes;'.format(
-                server=config['MSSQL_TEST_SERVER'],
-                username=config['MSSQL_TEST_USER'],
-                password=config['MSSQL_TEST_PASSWORD'],
-                database=config['MSSQL_TEST_DATABASE']
+                server=CONFIG['MSSQL_TEST_SERVER'],
+                username=CONFIG['MSSQL_TEST_USER'],
+                password=CONFIG['MSSQL_TEST_PASSWORD'],
+                database=CONFIG['MSSQL_TEST_DATABASE']
             )
         )
 
@@ -305,6 +307,7 @@ def get_sql_runner(engine) -> sqlRunner:
         elif engine == "postgres":
             return postgresRunner()
         elif engine == "bigquery":
+            print('here')
             return bigqueryRunner()
         elif engine == "snowflake":
             return snowflakeRunner()
@@ -377,7 +380,7 @@ def validate(test_case):
         raise ValueError("sqlfluff error")
 
 
-def main():
+def main(engines, filter, branch, skip_cache):
     test_cases = read_queries_json()
 
     cache = read_queries_cache()
@@ -390,9 +393,12 @@ def main():
 
     for test_case in test_cases:
         engine = test_case["engine"]
+        if engines and engine not in engines:
+            continue
+        if filter and filter not in test_case['name']:
+            continue
         key = engine + "::" + test_case["sql"]
-
-        if key in cache:
+        if not skip_cache and key in cache and "error" not in cache[key]:
             update_fields = ['engine', 'name']
             results.append({
                 # prevent drawing wrong test case from cache when different
@@ -414,7 +420,7 @@ def main():
     for engine, runner in runners.items():
         runner.close_connection()
     # Learn what branch and write out results
-    branch_name = sys.argv[1].replace("/", "") if len(sys.argv) > 1 else ""
+    branch_name = branch.replace("/", "") if branch else ""
     res_filename = f"{RESULT_FILE_PREFIX}_{branch_name}.json"
     print(f"Writing query result json to {res_filename}...")
     with open(res_filename, "w") as f:
@@ -423,4 +429,34 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser=argparse.ArgumentParser()
+
+    parser.add_argument(
+        "--branch", 
+        help="git branch name to use for output files"
+    )
+    parser.add_argument(
+        "--cache",
+        help="'nocache' will skip the cache, everything else uses the cache"
+    )
+    parser.add_argument(
+        "--engines", 
+        help="""
+        List of engines you want to run the tests for, comma separated (e.g. bigquery,presto)
+        Eligible list:
+        - bigquery
+        - mysql
+        - postgres
+        - snowflake
+        - presto
+        - databricks
+        - mssql
+        - clickhouse
+        - redshift
+        """
+    )
+    parser.add_argument("--filter", help="string that must be in test name to run")
+    args=parser.parse_args()
+    print(args)
+
+    main(args.engines.split(","), args.filter, args.branch, args.cache == "nocache")
