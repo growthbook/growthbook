@@ -71,13 +71,22 @@ export type MetricFormProps = {
 function validateMetricSQL(
   sql: string,
   type: MetricType,
-  userIdTypes: string[]
+  userIdTypes: string[],
+  valueColumn?: string,
+  eventName?: string
 ) {
   // Require specific columns to be selected
   const requiredCols = ["timestamp", ...userIdTypes];
   if (type !== "binomial") {
     requiredCols.push("value");
+    if (sql.includes("valueColumn") && !valueColumn) {
+      throw new Error("Value column is required");
+    }
   }
+  if (sql.includes("eventName") && !eventName) {
+    throw new Error("Event name is required");
+  }
+
   validateSQL(sql, requiredCols);
 }
 function validateBasicInfo(value: { name: string }) {
@@ -93,13 +102,21 @@ function validateQuerySettings(
     type: MetricType;
     userIdTypes: string[];
     table: string;
+    valueColumn: string;
+    eventName: string;
   }
 ) {
   if (!datasourceSettingsSupport) {
     return;
   }
   if (sqlInput) {
-    validateMetricSQL(value.sql, value.type, value.userIdTypes);
+    validateMetricSQL(
+      value.sql,
+      value.type,
+      value.userIdTypes,
+      value.valueColumn,
+      value.eventName
+    );
   } else {
     if (value.table.length < 1) {
       throw new Error("Table name cannot be empty");
