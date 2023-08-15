@@ -42,7 +42,10 @@ export type EventType =
   | "organization.delete"
   | "savedGroup.created"
   | "savedGroup.deleted"
-  | "savedGroup.updated";
+  | "savedGroup.updated"
+  | "team.create"
+  | "team.delete"
+  | "team.update";
 
 export interface AuditUserLoggedIn {
   id: string;

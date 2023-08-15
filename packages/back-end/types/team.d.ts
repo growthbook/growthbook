@@ -1,0 +1,15 @@
+import { ProjectMemberRole } from "./organization";
+
+export interface TeamInterface {
+  id: string;
+  name: string;
+  organization: string;
+  dateCreated: Date;
+  dateUpdated: Date;
+  createdBy: string;
+  description: string;
+  globalRole: string;
+  limitAccessByEnvironment: boolean;
+  environments: string[];
+  projectRoles: ProjectMemberRole[];
+}
