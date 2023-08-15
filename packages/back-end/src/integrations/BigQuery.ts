@@ -83,9 +83,6 @@ export default class BigQuery extends SqlIntegration {
   castUserDateCol(column: string): string {
     return `CAST(${column} as DATETIME)`;
   }
-  ensureFloat(col: string): string {
-    return `CAST(${col} as FLOAT64)`;
-  }
   percentileCapSelectClause(
     capPercentile: number,
     metricTable: string
