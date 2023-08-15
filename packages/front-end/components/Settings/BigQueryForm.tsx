@@ -38,7 +38,7 @@ const BigQueryForm: FC<{
       )}
       {(isCloud() || params.authType !== "auto") && (
         <>
-          <div className="row">
+          <div className="form-group">
             <div className="custom-file">
               <input
                 type="file"

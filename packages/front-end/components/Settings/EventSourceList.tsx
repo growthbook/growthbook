@@ -48,18 +48,7 @@ export default function EventSourceList({
               style={{
                 backgroundImage: `url(${s.logo})`,
               }}
-            >
-              {s.value === "custom" ? (
-                <>
-                  <h4>Don&apos;t See Yours?</h4>
-                  <p className="mb-0 text-dark">
-                    Manually configure your data schema and analytics queries.
-                  </p>
-                </>
-              ) : (
-                ""
-              )}
-            </a>
+            />
           </div>
         ))}
         <div className="d-flex flex-column col-12">

@@ -69,7 +69,7 @@ const DatabricksForm: FC<{
       <div className="form-group">
         <Field
           label="Default Catalog (Recommended)"
-          helpText="This will be help GrowthBook generate the initial SQL queries used to define things like Metrics and Experiment Assignments."
+          helpText="This will help GrowthBook generate the initial SQL queries used to define things like Metrics and Experiment Assignments."
           value={params.catalog || ""}
           onChange={onParamChange}
           name="catalog"

@@ -6,7 +6,6 @@ import { ago } from "shared/dates";
 import ProjectBadges from "@/components/ProjectBadges";
 import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
-// import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import { DocLink } from "@/components/DocLink";
 import { hasFileConfig } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";

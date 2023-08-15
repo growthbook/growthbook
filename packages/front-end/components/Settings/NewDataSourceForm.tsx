@@ -559,7 +559,6 @@ const NewDataSourceForm: FC<{
           }}
           disabled={existing || possibleTypes.length === 1}
           required
-          // helpText="This should be the data warehouse where your event data is stored."
           autoFocus={true}
           placeholder="Choose Type..."
           options={dataSourceConnections
@@ -612,7 +611,7 @@ const NewDataSourceForm: FC<{
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              setStep(1);
+              setStep(2);
             }}
           >
             <span style={{ position: "relative", top: "-1px" }}>
