@@ -93,8 +93,8 @@ const MssqlForm: FC<{
         </div>
       </div>
       <div className="row mt-2">
-        <div>
-          <div className="form-group col-md-12">
+        <div className="col-md-12">
+          <div className="form-group">
             <label htmlFor="trust-server-cert" className="mr-2">
               Trust server certificate{" "}
               <Tooltip body="Allows for self-signed certificates"></Tooltip>
@@ -115,7 +115,7 @@ const MssqlForm: FC<{
               }}
             />
           </div>
-          <div className="form-group col-md-12">
+          <div className="form-group">
             <label htmlFor="encryption" className="mr-2">
               Enable encryption
             </label>
