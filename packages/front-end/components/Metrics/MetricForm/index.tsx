@@ -12,7 +12,11 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
 } from "shared/constants";
-import { isDemoDatasourceProject } from "shared/demo-datasource";
+import {
+  getDemoDatasourceProjectIdForOrganization,
+  isDemoDatasourceProject,
+} from "shared/demo-datasource";
+import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -323,6 +327,19 @@ const MetricForm: FC<MetricFormProps> = ({
     });
   }, [orgId, value.projects]);
 
+  // We assume the demo datasource is the one that has only one project and it's the demo datasource project
+  const demoDataSource: DataSourceInterfaceWithParams | null = useMemo(() => {
+    if (!orgId) return null;
+
+    return (
+      datasources.find(
+        (d) =>
+          d.projects?.length === 1 &&
+          d.projects[0] === getDemoDatasourceProjectIdForOrganization(orgId)
+      ) || null
+    );
+  }, [datasources, orgId]);
+
   const denominatorOptions = useMemo(() => {
     return metrics
       .filter((m) => m.id !== current?.id)
@@ -609,12 +626,17 @@ const MetricForm: FC<MetricFormProps> = ({
                 onChange={(v) => form.setValue("projects", v)}
                 customClassName="label-overflow-ellipsis"
                 helpText="Assign this metric to specific projects"
+                disabled={isExclusivelyForDemoDatasourceProject}
               />
             </div>
           )}
           <SelectField
             label="Data Source"
-            value={value.datasource || ""}
+            value={
+              isExclusivelyForDemoDatasourceProject && demoDataSource
+                ? demoDataSource.id
+                : value.datasource || ""
+            }
             onChange={(v) => form.setValue("datasource", v)}
             options={(datasources || []).map((d) => {
               const defaultDatasource = d.id === settings.defaultDataSource;
@@ -628,7 +650,11 @@ const MetricForm: FC<MetricFormProps> = ({
             className="portal-overflow-ellipsis"
             name="datasource"
             initialOption="Manual"
-            disabled={edit || source === "datasource-detail"}
+            disabled={
+              isExclusivelyForDemoDatasourceProject ||
+              edit ||
+              source === "datasource-detail"
+            }
           />
           <div className="form-group">
             <label>Metric Type</label>
