@@ -982,7 +982,7 @@ const MetricPage: FC = () => {
                           </span>
                         </RightRailSectionGroup>
                       )}
-                      {metric.valueColumn && (
+                      {metric.type != "binomial" && metric.valueColumn && (
                         <RightRailSectionGroup
                           title="Value Column"
                           type="custom"

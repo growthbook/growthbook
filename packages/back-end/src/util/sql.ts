@@ -90,13 +90,6 @@ export function compileSqlTemplate(
     experimentId = "%";
   }
 
-  // For binomial metrics {{valueColumn}} should not really be in the template at
-  // all unless hidden behind an {(#if}). In case it is there though we set
-  // it to 1 by default.
-  if (!valueColumn) {
-    valueColumn = "1";
-  }
-
   const replacements: Record<string, string> = {
     startDateUnix: "" + Math.floor(startDate.getTime() / 1000),
     startDateISO: startDate.toISOString(),

@@ -418,11 +418,13 @@ const MetricForm: FC<MetricFormProps> = ({
       maxPercentChange,
       minPercentChange,
       capping,
+      valueColumn,
       ...otherValues
     } = value;
 
     const sendValue: Partial<MetricInterface> = {
       ...otherValues,
+      valueColumn: value.type == "binomial" ? "1" : valueColumn,
       winRisk: winRisk / 100,
       loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
@@ -521,7 +523,9 @@ const MetricForm: FC<MetricFormProps> = ({
           value={value.sql}
           save={async (sql) => form.setValue("sql", sql)}
           eventName={form.watch("eventName")}
-          valueColumn={form.watch("valueColumn")}
+          valueColumn={
+            value.type == "binomial" ? "1" : form.watch("valueColumn")
+          }
         />
       )}
       <PagedModal

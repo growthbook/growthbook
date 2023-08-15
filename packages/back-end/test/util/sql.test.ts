@@ -37,12 +37,14 @@ describe("backend", () => {
       "Error compiling SQL template: You must set eventName first."
     );
 
-    expect(
+    expect(() => {
       compileSqlTemplate(`SELECT {{ valueColumn }} as value`, {
         startDate,
         endDate,
-      })
-    ).toEqual("SELECT 1 as value");
+      });
+    }).toThrowError(
+      "Error compiling SQL template: You must set valueColumn first."
+    );
 
     expect(() => {
       compileSqlTemplate(`SELECT {{ unknown }}`, {
