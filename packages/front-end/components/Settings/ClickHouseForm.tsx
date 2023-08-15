@@ -20,7 +20,7 @@ const ClickHouseForm: FC<{
         }}
       />
       <div className="row">
-        <div className="form-group">
+        <div className="form-group col-md-12">
           <label>URL</label>
           <input
             type="text"
@@ -31,7 +31,7 @@ const ClickHouseForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group">
+        <div className="form-group col-md-12">
           <label>Port</label>
           <input
             type="number"
@@ -42,7 +42,7 @@ const ClickHouseForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group">
+        <div className="form-group col-md-12">
           <label>Database</label>
           <input
             type="text"
@@ -52,7 +52,7 @@ const ClickHouseForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group">
+        <div className="form-group col-md-12">
           <label>Username</label>
           <input
             type="text"
@@ -62,7 +62,7 @@ const ClickHouseForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group">
+        <div className="form-group col-md-12">
           <label>Password</label>
           <input
             type="text"

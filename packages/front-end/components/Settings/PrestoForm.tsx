@@ -13,7 +13,7 @@ const PrestoForm: FC<{
 }> = ({ params, existing, onParamChange, onManualParamChange, setParams }) => {
   return (
     <div className="row">
-      <div className="form-group">
+      <div className="form-group col-md-12">
         <label>Engine</label>
         <SelectField
           name="engine"
@@ -39,7 +39,7 @@ const PrestoForm: FC<{
           }}
         />
       </div>
-      <div className="form-group">
+      <div className="form-group col-md-12">
         <label>Host</label>
         <input
           type="text"
@@ -50,7 +50,7 @@ const PrestoForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group">
+      <div className="form-group col-md-12">
         <label>Port</label>
         <input
           type="number"
@@ -61,7 +61,7 @@ const PrestoForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group">
+      <div className="form-group col-md-12">
         <label>Username</label>
         <input
           type="text"
@@ -72,7 +72,7 @@ const PrestoForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group">
+      <div className="form-group col-md-12">
         <label>Password</label>
         <input
           type="text"
@@ -83,7 +83,7 @@ const PrestoForm: FC<{
           placeholder={existing ? "(Keep existing)" : ""}
         />
       </div>
-      <div className="form-group">
+      <div className="form-group col-md-12">
         <label>Default Catalog</label>
         <input
           type="text"
@@ -93,7 +93,7 @@ const PrestoForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group">
+      <div className="form-group col-md-12">
         <label>Default Schema</label>
         <input
           type="text"

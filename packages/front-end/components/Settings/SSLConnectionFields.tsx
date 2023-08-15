@@ -23,7 +23,7 @@ export default function SSLConnectionFields({
 
   return (
     <>
-      <div>
+      <div className="col-md-12">
         <div className="form-group">
           <label htmlFor="require-ssl" className="mr-2">
             Require SSL

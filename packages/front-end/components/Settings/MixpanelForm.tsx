@@ -22,7 +22,7 @@ const MixpanelForm: FC<{
         .
       </div>
       <div className="row">
-        <div className="form-group">
+        <div className="form-group col-md-12">
           <label>Username</label>
           <input
             type="text"
@@ -33,7 +33,7 @@ const MixpanelForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group">
+        <div className="form-group col-md-12">
           <label>Secret</label>
           <input
             type="text"
@@ -46,7 +46,7 @@ const MixpanelForm: FC<{
             placeholder={existing ? "(Keep existing)" : ""}
           />
         </div>
-        <div className="form-group">
+        <div className="form-group col-md-12">
           <label>Project Id</label>
           <input
             type="text"
@@ -57,7 +57,7 @@ const MixpanelForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group">
+        <div className="form-group col-md-12">
           <label>API Server</label>
           <SelectField
             name="server"

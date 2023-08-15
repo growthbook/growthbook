@@ -24,7 +24,7 @@ const MssqlForm: FC<{
         }}
       />
       <div className="row">
-        <div className="form-group">
+        <div className="form-group col-md-12">
           <label>Server</label>
           <input
             type="text"
@@ -35,7 +35,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group">
+        <div className="form-group col-md-12">
           <label>Port</label>
           <input
             type="number"
@@ -46,7 +46,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group">
+        <div className="form-group col-md-12">
           <label>Database</label>
           <input
             type="text"
@@ -57,7 +57,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group">
+        <div className="form-group col-md-12">
           <label>User</label>
           <input
             type="text"
@@ -68,7 +68,7 @@ const MssqlForm: FC<{
             onChange={onParamChange}
           />
         </div>
-        <div className="form-group">
+        <div className="form-group col-md-12">
           <label>Password</label>
           <input
             type="text"
@@ -80,7 +80,7 @@ const MssqlForm: FC<{
             placeholder={existing ? "(Keep existing)" : ""}
           />
         </div>
-        <div className="form-group">
+        <div className="form-group col-md-12">
           <label>Default Schema</label>
           <input
             type="text"
@@ -94,7 +94,7 @@ const MssqlForm: FC<{
       </div>
       <div className="row mt-2">
         <div>
-          <div className="form-group">
+          <div className="form-group col-md-12">
             <label htmlFor="trust-server-cert" className="mr-2">
               Trust server certificate{" "}
               <Tooltip body="Allows for self-signed certificates"></Tooltip>
@@ -115,7 +115,7 @@ const MssqlForm: FC<{
               }}
             />
           </div>
-          <div className="form-group">
+          <div className="form-group col-md-12">
             <label htmlFor="encryption" className="mr-2">
               Enable encryption
             </label>
