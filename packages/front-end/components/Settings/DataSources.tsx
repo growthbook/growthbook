@@ -12,7 +12,7 @@ import { hasFileConfig } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import NewDataSourceForm2 from "./NewDataSourceForm2";
+import NewDataSourceForm from "./NewDataSourceForm";
 
 const DataSources: FC = () => {
   const [newModalOpen, setNewModalOpen] = useState(false);
@@ -147,7 +147,7 @@ const DataSources: FC = () => {
       )}
 
       {newModalOpen && (
-        <NewDataSourceForm2
+        <NewDataSourceForm
           existing={false}
           data={{
             name: "My Datasource",
