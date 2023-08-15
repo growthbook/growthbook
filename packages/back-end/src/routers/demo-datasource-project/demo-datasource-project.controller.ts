@@ -1,5 +1,8 @@
 import type { Response } from "express";
-import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import {
+  getDemoDataSourceFeatureId,
+  getDemoDatasourceProjectIdForOrganization,
+} from "shared/demo-datasource";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { AuthRequest } from "../../types/AuthRequest";
 import { getOrgFromReq } from "../../services/organizations";
@@ -139,7 +142,7 @@ const DEMO_FEATURES: Omit<
           {
             type: "force",
             description: "",
-            id: "gbdemo-checkout-layout-employee-force-rule",
+            id: `${getDemoDataSourceFeatureId()}-employee-force-rule`,
             value: "dev",
             condition: `{"is_employee":true}`,
             enabled: true,
@@ -147,8 +150,8 @@ const DEMO_FEATURES: Omit<
           {
             type: "experiment",
             description: "",
-            id: "gbdemo-checkout-layout-exp-rule",
-            trackingKey: "gbdemo-checkout-layout",
+            id: `${getDemoDataSourceFeatureId()}-exp-rule`,
+            trackingKey: getDemoDataSourceFeatureId(),
             hashAttribute: "user_id",
             coverage: 1,
             enabled: true,
@@ -186,8 +189,8 @@ const DEMO_EXPERIMENTS: Pick<
   | "phases"
 >[] = [
   {
-    name: "gbdemo-checkout-layout",
-    trackingKey: "gbdemo-checkout-layout",
+    name: getDemoDataSourceFeatureId(),
+    trackingKey: getDemoDataSourceFeatureId(),
     description: `**THIS IS A DEMO EXPERIMENT USED FOR DEMONSTRATION PURPOSES ONLY**
 
 Experiment to test impact of checkout cart design.
@@ -342,7 +345,7 @@ export const postDemoDatasourceProject = async (
       DEMO_FEATURES.map(async (f) => {
         return createFeature(org, res.locals.eventAudit, {
           ...f,
-          id: "gbdemo-checkout-layout",
+          id: getDemoDataSourceFeatureId(),
           project: project.id,
           organization: org.id,
           dateCreated: new Date(),
