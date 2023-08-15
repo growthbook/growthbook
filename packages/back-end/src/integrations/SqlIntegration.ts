@@ -159,12 +159,6 @@ export default abstract class SqlIntegration
   convertDate(fromDB: any): Date {
     return getValidDate(fromDB);
   }
-  stddev(col: string) {
-    return `STDDEV(${col})`;
-  }
-  avg(col: string) {
-    return `AVG(${this.ensureFloat(col)})`;
-  }
   formatDate(col: string): string {
     return col;
   }
@@ -182,9 +176,6 @@ export default abstract class SqlIntegration
   }
   castUserDateCol(column: string): string {
     return column;
-  }
-  useAliasInGroupBy(): boolean {
-    return true;
   }
   formatDateTimeString(col: string): string {
     return this.castToString(col);
@@ -539,21 +530,17 @@ export default abstract class SqlIntegration
 
   //Test the validity of a query as cheaply as possible
   getTestValidityQuery(query: string): string {
-    const explainQuery = `WITH __table as (
-        ${query}
-      )
-      ${this.selectSampleRows("__table", 1)}`;
-    return format(explainQuery, this.getFormatDialect());
+    return this.getTestQuery(query, 1);
   }
 
-  getTestQuery(query: string): string {
+  getTestQuery(query: string, limit: number = 5): string {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);
     const limitedQuery = replaceSQLVars(
       `WITH __table as (
         ${query}
       )
-      ${this.selectSampleRows("__table", 5)}`,
+      ${this.selectSampleRows("__table", limit)}`,
       {
         startDate,
       }

@@ -2,6 +2,7 @@ import { FC, useEffect, useState } from "react";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import Modal from "../Modal";
 import ImportExperimentList from "./ImportExperimentList";
 import NewExperimentForm from "./NewExperimentForm";
@@ -19,6 +20,7 @@ const ImportExperimentModal: FC<{
   source,
   fromFeature = false,
 }) => {
+  const settings = useOrgSettings();
   const { datasources } = useDefinitions();
   const [
     selected,
@@ -29,6 +31,13 @@ const ImportExperimentModal: FC<{
   const [importModal, setImportModal] = useState<boolean>(importMode);
   const [datasourceId, setDatasourceId] = useState(() => {
     if (!datasources) return null;
+    if (
+      settings?.defaultDataSource &&
+      datasources.find((d) => d.id === settings.defaultDataSource)?.properties
+        ?.pastExperiments
+    ) {
+      return settings.defaultDataSource;
+    }
     return (
       datasources.filter((d) => d?.properties?.pastExperiments)?.[0]?.id ?? null
     );

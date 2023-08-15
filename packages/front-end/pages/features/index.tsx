@@ -238,8 +238,8 @@ export default function FeaturesPage() {
 
           <table className="table gbtable table-hover appbox">
             <thead
-              className="sticky-top bg-white shadow-sm z-index-100"
-              style={{ top: "56px" }}
+              className="sticky-top bg-white shadow-sm"
+              style={{ top: "56px", zIndex: 900 }}
             >
               <tr>
                 <th></th>

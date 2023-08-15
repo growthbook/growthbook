@@ -30,11 +30,16 @@ export function getQueryStatus(queries: Queries, error?: string): QueryStatus {
   if (error) return "failed";
 
   let running = false;
+  let numFailed = 0;
   for (let i = 0; i < queries.length; i++) {
-    if (queries[i].status === "failed") return "failed";
+    if (queries[i].status === "failed") numFailed++;
     if (queries[i].status === "running") running = true;
   }
-  return running ? "running" : "succeeded";
+
+  if (numFailed >= queries.length / 2) return "failed";
+  if (running) return "running";
+  if (numFailed > 0) return "partially-succeeded";
+  return "succeeded";
 }
 
 const RunQueriesButton: FC<{

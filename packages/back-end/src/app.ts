@@ -94,6 +94,7 @@ import { projectRouter } from "./routers/project/project.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
+import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 
 const app = express();
@@ -333,7 +334,6 @@ app.post("/idea/:id", ideasController.postIdea);
 app.delete("/idea/:id", ideasController.deleteIdea);
 app.post("/idea/:id/vote", ideasController.postVote);
 app.post("/ideas/impact", ideasController.getEstimatedImpact);
-app.post("/ideas/estimate/manual", ideasController.postEstimatedImpactManual);
 app.get("/ideas/recent/:num", ideasController.getRecentIdeas);
 
 // Metrics
@@ -381,6 +381,10 @@ app.post("/experiment/:id", experimentsController.postExperiment);
 app.delete("/experiment/:id", experimentsController.deleteExperiment);
 app.get("/experiment/:id/watchers", experimentsController.getWatchingUsers);
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
+app.post(
+  "/experiment/:id/targeting",
+  experimentsController.postExperimentTargeting
+);
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
 app.put(
   "/experiment/:id/phase/:phase",
@@ -453,6 +457,8 @@ app.use("/sdk-connections", sdkConnectionRouter);
 
 app.use("/projects", projectRouter);
 
+app.use("/demo-datasource-project", demoDatasourceProjectRouter);
+
 // Features
 app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
@@ -470,6 +476,14 @@ app.post("/feature/:id/archive", featuresController.postFeatureArchive);
 app.post("/feature/:id/toggle", featuresController.postFeatureToggle);
 app.post("/feature/:id/draft", featuresController.postFeatureDraft);
 app.post("/feature/:id/rule", featuresController.postFeatureRule);
+app.post(
+  "/feature/:id/experiment",
+  featuresController.postFeatureExperimentRefRule
+);
+app.delete(
+  "/feature/:id/experiment",
+  featuresController.deleteFeatureExperimentRefRule
+);
 app.put("/feature/:id/rule", featuresController.putFeatureRule);
 app.delete("/feature/:id/rule", featuresController.deleteFeatureRule);
 app.post("/feature/:id/reorder", featuresController.postFeatureMoveRule);

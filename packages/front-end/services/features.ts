@@ -6,6 +6,7 @@ import {
   SDKAttributeType,
 } from "back-end/types/organization";
 import {
+  ExperimentRefRule,
   ExperimentRule,
   ExperimentValue,
   FeatureInterface,
@@ -44,6 +45,12 @@ export interface AttributeData {
   archived: boolean;
   format?: SDKAttributeFormat;
 }
+
+export type NewExperimentRefRule = {
+  type: "experiment-ref-new";
+  name: string;
+  autoStart: boolean;
+} & Omit<ExperimentRule, "type">;
 
 export function validateFeatureValue(
   feature: FeatureInterface,
@@ -357,6 +364,18 @@ export function validateFeatureRule(
         `Sum of weights cannot be greater than 1 (currently equals ${totalWeight})`
       );
     }
+  } else if (rule.type === "experiment-ref") {
+    rule.variations.forEach((v, i) => {
+      const newValue = validateFeatureValue(
+        feature,
+        v.value,
+        "Variation #" + i
+      );
+      if (newValue !== v.value) {
+        hasChanges = true;
+        (ruleCopy as ExperimentRefRule).variations[i].value = newValue;
+      }
+    });
   } else {
     const newValue = validateFeatureValue(
       feature,
@@ -427,11 +446,10 @@ export function getDefaultRuleValue({
   defaultValue: string;
   attributeSchema?: SDKAttributeSchema;
   ruleType: string;
-}): FeatureRule {
-  // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-  const hashAttributes = attributeSchema
-    .filter((a) => a.hashAttribute)
-    .map((a) => a.property);
+}): FeatureRule | NewExperimentRefRule {
+  const hashAttributes =
+    attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
+    [];
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
@@ -499,32 +517,96 @@ export function getDefaultRuleValue({
       ],
     };
   }
-
-  const firstAttr = attributeSchema?.[0];
-  const condition = firstAttr
-    ? JSON.stringify({
-        [firstAttr.property]: firstAttr.datatype === "boolean" ? "true" : "",
-      })
-    : "";
-
-  return {
-    type: "force",
-    description: "",
-    id: "",
-    value,
-    enabled: true,
-    condition,
-    scheduleRules: [
-      {
-        enabled: true,
-        timestamp: null,
-      },
-      {
+  if (ruleType === "experiment-ref") {
+    return {
+      type: "experiment-ref",
+      description: "",
+      experimentId: "",
+      id: "",
+      variations: [],
+      condition: "",
+      enabled: true,
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
+    };
+  }
+  if (ruleType === "experiment-ref-new") {
+    return {
+      type: "experiment-ref-new",
+      description: "",
+      name: "",
+      autoStart: true,
+      id: "",
+      condition: "",
+      enabled: true,
+      hashAttribute,
+      trackingKey: "",
+      values: [
+        {
+          value: defaultValue,
+          weight: 0.5,
+          name: "",
+        },
+        {
+          value: value,
+          weight: 0.5,
+          name: "",
+        },
+      ],
+      coverage: 1,
+      namespace: {
         enabled: false,
-        timestamp: null,
+        name: "",
+        range: [0, 0.5],
       },
-    ],
-  };
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
+    };
+  }
+  if (ruleType === "force" || !ruleType) {
+    const firstAttr = attributeSchema?.[0];
+    const condition = firstAttr
+      ? JSON.stringify({
+          [firstAttr.property]: firstAttr.datatype === "boolean" ? "true" : "",
+        })
+      : "";
+
+    return {
+      type: "force",
+      description: "",
+      id: "",
+      value,
+      enabled: true,
+      condition,
+      scheduleRules: [
+        {
+          enabled: true,
+          timestamp: null,
+        },
+        {
+          enabled: false,
+          timestamp: null,
+        },
+      ],
+    };
+  }
+  throw new Error("Unknown Rule Type: " + ruleType);
 }
 
 export function isRuleFullyCovered(rule: FeatureRule): boolean {
