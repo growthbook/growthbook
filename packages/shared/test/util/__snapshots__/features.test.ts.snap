@@ -50,7 +50,7 @@ exports[`validateJSONFeatureValue returns valid as false if all values are valid
 Object {
   "enabled": true,
   "errors": Array [
-    "Invalid value for field: test/type must be string",
+    "Invalid value for field: test/type should be string",
   ],
   "valid": false,
 }
@@ -60,7 +60,7 @@ exports[`validateJSONFeatureValue returns valid as false if json schema is inval
 Object {
   "enabled": true,
   "errors": Array [
-    "strict mode: unknown keyword: \\"test\\"",
+    "schema is invalid: data.type should be equal to one of the allowed values, data.type should be array, data.type should match some schema in anyOf",
   ],
   "valid": false,
 }

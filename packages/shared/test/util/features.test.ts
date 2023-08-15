@@ -78,7 +78,7 @@ describe("validateJSONFeatureValue", () => {
   it("returns valid as false if json schema is invalid", () => {
     const value = { test: 999 };
     feature.jsonSchema = {
-      schema: '{ "test": 123 }',
+      schema: '{ "type": 123 }',
       date: new Date("2020-04-20"),
       enabled: true,
     };
