@@ -31,7 +31,6 @@ type Props = {
   mutate: () => void;
   canEditVisualChangesets: boolean;
   setVisualEditorModal: (v: boolean) => void;
-  newUi?: boolean;
 };
 
 const isLegacyVariation = (v: Partial<LegacyVariation>): v is LegacyVariation =>
@@ -50,7 +49,6 @@ const drawChange = ({
   simpleUrlPatterns,
   onlySimpleRules,
   regexUrlPatterns,
-  newUi,
 }: {
   i: number;
   vc: VisualChangesetInterface;
@@ -59,31 +57,20 @@ const drawChange = ({
   hasVisualEditorFeature: boolean;
   canEditVisualChangesets: boolean;
   setEditingVisualChangeset: (vc: VisualChangesetInterface) => void;
-  setEditingVisualChange: ({
-    visualChange: VisualChange,
-    visualChangeIndex: number,
-    visualChangeset: VisualChangesetInterface,
+  setEditingVisualChange: (params: {
+    visualChange: VisualChange;
+    visualChangeIndex: number;
+    visualChangeset: VisualChangesetInterface;
   }) => void;
   deleteVisualChangeset: (id: string) => void;
   simpleUrlPatterns: VisualChangesetURLPattern[];
   onlySimpleRules: boolean;
   regexUrlPatterns: VisualChangesetURLPattern[];
-  newUi?: boolean;
 }) => {
   return (
-    <div
-      className={clsx({
-        "mt-2": newUi || i !== 0,
-        "pb-3": newUi,
-        "appbox bg-light mx-3 mb-4 py-2": !newUi,
-      })}
-    >
+    <div className={clsx("pb-3", { "mt-2": i !== 0 })}>
       <div className="mt-2 px-3">
-        <div
-          className={`row mt-1 mb-3 d-flex ${
-            newUi ? "align-items-start" : "align-items-end"
-          }`}
-        >
+        <div className="row mt-1 mb-3 d-flex align-items-start">
           <div className="col">
             <div className="col-auto px-3 py-2 rounded bg-muted-yellow">
               <label className="d-block mb-1 font-weight-bold">
@@ -129,11 +116,7 @@ const drawChange = ({
           {canEditVisualChangesets && experiment.status === "draft" && (
             <div className="col-auto">
               {hasVisualEditorFeature && (
-                <OpenVisualEditorLink
-                  id={vc.id}
-                  changeIndex={1}
-                  visualEditorUrl={vc.editorUrl}
-                />
+                <OpenVisualEditorLink visualChangeset={vc} />
               )}
               <DeleteButton
                 className="btn-sm ml-4"
@@ -256,19 +239,12 @@ export const VisualChangesetTable: FC<Props> = ({
   mutate,
   canEditVisualChangesets,
   setVisualEditorModal,
-  newUi,
 }: Props) => {
   const { variations } = experiment;
   const { apiCall } = useAuth();
 
   const { hasCommercialFeature } = useUser();
   const hasVisualEditorFeature = hasCommercialFeature("visual-editor");
-
-  const hasAnyPositionMutations = visualChangesets.some((vc) =>
-    vc.visualChanges.some(
-      (v) => v.domMutations.filter((m) => m.attribute === "position").length > 0
-    )
-  );
 
   const [
     editingVisualChangeset,
@@ -326,23 +302,6 @@ export const VisualChangesetTable: FC<Props> = ({
 
   return (
     <>
-      {newUi ? (
-        <></>
-      ) : (
-        <div className="mb-2">
-          <div className="px-3 h3 mt-3 d-inline-block my-0 align-middle">
-            Visual Changes
-          </div>
-
-          {hasAnyPositionMutations && (
-            <div className="small text-muted">
-              This experiment requires at least version 0.26.0 of our Javascript
-              SDK
-            </div>
-          )}
-        </div>
-      )}
-
       {visualChangesets.map((vc, i) => {
         const simpleUrlPatterns = vc.urlPatterns
           .filter((v) => v.type === "simple")
@@ -367,7 +326,6 @@ export const VisualChangesetTable: FC<Props> = ({
           simpleUrlPatterns,
           onlySimpleRules,
           regexUrlPatterns,
-          newUi,
         });
 
         const visualChangeTypesSet: Set<string> = new Set();
@@ -390,25 +348,20 @@ export const VisualChangesetTable: FC<Props> = ({
         );
 
         return (
-          <Fragment key={i}>
-            {newUi ? (
-              <LinkedChange
-                changeType={"visual"}
-                page={vc.editorUrl}
-                changes={visualChangeTypes}
-                open={experiment.status === "draft"}
-              >
-                {change}
-              </LinkedChange>
-            ) : (
-              change
-            )}
-          </Fragment>
+          <LinkedChange
+            key={i}
+            changeType={"visual"}
+            page={vc.editorUrl}
+            changes={visualChangeTypes}
+            open={experiment.status === "draft"}
+          >
+            {change}
+          </LinkedChange>
         );
       })}
 
       {canEditVisualChangesets && experiment.status === "draft" ? (
-        <div className={`${newUi ? "" : "px-3"} my-2`}>
+        <div className="my-2">
           {hasVisualEditorFeature ? (
             <button
               className="btn btn-link"
@@ -421,13 +374,13 @@ export const VisualChangesetTable: FC<Props> = ({
               }}
             >
               <FaPlusCircle className="mr-1" />
-              {newUi ? "Visual Editor change" : "Add Visual Editor page"}
+              Visual Editor change
             </button>
           ) : (
             <PremiumTooltip commercialFeature={"visual-editor"}>
               <div className="btn btn-link disabled">
                 <FaPlusCircle className="mr-1" />
-                {newUi ? "Visual Editor change" : "Add Visual Editor page"}
+                Visual Editor change
               </div>
             </PremiumTooltip>
           )}
@@ -435,7 +388,7 @@ export const VisualChangesetTable: FC<Props> = ({
       ) : null}
 
       {hasLegacyVisualChanges && experiment.status === "draft" ? (
-        <div className={`alert alert-warning mt-3 ${newUi ? "" : "mx-4"}`}>
+        <div className="alert alert-warning mt-3">
           <div className="mb-1">
             Your experiment has changes created with the legacy visual editor
           </div>

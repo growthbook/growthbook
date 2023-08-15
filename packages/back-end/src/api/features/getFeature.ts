@@ -1,4 +1,5 @@
 import { GetFeatureResponse } from "../../../types/openapi";
+import { getExperimentMapForFeature } from "../../models/ExperimentModel";
 import { getFeature as getFeatureDB } from "../../models/FeatureModel";
 import { getApiFeatureObj, getSavedGroupMap } from "../../services/features";
 import { createApiRequestHandler } from "../../util/handler";
@@ -12,8 +13,17 @@ export const getFeature = createApiRequestHandler(getFeatureValidator)(
     }
 
     const groupMap = await getSavedGroupMap(req.organization);
+    const experimentMap = await getExperimentMapForFeature(
+      req.organization.id,
+      feature.id
+    );
     return {
-      feature: getApiFeatureObj(feature, req.organization, groupMap),
+      feature: getApiFeatureObj({
+        feature,
+        organization: req.organization,
+        groupMap,
+        experimentMap,
+      }),
     };
   }
 );

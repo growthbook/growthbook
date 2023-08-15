@@ -5,7 +5,11 @@ sidebar_label: Clickhouse
 slug: clickhouse
 ---
 
-import MissingDatasourceDocs from './missing-datasource-docs.mdx'
-const { title, description, sidebar_label, slug } = frontMatter
+Connecting to Clickhouse is very straightforward. You just need to provide the connection string and credentials. If you
+are using something like Clickhouse Cloud, you can find the connection string in the UI.
 
-<MissingDatasourceDocs datasource="Clickhouse" slug={slug} />
+<img src="Clickhouse Cloud Connection String" src="/images/guides/guide-clickhouse-1.png" style={{width: "600px"}} />
+
+If you are making connection credentials just for GrowthBook, you can give it read-only access to the database.
+
+If you are using GrowthBook Cloud (app.growthbook.io), make sure to whitelist the ip address 52.70.79.40 if applicable.

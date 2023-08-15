@@ -2,8 +2,13 @@ import { FeatureInterface, FeatureRule } from "back-end/types/feature";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import React, { forwardRef } from "react";
-import { FaArrowsAlt, FaExclamationTriangle } from "react-icons/fa";
+import {
+  FaArrowsAlt,
+  FaExclamationTriangle,
+  FaExternalLinkAlt,
+} from "react-icons/fa";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getRules, useEnvironments } from "@/services/features";
@@ -18,6 +23,9 @@ import ForceSummary from "./ForceSummary";
 import RolloutSummary from "./RolloutSummary";
 import ExperimentSummary from "./ExperimentSummary";
 import RuleStatusPill from "./RuleStatusPill";
+import ExperimentRefSummary, {
+  isExperimentRefRuleSkipped,
+} from "./ExperimentRefSummary";
 
 interface SortableProps {
   i: number;
@@ -26,7 +34,7 @@ interface SortableProps {
   environment: string;
   experiments: Record<string, ExperimentInterfaceStringDates>;
   mutate: () => void;
-  setRuleModal: ({ environment: string, i: number }) => void;
+  setRuleModal: (args: { environment: string; i: number }) => void;
   unreachable?: boolean;
 }
 
@@ -56,6 +64,10 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const title =
       rule.description ||
       rule.type[0].toUpperCase() + rule.type.slice(1) + " Rule";
+
+    const linkedExperiment =
+      rule.type === "experiment-ref" && experiments[rule.experimentId];
+
     const rules = getRules(feature, environment);
     const environments = useEnvironments();
     const permissions = usePermissions();
@@ -74,6 +86,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
     const ruleDisabled =
       scheduleCompletedAndDisabled ||
       upcomingScheduleRule?.enabled ||
+      (linkedExperiment && isExperimentRefRuleSkipped(linkedExperiment)) ||
       !rule.enabled;
 
     return (
@@ -86,30 +99,43 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
       >
         <div className="d-flex mb-2 align-items-center">
           <div>
-            <div
-              className="text-light border rounded-circle"
-              style={{
-                width: 28,
-                height: 28,
-                lineHeight: "28px",
-                textAlign: "center",
-                background: "#7C45EA",
-                fontWeight: "bold",
-                opacity: ruleDisabled ? 0.5 : 1,
-              }}
-            >
-              {i + 1}
-            </div>
+            <Tooltip body={ruleDisabled ? "This rule will be skipped" : ""}>
+              <div
+                className={`text-light border rounded-circle ${
+                  ruleDisabled ? "bg-secondary" : "bg-purple"
+                }`}
+                style={{
+                  width: 28,
+                  height: 28,
+                  lineHeight: "28px",
+                  textAlign: "center",
+                  fontWeight: "bold",
+                }}
+              >
+                {i + 1}
+              </div>
+            </Tooltip>
           </div>
           <div
             style={{
               flex: 1,
-              opacity: ruleDisabled ? 0.5 : 1,
             }}
             className="mx-2"
           >
-            {title}
-            {unreachable ? (
+            {linkedExperiment ? (
+              <div>
+                Experiment:{" "}
+                <strong className="mr-3">{linkedExperiment.name}</strong>{" "}
+                <Link href={`/experiment/${linkedExperiment.id}`}>
+                  <a>
+                    View Experiment <FaExternalLinkAlt />
+                  </a>
+                </Link>
+              </div>
+            ) : (
+              title
+            )}
+            {unreachable && !ruleDisabled ? (
               <Tooltip
                 body={
                   "A rule above this one will serve to 100% of the traffic, and this rule will never be reached."
@@ -126,8 +152,8 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
           <RuleStatusPill
             rule={rule}
             upcomingScheduleRule={upcomingScheduleRule}
-            // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | boolean | undefined' is not assigna... Remove this comment to see the full error message
-            scheduleCompletedAndDisabled={scheduleCompletedAndDisabled}
+            scheduleCompletedAndDisabled={!!scheduleCompletedAndDisabled}
+            linkedExperiment={linkedExperiment || undefined}
           />
           {rules.length > 1 && canEdit && (
             <div
@@ -237,20 +263,22 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             style={{
               flex: 1,
               maxWidth: "100%",
-              opacity: ruleDisabled ? 0.5 : 1,
+              opacity: ruleDisabled ? 0.4 : 1,
             }}
             className="pt-1 position-relative"
           >
-            {rule.condition && rule.condition !== "{}" && (
-              <div className="row mb-3 align-items-top">
-                <div className="col-auto">
-                  <strong>IF</strong>
+            {rule.condition &&
+              rule.condition !== "{}" &&
+              rule.type !== "experiment-ref" && (
+                <div className="row mb-3 align-items-top">
+                  <div className="col-auto">
+                    <strong>IF</strong>
+                  </div>
+                  <div className="col">
+                    <ConditionDisplay condition={rule.condition} />
+                  </div>
                 </div>
-                <div className="col">
-                  <ConditionDisplay condition={rule.condition} />
-                </div>
-              </div>
-            )}
+              )}
             {rule.type === "force" && (
               <ForceSummary value={rule.value} feature={feature} />
             )}
@@ -265,7 +293,16 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
             {rule.type === "experiment" && (
               <ExperimentSummary
                 feature={feature}
-                experiment={experiments[rule.trackingKey || feature.id]}
+                experiment={Object.values(experiments).find(
+                  (exp) => exp.trackingKey === (rule.trackingKey || feature.id)
+                )}
+                rule={rule}
+              />
+            )}
+            {rule.type === "experiment-ref" && (
+              <ExperimentRefSummary
+                feature={feature}
+                experiment={experiments[rule.experimentId]}
                 rule={rule}
               />
             )}

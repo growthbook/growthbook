@@ -13,7 +13,6 @@ import { getDataSourceById } from "../models/DataSourceModel";
 import { isEmailEnabled, sendExperimentChangesEmail } from "../services/email";
 import {
   createSnapshot,
-  getExperimentWatchers,
   getRegressionAdjustmentInfo,
 } from "../services/experiments";
 import { getConfidenceLevelsForOrg } from "../services/organizations";
@@ -28,6 +27,7 @@ import {
   ExperimentSnapshotInterface,
 } from "../../types/experiment-snapshot";
 import { findProjectById } from "../models/ProjectModel";
+import { getExperimentWatchers } from "../models/WatchModel";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
@@ -138,7 +138,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     : false;
 
   try {
-    logger.info("Start Refreshing Results for expeirment " + experimentId);
+    logger.info("Start Refreshing Results for experiment " + experimentId);
     const datasource = await getDataSourceById(
       experiment.datasource || "",
       experiment.organization
@@ -192,7 +192,7 @@ async function updateSingleExperiment(job: UpdateSingleExpJob) {
     const currentSnapshot = queryRunner.model;
 
     logger.info(
-      "Successfully Refreshed Results for expeirment " + experimentId
+      "Successfully Refreshed Results for experiment " + experimentId
     );
 
     if (lastSnapshot) {
