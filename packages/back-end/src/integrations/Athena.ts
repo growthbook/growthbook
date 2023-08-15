@@ -47,7 +47,7 @@ export default class Athena extends SqlIntegration {
     return false;
   }
   ensureFloat(col: string): string {
-    return `1.0*${col}`;
+    return `CAST(${col} as double)`;
   }
   percentileCapSelectClause(
     capPercentile: number,

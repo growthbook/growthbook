@@ -262,6 +262,10 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     return this.params.delimiter || ":";
   }
 
+  ensureFloat(col: string): string {
+    return `CAST(${col} as FLOAT64)`;
+  }
+
   async getExperimentResults(
     snapshotSettings: ExperimentSnapshotSettings,
     metrics: MetricInterface[]
