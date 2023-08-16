@@ -242,15 +242,13 @@ export function useDomain(
         return;
       }
 
-      const ci = stats.ci || [];
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
+      const ci = stats.ci || [0, 0];
       if (!lowerBound || ci[0] < lowerBound) lowerBound = ci[0];
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
       if (!upperBound || ci[1] > upperBound) upperBound = ci[1];
     });
   });
   lowerBound = lowerBound <= 0 ? lowerBound : 0;
-  upperBound = upperBound >= 0 ? lowerBound : 0;
+  upperBound = upperBound >= 0 ? upperBound : 0;
   return [lowerBound, upperBound];
 }
 

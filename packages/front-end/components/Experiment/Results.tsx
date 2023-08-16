@@ -16,10 +16,10 @@ import DateResults from "@/components/Experiment/DateResults";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
 import StatusBanner from "@/components/Experiment/StatusBanner";
+import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import { GBCuped, GBSequential } from "@/components/Icons";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -49,8 +49,8 @@ const Results: FC<{
   mutateExperiment,
   draftMode = false,
   editMetrics,
-  editResult,
   editPhases,
+  editResult,
   alwaysShowPhaseSelector = false,
   reportDetailsLink = true,
   statsEngine,
@@ -142,11 +142,6 @@ const Results: FC<{
 
   return (
     <>
-      <StatusBanner
-        mutateExperiment={mutateExperiment}
-        editResult={editResult}
-      />
-
       {!draftMode ? (
         <AnalysisSettingsBar
           mutateExperiment={mutateExperiment}
@@ -171,7 +166,12 @@ const Results: FC<{
           users={users}
           phases={experiment.phases}
         />
-      ) : null}
+      ) : (
+        <StatusBanner
+          mutateExperiment={mutateExperiment}
+          editResult={editResult || undefined}
+        />
+      )}
 
       {experiment.metrics.length === 0 && (
         <div className="alert alert-info m-3">

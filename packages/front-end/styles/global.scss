@@ -99,6 +99,18 @@ pre {
   }
 }
 
+#experiment-page-tabs {
+  font-size: 1.2em;
+  .active-tab {
+    color: var(--text-color-primary);
+    background: linear-gradient(
+      var(--background-primary-light),
+      var(--background-color)
+    );
+    border-bottom-color: var(--background-color);
+  }
+}
+
 .w-100px {
   width: 100px !important;
 }
@@ -138,6 +150,19 @@ pre {
     colors.$premium
   );
   font-weight: bold;
+}
+
+.btn-teal {
+  @include button-variant(
+    colors.$teal,
+    darken(colors.$teal, 7.5%),
+    darken(colors.$teal, 10%),
+    lighten(colors.$teal, 5%),
+    lighten(colors.$teal, 10%),
+    darken(colors.$teal, 30%)
+  );
+  white-space: nowrap;
+  font-weight: 600;
 }
 
 .btn-outline-primary {

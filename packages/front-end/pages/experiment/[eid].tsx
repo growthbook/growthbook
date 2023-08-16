@@ -21,6 +21,7 @@ import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
+import TabbedPage from "@/components/Experiment/TabbedPage";
 
 const ExperimentPage = (): ReactElement => {
   const permissions = usePermissions();
@@ -89,6 +90,8 @@ const ExperimentPage = (): ReactElement => {
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
     : null;
+
+  const tabbedPage = true;
 
   return (
     <div>
@@ -186,22 +189,40 @@ const ExperimentPage = (): ReactElement => {
       )}
       <div className="container-fluid">
         <SnapshotProvider experiment={experiment}>
-          <SinglePage
-            experiment={experiment}
-            idea={idea}
-            visualChangesets={visualChangesets}
-            mutate={mutate}
-            editMetrics={editMetrics}
-            editResult={editResult}
-            editVariations={editVariations}
-            duplicate={duplicate}
-            editProject={editProject}
-            editTags={editTags}
-            newPhase={newPhase}
-            editPhases={editPhases}
-            editPhase={editPhase}
-            editTargeting={editTargeting}
-          />
+          {tabbedPage ? (
+            <TabbedPage
+              experiment={experiment}
+              mutate={mutate}
+              visualChangesets={visualChangesets}
+              editMetrics={editMetrics}
+              editResult={editResult}
+              editVariations={editVariations}
+              duplicate={duplicate}
+              editProject={editProject}
+              editTags={editTags}
+              newPhase={newPhase}
+              editPhases={editPhases}
+              editPhase={editPhase}
+              editTargeting={editTargeting}
+            />
+          ) : (
+            <SinglePage
+              experiment={experiment}
+              idea={idea}
+              visualChangesets={visualChangesets}
+              mutate={mutate}
+              editMetrics={editMetrics}
+              editResult={editResult}
+              editVariations={editVariations}
+              duplicate={duplicate}
+              editProject={editProject}
+              editTags={editTags}
+              newPhase={newPhase}
+              editPhases={editPhases}
+              editPhase={editPhase}
+              editTargeting={editTargeting}
+            />
+          )}
         </SnapshotProvider>
       </div>
     </div>
