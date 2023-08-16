@@ -104,6 +104,8 @@ const OpenVisualEditorLink: FC<{
     url = appendQueryParamsToURL(url, {
       "vc-id": visualChangeset.id,
       "v-idx": 1,
+      // for backwards compatibility, we need to pass the experiment url
+      "exp-url": encodeURIComponent(window.location.href),
     });
 
     return url;
@@ -142,6 +144,14 @@ const OpenVisualEditorLink: FC<{
           window.location.href = url;
           return;
         }
+
+        // for backwards compatibility, we force routing to the page if it doesn't
+        // happen automatically after 1.5 seconds. this can be deleted once the
+        // chrome extension is updated to support the postMessage auth token flow
+        setTimeout(() => {
+          setIsLoading(false);
+          window.location.href = url;
+        }, 1500);
       } catch (e) {
         setIsLoading(false);
         setErrorType("api-key-failed");
