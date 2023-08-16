@@ -22,14 +22,13 @@ import DiscussionThread from "@/components/DiscussionThread";
 import EditStatusModal from "../EditStatusModal";
 import VisualChangesetModal from "../VisualChangesetModal";
 import EditExperimentNameForm from "../EditExperimentNameForm";
-import StatusBanner from "../StatusBanner";
 import { useSnapshot } from "../SnapshotProvider";
 import ExperimentHeader from "./ExperimentHeader";
 import ProjectTagBar from "./ProjectTagBar";
 import SetupTabOverview from "./SetupTabOverview";
 import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
-import TemporaryRolloutBanner from "./TemporaryRolloutBanner";
+import StoppedExperimentBanner from "./StoppedExperimentBanner";
 
 export type ExperimentTab = "setup" | "results";
 
@@ -238,13 +237,10 @@ export default function TabbedPage({
       <div className="container pagecontents pb-4">
         {experiment.status === "stopped" && (
           <div className="pt-3">
-            <TemporaryRolloutBanner
+            <StoppedExperimentBanner
               experiment={experiment}
               linkedFeatures={linkedFeatures}
               mutate={mutate}
-            />
-            <StatusBanner
-              mutateExperiment={mutate}
               editResult={editResult || undefined}
             />
           </div>

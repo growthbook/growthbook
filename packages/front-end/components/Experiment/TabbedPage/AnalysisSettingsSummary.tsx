@@ -7,6 +7,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBEdit } from "@/components/Icons";
 import AnalysisForm from "../AnalysisForm";
+import OverflowText from "./OverflowText";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -43,46 +44,48 @@ export default function AnalysisSettingsSummary({ experiment, mutate }: Props) {
     value: string | number | ReactElement;
     tooltip?: string | ReactElement;
     icon?: ReactElement;
+    noTransform?: boolean;
   }[] = [];
 
   items.push({
     value: ds ? ds.name : <em>no data source</em>,
     icon: <FaDatabase className="mr-1" />,
-    tooltip: ds ? "data source" : "",
+    tooltip: ds ? "Data Source" : "",
   });
 
   if (assignmentQuery) {
     items.push({
       value: assignmentQuery.name,
       icon: <FaTable className="mr-1" />,
-      tooltip: "experiment assignment query",
+      tooltip: "Experiment Assignment Query",
     });
   }
   if (ds) {
     items.push({
       value: experiment.trackingKey,
       icon: <FaFlask className="mr-1" />,
-      tooltip: "experiment key",
+      tooltip: "Experiment Key",
     });
   }
   if (segment) {
     items.push({
       value: segment.name,
       icon: <GiPieChart className="mr-1" />,
-      tooltip: "segment",
+      tooltip: "Segment",
     });
   }
   if (activationMetric) {
     items.push({
       value: activationMetric.name,
       icon: <HiCursorClick className="mr-1" />,
-      tooltip: "activation metric",
+      tooltip: "Activation Metric",
     });
   }
 
   items.push({
     value: numMetrics + " metrics",
     icon: <FaChartBar className="mr-1" />,
+    noTransform: true,
     tooltip:
       numMetrics > 0 ? (
         <>
@@ -143,8 +146,13 @@ export default function AnalysisSettingsSummary({ experiment, mutate }: Props) {
         {items.map((item, i) => (
           <Tooltip
             body={
-              item.tooltip ? (
-                <div className="text-center">{item.tooltip}</div>
+              item.tooltip && item.noTransform ? (
+                <div>{item.tooltip}</div>
+              ) : item.tooltip ? (
+                <div className="text-center">
+                  <strong>{item.tooltip}:</strong>
+                  <div>{item.value}</div>
+                </div>
               ) : (
                 ""
               )
@@ -157,7 +165,11 @@ export default function AnalysisSettingsSummary({ experiment, mutate }: Props) {
             >
               <div>
                 {item.icon ? <>{item.icon} </> : null}
-                {item.value}
+                {item.noTransform ? (
+                  item.value
+                ) : (
+                  <OverflowText maxWidth={150}>{item.value}</OverflowText>
+                )}
               </div>
             </div>
           </Tooltip>

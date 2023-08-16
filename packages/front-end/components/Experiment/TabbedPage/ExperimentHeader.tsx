@@ -28,6 +28,7 @@ import ResultsIndicator from "../ResultsIndicator";
 import { useSnapshot } from "../SnapshotProvider";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
+import OverflowText from "./OverflowText";
 import { ExperimentTab, LinkedFeature } from ".";
 
 export interface Props {
@@ -190,7 +191,9 @@ export default function ExperimentHeader({
               edit={canRunExperiment ? () => setEditNameOpen(true) : undefined}
               editClassName="ml-1"
             >
-              {experiment.name}
+              <OverflowText maxWidth={550} title={experiment.name}>
+                {experiment.name}
+              </OverflowText>
             </HeaderWithEdit>
           </div>
 
