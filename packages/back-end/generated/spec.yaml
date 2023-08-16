@@ -621,6 +621,10 @@ paths:
                   type: array
                   items:
                     type: string
+                guardrailMetrics:
+                  type: array
+                  items:
+                    type: string
                 owner:
                   type: string
                   description: Email of the person who owns this experiment
@@ -813,6 +817,10 @@ paths:
                   items:
                     type: string
                 metrics:
+                  type: array
+                  items:
+                    type: string
+                guardrailMetrics:
                   type: array
                   items:
                     type: string
