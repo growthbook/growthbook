@@ -44,7 +44,7 @@ export default class Athena extends SqlIntegration {
     return `date_diff('day', ${startCol}, ${endCol})`;
   }
   ensureFloat(col: string): string {
-    return `1.0*${col}`;
+    return `CAST(${col} as double)`;
   }
   percentileCapSelectClause(
     capPercentile: number,
