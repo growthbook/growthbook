@@ -71,6 +71,9 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
                   </a>
                 </Link>
               )}
+              <Link href="/metrics">
+                <a className="btn btn-outline-primary mr-2">See metrics</a>
+              </Link>
             </div>
           </>
         ) : null}
