@@ -1,9 +1,11 @@
 import * as bq from "@google-cloud/bigquery";
 import { getValidDate } from "shared/dates";
+import { format, FormatDialect } from "../util/sql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
-import { FormatDialect } from "../util/sql";
+import { InformationSchema, RawInformationSchema } from "../types/Integration";
+import { formatInformationSchema } from "../util/informationSchemas";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -107,6 +109,43 @@ export default class BigQuery extends SqlIntegration {
       "INFORMATION_SCHEMA.COLUMNS",
       schema,
       database
+    );
+  }
+  async getInformationSchema(): Promise<InformationSchema[]> {
+    const datasets = await this.runQuery(
+      `SELECT * FROM ${`\`${this.params.projectId}.INFORMATION_SCHEMA.SCHEMATA\``}`
+    );
+
+    const query: string[] = [];
+
+    for (const dataset of datasets) {
+      query.push(`
+      SELECT
+        table_name as table_name,
+        table_catalog as table_catalog,
+        table_schema as table_schema,
+        count(column_name) as column_count
+      FROM
+        ${this.getInformationSchemaTable(dataset.schema_name)}
+        WHERE ${this.getInformationSchemaWhereClause()}
+      GROUP BY table_name, table_schema, table_catalog`);
+    }
+
+    let queryString = query.join("\nUNION ALL\n");
+
+    queryString = queryString + " ORDER BY table_name;";
+
+    const results = await this.runQuery(
+      format(queryString, this.getFormatDialect())
+    );
+
+    if (!results.length) {
+      throw new Error(`No tables found.`);
+    }
+
+    return formatInformationSchema(
+      results as RawInformationSchema[],
+      this.type
     );
   }
 }
