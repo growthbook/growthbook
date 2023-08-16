@@ -25,6 +25,7 @@ import Modal from "@/components/Modal";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import DropdownLink from "@/components/Dropdown/DropdownLink";
 import track from "@/services/track";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import ResultsIndicator from "../ResultsIndicator";
 import { useSnapshot } from "../SnapshotProvider";
 import { StartExperimentBanner } from "../StartExperimentBanner";
@@ -121,14 +122,17 @@ export default function ExperimentHeader({
   }
   const canRunExperiment = canEditExperiment && hasRunExperimentsPermission;
 
-  const totalUsers = useMemo(() => {
-    let users = 0;
+  const [totalUsers, variationUsers] = useMemo(() => {
+    let totalUsers = 0;
+    const variationUsers: number[] = [];
     analysis?.results?.forEach((dim) => {
-      dim?.variations?.forEach((v) => {
-        users += v.users;
+      dim?.variations?.forEach((v, i) => {
+        totalUsers += v.users;
+        variationUsers[i] = variationUsers[i] || 0;
+        variationUsers[i] += v.users;
       });
     });
-    return users;
+    return [totalUsers, variationUsers];
   }, [analysis]);
 
   return (
@@ -411,14 +415,55 @@ export default function ExperimentHeader({
           </div>
 
           {experiment.status !== "draft" && totalUsers > 0 && (
-            <div className="col-auto text-gray mr-2">
-              <div className="px-2 py-1 rounded">
-                <FaUsers />{" "}
-                <code className="text-dark">
-                  {shortNumberFormatter.format(totalUsers)}
-                </code>{" "}
-                users
-              </div>
+            <div className="col-auto mr-2">
+              <Tooltip
+                body={
+                  <table className="table mb-0">
+                    <thead>
+                      <tr>
+                        <th>Variation</th>
+                        <th>Users</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {experiment.variations.map((v, i) => (
+                        <tr key={i}>
+                          <td
+                            className={`variation with-variation-label variation${i}`}
+                          >
+                            <span
+                              className="label"
+                              style={{
+                                width: 14,
+                                height: 14,
+                                marginBottom: 2,
+                              }}
+                            >
+                              {i}
+                            </span>{" "}
+                            <OverflowText maxWidth={150} title={v.name}>
+                              {v.name}
+                            </OverflowText>
+                          </td>
+                          <td>
+                            {shortNumberFormatter.format(
+                              variationUsers[i] || 0
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                }
+              >
+                <div className="px-2 py-1 rounded text-gray">
+                  <FaUsers />{" "}
+                  <code className="text-dark">
+                    {shortNumberFormatter.format(totalUsers)}
+                  </code>{" "}
+                  users
+                </div>
+              </Tooltip>
             </div>
           )}
           {experiment.phases.length > 1 ? (
