@@ -109,8 +109,8 @@ export default function Implementation({
     return (
       <div className="alert alert-info mb-0">
         This experiment has no feature flag or visual editor changes which are
-        managed within the GrowthBook app. Changes are likely implemented
-        manually.
+        managed within the GrowthBook app. Randomization and targeting is likely
+        managed manually or by an external service.
       </div>
     );
   }

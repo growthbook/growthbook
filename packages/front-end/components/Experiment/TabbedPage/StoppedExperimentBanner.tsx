@@ -1,6 +1,9 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { FaClock, FaPencilAlt } from "react-icons/fa";
-import { includeExperimentInPayload } from "shared/util";
+import {
+  experimentHasLinkedChanges,
+  includeExperimentInPayload,
+} from "shared/util";
 import { DocLink } from "@/components/DocLink";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
 import { useAuth } from "@/services/auth";
@@ -61,27 +64,29 @@ export default function StoppedExperimentBanner({
           </div>
         )}
         <div className="flex-1"></div>
-        {releasedVariation && (
-          <div className="px-3">
-            {(result === "won" || result === "lost") &&
-            winningVariation !== releasedVariation ? (
-              <>
-                <strong>
-                  &quot;
-                  {winningVariation}
-                  &quot;
-                </strong>{" "}
-                won, but{" "}
-              </>
-            ) : null}
-            <strong>
-              &quot;
-              {releasedVariation}
-              &quot;
-            </strong>{" "}
-            was rolled out to 100%
-          </div>
-        )}
+        {releasedVariation &&
+          experimentHasLinkedChanges(experiment) &&
+          !hasLiveLinkedChanges && (
+            <div className="px-3">
+              {(result === "won" || result === "lost") &&
+              winningVariation !== releasedVariation ? (
+                <>
+                  <strong>
+                    &quot;
+                    {winningVariation}
+                    &quot;
+                  </strong>{" "}
+                  won, but{" "}
+                </>
+              ) : null}
+              <strong>
+                &quot;
+                {releasedVariation}
+                &quot;
+              </strong>{" "}
+              was rolled out to 100%
+            </div>
+          )}
         {editResult && (
           <div>
             <a

@@ -130,9 +130,11 @@ export default function AnalysisSettingsSummary({ experiment, mutate }: Props) {
           editMetrics={true}
         />
       )}
-      <div className="row align-items-center text-muted">
+      <div
+        className="row align-items-center text-muted"
+        style={{ fontSize: "1.1em" }}
+      >
         <div className="col-auto">
-          Analysis Settings{" "}
           <a
             href="#"
             onClick={(e) => {
@@ -140,7 +142,7 @@ export default function AnalysisSettingsSummary({ experiment, mutate }: Props) {
               setAnalysisModal(true);
             }}
           >
-            <GBEdit />
+            <span className="text-dark">Analysis Settings</span> <GBEdit />
           </a>
         </div>
         {items.map((item, i) => (
@@ -163,7 +165,7 @@ export default function AnalysisSettingsSummary({ experiment, mutate }: Props) {
               key={i}
               className={`col-auto px-3 ${i > 0 ? "border-left" : ""}`}
             >
-              <div>
+              <div style={{ cursor: "default" }}>
                 {item.icon ? <>{item.icon} </> : null}
                 {item.noTransform ? (
                   item.value
