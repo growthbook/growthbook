@@ -407,9 +407,23 @@ const NewDataSourceForm: FC<{
                 <div>
                   <h3 className={styles.ctaText}>Guided Setup</h3>
                   <p>
-                    Tell us what you use for event tracking and we&apos;ll guide
-                    you through connecting to your data and configuring
-                    GrowthBook. This is the easiest way to get started.
+                    Select your event tracker and we&apos;ll handle the rest.
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div
+              className={clsx(styles.ctaContainer, !importSampleData && "w-50")}
+              onClick={(e) => {
+                e.preventDefault();
+                handleCustomSetup();
+              }}
+            >
+              <div className={styles.ctaButton}>
+                <div>
+                  <h3 className={styles.ctaText}>Manual Setup</h3>
+                  <p>
+                    Great for complex pipelines with custom data processing.
                   </p>
                 </div>
               </div>
@@ -425,31 +439,11 @@ const NewDataSourceForm: FC<{
                 <div className={styles.ctaButton}>
                   <div>
                     <h3 className={styles.ctaText}>Use our Sample Database</h3>
-                    <p>
-                      Not ready to connect us to your real production data yet?
-                      Explore GrowthBook using our sample data warehouse.
-                    </p>
+                    <p>Explore GrowthBook with our sample data warehouse.</p>
                   </div>
                 </div>
               </div>
             ) : null}
-            <div
-              className={clsx(styles.ctaContainer, !importSampleData && "w-50")}
-              onClick={(e) => {
-                e.preventDefault();
-                handleCustomSetup();
-              }}
-            >
-              <div className={styles.ctaButton}>
-                <div>
-                  <h3 className={styles.ctaText}>Custom Setup (Advanced)</h3>
-                  <p>
-                    Recommended for organizations with complex data pipelines,
-                    using multiple event trackers and custom data processing.
-                  </p>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
         {secondaryCTA && (
@@ -586,6 +580,9 @@ const NewDataSourceForm: FC<{
             />
           </div>
         )}
+        {selectedSchema?.value !== "custom" && datasource.type ? (
+          <div className="alert alert-info"></div>
+        ) : null}
         {/* @ts-expect-error TS(2786) If you come across this, please fix it!: 'ConnectionSettings' cannot be used as a JSX compo... Remove this comment to see the full error message */}
         <ConnectionSettings
           datasource={datasource}
