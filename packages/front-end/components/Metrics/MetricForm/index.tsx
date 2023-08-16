@@ -1,10 +1,10 @@
-import React, { FC, ReactElement, useState, useEffect, useMemo } from "react";
+import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
 import {
-  MetricInterface,
   Condition,
+  MetricCappingType,
+  MetricInterface,
   MetricType,
   Operator,
-  MetricCappingType,
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
 import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
@@ -12,11 +12,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
 } from "shared/constants";
-import {
-  getDemoDatasourceProjectIdForOrganization,
-  isDemoDatasourceProject,
-} from "shared/demo-datasource";
-import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -48,6 +44,7 @@ import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import { GBCuped } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -327,18 +324,7 @@ const MetricForm: FC<MetricFormProps> = ({
     });
   }, [orgId, value.projects]);
 
-  // We assume the demo datasource is the one that has only one project and it's the demo datasource project
-  const demoDataSource: DataSourceInterfaceWithParams | null = useMemo(() => {
-    if (!orgId) return null;
-
-    return (
-      datasources.find(
-        (d) =>
-          d.projects?.length === 1 &&
-          d.projects[0] === getDemoDatasourceProjectIdForOrganization(orgId)
-      ) || null
-    );
-  }, [datasources, orgId]);
+  const { demoDataSourceId } = useDemoDataSourceProject();
 
   const denominatorOptions = useMemo(() => {
     return metrics
@@ -633,8 +619,8 @@ const MetricForm: FC<MetricFormProps> = ({
           <SelectField
             label="Data Source"
             value={
-              isExclusivelyForDemoDatasourceProject && demoDataSource
-                ? demoDataSource.id
+              isExclusivelyForDemoDatasourceProject && demoDataSourceId
+                ? demoDataSourceId
                 : value.datasource || ""
             }
             onChange={(v) => form.setValue("datasource", v)}

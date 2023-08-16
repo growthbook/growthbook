@@ -19,6 +19,9 @@ export const DoesNotExist = () => {
         exists={false}
         success={null}
         error={null}
+        demoDataSourceId={null}
+        demoExperimentId={null}
+        demoFeatureId={null}
       />
     </>
   );
@@ -37,6 +40,9 @@ export const WasCreatedSuccessfully = () => {
         exists={true}
         success="Success!"
         error={null}
+        demoDataSourceId={null}
+        demoExperimentId={null}
+        demoFeatureId={null}
       />
     </>
   );
@@ -55,6 +61,9 @@ export const AlreadyExists = () => {
         exists={true}
         success={null}
         error={null}
+        demoDataSourceId={null}
+        demoExperimentId={null}
+        demoFeatureId={null}
       />
     </>
   );
@@ -73,6 +82,9 @@ export const Loading = () => {
         exists={false}
         success={null}
         error={null}
+        demoDataSourceId={null}
+        demoExperimentId={null}
+        demoFeatureId={null}
       />
     </>
   );
@@ -91,6 +103,9 @@ export const WithError = () => {
         exists={false}
         success={null}
         error="Some kind of error occurred!"
+        demoDataSourceId={null}
+        demoExperimentId={null}
+        demoFeatureId={null}
       />
     </>
   );

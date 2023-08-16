@@ -1,4 +1,5 @@
 import React, { FC, useCallback, useState } from "react";
+import Link from "next/link";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -12,6 +13,9 @@ type DemoDataSourcePageProps = {
   exists: boolean;
   onCreate: () => void;
   onDelete: () => void;
+  demoFeatureId: string | null;
+  demoExperimentId: string | null;
+  demoDataSourceId: string | null;
 };
 
 export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
@@ -21,6 +25,9 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
   error,
   ready,
   exists,
+  demoFeatureId,
+  demoDataSourceId,
+  demoExperimentId,
 }) => {
   return (
     <div className="container-fluid pagecontents">
@@ -40,6 +47,33 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
           features in the demo project and would like to restore it, you can
           delete the whole project and recreate it.
         </p>
+        {exists ? (
+          <>
+            <div className="d-flex mb-2">
+              {demoFeatureId && (
+                <Link href={`/features/${demoFeatureId}`}>
+                  <a className="btn btn-outline-primary mr-2">
+                    See demo feature
+                  </a>
+                </Link>
+              )}
+              {demoDataSourceId && (
+                <Link href={`/datasources/${demoDataSourceId}`}>
+                  <a className="btn btn-outline-primary mr-2">
+                    See demo datasource
+                  </a>
+                </Link>
+              )}
+              {demoExperimentId && (
+                <Link href={`/experiment/${demoExperimentId}`}>
+                  <a className="btn btn-outline-primary mr-2">
+                    See demo experiment
+                  </a>
+                </Link>
+              )}
+            </div>
+          </>
+        ) : null}
 
         {/* Loading */}
         {!ready && (
@@ -108,6 +142,9 @@ export const DemoDataSourcePageContainer = () => {
   const {
     projectId: demoDataSourceProjectId,
     exists,
+    demoFeatureId,
+    demoDataSourceId,
+    demoExperimentId,
   } = useDemoDataSourceProject();
   const { apiCall } = useAuth();
   const { ready, mutateDefinitions } = useDefinitions();
@@ -175,6 +212,9 @@ export const DemoDataSourcePageContainer = () => {
       exists={exists}
       onDelete={onDelete}
       onCreate={onCreate}
+      demoFeatureId={demoFeatureId}
+      demoDataSourceId={demoDataSourceId}
+      demoExperimentId={demoExperimentId}
     />
   );
 };
