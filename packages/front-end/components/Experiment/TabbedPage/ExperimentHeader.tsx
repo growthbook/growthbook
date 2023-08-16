@@ -164,6 +164,7 @@ export default function ExperimentHeader({
               setStartExperiment(false);
             }}
             className=""
+            noConfirm={true}
           />
         </Modal>
       )}

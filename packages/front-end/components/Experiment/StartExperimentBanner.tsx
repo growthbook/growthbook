@@ -23,6 +23,7 @@ export function StartExperimentBanner({
   onStart,
   openSetupTab,
   className,
+  noConfirm,
 }: {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeature[];
@@ -34,6 +35,7 @@ export function StartExperimentBanner({
   onStart?: () => void;
   openSetupTab?: () => void;
   className?: string;
+  noConfirm?: boolean;
 }) {
   const { apiCall } = useAuth();
 
@@ -265,10 +267,14 @@ export function StartExperimentBanner({
         <div className="col pt-3 text-center">
           {allPassed ? (
             <p>Everything looks great! Let&apos;s Go!</p>
+          ) : noConfirm ? (
+            <p style={{ fontSize: "1.2em", fontWeight: "bold" }}>
+              Are you sure you still want to start?
+            </p>
           ) : (
             <p>Almost there! Just a few things left</p>
           )}
-          {allPassed ? (
+          {allPassed || noConfirm ? (
             <Button
               color="teal"
               className="btn-lg mb-2"
