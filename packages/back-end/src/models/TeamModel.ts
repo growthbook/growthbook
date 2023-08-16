@@ -52,9 +52,19 @@ export async function createTeam(
   return toInterface(teamDoc);
 }
 
-export async function findTeamById(id: string): Promise<TeamInterface | null> {
-  const teamDoc = await TeamModel.findById(id);
+export async function findTeamById(
+  id: string,
+  orgId: string
+): Promise<TeamInterface | null> {
+  const teamDoc = await TeamModel.findOne({ id, organization: orgId });
   return teamDoc ? toInterface(teamDoc) : null;
 }
 
-// export async function getMembersForTeam(id: string) {}
+export async function getTeamsForOrganization(
+  orgId: string
+): Promise<TeamInterface[]> {
+  const teamDocs = await TeamModel.find({
+    organization: orgId,
+  });
+  return teamDocs.map((team) => toInterface(team));
+}
