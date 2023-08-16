@@ -10,7 +10,11 @@ import {
   MetricRegressionAdjustmentStatus,
 } from "back-end/types/report";
 import { StatsEngine } from "back-end/types/stats";
-import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
+import {
+  FaExclamationCircle,
+  FaExclamationTriangle,
+  FaInfoCircle,
+} from "react-icons/fa";
 import { OrganizationSettings } from "back-end/types/organization";
 import { ago, date, datetime } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -402,15 +406,26 @@ export default function AnalysisSettingsBar({
                 </Tooltip>
               ) : (
                 <div
-                  className="text-muted text-right"
-                  style={{ width: 100, fontSize: "0.8em" }}
-                  title={datetime(snapshot?.dateCreated ?? "")}
+                  className="text-muted"
+                  style={{ maxWidth: 130, fontSize: "0.8em" }}
                 >
                   <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
                     last updated
                   </div>
-                  <div className="d-inline-block" style={{ lineHeight: 1 }}>
-                    {ago(snapshot?.dateCreated ?? "")}
+                  <div className="d-flex align-items-center">
+                    <div
+                      style={{ lineHeight: 1 }}
+                      title={datetime(snapshot?.dateCreated ?? "")}
+                    >
+                      {ago(snapshot?.dateCreated ?? "")}
+                    </div>
+                    {status === "partially-succeeded" && (
+                      <div>
+                        <Tooltip body="Some of the queries had an error. The partial results are displayed below">
+                          <FaExclamationTriangle className="text-danger ml-1" />
+                        </Tooltip>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -541,7 +556,7 @@ export default function AnalysisSettingsBar({
               </div>
             )}
             <div className="row">
-              {latest && status !== "succeeded" && (
+              {latest && (status === "running" || status === "failed") && (
                 <div className="col-auto pb-3">
                   <ViewAsyncQueriesButton
                     queries={latest.queries.map((q) => q.query)}

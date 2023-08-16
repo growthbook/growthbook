@@ -100,9 +100,6 @@ export default class Presto extends SqlIntegration {
   dateDiff(startCol: string, endCol: string) {
     return `date_diff('day', ${startCol}, ${endCol})`;
   }
-  useAliasInGroupBy(): boolean {
-    return false;
-  }
   ensureFloat(col: string): string {
     return `CAST(${col} AS DOUBLE)`;
   }

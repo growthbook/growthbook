@@ -151,7 +151,7 @@ export const eventSchemas: eventSchema[] = [
         data warehouse of your choice. You can read more about it{" "}
         <a
           target="_blank"
-          href="https://help.amplitude.com/hc/en-us/sections/203209607-Export-your-Amplitude-data"
+          href="https://www.docs.developers.amplitude.com/data/destinations/"
           rel="noreferrer"
         >
           on Amplitudes help pages

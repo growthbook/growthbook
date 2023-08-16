@@ -1,13 +1,15 @@
 import { FC, ChangeEventHandler } from "react";
 import { BigQueryConnectionParams } from "back-end/types/integrations/bigquery";
 import { isCloud } from "@/services/env";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Field from "../Forms/Field";
 
 const BigQueryForm: FC<{
   params: Partial<BigQueryConnectionParams>;
+  existing: boolean;
   setParams: (params: { [key: string]: string }) => void;
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
-}> = ({ params, setParams, onParamChange }) => {
+}> = ({ params, setParams, existing, onParamChange }) => {
   return (
     <div className="row">
       {!isCloud() && (
@@ -40,7 +42,7 @@ const BigQueryForm: FC<{
             <div className="custom-file">
               <input
                 type="file"
-                required
+                required={!existing}
                 className="custom-file-input"
                 id="bigQueryFileInput"
                 accept="application/json"
@@ -112,25 +114,33 @@ const BigQueryForm: FC<{
         </>
       )}
       <div className="form-group col-md-12">
-        <label>Default Project Name</label>
-        <input
+        <label>
+          Project ID{" "}
+          <Tooltip body="The default project ID GrowthBook will use when creating queries and discovering metrics. You can find this value from your BigQuery project info card on your BigQuery Dashboard, or the name of the top level SQL item in the BigQuery console SQL workspace. This value can be edited later if needed." />
+        </label>
+        <Field
           type="text"
           className="form-control"
           name="defaultProject"
           value={params.defaultProject || ""}
           onChange={onParamChange}
-          placeholder="(optional)"
+          placeholder=""
+          helpText="The default project ID GrowthBook will use when connecting to your data."
         />
       </div>
       <div className="form-group col-md-12">
-        <label>Default Dataset</label>
-        <input
+        <label>
+          Dataset{" "}
+          <Tooltip body="Specifying a dataset here allows GrowthBook to create working assignment and metric queries, and enables the automatic discovery metrics. You can find this from your BigQuery console SQL workspace. This value can be edited later if needed." />
+        </label>
+        <Field
           type="text"
           className="form-control"
           name="defaultDataset"
           value={params.defaultDataset || ""}
           onChange={onParamChange}
-          placeholder="(optional)"
+          placeholder=""
+          helpText="The default dataset GrowthBook will use when building queries and discovering metrics for this data source."
         />
       </div>
     </div>
