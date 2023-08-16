@@ -45,9 +45,6 @@ export default class Mysql extends SqlIntegration {
   dateDiff(startCol: string, endCol: string) {
     return `DATEDIFF(${endCol}, ${startCol})`;
   }
-  stddev(col: string) {
-    return `STDDEV_SAMP(${col})`;
-  }
   addTime(
     col: string,
     unit: "hour" | "minute",
