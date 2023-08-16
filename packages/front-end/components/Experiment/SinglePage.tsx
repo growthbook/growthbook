@@ -11,6 +11,7 @@ import {
   FaClock,
   FaExclamationTriangle,
   FaExternalLinkAlt,
+  FaMagic,
   FaPlusCircle,
   FaQuestionCircle,
 } from "react-icons/fa";
@@ -36,7 +37,6 @@ import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { FeatureInterface } from "back-end/types/feature";
 import { MdInfoOutline } from "react-icons/md";
-import { AiOutlineInfoCircle } from "react-icons/ai";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -92,7 +92,6 @@ import EditExperimentNameForm from "./EditExperimentNameForm";
 import { useSnapshot } from "./SnapshotProvider";
 import ExperimentReportsList from "./ExperimentReportsList";
 import AnalysisForm from "./AnalysisForm";
-import Results from "./Results";
 import StatusIndicator from "./StatusIndicator";
 import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
 import VariationsTable from "./VariationsTable";
@@ -186,6 +185,7 @@ export interface Props {
   editPhases?: (() => void) | null;
   editPhase?: ((i: number | null) => void) | null;
   editTargeting?: (() => void) | null;
+  switchToNewDesign?: () => void;
 }
 
 type ResultsTab = "results" | "config";
@@ -205,26 +205,8 @@ export default function SinglePage({
   editPhases,
   editPhase,
   editTargeting,
+  switchToNewDesign,
 }: Props) {
-  let alreadyUsingNewPage = false;
-  try {
-    if (window.localStorage.getItem("single-page-new-ui-v1") === "true") {
-      alreadyUsingNewPage = true;
-    }
-  } catch (e) {
-    // Ignore localStorage errors
-  }
-
-  const [newUi, setNewUi] = useLocalStorage<boolean>(
-    "experiment-results-new-ui-v1",
-    true
-  );
-
-  const [hideNewExperimentHelp, setHideNewExperimentHelp] = useLocalStorage(
-    `experiment-page__hide-new-experiment-help`,
-    alreadyUsingNewPage
-  );
-
   const [metaInfoOpen, setMetaInfoOpen] = useLocalStorage<boolean>(
     `experiment-page__${experiment.id}__meta-info-open`,
     true
@@ -499,20 +481,41 @@ export default function SinglePage({
 
   return (
     <div className="container-fluid experiment-details pagecontents pb-3">
-      <div className="mb-2 mt-1">
-        <Link
-          href={`/experiments${
-            experiment.status === "draft"
-              ? "#drafts"
-              : experiment.status === "stopped"
-              ? "#stopped"
-              : ""
-          }`}
-        >
-          <a>
-            <GBCircleArrowLeft /> Back to all experiments
-          </a>
-        </Link>
+      <div className="row">
+        <div className="col-auto">
+          <div className="mb-2 mt-1">
+            <Link
+              href={`/experiments${
+                experiment.status === "draft"
+                  ? "#drafts"
+                  : experiment.status === "stopped"
+                  ? "#stopped"
+                  : ""
+              }`}
+            >
+              <a>
+                <GBCircleArrowLeft /> Back to all experiments
+              </a>
+            </Link>
+          </div>
+        </div>
+        {switchToNewDesign ? (
+          <div className="ml-auto mr-auto pr-5 pt-2">
+            <a
+              href="#"
+              className="mr-5"
+              onClick={(e) => {
+                e.preventDefault();
+                switchToNewDesign();
+                track("Switched Experiment Page V2", {
+                  switchTo: "new",
+                });
+              }}
+            >
+              use the new design <FaMagic />
+            </a>
+          </div>
+        ) : null}
       </div>
       {reportSettingsOpen && (
         <AnalysisForm
@@ -839,36 +842,6 @@ export default function SinglePage({
             </div>
           </div>
         </div>
-
-        {!hideNewExperimentHelp ? (
-          <div
-            className="d-flex justify-content-end small mt-1"
-            style={{ marginBottom: -10 }}
-          >
-            <div
-              className="text-gray py-1 rounded text-center d-flex align-items-center justify-content-center"
-              style={{ backgroundColor: "#e499ff33", width: 530 }}
-            >
-              <AiOutlineInfoCircle size={16} className="mr-1" />
-              <div>
-                <strong>Experiement</strong> and{" "}
-                <strong>Metric settings</strong> are now in the{" "}
-                <a href="#config" className="font-weight-bold">
-                  Configure
-                </a>{" "}
-                section below.
-              </div>
-              <a
-                role="button"
-                className="btn btn-sm btn-link ml-3"
-                style={{ padding: "2px 4px" }}
-                onClick={() => setHideNewExperimentHelp(true)}
-              >
-                Dismiss
-              </a>
-            </div>
-          </div>
-        ) : null}
 
         {currentProject && currentProject !== experiment.project && (
           <div className="alert alert-warning p-2 mb-2 text-center">
@@ -1258,29 +1231,6 @@ export default function SinglePage({
       <a id="config" style={{ position: "relative", top: -70 }}></a>
       <a id="results" style={{ position: "relative", top: -70 }}></a>
 
-      {resultsTab === "results" && experiment.status !== "draft" ? (
-        <div
-          className="alert-secondary px-4 py-2 text-center float-right rounded small"
-          style={{ maxWidth: "calc(100% - 340px)" }}
-        >
-          <AiOutlineInfoCircle size={16} className="mr-1" />
-          You are using the {newUi ? "new" : "old"} experiment results view.{" "}
-          <a
-            role="button"
-            className="a"
-            onClick={() => {
-              track("Switched Experiment Results UI", {
-                switchTo: newUi ? "old" : "new",
-              });
-              setNewUi(!newUi);
-            }}
-          >
-            {newUi
-              ? "Switch back to the old view?"
-              : "Try the new experiment results view?"}
-          </a>
-        </div>
-      ) : null}
       <ControlledTabs
         newStyle={true}
         className="mt-3 mb-4"
@@ -1313,29 +1263,6 @@ export default function SinglePage({
                 must click the &quot;Start Experiment&quot; button above to see
                 results.
               </div>
-            ) : // todo: use a modified Results instead of StatusBanner while in draft mode
-            newUi ? (
-              <Results
-                experiment={experiment}
-                mutateExperiment={mutate}
-                draftMode={!experimentHasPhases}
-                editMetrics={editMetrics ?? undefined}
-                editResult={editResult ?? undefined}
-                editPhases={editPhases ?? undefined}
-                alwaysShowPhaseSelector={true}
-                reportDetailsLink={false}
-                statsEngine={statsEngine}
-                regressionAdjustmentAvailable={regressionAdjustmentAvailable}
-                regressionAdjustmentEnabled={regressionAdjustmentEnabled}
-                regressionAdjustmentHasValidMetrics={
-                  regressionAdjustmentHasValidMetrics
-                }
-                metricRegressionAdjustmentStatuses={
-                  metricRegressionAdjustmentStatuses
-                }
-                onRegressionAdjustmentChange={onRegressionAdjustmentChange}
-                isTabActive={resultsTab === "results"}
-              />
             ) : (
               <Results_old
                 experiment={experiment}

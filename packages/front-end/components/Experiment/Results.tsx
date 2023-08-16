@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import React, { FC, useEffect, useMemo } from "react";
+import React, { FC, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { StatsEngine } from "back-end/types/stats";
 import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
@@ -128,14 +128,6 @@ const Results: FC<{
     analysis.results?.[0] &&
     !analysis?.settings?.dimensions?.length;
 
-  const users: number[] | undefined = useMemo(() => {
-    if (!showCompactResults) return undefined;
-    const vars = showCompactResults
-      ? analysis?.results?.[0]?.variations
-      : analysis?.results?.[0]?.variations;
-    return variations.map((v, i) => vars?.[i]?.users || 0);
-  }, [showCompactResults, variations]);
-
   if (error) {
     return <div className="alert alert-danger m-3">{error.message}</div>;
   }
@@ -163,8 +155,6 @@ const Results: FC<{
           advancedResults={advancedResults}
           setAdvancedResults={setAdvancedResults}
           newUi={true}
-          users={users}
-          phases={experiment.phases}
         />
       ) : (
         <StatusBanner

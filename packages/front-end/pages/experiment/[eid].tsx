@@ -22,6 +22,7 @@ import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 const ExperimentPage = (): ReactElement => {
   const permissions = usePermissions();
@@ -46,6 +47,11 @@ const ExperimentPage = (): ReactElement => {
   }>(`/experiment/${eid}`);
 
   useSwitchOrg(data?.experiment?.organization ?? null);
+
+  const [newUi, setNewUi] = useLocalStorage<boolean>(
+    "experiment-results-new-ui-v2",
+    true
+  );
 
   const { apiCall } = useAuth();
 
@@ -90,8 +96,6 @@ const ExperimentPage = (): ReactElement => {
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
     : null;
-
-  const tabbedPage = true;
 
   return (
     <div>
@@ -189,7 +193,7 @@ const ExperimentPage = (): ReactElement => {
       )}
       <div className="container-fluid">
         <SnapshotProvider experiment={experiment}>
-          {tabbedPage ? (
+          {newUi ? (
             <TabbedPage
               experiment={experiment}
               mutate={mutate}
@@ -204,6 +208,7 @@ const ExperimentPage = (): ReactElement => {
               editPhases={editPhases}
               editPhase={editPhase}
               editTargeting={editTargeting}
+              switchToOldDesign={() => setNewUi(false)}
             />
           ) : (
             <SinglePage
@@ -221,6 +226,7 @@ const ExperimentPage = (): ReactElement => {
               editPhases={editPhases}
               editPhase={editPhase}
               editTargeting={editTargeting}
+              switchToNewDesign={() => setNewUi(true)}
             />
           )}
         </SnapshotProvider>

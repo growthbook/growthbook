@@ -52,6 +52,7 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
+  switchToOldDesign?: () => void;
 }
 
 export default function TabbedPage({
@@ -68,6 +69,7 @@ export default function TabbedPage({
   newPhase,
   editMetrics,
   editResult,
+  switchToOldDesign,
 }: Props) {
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
@@ -233,6 +235,7 @@ export default function TabbedPage({
         editTargeting={editTargeting}
         newPhase={newPhase}
         editPhases={editPhases}
+        switchToOldDesign={switchToOldDesign}
       />
       <div className="container pagecontents pb-4">
         {experiment.status === "stopped" && (

@@ -3,7 +3,7 @@ import {
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import Link from "next/link";
-import { FaChartBar, FaCog, FaStop, FaUsers } from "react-icons/fa";
+import { FaChartBar, FaCog, FaStop, FaUndo, FaUsers } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { useMemo, useState } from "react";
@@ -24,6 +24,7 @@ import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import DropdownLink from "@/components/Dropdown/DropdownLink";
+import track from "@/services/track";
 import ResultsIndicator from "../ResultsIndicator";
 import { useSnapshot } from "../SnapshotProvider";
 import { StartExperimentBanner } from "../StartExperimentBanner";
@@ -50,6 +51,7 @@ export interface Props {
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
+  switchToOldDesign?: () => void;
 }
 
 const shortNumberFormatter = Intl.NumberFormat("en-US", {
@@ -92,6 +94,7 @@ export default function ExperimentHeader({
   editTargeting,
   newPhase,
   editPhases,
+  switchToOldDesign,
 }: Props) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -198,7 +201,24 @@ export default function ExperimentHeader({
             </HeaderWithEdit>
           </div>
 
-          <div className="flex-1 col"></div>
+          {switchToOldDesign ? (
+            <div className="ml-auto mr-auto">
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  switchToOldDesign();
+                  track("Switched Experiment Page V2", {
+                    switchTo: "old",
+                  });
+                }}
+              >
+                switch to old design <FaUndo />
+              </a>
+            </div>
+          ) : (
+            <div className="flex-1 col"></div>
+          )}
 
           <div className="col-auto">
             {experiment.status === "running" ? (
