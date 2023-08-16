@@ -33,6 +33,14 @@ The example queries and metrics are configured to work with data that comes out 
 If you satisfy the (hefty) pre-requisites above, you can simply run the following once in the main git branch and whatever branch you wish to test:
 `yarn workspace back-end test-integration-queries`
 
+This script accepts positional arguments. Note, due to restrictions with yarn, if you want to enter the 2nd, 3rd, etc. arguments, you must enter a value for the preceding arguments.
+
+1st argument: Add `nocache` if you want to ignore the cache, and use anything else, e.g. `cache` if you want to use the cache (default)
+2nd argument: Which engines to run queries for, in a comma separated list (e.g. `bigquery,presto`). You can see their names at the bottom of `integration-query-runner.py` (default is all of them)
+3rd argument: A filter that must match the test `name` for the test to run (e.g. `activation` will run any test where `activation` is in the test `name`)
+
+For example `yarn workspace back-end test-integration-queries nocache bigquery` will run all bigquery tests, ignoring any cached values.
+
 Once that script runs, you can use a [notebook like this one](https://colab.research.google.com/drive/1J-VBFGQ2a_7cyarrNRPXuHlQXVfB55yy?usp=sharing) to compare two sets of results across the main and dev branch from which you ran the above script.
 
 The `test-integration-queries` command runs `integration-query-test.sh` which itself:
@@ -44,8 +52,6 @@ The `test-integration-queries` command runs `integration-query-test.sh` which it
 ## Caching
 
 Note a shared cache in your `/tmp/` folder is used for each run. If the combination of SQL engine and SQL query itself is identical, the results should be pulled directly from the cache rather than re-generated.
-
-We even cache connection/query errors to avoid re-running validation for engines that we cannot connect to. You may need to clear part of the cache file or edit one of the if statements in the `main()` method of the python script to force re-running for certain engines if they previously errored and you want them to connect and execute.
 
 ## Other notes
 
