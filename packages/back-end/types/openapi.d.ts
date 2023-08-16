@@ -1959,6 +1959,7 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           metrics?: (string)[];
+          guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
           owner: string;
           archived?: boolean;
@@ -2237,6 +2238,7 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           metrics?: (string)[];
+          guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
           owner?: string;
           archived?: boolean;
