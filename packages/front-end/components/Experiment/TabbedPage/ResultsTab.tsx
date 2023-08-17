@@ -202,7 +202,7 @@ export default function ResultsTab({
             metricRegressionAdjustmentStatuses={
               metricRegressionAdjustmentStatuses
             }
-            editMetrics={editMetrics}
+            editMetrics={editMetrics ?? undefined}
           />
           {experiment.status === "draft" ? (
             <div className="mx-3">
