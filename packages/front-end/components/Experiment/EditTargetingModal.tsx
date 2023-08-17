@@ -134,6 +134,7 @@ export default function EditTargetingModal({
         });
         mutate();
       })}
+      cta={safeToEdit ? "Save" : "Save and Publish"}
       size="lg"
     >
       {safeToEdit ? (
@@ -164,10 +165,15 @@ export default function EditTargetingModal({
           />
         </>
       ) : (
-        <div className="alert alert-info">
-          You can only edit a subset of targeting fields while an experiment is
-          running. Changes you make here will apply to all linked Feature Flags
-          and Visual Editor changes immediately upon saving.
+        <div className="alert alert-warning">
+          <div>
+            <strong>
+              Warning: Experiment is still{" "}
+              {experiment.status === "running" ? "running" : "live"}
+            </strong>
+          </div>
+          Changes you make here will apply to all linked Feature Flags and
+          Visual Editor changes immediately upon saving.
         </div>
       )}
       <ConditionInput

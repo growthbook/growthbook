@@ -113,39 +113,39 @@ const NewPhaseForm: FC<{
       )}
 
       {hasLinkedChanges && (
-        <>
-          <ConditionInput
-            defaultValue={form.watch("condition")}
-            onChange={(condition) => form.setValue("condition", condition)}
-          />
+        <ConditionInput
+          defaultValue={form.watch("condition")}
+          onChange={(condition) => form.setValue("condition", condition)}
+        />
+      )}
 
-          <FeatureVariationsInput
-            valueType={"string"}
-            coverage={form.watch("coverage")}
-            setCoverage={(coverage) => form.setValue("coverage", coverage)}
-            setWeight={(i, weight) =>
-              form.setValue(`variationWeights.${i}`, weight)
-            }
-            valueAsId={true}
-            variations={
-              experiment.variations.map((v, i) => {
-                return {
-                  value: v.key || i + "",
-                  name: v.name,
-                  weight: form.watch(`variationWeights.${i}`),
-                  id: v.id,
-                };
-              }) || []
-            }
-            showPreview={false}
-          />
-
-          <NamespaceSelector
-            form={form}
-            featureId={experiment.trackingKey}
-            trackingKey={experiment.trackingKey}
-          />
-        </>
+      <FeatureVariationsInput
+        valueType={"string"}
+        coverage={form.watch("coverage")}
+        setCoverage={(coverage) => form.setValue("coverage", coverage)}
+        setWeight={(i, weight) =>
+          form.setValue(`variationWeights.${i}`, weight)
+        }
+        valueAsId={true}
+        variations={
+          experiment.variations.map((v, i) => {
+            return {
+              value: v.key || i + "",
+              name: v.name,
+              weight: form.watch(`variationWeights.${i}`),
+              id: v.id,
+            };
+          }) || []
+        }
+        showPreview={false}
+        hideCoverage={!hasLinkedChanges}
+      />
+      {hasLinkedChanges && (
+        <NamespaceSelector
+          form={form}
+          featureId={experiment.trackingKey}
+          trackingKey={experiment.trackingKey}
+        />
       )}
     </Modal>
   );
