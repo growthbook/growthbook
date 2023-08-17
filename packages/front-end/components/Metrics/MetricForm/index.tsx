@@ -192,7 +192,7 @@ const MetricForm: FC<MetricFormProps> = ({
     ? getDatasourceById(current?.datasource)
     : null;
   // Only set the default to true for new metrics with no sql or an edited or
-  // duplicated onewhere the sql matches the default.
+  // duplicated one where the sql matches the default.
   const [allowAutomaticSqlReset, setAllowAutomaticSqlReset] = useState(
     !current ||
       !current?.sql ||
