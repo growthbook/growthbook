@@ -451,6 +451,7 @@ const MetricPage: FC = () => {
           {canEditProjects && (
             <a
               href="#"
+              className="ml-2"
               onClick={(e) => {
                 e.preventDefault();
                 setEditProjects(true);

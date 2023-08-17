@@ -1,5 +1,6 @@
 import { FC, ChangeEventHandler } from "react";
 import { DatabricksConnectionParams } from "back-end/types/integrations/databricks";
+import Field from "../Forms/Field";
 import HostWarning from "./HostWarning";
 
 const DatabricksForm: FC<{
@@ -63,6 +64,15 @@ const DatabricksForm: FC<{
           value={params.token || ""}
           onChange={onParamChange}
           placeholder={existing ? "(Keep existing)" : ""}
+        />
+      </div>
+      <div className="form-group col-md-12">
+        <Field
+          label="Default Catalog (Recommended)"
+          helpText="Selecting a default catalog unlocks access to GrowthBook's Schema Browser."
+          value={params.catalog || ""}
+          onChange={onParamChange}
+          name="catalog"
         />
       </div>
     </div>

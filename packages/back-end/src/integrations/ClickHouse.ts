@@ -70,9 +70,6 @@ export default class ClickHouse extends SqlIntegration {
   dateDiff(startCol: string, endCol: string) {
     return `dateDiff('day', ${startCol}, ${endCol})`;
   }
-  stddev(col: string) {
-    return `stddevSamp(${col})`;
-  }
   formatDate(col: string): string {
     return `formatDateTime(${col}, '%F')`;
   }

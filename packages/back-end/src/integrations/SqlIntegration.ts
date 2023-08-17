@@ -159,12 +159,6 @@ export default abstract class SqlIntegration
   convertDate(fromDB: any): Date {
     return getValidDate(fromDB);
   }
-  stddev(col: string) {
-    return `STDDEV(${col})`;
-  }
-  avg(col: string) {
-    return `AVG(${this.ensureFloat(col)})`;
-  }
   formatDate(col: string): string {
     return col;
   }
@@ -182,9 +176,6 @@ export default abstract class SqlIntegration
   }
   castUserDateCol(column: string): string {
     return column;
-  }
-  useAliasInGroupBy(): boolean {
-    return true;
   }
   formatDateTimeString(col: string): string {
     return this.castToString(col);
