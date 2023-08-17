@@ -16,9 +16,7 @@ export type Permission =
   | EnvScopedPermission
   | ProjectScopedPermission;
 
-export type PermissionsObject = {
-  [key in Permission]: boolean;
-};
+export type PermissionsObject = Partial<Record<Permission, boolean>>;
 
 export type UserPermission = {
   environments: string[];

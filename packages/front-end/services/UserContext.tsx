@@ -212,7 +212,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         global: {
           environments: [],
           limitAccessByEnvironment: false,
-          permissions: {} as PermissionsObject, //TODO: Fix this
+          permissions: {},
         },
         projects: {},
       },
