@@ -210,6 +210,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     };
   }
 
+  const role =
+    (data?.admin && "admin") ||
+    (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
+
   // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
   const permissionsObj: Record<GlobalPermission, boolean> = {
     ...DEFAULT_PERMISSIONS,
