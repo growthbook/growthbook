@@ -193,7 +193,7 @@ const MetricForm: FC<MetricFormProps> = ({
     : null;
   // Only set the default to true for new metrics with no sql or an edited or
   // duplicated onewhere the sql matches the default.
-  const [allowAutomaticSqlUpdate, setAllowAutomaticSqlUpdate] = useState(
+  const [allowAutomaticSqlReset, setAllowAutomaticSqlReset] = useState(
     !current ||
       !current?.sql ||
       (currentDatasource &&
@@ -425,12 +425,16 @@ const MetricForm: FC<MetricFormProps> = ({
     ? getInitialMetricQuery(selectedDataSource, value.type, value.name)[1]
     : "";
 
-  const updateSqlIfAllowed = (datasource, type, name, allowed) => {
-    if (supportsSQL && datasource && allowed) {
+  const resetSqlToDefault = (datasource, type, name) => {
+    if (datasource?.properties?.queryLanguage === "sql" && datasource) {
       const [userTypes, sql] = getInitialMetricQuery(datasource, type, name);
       form.setValue("sql", sql);
       form.setValue("userIdTypes", userTypes);
       form.setValue("queryFormat", "sql");
+      // Now that sql is updated again to the default, we'll allow it to be
+      // automatically reset again upon datasource/type/name change until
+      // they make a new manual edit.
+      setAllowAutomaticSqlReset(true);
     }
   };
 
@@ -548,7 +552,7 @@ const MetricForm: FC<MetricFormProps> = ({
             // automatically updated again upon datasource/type/name change.  If they
             // have editted it to something else, we'll make sure not to overwrite any
             // of their changes automatically.
-            setAllowAutomaticSqlUpdate(sql == defaultSqlTemplate);
+            setAllowAutomaticSqlReset(sql == defaultSqlTemplate);
           }}
         />
       )}
@@ -584,12 +588,13 @@ const MetricForm: FC<MetricFormProps> = ({
               value={value.name || ""}
               onChange={(event) => {
                 form.setValue("name", event.target.value);
-                updateSqlIfAllowed(
-                  selectedDataSource,
-                  value.type,
-                  event.target.value,
-                  allowAutomaticSqlUpdate
-                );
+                if (allowAutomaticSqlReset) {
+                  resetSqlToDefault(
+                    selectedDataSource,
+                    value.type,
+                    event.target.value
+                  );
+                }
               }}
             />
           </div>
@@ -633,12 +638,9 @@ const MetricForm: FC<MetricFormProps> = ({
             value={value.datasource || ""}
             onChange={(v) => {
               form.setValue("datasource", v);
-              updateSqlIfAllowed(
-                getDatasourceById(v),
-                value.type,
-                value.name,
-                allowAutomaticSqlUpdate
-              );
+              if (allowAutomaticSqlReset) {
+                resetSqlToDefault(getDatasourceById(v), value.type, value.name);
+              }
             }}
             options={(datasources || []).map((d) => {
               const defaultDatasource = d.id === settings.defaultDataSource;
@@ -661,12 +663,9 @@ const MetricForm: FC<MetricFormProps> = ({
               value={value.type}
               setValue={(val: MetricType) => {
                 form.setValue("type", val);
-                updateSqlIfAllowed(
-                  selectedDataSource,
-                  val,
-                  value.name,
-                  allowAutomaticSqlUpdate
-                );
+                if (allowAutomaticSqlReset) {
+                  resetSqlToDefault(selectedDataSource, val, value.name);
+                }
               }}
               options={metricTypeOptions}
             />
@@ -766,15 +765,11 @@ const MetricForm: FC<MetricFormProps> = ({
                           type="button"
                           onClick={(e) => {
                             e.preventDefault();
-                            updateSqlIfAllowed(
+                            resetSqlToDefault(
                               selectedDataSource,
                               value.type,
-                              value.name,
-                              true
+                              value.name
                             );
-                            // Now that sql is manually updated again to the default, we'll allow it to be
-                            // automatically updated again upon datasource/type/name change.
-                            setAllowAutomaticSqlUpdate(true);
                           }}
                         >
                           Reset to default SQL
