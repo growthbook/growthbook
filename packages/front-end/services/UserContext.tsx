@@ -232,7 +232,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MemberRole | undefined' is not assignable to... Remove this comment to see the full error message
       role: role,
     };
-  }, [orgId, data?.userId]);
+  }, [orgId, data?.userId, role]);
 
   // Refresh organization data when switching orgs
   useEffect(() => {
