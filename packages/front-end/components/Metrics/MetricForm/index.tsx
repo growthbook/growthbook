@@ -188,7 +188,24 @@ const MetricForm: FC<MetricFormProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
-  const [sqlDirty, setSqlDirty] = useState(edit);
+  const currentDatasource = current?.datasource
+    ? getDatasourceById(current?.datasource)
+    : null;
+  // Only set the default to true for new metrics with no sql or an edited or
+  // duplicated onewhere the sql matches the default.
+  const [allowAutomaticSqlUpdate, setAllowAutomaticSqlUpdate] = useState(
+    !current ||
+      !current?.sql ||
+      (currentDatasource &&
+        current.type &&
+        current.name &&
+        current?.sql ===
+          getInitialMetricQuery(
+            currentDatasource,
+            current.type,
+            current.name
+          )[1])
+  );
 
   const displayCurrency = useCurrency();
 
@@ -404,23 +421,18 @@ const MetricForm: FC<MetricFormProps> = ({
     name: "conditions",
   });
 
-  // Automatically reset sql to default values whenever the user changes anything
-  // that would cause the default sql to change. However if the user has manually
-  // editted the sql to be something other than the default, we will preserve their
-  // changes. They will still be able to still reset their sql to the default
-  // manually if they like by clicking the "Reset to default SQL" button.
-  useEffect(() => {
-    if (supportsSQL && selectedDataSource && !sqlDirty) {
-      const [userTypes, sql] = getInitialMetricQuery(
-        selectedDataSource,
-        value.type,
-        value.name
-      );
+  const defaultSqlTemplate = selectedDataSource
+    ? getInitialMetricQuery(selectedDataSource, value.type, value.name)[1]
+    : "";
+
+  const updateSqlIfAllowed = (datasource, type, name, allowed) => {
+    if (supportsSQL && datasource && allowed) {
+      const [userTypes, sql] = getInitialMetricQuery(datasource, type, name);
       form.setValue("sql", sql);
       form.setValue("userIdTypes", userTypes);
       form.setValue("queryFormat", "sql");
     }
-  }, [value.name, value.type, selectedDataSource, sqlDirty, supportsSQL, form]);
+  };
 
   const onSubmit = form.handleSubmit(async (value) => {
     const {
@@ -532,12 +544,11 @@ const MetricForm: FC<MetricFormProps> = ({
           value={value.sql}
           save={async (sql) => {
             form.setValue("sql", sql);
-            const [, defaultSql] = getInitialMetricQuery(
-              selectedDataSource,
-              value.type,
-              value.name
-            );
-            setSqlDirty(sql != defaultSql);
+            // If they manually edit the sql back to the default, we'll allow it to be
+            // automatically updated again upon datasource/type/name change.  If they
+            // have editted it to something else, we'll make sure not to overwrite any
+            // of their changes automatically.
+            setAllowAutomaticSqlUpdate(sql == defaultSqlTemplate);
           }}
         />
       )}
@@ -570,7 +581,16 @@ const MetricForm: FC<MetricFormProps> = ({
               type="text"
               required
               className="form-control"
-              {...form.register("name")}
+              value={value.name || ""}
+              onChange={(event) => {
+                form.setValue("name", event.target.value);
+                updateSqlIfAllowed(
+                  selectedDataSource,
+                  value.type,
+                  event.target.value,
+                  allowAutomaticSqlUpdate
+                );
+              }}
             />
           </div>
           <div className="form-group">
@@ -613,6 +633,12 @@ const MetricForm: FC<MetricFormProps> = ({
             value={value.datasource || ""}
             onChange={(v) => {
               form.setValue("datasource", v);
+              updateSqlIfAllowed(
+                getDatasourceById(v),
+                value.type,
+                value.name,
+                allowAutomaticSqlUpdate
+              );
             }}
             options={(datasources || []).map((d) => {
               const defaultDatasource = d.id === settings.defaultDataSource;
@@ -635,6 +661,12 @@ const MetricForm: FC<MetricFormProps> = ({
               value={value.type}
               setValue={(val: MetricType) => {
                 form.setValue("type", val);
+                updateSqlIfAllowed(
+                  selectedDataSource,
+                  val,
+                  value.name,
+                  allowAutomaticSqlUpdate
+                );
               }}
               options={metricTypeOptions}
             />
@@ -728,13 +760,21 @@ const MetricForm: FC<MetricFormProps> = ({
                       >
                         {value.sql ? "Edit" : "Add"} SQL <FaExternalLinkAlt />
                       </button>
-                      {sqlDirty && (
+                      {value.sql != defaultSqlTemplate && (
                         <button
                           className="btn btn-outline-primary ml-2"
                           type="button"
                           onClick={(e) => {
                             e.preventDefault();
-                            setSqlDirty(false); // This will cause useEffect hook to reset to default.
+                            updateSqlIfAllowed(
+                              selectedDataSource,
+                              value.type,
+                              value.name,
+                              true
+                            );
+                            // Now that sql is manually updated again to the default, we'll allow it to be
+                            // automatically updated again upon datasource/type/name change.
+                            setAllowAutomaticSqlUpdate(true);
                           }}
                         >
                           Reset to default SQL
