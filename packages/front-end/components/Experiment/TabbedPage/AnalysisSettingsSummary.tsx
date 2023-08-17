@@ -163,7 +163,7 @@ export default function AnalysisSettingsSummary({
           experiment={experiment}
           mutate={mutate}
           phase={experiment.phases.length - 1}
-          editDates={false}
+          editDates={true}
           editVariationIds={false}
           editMetrics={true}
         />
