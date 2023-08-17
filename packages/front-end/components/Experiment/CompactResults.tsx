@@ -120,8 +120,6 @@ const CompactResults: FC<{
     return variations.map((v, i) => vars?.[i]?.users || 0);
   }, [results, variations]);
   const risk = useRiskVariation(variations.length, rows);
-  console.log(guardrails);
-  console.log(!!guardrails);
   return (
     <>
       <div className="">

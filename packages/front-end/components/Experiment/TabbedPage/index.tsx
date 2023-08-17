@@ -322,13 +322,17 @@ export default function TabbedPage({
             setTab={setTab}
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
+            isTabActive={tab === "results"}
           />
         </div>
       </div>
 
-      <div className="bg-white mt-4 border-top">
-        <div className="py-4 container pagecontents">
-          <h3>Comments</h3>
+      <div
+        className="bg-white mt-4 px-4 border-top"
+        style={{ marginLeft: -8, marginRight: -8 }}
+      >
+        <div className="pt-2 pt-4 pb-5 container pagecontents">
+          <div className="h3 mb-4">Comments</div>
           <DiscussionThread
             type="experiment"
             id={experiment.id}

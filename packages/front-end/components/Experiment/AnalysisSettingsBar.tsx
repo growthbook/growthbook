@@ -137,6 +137,7 @@ export default function AnalysisSettingsBar({
   advancedResults = false,
   setAdvancedResults,
   newUi = false,
+  showMoreMenu = true,
 }: {
   mutateExperiment: () => void;
   editMetrics?: () => void;
@@ -153,6 +154,7 @@ export default function AnalysisSettingsBar({
   advancedResults?: boolean;
   setAdvancedResults?: (show: boolean) => void;
   newUi?: boolean;
+  showMoreMenu?: boolean;
 }) {
   const {
     experiment,
@@ -416,59 +418,61 @@ export default function AnalysisSettingsBar({
                 )}
               </div>
             )}
-          <div className="col-auto">
-            <ResultMoreMenu
-              id={snapshot?.id || ""}
-              forceRefresh={async () => {
-                await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
-                  `/experiment/${experiment.id}/snapshot?force=true`,
-                  {
-                    method: "POST",
-                    body: JSON.stringify({
-                      phase,
-                      dimension,
-                      statsEngine,
-                      regressionAdjustmentEnabled,
-                      metricRegressionAdjustmentStatuses,
-                    }),
-                  }
-                )
-                  .then((res) => {
-                    trackSnapshot(
-                      "create",
-                      "ForceRerunQueriesButton",
-                      datasource?.type || null,
-                      res.snapshot
-                    );
-                    mutate();
-                  })
-                  .catch((e) => {
-                    console.error(e);
-                  });
-              }}
-              configure={() => setModalOpen(true)}
-              editMetrics={editMetrics}
-              notebookUrl={`/experiments/notebook/${snapshot?.id}`}
-              notebookFilename={experiment.trackingKey}
-              generateReport={true}
-              queries={snapshot?.queries}
-              queryError={snapshot?.error}
-              supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
-              hasData={hasData}
-              metrics={experiment.metrics}
-              results={analysis?.results}
-              variations={variations}
-              trackingKey={experiment.trackingKey}
-              dimension={dimension}
-              project={experiment.project}
-              showPhaseSelector={
-                newUi &&
-                experiment.phases.length > 1 &&
-                (alwaysShowPhaseSelector || experiment.phases.length > 1)
-              }
-              mutateExperiment={mutateExperiment}
-            />
-          </div>
+          {showMoreMenu && (
+            <div className="col-auto">
+              <ResultMoreMenu
+                id={snapshot?.id || ""}
+                forceRefresh={async () => {
+                  await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+                    `/experiment/${experiment.id}/snapshot?force=true`,
+                    {
+                      method: "POST",
+                      body: JSON.stringify({
+                        phase,
+                        dimension,
+                        statsEngine,
+                        regressionAdjustmentEnabled,
+                        metricRegressionAdjustmentStatuses,
+                      }),
+                    }
+                  )
+                    .then((res) => {
+                      trackSnapshot(
+                        "create",
+                        "ForceRerunQueriesButton",
+                        datasource?.type || null,
+                        res.snapshot
+                      );
+                      mutate();
+                    })
+                    .catch((e) => {
+                      console.error(e);
+                    });
+                }}
+                configure={() => setModalOpen(true)}
+                editMetrics={editMetrics}
+                notebookUrl={`/experiments/notebook/${snapshot?.id}`}
+                notebookFilename={experiment.trackingKey}
+                generateReport={true}
+                queries={snapshot?.queries}
+                queryError={snapshot?.error}
+                supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
+                hasData={hasData}
+                metrics={experiment.metrics}
+                results={analysis?.results}
+                variations={variations}
+                trackingKey={experiment.trackingKey}
+                dimension={dimension}
+                project={experiment.project}
+                showPhaseSelector={
+                  newUi &&
+                  experiment.phases.length > 1 &&
+                  (alwaysShowPhaseSelector || experiment.phases.length > 1)
+                }
+                mutateExperiment={mutateExperiment}
+              />
+            </div>
+          )}
         </div>
       )}
       {permissions.check("runQueries", experiment?.project || "") &&

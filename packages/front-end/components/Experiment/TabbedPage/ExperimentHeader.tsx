@@ -418,11 +418,11 @@ export default function ExperimentHeader({
             <div className="col-auto mr-2">
               <Tooltip
                 body={
-                  <table className="table mb-0">
+                  <table className="table my-0">
                     <thead>
                       <tr>
-                        <th>Variation</th>
-                        <th>Users</th>
+                        <th className="border-top-0">Variation</th>
+                        <th className="border-top-0">Users</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -431,19 +431,24 @@ export default function ExperimentHeader({
                           <td
                             className={`variation with-variation-label variation${i}`}
                           >
-                            <span
-                              className="label"
-                              style={{
-                                width: 14,
-                                height: 14,
-                                marginBottom: 2,
-                              }}
-                            >
-                              {i}
-                            </span>{" "}
-                            <OverflowText maxWidth={150} title={v.name}>
-                              {v.name}
-                            </OverflowText>
+                            <div className="d-flex align-items-center">
+                              <span
+                                className="label"
+                                style={{
+                                  width: 20,
+                                  height: 20,
+                                }}
+                              >
+                                {i}
+                              </span>{" "}
+                              <OverflowText
+                                className="font-weight-bold"
+                                maxWidth={150}
+                                title={v.name}
+                              >
+                                {v.name}
+                              </OverflowText>
+                            </div>
                           </td>
                           <td>
                             {shortNumberFormatter.format(

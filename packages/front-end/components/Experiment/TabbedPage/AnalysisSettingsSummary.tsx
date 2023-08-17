@@ -3,19 +3,57 @@ import { FaChartBar, FaDatabase, FaFlask, FaTable } from "react-icons/fa";
 import React, { ReactElement, useState } from "react";
 import { GiPieChart } from "react-icons/gi";
 import { HiCursorClick } from "react-icons/hi";
+import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
+import { StatsEngine } from "back-end/types/stats";
+import { MetricRegressionAdjustmentStatus } from "back-end/types/report";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { GBEdit } from "@/components/Icons";
+import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
+import { trackSnapshot } from "@/services/track";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import { useAuth } from "@/services/auth";
 import AnalysisForm from "../AnalysisForm";
 import OverflowText from "./OverflowText";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
+  statsEngine: StatsEngine;
+  regressionAdjustmentEnabled?: boolean;
+  metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
+  editMetrics?: () => void;
 }
 
-export default function AnalysisSettingsSummary({ experiment, mutate }: Props) {
+export default function AnalysisSettingsSummary({
+  experiment,
+  mutate,
+  statsEngine,
+  regressionAdjustmentEnabled,
+  metricRegressionAdjustmentStatuses,
+  editMetrics,
+}: Props) {
   const { getDatasourceById, getSegmentById, getMetricById } = useDefinitions();
+  const {
+    snapshot,
+    analysis,
+    dimension,
+    mutateSnapshot,
+    phase,
+  } = useSnapshot();
+  const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
+  const datasource = experiment
+    ? getDatasourceById(experiment.datasource)
+    : null;
+  const phaseObj = experiment.phases?.[phase];
+  const variations = experiment.variations.map((v, i) => {
+    return {
+      id: v.key || i + "",
+      name: v.name,
+      weight: phaseObj?.variationWeights?.[i] || 0,
+    };
+  });
+  const { apiCall } = useAuth();
 
   const [analysisModal, setAnalysisModal] = useState(false);
 
@@ -90,7 +128,7 @@ export default function AnalysisSettingsSummary({ experiment, mutate }: Props) {
       numMetrics > 0 ? (
         <>
           <div className="mb-2 text-left">
-            Goals:
+            <strong>Goals:</strong>
             {goals.length > 0 ? (
               <ul className=" ml-0 pl-3 mb-0">
                 {goals.map((m, i) => (
@@ -102,7 +140,7 @@ export default function AnalysisSettingsSummary({ experiment, mutate }: Props) {
             )}
           </div>
           <div className="text-left">
-            Guardrails:{" "}
+            <strong>Guardrails:</strong>{" "}
             {guardrails.length > 0 ? (
               <ul className="ml-0 pl-3 mb-0">
                 {guardrails.map((m, i) => (
@@ -176,6 +214,56 @@ export default function AnalysisSettingsSummary({ experiment, mutate }: Props) {
             </div>
           </Tooltip>
         ))}
+        <div className="flex-1" />
+        <div className="col-auto">
+          <ResultMoreMenu
+            id={snapshot?.id || ""}
+            forceRefresh={async () => {
+              await apiCall<{ snapshot: ExperimentSnapshotInterface }>(
+                `/experiment/${experiment.id}/snapshot?force=true`,
+                {
+                  method: "POST",
+                  body: JSON.stringify({
+                    phase,
+                    dimension,
+                    statsEngine,
+                    regressionAdjustmentEnabled,
+                    metricRegressionAdjustmentStatuses,
+                  }),
+                }
+              )
+                .then((res) => {
+                  trackSnapshot(
+                    "create",
+                    "ForceRerunQueriesButton",
+                    datasource?.type || null,
+                    res.snapshot
+                  );
+                  mutateSnapshot();
+                })
+                .catch((e) => {
+                  console.error(e);
+                });
+            }}
+            configure={() => setAnalysisModal(true)}
+            editMetrics={editMetrics}
+            notebookUrl={`/experiments/notebook/${snapshot?.id}`}
+            notebookFilename={experiment.trackingKey}
+            generateReport={true}
+            queries={snapshot?.queries}
+            queryError={snapshot?.error}
+            supportsNotebooks={!!datasource?.settings?.notebookRunQuery}
+            hasData={hasData}
+            metrics={experiment.metrics}
+            results={analysis?.results}
+            variations={variations}
+            trackingKey={experiment.trackingKey}
+            dimension={dimension}
+            project={experiment.project}
+            showPhaseSelector={false}
+            mutateExperiment={mutate}
+          />
+        </div>
       </div>
     </div>
   );

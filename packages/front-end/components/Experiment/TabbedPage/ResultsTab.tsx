@@ -39,6 +39,7 @@ export interface Props {
   linkedFeatures: LinkedFeature[];
   setTab: (tab: ExperimentTab) => void;
   connections: SDKConnectionInterface[];
+  isTabActive: boolean;
 }
 
 export default function ResultsTab({
@@ -53,6 +54,7 @@ export default function ResultsTab({
   setTab,
   visualChangesets,
   editTargeting,
+  isTabActive,
 }: Props) {
   const {
     getDatasourceById,
@@ -192,7 +194,16 @@ export default function ResultsTab({
           />
         )}
         <div className="mb-2" style={{ overflowX: "initial" }}>
-          <AnalysisSettingsSummary experiment={experiment} mutate={mutate} />
+          <AnalysisSettingsSummary
+            experiment={experiment}
+            mutate={mutate}
+            statsEngine={statsEngine}
+            regressionAdjustmentEnabled={regressionAdjustmentEnabled}
+            metricRegressionAdjustmentStatuses={
+              metricRegressionAdjustmentStatuses
+            }
+            editMetrics={editMetrics}
+          />
           {experiment.status === "draft" ? (
             <div className="mx-3">
               <div className="alert bg-light border my-4">
@@ -267,6 +278,7 @@ export default function ResultsTab({
                     metricRegressionAdjustmentStatuses
                   }
                   onRegressionAdjustmentChange={onRegressionAdjustmentChange}
+                  isTabActive={isTabActive}
                 />
               )}
             </>
@@ -275,8 +287,8 @@ export default function ResultsTab({
       </div>
       {snapshot && (
         <div className="bg-white border mt-4">
-          <div className="row mx-2 p-3 d-flex align-items-center">
-            <div className="col h3 mb-0">Custom Reports</div>
+          <div className="row mx-2 py-3 d-flex align-items-center">
+            <div className="col h3 ml-2 mb-0">Custom Reports</div>
             <div className="col-auto mr-2">
               <Button
                 className="btn btn-outline-primary float-right"

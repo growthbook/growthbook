@@ -155,6 +155,7 @@ const Results: FC<{
           advancedResults={advancedResults}
           setAdvancedResults={setAdvancedResults}
           newUi={true}
+          showMoreMenu={false}
         />
       ) : (
         <StatusBanner
