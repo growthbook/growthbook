@@ -209,9 +209,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       },
     };
   }
-  const role =
-    (data?.admin && "admin") ||
-    (user?.role ?? currentOrg?.organization?.settings?.defaultRole?.role);
 
   // Build out permissions object for backwards-compatible `permissions.manageTeams` style usage
   const permissionsObj: Record<GlobalPermission, boolean> = {
@@ -231,7 +228,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'MemberRole | undefined' is not assignable to... Remove this comment to see the full error message
       role: role,
     };
-  }, [orgId, data?.userId, role]);
+  }, [orgId, data?.userId]);
 
   // Refresh organization data when switching orgs
   useEffect(() => {
