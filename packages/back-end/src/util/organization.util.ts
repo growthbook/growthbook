@@ -64,11 +64,16 @@ export function getUserPermissions(
     rolePermissionsMap[role.id] = new Set(role.permissions);
   });
 
-  function roleToPermissionMap(memberRole: MemberRole): PermissionsObject {
-    const permissions: PermissionsObject = {};
+  function roleToPermissionMap(
+    role: MemberRole | undefined
+  ): PermissionsObject {
+    const permissions: PermissionsObject = {} as PermissionsObject;
+
     ALL_PERMISSIONS.forEach((permission) => {
       permissions[permission] =
-        (memberRole && rolePermissionsMap[memberRole].has(permission)) || false;
+        (role && role === "admin"
+          ? true
+          : role && rolePermissionsMap[role].has(permission)) || false;
     });
     return permissions;
   }
@@ -78,7 +83,7 @@ export function getUserPermissions(
     global: {
       environments: memberInfo?.environments || [],
       limitAccessByEnvironment: memberInfo?.limitAccessByEnvironment || false,
-      permissions: {},
+      permissions: roleToPermissionMap(memberInfo?.role),
     },
     projects: {},
   };
@@ -94,7 +99,7 @@ export function getUserPermissions(
     userPermissions.projects[projectRole.project] = {
       limitAccessByEnvironment: projectRole.limitAccessByEnvironment || false,
       environments: projectRole.environments || [],
-      permissions: {},
+      permissions: roleToPermissionMap(projectRole.role),
     };
     userPermissions.projects[
       projectRole.project

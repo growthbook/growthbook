@@ -16,11 +16,9 @@ export type Permission =
   | EnvScopedPermission
   | ProjectScopedPermission;
 
-export type PermissionsObject =
-  | {
-      [key in Permission]: boolean;
-    }
-  | Record<string, boolean>;
+export type PermissionsObject = {
+  [key in Permission]: boolean;
+};
 
 export type UserPermission = {
   environments: string[];
@@ -30,7 +28,7 @@ export type UserPermission = {
 
 export type UserPermissions = {
   global: UserPermission;
-  projects: { [key: string]: UserPermission } | Record<string, never>;
+  projects: { [key: string]: UserPermission };
 };
 
 export type MemberRole =

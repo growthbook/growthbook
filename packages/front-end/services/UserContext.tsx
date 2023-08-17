@@ -10,6 +10,7 @@ import {
   Permission,
   Role,
   ProjectScopedPermission,
+  PermissionsObject,
 } from "back-end/types/organization";
 import type { AccountPlan, CommercialFeature, LicenseData } from "enterprise";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
@@ -211,7 +212,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         global: {
           environments: [],
           limitAccessByEnvironment: false,
-          permissions: {},
+          permissions: {} as PermissionsObject, //TODO: Fix this
         },
         projects: {},
       },
@@ -225,10 +226,11 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
   const permissionsObj: Record<GlobalPermission, boolean> = {
     ...DEFAULT_PERMISSIONS,
   };
-  // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'MemberRole | undefined' is not a... Remove this comment to see the full error message
-  getPermissionsByRole(role, currentOrg?.roles || []).forEach((p) => {
-    permissionsObj[p] = true;
-  });
+
+  for (const permission in permissionsObj) {
+    permissionsObj[permission] =
+      user?.userPermissions.global.permissions[permission] || false;
+  }
 
   // Update current user data for telemetry data
   useEffect(() => {
