@@ -53,10 +53,10 @@ export const ALL_PERMISSIONS = [
   ...ENV_SCOPED_PERMISSIONS,
 ];
 
-export function getUserPermissions(
-  userId: string,
+export function roleToPermissionMap(
+  role: MemberRole | undefined,
   org: OrganizationInterface
-): UserPermissions {
+): PermissionsObject {
   const roles = getRoles(org);
   const rolePermissionsMap: Record<string, Set<Permission>> = {};
 
@@ -64,58 +64,42 @@ export function getUserPermissions(
     rolePermissionsMap[role.id] = new Set(role.permissions);
   });
 
-  function roleToPermissionMap(
-    role: MemberRole | undefined
-  ): PermissionsObject {
-    const permissions: PermissionsObject = {};
+  const permissions: PermissionsObject = {};
 
-    ALL_PERMISSIONS.forEach((permission) => {
-      permissions[permission] =
-        (role && role === "admin"
-          ? true
-          : role && rolePermissionsMap[role].has(permission)) || false;
-    });
-    return permissions;
-  }
+  ALL_PERMISSIONS.forEach((permission) => {
+    permissions[permission] =
+      (role && role === "admin"
+        ? true
+        : role && rolePermissionsMap[role].has(permission)) || false;
+  });
+  return permissions;
+}
 
+export function getUserPermissions(
+  userId: string,
+  org: OrganizationInterface
+): UserPermissions {
   const memberInfo = org.members.find((m) => m.id === userId);
   const userPermissions: UserPermissions = {
     global: {
       environments: memberInfo?.environments || [],
       limitAccessByEnvironment: memberInfo?.limitAccessByEnvironment || false,
-      permissions: roleToPermissionMap(memberInfo?.role),
+      permissions: roleToPermissionMap(memberInfo?.role, org),
     },
     projects: {},
   };
-
-  // If no member info, return empty permissions
-  if (!memberInfo) {
-    return userPermissions;
-  }
-
-  userPermissions.global.permissions = roleToPermissionMap(memberInfo.role);
 
   memberInfo?.projectRoles?.forEach((projectRole: ProjectMemberRole) => {
     userPermissions.projects[projectRole.project] = {
       limitAccessByEnvironment: projectRole.limitAccessByEnvironment || false,
       environments: projectRole.environments || [],
-      permissions: roleToPermissionMap(projectRole.role),
+      permissions: roleToPermissionMap(projectRole.role, org),
     };
     userPermissions.projects[
       projectRole.project
-    ].permissions = roleToPermissionMap(projectRole.role);
+    ].permissions = roleToPermissionMap(projectRole.role, org);
   });
   return userPermissions;
-}
-
-export function getPermissionsByRole(
-  role: MemberRole,
-  org: OrganizationInterface
-): Permission[] {
-  const roles = getRoles(org);
-  const orgRole = roles.find((r) => r.id === role);
-  const permissions = new Set<Permission>(orgRole?.permissions || []);
-  return Array.from(permissions);
 }
 
 export function getRoles(_organization: OrganizationInterface): Role[] {

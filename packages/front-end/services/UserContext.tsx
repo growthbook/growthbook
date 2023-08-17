@@ -142,15 +142,6 @@ export function getCurrentUser() {
   return currentUser;
 }
 
-export function getPermissionsByRole(
-  role: MemberRole,
-  roles: Role[]
-): Set<Permission> {
-  return new Set<Permission>(
-    roles.find((r) => r.id === role)?.permissions || []
-  );
-}
-
 export function UserContextProvider({ children }: { children: ReactNode }) {
   const { isAuthenticated, apiCall, orgId, setOrganizations } = useAuth();
 

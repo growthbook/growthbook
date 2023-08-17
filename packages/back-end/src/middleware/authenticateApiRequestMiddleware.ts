@@ -12,8 +12,8 @@ import {
   Permission,
 } from "../../types/organization";
 import {
-  getPermissionsByRole,
   getUserPermissions,
+  roleToPermissionMap,
 } from "../util/organization.util";
 import { ApiKeyInterface } from "../../types/apikey";
 import { insertAudit } from "../models/AuditModel";
@@ -199,13 +199,13 @@ export function verifyApiKeyPermission({
   } else if (apiKey.secret && apiKey.role) {
     // Because of the JIT migration, `role` will always be set here, even for old secret keys
     // This will check a valid role is provided.
-    const rolePermissions = getPermissionsByRole(
+    const rolePermissions = roleToPermissionMap(
       apiKey.role as MemberRole,
       organization
     );
 
     // No need to treat "readonly" differently, it will return an empty array permissions array and fail this check
-    if (!rolePermissions.includes(permission)) {
+    if (!rolePermissions[permission]) {
       throw new Error("API key user does not have this level of access");
     }
   } else {
