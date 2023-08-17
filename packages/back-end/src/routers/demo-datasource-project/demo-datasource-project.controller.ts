@@ -15,16 +15,14 @@ import { createMetric, createSnapshot } from "../../services/experiments";
 import { PrivateApiErrorResponse } from "../../../types/api";
 import { DataSourceSettings } from "../../../types/datasource";
 import { ExperimentInterface } from "../../../types/experiment";
-import { FeatureInterface } from "../../../types/feature";
+import { ExperimentRefRule, FeatureInterface } from "../../../types/feature";
 import { MetricInterface } from "../../../types/metric";
 import { ProjectInterface } from "../../../types/project";
 import { ExperimentSnapshotAnalysisSettings } from "../../../types/experiment-snapshot";
 import { getMetricMap } from "../../models/MetricModel";
 import { createFeature } from "../../models/FeatureModel";
 
-/**
- * START Constants for Demo Datasource
- */
+// region Constants for Demo Datasource
 
 // Datasource constants
 const DATASOURCE_TYPE = "postgres";
@@ -124,6 +122,7 @@ const DEMO_RATIO_METRIC: Pick<
 };
 
 // Feature constants
+// TODO: Ref: experiment-ref: Update this when updating demo data (features, experiments, etc.)
 const DEMO_FEATURES: Omit<
   FeatureInterface,
   "id" | "organization" | "dateCreated" | "dateUpdated"
@@ -148,25 +147,23 @@ const DEMO_FEATURES: Omit<
             enabled: true,
           },
           {
-            type: "experiment",
+            type: "experiment-ref",
             description: "",
             id: `${getDemoDataSourceFeatureId()}-exp-rule`,
-            trackingKey: getDemoDataSourceFeatureId(),
-            hashAttribute: "user_id",
-            coverage: 1,
             enabled: true,
-            values: [
+            experimentId: getDemoDataSourceFeatureId(), // This value is replaced below after the experiment is created.
+            variations: [
               {
-                value: "current",
-                weight: 0.3334,
+                value: "v0",
+                variationId: "current",
               },
               {
-                value: "dev-compact",
-                weight: 0.3333,
+                value: "v1",
+                variationId: "dev-compact",
               },
               {
-                value: "dev",
-                weight: 0.3333,
+                value: "v2",
+                variationId: "dev",
               },
             ],
           },
@@ -179,6 +176,7 @@ const DEMO_FEATURES: Omit<
 // Experiment constants
 const EXPERIMENT_START_DATE = new Date();
 EXPERIMENT_START_DATE.setDate(EXPERIMENT_START_DATE.getDate() - 30);
+// TODO: Ref: experiment-ref: Update this when updating demo data (features, experiments, etc.)
 const DEMO_EXPERIMENTS: Pick<
   ExperimentInterface,
   | "name"
@@ -199,7 +197,7 @@ spacing and headings.`,
     hypothesis: `We predict new variations will increase Purchase metrics and have uncertain effects on Retention.`,
     variations: [
       {
-        id: "0",
+        id: "v0",
         key: "0",
         name: "Current",
         screenshots: [
@@ -209,7 +207,7 @@ spacing and headings.`,
         ],
       },
       {
-        id: "0",
+        id: "v1",
         key: "1",
         name: "Dev-Compact",
         screenshots: [
@@ -219,7 +217,7 @@ spacing and headings.`,
         ],
       },
       {
-        id: "0",
+        id: "v2",
         key: "2",
         name: "Dev",
         screenshots: [
@@ -243,9 +241,7 @@ spacing and headings.`,
   },
 ];
 
-/**
- * END Constants for Demo Datasource
- */
+// endregion Constants for Demo Datasource
 
 // region POST /demo-datasource-project
 
@@ -340,20 +336,6 @@ export const postDemoDatasourceProject = async (
         })
       : undefined;
 
-    // Create feature
-    await Promise.all(
-      DEMO_FEATURES.map(async (f) => {
-        return createFeature(org, res.locals.eventAudit, {
-          ...f,
-          id: getDemoDataSourceFeatureId(),
-          project: project.id,
-          organization: org.id,
-          dateCreated: new Date(),
-          dateUpdated: new Date(),
-        });
-      })
-    );
-
     // Create experiment
     const experiments = await Promise.all(
       DEMO_EXPERIMENTS.map(async (e) => {
@@ -373,6 +355,28 @@ export const postDemoDatasourceProject = async (
           organization: org,
           user: res.locals.eventAudit,
         });
+      })
+    );
+    // todo: save the experiment IDs
+
+    // Create feature
+    await Promise.all(
+      DEMO_FEATURES.map(async (f, i) => {
+        const featureToCreate: FeatureInterface = {
+          ...f,
+          id: getDemoDataSourceFeatureId(),
+          project: project.id,
+          organization: org.id,
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+        };
+
+        // TODO: Ref: experiment-ref: Update this when updating demo data (features, experiments, etc.)
+        // Replaces the experimentId - Assumes the 2nd rule for all demo features is an ExperimentRefRule. If this is no longer true, we will need to change how the demo data is generated.
+        (featureToCreate.environmentSettings.production
+          .rules[1] as ExperimentRefRule).experimentId = experiments[i]?.id;
+
+        return createFeature(org, res.locals.eventAudit, featureToCreate);
       })
     );
 
