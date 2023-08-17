@@ -3,7 +3,10 @@ import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import React, { ReactElement, useState } from "react";
 import { IdeaInterface } from "back-end/types/idea";
-import { getAffectedEnvsForExperiment } from "shared/util";
+import {
+  getAffectedEnvsForExperiment,
+  includeExperimentInPayload,
+} from "shared/util";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -23,6 +26,7 @@ import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import { useFeaturesList } from "@/services/features";
 
 const ExperimentPage = (): ReactElement => {
   const permissions = usePermissions();
@@ -52,6 +56,7 @@ const ExperimentPage = (): ReactElement => {
     "experiment-results-new-ui-v2",
     true
   );
+  const { features } = useFeaturesList(false);
 
   const { apiCall } = useAuth();
 
@@ -96,6 +101,13 @@ const ExperimentPage = (): ReactElement => {
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
     : null;
+
+  const safeToEdit =
+    experiment.status !== "running" ||
+    !includeExperimentInPayload(
+      experiment,
+      features.filter((f) => experiment.linkedFeatures?.includes(f.id))
+    );
 
   return (
     <div>
@@ -189,6 +201,7 @@ const ExperimentPage = (): ReactElement => {
           close={() => setTargetingModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
+          safeToEdit={safeToEdit}
         />
       )}
       <div className="container-fluid">

@@ -1010,7 +1010,7 @@ export default function SinglePage({
 
           <div className="mb-4 mx-4">
             <HeaderWithEdit
-              edit={(safeToEdit ? editTargeting : newPhase) || undefined}
+              edit={editTargeting || undefined}
               containerClassName="mb-2"
             >
               Targeting

@@ -4,7 +4,6 @@ import {
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import { useForm } from "react-hook-form";
-import { v4 as uuidv4 } from "uuid";
 import { useAuth } from "@/services/auth";
 import { useWatching } from "@/services/WatchProvider";
 import { getEqualWeights } from "@/services/utils";
@@ -13,9 +12,6 @@ import Field from "../Forms/Field";
 import FeatureVariationsInput from "../Features/FeatureVariationsInput";
 import ConditionInput from "../Features/ConditionInput";
 import NamespaceSelector from "../Features/NamespaceSelector";
-import Toggle from "../Forms/Toggle";
-import Tooltip from "../Tooltip/Tooltip";
-import { NewBucketingSDKList } from "./HashVersionSelector";
 
 const NewPhaseForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -29,7 +25,7 @@ const NewPhaseForm: FC<{
   const prevPhase: Partial<ExperimentPhaseStringDates> =
     experiment.phases[experiment.phases.length - 1] || {};
 
-  const form = useForm<ExperimentPhaseStringDates & { reseed: boolean }>({
+  const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       name: prevPhase.name || "Main",
       coverage: prevPhase.coverage || 1,
@@ -39,12 +35,12 @@ const NewPhaseForm: FC<{
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
       condition: prevPhase.condition || "",
+      seed: prevPhase.seed || "",
       namespace: {
         enabled: prevPhase.namespace?.enabled || false,
         name: prevPhase.namespace?.name || "",
         range: prevPhase.namespace?.range || [0, 0.5],
       },
-      reseed: firstPhase ? false : true,
     },
   });
 
@@ -62,19 +58,11 @@ const NewPhaseForm: FC<{
   const submit = form.handleSubmit(async (value) => {
     if (!isValid) throw new Error("Variation weights must sum to 1");
 
-    const { reseed, ...phase } = value;
-
-    if (reseed) {
-      phase.seed = uuidv4();
-    } else {
-      phase.seed = prevPhase?.seed || "";
-    }
-
     await apiCall<{ status: number; message?: string }>(
       `/experiment/${experiment.id}/phase`,
       {
         method: "POST",
-        body: JSON.stringify(phase),
+        body: JSON.stringify(value),
       }
     );
     mutate();
@@ -124,10 +112,12 @@ const NewPhaseForm: FC<{
         />
       )}
 
-      <ConditionInput
-        defaultValue={form.watch("condition")}
-        onChange={(condition) => form.setValue("condition", condition)}
-      />
+      {hasLinkedChanges && (
+        <ConditionInput
+          defaultValue={form.watch("condition")}
+          onChange={(condition) => form.setValue("condition", condition)}
+        />
+      )}
 
       <FeatureVariationsInput
         valueType={"string"}
@@ -148,45 +138,14 @@ const NewPhaseForm: FC<{
           }) || []
         }
         showPreview={false}
+        hideCoverage={!hasLinkedChanges}
       />
-
-      <NamespaceSelector
-        form={form}
-        featureId={experiment.trackingKey}
-        trackingKey={experiment.trackingKey}
-      />
-
-      {!firstPhase && (
-        <div className="form-group">
-          <Toggle
-            id="reseed-traffic"
-            value={form.watch("reseed")}
-            setValue={(reseed) => form.setValue("reseed", reseed)}
-          />{" "}
-          <label htmlFor="reseed-traffic" className="text-dark">
-            Re-randomize Traffic
-          </label>{" "}
-          <span className="badge badge-purple badge-pill ml-3">
-            recommended
-          </span>
-          <small className="form-text text-muted">
-            Removes carryover bias. Returning visitors will be re-bucketed and
-            may start seeing a different variation from before. Only supported
-            in{" "}
-            <Tooltip
-              body={
-                <>
-                  Only supported in the following SDKs:
-                  <NewBucketingSDKList />
-                  Unsupported SDKs and versions will simply ignore this setting
-                  and continue with the previous randomization.
-                </>
-              }
-            >
-              <span className="text-primary">some SDKs</span>
-            </Tooltip>
-          </small>
-        </div>
+      {hasLinkedChanges && (
+        <NamespaceSelector
+          form={form}
+          featureId={experiment.trackingKey}
+          trackingKey={experiment.trackingKey}
+        />
       )}
     </Modal>
   );
