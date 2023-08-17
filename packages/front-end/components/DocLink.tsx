@@ -42,6 +42,7 @@ const docSections = {
   encryptedSDKEndpoints: "/lib/js#loading-features",
   hashSecureAttributes: "/lib/js#secure-attributes",
   autoMetrics: "/app/metrics/#auto-generate-metrics",
+  targetingChanges: "/app/experiments#adding-an-experiment",
 };
 
 export type DocSection = keyof typeof docSections;
