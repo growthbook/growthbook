@@ -25,7 +25,7 @@ const NewPhaseForm: FC<{
   const prevPhase: Partial<ExperimentPhaseStringDates> =
     experiment.phases[experiment.phases.length - 1] || {};
 
-  const form = useForm<ExperimentPhaseStringDates & { reseed: boolean }>({
+  const form = useForm<ExperimentPhaseStringDates>({
     defaultValues: {
       name: prevPhase.name || "Main",
       coverage: prevPhase.coverage || 1,
@@ -34,11 +34,12 @@ const NewPhaseForm: FC<{
         getEqualWeights(experiment.variations.length),
       reason: "",
       dateStarted: new Date().toISOString().substr(0, 16),
-      condition: "",
+      condition: prevPhase.condition || "",
+      seed: prevPhase.seed || "",
       namespace: {
-        enabled: false,
-        name: "",
-        range: [0, 0.5],
+        enabled: prevPhase.namespace?.enabled || false,
+        name: prevPhase.namespace?.name || "",
+        range: prevPhase.namespace?.range || [0, 0.5],
       },
     },
   });
@@ -111,37 +112,41 @@ const NewPhaseForm: FC<{
         />
       )}
 
-      <ConditionInput
-        defaultValue={form.watch("condition")}
-        onChange={(condition) => form.setValue("condition", condition)}
-      />
+      {hasLinkedChanges && (
+        <>
+          <ConditionInput
+            defaultValue={form.watch("condition")}
+            onChange={(condition) => form.setValue("condition", condition)}
+          />
 
-      <FeatureVariationsInput
-        valueType={"string"}
-        coverage={form.watch("coverage")}
-        setCoverage={(coverage) => form.setValue("coverage", coverage)}
-        setWeight={(i, weight) =>
-          form.setValue(`variationWeights.${i}`, weight)
-        }
-        valueAsId={true}
-        variations={
-          experiment.variations.map((v, i) => {
-            return {
-              value: v.key || i + "",
-              name: v.name,
-              weight: form.watch(`variationWeights.${i}`),
-              id: v.id,
-            };
-          }) || []
-        }
-        showPreview={false}
-      />
+          <FeatureVariationsInput
+            valueType={"string"}
+            coverage={form.watch("coverage")}
+            setCoverage={(coverage) => form.setValue("coverage", coverage)}
+            setWeight={(i, weight) =>
+              form.setValue(`variationWeights.${i}`, weight)
+            }
+            valueAsId={true}
+            variations={
+              experiment.variations.map((v, i) => {
+                return {
+                  value: v.key || i + "",
+                  name: v.name,
+                  weight: form.watch(`variationWeights.${i}`),
+                  id: v.id,
+                };
+              }) || []
+            }
+            showPreview={false}
+          />
 
-      <NamespaceSelector
-        form={form}
-        featureId={experiment.trackingKey}
-        trackingKey={experiment.trackingKey}
-      />
+          <NamespaceSelector
+            form={form}
+            featureId={experiment.trackingKey}
+            trackingKey={experiment.trackingKey}
+          />
+        </>
+      )}
     </Modal>
   );
 };
