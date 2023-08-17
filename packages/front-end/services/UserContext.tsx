@@ -10,7 +10,6 @@ import {
   Permission,
   Role,
   ProjectScopedPermission,
-  PermissionsObject,
 } from "back-end/types/organization";
 import type { AccountPlan, CommercialFeature, LicenseData } from "enterprise";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
