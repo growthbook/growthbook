@@ -67,7 +67,7 @@ export function getUserPermissions(
   function roleToPermissionMap(
     role: MemberRole | undefined
   ): PermissionsObject {
-    const permissions: PermissionsObject = {} as PermissionsObject;
+    const permissions: PermissionsObject = {};
 
     ALL_PERMISSIONS.forEach((permission) => {
       permissions[permission] =
