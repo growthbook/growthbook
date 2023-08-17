@@ -19,6 +19,8 @@ import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import {
   ExperimentTableRow,
   getRowResults,
+  isExpectedDirection,
+  isStatSig,
   RowResults,
   useDomain,
 } from "@/services/experiments";
@@ -27,8 +29,12 @@ import { GBEdit } from "@/components/Icons";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import GuardrailResult from "@/components/Experiment/GuardrailResult";
-import PValueGuardrailResults from "@/components/Experiment/PValueGuardrailResult";
+import GuardrailResult, {
+  getGuardrailStatus,
+} from "@/components/Experiment/GuardrailResult";
+import PValueGuardrailResults, {
+  getPValueGuardrailStatus,
+} from "@/components/Experiment/PValueGuardrailResult";
 import { useCurrency } from "@/hooks/useCurrency";
 import PValueColumn from "@/components/Experiment/PValueColumn";
 import PercentChangeColumn from "@/components/Experiment/PercentChangeColumn";
@@ -568,14 +574,48 @@ export default function ResultsTable({
                     }
                     const isHovered =
                       hoveredMetricRow === i && hoveredVariationRow === j;
-                    const resultsHighlightClassname = clsx({
-                      significant: rowResults.significant,
-                      "non-significant": !rowResults.significant,
-                      won: rowResults.resultsStatus === "won",
-                      lost: rowResults.resultsStatus === "lost",
-                      draw: rowResults.resultsStatus === "draw",
-                      hover: isHovered,
-                    });
+                    // todo: move highlight state to getRowResults()
+                    let resultsStatusClassname = "";
+                    let resultsHighlightClassname = "";
+                    if (!metricsAsGuardrails) {
+                      resultsStatusClassname = !rowResults.significant
+                        ? ""
+                        : rowResults.resultsStatus;
+                    } else {
+                      if (statsEngine === "bayesian") {
+                        resultsStatusClassname = !rowResults.enoughData
+                          ? ""
+                          : getGuardrailStatus(1 - (stats.chanceToWin ?? 1));
+                      } else {
+                        resultsStatusClassname = !rowResults.enoughData
+                          ? ""
+                          : getPValueGuardrailStatus(
+                              isExpectedDirection(stats, row.metric),
+                              isStatSig(stats?.pValue ?? 1, pValueThreshold)
+                            );
+                      }
+                    }
+                    resultsHighlightClassname = !metricsAsGuardrails
+                      ? clsx(resultsStatusClassname, {
+                          significant: rowResults.significant,
+                          "non-significant": !rowResults.significant,
+                          hover: isHovered,
+                        })
+                      : statsEngine === "bayesian"
+                      ? clsx(resultsStatusClassname, {
+                          "non-significant": !rowResults.enoughData,
+                          hover: isHovered,
+                        })
+                      : clsx(
+                          !rowResults.enoughData
+                            ? ""
+                            : getPValueGuardrailStatus(
+                                isExpectedDirection(stats, row.metric),
+                                isStatSig(stats?.pValue ?? 1, pValueThreshold)
+                              ),
+                          { hover: isHovered }
+                        );
+
                     const onPointerMove = (
                       e,
                       settings?: TooltipHoverSettings
@@ -657,9 +697,13 @@ export default function ResultsTable({
                               <GuardrailResult
                                 stats={stats}
                                 enoughData={rowResults.enoughData}
-                                className={clsx("text-right", {
-                                  hover: isHovered,
-                                })}
+                                className={clsx(
+                                  "text-right",
+                                  resultsHighlightClassname,
+                                  {
+                                    hover: isHovered,
+                                  }
+                                )}
                                 onPointerMove={onPointerMove}
                                 onPointerLeave={onPointerLeave}
                                 onClick={onPointerMove}
@@ -689,9 +733,13 @@ export default function ResultsTable({
                               stats={stats}
                               metric={row.metric}
                               enoughData={rowResults.enoughData}
-                              className={clsx("text-right", {
-                                hover: isHovered,
-                              })}
+                              className={clsx(
+                                "text-right",
+                                resultsHighlightClassname,
+                                {
+                                  hover: isHovered,
+                                }
+                              )}
                               onPointerMove={onPointerMove}
                               onPointerLeave={onPointerLeave}
                               onClick={onPointerMove}
@@ -733,6 +781,7 @@ export default function ResultsTable({
                                 })
                               }
                               className={resultsHighlightClassname}
+                              rowStatus={resultsStatusClassname}
                             />
                           ) : (
                             <AlignedGraph

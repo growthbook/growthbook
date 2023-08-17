@@ -52,7 +52,7 @@ const GuardrailResult = ({
       })}
       {...otherProps}
     >
-      <div className={`variation ${status}`}>
+      <div className="variation">
         {stats && enoughData ? (
           <>
             <span style={{ fontSize: 16 }}>

@@ -38,11 +38,7 @@ export default function ChanceToWinColumn({
 }: Props) {
   return (
     <td
-      className={clsx(
-        "variation chance result-number align-middle",
-        rowResults.resultsStatus,
-        className
-      )}
+      className={clsx("variation chance result-number align-middle", className)}
       {...otherProps}
     >
       {!baseline?.value || !stats?.value ? (

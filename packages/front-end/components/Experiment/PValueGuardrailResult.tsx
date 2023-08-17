@@ -65,9 +65,7 @@ const PValueGuardrailResults = ({
       })}
       {...otherProps}
     >
-      <div
-        className={`variation ${status} d-flex justify-content-end align-items-center`}
-      >
+      <div className="variation d-flex justify-content-end align-items-center">
         {stats && enoughData ? (
           <>
             <span style={{ fontSize: 16 }}>

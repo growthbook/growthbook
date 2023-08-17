@@ -33,9 +33,13 @@ interface Props
   sigBarColorPos?: string;
   sigBarColorNeg?: string;
   barColorDraw?: string;
+  barColorOk?: string;
+  barColorWarning?: string;
+  barColorDanger?: string;
   expectedColor?: string;
   newUi?: boolean;
   rowResults?: RowResults;
+  rowStatus?: string;
   isHovered?: boolean;
   onPointerMove?: (e: React.PointerEvent<SVGPathElement>) => void;
   onPointerLeave?: (e: React.PointerEvent<SVGPathElement>) => void;
@@ -64,8 +68,12 @@ const AlignedGraph: FC<Props> = ({
   sigBarColorPos = "#0D8C8Ccc",
   sigBarColorNeg = "#D94032cc",
   barColorDraw = "#9C89BEcc",
+  barColorOk = "#55ab95cc",
+  barColorWarning = "#d99132cc",
+  barColorDanger = "#d94032cc",
   newUi = false,
   rowResults,
+  rowStatus,
   isHovered = false,
   onPointerMove,
   onPointerLeave,
@@ -74,10 +82,17 @@ const AlignedGraph: FC<Props> = ({
   if (newUi) {
     sigBarColorPos = "#52be5b";
     sigBarColorNeg = "#d35a5a";
+    barColorDraw = "#9C89BE";
+    barColorOk = "#55ab95";
+    barColorWarning = "#d99132";
+    barColorDanger = "#d94032";
     if (isHovered) {
       sigBarColorPos = "#39cb45";
       sigBarColorNeg = "#e34040";
       barColorDraw = "#957dc2";
+      barColorOk = "#4ec2a5";
+      barColorWarning = "#ea9526";
+      barColorDanger = "#e83223";
       barColor = "#aaa";
     }
   }
@@ -154,6 +169,20 @@ const AlignedGraph: FC<Props> = ({
     rowResults?.significant
   ) {
     barFill = barColorDraw;
+  }
+  // forced color state (nothing needed for non-significant):
+  if (rowStatus === "won") {
+    barFill = sigBarColorPos;
+  } else if (rowStatus === "lost") {
+    barFill = sigBarColorNeg;
+  } else if (rowStatus === "draw") {
+    barFill = barColorDraw;
+  } else if (rowStatus === "ok") {
+    barFill = barColorOk;
+  } else if (rowStatus === "warning") {
+    barFill = barColorWarning;
+  } else if (rowStatus === "danger") {
+    barFill = barColorDanger;
   }
 
   return (

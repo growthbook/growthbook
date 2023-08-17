@@ -23,6 +23,7 @@ interface Props
   onPointerMove?: (e: React.PointerEvent<SVGPathElement>) => void;
   onPointerLeave?: (e: React.PointerEvent<SVGPathElement>) => void;
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
+  rowStatus?: string;
 }
 
 export default function PercentGraph({
@@ -40,6 +41,7 @@ export default function PercentGraph({
   onPointerMove,
   onPointerLeave,
   onClick,
+  rowStatus,
 }: Props) {
   const { metricDefaults } = useOrganizationMetricDefaults();
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
@@ -81,6 +83,7 @@ export default function PercentGraph({
       onPointerMove={onPointerMove}
       onPointerLeave={onPointerLeave}
       onClick={onClick}
+      rowStatus={rowStatus}
     />
   );
 }

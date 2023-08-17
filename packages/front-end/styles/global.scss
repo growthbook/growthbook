@@ -504,7 +504,6 @@ pre {
   }
   .result-number-sub {
     line-height: 12px;
-    text-align: right;
   }
   .variation {
     font-size: 12px;
@@ -547,28 +546,36 @@ pre {
       }
     }
   }
+  .ok {
+    font-weight: bold;
+    color: #55ab95;
+    &.hover {
+      color: #4ec2a5;
+    }
+  }
+  .warning {
+    font-weight: bold;
+    color: #d99132;
+    &.hover {
+      color: #ea9526;
+    }
+  }
+  .danger {
+    font-weight: bold;
+    color: #d94032;
+    &.hover {
+      color: #e83223;
+    }
+  }
+  .non-significant {
+    font-weight: normal;
+  }
+  .suspicious {
+    color: #ef2bd5;
+  }
   .hover {
     cursor: pointer;
     transition: 100ms all;
-  }
-  .guardrail,
-  .chance {
-    // for guardrails and embedded risk warning for ChanceToWin
-    .ok {
-      color: #55ab87;
-    }
-    .warning {
-      color: #d99132;
-    }
-    .danger {
-      color: #d94032;
-    }
-    .non-significant {
-      font-weight: normal;
-    }
-    .suspicious {
-      color: #ef2bd5;
-    }
   }
   .visx-axis-left .visx-axis-line {
     // axis line has a 0.5 pixel offset. reverse it
