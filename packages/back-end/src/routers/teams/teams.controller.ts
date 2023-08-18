@@ -199,7 +199,7 @@ export const updateTeam = async (
       id: id,
       name: name,
     },
-    details: auditDetailsUpdate(team, changes),
+    details: auditDetailsUpdate(team, { ...team, ...changes }),
   });
 
   return res.status(200).json({
