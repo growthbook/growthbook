@@ -10,6 +10,7 @@ import { MetricType } from "@/../back-end/types/metric";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import useApi from "@/hooks/useApi";
 import Button from "./Button";
 import { DocLink } from "./DocLink";
 import Modal from "./Modal";
@@ -37,6 +38,7 @@ export default function AutoGenerateMetricsModal({
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(false);
   const { getDatasourceById } = useDefinitions();
+  const [availableSchemas, setAvailableSchemas] = useState<string[]>([]);
 
   const form = useForm<{
     datasourceId: string;
@@ -56,8 +58,14 @@ export default function AutoGenerateMetricsModal({
     },
   });
 
+  const selectedSchema = form.watch("schema");
+
   const selectedDatasource =
     datasource || getDatasourceById(form.watch("datasourceId"));
+
+  const { data: selectedDatasourceData } = useApi(
+    `/datasource/${selectedDatasource?.id}/schema`
+  );
 
   const submit = form.handleSubmit(async (data) => {
     track("Generating Auto Metrics For User", {
@@ -109,7 +117,7 @@ export default function AutoGenerateMetricsModal({
         const res = await apiCall<{
           trackedEvents: TrackedEventData[];
           message?: string;
-        }>(`/metrics/tracked-events/${datasourceObj.id}/analytics_390302915`); //TODO: This should prob be a POST req now
+        }>(`/metrics/tracked-events/${datasourceObj.id}/${selectedSchema}`); //TODO: This should prob be a POST req now
         setLoading(false);
         if (res.message) {
           track("Generate Auto Metrics Error", {
@@ -142,7 +150,7 @@ export default function AutoGenerateMetricsModal({
         setAutoMetricError(e.message);
       }
     },
-    [apiCall, source]
+    [apiCall, selectedSchema, source]
   );
 
   useEffect(() => {
@@ -168,10 +176,32 @@ export default function AutoGenerateMetricsModal({
   useEffect(() => {
     if (!selectedDatasource) return;
 
-    getTrackedEvents(selectedDatasource);
-  }, [getTrackedEvents, selectedDatasource]);
+    if (!selectedSchema && availableSchemas.length === 1) {
+      form.setValue("schema", availableSchemas[0]);
+    }
 
-  console.log("selectedDatasource", selectedDatasource);
+    if (!selectedSchema) return;
+
+    getTrackedEvents(selectedDatasource);
+  }, [
+    availableSchemas,
+    form,
+    getTrackedEvents,
+    selectedDatasource,
+    selectedSchema,
+  ]);
+
+  useEffect(() => {
+    if (selectedDatasourceData?.informationSchema) {
+      const schemas: string[] = [];
+      selectedDatasourceData.informationSchema.databases.forEach((database) => {
+        database.schemas.forEach((schema) => {
+          schemas.push(schema.schemaName);
+        });
+      });
+      setAvailableSchemas(schemas);
+    }
+  }, [selectedDatasourceData.informationSchema]);
 
   return (
     <Modal
@@ -206,14 +236,18 @@ export default function AutoGenerateMetricsModal({
           name="datasource"
           disabled={datasource ? true : false}
         />
-        {selectedDatasource?.type === "bigquery" ? (
-          // If the data source has a default data set, it should be the initial selection
-          // What should we do if the data source only has a single data set - show it preselected but disabled?
-          // <SelectField
-          //   label="Select a data set"
-          //   value={selectedDatasource?.}
-          // />
-          <h1>Hey</h1>
+        {availableSchemas.length > 1 ? (
+          <SelectField
+            label="Select a Data Set"
+            value={form.watch("schema") || ""}
+            onChange={(schema) => {
+              form.setValue("schema", schema);
+            }}
+            options={availableSchemas.map((schema) => ({
+              value: schema,
+              label: schema,
+            }))}
+          />
         ) : null}
         {loading ? <LoadingOverlay /> : null}
         {selectedDatasource &&
