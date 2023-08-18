@@ -163,6 +163,7 @@ export interface OrganizationSettings {
   secureAttributeSalt?: string;
   killswitchConfirmation?: boolean;
   defaultDataSource?: string;
+  minApprovals?: number;
 }
 
 export interface SubscriptionQuote {

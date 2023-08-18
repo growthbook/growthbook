@@ -308,6 +308,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
         hours: 6,
         cron: "0 */6 * * *",
       },
+      minApprovals: undefined,
       multipleExposureMinPercent: 0.01,
       confidenceLevel: 0.95,
       pValueThreshold: 0.05,
@@ -1395,6 +1396,28 @@ const GeneralSettingsPage = (): React.ReactElement => {
                     }}
                   />
                 </div>
+
+                {growthbook?.isOn("ff-approval-flow") ? (
+                  <div>
+                    <div className="form-inline">
+                      <Field
+                        label="Minimum Approvals Required"
+                        type="number"
+                        className="ml-2"
+                        containerClassName="mt-2"
+                        {...form.register("minApprovals", {
+                          valueAsNumber: true,
+                        })}
+                      />
+                    </div>
+                    <p>
+                      <small className="text-muted mb-3">
+                        Minimum number of reviewers required when approving
+                        feature flag changes
+                      </small>
+                    </p>
+                  </div>
+                ) : null}
               </div>
             </div>
             <div className="divider border-bottom mb-3 mt-3" />
