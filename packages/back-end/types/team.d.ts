@@ -1,4 +1,4 @@
-import { ProjectMemberRole } from "./organization";
+import { ExpandedMember, ProjectMemberRole } from "./organization";
 
 export interface TeamInterface {
   id: string;
@@ -12,4 +12,5 @@ export interface TeamInterface {
   limitAccessByEnvironment: boolean;
   environments: string[];
   projectRoles: ProjectMemberRole[];
+  members?: ExpandedMember[];
 }

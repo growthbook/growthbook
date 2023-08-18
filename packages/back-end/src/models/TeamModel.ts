@@ -68,3 +68,17 @@ export async function getTeamsForOrganization(
   });
   return teamDocs.map((team) => toInterface(team));
 }
+
+export async function updateTeamMetadata(
+  id: string,
+  update: Partial<TeamInterface>
+) {
+  await TeamModel.updateOne(
+    {
+      id,
+    },
+    {
+      $set: omit(update, "members"),
+    }
+  );
+}

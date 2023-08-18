@@ -6,7 +6,7 @@ import {
   getTeamsForOrganization,
 } from "../../models/TeamModel";
 import { auditDetailsCreate } from "../../services/audit";
-import { getOrgFromReq } from "../../services/organizations";
+import { expandOrgMembers, getOrgFromReq } from "../../services/organizations";
 import { AuthRequest } from "../../types/AuthRequest";
 import { MemberRoleWithProjects } from "../../../types/organization";
 
@@ -112,6 +112,8 @@ export const getTeamById = async (
   req.checkPermissions("manageTeam");
 
   const team = await findTeamById(id, org.id);
+  const members = org.members.filter((member) => member.teams?.includes(id));
+  const expandedMembers = await expandOrgMembers(members);
 
   if (!team) {
     return res.status(404).json({
@@ -122,8 +124,13 @@ export const getTeamById = async (
 
   return res.status(200).json({
     status: 200,
-    team,
+    team: {
+      ...team,
+      members: expandedMembers,
+    },
   });
 };
 
 // endregion GET /teams/:id
+
+// region PUT /teams/:id
