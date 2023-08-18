@@ -43,7 +43,7 @@ type OrgSettingsResponse = {
   accountPlan: AccountPlan;
   commercialFeatures: CommercialFeature[];
   licenseKey?: string;
-  currentUser: { userId: string; userPermissions: UserPermissions };
+  currentUserPermissions: UserPermissions;
 };
 
 export interface PermissionFunctions {
@@ -110,7 +110,7 @@ interface UserResponse {
   admin: boolean;
   organizations?: UserOrganizations;
   license?: LicenseData;
-  currentUser: { userId: string; userPermissions: UserPermissions };
+  currentUserPermissions: UserPermissions;
 }
 
 export const UserContext = createContext<UserContextValue>({
@@ -187,13 +187,13 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       userMap.set(member.id, {
         ...member,
         userPermissions:
-          currentOrg?.currentUser.userId === member.id
-            ? currentOrg?.currentUser.userPermissions
+          currentOrg?.currentUserPermissions && currentUser?.id === member.id
+            ? currentOrg?.currentUserPermissions
             : undefined,
       });
     });
     return userMap;
-  }, [currentOrg?.currentUser, currentOrg?.members]);
+  }, [currentOrg?.currentUserPermissions, currentOrg?.members]);
 
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   let user = users.get(data?.userId);

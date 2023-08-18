@@ -645,10 +645,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       : [...accountFeatures[getAccountPlan(org)]],
     roles: getRoles(org),
     members: expandedMembers,
-    currentUser: {
-      userPermissions: currentUserPermissions,
-      userId: req.userId,
-    },
+    currentUserPermissions,
     organization: {
       invites,
       ownerEmail,
