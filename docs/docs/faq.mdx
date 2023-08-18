@@ -46,7 +46,7 @@ If you are using the Javascript or React SDK in a browser environment, you can i
 ```ts
 const growthbook = new GrowthBook({
   enableDevMode: true,
-},
+})
 ```
 
 ## How do I run an A/B test in GrowthBook?
@@ -62,6 +62,16 @@ The recommended way to run an A/B test is by using Feature Flags and our SDKs.
      // Control
    }
    ```
+
+## What is the best way to redirect users to a URL based on their experiment variation?
+
+Experimenters often find themselves wanting to show one URL to some users and another URL to other users. This is not always trivial, because waiting to look up a user's variation, and then rendering a page for them, could cause flickering in the user experience and even bias, if you are only delaying page load for one variation.
+
+In general, we recommend three approaches, listed from least to most risky with respect to user experience and bias:
+
+1. Conditionally render of page A vs. page B using the GrowthBook SDK within backend controller logic. This is fast, has no bias, and there is no flickering/jumpy redirection.
+2. Conditionally render on the front-end page A vs. page B ing the GrowthBook JS SDK. Almost as good as option 1, although there is a slight loading delay. This can also be done with no bias if both A and B incur the same page load penalty. Preferably you can implement this without any flickering for users, but there will be some slight loading delay.
+3. Frontend redirection using JS snippets in the visual editor using `window.location.href="mytarget.html"`. Problematic but likely good enough if done carefully. Incurs noticeable flickering before/after redirection. Ideally the redirection should happen from a neutral / empty-ish page for both the A and B treatments as to not introduce bias (e.g. avoiding the case where page A just loads faster due to the experiment config so people like it more).
 
 ## How much traffic do I need to run A/B tests?
 
@@ -119,7 +129,7 @@ If you are using feature flags, **we strongly recommend** adding a caching layer
 ```ts
 const growthbook = new GrowthBook({
   enableDevMode: true,
-},
+})
 ```
 
 ## My old exported notebook stopped working. How can I fix it?
