@@ -247,7 +247,10 @@ const Admin: FC = () => {
           currentPage={page}
           numItemsTotal={total}
           perPage={50}
-          onPageChange={(page) => setPage(page)}
+          onPageChange={(page) => {
+            setPage(page);
+            loadOrgs(page, search);
+          }}
         />
       </div>
     </div>

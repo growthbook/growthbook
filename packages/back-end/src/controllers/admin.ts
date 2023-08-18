@@ -3,7 +3,7 @@ import { AuthRequest } from "../types/AuthRequest";
 import { findAllOrganizations } from "../models/OrganizationModel";
 
 export async function getOrganizations(
-  req: AuthRequest<never, never, { page?: number; search?: string }>,
+  req: AuthRequest<never, never, { page?: string; search?: string }>,
   res: Response
 ) {
   if (!req.admin) {
@@ -16,7 +16,7 @@ export async function getOrganizations(
   const { page, search } = req.query;
 
   const { organizations, total } = await findAllOrganizations(
-    page || 1,
+    parseInt(page || "") || 1,
     search || ""
   );
 
