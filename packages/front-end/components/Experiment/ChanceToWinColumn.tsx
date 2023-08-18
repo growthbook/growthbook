@@ -23,6 +23,7 @@ interface Props
   showSuspicious?: boolean;
   showPercentComplete?: boolean;
   showTimeRemaining?: boolean;
+  showGuardrailWarning?: boolean;
   className?: string;
 }
 export default function ChanceToWinColumn({
@@ -33,9 +34,14 @@ export default function ChanceToWinColumn({
   showSuspicious = true,
   showPercentComplete = false,
   showTimeRemaining = true,
+  showGuardrailWarning = false,
   className,
   ...otherProps
 }: Props) {
+  const shouldRenderRisk = showRisk &&
+    rowResults.riskMeta.showRisk &&
+    ["warning", "danger"].includes(rowResults.riskMeta.riskStatus) &&
+    rowResults.resultsStatus !== "lost";
   return (
     <td
       className={clsx("variation chance result-number align-middle", className)}
@@ -55,12 +61,18 @@ export default function ChanceToWinColumn({
           <div className="d-inline-block ml-2" style={{ lineHeight: "14px" }}>
             {percentFormatter.format(stats.chanceToWin ?? 0)}
           </div>
-          {showRisk &&
-          rowResults.riskMeta.showRisk &&
-          ["warning", "danger"].includes(rowResults.riskMeta.riskStatus) &&
-          rowResults.resultsStatus !== "lost" ? (
+          {shouldRenderRisk ? (
             <span
               className={rowResults.riskMeta.riskStatus}
+              style={{ fontSize: 14, marginLeft: 1 }}
+            >
+              <HiOutlineExclamationCircle />
+            </span>
+          ) : null}
+          {showGuardrailWarning &&
+          rowResults.guardrailWarning && !shouldRenderRisk ? (
+            <span
+              className="warning"
               style={{ fontSize: 14, marginLeft: 1 }}
             >
               <HiOutlineExclamationCircle />

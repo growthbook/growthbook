@@ -21,6 +21,7 @@ interface Props
   showPercentComplete?: boolean;
   showTimeRemaining?: boolean;
   showUnadjustedPValue?: boolean;
+  showGuardrailWarning?: boolean;
   className?: string;
 }
 
@@ -34,6 +35,7 @@ export default function PValueColumn({
   showPercentComplete = false,
   showTimeRemaining = true,
   showUnadjustedPValue = false,
+  showGuardrailWarning = false,
   className,
   ...otherProps
 }: Props) {
@@ -52,6 +54,11 @@ export default function PValueColumn({
       <>{stats?.pValueAdjusted ? pValueFormatter(stats.pValueAdjusted) : ""}</>
     );
   }
+
+  const shouldRenderRisk = showRisk &&
+    rowResults.riskMeta.showRisk &&
+    ["warning", "danger"].includes(rowResults.riskMeta.riskStatus) &&
+    rowResults.resultsStatus !== "lost";
 
   return (
     <td
@@ -72,12 +79,18 @@ export default function PValueColumn({
           <div className="d-inline-block ml-2" style={{ lineHeight: "14px" }}>
             {pValText || "P-value missing"}
           </div>
-          {showRisk &&
-          rowResults.riskMeta.showRisk &&
-          ["warning", "danger"].includes(rowResults.riskMeta.riskStatus) &&
-          rowResults.resultsStatus !== "lost" ? (
+          {shouldRenderRisk ? (
             <span
               className={rowResults.riskMeta.riskStatus}
+              style={{ fontSize: 14, marginLeft: 1 }}
+            >
+              <HiOutlineExclamationCircle />
+            </span>
+          ) : null}
+          {showGuardrailWarning &&
+          rowResults.guardrailWarning && !shouldRenderRisk ? (
+            <span
+              className="warning"
               style={{ fontSize: 14, marginLeft: 1 }}
             >
               <HiOutlineExclamationCircle />

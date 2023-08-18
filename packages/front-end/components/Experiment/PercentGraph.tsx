@@ -2,7 +2,7 @@ import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
 import React, { DetailedHTMLProps, HTMLAttributes } from "react";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
-import { hasEnoughData, isStatSig, RowResults } from "@/services/experiments";
+import { hasEnoughData, isStatSig } from "@/services/experiments";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import AlignedGraph from "./AlignedGraph";
@@ -18,7 +18,6 @@ interface Props
   graphWidth?: number;
   height?: number;
   newUi?: boolean;
-  rowResults?: RowResults;
   isHovered?: boolean;
   onPointerMove?: (e: React.PointerEvent<SVGPathElement>) => void;
   onPointerLeave?: (e: React.PointerEvent<SVGPathElement>) => void;
@@ -36,7 +35,6 @@ export default function PercentGraph({
   graphWidth,
   height,
   newUi = false,
-  rowResults,
   isHovered = false,
   onPointerMove,
   onPointerLeave,
@@ -78,7 +76,6 @@ export default function PercentGraph({
       height={height}
       inverse={!!metric?.inverse}
       newUi={newUi}
-      rowResults={rowResults}
       isHovered={isHovered}
       onPointerMove={onPointerMove}
       onPointerLeave={onPointerLeave}

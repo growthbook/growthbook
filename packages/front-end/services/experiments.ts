@@ -529,6 +529,7 @@ export type RowResults = {
   risk: number;
   relativeRisk: number;
   riskMeta: RiskMeta;
+  guardrailWarning: string;
 };
 export type RiskMeta = {
   riskStatus: "ok" | "warning" | "danger";
@@ -550,6 +551,7 @@ export function getRowResults({
   baseline,
   metric,
   metricDefaults,
+  isGuardrail,
   minSampleSize,
   statsEngine,
   ciUpper,
@@ -566,6 +568,7 @@ export function getRowResults({
   statsEngine: StatsEngine;
   metric: MetricInterface;
   metricDefaults: MetricDefaults;
+  isGuardrail: boolean;
   minSampleSize: number;
   ciUpper: number;
   ciLower: number;
@@ -754,6 +757,11 @@ export function getRowResults({
     }
   }
 
+  let guardrailWarning = "";
+  if (isGuardrail && directionalStatus === "losing" && resultsStatus !== "lost") {
+    guardrailWarning = "Uplift for this guardrail metric may be in the undesired direction";
+  }
+
   return {
     directionalStatus,
     resultsStatus,
@@ -769,5 +777,6 @@ export function getRowResults({
     risk,
     relativeRisk,
     riskMeta,
+    guardrailWarning,
   };
 }

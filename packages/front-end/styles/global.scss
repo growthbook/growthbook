@@ -307,9 +307,9 @@ pre {
     &.lost {
       background-color: #d940321a;
     }
-    &.draw {
-      background-color: #8e51f11a;
-    }
+    //&.draw {
+    //  background-color: #8e51f11a;
+    //}
     .results-status {
       top: 7px;
       right: 6px;
@@ -325,28 +325,17 @@ pre {
         background-color: #d94032;
         color: #fff;
       }
-      &.draw {
-        background-color: #8e51f1;
-        color: #fff;
-      }
+      //&.draw {
+      //  background-color: #8e51f1;
+      //  color: #fff;
+      //}
+      &.draw,
       &.non-significant {
         border: 1px solid #7a7a7a66;
         box-sizing: border-box;
         color: #7a7a7a;
         font-weight: normal;
         font-size: 12px;
-      }
-      &.ok {
-        background-color: #55ab95;
-        color: #fff;
-      }
-      &.warning {
-        background-color: #d99132;
-        color: #fff;
-      }
-      &.danger {
-        background-color: #d94032;
-        color: #fff;
       }
     }
     .results-change {
@@ -373,31 +362,13 @@ pre {
           color: #d94032;
         }
       }
-      &.draw {
-        .value {
-          color: #8e51f1;
-        }
-      }
-      &.ok {
-        .value {
-          color: #55ab95;
-        }
-      }
-      &.warning {
-        .value {
-          color: #d99132;
-        }
-      }
-      &.danger {
-        .value {
-          color: #d94032;
-        }
-      }
+      //&.draw {
+      //  .value {
+      //    color: #8e51f1;
+      //  }
+      //}
     }
     .results-flagged-items {
-      .flagged {
-        min-height: 38px;
-      }
       .flagged-not-enough-data {
         .main-text {
           color: #17a2b8;
@@ -519,7 +490,9 @@ pre {
       font-size: 10px;
     }
   }
+  &.draw,
   .non-significant {
+    font-weight: normal;
     color: #707070;
     &.hover {
       color: #888888;
@@ -539,36 +512,12 @@ pre {
         color: #ee1500;
       }
     }
-    &.draw {
-      color: #8e51f1;
-      &.hover {
-        color: #7c2cfa;
-      }
-    }
-  }
-  .ok {
-    font-weight: bold;
-    color: #55ab95;
-    &.hover {
-      color: #4ec2a5;
-    }
-  }
-  .warning {
-    font-weight: bold;
-    color: #d99132;
-    &.hover {
-      color: #ea9526;
-    }
-  }
-  .danger {
-    font-weight: bold;
-    color: #d94032;
-    &.hover {
-      color: #e83223;
-    }
-  }
-  .non-significant {
-    font-weight: normal;
+    //&.draw {
+    //  color: #8e51f1;
+    //  &.hover {
+    //    color: #7c2cfa;
+    //  }
+    //}
   }
   .suspicious {
     color: #ef2bd5;

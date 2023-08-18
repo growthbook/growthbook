@@ -44,7 +44,7 @@ export default function PercentChangeColumn({
             })}
           >
             <span className="expectedArrows">
-              {rowResults.directionalStatus === "winning" ||
+              {(rowResults.directionalStatus === "winning" && !metric.inverse) ||
               (rowResults.directionalStatus === "losing" && metric.inverse) ? (
                 <FaArrowUp />
               ) : (

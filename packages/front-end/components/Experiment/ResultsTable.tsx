@@ -19,8 +19,6 @@ import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
 import {
   ExperimentTableRow,
   getRowResults,
-  isExpectedDirection,
-  isStatSig,
   RowResults,
   useDomain,
 } from "@/services/experiments";
@@ -29,12 +27,6 @@ import { GBEdit } from "@/components/Icons";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
-import GuardrailResult, {
-  getGuardrailStatus,
-} from "@/components/Experiment/GuardrailResult";
-import PValueGuardrailResults, {
-  getPValueGuardrailStatus,
-} from "@/components/Experiment/PValueGuardrailResult";
 import { useCurrency } from "@/hooks/useCurrency";
 import PValueColumn from "@/components/Experiment/PValueColumn";
 import PercentChangeColumn from "@/components/Experiment/PercentChangeColumn";
@@ -165,6 +157,7 @@ export default function ResultsTable({
           baseline,
           metric: row.metric,
           metricDefaults,
+          isGuardrail: !!metricsAsGuardrails,
           minSampleSize: getMinSampleSizeForMetric(row.metric),
           statsEngine,
           ciUpper,
@@ -184,6 +177,7 @@ export default function ResultsTable({
     rows,
     variations,
     metricDefaults,
+    metricsAsGuardrails,
     getMinSampleSizeForMetric,
     statsEngine,
     ciUpper,
@@ -438,17 +432,10 @@ export default function ResultsTable({
                       className="axis-col label text-right has-tooltip"
                     >
                       {statsEngine === "bayesian" ? (
-                        !metricsAsGuardrails ? (
-                          <div style={{ lineHeight: "16px", marginBottom: 2 }}>
-                            <span className="nowrap">Chance</span>{" "}
-                            <span className="nowrap">to Win</span>
-                          </div>
-                        ) : (
-                          <div style={{ lineHeight: "16px", marginBottom: 2 }}>
-                            <span className="nowrap">Chance of</span>{" "}
-                            <span className="nowrap">Being Worse</span>
-                          </div>
-                        )
+                        <div style={{ lineHeight: "16px", marginBottom: 2 }}>
+                          <span className="nowrap">Chance</span>{" "}
+                          <span className="nowrap">to Win</span>
+                        </div>
                       ) : !metricsAsGuardrails &&
                         (sequentialTestingEnabled || pValueCorrection) ? (
                         <Tooltip
@@ -574,47 +561,19 @@ export default function ResultsTable({
                     }
                     const isHovered =
                       hoveredMetricRow === i && hoveredVariationRow === j;
+
                     // todo: move highlight state to getRowResults()
-                    let resultsStatusClassname = "";
-                    let resultsHighlightClassname = "";
-                    if (!metricsAsGuardrails) {
-                      resultsStatusClassname = !rowResults.significant
-                        ? ""
-                        : rowResults.resultsStatus;
-                    } else {
-                      if (statsEngine === "bayesian") {
-                        resultsStatusClassname = !rowResults.enoughData
-                          ? ""
-                          : getGuardrailStatus(1 - (stats.chanceToWin ?? 1));
-                      } else {
-                        resultsStatusClassname = !rowResults.enoughData
-                          ? ""
-                          : getPValueGuardrailStatus(
-                              isExpectedDirection(stats, row.metric),
-                              isStatSig(stats?.pValue ?? 1, pValueThreshold)
-                            );
+                    const resultsStatusClassname = !rowResults.significant
+                      ? ""
+                      : rowResults.resultsStatus;
+                    const resultsHighlightClassname = clsx(
+                      resultsStatusClassname,
+                      {
+                        significant: rowResults.significant,
+                        "non-significant": !rowResults.significant,
+                        hover: isHovered,
                       }
-                    }
-                    resultsHighlightClassname = !metricsAsGuardrails
-                      ? clsx(resultsStatusClassname, {
-                          significant: rowResults.significant,
-                          "non-significant": !rowResults.significant,
-                          hover: isHovered,
-                        })
-                      : statsEngine === "bayesian"
-                      ? clsx(resultsStatusClassname, {
-                          "non-significant": !rowResults.enoughData,
-                          hover: isHovered,
-                        })
-                      : clsx(
-                          !rowResults.enoughData
-                            ? ""
-                            : getPValueGuardrailStatus(
-                                isExpectedDirection(stats, row.metric),
-                                isStatSig(stats?.pValue ?? 1, pValueThreshold)
-                              ),
-                          { hover: isHovered }
-                        );
+                    );
 
                     const onPointerMove = (
                       e,
@@ -676,40 +635,24 @@ export default function ResultsTable({
                         ) : null}
                         {j > 0 ? (
                           statsEngine === "bayesian" ? (
-                            !metricsAsGuardrails ? (
-                              <ChanceToWinColumn
-                                stats={stats}
-                                baseline={baseline}
-                                rowResults={rowResults}
-                                showRisk={true}
-                                showSuspicious={true}
-                                showPercentComplete={false}
-                                showTimeRemaining={false}
-                                className={clsx(
-                                  "text-right results-pval",
-                                  resultsHighlightClassname
-                                )}
-                                onPointerMove={onPointerMove}
-                                onPointerLeave={onPointerLeave}
-                                onClick={onPointerMove}
-                              />
-                            ) : (
-                              <GuardrailResult
-                                stats={stats}
-                                enoughData={rowResults.enoughData}
-                                className={clsx(
-                                  "text-right",
-                                  resultsHighlightClassname,
-                                  {
-                                    hover: isHovered,
-                                  }
-                                )}
-                                onPointerMove={onPointerMove}
-                                onPointerLeave={onPointerLeave}
-                                onClick={onPointerMove}
-                              />
-                            )
-                          ) : !metricsAsGuardrails ? (
+                            <ChanceToWinColumn
+                              stats={stats}
+                              baseline={baseline}
+                              rowResults={rowResults}
+                              showRisk={true}
+                              showSuspicious={true}
+                              showPercentComplete={false}
+                              showTimeRemaining={false}
+                              showGuardrailWarning={metricsAsGuardrails}
+                              className={clsx(
+                                "text-right results-pval",
+                                resultsHighlightClassname
+                              )}
+                              onPointerMove={onPointerMove}
+                              onPointerLeave={onPointerLeave}
+                              onClick={onPointerMove}
+                            />
+                          ) : (
                             <PValueColumn
                               stats={stats}
                               baseline={baseline}
@@ -720,25 +663,10 @@ export default function ResultsTable({
                               showPercentComplete={false}
                               showTimeRemaining={false}
                               showUnadjustedPValue={showAdvanced}
+                              showGuardrailWarning={metricsAsGuardrails}
                               className={clsx(
                                 "text-right results-pval",
                                 resultsHighlightClassname
-                              )}
-                              onPointerMove={onPointerMove}
-                              onPointerLeave={onPointerLeave}
-                              onClick={onPointerMove}
-                            />
-                          ) : (
-                            <PValueGuardrailResults
-                              stats={stats}
-                              metric={row.metric}
-                              enoughData={rowResults.enoughData}
-                              className={clsx(
-                                "text-right",
-                                resultsHighlightClassname,
-                                {
-                                  hover: isHovered,
-                                }
                               )}
                               onPointerMove={onPointerMove}
                               onPointerLeave={onPointerLeave}
@@ -764,7 +692,6 @@ export default function ResultsTable({
                               graphWidth={graphCellWidth}
                               height={32}
                               newUi={true}
-                              rowResults={rowResults}
                               isHovered={isHovered}
                               onPointerMove={(e) =>
                                 onPointerMove(e, {

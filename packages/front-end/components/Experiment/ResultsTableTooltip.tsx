@@ -8,17 +8,12 @@ import clsx from "clsx";
 import {
   FaArrowDown,
   FaArrowUp,
-  FaCheck,
-  FaExclamation,
-  FaExclamationTriangle,
-  FaQuestion,
 } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
 import {
-  isExpectedDirection,
   pValueFormatter,
   RowResults,
 } from "@/services/experiments";
@@ -28,12 +23,6 @@ import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
 import { formatConversionRate } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import { capitalizeFirstLetter } from "@/services/utils";
-import {
-  DANGER_CUTOFF,
-  getGuardrailStatus,
-  WARNING_CUTOFF,
-} from "@/components/Experiment/GuardrailResult";
-import { getPValueGuardrailStatus } from "@/components/Experiment/PValueGuardrailResult";
 
 export const TOOLTIP_WIDTH = 400;
 export const TOOLTIP_HEIGHT = 400; // Used for over/under layout calculation. Actual height may vary.
@@ -99,46 +88,14 @@ export default function ResultsTableTooltip({
           data.rowResults.resultsStatus !== "lost",
         data.rowResults.suspiciousChange,
       ]
-    : [!data.rowResults.enoughData];
+    : [
+        !data.rowResults.enoughData,
+        data.rowResults.riskMeta.showRisk &&
+        ["warning", "danger"].includes(data.rowResults.riskMeta.riskStatus) &&
+        data.rowResults.resultsStatus !== "lost",
+        data.rowResults.guardrailWarning,
+      ];
   const hasFlaggedItems = flags.some((flag) => flag);
-
-  const guardrailChance = 1 - (data.stats.chanceToWin ?? 1); // bayesian only
-  const expectedDirection = isExpectedDirection(data.stats, data.metric);
-  const guardrailStatus: "ok" | "warning" | "danger" | "non-significant" =
-    data.statsEngine === "bayesian"
-      ? getGuardrailStatus(guardrailChance)
-      : getPValueGuardrailStatus(
-          expectedDirection,
-          data.rowResults.significantUnadjusted
-        );
-  const guardrailReason =
-    data.statsEngine === "bayesian"
-      ? guardrailChance >= 0 && guardrailChance < WARNING_CUTOFF
-        ? `The chance of this variation being worse than the baseline (${percentFormatter.format(
-            guardrailChance
-          )}) is within acceptable limits (<${percentFormatter.format(
-            WARNING_CUTOFF
-          )}).`
-        : guardrailChance >= WARNING_CUTOFF && guardrailChance < DANGER_CUTOFF
-        ? `The chance of this variation being worse than the baseline (${percentFormatter.format(
-            guardrailChance
-          )}) is exceeds the warning threshold (${percentFormatter.format(
-            WARNING_CUTOFF
-          )}).`
-        : guardrailChance >= DANGER_CUTOFF
-        ? `The chance of this variation being worse than the baseline (${percentFormatter.format(
-            guardrailChance
-          )}) is exceeds the danger threshold (${percentFormatter.format(
-            DANGER_CUTOFF
-          )}).`
-        : `Not enough information to determine if this variation is worse than the baseline.`
-      : expectedDirection && data.rowResults.significantUnadjusted
-      ? `The variation is moving in the expected direction and the results are statistically significant.`
-      : !expectedDirection && !data.rowResults.significantUnadjusted
-      ? `The variation appears to be moving in the expected direction. However, the results are not statistically significant.`
-      : !expectedDirection && data.rowResults.significantUnadjusted
-      ? `The variation is not moving in the expected direction and the results are statistically significant.`
-      : `The results are not statistically significant.`;
 
   const metricInverseIconDisplay = data.metric.inverse ? (
     <Tooltip
@@ -265,25 +222,19 @@ export default function ResultsTableTooltip({
           <div
             className={clsx(
               "results-overview mt-1 px-3 pb-2 rounded position-relative",
-              { [data.rowResults.resultsStatus]: !data.isGuardrail }
+              data.rowResults.resultsStatus,
+              // { [data.rowResults.resultsStatus]: !data.isGuardrail }
             )}
             style={{ paddingTop: 12 }}
           >
-            {(!data.isGuardrail &&
-              ["won", "lost", "draw"].includes(
-                data.rowResults.resultsStatus
-              )) ||
-            !data.rowResults.significant ||
-            (data.isGuardrail && data.rowResults.enoughData) ? (
+            {["won", "lost", "draw"].includes(data.rowResults.resultsStatus) || !data.rowResults.significant ? (
               <div
                 className={clsx(
                   "results-status position-absolute d-flex align-items-center",
-                  !data.isGuardrail
-                    ? data.rowResults.resultsStatus
-                    : guardrailStatus,
+                  data.rowResults.resultsStatus,
                   {
                     "non-significant":
-                      !data.isGuardrail && !data.rowResults.significant,
+                      !data.rowResults.significant,
                   }
                 )}
               >
@@ -291,11 +242,10 @@ export default function ResultsTableTooltip({
                   body={
                     <>
                       <p className="mb-0">
-                        {!data.isGuardrail
-                          ? data.rowResults.significant
-                            ? data.rowResults.resultsReason
-                            : data.rowResults.significantReason
-                          : guardrailReason}
+                        {data.rowResults.significant
+                          ? data.rowResults.resultsReason
+                          : data.rowResults.significantReason
+                        }
                       </p>
                       {data.statsEngine === "frequentist" &&
                       data.pValueCorrection ? (
@@ -309,28 +259,12 @@ export default function ResultsTableTooltip({
                   tipMinWidth={"250px"}
                   className="cursor-pointer"
                 >
-                  {data.isGuardrail ? (
-                    <span>
-                      {guardrailStatus === "ok" && <FaCheck className="mr-1" />}
-                      {guardrailStatus === "warning" && (
-                        <FaExclamationTriangle className="mr-1" />
-                      )}
-                      {guardrailStatus === "danger" && (
-                        <FaExclamation className="mr-1" />
-                      )}
-                      {guardrailStatus === "non-significant" && (
-                        <FaQuestion className="mr-1" />
-                      )}
-                    </span>
-                  ) : (
-                    <></>
-                  )}
                   <span style={{ marginRight: 12 }}>
-                    {!data.isGuardrail
-                      ? data.rowResults.significant
-                        ? capitalizeFirstLetter(data.rowResults.resultsStatus)
-                        : "Not significant"
-                      : capitalizeFirstLetter(guardrailStatus)}
+                    {
+                      data.rowResults.significant
+                      ? capitalizeFirstLetter(data.rowResults.resultsStatus)
+                      : "Not significant"
+                    }
                   </span>
                   <RxInfoCircled
                     className="position-absolute"
@@ -353,7 +287,7 @@ export default function ResultsTableTooltip({
                 })}
               >
                 <span className="expectedArrows">
-                  {data.rowResults.directionalStatus === "winning" ||
+                  {(data.rowResults.directionalStatus === "winning" && !data.metric.inverse) ||
                   (data.rowResults.directionalStatus === "losing" &&
                     data.metric.inverse) ? (
                     <FaArrowUp />
@@ -385,9 +319,7 @@ export default function ResultsTableTooltip({
             <div
               className={clsx(
                 "results-ci d-flex mt-1",
-                !data.isGuardrail
-                  ? data.rowResults.resultsStatus
-                  : guardrailStatus
+                data.rowResults.resultsStatus
               )}
             >
               <div className="label mr-2">
@@ -406,7 +338,6 @@ export default function ResultsTableTooltip({
               </div>
             </div>
 
-            {!data.isGuardrail ? (
               <div
                 className={clsx(
                   "results-chance d-flex mt-1",
@@ -429,27 +360,6 @@ export default function ResultsTableTooltip({
                     : pValText}
                 </div>
               </div>
-            ) : (
-              <div
-                className={clsx("results-chance d-flex mt-1", guardrailStatus)}
-              >
-                <div className="label mr-2">
-                  {data.statsEngine === "bayesian"
-                    ? "Chance of Being Worse:"
-                    : "P-Value:"}
-                </div>
-                <div
-                  className={clsx("value", {
-                    "font-weight-bold": data.rowResults.enoughData,
-                    opacity50: !data.rowResults.enoughData,
-                  })}
-                >
-                  {data.statsEngine === "bayesian"
-                    ? percentFormatter.format(1 - (data.stats.chanceToWin ?? 1))
-                    : pValueFormatter(data.stats.pValue ?? 1)}
-                </div>
-              </div>
-            )}
 
             {hasFlaggedItems ? (
               <div
@@ -472,8 +382,7 @@ export default function ResultsTableTooltip({
                   </Tooltip>
                 ) : null}
 
-                {!data.isGuardrail &&
-                data.rowResults.riskMeta.showRisk &&
+                {data.rowResults.riskMeta.showRisk &&
                 ["warning", "danger"].includes(
                   data.rowResults.riskMeta.riskStatus
                 ) &&
@@ -506,7 +415,7 @@ export default function ResultsTableTooltip({
                   </Tooltip>
                 ) : null}
 
-                {!data.isGuardrail && data.rowResults.suspiciousChange ? (
+                {!data?.isGuardrail && data.rowResults.suspiciousChange ? (
                   <Tooltip
                     className="cursor-pointer"
                     body={data.rowResults.suspiciousChangeReason}
@@ -521,6 +430,30 @@ export default function ResultsTableTooltip({
                     </div>
                   </Tooltip>
                 ) : null}
+
+                {!!data.rowResults.guardrailWarning ? (
+                  <Tooltip
+                    className="cursor-pointer"
+                    body={data.rowResults.guardrailWarning}
+                  >
+                    <div
+                      className={clsx(
+                        "flagged d-flex border rounded p-1 flagged-guardrail-warning warning",
+                      )}
+                    >
+                      <HiOutlineExclamationCircle size={18} className="mr-1" />
+                      <div className="guardrail-warning">
+                        <div
+                          className="risk-value"
+                          style={{ fontSize: "11px", lineHeight: "14px" }}
+                        >
+                          bad guardrail<br />trend
+                        </div>
+                      </div>
+                    </div>
+                  </Tooltip>
+                ) : null}
+
               </div>
             ) : null}
           </div>
