@@ -718,12 +718,12 @@ export function getRowResults({
     if (_shouldHighlight && (stats.chanceToWin ?? 0) > ciUpper) {
       resultsReason = `Significant win as the chance to win is above the ${percentFormatter.format(
         ciUpper
-      )} threshold`;
+      )} threshold and the change is in the desired direction.`;
       resultsStatus = "won";
     } else if (_shouldHighlight && (stats.chanceToWin ?? 0) < ciLower) {
       resultsReason = `Significant loss as the chance to win is below the ${percentFormatter.format(
         ciLower
-      )} threshold`;
+      )} threshold and the change is not in the desired direction.`;
       resultsStatus = "lost";
     }
     if (

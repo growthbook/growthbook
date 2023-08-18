@@ -52,7 +52,7 @@ export default function PercentChangeColumn({
                 <FaArrowDown />
               )}
             </span>{" "}
-            <span className="expected bold">
+            <span className="expected">
               {parseFloat(((stats.expected ?? 0) * 100).toFixed(1)) + "%"}{" "}
             </span>
             {statsEngine === "frequentist" && showCI ? (
