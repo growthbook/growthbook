@@ -10,6 +10,7 @@ import {
   Permission,
   Role,
   ProjectScopedPermission,
+  UserPermissions,
 } from "back-end/types/organization";
 import type { AccountPlan, CommercialFeature, LicenseData } from "enterprise";
 import { SSOConnectionInterface } from "back-end/types/sso-connection";
@@ -42,6 +43,7 @@ type OrgSettingsResponse = {
   accountPlan: AccountPlan;
   commercialFeatures: CommercialFeature[];
   licenseKey?: string;
+  currentUser: { userId: string; userPermissions: UserPermissions };
 };
 
 export interface PermissionFunctions {
@@ -108,6 +110,7 @@ interface UserResponse {
   admin: boolean;
   organizations?: UserOrganizations;
   license?: LicenseData;
+  currentUser: { userId: string; userPermissions: UserPermissions };
 }
 
 export const UserContext = createContext<UserContextValue>({
@@ -181,10 +184,23 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     const members = currentOrg?.members;
     if (!members) return userMap;
     members.forEach((member) => {
-      userMap.set(member.id, member);
+      userMap.set(member.id, {
+        ...member,
+        userPermissions:
+          currentOrg?.currentUser.userId === member.id
+            ? currentOrg?.currentUser.userPermissions
+            : {
+                global: {
+                  environments: [],
+                  limitAccessByEnvironment: false,
+                  permissions: {},
+                },
+                projects: {},
+              },
+      });
     });
     return userMap;
-  }, [currentOrg?.members]);
+  }, [currentOrg?.currentUser, currentOrg?.members]);
 
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   let user = users.get(data?.userId);
@@ -220,7 +236,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   for (const permission in permissionsObj) {
     permissionsObj[permission] =
-      user?.userPermissions.global.permissions[permission] || false;
+      user?.userPermissions?.global.permissions[permission] || false;
   }
 
   // Update current user data for telemetry data

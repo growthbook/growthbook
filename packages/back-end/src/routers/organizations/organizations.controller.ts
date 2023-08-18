@@ -577,6 +577,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     });
   }
 
+  if (!req.userId) {
+    throw new Error("Must be logged in");
+  }
+
   const { org } = getOrgFromReq(req);
   const {
     invites,
@@ -620,17 +624,16 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     const memberInfo = members.find((m) => m.id === id);
     if (!memberInfo) return;
 
-    const userPermissions = getUserPermissions(id, org);
-
     return expandedMembers.push({
       email,
       verified,
       name: name || "",
       ...memberInfo,
       dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
-      userPermissions,
     });
   });
+
+  const currentUserPermissions = getUserPermissions(req.userId, org);
 
   return res.status(200).json({
     status: 200,
@@ -642,6 +645,10 @@ export async function getOrganization(req: AuthRequest, res: Response) {
       : [...accountFeatures[getAccountPlan(org)]],
     roles: getRoles(org),
     members: expandedMembers,
+    currentUser: {
+      userPermissions: currentUserPermissions,
+      userId: req.userId,
+    },
     organization: {
       invites,
       ownerEmail,
