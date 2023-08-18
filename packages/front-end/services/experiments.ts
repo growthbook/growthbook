@@ -758,8 +758,13 @@ export function getRowResults({
   }
 
   let guardrailWarning = "";
-  if (isGuardrail && directionalStatus === "losing" && resultsStatus !== "lost") {
-    guardrailWarning = "Uplift for this guardrail metric may be in the undesired direction";
+  if (
+    isGuardrail &&
+    directionalStatus === "losing" &&
+    resultsStatus !== "lost"
+  ) {
+    guardrailWarning =
+      "Uplift for this guardrail metric may be in the undesired direction.";
   }
 
   return {

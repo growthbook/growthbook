@@ -48,14 +48,15 @@ export default function PValueColumn({
         <div>
           {stats?.pValueAdjusted ? pValueFormatter(stats.pValueAdjusted) : ""}
         </div>
-        <div className="small text-muted">(unadj.:&nbsp;{pValText})</div>
+        <div className="text-muted">(unadj.:&nbsp;{pValText})</div>
       </>
     ) : (
       <>{stats?.pValueAdjusted ? pValueFormatter(stats.pValueAdjusted) : ""}</>
     );
   }
 
-  const shouldRenderRisk = showRisk &&
+  const shouldRenderRisk =
+    showRisk &&
     rowResults.riskMeta.showRisk &&
     ["warning", "danger"].includes(rowResults.riskMeta.riskStatus) &&
     rowResults.resultsStatus !== "lost";
@@ -88,11 +89,9 @@ export default function PValueColumn({
             </span>
           ) : null}
           {showGuardrailWarning &&
-          rowResults.guardrailWarning && !shouldRenderRisk ? (
-            <span
-              className="warning"
-              style={{ fontSize: 14, marginLeft: 1 }}
-            >
+          rowResults.guardrailWarning &&
+          !shouldRenderRisk ? (
+            <span className="warning" style={{ fontSize: 14, marginLeft: 1 }}>
               <HiOutlineExclamationCircle />
             </span>
           ) : null}

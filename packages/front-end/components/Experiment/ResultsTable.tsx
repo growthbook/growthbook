@@ -562,14 +562,9 @@ export default function ResultsTable({
                     const isHovered =
                       hoveredMetricRow === i && hoveredVariationRow === j;
 
-                    // todo: move highlight state to getRowResults()
-                    const resultsStatusClassname = !rowResults.significant
-                      ? ""
-                      : rowResults.resultsStatus;
                     const resultsHighlightClassname = clsx(
-                      resultsStatusClassname,
+                      rowResults.resultsStatus,
                       {
-                        significant: rowResults.significant,
                         "non-significant": !rowResults.significant,
                         hover: isHovered,
                       }
@@ -657,7 +652,11 @@ export default function ResultsTable({
                               stats={stats}
                               baseline={baseline}
                               rowResults={rowResults}
-                              pValueCorrection={pValueCorrection}
+                              pValueCorrection={
+                                !metricsAsGuardrails
+                                  ? pValueCorrection
+                                  : undefined
+                              }
                               showRisk={true}
                               showSuspicious={true}
                               showPercentComplete={false}
@@ -708,7 +707,7 @@ export default function ResultsTable({
                                 })
                               }
                               className={resultsHighlightClassname}
-                              rowStatus={resultsStatusClassname}
+                              rowStatus={rowResults.resultsStatus}
                             />
                           ) : (
                             <AlignedGraph

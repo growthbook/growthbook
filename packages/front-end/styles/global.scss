@@ -369,19 +369,16 @@ pre {
       //}
     }
     .results-flagged-items {
+      .flagged {
+        .flag-icon {
+          margin: 0 2px 0 -3px;
+        }
+      }
       .flagged-not-enough-data {
         .main-text {
           color: #17a2b8;
         }
         border-color: #17a2b888 !important;
-      }
-      .time-remaining {
-        margin-left: 4px;
-        line-height: 12px;
-      }
-      .percent-complete {
-        margin-left: 4px;
-        line-height: 12px;
       }
       .ok {
         color: #55ab95;
@@ -411,7 +408,6 @@ pre {
     }
     td,
     th {
-      font-size: 11px;
       padding: 0.15rem 0.35rem;
     }
     thead {
@@ -479,6 +475,17 @@ pre {
   .variation {
     font-size: 12px;
   }
+  .chance {
+    .ok {
+      color: #55ab95;
+    }
+    .warning {
+      color: #d99132;
+    }
+    .danger {
+      color: #d94032;
+    }
+  }
   .results-change {
     font-size: 12px;
     .change {
@@ -486,11 +493,10 @@ pre {
       line-height: 10px;
     }
     .ci {
-      line-height: 12px;
-      font-size: 10px;
+      font-weight: normal;
     }
   }
-  &.draw,
+  .draw,
   .non-significant {
     font-weight: normal;
     color: #707070;
@@ -498,27 +504,24 @@ pre {
       color: #888888;
     }
   }
-  .significant {
-    font-weight: bold;
-    &.won {
-      color: #09ac17;
-      &.hover {
-        color: #11ce21;
-      }
+  .won {
+    color: #09ac17;
+    &.hover {
+      color: #11ce21;
     }
-    &.lost {
-      color: #ce3729;
-      &.hover {
-        color: #ee1500;
-      }
-    }
-    //&.draw {
-    //  color: #8e51f1;
-    //  &.hover {
-    //    color: #7c2cfa;
-    //  }
-    //}
   }
+  .lost {
+    color: #ce3729;
+    &.hover {
+      color: #ee1500;
+    }
+  }
+  //&.draw {
+  //  color: #8e51f1;
+  //  &.hover {
+  //    color: #7c2cfa;
+  //  }
+  //}
   .suspicious {
     color: #ef2bd5;
   }

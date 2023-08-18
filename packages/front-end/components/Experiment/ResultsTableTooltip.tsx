@@ -5,18 +5,12 @@ import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { BsXCircle, BsHourglassSplit } from "react-icons/bs";
 import clsx from "clsx";
-import {
-  FaArrowDown,
-  FaArrowUp,
-} from "react-icons/fa";
+import { FaArrowDown, FaArrowUp } from "react-icons/fa";
 import { HiOutlineExclamationCircle } from "react-icons/hi";
 import { RxInfoCircled } from "react-icons/rx";
 import { MdSwapCalls } from "react-icons/md";
 import NotEnoughData from "@/components/Experiment/NotEnoughData";
-import {
-  pValueFormatter,
-  RowResults,
-} from "@/services/experiments";
+import { pValueFormatter, RowResults } from "@/services/experiments";
 import { GBSuspicious } from "@/components/Icons";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricValueColumn from "@/components/Experiment/MetricValueColumn";
@@ -36,6 +30,10 @@ export type TooltipHoverSettings = {
 export type LayoutX = "element-center" | "element-left" | "element-right";
 export type YAlign = "top" | "bottom";
 
+const numberFormatter = Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
@@ -91,8 +89,8 @@ export default function ResultsTableTooltip({
     : [
         !data.rowResults.enoughData,
         data.rowResults.riskMeta.showRisk &&
-        ["warning", "danger"].includes(data.rowResults.riskMeta.riskStatus) &&
-        data.rowResults.resultsStatus !== "lost",
+          ["warning", "danger"].includes(data.rowResults.riskMeta.riskStatus) &&
+          data.rowResults.resultsStatus !== "lost",
         data.rowResults.guardrailWarning,
       ];
   const hasFlaggedItems = flags.some((flag) => flag);
@@ -114,7 +112,11 @@ export default function ResultsTableTooltip({
         : ""}
     </>
   );
-  if (data.stats?.pValueAdjusted !== undefined && data.pValueCorrection) {
+  if (
+    data.stats?.pValueAdjusted !== undefined &&
+    data.pValueCorrection &&
+    !data.isGuardrail
+  ) {
     pValText = (
       <>
         <div>
@@ -122,7 +124,9 @@ export default function ResultsTableTooltip({
             ? pValueFormatter(data.stats.pValueAdjusted)
             : ""}
         </div>
-        <div className="small text-muted">(unadj.:&nbsp;{pValText})</div>
+        <div className="text-muted font-weight-normal">
+          (unadj.:&nbsp;{pValText})
+        </div>
       </>
     );
   }
@@ -222,19 +226,18 @@ export default function ResultsTableTooltip({
           <div
             className={clsx(
               "results-overview mt-1 px-3 pb-2 rounded position-relative",
-              data.rowResults.resultsStatus,
-              // { [data.rowResults.resultsStatus]: !data.isGuardrail }
+              data.rowResults.resultsStatus
             )}
             style={{ paddingTop: 12 }}
           >
-            {["won", "lost", "draw"].includes(data.rowResults.resultsStatus) || !data.rowResults.significant ? (
+            {["won", "lost", "draw"].includes(data.rowResults.resultsStatus) ||
+            !data.rowResults.significant ? (
               <div
                 className={clsx(
                   "results-status position-absolute d-flex align-items-center",
                   data.rowResults.resultsStatus,
                   {
-                    "non-significant":
-                      !data.rowResults.significant,
+                    "non-significant": !data.rowResults.significant,
                   }
                 )}
               >
@@ -244,11 +247,11 @@ export default function ResultsTableTooltip({
                       <p className="mb-0">
                         {data.rowResults.significant
                           ? data.rowResults.resultsReason
-                          : data.rowResults.significantReason
-                        }
+                          : data.rowResults.significantReason}
                       </p>
                       {data.statsEngine === "frequentist" &&
-                      data.pValueCorrection ? (
+                      data.pValueCorrection &&
+                      !data.isGuardrail ? (
                         <p className="mt-2 mb-0">
                           Note that p-values have been corrected using the{" "}
                           {data.pValueCorrection} method.
@@ -260,11 +263,9 @@ export default function ResultsTableTooltip({
                   className="cursor-pointer"
                 >
                   <span style={{ marginRight: 12 }}>
-                    {
-                      data.rowResults.significant
+                    {data.rowResults.significant
                       ? capitalizeFirstLetter(data.rowResults.resultsStatus)
-                      : "Not significant"
-                    }
+                      : "Not significant"}
                   </span>
                   <RxInfoCircled
                     className="position-absolute"
@@ -282,12 +283,15 @@ export default function ResultsTableTooltip({
               <div className="label mr-2">% Change:</div>
               <div
                 className={clsx("value", {
-                  "font-weight-bold": data.rowResults.enoughData,
+                  "font-weight-bold": !data.isGuardrail
+                    ? data.rowResults.significant
+                    : data.rowResults.significantUnadjusted,
                   opacity50: !data.rowResults.enoughData,
                 })}
               >
                 <span className="expectedArrows">
-                  {(data.rowResults.directionalStatus === "winning" && !data.metric.inverse) ||
+                  {(data.rowResults.directionalStatus === "winning" &&
+                    !data.metric.inverse) ||
                   (data.rowResults.directionalStatus === "losing" &&
                     data.metric.inverse) ? (
                     <FaArrowUp />
@@ -329,7 +333,9 @@ export default function ResultsTableTooltip({
               </div>
               <div
                 className={clsx("value nowrap", {
-                  "font-weight-bold": data.rowResults.enoughData,
+                  "font-weight-bold": !data.isGuardrail
+                    ? data.rowResults.significant
+                    : data.rowResults.significantUnadjusted,
                   opacity50: !data.rowResults.enoughData,
                 })}
               >
@@ -338,28 +344,30 @@ export default function ResultsTableTooltip({
               </div>
             </div>
 
-              <div
-                className={clsx(
-                  "results-chance d-flex mt-1",
-                  data.rowResults.resultsStatus
-                )}
-              >
-                <div className="label mr-2">
-                  {data.statsEngine === "bayesian"
-                    ? "Chance to Win:"
-                    : "P-Value:"}
-                </div>
-                <div
-                  className={clsx("value", {
-                    "font-weight-bold": data.rowResults.enoughData,
-                    opacity50: !data.rowResults.enoughData,
-                  })}
-                >
-                  {data.statsEngine === "bayesian"
-                    ? percentFormatter.format(data.stats.chanceToWin ?? 0)
-                    : pValText}
-                </div>
+            <div
+              className={clsx(
+                "results-chance d-flex mt-1",
+                data.rowResults.resultsStatus
+              )}
+            >
+              <div className="label mr-2">
+                {data.statsEngine === "bayesian"
+                  ? "Chance to Win:"
+                  : "P-Value:"}
               </div>
+              <div
+                className={clsx("value", {
+                  "font-weight-bold": !data.isGuardrail
+                    ? data.rowResults.significant
+                    : data.rowResults.significantUnadjusted,
+                  opacity50: !data.rowResults.enoughData,
+                })}
+              >
+                {data.statsEngine === "bayesian"
+                  ? percentFormatter.format(data.stats.chanceToWin ?? 0)
+                  : pValText}
+              </div>
+            </div>
 
             {hasFlaggedItems ? (
               <div
@@ -372,11 +380,15 @@ export default function ResultsTableTooltip({
                     body={data.rowResults.enoughDataMeta.reason}
                   >
                     <div className="flagged d-flex border rounded p-1 flagged-not-enough-data">
-                      <BsHourglassSplit size={15} className="mr-1 text-info" />
+                      <BsHourglassSplit
+                        size={15}
+                        className="flag-icon text-info"
+                      />
                       <NotEnoughData
                         rowResults={data.rowResults}
                         showTimeRemaining={true}
                         showPercentComplete={true}
+                        noStyle={true}
                       />
                     </div>
                   </Tooltip>
@@ -397,16 +409,16 @@ export default function ResultsTableTooltip({
                         data.rowResults.riskMeta.riskStatus
                       )}
                     >
-                      <HiOutlineExclamationCircle size={18} className="mr-1" />
+                      <HiOutlineExclamationCircle
+                        size={18}
+                        className="flag-icon"
+                      />
                       <div className="risk">
-                        <div
-                          className="risk-value"
-                          style={{ fontSize: "11px", lineHeight: "14px" }}
-                        >
+                        <div className="risk-value">
                           risk: {data.rowResults.riskMeta.relativeRiskFormatted}
                         </div>
                         {data.rowResults.riskMeta.riskFormatted ? (
-                          <div className="small text-muted risk-relative">
+                          <div className="text-muted risk-relative">
                             {data.rowResults.riskMeta.riskFormatted}
                           </div>
                         ) : null}
@@ -421,39 +433,38 @@ export default function ResultsTableTooltip({
                     body={data.rowResults.suspiciousChangeReason}
                   >
                     <div className="flagged d-flex border rounded p-1 flagged-suspicious suspicious">
-                      <GBSuspicious size={18} className="mr-1" />
+                      <GBSuspicious size={18} className="flag-icon" />
                       <div className="suspicious-reason">
-                        <div style={{ fontSize: "11px", lineHeight: "14px" }}>
-                          suspicious
-                        </div>
+                        <div>suspicious</div>
                       </div>
                     </div>
                   </Tooltip>
                 ) : null}
 
-                {!!data.rowResults.guardrailWarning ? (
+                {data.rowResults.guardrailWarning ? (
                   <Tooltip
                     className="cursor-pointer"
                     body={data.rowResults.guardrailWarning}
                   >
                     <div
                       className={clsx(
-                        "flagged d-flex border rounded p-1 flagged-guardrail-warning warning",
+                        "flagged d-flex border rounded p-1 flagged-guardrail-warning warning"
                       )}
                     >
-                      <HiOutlineExclamationCircle size={18} className="mr-1" />
+                      <HiOutlineExclamationCircle
+                        size={18}
+                        className="flag-icon"
+                      />
                       <div className="guardrail-warning">
-                        <div
-                          className="risk-value"
-                          style={{ fontSize: "11px", lineHeight: "14px" }}
-                        >
-                          bad guardrail<br />trend
+                        <div className="risk-value">
+                          bad guardrail
+                          <br />
+                          trend
                         </div>
                       </div>
                     </div>
                   </Tooltip>
                 ) : null}
-
               </div>
             ) : null}
           </div>
@@ -494,7 +505,7 @@ export default function ResultsTableTooltip({
                           </span>
                         </div>
                       </td>
-                      <td>{row.users}</td>
+                      <td>{numberFormatter.format(row.users)}</td>
                       <MetricValueColumn
                         metric={data.metric}
                         stats={row}

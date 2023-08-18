@@ -8,7 +8,7 @@ import { GBSuspicious } from "@/components/Icons";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
-  maximumFractionDigits: 2,
+  maximumFractionDigits: 1,
 });
 
 interface Props
@@ -38,7 +38,8 @@ export default function ChanceToWinColumn({
   className,
   ...otherProps
 }: Props) {
-  const shouldRenderRisk = showRisk &&
+  const shouldRenderRisk =
+    showRisk &&
     rowResults.riskMeta.showRisk &&
     ["warning", "danger"].includes(rowResults.riskMeta.riskStatus) &&
     rowResults.resultsStatus !== "lost";
@@ -70,11 +71,9 @@ export default function ChanceToWinColumn({
             </span>
           ) : null}
           {showGuardrailWarning &&
-          rowResults.guardrailWarning && !shouldRenderRisk ? (
-            <span
-              className="warning"
-              style={{ fontSize: 14, marginLeft: 1 }}
-            >
+          rowResults.guardrailWarning &&
+          !shouldRenderRisk ? (
+            <span className="warning" style={{ fontSize: 14, marginLeft: 1 }}>
               <HiOutlineExclamationCircle />
             </span>
           ) : null}

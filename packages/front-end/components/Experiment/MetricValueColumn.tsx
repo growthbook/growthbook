@@ -4,7 +4,10 @@ import { CSSProperties, DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { formatConversionRate } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 
-const numberFormatter = new Intl.NumberFormat();
+const numberFormatter = Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
 
 interface Props
   extends DetailedHTMLProps<
@@ -39,32 +42,30 @@ export default function MetricValueColumn({
             {formatConversionRate(metric?.type, stats.cr, displayCurrency)}
           </div>
           {showRatio ? (
-            <div className="result-number-sub">
-              <small className="text-muted">
-                <em
+            <div className="result-number-sub text-muted">
+              <em
+                style={{
+                  display: "inline-block",
+                  lineHeight: "1.2em",
+                  marginTop: "0.2em",
+                }}
+              >
+                <span
                   style={{
-                    display: "inline-block",
-                    lineHeight: "1.3em",
-                    marginTop: "0.2em",
+                    whiteSpace: "nowrap",
                   }}
                 >
-                  <span
-                    style={{
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {formatConversionRate(
-                      metric.type === "binomial" ? "count" : metric.type,
-                      stats.value,
-                      displayCurrency
-                    )}
-                  </span>{" "}
-                  /&nbsp;
-                  {numberFormatter.format(
-                    stats.denominator || stats.users || users
+                  {formatConversionRate(
+                    metric.type === "binomial" ? "count" : metric.type,
+                    stats.value,
+                    displayCurrency
                   )}
-                </em>
-              </small>
+                </span>{" "}
+                /&nbsp;
+                {numberFormatter.format(
+                  stats.denominator || stats.users || users
+                )}
+              </em>
             </div>
           ) : null}
         </>
