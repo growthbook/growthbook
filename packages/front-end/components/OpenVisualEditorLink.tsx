@@ -83,6 +83,7 @@ const OpenVisualEditorLink: FC<{
   const [errorType, setErrorType] = useState<VisualEditorError | null>(null);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasRequestedExtension, setHasRequestedExtension] = useState(false);
 
   const isChromeBrowser = useMemo(() => {
     const ua = navigator.userAgent;
@@ -134,6 +135,7 @@ const OpenVisualEditorLink: FC<{
           },
           window.location.origin
         );
+        setHasRequestedExtension(true);
 
         if (options?.bypass) {
           setIsLoading(false);
@@ -170,7 +172,10 @@ const OpenVisualEditorLink: FC<{
     const onMessage = (
       event: MessageEvent<{ type?: "GB_RESPONSE_OPEN_VISUAL_EDITOR" } | null>
     ) => {
-      if (event.data?.type === "GB_RESPONSE_OPEN_VISUAL_EDITOR") {
+      if (
+        hasRequestedExtension &&
+        event.data?.type === "GB_RESPONSE_OPEN_VISUAL_EDITOR"
+      ) {
         track("Open visual editor", {
           source: "visual-editor-ui",
           status: "success",
@@ -183,7 +188,7 @@ const OpenVisualEditorLink: FC<{
     window.addEventListener("message", onMessage);
 
     return () => window.removeEventListener("message", onMessage);
-  }, [url]);
+  }, [url, hasRequestedExtension]);
 
   // automatically navigate to newly created changesets
   useEffect(() => {
