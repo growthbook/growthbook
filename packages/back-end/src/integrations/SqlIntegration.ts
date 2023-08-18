@@ -166,12 +166,6 @@ export default abstract class SqlIntegration
   convertDate(fromDB: any): Date {
     return getValidDate(fromDB);
   }
-  stddev(col: string) {
-    return `STDDEV(${col})`;
-  }
-  avg(col: string) {
-    return `AVG(${this.ensureFloat(col)})`;
-  }
   formatDate(col: string): string {
     return col;
   }
@@ -189,9 +183,6 @@ export default abstract class SqlIntegration
   }
   castUserDateCol(column: string): string {
     return column;
-  }
-  useAliasInGroupBy(): boolean {
-    return true;
   }
   formatDateTimeString(col: string): string {
     return this.castToString(col);
@@ -278,9 +269,7 @@ export default abstract class SqlIntegration
               ${replaceSQLVars(q.query, { startDate: params.from })}
             ) e${i}
           WHERE
-            ${this.castUserDateCol("timestamp")} > ${this.toTimestamp(
-            params.from
-          )}
+            timestamp > ${this.toTimestamp(params.from)}
           GROUP BY
             experiment_id,
             variation_id,
@@ -339,7 +328,10 @@ export default abstract class SqlIntegration
       __variations
     WHERE
       -- Skip experiments at start of date range since it's likely missing data
-      ${this.dateDiff(this.toTimestamp(params.from), "start_date")} > 2
+      ${this.dateDiff(
+        this.castUserDateCol(this.toTimestamp(params.from)),
+        "start_date"
+      )} > 2
     ORDER BY
       experiment_id ASC, variation_id ASC`,
       this.getFormatDialect()
@@ -1907,7 +1899,8 @@ export default abstract class SqlIntegration
       }
     }
 
-    const timestampCol = this.castUserDateCol(cols.timestamp);
+    // BQ datetime cast for SELECT statements (do not use for where)
+    const timestampDateTimeColumn = this.castUserDateCol(cols.timestamp);
 
     const schema = this.getSchema();
 
@@ -1921,24 +1914,27 @@ export default abstract class SqlIntegration
     }
     // Add a rough date filter to improve query performance
     if (startDate) {
-      where.push(`${timestampCol} >= ${this.toTimestamp(startDate)}`);
+      where.push(`${cols.timestamp} >= ${this.toTimestamp(startDate)}`);
     }
     // endDate is now meaningful if ignoreConversionEnd
     if (endDate) {
-      where.push(`${timestampCol} <= ${this.toTimestamp(endDate)}`);
+      where.push(`${cols.timestamp} <= ${this.toTimestamp(endDate)}`);
     }
 
     return `-- Metric (${metric.name})
       SELECT
         ${userIdCol} as ${baseIdType},
         ${cols.value} as value,
-        ${timestampCol} as timestamp,
-        ${this.addHours(timestampCol, conversionDelayHours)} as conversion_start
+        ${timestampDateTimeColumn} as timestamp,
+        ${this.addHours(
+          timestampDateTimeColumn,
+          conversionDelayHours
+        )} as conversion_start
         ${
           ignoreConversionEnd
             ? ""
             : `, ${this.addHours(
-                timestampCol,
+                timestampDateTimeColumn,
                 conversionDelayHours + conversionWindowHours
               )} as conversion_end`
         }
@@ -2180,7 +2176,7 @@ export default abstract class SqlIntegration
       }
     }
     if (settings?.queries?.pageviewsQuery) {
-      const timestampColumn = this.castUserDateCol("i.timestamp");
+      const timestampColumn = "i.timestamp";
 
       if (
         ["user_id", "anonymous_id"].includes(id1) &&

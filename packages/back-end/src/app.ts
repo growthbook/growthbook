@@ -94,6 +94,7 @@ import { projectRouter } from "./routers/project/project.router";
 import verifyLicenseMiddleware from "./services/auth/verifyLicenseMiddleware";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
+import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 
 const app = express();
@@ -456,6 +457,8 @@ app.use("/sdk-connections", sdkConnectionRouter);
 
 app.use("/projects", projectRouter);
 
+app.use("/demo-datasource-project", demoDatasourceProjectRouter);
+
 // Features
 app.get("/feature", featuresController.getFeatures);
 app.get("/feature/:id", featuresController.getFeatureById);
@@ -556,7 +559,6 @@ app.post("/file/upload/:filetype", discussionsController.postImageUploadUrl);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
-app.post("/admin/organization/:id/populate", adminController.addSampleData);
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {

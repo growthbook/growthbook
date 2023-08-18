@@ -62,7 +62,7 @@ export type LDListFeatureFlagsResponse = {
       _id: string;
       value: unknown; // maps to `kind`
     }[];
-    _maintainer: {
+    _maintainer?: {
       email: string;
       firstName: string;
       lastName: string;
@@ -99,7 +99,7 @@ export const transformLDFeatureFlagToGBFeature = (
 >[] => {
   return data.items.map(
     ({
-      _maintainer: { email, firstName, lastName },
+      _maintainer,
       environments,
       key,
       kind,
@@ -121,6 +121,10 @@ export const transformLDFeatureFlagToGBFeature = (
         };
       });
 
+      const owner = _maintainer
+        ? `${_maintainer.firstName} ${_maintainer.lastName} (${_maintainer.email})`
+        : "(unknown - imported from LaunchDarkly)";
+
       return {
         environmentSettings: gbEnvironments,
         defaultValue:
@@ -130,7 +134,7 @@ export const transformLDFeatureFlagToGBFeature = (
         project,
         id: key,
         description: description || name,
-        owner: `${firstName} ${lastName} (${email})`,
+        owner,
         tags,
         // todo: get valueType a bit better
         valueType: kind === "boolean" ? "boolean" : "string",
