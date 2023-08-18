@@ -7,6 +7,7 @@ import { getValidDate } from "shared/dates";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { orgHasPremiumFeature } from "enterprise";
+import { v4 as uuidv4 } from "uuid";
 import { AuthRequest, ResponseWithStatusAndError } from "../types/AuthRequest";
 import {
   createManualSnapshot,
@@ -1318,6 +1319,8 @@ export async function postExperimentTargeting(
     trackingKey,
     variationWeights,
     seed,
+    newPhase,
+    reseed,
   } = req.body;
 
   const changes: Changeset = {};
@@ -1342,8 +1345,8 @@ export async function postExperimentTargeting(
 
   const phases = [...experiment.phases];
 
-  // Already has phases
-  if (phases.length) {
+  // Already has phases and we're updating an existing phase
+  if (phases.length && !newPhase) {
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       condition,
@@ -1353,6 +1356,11 @@ export async function postExperimentTargeting(
       seed,
     };
   } else {
+    // If we had a previous phase, mark it as ended
+    if (phases.length) {
+      phases[phases.length - 1].dateEnded = new Date();
+    }
+
     phases.push({
       condition,
       coverage,
@@ -1361,7 +1369,7 @@ export async function postExperimentTargeting(
       namespace,
       reason: "",
       variationWeights,
-      seed,
+      seed: phases.length && reseed ? uuidv4() : seed,
     });
   }
   changes.phases = phases;
