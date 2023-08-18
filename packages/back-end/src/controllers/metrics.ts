@@ -271,11 +271,13 @@ export async function getMetric(
 }
 
 export async function getMetricsFromTrackedEvents(
-  req: AuthRequest<null, { datasourceId: string }>,
+  req: AuthRequest<null, { datasourceId: string; schema: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { datasourceId } = req.params;
+  const { datasourceId, schema } = req.params;
+
+  console.log("schema", schema);
 
   const dataSourceObj = await getDataSourceById(datasourceId, org.id);
   if (!dataSourceObj) {
@@ -309,7 +311,8 @@ export async function getMetricsFromTrackedEvents(
 
     const trackedEvents: TrackedEventData[] = await integration.getEventsTrackedByDatasource(
       integration.settings.schemaFormat,
-      existingMetrics
+      existingMetrics,
+      schema
     );
 
     if (!trackedEvents.length) {
@@ -321,6 +324,7 @@ export async function getMetricsFromTrackedEvents(
       trackedEvents,
     });
   } catch (e) {
+    console.log("e", e);
     res.status(200).json({
       status: 200,
       trackedEvents: [],
