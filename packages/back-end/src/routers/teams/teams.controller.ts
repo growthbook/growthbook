@@ -5,8 +5,13 @@ import {
   deleteTeam,
   findTeamById,
   getTeamsForOrganization,
+  updateTeamMetadata,
 } from "../../models/TeamModel";
-import { auditDetailsCreate } from "../../services/audit";
+import {
+  auditDetailsCreate,
+  auditDetailsDelete,
+  auditDetailsUpdate,
+} from "../../services/audit";
 import {
   expandOrgMembers,
   getOrgFromReq,
@@ -39,14 +44,14 @@ export const postTeam = async (
   req: CreateTeamRequest,
   res: Response<CreateTeamResponse>
 ) => {
-  const { org } = getOrgFromReq(req);
-  const { name, createdBy, description, permissions } = req.body;
+  const { org, userName } = getOrgFromReq(req);
+  const { name, description, permissions } = req.body;
 
   req.checkPermissions("manageTeam");
 
   const team = await createTeam({
     name,
-    createdBy,
+    createdBy: userName,
     description,
     organization: org.id,
     ...permissions,
@@ -77,6 +82,12 @@ type GetTeamsResponse = {
   teams: TeamInterface[];
 };
 
+/**
+ * GET /teams
+ * Get all the teams for the authenticated user's organization
+ * @param req
+ * @param res
+ */
 export const getTeams = async (
   req: AuthRequest,
   res: Response<GetTeamsResponse>
@@ -95,10 +106,6 @@ export const getTeams = async (
 
 // endregion GET /teams
 
-type TeamRequest = AuthRequest<{
-  id: string;
-}>;
-
 // region GET /teams/:id
 
 type GetTeamResponse = {
@@ -107,12 +114,18 @@ type GetTeamResponse = {
   message?: string;
 };
 
+/**
+ * GET /teams/:id
+ * Get team document for the given id
+ * @param req
+ * @param res
+ */
 export const getTeamById = async (
-  req: TeamRequest,
+  req: AuthRequest<null, { id: string }>,
   res: Response<GetTeamResponse>
 ) => {
   const { org } = getOrgFromReq(req);
-  const { id } = req.body;
+  const { id } = req.params;
 
   req.checkPermissions("manageTeam");
 
@@ -140,24 +153,81 @@ export const getTeamById = async (
 
 // region PUT /teams/:id
 
-// TODO: Implement team updates
+type PutTeamRequest = AuthRequest<
+  {
+    name: string;
+    createdBy: string;
+    description: string;
+    permissions: MemberRoleWithProjects;
+  },
+  { id: string }
+>;
+
+type PutTeamResponse = {
+  status: 200;
+};
+
+/**
+ * PUT /teams/:id
+ * Update team document for the given id
+ * @param req
+ * @param res
+ */
+export const updateTeam = async (
+  req: PutTeamRequest,
+  res: Response<PutTeamResponse>
+) => {
+  const { org } = getOrgFromReq(req);
+  const { name, description, permissions } = req.body;
+  const { id } = req.params;
+
+  req.checkPermissions("manageTeam");
+
+  const team = await findTeamById(id, org.id);
+
+  const changes = await updateTeamMetadata(id, org.id, {
+    name,
+    description,
+    projectRoles: [],
+    ...permissions,
+  });
+
+  await req.audit({
+    event: "team.update",
+    entity: {
+      object: "team",
+      id: id,
+      name: name,
+    },
+    details: auditDetailsUpdate(team, changes),
+  });
+
+  return res.status(200).json({
+    status: 200,
+  });
+};
 
 // endregion PUT /teams/:id
 
 // region DELETE /teams/:id
 
 /**
+ * DELETE /teams/:id
  * Delete team document for given id and remove team id from teams array for any
  * members of the team.
+ * @param req
+ * @param res
  */
 export const deleteTeamById = async (
-  req: TeamRequest,
+  req: AuthRequest<null, { id: string }>,
   res: Response<{ status: 200 }>
 ) => {
   const { org } = getOrgFromReq(req);
-  const { id } = req.body;
+  const { id } = req.params;
 
   req.checkPermissions("manageTeam");
+
+  const team = await findTeamById(id, org.id);
 
   const members = org.members.filter((member) => member.teams?.includes(id));
 
@@ -174,6 +244,15 @@ export const deleteTeamById = async (
 
   // Delete the team
   await deleteTeam(id, org.id);
+
+  await req.audit({
+    event: "team.delete",
+    entity: {
+      object: "team",
+      id,
+    },
+    details: auditDetailsDelete(team),
+  });
 
   return res.status(200).json({
     status: 200,

@@ -8,7 +8,7 @@ export interface TeamInterface {
   dateUpdated: Date;
   createdBy: string;
   description: string;
-  globalRole: string;
+  role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
   projectRoles: ProjectMemberRole[];

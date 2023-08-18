@@ -20,17 +20,26 @@ router.post(
     body: z
       .object({
         name: z.string(),
-        createdBy: z.string(),
         description: z.string(),
         permissions: PermissionZodObject.extend({
           projectRoles: PermissionZodObject.extend({
             project: z.string(),
-          }),
+          }).array(),
         }),
       })
       .strict(),
   }),
   teamController.postTeam
 );
+
+// TODO: add zod validation for these routes
+
+router.get("/:id", teamController.getTeamById);
+
+router.delete("/:id", teamController.deleteTeamById);
+
+router.get("/", teamController.getTeams);
+
+router.put("/:id", teamController.updateTeam);
 
 export { router as teamRouter };
