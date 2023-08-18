@@ -2274,7 +2274,7 @@ export async function findOrCreateVisualEditorToken(
     visualEditorKey = await createUserVisualEditorApiKey({
       userId: req.userId,
       organizationId: org.id,
-      description: `Created on ${new Date().toISOString()}`,
+      description: `Created automatically for the Visual Editor`,
     });
   }
 
