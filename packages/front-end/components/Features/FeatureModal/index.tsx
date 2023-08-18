@@ -6,13 +6,13 @@ import {
 } from "back-end/types/feature";
 import dJSON from "dirty-json";
 import { ReactElement, useState } from "react";
+import { validateFeatureValue } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
   getDefaultValue,
-  validateFeatureValue,
   useEnvironments,
   genDuplicatedKey,
 } from "@/services/features";
