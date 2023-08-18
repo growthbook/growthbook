@@ -559,7 +559,6 @@ app.post("/file/upload/:filetype", discussionsController.postImageUploadUrl);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
-app.post("/admin/organization/:id/populate", adminController.addSampleData);
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {
