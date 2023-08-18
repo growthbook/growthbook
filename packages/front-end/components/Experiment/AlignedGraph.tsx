@@ -98,7 +98,7 @@ const AlignedGraph: FC<Props> = ({
     barType = "pill";
   }
 
-  const barThickness = 16;
+  const barThickness = newUi ? 20 : 16;
 
   const tickLabelColor = axisColor;
   const tickLabelProps = () =>
@@ -324,7 +324,7 @@ const AlignedGraph: FC<Props> = ({
                             width={xScale(ci?.[1] ?? 0) - xScale(ci?.[0] ?? 0)}
                             height={barThickness}
                             fill={barFill}
-                            rx={8}
+                            rx={newUi ? 10 : 8}
                           />
                         )}
                         <Line

@@ -7,6 +7,8 @@ import {
   getAffectedEnvsForExperiment,
   includeExperimentInPayload,
 } from "shared/util";
+import { BsChatSquareQuote } from "react-icons/bs";
+import { FaCheck } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -27,6 +29,7 @@ import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useFeaturesList } from "@/services/features";
+import FeedbackModal from "@/components/FeedbackModal";
 
 const ExperimentPage = (): ReactElement => {
   const permissions = usePermissions();
@@ -56,6 +59,12 @@ const ExperimentPage = (): ReactElement => {
     "experiment-results-new-ui-v2",
     true
   );
+  const [showFeedbackBanner, setShowFeedbackBanner] = useLocalStorage<boolean>(
+    "experiment-results-new-ui-v2-feedback-banner",
+    true
+  );
+  const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
+
   const { features } = useFeaturesList(false);
 
   const { apiCall } = useAuth();
@@ -204,7 +213,7 @@ const ExperimentPage = (): ReactElement => {
           safeToEdit={safeToEdit}
         />
       )}
-      <div className="container-fluid">
+      <div className="container-fluid position-relative">
         <SnapshotProvider experiment={experiment}>
           {newUi ? (
             <TabbedPage
@@ -243,6 +252,57 @@ const ExperimentPage = (): ReactElement => {
             />
           )}
         </SnapshotProvider>
+
+        {newUi && showFeedbackBanner && (
+          <div
+            className="alert-secondary text-center position-sticky d-inline-block"
+            style={{
+              bottom: 0,
+              left: 0,
+              zIndex: 1000,
+              padding: "6px 20px",
+              borderRadius: "10px 10px 0 0",
+              boxShadow: "0.05rem -0.05 0.3rem rgba(0,0,0,.35)",
+            }}
+          >
+            <a
+              className="a"
+              role="button"
+              onClick={() => setShowFeedbackModal(true)}
+            >
+              <BsChatSquareQuote size="18" className="mr-1" />
+              Tell us about your experience with the new design
+            </a>
+            <a
+              className="small a ml-4"
+              role="button"
+              onClick={() => setShowFeedbackBanner(false)}
+            >
+              dismiss
+            </a>
+          </div>
+        )}
+        {newUi && (
+          <FeedbackModal
+            open={showFeedbackModal}
+            close={() => setShowFeedbackModal(false)}
+            submitCallback={() => setShowFeedbackBanner(false)}
+            header={
+              <>
+                <BsChatSquareQuote size="20" className="mr-2" />
+                Tell us your thoughts on the new experiment page design
+              </>
+            }
+            prompt="What could be improved? What did you like?"
+            cta="Send feedback"
+            sentCta={
+              <>
+                <FaCheck /> Sent
+              </>
+            }
+            source="experiment-page-feedback"
+          />
+        )}
       </div>
     </div>
   );
