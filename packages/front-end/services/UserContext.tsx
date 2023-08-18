@@ -189,14 +189,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         userPermissions:
           currentOrg?.currentUser.userId === member.id
             ? currentOrg?.currentUser.userPermissions
-            : {
-                global: {
-                  environments: [],
-                  limitAccessByEnvironment: false,
-                  permissions: {},
-                },
-                projects: {},
-              },
+            : undefined,
       });
     });
     return userMap;
@@ -214,14 +207,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       name: data.userName,
       role: data.admin ? "admin" : "readonly",
       projectRoles: [],
-      userPermissions: {
-        global: {
-          environments: [],
-          limitAccessByEnvironment: false,
-          permissions: {},
-        },
-        projects: {},
-      },
+      userPermissions: undefined,
     };
   }
 
