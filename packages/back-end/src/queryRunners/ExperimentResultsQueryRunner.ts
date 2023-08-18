@@ -91,22 +91,20 @@ export const startExperimentResultQueries = async (
 
   const queries: Queries = [];
 
+  const useUnitsTable =
+    (integration.getSourceProperties().supportsWritingTables &&
+      integration.settings.pipelineSettings?.allowWriting &&
+      !!integration.settings.pipelineSettings?.writeDataset) ??
+    false;
   let unitQuery: QueryPointer;
-  let useUnitsTable = false;
-  let unitsTableName: string;
+  const unitsTableFullName = `${integration.settings.pipelineSettings?.writeDataset}.growthbook_tmp_units_${queryParentId}`;
 
-  if (
-    integration.getSourceProperties().supportsWritingTables &&
-    integration.params.writeDataset
-  ) {
-    unitsTableName = `growthbook_tmp_units_${queryParentId}`;
-    useUnitsTable = true;
-
+  if (useUnitsTable) {
     const unitQueryParams: ExperimentUnitsQueryParams = {
       dimension: dimensionObj,
       segment: segmentObj,
       settings: snapshotSettings,
-      unitsTableName: unitsTableName,
+      unitsTableFullName: unitsTableFullName,
       includeIdJoins: true,
     };
     unitQuery = await startQuery(
@@ -136,7 +134,7 @@ export const startExperimentResultQueries = async (
       segment: segmentObj,
       settings: snapshotSettings,
       useUnitsTable: useUnitsTable,
-      unitsTableName: unitsTableName,
+      unitsTableFullName: unitsTableFullName,
     };
     const metricQuery = await startQuery(
       m.id,
@@ -147,7 +145,21 @@ export const startExperimentResultQueries = async (
     );
     queries.push(metricQuery);
   });
+
   await Promise.all(promises);
+  if (
+    useUnitsTable &&
+    integration.settings.pipelineSettings?.deleteTablesWhenCompleted
+  ) {
+    const dropUnitsTableQuery = await startQuery(
+      queryParentId.concat("_delete"),
+      integration.getDropTableQuery(unitsTableFullName),
+      queries.map((q) => q.query),
+      (query) => integration.runDropTableQuery(query),
+      (rows) => rows
+    );
+    queries.push(dropUnitsTableQuery);
+  }
 
   // TODO eventually also store query graph to help with front-end, or even
   // build it first and then have the queries start based on that

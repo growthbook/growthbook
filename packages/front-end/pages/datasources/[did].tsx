@@ -28,6 +28,7 @@ import Modal from "@/components/Modal";
 import SchemaBrowser from "@/components/SchemaBrowser/SchemaBrowser";
 import { GBCircleArrowLeft } from "@/components/Icons";
 import DataSourceMetrics from "@/components/Settings/EditDataSource/DataSourceMetrics";
+import DataSourcePipeline from "@/components/Settings/EditDataSource/DataSourcePipeline/DataSourcePipeline";
 
 function quotePropertyName(name: string) {
   if (name.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
@@ -316,6 +317,15 @@ mixpanel.init('YOUR PROJECT TOKEN', {
 
               <div className="my-3 p-3 rounded border bg-white">
                 <DataSourceJupyterNotebookQuery
+                  dataSource={d}
+                  onSave={updateDataSourceSettings}
+                  onCancel={() => undefined}
+                  canEdit={canEdit}
+                />
+              </div>
+
+              <div className="my-3 p-3 rounded border bg-white">
+                <DataSourcePipeline
                   dataSource={d}
                   onSave={updateDataSourceSettings}
                   onCancel={() => undefined}

@@ -77,6 +77,9 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
   getExperimentUnitsTableQuery(): string {
     throw new Error("Method not implemented.");
   }
+  getDropTableQuery(): string {
+    throw new Error("Method not implemented.");
+  }
   runExperimentUnitsQuery(): Promise<[]> {
     throw new Error("Method not implemented.");
   }
@@ -84,6 +87,9 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
     throw new Error("Method not implemented.");
   }
   runPastExperimentQuery(): Promise<PastExperimentResponse> {
+    throw new Error("Method not implemented.");
+  }
+  runDropTableQuery(): Promise<[]> {
     throw new Error("Method not implemented.");
   }
   getMetricValueQuery(params: MetricValueParams): string {

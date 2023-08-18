@@ -95,14 +95,14 @@ export type ExperimentMetricQueryParams = {
   dimension: Dimension | null;
   segment: SegmentInterface | null;
   useUnitsTable: boolean;
-  unitsTableName?: string;
+  unitsTableFullName?: string;
 };
 
 export type ExperimentUnitsQueryParams = {
   settings: ExperimentSnapshotSettings;
   dimension: Dimension | null;
   segment: SegmentInterface | null;
-  unitsTableName?: string;
+  unitsTableFullName?: string;
   includeIdJoins: boolean;
 };
 
@@ -319,6 +319,7 @@ export interface SourceIntegrationInterface {
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
+  getDropTableQuery(fullTableName: string): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
   runMetricValueQuery(query: string): Promise<MetricValueQueryResponse>;
   runExperimentMetricQuery(
@@ -326,6 +327,7 @@ export interface SourceIntegrationInterface {
   ): Promise<ExperimentMetricQueryResponse>;
   runExperimentUnitsQuery(query: string): Promise<[]>;
   runPastExperimentQuery(query: string): Promise<PastExperimentResponse>;
+  runDropTableQuery(query: string): Promise<[]>;
   getEventsTrackedByDatasource?: (
     schemaFormat: SchemaFormat,
     existingMetrics: MetricInterface[]

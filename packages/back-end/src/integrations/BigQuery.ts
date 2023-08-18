@@ -57,6 +57,7 @@ export default class BigQuery extends SqlIntegration {
   createUnitsTableOptions() {
     return `OPTIONS(expiration_timestamp=TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL 6 HOUR))`;
   }
+
   addTime(
     col: string,
     unit: "hour" | "minute",

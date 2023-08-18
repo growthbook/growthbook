@@ -355,7 +355,7 @@ export default abstract class SqlIntegration
   }
 
   getMetricValueQuery(params: MetricValueParams): string {
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentifiesCTE(
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
       [
         params.metric.userIdTypes || [],
         params.segment ? [params.segment.userIdType || "user_id"] : [],
@@ -524,6 +524,11 @@ export default abstract class SqlIntegration
     return [];
   }
 
+  async runDropTableQuery(query: string): Promise<[]> {
+    await this.runQuery(query);
+    return [];
+  }
+
   async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
     const rows = await this.runQuery(query);
 
@@ -570,7 +575,7 @@ export default abstract class SqlIntegration
     return { results, duration };
   }
 
-  private getIdentifiesCTE(
+  private getIdentitiesCTE(
     objects: string[][],
     from: Date,
     to?: Date,
@@ -792,7 +797,7 @@ export default abstract class SqlIntegration
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string {
     return format(
       `
-    CREATE OR REPLACE TABLE ${this.params.writeDataset}.${params.unitsTableName}
+    CREATE OR REPLACE TABLE ${params.unitsTableFullName}
     ${this.createUnitsTableOptions()}
     AS (
       WITH
@@ -802,6 +807,10 @@ export default abstract class SqlIntegration
     `,
       this.getFormatDialect()
     );
+  }
+
+  getDropTableQuery(fullTableName: string): string {
+    return format(`DROP TABLE ${fullTableName};`, this.getFormatDialect());
   }
 
   getExperimentUnitsQuery(params: ExperimentUnitsQueryParams): string {
@@ -828,7 +837,7 @@ export default abstract class SqlIntegration
     const exposureQuery = this.getExposureQuery(settings.exposureQueryId || "");
 
     // Get any required identity join queries
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentifiesCTE(
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
       [
         [exposureQuery.userIdType],
         dimension?.type === "user"
@@ -1039,7 +1048,7 @@ export default abstract class SqlIntegration
     );
 
     // Get any required identity join queries
-    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentifiesCTE(
+    const { baseIdType, idJoinMap, idJoinSQL } = this.getIdentitiesCTE(
       [
         [exposureQuery.userIdType],
         metric.userIdTypes || [],
@@ -1120,7 +1129,7 @@ export default abstract class SqlIntegration
           }    
         FROM ${
           params.useUnitsTable
-            ? `${this.params.writeDataset}.${params.unitsTableName}`
+            ? `${params.unitsTableFullName}`
             : "__experimentUnits"
         }
       )

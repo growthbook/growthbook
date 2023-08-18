@@ -63,7 +63,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
   runExperimentUnitsQuery(): Promise<[]> {
     throw new Error("Method not implemented.");
   }
-
+  getDropTableQuery(): string {
+    throw new Error("Method not implemented.");
+  }
+  runDropTableQuery(): Promise<[]> {
+    throw new Error("Method not implemented.");
+  }
   private getMetricAggregationExpression(metric: MetricInterface) {
     if (metric.aggregation) {
       return `${metric.aggregation}`;

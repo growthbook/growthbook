@@ -188,6 +188,11 @@ export type DataSourceSettings = {
     anonymousIdColumn?: string;
     userIdColumn?: string;
   };
+  pipelineSettings?: {
+    allowWriting?: boolean;
+    writeDataset?: string;
+    deleteTablesWhenCompleted?: boolean;
+  };
 };
 
 interface DataSourceBase {
