@@ -2,11 +2,16 @@ import type { Response } from "express";
 import { TeamInterface } from "../../../types/team";
 import {
   createTeam,
+  deleteTeam,
   findTeamById,
   getTeamsForOrganization,
 } from "../../models/TeamModel";
 import { auditDetailsCreate } from "../../services/audit";
-import { expandOrgMembers, getOrgFromReq } from "../../services/organizations";
+import {
+  expandOrgMembers,
+  getOrgFromReq,
+  removeMemberFromTeam,
+} from "../../services/organizations";
 import { AuthRequest } from "../../types/AuthRequest";
 import { MemberRoleWithProjects } from "../../../types/organization";
 
@@ -90,11 +95,11 @@ export const getTeams = async (
 
 // endregion GET /teams
 
-// region GET /teams/:id
-
-type GetTeamRequest = AuthRequest<{
+type TeamRequest = AuthRequest<{
   id: string;
 }>;
+
+// region GET /teams/:id
 
 type GetTeamResponse = {
   status: 200 | 404;
@@ -103,7 +108,7 @@ type GetTeamResponse = {
 };
 
 export const getTeamById = async (
-  req: GetTeamRequest,
+  req: TeamRequest,
   res: Response<GetTeamResponse>
 ) => {
   const { org } = getOrgFromReq(req);
@@ -134,3 +139,45 @@ export const getTeamById = async (
 // endregion GET /teams/:id
 
 // region PUT /teams/:id
+
+// TODO: Implement team updates
+
+// endregion PUT /teams/:id
+
+// region DELETE /teams/:id
+
+/**
+ * Delete team document for given id and remove team id from teams array for any
+ * members of the team.
+ */
+export const deleteTeamById = async (
+  req: TeamRequest,
+  res: Response<{ status: 200 }>
+) => {
+  const { org } = getOrgFromReq(req);
+  const { id } = req.body;
+
+  req.checkPermissions("manageTeam");
+
+  const members = org.members.filter((member) => member.teams?.includes(id));
+
+  // Remove members from team to be deleted
+  await Promise.all(
+    members.map((member) => {
+      return removeMemberFromTeam({
+        organization: org,
+        userId: member.id,
+        teamId: id,
+      });
+    })
+  );
+
+  // Delete the team
+  await deleteTeam(id, org.id);
+
+  return res.status(200).json({
+    status: 200,
+  });
+};
+
+// endregion DELETE /teams/:id

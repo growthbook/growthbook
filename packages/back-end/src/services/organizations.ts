@@ -283,7 +283,7 @@ export async function addMemberToTeam({
   organization: OrganizationInterface;
   userId: string;
   teamId: string;
-}) {
+}): Promise<void> {
   // If member is a pending member, skip
   if (organization?.pendingMembers?.find((m) => m.id === userId)) {
     return;
@@ -301,6 +301,29 @@ export async function addMemberToTeam({
     member.teams = [];
   }
   member.teams.push(teamId);
+
+  await updateOrganization(organization.id, { members: organization.members });
+}
+
+export async function removeMemberFromTeam({
+  organization,
+  userId,
+  teamId,
+}: {
+  organization: OrganizationInterface;
+  userId: string;
+  teamId: string;
+}): Promise<void> {
+  const member = organization.members.find((m) => m.id === userId);
+
+  // If member doesn't exist in the org or isn't in the team, skip
+  if (!member || !member.teams?.includes(teamId)) {
+    return;
+  }
+
+  const indexToDelete = member.teams.indexOf(teamId);
+
+  member.teams.splice(indexToDelete, indexToDelete);
 
   await updateOrganization(organization.id, { members: organization.members });
 }

@@ -72,7 +72,7 @@ export async function getTeamsForOrganization(
 export async function updateTeamMetadata(
   id: string,
   update: Partial<TeamInterface>
-) {
+): Promise<void> {
   await TeamModel.updateOne(
     {
       id,
@@ -81,4 +81,11 @@ export async function updateTeamMetadata(
       $set: omit(update, "members"),
     }
   );
+}
+
+export async function deleteTeam(id: string, orgId: string): Promise<void> {
+  await TeamModel.deleteOne({
+    id,
+    organization: orgId,
+  });
 }
