@@ -893,8 +893,6 @@ describe("experiments utils", () => {
 
         const result = putMetricApiPayloadToMetricInterface(input);
 
-        console.log("DEBUG result", result);
-
         expect(result.aggregation).toEqual("sum(values)");
         expect(result.conditions).toBe(undefined);
         expect(result.datasource).toBe(undefined);
