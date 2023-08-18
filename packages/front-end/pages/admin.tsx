@@ -1,16 +1,106 @@
 import { FC, useCallback, useEffect, useState } from "react";
 import { OrganizationInterface } from "back-end/types/organization";
 import clsx from "clsx";
-import { FaPlus, FaSearch } from "react-icons/fa";
+import { FaAngleDown, FaAngleRight, FaPlus, FaSearch } from "react-icons/fa";
 import { date } from "shared/dates";
+import stringify from "json-stringify-pretty-compact";
+import Collapsible from "react-collapsible";
 import Field from "@/components/Forms/Field";
 import Pagination from "@/components/Pagination";
 import { useUser } from "@/services/UserContext";
+import Code from "@/components/SyntaxHighlighting/Code";
 import LoadingOverlay from "../components/LoadingOverlay";
 import { useAuth } from "../services/auth";
 import CreateOrganization from "../components/CreateOrganization";
 
 const numberFormatter = new Intl.NumberFormat();
+
+function OrganizationRow({
+  organization,
+  current,
+  switchTo,
+}: {
+  organization: OrganizationInterface;
+  switchTo: (organization: OrganizationInterface) => void;
+  current: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  const { settings, members, ...otherAttributes } = organization;
+
+  return (
+    <>
+      <tr
+        className={clsx({
+          "table-warning": current,
+        })}
+      >
+        <td>
+          <a
+            className={clsx("mb-1 h5")}
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              switchTo(organization);
+            }}
+          >
+            {organization.name}
+          </a>
+        </td>
+        <td>{organization.ownerEmail}</td>
+        <td>{date(organization.dateCreated)}</td>
+        <td>
+          <small>{organization.id}</small>
+        </td>
+        <td style={{ width: 40 }} className="p-0 text-center">
+          <a
+            href="#"
+            className="d-block w-100 h-100"
+            onClick={(e) => {
+              e.preventDefault();
+              setExpanded(!expanded);
+            }}
+            style={{ fontSize: "1.2em", lineHeight: "40px" }}
+          >
+            {expanded ? <FaAngleDown /> : <FaAngleRight />}
+          </a>
+        </td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td colSpan={5} className="bg-light">
+            <div className="mb-3">
+              <h3>Info</h3>
+              <Code language="json" code={stringify(otherAttributes)} />
+            </div>
+            <div className="mb-3">
+              <Collapsible
+                trigger={
+                  <h3>
+                    Settings <FaAngleRight className="chevron" />
+                  </h3>
+                }
+                transitionTime={150}
+              >
+                <Code language="json" code={stringify(settings)} />
+              </Collapsible>
+            </div>
+            <Collapsible
+              trigger={
+                <h3>
+                  Members <FaAngleRight className="chevron" />
+                </h3>
+              }
+              transitionTime={150}
+            >
+              <Code language="json" code={stringify(members)} />
+            </Collapsible>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
 
 const Admin: FC = () => {
   const [page, setPage] = useState(1);
@@ -132,41 +222,24 @@ const Admin: FC = () => {
               <th>Owner</th>
               <th>Created</th>
               <th>Id</th>
-              <th>Actions</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {orgs.map((o) => (
-              <tr
+              <OrganizationRow
+                organization={o}
                 key={o.id}
-                className={clsx({
-                  "table-warning": orgId === o.id,
-                })}
-              >
-                <td>
-                  <a
-                    className={clsx("mb-1 h5")}
-                    href="#"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      if (setOrgId) {
-                        setOrgId(o.id);
-                      }
-                      if (setSpecialOrg) {
-                        setSpecialOrg(o);
-                      }
-                    }}
-                  >
-                    {o.name}
-                  </a>
-                </td>
-                <td>{o.ownerEmail}</td>
-                <td>{date(o.dateCreated)}</td>
-                <td>
-                  <small>{o.id}</small>
-                </td>
-                <td></td>
-              </tr>
+                current={o.id === orgId}
+                switchTo={(org) => {
+                  if (setOrgId) {
+                    setOrgId(org.id);
+                  }
+                  if (setSpecialOrg) {
+                    setSpecialOrg(org);
+                  }
+                }}
+              />
             ))}
           </tbody>
         </table>
