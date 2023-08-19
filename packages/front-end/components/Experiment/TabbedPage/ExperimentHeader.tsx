@@ -11,6 +11,7 @@ import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import clsx from "clsx";
 import { useAuth } from "@/services/auth";
 import { GBCircleArrowLeft } from "@/components/Icons";
 import WatchButton from "@/components/WatchButton";
@@ -26,6 +27,7 @@ import Dropdown from "@/components/Dropdown/Dropdown";
 import DropdownLink from "@/components/Dropdown/DropdownLink";
 import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useScrollPosition } from "@/hooks/useScrollPosition";
 import ResultsIndicator from "../ResultsIndicator";
 import { useSnapshot } from "../SnapshotProvider";
 import { StartExperimentBanner } from "../StartExperimentBanner";
@@ -100,6 +102,9 @@ export default function ExperimentHeader({
   const { apiCall } = useAuth();
   const router = useRouter();
   const permissions = usePermissions();
+  const { scrollY } = useScrollPosition();
+  const headerCondensed = scrollY > 70;
+  const headerPinned = scrollY > 90;
 
   const { phase, setPhase } = useSnapshot();
 
@@ -137,12 +142,10 @@ export default function ExperimentHeader({
 
   return (
     <div
-      className="bg-white px-3 pt-3 border-bottom"
-      style={{
-        marginLeft: -8,
-        marginRight: -8,
-        marginTop: -3,
-      }}
+      className={clsx("experiment-header bg-white px-3 pt-3 border-bottom", {
+        condensed: headerCondensed,
+        pinned: headerPinned,
+      })}
     >
       {startExperiment && experiment.status === "draft" && (
         <Modal
@@ -175,7 +178,7 @@ export default function ExperimentHeader({
           />
         </Modal>
       )}
-      <div className="container-fluid pagecontents">
+      <div className="container-fluid pagecontents position-relative">
         <div className="row align-items-top">
           <div className="col-auto">
             <div style={{ marginTop: -8, marginBottom: 8 }}>
@@ -200,7 +203,13 @@ export default function ExperimentHeader({
               editClassName="ml-1"
             >
               <OverflowText maxWidth={550} title={experiment.name}>
-                {experiment.name}
+                <a
+                  role="button"
+                  className="text-main hover-underline"
+                  onClick={() => setTab("setup")}
+                >
+                  {experiment.name}
+                </a>
               </OverflowText>
             </HeaderWithEdit>
           </div>
@@ -377,7 +386,20 @@ export default function ExperimentHeader({
             </MoreMenu>
           </div>
         </div>
-        <div className="row align-items-center">
+        <div className="row align-items-center header-tabs">
+          <OverflowText
+            className="experiment-title"
+            maxWidth={headerCondensed ? 550 : 0}
+            title={experiment.name}
+          >
+            <a
+              role="button"
+              className="text-main font-weight-bold hover-underline"
+              onClick={() => setTab("setup")}
+            >
+              {experiment.name}
+            </a>
+          </OverflowText>
           <div className="col-auto pt-2" id="experiment-page-tabs">
             <TabButtons className="mb-0 pb-0">
               <TabButton
