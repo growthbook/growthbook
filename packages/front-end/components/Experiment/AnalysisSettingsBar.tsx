@@ -192,7 +192,7 @@ export default function AnalysisSettingsBar({
 
   const { apiCall } = useAuth();
 
-  const status = getQueryStatus(latest?.queries || [], latest?.error);
+  const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
   const hasData = (analysis?.results?.[0]?.variations?.length ?? 0) > 0;
 
@@ -337,6 +337,22 @@ export default function AnalysisSettingsBar({
                 >
                   <div className="font-weight-bold" style={{ lineHeight: 1.2 }}>
                     last updated
+                    {status === "partially-succeeded" && (
+                      <Tooltip
+                        body={
+                          <span style={{ lineHeight: 1.5 }}>
+                            Some of the queries had an error. The partial
+                            results are displayed below.
+                          </span>
+                        }
+                      >
+                        <FaExclamationTriangle
+                          size={14}
+                          className="text-danger ml-1"
+                          style={{ marginTop: -4 }}
+                        />
+                      </Tooltip>
+                    )}
                   </div>
                   <div className="d-flex align-items-center">
                     <div
@@ -345,13 +361,6 @@ export default function AnalysisSettingsBar({
                     >
                       {ago(snapshot?.dateCreated ?? "")}
                     </div>
-                    {status === "partially-succeeded" && (
-                      <div>
-                        <Tooltip body="Some of the queries had an error. The partial results are displayed below">
-                          <FaExclamationTriangle className="text-danger ml-1" />
-                        </Tooltip>
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
@@ -483,28 +492,34 @@ export default function AnalysisSettingsBar({
                 <strong>Error updating data: </strong> {refreshError}
               </div>
             )}
-            <div className="row">
-              {latest && (status === "running" || status === "failed") && (
-                <div className="col-auto pb-3">
-                  <ViewAsyncQueriesButton
-                    queries={latest.queries.map((q) => q.query)}
-                    error={latest.error}
-                    color={clsx(
-                      {
-                        danger: status === "failed",
-                        info: status === "running",
-                      },
-                      " "
-                    )}
-                    display={
-                      status === "failed"
-                        ? "View Update Errors"
-                        : "View Running Queries"
-                    }
-                  />
+            {latest &&
+              (status === "running" ||
+                status === "failed" ||
+                status === "partially-succeeded") && (
+                <div className="row">
+                  <div className="flex-1" />
+                  <div className="col-auto pb-1">
+                    <ViewAsyncQueriesButton
+                      queries={latest.queries.map((q) => q.query)}
+                      error={latest.error}
+                      color={clsx(
+                        {
+                          danger:
+                            status === "failed" ||
+                            status === "partially-succeeded",
+                          info: status === "running",
+                        },
+                        " "
+                      )}
+                      display={
+                        status === "failed" || status === "partially-succeeded"
+                          ? "View Update Errors"
+                          : "View Running Queries"
+                      }
+                    />
+                  </div>
                 </div>
               )}
-            </div>
           </div>
         )}
     </div>

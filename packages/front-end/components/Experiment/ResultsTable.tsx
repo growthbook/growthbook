@@ -16,6 +16,7 @@ import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { getValidDate } from "shared/dates";
 import { useTooltip, useTooltipInPortal } from "@visx/tooltip";
+import { FaExclamationTriangle } from "react-icons/fa";
 import {
   ExperimentTableRow,
   getRowResults,
@@ -39,6 +40,7 @@ import ResultsTableTooltip, {
   LayoutX,
   YAlign,
 } from "@/components/Experiment/ResultsTableTooltip";
+import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "../Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
@@ -49,6 +51,7 @@ export type ResultsTableProps = {
   id: string;
   variations: ExperimentReportVariation[];
   status: ExperimentStatus;
+  queryStatusData?: QueryStatusData;
   isLatestPhase: boolean;
   startDate: string;
   rows: ExperimentTableRow[];
@@ -74,6 +77,7 @@ export default function ResultsTable({
   id,
   isLatestPhase,
   status,
+  queryStatusData,
   rows,
   metricsAsGuardrails = false,
   tableRowAxis,
@@ -128,8 +132,8 @@ export default function ResultsTable({
 
   const baselineRow = 0;
 
-  const rowsResults: (RowResults | null)[][] = useMemo(() => {
-    const rr: (RowResults | null)[][] = [];
+  const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
+    const rr: (RowResults | "query error" | null)[][] = [];
     rows.map((row, i) => {
       rr.push([]);
       const baseline = row.variations[baselineRow] || {
@@ -144,6 +148,10 @@ export default function ResultsTable({
         }
         if (skipVariation) {
           rr[i].push(null);
+          return;
+        }
+        if (queryStatusData?.failedNames?.includes(row.metric.id)) {
+          rr[i].push("query error");
           return;
         }
         const stats = row.variations[j] || {
@@ -188,6 +196,7 @@ export default function ResultsTable({
     isLatestPhase,
     status,
     displayCurrency,
+    queryStatusData,
   ]);
 
   const noMetrics = rows.length === 0;
@@ -295,6 +304,7 @@ export default function ResultsTable({
     const baselineVariation = variations[baselineRow];
     const rowResults = rowsResults[metricRow][variationRow];
     if (!rowResults) return;
+    if (rowResults === "query error") return;
     showTooltip({
       tooltipData: {
         metricRow,
@@ -558,6 +568,38 @@ export default function ResultsTable({
                     const rowResults = rowsResults?.[i]?.[j];
                     if (!rowResults) {
                       return null;
+                    }
+                    if (rowResults === "query error") {
+                      if (j > 1) {
+                        return null;
+                      } else {
+                        return (
+                          <tr
+                            className="results-variation-row align-items-center error-row"
+                            key={j}
+                          >
+                            <td colSpan={showAdvanced ? 4 : 2}>
+                              <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
+                                <FaExclamationTriangle className="mr-1" />
+                                Query error
+                              </div>
+                            </td>
+                            <td className="graph-cell">
+                              <AlignedGraph
+                                id={`${id}_axis`}
+                                domain={domain}
+                                significant={true}
+                                showAxis={false}
+                                axisOnly={true}
+                                graphWidth={graphCellWidth}
+                                height={35}
+                                newUi={true}
+                              />
+                            </td>
+                            <td />
+                          </tr>
+                        );
+                      }
                     }
                     const isHovered =
                       hoveredMetricRow === i && hoveredVariationRow === j;

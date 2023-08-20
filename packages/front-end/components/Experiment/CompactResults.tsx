@@ -17,6 +17,7 @@ import {
   useRiskVariation,
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
+import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
@@ -28,6 +29,7 @@ const CompactResults: FC<{
   variations: ExperimentReportVariation[];
   multipleExposures?: number;
   results: ExperimentReportResultDimension;
+  queryStatusData?: QueryStatusData;
   reportDate: Date;
   startDate: string;
   isLatestPhase: boolean;
@@ -44,14 +46,15 @@ const CompactResults: FC<{
   showAdvanced?: boolean;
   isTabActive: boolean;
 }> = ({
-  results,
+  editMetrics,
   variations,
   multipleExposures = 0,
-  editMetrics,
+  results,
+  queryStatusData,
   reportDate,
   startDate,
-  status,
   isLatestPhase,
+  status,
   metrics,
   metricOverrides,
   guardrails = [],
@@ -134,6 +137,7 @@ const CompactResults: FC<{
         isLatestPhase={isLatestPhase}
         startDate={startDate}
         status={status}
+        queryStatusData={queryStatusData}
         variations={variations}
         rows={rows.filter((r) => !r.isGuardrail)}
         id={id}
@@ -156,6 +160,7 @@ const CompactResults: FC<{
             isLatestPhase={isLatestPhase}
             startDate={startDate}
             status={status}
+            queryStatusData={queryStatusData}
             variations={variations}
             rows={rows.filter((r) => r.isGuardrail)}
             id={id}

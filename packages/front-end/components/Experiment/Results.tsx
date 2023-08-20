@@ -78,6 +78,8 @@ const Results: FC<{
     mutateSnapshot: mutate,
   } = useSnapshot();
 
+  const queryStatusData = getQueryStatus(latest?.queries || [], latest?.error);
+
   useEffect(() => {
     setPhase(experiment.phases.length - 1);
   }, [experiment.phases.length, setPhase]);
@@ -90,7 +92,7 @@ const Results: FC<{
     false
   );
 
-  const status = getQueryStatus(latest?.queries || [], latest?.error);
+  const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
   const hasData =
     (analysis?.results?.[0]?.variations?.length ?? 0) > 0 &&
@@ -303,6 +305,7 @@ const Results: FC<{
             variations={variations}
             multipleExposures={snapshot.multipleExposures || 0}
             results={analysis.results[0]}
+            queryStatusData={queryStatusData}
             reportDate={snapshot.dateCreated}
             startDate={phaseObj?.dateStarted ?? ""}
             isLatestPhase={phase === experiment.phases.length - 1}

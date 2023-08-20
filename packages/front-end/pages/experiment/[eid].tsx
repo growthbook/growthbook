@@ -255,14 +255,16 @@ const ExperimentPage = (): ReactElement => {
 
         {newUi && showFeedbackBanner && (
           <div
-            className="alert-secondary text-center position-sticky d-inline-block"
+            className="text-center position-sticky d-inline-block"
             style={{
-              bottom: 0,
+              bottom: -4,
               left: 0,
               zIndex: 1000,
-              padding: "6px 20px",
+              padding: "6px 20px 10px 20px",
+              border: "1px solid #66666616",
               borderRadius: "10px 10px 0 0",
-              boxShadow: "0.05rem -0.05 0.3rem rgba(0,0,0,.35)",
+              boxShadow: "1px -1px 4px 1px rgba(0,0,0,.05)",
+              background: "#ededfd",
             }}
           >
             <a
@@ -271,10 +273,11 @@ const ExperimentPage = (): ReactElement => {
               onClick={() => setShowFeedbackModal(true)}
             >
               <BsChatSquareQuote size="18" className="mr-1" />
-              Tell us about your experience with the new design
+              Tell us your thoughts about the new design
             </a>
             <a
-              className="small a ml-4"
+              className="small ml-4"
+              style={{ color: "#666" }}
               role="button"
               onClick={() => setShowFeedbackBanner(false)}
             >
@@ -290,7 +293,7 @@ const ExperimentPage = (): ReactElement => {
             header={
               <>
                 <BsChatSquareQuote size="20" className="mr-2" />
-                Tell us your thoughts on the new experiment page design
+                Tell us your thoughts about the new experiment page design
               </>
             }
             prompt="What could be improved? What did you like?"

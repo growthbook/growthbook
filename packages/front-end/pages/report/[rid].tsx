@@ -46,7 +46,7 @@ import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 export default function ReportPage() {
   const [newUi, setNewUi] = useLocalStorage<boolean>(
-    "experiment-results-new-ui-v1",
+    "experiment-results-new-ui-v2",
     true
   );
 
@@ -132,7 +132,7 @@ export default function ReportPage() {
 
   const datasource = getDatasourceById(report.args.datasource);
 
-  const status = getQueryStatus(report.queries || [], report.error);
+  const queryStatusData = getQueryStatus(report.queries || [], report.error);
 
   // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
   const hasData = report.results?.dimensions?.[0]?.variations?.length > 0;
@@ -319,7 +319,9 @@ export default function ReportPage() {
                   </div>
                 ) : null}
                 <div className="col-auto">
-                  {hasData && report.runStarted && status !== "running" ? (
+                  {hasData &&
+                  report.runStarted &&
+                  queryStatusData.status !== "running" ? (
                     <div
                       className="text-muted text-right"
                       style={{ width: 100, fontSize: "0.8em" }}
@@ -444,7 +446,7 @@ export default function ReportPage() {
               {!hasData &&
                 // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
                 !report.results.unknownVariations?.length &&
-                status !== "running" &&
+                queryStatusData.status !== "running" &&
                 report.args.metrics.length > 0 && (
                   <div className="alert alert-info">
                     No data yet.{" "}
@@ -549,6 +551,7 @@ export default function ReportPage() {
                           report.results?.multipleExposures || 0
                         }
                         results={report.results?.dimensions?.[0]}
+                        queryStatusData={queryStatusData}
                         reportDate={report.dateCreated}
                         startDate={getValidDate(
                           report.args.startDate

@@ -439,14 +439,14 @@ pre {
     z-index: 830;
     top: -20px;
     height: 121px;
-    margin: 0 -8px -3px;
+    margin: -4px -8px -3px;
     transition: 150ms all;
     .experiment-title {
       margin: 10px 0 0 0;
       transition: 150ms all;
     }
     &.pinned {
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
       overflow: hidden;
     }
     &.condensed {
@@ -556,6 +556,15 @@ pre {
   .visx-axis-left .visx-axis-line {
     // axis line has a 0.5 pixel offset. reverse it
     transform: translateY(-0.5px);
+  }
+}
+main.main.report {
+  .experiment-results {
+    th {
+      &.axis-col {
+        top: 50px;
+      }
+    }
   }
 }
 

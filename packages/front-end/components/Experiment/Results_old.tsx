@@ -88,7 +88,7 @@ const Results_old: FC<{
     return <div className="alert alert-danger m-3">{error.message}</div>;
   }
 
-  const status = getQueryStatus(latest?.queries || [], latest?.error);
+  const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
   const hasData =
     (analysis?.results?.[0]?.variations?.length ?? 0) > 0 &&

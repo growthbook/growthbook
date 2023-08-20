@@ -103,8 +103,8 @@ export default function ExperimentHeader({
   const router = useRouter();
   const permissions = usePermissions();
   const { scrollY } = useScrollPosition();
-  const headerCondensed = scrollY > 70;
-  const headerPinned = scrollY > 90;
+  const headerCondensed = scrollY > 60;
+  const headerPinned = scrollY > 80;
 
   const { phase, setPhase } = useSnapshot();
 
