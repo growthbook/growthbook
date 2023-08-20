@@ -43,6 +43,7 @@ import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import { GBCuped } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import { useCurrency } from "@/hooks/useCurrency";
+import ConfirmModal from "@/components/ConfirmModal";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -188,24 +189,32 @@ const MetricForm: FC<MetricFormProps> = ({
   const [showAdvanced, setShowAdvanced] = useState(advanced);
   const [hideTags, setHideTags] = useState(!current?.tags?.length);
   const [sqlOpen, setSqlOpen] = useState(false);
+
   const currentDatasource = current?.datasource
     ? getDatasourceById(current?.datasource)
     : null;
+
+  const currentDefaultSql =
+    currentDatasource && current.type && current.name
+      ? getInitialMetricQuery(currentDatasource, current.type, current.name)[1]
+      : null;
+
   // Only set the default to true for new metrics with no sql or an edited or
   // duplicated one where the sql matches the default.
   const [allowAutomaticSqlReset, setAllowAutomaticSqlReset] = useState(
-    !current ||
-      !current?.sql ||
-      (currentDatasource &&
-        current.type &&
-        current.name &&
-        current?.sql ===
-          getInitialMetricQuery(
-            currentDatasource,
-            current.type,
-            current.name
-          )[1])
+    !current || !current?.sql || current?.sql === currentDefaultSql
   );
+
+  // Keeps track if the queryFormat is "builder" because it is the default, or
+  // if it is "builder" because the user manually changed it to that.
+  const [usingDefaultQueryFormat, setUsingDefaultQueryFormat] = useState(
+    !current?.queryFormat && !current?.sql
+  );
+
+  const [
+    showSqlResetConfirmationModal,
+    setShowSqlResetConfirmationModal,
+  ] = useState(false);
 
   const displayCurrency = useCurrency();
 
@@ -426,11 +435,17 @@ const MetricForm: FC<MetricFormProps> = ({
     : "";
 
   const resetSqlToDefault = (datasource, type, name) => {
-    if (datasource?.properties?.queryLanguage === "sql" && datasource) {
+    if (datasource && datasource.properties?.queryLanguage === "sql") {
       const [userTypes, sql] = getInitialMetricQuery(datasource, type, name);
+      if (usingDefaultQueryFormat) {
+        // The default queryFormat for new sql queries should be "sql", but we
+        // won't change it later if they manually change it to "builder".
+        form.setValue("queryFormat", "sql");
+        setUsingDefaultQueryFormat(false);
+      }
       form.setValue("sql", sql);
       form.setValue("userIdTypes", userTypes);
-      form.setValue("queryFormat", "sql");
+
       // Now that sql is updated again to the default, we'll allow it to be
       // automatically reset again upon datasource/type/name change until
       // they make a new manual edit.
@@ -765,15 +780,31 @@ const MetricForm: FC<MetricFormProps> = ({
                           type="button"
                           onClick={(e) => {
                             e.preventDefault();
+                            setShowSqlResetConfirmationModal(true);
+                          }}
+                        >
+                          Reset to default SQL
+                        </button>
+                      )}
+                      {showSqlResetConfirmationModal && (
+                        <ConfirmModal
+                          title={"Reset to default SQL"}
+                          subtitle="This will reset your SQL and identifier types to the default template for your datasource and type. It can't be undone to return to your current sql."
+                          yesText="Reset"
+                          noText="Cancel"
+                          modalState={showSqlResetConfirmationModal}
+                          setModalState={(state) =>
+                            setShowSqlResetConfirmationModal(state)
+                          }
+                          onConfirm={async () => {
                             resetSqlToDefault(
                               selectedDataSource,
                               value.type,
                               value.name
                             );
+                            setShowSqlResetConfirmationModal(false);
                           }}
-                        >
-                          Reset to default SQL
-                        </button>
+                        />
                       )}
                     </div>
                   </div>
