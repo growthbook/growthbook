@@ -231,6 +231,8 @@ const ExperimentPage = (): ReactElement => {
               editPhase={editPhase}
               editTargeting={editTargeting}
               switchToOldDesign={() => setNewUi(false)}
+              showFeedbackBanner={showFeedbackBanner}
+              openFeedbackModal={() => setShowFeedbackModal(true)}
             />
           ) : (
             <SinglePage
@@ -249,63 +251,31 @@ const ExperimentPage = (): ReactElement => {
               editPhase={editPhase}
               editTargeting={editTargeting}
               switchToNewDesign={() => setNewUi(true)}
+              showFeedbackBanner={showFeedbackBanner}
+              openFeedbackModal={() => setShowFeedbackModal(true)}
             />
           )}
         </SnapshotProvider>
 
-        {newUi && showFeedbackBanner && (
-          <div
-            className="text-center position-sticky d-inline-block"
-            style={{
-              bottom: -4,
-              left: 0,
-              zIndex: 1000,
-              padding: "6px 20px 10px 20px",
-              border: "1px solid #66666616",
-              borderRadius: "10px 10px 0 0",
-              boxShadow: "1px -1px 4px 1px rgba(0,0,0,.05)",
-              background: "#ededfd",
-            }}
-          >
-            <a
-              className="a"
-              role="button"
-              onClick={() => setShowFeedbackModal(true)}
-            >
-              <BsChatSquareQuote size="18" className="mr-1" />
-              Tell us your thoughts about the new design
-            </a>
-            <a
-              className="small ml-4"
-              style={{ color: "#666" }}
-              role="button"
-              onClick={() => setShowFeedbackBanner(false)}
-            >
-              dismiss
-            </a>
-          </div>
-        )}
-        {newUi && (
-          <FeedbackModal
-            open={showFeedbackModal}
-            close={() => setShowFeedbackModal(false)}
-            submitCallback={() => setShowFeedbackBanner(false)}
-            header={
-              <>
-                <BsChatSquareQuote size="20" className="mr-2" />
-                Tell us your thoughts about the new experiment page design
-              </>
-            }
-            prompt="What could be improved? What did you like?"
-            cta="Send feedback"
-            sentCta={
-              <>
-                <FaCheck /> Sent
-              </>
-            }
-            source="experiment-page-feedback"
-          />
-        )}
+        <FeedbackModal
+          open={showFeedbackModal}
+          close={() => setShowFeedbackModal(false)}
+          submitCallback={() => setShowFeedbackBanner(false)}
+          header={
+            <>
+              <BsChatSquareQuote size="20" className="mr-2" />
+              Tell us your thoughts about the new experiment page design
+            </>
+          }
+          prompt="What could be improved? What did you like?"
+          cta="Send feedback"
+          sentCta={
+            <>
+              <FaCheck /> Sent
+            </>
+          }
+          source="experiment-page-feedback"
+        />
       </div>
     </div>
   );

@@ -1,7 +1,8 @@
-import React, { ReactElement, ReactNode } from "react";
+import { ReactElement, ReactNode, useRef, useState } from "react";
 import Field from "@/components/Forms/Field";
 import Modal from "@/components/Modal";
 import track from "@/services/track";
+import { useUser } from "@/services/UserContext";
 
 interface Props {
   open: boolean;
@@ -28,11 +29,12 @@ export default function FeedbackModal({
   children = null,
   source = "feedback",
 }: Props) {
-  const formRef = React.useRef<HTMLFormElement>(null);
-  const [formState, setFormState] = React.useState<"initial" | "submitted">(
+  const formRef = useRef<HTMLFormElement>(null);
+  const [formState, setFormState] = useState<"initial" | "submitted">(
     "initial"
   );
   const ctaEnabled = formState === "initial";
+  const { email } = useUser();
 
   return (
     <Modal
@@ -65,7 +67,13 @@ export default function FeedbackModal({
             />
           ) : null}
           {followUpEmail ? (
-            <Field label="Email (optional)" name="email" type="email" />
+            <Field
+              label="Email (optional)"
+              helpText="We may reach out to you with follow up questions. (We promise not to spam you)"
+              name="email"
+              type="email"
+              defaultValue={email}
+            />
           ) : null}
           {children}
         </>

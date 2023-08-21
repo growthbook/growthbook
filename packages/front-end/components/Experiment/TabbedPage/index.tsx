@@ -53,6 +53,8 @@ export interface Props {
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
   switchToOldDesign?: () => void;
+  showFeedbackBanner?: boolean;
+  openFeedbackModal?: () => void;
 }
 
 export default function TabbedPage({
@@ -70,6 +72,8 @@ export default function TabbedPage({
   editMetrics,
   editResult,
   switchToOldDesign,
+  showFeedbackBanner,
+  openFeedbackModal,
 }: Props) {
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
@@ -236,6 +240,8 @@ export default function TabbedPage({
         newPhase={newPhase}
         editPhases={editPhases}
         switchToOldDesign={switchToOldDesign}
+        showFeedbackBanner={showFeedbackBanner}
+        openFeedbackModal={openFeedbackModal}
       />
       <div className="container pagecontents pb-4">
         {experiment.status === "stopped" && (

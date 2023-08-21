@@ -6,7 +6,7 @@ import Link from "next/link";
 import { FaChartBar, FaHome, FaUndo, FaUsers } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { date, daysBetween } from "shared/dates";
 import { MdRocketLaunch } from "react-icons/md";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
@@ -35,6 +35,7 @@ import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import OverflowText from "./OverflowText";
 import StopExperimentButton from "./StopExperimentButton";
 import { ExperimentTab, LinkedFeature } from ".";
+import {BsChatSquareQuote} from "react-icons/bs";
 
 export interface Props {
   tab: ExperimentTab;
@@ -56,6 +57,8 @@ export interface Props {
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
   switchToOldDesign?: () => void;
+  showFeedbackBanner?: boolean;
+  openFeedbackModal?: () => void;
 }
 
 const shortNumberFormatter = Intl.NumberFormat("en-US", {
@@ -99,6 +102,8 @@ export default function ExperimentHeader({
   newPhase,
   editPhases,
   switchToOldDesign,
+  showFeedbackBanner,
+  openFeedbackModal,
 }: Props) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -207,24 +212,41 @@ export default function ExperimentHeader({
             </HeaderWithEdit>
           </div>
 
-          {switchToOldDesign ? (
-            <div className="ml-auto mr-auto">
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  switchToOldDesign();
-                  track("Switched Experiment Page V2", {
-                    switchTo: "old",
-                  });
-                }}
-              >
-                switch to old design <FaUndo />
-              </a>
+          {switchToOldDesign || (showFeedbackBanner && openFeedbackModal) ? (
+            <div className="ml-auto mr-auto d-flex" style={{marginTop: -8}}>
+              {switchToOldDesign ? (
+                <div className="mx-3">
+                  <a
+                    className="a"
+                    role="button"
+                    onClick={() => {
+                      switchToOldDesign();
+                      track("Switched Experiment Page V2", {
+                        switchTo: "old",
+                      });
+                    }}
+                  >
+                    switch to old design
+                    <FaUndo className="ml-1" />
+                  </a>
+                </div>
+              ): null}
+              {showFeedbackBanner && openFeedbackModal ? (
+                <div className="mx-3">
+                  <a
+                    className="a"
+                    role="button"
+                    onClick={() => {
+                      openFeedbackModal();
+                    }}
+                  >
+                    tell us your thoughts
+                    <BsChatSquareQuote size="18" className="ml-1" />
+                  </a>
+                </div>
+              ) : null}
             </div>
-          ) : (
-            <div className="flex-1 col"></div>
-          )}
+          ): <div className="flex-1 col"></div>}
 
           <div className="col-auto pt-2">
             {experiment.archived ? (
