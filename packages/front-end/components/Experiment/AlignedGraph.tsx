@@ -193,7 +193,7 @@ const AlignedGraph: FC<Props> = ({
                   range: [0, graphWidth],
                 });
                 return (
-                  <svg width={graphWidth} height={height}>
+                  <svg width={graphWidth} height={height} className="d-block">
                     {gradient.length > 0 && (
                       <defs>
                         <linearGradient

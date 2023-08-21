@@ -1,5 +1,6 @@
 import clsx from "clsx";
-import React, {
+import {
+  CSSProperties,
   ReactElement,
   useEffect,
   useLayoutEffect,
@@ -537,27 +538,16 @@ export default function ResultsTable({
                       i % 2 === 1 ? "rgb(127 127 127 / 8%)" : "transparent",
                   }}
                 >
-                  <tr className="results-label-row">
-                    <th
-                      colSpan={showAdvanced ? 4 : 2}
-                      className="metric-label pb-1"
-                    >
-                      {renderLabelColumn(row.label, row.metric, row)}
-                    </th>
-                    <th className="graph-cell">
-                      <AlignedGraph
-                        id={`${id}_axis`}
-                        domain={domain}
-                        significant={true}
-                        showAxis={false}
-                        axisOnly={true}
-                        graphWidth={graphCellWidth}
-                        height={35}
-                        newUi={true}
-                      />
-                    </th>
-                    <th />
-                  </tr>
+                  {drawEmptyRow({
+                    className: "results-label-row",
+                    style: { verticalAlign: "bottom" },
+                    label: renderLabelColumn(row.label, row.metric, row),
+                    showAdvanced,
+                    graphCellWidth,
+                    graphHeight: 35,
+                    id,
+                    domain,
+                  })}
 
                   {variations.map((v, j) => {
                     const stats = row.variations[j] || {
@@ -573,32 +563,21 @@ export default function ResultsTable({
                       if (j > 1) {
                         return null;
                       } else {
-                        return (
-                          <tr
-                            className="results-variation-row align-items-center error-row"
-                            key={j}
-                          >
-                            <td colSpan={showAdvanced ? 4 : 2}>
-                              <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
-                                <FaExclamationTriangle className="mr-1" />
-                                Query error
-                              </div>
-                            </td>
-                            <td className="graph-cell">
-                              <AlignedGraph
-                                id={`${id}_axis`}
-                                domain={domain}
-                                significant={true}
-                                showAxis={false}
-                                axisOnly={true}
-                                graphWidth={graphCellWidth}
-                                height={35}
-                                newUi={true}
-                              />
-                            </td>
-                            <td />
-                          </tr>
-                        );
+                        return drawEmptyRow({
+                          className:
+                            "results-variation-row align-items-center error-row",
+                          label: (
+                            <div className="alert alert-danger px-2 py-1 mb-1 ml-1">
+                              <FaExclamationTriangle className="mr-1" />
+                              Query error
+                            </div>
+                          ),
+                          showAdvanced,
+                          graphCellWidth,
+                          graphHeight: 35,
+                          id,
+                          domain,
+                        });
                       }
                     }
                     const isHovered =
@@ -794,32 +773,12 @@ export default function ResultsTable({
                   })}
 
                   {/*spacer row*/}
-                  <tr
-                    className="results-label-row"
-                    style={{ lineHeight: "1px" }}
-                  >
-                    <td></td>
-                    {showAdvanced ? (
-                      <>
-                        <td></td>
-                        <td></td>
-                      </>
-                    ) : null}
-                    <td></td>
-                    <td className="graph-cell">
-                      <AlignedGraph
-                        id={`${id}_axis`}
-                        domain={domain}
-                        significant={true}
-                        showAxis={false}
-                        axisOnly={true}
-                        graphWidth={graphCellWidth}
-                        height={10}
-                        newUi={true}
-                      />
-                    </td>
-                    <td></td>
-                  </tr>
+                  {drawEmptyRow({
+                    showAdvanced,
+                    graphCellWidth,
+                    id,
+                    domain,
+                  })}
                 </tbody>
               );
             })}
@@ -847,6 +806,45 @@ export default function ResultsTable({
         </div>
       </div>
     </div>
+  );
+}
+
+function drawEmptyRow({
+  className,
+  style,
+  label,
+  showAdvanced,
+  graphCellWidth,
+  graphHeight = 10,
+  id,
+  domain,
+}: {
+  className?: string;
+  style?: CSSProperties;
+  label?: string | ReactElement;
+  showAdvanced: boolean;
+  graphCellWidth: number;
+  graphHeight?: number;
+  id: string;
+  domain: [number, number];
+}) {
+  return (
+    <tr style={style} className={className}>
+      <td colSpan={showAdvanced ? 4 : 2}>{label}</td>
+      <td className="graph-cell">
+        <AlignedGraph
+          id={`${id}_axis`}
+          domain={domain}
+          significant={true}
+          showAxis={false}
+          axisOnly={true}
+          graphWidth={graphCellWidth}
+          height={graphHeight}
+          newUi={true}
+        />
+      </td>
+      <td />
+    </tr>
   );
 }
 

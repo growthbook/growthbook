@@ -200,6 +200,7 @@ function getRenderLabelColumn(regressionAdjustmentEnabled) {
           />
         }
         tipPosition="right"
+        className="d-inline-block font-weight-bold mb-1 metric-label"
       >
         <Link href={`/metric/${metric.id}`}>
           <a className="metriclabel text-dark">{label}</a>
