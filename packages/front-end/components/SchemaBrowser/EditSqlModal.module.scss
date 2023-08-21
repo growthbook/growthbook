@@ -12,6 +12,7 @@
     .left {
       width: calc(100% - 350px);
       max-width: calc(100% - 350px);
+      overflow: auto;
     }
     .right {
       width: 350px;
