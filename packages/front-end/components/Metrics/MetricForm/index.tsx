@@ -1049,7 +1049,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   <input
                     type="number"
                     step="any"
-                    min={0}
+                    min={0.125}
                     className="form-control"
                     placeholder={getDefaultConversionWindowHours() + ""}
                     {...form.register("conversionWindowHours", {
