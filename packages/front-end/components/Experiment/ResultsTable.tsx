@@ -564,6 +564,7 @@ export default function ResultsTable({
                         return null;
                       } else {
                         return drawEmptyRow({
+                          key: j,
                           className:
                             "results-variation-row align-items-center error-row",
                           label: (
@@ -810,6 +811,7 @@ export default function ResultsTable({
 }
 
 function drawEmptyRow({
+  key,
   className,
   style,
   label,
@@ -819,6 +821,7 @@ function drawEmptyRow({
   id,
   domain,
 }: {
+  key?: number | string;
   className?: string;
   style?: CSSProperties;
   label?: string | ReactElement;
@@ -829,7 +832,7 @@ function drawEmptyRow({
   domain: [number, number];
 }) {
   return (
-    <tr style={style} className={className}>
+    <tr key={key} style={style} className={className}>
       <td colSpan={showAdvanced ? 4 : 2}>{label}</td>
       <td className="graph-cell">
         <AlignedGraph
