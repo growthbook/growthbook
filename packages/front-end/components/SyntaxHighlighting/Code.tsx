@@ -165,6 +165,7 @@ export default function Code({
             const style: React.CSSProperties = {};
             if (errorLine && lineNumber === errorLine) {
               style.textDecoration = "underline wavy red";
+              style.textUnderlineOffset = "0.2em";
             }
             return { style };
           }}
