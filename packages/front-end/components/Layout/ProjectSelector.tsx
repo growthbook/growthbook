@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { FaCaretDown } from "react-icons/fa";
-import React, { FC } from "react";
+import { FC } from "react";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
