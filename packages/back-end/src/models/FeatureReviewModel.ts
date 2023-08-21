@@ -229,4 +229,44 @@ export const requestReviewFromUser = async ({
   // todo: onReviewRequested()
 };
 
+type ApproveReviewParams = {
+  userId: string; // user ID of the reviewer
+  featureReviewRequestId: string;
+  organizationId: string;
+};
+
+/**
+ * Approve a feature review request as a user.
+ * @throws Error if the review request doesn't exist, or the user approving doesn't exist in the list of reviewers
+ * @param userId
+ * @param featureReviewRequestId
+ * @param organizationId
+ */
+export const approveReviewAsUser = async ({
+  userId,
+  featureReviewRequestId,
+  organizationId,
+}: ApproveReviewParams): Promise<void> => {
+  const reviewRequest = await FeatureReviewRequestModel.findOne({
+    id: featureReviewRequestId,
+    organizationId,
+  });
+
+  if (!reviewRequest) {
+    throw new Error(
+      `No feature review request with ID ${featureReviewRequestId} for organization ${organizationId}`
+    );
+  }
+
+  const existingReview = reviewRequest.get(`reviews.${userId}`);
+  if (!existingReview) {
+    throw new Error(`Review for user ${userId} was not requested`);
+  }
+
+  reviewRequest.set(`reviews.${userId}`, createApprovedReview());
+  await reviewRequest.save();
+
+  // todo: onReviewRequested()
+};
+
 // endregion update FeatureReviewRequest
