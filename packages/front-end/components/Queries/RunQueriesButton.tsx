@@ -43,7 +43,6 @@ export function getQueryStatus(
   let running = false;
   for (let i = 0; i < queries.length; i++) {
     if (queries[i].status === "failed") {
-      console.log(queries[i]);
       failedNames.push(queries[i].name);
       numFailed++;
     }
