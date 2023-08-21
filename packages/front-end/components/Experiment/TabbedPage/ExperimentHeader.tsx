@@ -104,7 +104,6 @@ export default function ExperimentHeader({
   const router = useRouter();
   const permissions = usePermissions();
   const { scrollY } = useScrollPosition();
-  const headerCondensed = scrollY > 60;
   const headerPinned = scrollY > 80;
 
   const { phase, setPhase } = useSnapshot();
@@ -144,7 +143,6 @@ export default function ExperimentHeader({
   return (
     <div
       className={clsx("experiment-header bg-white px-3 pt-3 border-bottom", {
-        condensed: headerCondensed,
         pinned: headerPinned,
       })}
     >
@@ -204,13 +202,7 @@ export default function ExperimentHeader({
               editClassName="ml-1"
             >
               <OverflowText maxWidth={550} title={experiment.name}>
-                <a
-                  role="button"
-                  className="text-main hover-underline"
-                  onClick={() => setTab("setup")}
-                >
-                  {experiment.name}
-                </a>
+                {experiment.name}
               </OverflowText>
             </HeaderWithEdit>
           </div>
@@ -389,19 +381,6 @@ export default function ExperimentHeader({
           </div>
         </div>
         <div className="row align-items-center header-tabs">
-          <OverflowText
-            className="experiment-title"
-            maxWidth={headerCondensed ? 550 : 0}
-            title={experiment.name}
-          >
-            <a
-              role="button"
-              className="text-main font-weight-bold hover-underline"
-              onClick={() => setTab("setup")}
-            >
-              {experiment.name}
-            </a>
-          </OverflowText>
           <div className="col-auto pt-2" id="experiment-page-tabs">
             <TabButtons className="mb-0 pb-0">
               <TabButton
