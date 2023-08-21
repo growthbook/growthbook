@@ -269,4 +269,42 @@ export const approveReviewAsUser = async ({
   // todo: onReviewRequested()
 };
 
+type RejectReviewParams = {
+  userId: string; // user ID of the reviewer
+  featureReviewRequestId: string;
+  organizationId: string;
+  comments: string;
+};
+
+/**
+ * Reject a feature review request as a user.
+ * @throws Error if the review request doesn't exist
+ * @param userId
+ * @param featureReviewRequestId
+ * @param organizationId
+ * @param comments
+ */
+export const rejectReviewAsUser = async ({
+  userId,
+  featureReviewRequestId,
+  organizationId,
+  comments,
+}: RejectReviewParams): Promise<void> => {
+  const reviewRequest = await FeatureReviewRequestModel.findOne({
+    id: featureReviewRequestId,
+    organizationId,
+  });
+
+  if (!reviewRequest) {
+    throw new Error(
+      `No feature review request with ID ${featureReviewRequestId} for organization ${organizationId}`
+    );
+  }
+
+  reviewRequest.set(`reviews.${userId}`, createRejectedReview({ comments }));
+  await reviewRequest.save();
+
+  // todo: onReviewRequested()
+};
+
 // endregion update FeatureReviewRequest
