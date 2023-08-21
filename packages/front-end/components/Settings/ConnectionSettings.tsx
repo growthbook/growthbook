@@ -154,7 +154,6 @@ export default function ConnectionSettings({
         setParams={setParams}
         // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'BigQueryConnectionParams | undefined' is not... Remove this comment to see the full error message
         params={datasource.params}
-        onParamChange={onParamChange}
       />
     );
   } else if (datasource.type === "mixpanel") {

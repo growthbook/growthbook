@@ -201,7 +201,7 @@ export default function AutoGenerateMetricsModal({
       });
       setAvailableSchemas(schemas);
     }
-  }, [selectedDatasourceData.informationSchema]);
+  }, [selectedDatasourceData?.informationSchema]);
 
   return (
     <Modal
