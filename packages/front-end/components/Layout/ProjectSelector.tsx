@@ -1,9 +1,11 @@
 import clsx from "clsx";
 import { FaCaretDown } from "react-icons/fa";
-import { FC } from "react";
+import React, { FC } from "react";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
+import Field from "@/components/Forms/Field";
+import { useSearch } from "@/services/search";
 import Dropdown from "../Dropdown/Dropdown";
 import DropdownLink from "../Dropdown/DropdownLink";
 import LetterAvatar from "./LetterAvatar";
@@ -90,6 +92,13 @@ export default function ProjectSelector() {
     organizationId: orgId || "",
   });
 
+  const { items, searchInputProps } = useSearch({
+    items: projects.slice().sort((a, b) => (a.name > b.name ? 1 : -1)),
+    defaultSortField: "name",
+    localStorageKey: "project-selector",
+    searchFields: ["name^3", "description"],
+  });
+
   if (!projects.length) return null;
 
   return (
@@ -116,6 +125,9 @@ export default function ProjectSelector() {
           />
         }
       >
+        <div className="mt-2 mx-2">
+          <Field placeholder="Search..." type="search" {...searchInputProps} />
+        </div>
         <DropdownLink
           onClick={() => {
             setProject("");
@@ -130,35 +142,32 @@ export default function ProjectSelector() {
             bold={!project}
           />
         </DropdownLink>
-        {projects
-          .slice()
-          .sort((a, b) => (a.name > b.name ? 1 : -1))
-          .map((p) => {
-            return (
-              <DropdownLink
-                className="p-0"
-                key={p.id}
-                onClick={() => {
-                  setProject(p.id);
-                }}
-              >
-                <ProjectName
-                  className="text-dark"
-                  avatarName={p.name}
-                  display={p.name}
-                  bold={p.id === project}
-                  badge={
-                    isDemoDatasourceProject({
-                      projectId: p.id,
-                      organizationId: orgId || "",
-                    })
-                      ? demoBadge
-                      : null
-                  }
-                />
-              </DropdownLink>
-            );
-          })}
+        {items.map((p) => {
+          return (
+            <DropdownLink
+              className="p-0"
+              key={p.id}
+              onClick={() => {
+                setProject(p.id);
+              }}
+            >
+              <ProjectName
+                className="text-dark"
+                avatarName={p.name}
+                display={p.name}
+                bold={p.id === project}
+                badge={
+                  isDemoDatasourceProject({
+                    projectId: p.id,
+                    organizationId: orgId || "",
+                  })
+                    ? demoBadge
+                    : null
+                }
+              />
+            </DropdownLink>
+          );
+        })}
       </Dropdown>
     </li>
   );
