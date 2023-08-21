@@ -185,6 +185,7 @@ export default function EditSqlModal({
                   results={testQueryResults.results || []}
                   sql={testQueryResults.sql || ""}
                   error={testQueryResults.error || ""}
+                  close={() => setTestQueryResults(null)}
                 />
               </div>
             )}

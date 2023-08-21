@@ -8,6 +8,7 @@ export type Props = {
   duration: number;
   sql: string;
   error: string;
+  close: () => void;
 };
 
 export default function DisplayTestQueryResults({
@@ -15,6 +16,7 @@ export default function DisplayTestQueryResults({
   duration,
   sql,
   error,
+  close,
 }: Props) {
   const cols = Object.keys(results?.[0] || {});
 
@@ -33,8 +35,8 @@ export default function DisplayTestQueryResults({
   return (
     <>
       <div className="card">
-        <div className="card-header">
-          <ul className="nav nav-tabs card-header-tabs">
+        <div className="card-header d-flex justify-content-between">
+          <ul className="nav nav-tabs card-header-tabs p-0 m-0">
             <li className="nav-item">
               <a
                 className={clsx("nav-link", {
@@ -65,6 +67,17 @@ export default function DisplayTestQueryResults({
               </a>
             </li>
           </ul>
+          <button
+            type="button"
+            className="close"
+            onClick={(e) => {
+              e.preventDefault();
+              close();
+            }}
+            aria-label="Close"
+          >
+            <span aria-hidden="true">×</span>
+          </button>
         </div>
       </div>
 
