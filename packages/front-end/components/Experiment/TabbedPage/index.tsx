@@ -283,12 +283,10 @@ export default function TabbedPage({
           <Implementation
             experiment={experiment}
             mutate={mutate}
-            safeToEdit={safeToEdit}
             setFeatureModal={setFeatureModal}
             setVisualEditorModal={setVisualEditorModal}
             visualChangesets={visualChangesets}
             editTargeting={!viewingOldPhase ? editTargeting : undefined}
-            newPhase={!viewingOldPhase ? newPhase : undefined}
             linkedFeatures={linkedFeatures}
             legacyFeatures={legacyFeatures}
             mutateFeatures={mutateFeatures}

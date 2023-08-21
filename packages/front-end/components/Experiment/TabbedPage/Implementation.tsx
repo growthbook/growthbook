@@ -24,11 +24,9 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   visualChangesets: VisualChangesetInterface[];
   mutate: () => void;
-  newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   setFeatureModal: (open: boolean) => void;
   setVisualEditorModal: (open: boolean) => void;
-  safeToEdit: boolean;
   linkedFeatures: LinkedFeature[];
   legacyFeatures: LinkedFeature[];
   mutateFeatures: () => void;
@@ -40,9 +38,7 @@ export default function Implementation({
   experiment,
   visualChangesets,
   mutate,
-  newPhase,
   editTargeting,
-  safeToEdit,
   setFeatureModal,
   setVisualEditorModal,
   mutateFeatures,
@@ -207,7 +203,7 @@ export default function Implementation({
           <div className="col-md-4 col-lg-4 col-12 mb-3">
             <div className="appbox p-3 h-100 mb-0">
               <HeaderWithEdit
-                edit={(safeToEdit ? editTargeting : newPhase) || undefined}
+                edit={editTargeting || undefined}
                 className="h3"
                 containerClassName="mb-3"
               >

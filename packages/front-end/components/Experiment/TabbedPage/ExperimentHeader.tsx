@@ -3,7 +3,7 @@ import {
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import Link from "next/link";
-import { FaChartBar, FaCog, FaStop, FaUndo, FaUsers } from "react-icons/fa";
+import { FaChartBar, FaHome, FaUndo, FaUsers } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import { useMemo, useState } from "react";
@@ -33,6 +33,7 @@ import { useSnapshot } from "../SnapshotProvider";
 import { StartExperimentBanner } from "../StartExperimentBanner";
 import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import OverflowText from "./OverflowText";
+import StopExperimentButton from "./StopExperimentButton";
 import { ExperimentTab, LinkedFeature } from ".";
 
 export interface Props {
@@ -233,20 +234,20 @@ export default function ExperimentHeader({
             <div className="flex-1 col"></div>
           )}
 
+          <div className="col-auto pt-2">
+            {experiment.archived ? (
+              <div className="badge badge-secondary">archived</div>
+            ) : (
+              <ExperimentStatusIndicator status={experiment.status} />
+            )}
+          </div>
+
           <div className="col-auto">
             {experiment.status === "running" ? (
-              <button
-                className="btn btn-primary"
-                onClick={(e) => {
-                  e.preventDefault();
-                  if (editResult) {
-                    editResult();
-                  }
-                }}
-                disabled={!editResult}
-              >
-                Stop Experiment <FaStop className="ml-2" />
-              </button>
+              <StopExperimentButton
+                editResult={editResult}
+                editTargeting={editTargeting}
+              />
             ) : experiment.status === "stopped" && experiment.results ? (
               <div className="experiment-status-widget border d-flex">
                 <div
@@ -270,10 +271,6 @@ export default function ExperimentHeader({
           </div>
 
           <div className="col-auto">
-            <WatchButton itemType="experiment" item={experiment.id} />
-          </div>
-
-          <div className="col-auto">
             <MoreMenu>
               {canRunExperiment && (
                 <button
@@ -294,6 +291,11 @@ export default function ExperimentHeader({
                   Edit phases
                 </button>
               )}
+              <WatchButton
+                itemType="experiment"
+                item={experiment.id}
+                className="dropdown-item text-dark"
+              />
               <button
                 className="dropdown-item"
                 onClick={() => setWatchersModal(true)}
@@ -406,7 +408,7 @@ export default function ExperimentHeader({
                 active={tab === "setup"}
                 display={
                   <>
-                    <FaCog /> Setup
+                    <FaHome /> Overview
                   </>
                 }
                 onClick={() => setTab("setup")}
@@ -428,13 +430,6 @@ export default function ExperimentHeader({
             </TabButtons>
           </div>
           <div className="col-auto ml-auto"></div>
-          <div className="col-auto mr-2">
-            {experiment.archived ? (
-              <div className="badge badge-secondary">archived</div>
-            ) : (
-              <ExperimentStatusIndicator status={experiment.status} />
-            )}
-          </div>
 
           {experiment.status !== "draft" && totalUsers > 0 && (
             <div className="col-auto mr-2">
