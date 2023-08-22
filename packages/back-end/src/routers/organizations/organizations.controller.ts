@@ -1508,7 +1508,7 @@ export async function getOrphanedUsers(req: AuthRequest, res: Response) {
   }
 
   const allUsers = await getAllUsers();
-  const allOrgs = await findAllOrganizations();
+  const { organizations: allOrgs } = await findAllOrganizations(1, "");
 
   const membersInOrgs = new Set<string>();
   allOrgs.forEach((org) => {

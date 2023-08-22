@@ -1,1 +1,1 @@
-module.exports = require("./dist/dates.js");
+module.exports = require("./dist/dates");
