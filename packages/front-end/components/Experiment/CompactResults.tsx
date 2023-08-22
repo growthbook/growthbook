@@ -200,7 +200,7 @@ function getRenderLabelColumn(regressionAdjustmentEnabled) {
           />
         }
         tipPosition="right"
-        className="d-inline-block font-weight-bold mb-1 metric-label"
+        className="d-inline-block font-weight-bold metric-label"
       >
         <Link href={`/metric/${metric.id}`}>
           <a className="metriclabel text-dark">{label}</a>
@@ -243,11 +243,11 @@ function getRenderLabelColumn(regressionAdjustmentEnabled) {
     ) : null;
 
     return (
-      <>
+      <span style={{ verticalAlign: "-33%" }}>
         {metricLink}
         {metricInverseIconDisplay}
         {cupedIconDisplay}
-      </>
+      </span>
     );
   };
 }

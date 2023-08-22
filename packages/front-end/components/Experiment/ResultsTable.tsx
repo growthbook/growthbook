@@ -269,9 +269,11 @@ export default function ResultsTable({
 
     let yAlign: YAlign = "top";
     let targetTop: number =
-      (target.getBoundingClientRect()?.top ?? 0) + 30 + offsetY;
+      (target.getBoundingClientRect()?.bottom ?? 0) - offsetY;
     if (targetTop > TOOLTIP_HEIGHT + 80) {
-      targetTop -= 29 + TOOLTIP_HEIGHT - offsetY;
+      // 80 relates to the various stacked headers
+      targetTop =
+        (target.getBoundingClientRect()?.top ?? 0) - TOOLTIP_HEIGHT + offsetY;
       yAlign = "bottom";
     }
 
@@ -543,7 +545,6 @@ export default function ResultsTable({
                 >
                   {drawEmptyRow({
                     className: "results-label-row",
-                    style: { verticalAlign: "bottom" },
                     label: renderLabelColumn(row.label, row.metric, row),
                     showAdvanced,
                     graphCellWidth,
@@ -607,27 +608,28 @@ export default function ResultsTable({
                         key={j}
                       >
                         <td
-                          className={`variation with-variation-label variation${j} d-inline-flex align-items-center`}
+                          className={`variation with-variation-label variation${j}`}
                           style={{
                             width: (showAdvanced ? 180 : 220) * tableCellScale,
-                            paddingTop: 6,
                           }}
                         >
-                          <span
-                            className="label ml-1"
-                            style={{ width: 20, height: 20 }}
-                          >
-                            {j}
-                          </span>
-                          <span
-                            className="d-inline-block text-ellipsis font-weight-bold"
-                            style={{
-                              width:
-                                (showAdvanced ? 125 : 165) * tableCellScale,
-                            }}
-                          >
-                            {v.name}
-                          </span>
+                          <div className="d-flex align-items-center">
+                            <span
+                              className="label ml-1"
+                              style={{ width: 20, height: 20 }}
+                            >
+                              {j}
+                            </span>
+                            <span
+                              className="d-inline-block text-ellipsis font-weight-bold"
+                              style={{
+                                width:
+                                  (showAdvanced ? 125 : 165) * tableCellScale,
+                              }}
+                            >
+                              {v.name}
+                            </span>
+                          </div>
                         </td>
                         {showAdvanced && j === 1 ? (
                           // draw baseline value once, merge rows
@@ -714,21 +716,21 @@ export default function ResultsTable({
                               stats={stats}
                               id={`${id}_violin_row${i}_var${j}`}
                               graphWidth={graphCellWidth}
-                              height={32}
+                              height={showAdvanced ? 44 : 36}
                               newUi={true}
                               isHovered={isHovered}
                               onPointerMove={(e) =>
                                 onPointerMove(e, {
                                   x: "element-center",
                                   targetClassName: "hover-target",
-                                  offsetY: -5,
+                                  offsetY: -8,
                                 })
                               }
                               onPointerLeave={onPointerLeave}
                               onClick={(e) =>
                                 onPointerMove(e, {
                                   x: "element-center",
-                                  offsetY: -5,
+                                  offsetY: -8,
                                 })
                               }
                               className={resultsHighlightClassname}

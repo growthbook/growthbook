@@ -481,15 +481,16 @@ pre {
       }
     }
   }
+  .value,
+  .chance,
+  .change {
+    line-height: 14px;
+  }
   .graph-cell {
     padding: 0;
   }
   .result-number {
     font-weight: bold;
-    line-height: 10px;
-  }
-  .result-number-sub {
-    line-height: 12px;
   }
   .variation {
     font-size: 12px;
@@ -508,9 +509,6 @@ pre {
   .results-change {
     font-size: 12px;
     font-weight: bold;
-    .change {
-      line-height: 10px;
-    }
     .ci {
       font-weight: normal;
     }
