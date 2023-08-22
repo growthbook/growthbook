@@ -151,7 +151,10 @@ export default function ResultsTable({
           rr[i].push(null);
           return;
         }
-        if (queryStatusData?.failedNames?.includes(row.metric.id)) {
+        if (
+          queryStatusData?.status === "partially-succeeded" &&
+          queryStatusData?.failedNames?.includes(row.metric.id)
+        ) {
           rr[i].push("query error");
           return;
         }
