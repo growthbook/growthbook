@@ -281,7 +281,7 @@ export default function ReportPage() {
           navClassName={permissions.check("createAnalyses", "") ? "" : "d-none"}
         >
           <Tab key="results" anchor="results" display="Results" padding={false}>
-            <div className="p-3">
+            <div className="pt-3 px-3">
               <div className="row align-items-center mb-2">
                 <div className="col">
                   <h2>Results</h2>
@@ -513,7 +513,7 @@ export default function ReportPage() {
               report.results?.dimensions?.[0] !== undefined && (
                 <>
                   {newUi ? (
-                    <div className="mx-3 mt-0 mb-3">
+                    <div className="mt-0 mb-3">
                       <CompactResults
                         variations={variations}
                         multipleExposures={
