@@ -121,126 +121,6 @@ const DEMO_RATIO_METRIC: Pick<
     "SELECT\nuserId AS user_id,\ntimestamp AS timestamp,\namount AS value\nFROM orders",
 };
 
-// Feature constants
-// TODO: Ref: experiment-ref: Update this when updating demo data (features, experiments, etc.)
-const DEMO_FEATURES: Omit<
-  FeatureInterface,
-  "id" | "organization" | "dateCreated" | "dateUpdated"
->[] = [
-  {
-    description:
-      "Controls checkout layout UI. Employees forced to see new UI, other users randomly assigned to one of three designs.",
-    owner: ASSET_OWNER,
-    valueType: "string",
-    defaultValue: "current",
-    tags: DEMO_TAGS,
-    environmentSettings: {
-      production: {
-        enabled: true,
-        rules: [
-          {
-            type: "force",
-            description: "",
-            id: `${getDemoDataSourceFeatureId()}-employee-force-rule`,
-            value: "dev",
-            condition: `{"is_employee":true}`,
-            enabled: true,
-          },
-          {
-            type: "experiment-ref",
-            description: "",
-            id: `${getDemoDataSourceFeatureId()}-exp-rule`,
-            enabled: true,
-            experimentId: getDemoDataSourceFeatureId(), // This value is replaced below after the experiment is created.
-            variations: [
-              {
-                variationId: "v0",
-                value: "current",
-              },
-              {
-                variationId: "v1",
-                value: "dev-compact",
-              },
-              {
-                variationId: "v2",
-                value: "dev",
-              },
-            ],
-          },
-        ],
-      },
-    },
-  },
-];
-
-// Experiment constants
-const EXPERIMENT_START_DATE = new Date();
-EXPERIMENT_START_DATE.setDate(EXPERIMENT_START_DATE.getDate() - 30);
-// TODO: Ref: experiment-ref: Update this when updating demo data (features, experiments, etc.)
-const DEMO_EXPERIMENTS: Pick<
-  ExperimentInterface,
-  | "name"
-  | "description"
-  | "hypothesis"
-  | "trackingKey"
-  | "variations"
-  | "phases"
->[] = [
-  {
-    name: getDemoDataSourceFeatureId(),
-    trackingKey: getDemoDataSourceFeatureId(),
-    description: `**THIS IS A DEMO EXPERIMENT USED FOR DEMONSTRATION PURPOSES ONLY**
-
-Experiment to test impact of checkout cart design.
-Both variations move the "Proceed to checkout" button to a single table, but with different
-spacing and headings.`,
-    hypothesis: `We predict new variations will increase Purchase metrics and have uncertain effects on Retention.`,
-    variations: [
-      {
-        id: "v0",
-        key: "0",
-        name: "Current",
-        screenshots: [
-          {
-            path: "/images/demo-datasource/current.png",
-          },
-        ],
-      },
-      {
-        id: "v1",
-        key: "1",
-        name: "Dev-Compact",
-        screenshots: [
-          {
-            path: "/images/demo-datasource/dev-compact.png",
-          },
-        ],
-      },
-      {
-        id: "v2",
-        key: "2",
-        name: "Dev",
-        screenshots: [
-          {
-            path: "/images/demo-datasource/dev.png",
-          },
-        ],
-      },
-    ],
-    phases: [
-      {
-        dateStarted: EXPERIMENT_START_DATE,
-        name: "",
-        reason: "",
-        coverage: 1,
-        condition: "",
-        namespace: { enabled: false, name: "", range: [0, 1] },
-        variationWeights: [0.3334, 0.3333, 0.3333],
-      },
-    ],
-  },
-];
-
 // endregion Constants for Demo Datasource
 
 // region POST /demo-datasource-project
@@ -337,48 +217,153 @@ export const postDemoDatasourceProject = async (
       : undefined;
 
     // Create experiment
-    const experiments = await Promise.all(
-      DEMO_EXPERIMENTS.map(async (e) => {
-        return createExperiment({
-          data: {
-            ...e,
-            owner: ASSET_OWNER,
-            datasource: datasource.id,
-            project: project.id,
-            metrics: metrics
-              .map((m) => m.id)
-              .concat(ratioMetric ? ratioMetric?.id : []),
-            exposureQueryId: "user_id",
-            status: "running",
-            tags: DEMO_TAGS,
-          },
-          organization: org,
-          user: res.locals.eventAudit,
-        });
-      })
-    );
-    // todo: save the experiment IDs
+    const experimentStartDate = new Date();
+    experimentStartDate.setDate(experimentStartDate.getDate() - 30);
+    const experimentToCreate: Pick<
+      ExperimentInterface,
+      | "name"
+      | "owner"
+      | "description"
+      | "datasource"
+      | "metrics"
+      | "project"
+      | "hypothesis"
+      | "exposureQueryId"
+      | "status"
+      | "tags"
+      | "trackingKey"
+      | "variations"
+      | "phases"
+    > = {
+      name: getDemoDataSourceFeatureId(),
+      trackingKey: getDemoDataSourceFeatureId(),
+      description: `**THIS IS A DEMO EXPERIMENT USED FOR DEMONSTRATION PURPOSES ONLY**
+
+Experiment to test impact of checkout cart design.
+Both variations move the "Proceed to checkout" button to a single table, but with different
+spacing and headings.`,
+      hypothesis: `We predict new variations will increase Purchase metrics and have uncertain effects on Retention.`,
+      owner: ASSET_OWNER,
+      datasource: datasource.id,
+      project: project.id,
+      metrics: metrics
+        .map((m) => m.id)
+        .concat(ratioMetric ? ratioMetric?.id : []),
+      exposureQueryId: "user_id",
+      status: "running",
+      tags: DEMO_TAGS,
+      variations: [
+        {
+          id: "v0",
+          key: "0",
+          name: "Current",
+          screenshots: [
+            {
+              path: "/images/demo-datasource/current.png",
+            },
+          ],
+        },
+        {
+          id: "v1",
+          key: "1",
+          name: "Dev-Compact",
+          screenshots: [
+            {
+              path: "/images/demo-datasource/dev-compact.png",
+            },
+          ],
+        },
+        {
+          id: "v2",
+          key: "2",
+          name: "Dev",
+          screenshots: [
+            {
+              path: "/images/demo-datasource/dev.png",
+            },
+          ],
+        },
+      ],
+      phases: [
+        {
+          dateStarted: experimentStartDate,
+          name: "",
+          reason: "",
+          coverage: 1,
+          condition: "",
+          namespace: { enabled: false, name: "", range: [0, 1] },
+          variationWeights: [0.3334, 0.3333, 0.3333],
+        },
+      ],
+    };
+
+    const createdExperiment = await createExperiment({
+      data: experimentToCreate,
+      organization: org,
+      user: res.locals.eventAudit,
+    });
 
     // Create feature
-    await Promise.all(
-      DEMO_FEATURES.map(async (f, i) => {
-        const featureToCreate: FeatureInterface = {
-          ...f,
-          id: getDemoDataSourceFeatureId(),
-          project: project.id,
-          organization: org.id,
-          dateCreated: new Date(),
-          dateUpdated: new Date(),
-        };
+    const featureToCreate: FeatureInterface = {
+      id: getDemoDataSourceFeatureId(),
+      project: project.id,
+      organization: org.id,
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      description:
+        "Controls checkout layout UI. Employees forced to see new UI, other users randomly assigned to one of three designs.",
+      owner: ASSET_OWNER,
+      valueType: "string",
+      defaultValue: "current",
+      tags: DEMO_TAGS,
+      environmentSettings: {},
+    };
 
-        // TODO: Ref: experiment-ref: Update this when updating demo data (features, experiments, etc.)
-        // Replaces the experimentId - Assumes the 2nd rule for all demo features is an ExperimentRefRule. If this is no longer true, we will need to change how the demo data is generated.
-        (featureToCreate.environmentSettings.production
-          .rules[1] as ExperimentRefRule).experimentId = experiments[i]?.id;
+    const environments = (org.settings?.environments || []).map((e) => e.id);
+    environments.forEach((env) => {
+      featureToCreate.environmentSettings[env] = {
+        enabled: true,
+        rules: [
+          {
+            type: "force",
+            description: "",
+            id: `${getDemoDataSourceFeatureId()}-employee-force-rule`,
+            value: "dev",
+            condition: `{"is_employee":true}`,
+            enabled: true,
+          },
+          {
+            type: "experiment-ref",
+            description: "",
+            id: `${getDemoDataSourceFeatureId()}-exp-rule`,
+            enabled: true,
+            experimentId: getDemoDataSourceFeatureId(), // This value is replaced below after the experiment is created.
+            variations: [
+              {
+                variationId: "v0",
+                value: "current",
+              },
+              {
+                variationId: "v1",
+                value: "dev-compact",
+              },
+              {
+                variationId: "v2",
+                value: "dev",
+              },
+            ],
+          },
+        ],
+      };
 
-        return createFeature(org, res.locals.eventAudit, featureToCreate);
-      })
-    );
+      featureToCreate.environmentSettings[env].rules.forEach((rule) => {
+        if (rule.type === "experiment-ref") {
+          (rule as ExperimentRefRule).experimentId = createdExperiment.id;
+        }
+      });
+    });
+
+    await createFeature(org, res.locals.eventAudit, featureToCreate);
 
     const analysisSettings: ExperimentSnapshotAnalysisSettings = {
       statsEngine: org.settings?.statsEngine || DEFAULT_STATS_ENGINE,
@@ -387,19 +372,15 @@ export const postDemoDatasourceProject = async (
 
     const metricMap = await getMetricMap(org.id);
 
-    await Promise.all(
-      experiments.map(async (e) => {
-        return createSnapshot({
-          experiment: e,
-          organization: org,
-          phaseIndex: 0,
-          analysisSettings: analysisSettings,
-          metricRegressionAdjustmentStatuses: [],
-          metricMap: metricMap,
-          useCache: true,
-        });
-      })
-    );
+    await createSnapshot({
+      experiment: createdExperiment,
+      organization: org,
+      phaseIndex: 0,
+      analysisSettings: analysisSettings,
+      metricRegressionAdjustmentStatuses: [],
+      metricMap: metricMap,
+      useCache: true,
+    });
 
     res.status(200).json({
       status: 200,
