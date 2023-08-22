@@ -430,7 +430,9 @@ export default function AutoGenerateMetricsModal({
           </div>
         )}
         {refreshingSchema ? (
-          <div className="alert alert-info">Refreshing list of schemas...</div>
+          <div className="alert alert-info">
+            Refreshing list of data sets...
+          </div>
         ) : null}
         {refreshingSchemaError ? (
           <div className="alert alert-danger">{refreshingSchemaError}</div>
