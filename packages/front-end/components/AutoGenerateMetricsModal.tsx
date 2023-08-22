@@ -1,8 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import {
-  InformationSchemaInterface,
-  TrackedEventData,
-} from "@/../back-end/src/types/Integration";
+import { TrackedEventData } from "@/../back-end/src/types/Integration";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
