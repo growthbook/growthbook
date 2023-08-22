@@ -109,18 +109,15 @@ export function isActiveSubscriptionStatus(
 }
 
 export function getAccountPlan(org: MinimalOrganization): AccountPlan {
-  // if (process.env.IS_CLOUD) {
-  //   if (org.enterprise) return "enterprise";
-  //   if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
-  //   if (isActiveSubscriptionStatus(org.subscription?.status)) return "pro";
-  //   return "starter";
-  // }
+  if (process.env.IS_CLOUD) {
+    if (org.enterprise) return "enterprise";
+    if (org.restrictAuthSubPrefix || org.restrictLoginMethod) return "pro_sso";
+    if (isActiveSubscriptionStatus(org.subscription?.status)) return "pro";
+    return "starter";
+  }
 
-  // // For self-hosted deployments
-  // return getLicense()?.plan || "oss";
-  return "enterprise";
-  // return "pro";
-  // return "starter";
+  // For self-hosted deployments
+  return getLicense()?.plan || "oss";
 }
 export function planHasPremiumFeature(
   plan: AccountPlan,
