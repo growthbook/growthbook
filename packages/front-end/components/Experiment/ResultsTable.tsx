@@ -637,7 +637,7 @@ export default function ResultsTable({
                             users={baseline?.users || 0}
                             style={{ backgroundColor: "rgb(127 127 127 / 6%)" }}
                             className="value variation"
-                            rowSpan={row.variations.length - 1}
+                            rowSpan={variations.length - 1}
                           />
                         ) : null}
                         {showAdvanced ? (
