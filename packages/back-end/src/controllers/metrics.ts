@@ -271,11 +271,12 @@ export async function getMetric(
 }
 
 export async function getMetricsFromTrackedEvents(
-  req: AuthRequest<null, { datasourceId: string; schema: string }>,
+  req: AuthRequest<{ schema: string }, { datasourceId: string }>,
   res: Response
 ) {
   const { org } = getOrgFromReq(req);
-  const { datasourceId, schema } = req.params;
+  const { schema } = req.body;
+  const { datasourceId } = req.params;
 
   const dataSourceObj = await getDataSourceById(datasourceId, org.id);
   if (!dataSourceObj) {
