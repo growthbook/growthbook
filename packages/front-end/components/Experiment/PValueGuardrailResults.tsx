@@ -22,7 +22,7 @@ import usePValueThreshold from "@/hooks/usePValueThreshold";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import MetricValueColumn from "./MetricValueColumn";
-import { hasEnoughData } from "./GuardrailResult_old";
+import { hasEnoughData } from "./GuardrailResult";
 
 type PValueGuardrailResult = {
   stats: SnapshotMetric;
@@ -80,7 +80,7 @@ const HeaderResult: FC<{
   );
 };
 
-const PValueGuardrailResults_old: FC<{
+const PValueGuardrailResults: FC<{
   data: SnapshotVariation[];
   variations: ExperimentReportVariation[];
   metric: MetricInterface;
@@ -181,4 +181,4 @@ const PValueGuardrailResults_old: FC<{
   );
 };
 
-export default PValueGuardrailResults_old;
+export default PValueGuardrailResults;

@@ -15,12 +15,12 @@ import FilterSummary from "@/components/Experiment/FilterSummary";
 import DateResults from "@/components/Experiment/DateResults";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
 import AnalysisSettingsBar from "@/components/Experiment/AnalysisSettingsBar";
-import GuardrailResults_old from "@/components/Experiment/GuardrailResult_old";
+import GuardrailResults from "@/components/Experiment/GuardrailResult";
 import StatusBanner from "@/components/Experiment/StatusBanner";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
-import PValueGuardrailResults_old from "./PValueGuardrailResults_old";
+import PValueGuardrailResults from "./PValueGuardrailResults";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -315,13 +315,13 @@ const Results_old: FC<{
                         key={g}
                       >
                         {analysis.settings.statsEngine === "frequentist" ? (
-                          <PValueGuardrailResults_old
+                          <PValueGuardrailResults
                             data={data}
                             variations={variations}
                             metric={metric}
                           />
                         ) : (
-                          <GuardrailResults_old
+                          <GuardrailResults
                             data={data}
                             variations={variations}
                             metric={metric}
