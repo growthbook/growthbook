@@ -536,7 +536,7 @@ export default function ResultsTable({
                 <tbody
                   className="results-group-row"
                   key={i}
-                  style={{ borderBottom: "1px solid #66666620" }}
+                  style={{ boxShadow: "0 1px #66666620" }}
                 >
                   {drawEmptyRow({
                     className: "results-label-row",
