@@ -125,7 +125,7 @@ const CompactResults: FC<{
   const risk = useRiskVariation(variations.length, rows);
   return (
     <>
-      <div className="">
+      <div className="mx-3">
         <DataQualityWarning results={results} variations={variations} />
         <MultipleExposureWarning
           users={users}
