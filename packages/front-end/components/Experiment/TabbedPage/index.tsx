@@ -71,7 +71,7 @@ export default function TabbedPage({
 }: Props) {
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
-    ["running", "stopped"].includes(experiment.status) ? "results" : "setup"
+    "setup"
   );
 
   const [editNameOpen, setEditNameOpen] = useState(false);
