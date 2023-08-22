@@ -1,0 +1,29 @@
+---
+title: User Permissions
+description: GrowthBook's User Permissions
+sidebar_label: User Permissions
+slug: user-permissions
+---
+
+### User Permissions
+
+GrowthBook supports user roles and permissions at both the global and project level. This allows you to control who can access GrowthBook and what they can do.
+
+When inviting a new user to your organization, you can give the user a global role, which defines their permissions across all projects. If you are enrolled in a `Pro` or `Enterprise` account, you
+have the added ability to give a user project-level roles. For instance, you can give a user a `Collaborator` as their global role, which allows them to view features and experiements, as well as add
+comments and contribute ideas, and then give them an `Experimenter` role for a particular project, which allows them to create and run experiments, but only for the specific project.
+
+Below are the following roles currently available in GrowthBook, ordered from least permissive to most. Each additional level inherits all of the permissions from the roles below it.
+
+- `readonly` - This role allows the user to view feature flags and experiments, but not make any changes.
+- `collaborator` - This role allows the user to view feature flags and experiments, as well as add comments and contribute ideas.
+- `engineer` - This role allows the user to manage feature flags, but not experiments.
+- `analyst` - This allows the user to analyze experiments.
+- `experimenter` - This allows the user to create feature flags and run experiments.
+- `admin` - This allows the user to manage all aspects of GrowthBook, including billing and organization settings, as well as invite teammates.
+
+And finally, their is one last level to GrowthBook's user permissions, which is environment specific limits. This permission level only applies to `engineer` and `experimenter` roles in organizations in a `Pro` and `Enterprise` account. This
+allows you to limit the number of feature flags and experiments a user can create in a particular environment. For instance, you can limit an engineer to only be allowed to create and run experiments in a `staging` environment, but not in `production`.
+
+When evaluating whether or not a user has permissions to perform a certain action, GrowthBook will check if the action is taking place within a particular project, and if so, we'll check the project permissions first, before falling back to
+the user's global role. If the action is not taking place within a project, we'll just check the user's global role.
