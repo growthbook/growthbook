@@ -219,6 +219,10 @@ export type FeatureApiResponse = {
   encryptedExperiments?: string;
 };
 
+export type FeatureApiResponseWithSSE = FeatureApiResponse & {
+  sse?: boolean;
+};
+
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
 // These are typed as `any` since polyfills like `node-fetch` are not 100% compatible with native types
 export type Polyfills = {

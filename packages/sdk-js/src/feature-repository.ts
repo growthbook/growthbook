@@ -2,14 +2,14 @@ import {
   ApiHost,
   CacheSettings,
   ClientKey,
-  FeatureApiResponse,
+  FeatureApiResponseWithSSE,
   Polyfills,
   RepositoryKey,
 } from "./types/growthbook";
 import type { GrowthBook } from ".";
 
 type CacheEntry = {
-  data: FeatureApiResponse;
+  data: FeatureApiResponseWithSSE;
   version: string;
   staleAt: Date;
 };
@@ -45,10 +45,9 @@ let cacheInitialized = false;
 const cache: Map<RepositoryKey, CacheEntry> = new Map();
 const activeFetches: Map<
   RepositoryKey,
-  Promise<FeatureApiResponse>
+  Promise<FeatureApiResponseWithSSE>
 > = new Map();
 const streams: Map<RepositoryKey, ScopedChannel> = new Map();
-const supportsSSE: Set<RepositoryKey> = new Set();
 
 // Public functions
 export function setPolyfills(overrides: Partial<Polyfills>): void {
@@ -114,7 +113,7 @@ async function fetchFeaturesWithCache(
   allowStale?: boolean,
   timeout?: number,
   skipCache?: boolean
-): Promise<FeatureApiResponse | null> {
+): Promise<FeatureApiResponseWithSSE | null> {
   const [key] = getKey(instance);
   const now = new Date();
   await initializeCache();
@@ -126,7 +125,7 @@ async function fetchFeaturesWithCache(
     }
     // Otherwise, if we don't need to refresh now, start a background sync
     else {
-      startAutoRefresh(instance);
+      startAutoRefresh(instance, existing.data.sse);
     }
     return existing.data;
   } else {
@@ -192,7 +191,10 @@ async function initializeCache(): Promise<void> {
 }
 
 // Called whenever new features are fetched from the API
-function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse): void {
+function onNewFeatureData(
+  key: RepositoryKey,
+  data: FeatureApiResponseWithSSE
+): void {
   // If contents haven't changed, ignore the update, extend the stale TTL
   const version = data.dateUpdated || "";
   const staleAt = new Date(Date.now() + cacheSettings.staleTTL);
@@ -219,7 +221,7 @@ function onNewFeatureData(key: RepositoryKey, data: FeatureApiResponse): void {
 
 async function refreshInstance(
   instance: GrowthBook,
-  data: FeatureApiResponse
+  data: FeatureApiResponseWithSSE
 ): Promise<void> {
   await (data.encryptedExperiments
     ? instance.setEncryptedExperiments(
@@ -240,7 +242,7 @@ async function refreshInstance(
 
 async function fetchFeatures(
   instance: GrowthBook
-): Promise<FeatureApiResponse> {
+): Promise<FeatureApiResponseWithSSE> {
   const [key, apiHost, clientKey] = getKey(instance);
   const endpoint = apiHost + "/api/features/" + clientKey;
 
@@ -248,15 +250,14 @@ async function fetchFeatures(
   if (!promise) {
     promise = (polyfills.fetch as typeof globalThis.fetch)(endpoint)
       // TODO: auto-retry if status code indicates a temporary error
-      .then((res) => {
-        if (res.headers.get("x-sse-support") === "enabled") {
-          supportsSSE.add(key);
-        }
-        return res.json();
+      .then(async (res) => {
+        const data: FeatureApiResponseWithSSE = await res.json();
+        data.sse = res.headers.get("x-sse-support") === "enabled";
+        return data;
       })
-      .then((data: FeatureApiResponse) => {
+      .then((data) => {
         onNewFeatureData(key, data);
-        startAutoRefresh(instance);
+        startAutoRefresh(instance, data.sse);
         activeFetches.delete(key);
         return data;
       })
@@ -277,19 +278,16 @@ async function fetchFeatures(
 
 // Watch a feature endpoint for changes
 // Will prefer SSE if enabled, otherwise fall back to cron
-function startAutoRefresh(instance: GrowthBook): void {
+function startAutoRefresh(instance: GrowthBook, sse?: boolean): void {
   const [key, apiHost, clientKey] = getKey(instance);
-  if (
-    cacheSettings.backgroundSync &&
-    supportsSSE.has(key) &&
-    polyfills.EventSource
-  ) {
+  if (cacheSettings.backgroundSync && sse && polyfills.EventSource) {
     if (streams.has(key)) return;
     const channel: ScopedChannel = {
       src: null,
       cb: (event: MessageEvent<string>) => {
         try {
-          const json: FeatureApiResponse = JSON.parse(event.data);
+          const json: FeatureApiResponseWithSSE = JSON.parse(event.data);
+          json.sse = true;
           onNewFeatureData(key, json);
           // Reset error count on success
           channel.errors = 0;
@@ -358,9 +356,6 @@ function destroyChannel(channel: ScopedChannel, key: RepositoryKey) {
 }
 
 function clearAutoRefresh() {
-  // Clear list of which keys are auto-updated
-  supportsSSE.clear();
-
   // Stop listening for any SSE events
   streams.forEach(destroyChannel);
 
