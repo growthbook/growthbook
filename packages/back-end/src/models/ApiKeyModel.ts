@@ -126,6 +126,27 @@ export async function createUserPersonalAccessApiKey({
   });
 }
 
+export async function createUserVisualEditorApiKey({
+  userId,
+  organizationId,
+  description,
+}: {
+  userId: string;
+  organizationId: string;
+  description: string;
+}): Promise<ApiKeyInterface> {
+  return await createApiKey({
+    organization: organizationId,
+    userId,
+    secret: true,
+    environment: "",
+    project: "",
+    encryptSDK: false,
+    description,
+    role: "visualEditor",
+  });
+}
+
 /**
  * @deprecated
  */
@@ -262,12 +283,24 @@ export async function getApiKeyByIdOrKey(
   return doc ? toInterface(doc) : null;
 }
 
+export async function getVisualEditorApiKey(
+  organization: string,
+  userId: string
+): Promise<ApiKeyInterface | null> {
+  const doc = await ApiKeyModel.findOne({
+    organization,
+    userId,
+    role: "visualEditor",
+  });
+  return doc ? toInterface(doc) : null;
+}
+
 export async function lookupOrganizationByApiKey(
   key: string
 ): Promise<Partial<ApiKeyInterface>> {
   // If self-hosting and using a hardcoded secret key
   if (!IS_CLOUD && SECRET_API_KEY && key === SECRET_API_KEY) {
-    const orgs = await findAllOrganizations();
+    const { organizations: orgs } = await findAllOrganizations(1, "");
     if (orgs.length === 1) {
       return {
         id: "SECRET_API_KEY",

@@ -5,7 +5,9 @@ import {
   FeatureValueType,
 } from "back-end/types/feature";
 import dJSON from "dirty-json";
+
 import React, { ReactElement, useState } from "react";
+import { validateFeatureValue } from "shared/util";
 import { useAuth } from "@/services/auth";
 import Modal from "@/components/Modal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -14,7 +16,6 @@ import {
   genDuplicatedKey,
   getDefaultValue,
   useEnvironments,
-  validateFeatureValue,
 } from "@/services/features";
 import { useWatching } from "@/services/WatchProvider";
 import usePermissions from "@/hooks/usePermissions";

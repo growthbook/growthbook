@@ -21,7 +21,7 @@ export const getVisualChangeset = createApiRequestHandler(
     );
 
     if (!visualChangeset) {
-      throw new Error("Could not find visualChangeset with that id");
+      throw new Error("Could not find visualChangeset with given ID");
     }
 
     const experiment =

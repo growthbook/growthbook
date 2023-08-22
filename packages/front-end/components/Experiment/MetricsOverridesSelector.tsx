@@ -212,7 +212,7 @@ export default function MetricsOverridesSelector({
                           labelClassName="small mb-1"
                           type="number"
                           containerClassName="mb-0 metric-override"
-                          min={0}
+                          min={0.125}
                           step="any"
                           {...form.register(
                             `metricOverrides.${i}.conversionWindowHours`,
