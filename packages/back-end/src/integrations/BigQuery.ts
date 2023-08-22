@@ -101,6 +101,9 @@ export default class BigQuery extends SqlIntegration {
   getDefaultDatabase() {
     return this.params.projectId || "";
   }
+  getDefaultSchema() {
+    return this.params.defaultDataset;
+  }
   getInformationSchemaTable(schema?: string, database?: string): string {
     return this.generateTablePath(
       "INFORMATION_SCHEMA.COLUMNS",
