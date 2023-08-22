@@ -44,6 +44,16 @@ interface Props
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
 }
 
+const smallPercentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 1,
+});
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 0,
+});
+
 const AlignedGraph: FC<Props> = ({
   id,
   ci,
@@ -115,8 +125,13 @@ const AlignedGraph: FC<Props> = ({
   const leftDomain = domain[0] - domainPadding;
   const rightDomain = domain[1] + domainPadding;
   domain = [leftDomain, rightDomain];
+
+  const domainWidth = rightDomain - leftDomain;
+
   const tickFormat = (v: number) => {
-    return " " + Math.round(v * 100) + "%";
+    return domainWidth < 0.05
+      ? smallPercentFormatter.format(v)
+      : percentFormatter.format(v);
   };
 
   const barHeight = Math.floor(height / 2) - barThickness / 2;
