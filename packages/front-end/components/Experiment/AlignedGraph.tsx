@@ -345,7 +345,7 @@ const AlignedGraph: FC<Props> = ({
                         <Line
                           fill="#000000"
                           strokeWidth={3}
-                          stroke={"#0005"}
+                          stroke={"#0008"}
                           from={{ x: xScale(expected ?? 0), y: barHeight }}
                           to={{
                             x: xScale(expected ?? 0),

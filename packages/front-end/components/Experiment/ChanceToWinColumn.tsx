@@ -49,7 +49,7 @@ export default function ChanceToWinColumn({
       {...otherProps}
     >
       {!baseline?.value || !stats?.value ? (
-        <em className="text-gray">no data</em>
+        <em className="text-muted font-weight-normal">no data</em>
       ) : !rowResults.enoughData ? (
         <NotEnoughData
           rowResults={rowResults}
@@ -65,7 +65,7 @@ export default function ChanceToWinColumn({
           {shouldRenderRisk ? (
             <span
               className={rowResults.riskMeta.riskStatus}
-              style={{ marginLeft: 1 }}
+              style={{ marginLeft: 1, marginBottom: 4 }}
             >
               <HiOutlineExclamationCircle />
             </span>

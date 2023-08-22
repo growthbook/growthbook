@@ -76,7 +76,7 @@ export default function MetricValueColumn({
           ) : null}
         </>
       ) : (
-        <em>no data</em>
+        <em className={newUi ? "text-muted" : ""}>no data</em>
       )}
     </td>
   );

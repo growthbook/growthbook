@@ -89,7 +89,7 @@ const Results: FC<{
 
   const [advancedResults, setAdvancedResults] = useLocalStorage<boolean>(
     `experiment-page__${experiment.id}__advanced-results`,
-    false
+    true
   );
 
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);

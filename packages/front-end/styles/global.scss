@@ -493,8 +493,11 @@ pre {
   .result-number {
     font-weight: bold;
   }
+  .metric-label {
+    font-size: 14px;
+  }
   .variation {
-    font-size: 12px;
+    font-size: 14px;
   }
   .result-number-sub {
     font-size: 12px;
@@ -519,11 +522,11 @@ pre {
   }
   .draw,
   .non-significant {
-    font-weight: normal;
-    color: #707070;
-    &.hover {
-      color: #888888;
-    }
+    //font-weight: normal;
+    //color: #707070;
+    //&.hover {
+    //  color: #888888;
+    //}
   }
   .won {
     color: #09ac17;

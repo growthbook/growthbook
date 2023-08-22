@@ -25,7 +25,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import { trackSnapshot } from "@/services/track";
+import track, { trackSnapshot } from "@/services/track";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import DimensionChooser from "../Dimensions/DimensionChooser";
@@ -250,6 +250,9 @@ export default function AnalysisSettingsBar({
                   value={advancedResults}
                   setValue={(value) => {
                     setAdvancedResults?.(value);
+                    track("Toggled advanced results", {
+                      switchTo: value ? "on" : "off",
+                    });
                   }}
                   className={`m-0`}
                   style={{ transform: "scale(0.8)" }}

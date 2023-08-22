@@ -384,7 +384,7 @@ export default function ResultsTable({
                 <th
                   style={{
                     lineHeight: "16px",
-                    width: (showAdvanced ? 180 : 220) * tableCellScale,
+                    width: 220 * tableCellScale,
                   }}
                   className="axis-col header-label"
                 >
@@ -408,7 +408,7 @@ export default function ResultsTable({
                       <>
                         <th
                           style={{
-                            width: 110 * tableCellScale,
+                            width: 130 * tableCellScale,
                             lineHeight: "16px",
                           }}
                           className="axis-col label"
@@ -436,7 +436,7 @@ export default function ResultsTable({
                           </div>
                         </th>
                         <th
-                          style={{ width: 110 * tableCellScale }}
+                          style={{ width: 130 * tableCellScale }}
                           className="axis-col label"
                         >
                           Value
@@ -493,9 +493,7 @@ export default function ResultsTable({
                     </th>
                     <th
                       style={{
-                        width:
-                          (showAdvanced ? 140 : 120) *
-                          Math.max(0.75, tableCellScale),
+                        width: 110 * Math.max(0.75, tableCellScale),
                       }}
                       className="axis-col label text-right has-tooltip"
                     >
@@ -538,10 +536,7 @@ export default function ResultsTable({
                 <tbody
                   className="results-group-row"
                   key={i}
-                  style={{
-                    backgroundColor:
-                      i % 2 === 1 ? "rgb(127 127 127 / 8%)" : "transparent",
-                  }}
+                  style={{ borderBottom: "1px solid #66666620" }}
                 >
                   {drawEmptyRow({
                     className: "results-label-row",
@@ -610,7 +605,7 @@ export default function ResultsTable({
                         <td
                           className={`variation with-variation-label variation${j}`}
                           style={{
-                            width: (showAdvanced ? 180 : 220) * tableCellScale,
+                            width: 220 * tableCellScale,
                           }}
                         >
                           <div className="d-flex align-items-center">
@@ -621,36 +616,64 @@ export default function ResultsTable({
                               {j}
                             </span>
                             <span
-                              className="d-inline-block text-ellipsis font-weight-bold"
+                              className="d-inline-block text-ellipsis"
                               style={{
-                                width:
-                                  (showAdvanced ? 125 : 165) * tableCellScale,
+                                width: 165 * tableCellScale,
                               }}
                             >
                               {v.name}
                             </span>
                           </div>
                         </td>
-                        {showAdvanced && j === 1 ? (
-                          // draw baseline value once, merge rows
-                          <MetricValueColumn
-                            metric={row.metric}
-                            stats={baseline}
-                            users={baseline?.users || 0}
-                            style={{ backgroundColor: "rgb(127 127 127 / 6%)" }}
-                            className="value"
-                            newUi={true}
-                            rowSpan={variations.length - 1}
-                          />
+                        {showAdvanced ? (
+                          j === 1 ? (
+                            // draw baseline value once, merge rows
+                            <MetricValueColumn
+                              metric={row.metric}
+                              stats={baseline}
+                              users={baseline?.users || 0}
+                              // style={{ backgroundColor: "rgb(127 127 127 / 6%)" }}
+                              className="value"
+                              newUi={true}
+                              // rowSpan={variations.length - 1}
+                            />
+                          ) : (
+                            <td className="align-top">
+                              <div
+                                className="border-left"
+                                style={{
+                                  marginLeft: "20px",
+                                  width: 1,
+                                  height:
+                                    42 -
+                                    (j < variations.length - 1 ? 0 : 18) -
+                                    (j == 2 ? 5 : 0),
+                                  marginTop: j == 2 ? 5 : 0,
+                                }}
+                              />
+                              {j === variations.length - 1 ? (
+                                <div
+                                  className="border-top"
+                                  style={{
+                                    marginLeft: "16px",
+                                    width: 9,
+                                    height: 1,
+                                  }}
+                                />
+                              ) : null}
+                            </td>
+                          )
                         ) : null}
                         {showAdvanced ? (
                           <MetricValueColumn
                             metric={row.metric}
                             stats={stats}
                             users={stats?.users || 0}
-                            className={clsx("value", {
-                              hover: isHovered,
-                            })}
+                            className={clsx(
+                              "value",
+                              resultsHighlightClassname,
+                              { hover: isHovered }
+                            )}
                             newUi={true}
                             onPointerMove={onPointerMove}
                             onPointerLeave={onPointerLeave}
@@ -718,7 +741,7 @@ export default function ResultsTable({
                               stats={stats}
                               id={`${id}_violin_row${i}_var${j}`}
                               graphWidth={graphCellWidth}
-                              height={showAdvanced ? 44 : 36}
+                              height={showAdvanced ? 42 : 35}
                               newUi={true}
                               isHovered={isHovered}
                               onPointerMove={(e) =>
@@ -757,7 +780,6 @@ export default function ResultsTable({
                             stats={stats}
                             rowResults={rowResults}
                             statsEngine={statsEngine}
-                            showCI={showAdvanced}
                             className={resultsHighlightClassname}
                             onPointerMove={(e) =>
                               onPointerMove(e, {

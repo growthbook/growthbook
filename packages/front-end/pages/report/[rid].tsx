@@ -55,7 +55,7 @@ export default function ReportPage() {
 
   const [advancedResults, setAdvancedResults] = useLocalStorage<boolean>(
     `report-page__${rid}__advanced-results`,
-    false
+    true
   );
 
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -311,6 +311,9 @@ export default function ReportPage() {
                         value={advancedResults}
                         setValue={(value) => {
                           setAdvancedResults?.(value);
+                          track("Toggled advanced results", {
+                            switchTo: value ? "on" : "off",
+                          });
                         }}
                         className={`m-0`}
                         style={{ transform: "scale(0.8)" }}
