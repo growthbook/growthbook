@@ -402,41 +402,41 @@ export default function ResultsTable({
                 </th>
                 {!noMetrics ? (
                   <>
-                        <th
+                    <th
+                      style={{
+                        width: 130 * tableCellScale,
+                        lineHeight: "16px",
+                      }}
+                      className="axis-col label"
+                    >
+                      Baseline
+                      <div
+                        className={`variation variation${baselineRow} with-variation-label d-inline-flex align-items-center`}
+                        style={{ marginBottom: 2 }}
+                      >
+                        <span
+                          className="label"
+                          style={{ width: 16, height: 16 }}
+                        >
+                          {baselineRow}
+                        </span>
+                        <span
+                          className="d-inline-block text-ellipsis font-weight-bold"
                           style={{
-                            width: 130 * tableCellScale,
-                            lineHeight: "16px",
+                            width: 80 * tableCellScale,
+                            marginRight: -20,
                           }}
-                          className="axis-col label"
                         >
-                          Baseline
-                          <div
-                            className={`variation variation${baselineRow} with-variation-label d-inline-flex align-items-center`}
-                            style={{ marginBottom: 2 }}
-                          >
-                            <span
-                              className="label"
-                              style={{ width: 16, height: 16 }}
-                            >
-                              {baselineRow}
-                            </span>
-                            <span
-                              className="d-inline-block text-ellipsis font-weight-bold"
-                              style={{
-                                width: 80 * tableCellScale,
-                                marginRight: -20,
-                              }}
-                            >
-                              {variations[baselineRow].name}
-                            </span>
-                          </div>
-                        </th>
-                        <th
-                          style={{ width: 130 * tableCellScale }}
-                          className="axis-col label"
-                        >
-                          Value
-                        </th>
+                          {variations[baselineRow].name}
+                        </span>
+                      </div>
+                    </th>
+                    <th
+                      style={{ width: 130 * tableCellScale }}
+                      className="axis-col label"
+                    >
+                      Value
+                    </th>
                     <th
                       style={{ width: 120 * tableCellScale }}
                       className="axis-col label text-right has-tooltip"
@@ -456,7 +456,7 @@ export default function ResultsTable({
                                 !!sequentialTestingEnabled,
                                 pValueCorrection ?? null,
                                 orgSettings.pValueThreshold ?? 0.05,
-                                tableRowAxis,
+                                tableRowAxis
                               )}
                             </div>
                           }
@@ -510,10 +510,7 @@ export default function ResultsTable({
                     </th>
                   </>
                 ) : (
-                  <th
-                    className="axis-col label"
-                    colSpan={5}
-                  />
+                  <th className="axis-col label" colSpan={5} />
                 )}
               </tr>
             </thead>
@@ -617,66 +614,64 @@ export default function ResultsTable({
                           </div>
                         </td>
                         {j === 1 ? (
-                            // draw baseline value once, merge rows
-                            <MetricValueColumn
-                              metric={row.metric}
-                              stats={baseline}
-                              users={baseline?.users || 0}
-                              // style={{ backgroundColor: "rgb(127 127 127 / 6%)" }}
-                              className="value"
-                              newUi={true}
-                              // rowSpan={variations.length - 1}
-                            />
-                          ) : (
-                            <td className="align-top">
-                              <div
-                                className="border-left"
-                                style={{
-                                  marginLeft: "20px",
-                                  width: 1,
-                                  height:
-                                    42 -
-                                    (j < variations.length - 1 ? 0 : 18) -
-                                    (j == 2 ? 5 : 0),
-                                  marginTop: j == 2 ? 5 : 0,
-                                }}
-                              />
-                              {j === variations.length - 1 ? (
-                                <div
-                                  className="border-top"
-                                  style={{
-                                    marginLeft: "16px",
-                                    width: 9,
-                                    height: 1,
-                                  }}
-                                />
-                              ) : null}
-                            </td>
-                          )}
+                          // draw baseline value once, merge rows
                           <MetricValueColumn
                             metric={row.metric}
-                            stats={stats}
-                            users={stats?.users || 0}
-                            className={clsx(
-                              "value",
-                              resultsHighlightClassname,
-                              { hover: isHovered }
-                            )}
+                            stats={baseline}
+                            users={baseline?.users || 0}
+                            // style={{ backgroundColor: "rgb(127 127 127 / 6%)" }}
+                            className="value"
                             newUi={true}
-                            onPointerMove={(e) =>
-                              onPointerMove(e, {
-                                x: "element-right",
-                                offsetX: -45,
-                              })
-                            }
-                            onPointerLeave={onPointerLeave}
-                            onClick={(e) =>
-                              onPointerMove(e, {
-                                x: "element-right",
-                                offsetX: -45,
-                              })
-                            }
+                            // rowSpan={variations.length - 1}
                           />
+                        ) : (
+                          <td className="align-top">
+                            <div
+                              className="border-left"
+                              style={{
+                                marginLeft: "20px",
+                                width: 1,
+                                height:
+                                  42 -
+                                  (j < variations.length - 1 ? 0 : 18) -
+                                  (j == 2 ? 5 : 0),
+                                marginTop: j == 2 ? 5 : 0,
+                              }}
+                            />
+                            {j === variations.length - 1 ? (
+                              <div
+                                className="border-top"
+                                style={{
+                                  marginLeft: "16px",
+                                  width: 9,
+                                  height: 1,
+                                }}
+                              />
+                            ) : null}
+                          </td>
+                        )}
+                        <MetricValueColumn
+                          metric={row.metric}
+                          stats={stats}
+                          users={stats?.users || 0}
+                          className={clsx("value", resultsHighlightClassname, {
+                            hover: isHovered,
+                          })}
+                          newUi={true}
+                          onPointerMove={(e) =>
+                            onPointerMove(e, {
+                              x: "element-right",
+                              offsetX: -45,
+                            })
+                          }
+                          onPointerLeave={onPointerLeave}
+                          onClick={(e) =>
+                            onPointerMove(e, {
+                              x: "element-right",
+                              offsetX: -45,
+                            })
+                          }
+                        />
                         {j > 0 ? (
                           statsEngine === "bayesian" ? (
                             <ChanceToWinColumn
@@ -920,7 +915,7 @@ function getPValueTooltip(
   sequentialTestingEnabled: boolean,
   pValueCorrection: PValueCorrection,
   pValueThreshold: number,
-  tableRowAxis: "dimension" | "metric",
+  tableRowAxis: "dimension" | "metric"
 ) {
   return (
     <>
@@ -941,8 +936,7 @@ function getPValueTooltip(
           {tableRowAxis === "dimension"
             ? "all dimension values, non-guardrail metrics, and variations"
             : "all non-guardrail metrics and variations"}
-          .{" "}
-          The unadjusted p-values are returned in parentheses.
+          . The unadjusted p-values are returned in parentheses.
         </div>
       )}
     </>
