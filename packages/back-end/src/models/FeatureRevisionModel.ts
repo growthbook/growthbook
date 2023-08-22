@@ -8,11 +8,28 @@ const featureRevisionSchema = new mongoose.Schema({
   featureId: String,
   version: Number,
   dateCreated: Date,
+  dateUpdated: {
+    type: Date,
+    required: false,
+  },
   revisionDate: Date,
   publishedBy: {},
   comment: String,
   defaultValue: String,
   rules: {},
+  creatorUserId: {
+    type: String,
+    required: false,
+  },
+  status: {
+    type: String,
+    required: false,
+    enum: ["published", "draft"], // todo: everything with these
+  },
+  baseVersion: {
+    type: String,
+    required: false,
+  },
 });
 
 featureRevisionSchema.index(
@@ -38,6 +55,7 @@ export async function getRevisions(
   return docs.map((d) => d.toJSON<FeatureRevisionDocument>());
 }
 
+// todo: support creating draft revisions
 export async function saveRevision(feature: FeatureInterface) {
   const rules: Record<string, FeatureRule[]> = {};
   Object.keys(feature.environmentSettings || {}).forEach((env) => {
