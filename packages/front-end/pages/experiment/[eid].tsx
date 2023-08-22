@@ -8,7 +8,7 @@ import {
   includeExperimentInPayload,
 } from "shared/util";
 import { BsChatSquareQuote } from "react-icons/bs";
-import { FaCheck } from "react-icons/fa";
+import { FaCheck, FaMagic, FaUndo } from "react-icons/fa";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
@@ -30,6 +30,7 @@ import TabbedPage from "@/components/Experiment/TabbedPage";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useFeaturesList } from "@/services/features";
 import FeedbackModal from "@/components/FeedbackModal";
+import track from "@/services/track";
 
 const ExperimentPage = (): ReactElement => {
   const permissions = usePermissions();
@@ -214,6 +215,51 @@ const ExperimentPage = (): ReactElement => {
         />
       )}
       <div className="container-fluid position-relative">
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 840,
+            textAlign: "center",
+            pointerEvents: "none",
+          }}
+        >
+          <div className="bg-light d-inline-flex border-bottom border-left border-right rounded py-1 px-3 experiment-switch-page">
+            <div className="switch-back">
+              <a
+                className="a"
+                role="button"
+                onClick={() => {
+                  setNewUi(!newUi);
+                  track("Switched Experiment Page V2", {
+                    switchTo: newUi ? "old" : "new",
+                  });
+                }}
+              >
+                <span className="text mr-1">
+                  switch to {newUi ? "old" : "new"} design
+                </span>
+                {newUi ? <FaUndo /> : <FaMagic />}
+              </a>
+            </div>
+            {showFeedbackBanner ? (
+              <div className="border-left pl-3 ml-3 give-feedback">
+                <a
+                  className="a"
+                  role="button"
+                  onClick={() => {
+                    setShowFeedbackModal(true);
+                  }}
+                >
+                  tell us your thoughts
+                  <BsChatSquareQuote size="18" className="ml-1" />
+                </a>
+              </div>
+            ) : null}
+          </div>
+        </div>
         <SnapshotProvider experiment={experiment}>
           {newUi ? (
             <TabbedPage
@@ -230,9 +276,6 @@ const ExperimentPage = (): ReactElement => {
               editPhases={editPhases}
               editPhase={editPhase}
               editTargeting={editTargeting}
-              switchToOldDesign={() => setNewUi(false)}
-              showFeedbackBanner={showFeedbackBanner}
-              openFeedbackModal={() => setShowFeedbackModal(true)}
             />
           ) : (
             <SinglePage
@@ -250,9 +293,6 @@ const ExperimentPage = (): ReactElement => {
               editPhases={editPhases}
               editPhase={editPhase}
               editTargeting={editTargeting}
-              switchToNewDesign={() => setNewUi(true)}
-              showFeedbackBanner={showFeedbackBanner}
-              openFeedbackModal={() => setShowFeedbackModal(true)}
             />
           )}
         </SnapshotProvider>

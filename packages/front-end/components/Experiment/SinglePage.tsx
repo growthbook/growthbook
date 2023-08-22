@@ -11,7 +11,6 @@ import {
   FaClock,
   FaExclamationTriangle,
   FaExternalLinkAlt,
-  FaMagic,
   FaPlusCircle,
   FaQuestionCircle,
 } from "react-icons/fa";
@@ -33,7 +32,7 @@ import { getScopedSettings } from "shared/settings";
 import { date } from "shared/dates";
 import Collapsible from "react-collapsible";
 import { DiscussionInterface } from "back-end/types/discussion";
-import { BsChatSquareQuote, BsFlag } from "react-icons/bs";
+import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { FeatureInterface } from "back-end/types/feature";
 import { MdInfoOutline } from "react-icons/md";
@@ -185,9 +184,6 @@ export interface Props {
   editPhases?: (() => void) | null;
   editPhase?: ((i: number | null) => void) | null;
   editTargeting?: (() => void) | null;
-  switchToNewDesign?: () => void;
-  showFeedbackBanner?: boolean;
-  openFeedbackModal?: () => void;
 }
 
 type ResultsTab = "results" | "config";
@@ -207,9 +203,6 @@ export default function SinglePage({
   editPhases,
   editPhase,
   editTargeting,
-  switchToNewDesign,
-  showFeedbackBanner,
-  openFeedbackModal,
 }: Props) {
   const [metaInfoOpen, setMetaInfoOpen] = useLocalStorage<boolean>(
     `experiment-page__${experiment.id}__meta-info-open`,
@@ -503,43 +496,6 @@ export default function SinglePage({
             </Link>
           </div>
         </div>
-        {switchToNewDesign || (showFeedbackBanner && openFeedbackModal) ? (
-          <div className="ml-auto mr-auto d-flex mt-1">
-            {switchToNewDesign ? (
-              <div className="mx-3">
-                <a
-                  className="a"
-                  role="button"
-                  onClick={() => {
-                    switchToNewDesign();
-                    track("Switched Experiment Page V2", {
-                      switchTo: "new",
-                    });
-                  }}
-                >
-                  use the new design
-                  <FaMagic className="ml-1" />
-                </a>
-              </div>
-            ) : null}
-            {showFeedbackBanner && openFeedbackModal ? (
-              <div className="mx-3">
-                <a
-                  className="a"
-                  role="button"
-                  onClick={() => {
-                    openFeedbackModal();
-                  }}
-                >
-                  tell us your thoughts
-                  <BsChatSquareQuote size="18" className="ml-1" />
-                </a>
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <div className="flex-1 col"></div>
-        )}
       </div>
       {reportSettingsOpen && (
         <AnalysisForm

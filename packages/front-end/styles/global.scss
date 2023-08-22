@@ -625,6 +625,29 @@ main.main.report {
   background-color: var(--table-row-highlight-background-color);
 }
 
+.experiment-switch-page {
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  width: auto;
+  margin: 0 auto;
+  pointer-events: all;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  @media (max-width: 980px) {
+    .give-feedback {
+      display: none;
+    }
+  }
+  @media (max-width: 700px) {
+    .switch-back .text {
+      display: none;
+    }
+  }
+}
+
 .hover-show {
   .show-target {
     transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);

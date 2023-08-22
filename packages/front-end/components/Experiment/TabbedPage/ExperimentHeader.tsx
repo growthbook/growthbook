@@ -3,7 +3,7 @@ import {
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import Link from "next/link";
-import { FaChartBar, FaHome, FaUndo, FaUsers } from "react-icons/fa";
+import { FaChartBar, FaHome, FaUsers } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import React, { useMemo, useState } from "react";
@@ -12,7 +12,6 @@ import { MdRocketLaunch } from "react-icons/md";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import clsx from "clsx";
-import { BsChatSquareQuote } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { GBCircleArrowLeft } from "@/components/Icons";
 import WatchButton from "@/components/WatchButton";
@@ -26,7 +25,6 @@ import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
 import Modal from "@/components/Modal";
 import Dropdown from "@/components/Dropdown/Dropdown";
 import DropdownLink from "@/components/Dropdown/DropdownLink";
-import track from "@/services/track";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
 import ResultsIndicator from "../ResultsIndicator";
@@ -56,9 +54,6 @@ export interface Props {
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
   editPhases?: (() => void) | null;
-  switchToOldDesign?: () => void;
-  showFeedbackBanner?: boolean;
-  openFeedbackModal?: () => void;
 }
 
 const shortNumberFormatter = Intl.NumberFormat("en-US", {
@@ -101,9 +96,6 @@ export default function ExperimentHeader({
   editTargeting,
   newPhase,
   editPhases,
-  switchToOldDesign,
-  showFeedbackBanner,
-  openFeedbackModal,
 }: Props) {
   const { apiCall } = useAuth();
   const router = useRouter();
@@ -212,43 +204,7 @@ export default function ExperimentHeader({
             </HeaderWithEdit>
           </div>
 
-          {switchToOldDesign || (showFeedbackBanner && openFeedbackModal) ? (
-            <div className="ml-auto mr-auto d-flex" style={{ marginTop: -8 }}>
-              {switchToOldDesign ? (
-                <div className="mx-3">
-                  <a
-                    className="a"
-                    role="button"
-                    onClick={() => {
-                      switchToOldDesign();
-                      track("Switched Experiment Page V2", {
-                        switchTo: "old",
-                      });
-                    }}
-                  >
-                    switch to old design
-                    <FaUndo className="ml-1" />
-                  </a>
-                </div>
-              ) : null}
-              {showFeedbackBanner && openFeedbackModal ? (
-                <div className="mx-3">
-                  <a
-                    className="a"
-                    role="button"
-                    onClick={() => {
-                      openFeedbackModal();
-                    }}
-                  >
-                    tell us your thoughts
-                    <BsChatSquareQuote size="18" className="ml-1" />
-                  </a>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div className="flex-1 col"></div>
-          )}
+          <div className="ml-auto"></div>
 
           <div className="col-auto pt-2">
             {experiment.archived ? (
