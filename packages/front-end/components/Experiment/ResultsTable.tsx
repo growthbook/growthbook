@@ -675,9 +675,19 @@ export default function ResultsTable({
                               { hover: isHovered }
                             )}
                             newUi={true}
-                            onPointerMove={onPointerMove}
+                            onPointerMove={(e) =>
+                              onPointerMove(e, {
+                                x: "element-right",
+                                offsetX: -45,
+                              })
+                            }
                             onPointerLeave={onPointerLeave}
-                            onClick={onPointerMove}
+                            onClick={(e) =>
+                              onPointerMove(e, {
+                                x: "element-right",
+                                offsetX: -45,
+                              })
+                            }
                           />
                         ) : null}
                         {j > 0 ? (
