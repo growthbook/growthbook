@@ -77,7 +77,7 @@ export async function openVisualEditor(
     source: "visual-editor-ui",
     status: "success",
   });
-  window.open(url, windowTarget);
+  window.open(url, windowTarget)?.focus();
   return null;
 }
 
