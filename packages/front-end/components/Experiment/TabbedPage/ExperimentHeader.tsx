@@ -12,6 +12,7 @@ import { MdRocketLaunch } from "react-icons/md";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import clsx from "clsx";
+import { BsChatSquareQuote } from "react-icons/bs";
 import { useAuth } from "@/services/auth";
 import { GBCircleArrowLeft } from "@/components/Icons";
 import WatchButton from "@/components/WatchButton";
@@ -35,7 +36,6 @@ import ExperimentStatusIndicator from "./ExperimentStatusIndicator";
 import OverflowText from "./OverflowText";
 import StopExperimentButton from "./StopExperimentButton";
 import { ExperimentTab, LinkedFeature } from ".";
-import {BsChatSquareQuote} from "react-icons/bs";
 
 export interface Props {
   tab: ExperimentTab;
@@ -213,7 +213,7 @@ export default function ExperimentHeader({
           </div>
 
           {switchToOldDesign || (showFeedbackBanner && openFeedbackModal) ? (
-            <div className="ml-auto mr-auto d-flex" style={{marginTop: -8}}>
+            <div className="ml-auto mr-auto d-flex" style={{ marginTop: -8 }}>
               {switchToOldDesign ? (
                 <div className="mx-3">
                   <a
@@ -230,7 +230,7 @@ export default function ExperimentHeader({
                     <FaUndo className="ml-1" />
                   </a>
                 </div>
-              ): null}
+              ) : null}
               {showFeedbackBanner && openFeedbackModal ? (
                 <div className="mx-3">
                   <a
@@ -246,7 +246,9 @@ export default function ExperimentHeader({
                 </div>
               ) : null}
             </div>
-          ): <div className="flex-1 col"></div>}
+          ) : (
+            <div className="flex-1 col"></div>
+          )}
 
           <div className="col-auto pt-2">
             {experiment.archived ? (

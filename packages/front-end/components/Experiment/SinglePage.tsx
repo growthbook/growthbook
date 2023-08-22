@@ -33,7 +33,7 @@ import { getScopedSettings } from "shared/settings";
 import { date } from "shared/dates";
 import Collapsible from "react-collapsible";
 import { DiscussionInterface } from "back-end/types/discussion";
-import {BsChatSquareQuote, BsFlag} from "react-icons/bs";
+import { BsChatSquareQuote, BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { FeatureInterface } from "back-end/types/feature";
 import { MdInfoOutline } from "react-icons/md";
@@ -521,7 +521,7 @@ export default function SinglePage({
                   <FaMagic className="ml-1" />
                 </a>
               </div>
-            ): null}
+            ) : null}
             {showFeedbackBanner && openFeedbackModal ? (
               <div className="mx-3">
                 <a
@@ -537,7 +537,9 @@ export default function SinglePage({
               </div>
             ) : null}
           </div>
-        ): <div className="flex-1 col"></div>}
+        ) : (
+          <div className="flex-1 col"></div>
+        )}
       </div>
       {reportSettingsOpen && (
         <AnalysisForm
