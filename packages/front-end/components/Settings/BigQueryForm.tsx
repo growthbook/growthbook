@@ -112,36 +112,36 @@ const BigQueryForm: FC<{
               </div>
             )}
           </div>
-          <div className="form-group col-md-12">
-            <label>
-              Project ID{" "}
-              <Tooltip body="The default project ID GrowthBook will use when creating queries. You can find this value from your BigQuery project info card on your BigQuery Dashboard, or the name of the top level SQL item in the BigQuery console SQL workspace. This value can be edited later if needed." />
-            </label>
-            <Field
-              type="text"
-              className="form-control"
-              name="defaultProject"
-              value={params.defaultProject || ""}
-              onChange={onParamChange}
-              placeholder=""
-            />
-          </div>
-          <div className="form-group col-md-12">
-            <label>
-              Default Dataset (Optional){" "}
-              <Tooltip body="Specifying a dataset here allows GrowthBook to create better default queries to define working assignments and metrics. This value can be edited later if needed." />
-            </label>
-            <Field
-              type="text"
-              className="form-control"
-              name="defaultDataset"
-              value={params.defaultDataset || ""}
-              onChange={onParamChange}
-              placeholder=""
-            />
-          </div>
         </>
       )}
+      <div className="form-group col-md-12">
+        <label>
+          Project ID{" "}
+          <Tooltip body="The default project ID GrowthBook will use when creating queries. You can find this value from your BigQuery project info card on your BigQuery Dashboard, or the name of the top level SQL item in the BigQuery console SQL workspace. This value can be edited later if needed." />
+        </label>
+        <Field
+          type="text"
+          className="form-control"
+          name="defaultProject"
+          value={params.defaultProject || ""}
+          onChange={onParamChange}
+          placeholder=""
+        />
+      </div>
+      <div className="form-group col-md-12">
+        <label>
+          Default Dataset (Optional){" "}
+          <Tooltip body="Specifying a dataset here allows GrowthBook to create better default queries to define working assignments and metrics. This value can be edited later if needed." />
+        </label>
+        <Field
+          type="text"
+          className="form-control"
+          name="defaultDataset"
+          value={params.defaultDataset || ""}
+          onChange={onParamChange}
+          placeholder=""
+        />
+      </div>
     </div>
   );
 };
