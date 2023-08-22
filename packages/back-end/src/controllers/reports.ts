@@ -23,6 +23,7 @@ import { generateReportNotebook } from "../services/notebook";
 import { getOrgFromReq } from "../services/organizations";
 import { reportArgsFromSnapshot } from "../services/reports";
 import { AuthRequest } from "../types/AuthRequest";
+import { ExperimentInterface } from "../../types/experiment";
 
 export async function postReportFromSnapshot(
   req: AuthRequest<null, { snapshot: string }>,
@@ -189,14 +190,20 @@ export async function refreshReport(
   req: AuthRequest<null, { id: string }, { force?: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries", "");
-
   const { org } = getOrgFromReq(req);
   const report = await getReportById(org.id, req.params.id);
 
   if (!report) {
     throw new Error("Unknown report id");
   }
+
+  let experiment: ExperimentInterface | null = null;
+
+  if (report.experimentId) {
+    experiment = await getExperimentById(org.id, report.experimentId || "");
+  }
+
+  req.checkPermissions("runQueries", experiment?.project || "");
 
   const useCache = !req.query["force"];
 
@@ -232,7 +239,6 @@ export async function putReport(
   res: Response
 ) {
   req.checkPermissions("createAnalyses", "");
-  req.checkPermissions("runQueries", "");
 
   const { org } = getOrgFromReq(req);
 
@@ -241,6 +247,10 @@ export async function putReport(
   if (!report) {
     throw new Error("Unknown report id");
   }
+
+  const experiment = await getExperimentById(org.id, report.experimentId || "");
+
+  req.checkPermissions("runQueries", experiment?.project || "");
 
   const updates: Partial<ReportInterface> = {};
   let needsRun = false;
@@ -303,14 +313,16 @@ export async function cancelReport(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries", "");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const report = await getReportById(org.id, id);
   if (!report) {
     throw new Error("Could not cancel query");
   }
+
+  const experiment = await getExperimentById(org.id, report.experimentId || "");
+
+  req.checkPermissions("runQueries", experiment?.project || "");
 
   const integration = await getIntegrationFromDatasourceId(
     org.id,

@@ -417,6 +417,9 @@ export function upgradeExperimentDoc(
   // Add hashAttribute field
   experiment.hashAttribute = experiment.hashAttribute || "";
 
+  // Add hashVersion field
+  experiment.hashVersion = experiment.hashVersion || 2;
+
   // Old `observations` field
   if (!experiment.description && experiment.observations) {
     experiment.description = experiment.observations;

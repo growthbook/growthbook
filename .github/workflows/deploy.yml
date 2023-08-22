@@ -50,6 +50,7 @@ jobs:
           tags: |
             growthbook/growthbook:latest
             growthbook/growthbook:git-${{ steps.metadata.outputs.sha }}
+          platforms: linux/amd64,linux/arm64
 
   # Deploy the back-end for GrowthBook Cloud
   prod:
@@ -65,5 +66,4 @@ jobs:
           aws-region: us-east-1
 
       - name: Deploy docker image to ECS for GrowthBook Cloud API
-        run:
-          aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1
+        run: aws ecs update-service --cluster prod-api --service prod-api --force-new-deployment --region us-east-1

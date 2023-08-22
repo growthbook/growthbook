@@ -1,34 +1,99 @@
-import { FC, useCallback, useMemo, useState } from "react";
+import { VisualChangesetInterface } from "back-end/types/visual-changeset";
+import { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { FaExternalLinkAlt } from "react-icons/fa";
 import { getApiHost } from "@/services/env";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
+import { useAuth } from "@/services/auth";
 import Modal from "./Modal";
+import LoadingSpinner from "./LoadingSpinner";
 
-// TODO - parameterize this
 const CHROME_EXTENSION_LINK =
   "https://chrome.google.com/webstore/detail/growthbook-devtools/opemhndcehfgipokneipaafbglcecjia";
 
+const isChromeExtInstalledLocally = async () => {
+  try {
+    const resp = await fetch(
+      "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo192.png",
+      {
+        method: "HEAD",
+      }
+    );
+    return resp.status === 200;
+  } catch (e) {
+    return false;
+  }
+};
+
+type VisualEditorError = "no-extension" | "api-key-failed" | "not-chrome";
+
+const ExtensionDialog: FC<{
+  close: () => void;
+  submit?: () => void;
+  errorType: VisualEditorError;
+  bypass: () => void;
+}> = ({ close, submit, errorType, bypass }) => (
+  <Modal
+    open
+    header="GrowthBook DevTools Extension"
+    close={close}
+    closeCta="Close"
+    cta={errorType === "no-extension" ? "View extension" : "Close"}
+    submit={submit}
+  >
+    {errorType === "no-extension" ? (
+      <>
+        You&apos;ll need to install the GrowthBook DevTools Chrome extension to
+        use the visual editor.
+      </>
+    ) : errorType === "api-key-failed" ? (
+      <>
+        We were unable to fetch an API key to initialize the Visual Editor.
+        Please try again or contact support.
+      </>
+    ) : errorType === "not-chrome" ? (
+      <>
+        The Visual Editor is currently only supported in Chrome. We are working
+        on bringing the Visual Editor to other browsers.
+      </>
+    ) : (
+      <>There was an error. Please try again or contact support.</>
+    )}{" "}
+    <a
+      href="#"
+      onClick={(e) => {
+        e.preventDefault();
+        bypass();
+      }}
+      target="_blank"
+      rel="noreferrer"
+    >
+      Click here to proceed anyway
+    </a>
+    .
+  </Modal>
+);
+
 const OpenVisualEditorLink: FC<{
-  visualEditorUrl?: string;
-  id: string;
   openSettings?: () => void;
-  changeIndex: number;
-}> = ({ id, visualEditorUrl, openSettings, changeIndex }) => {
+  visualChangeset: VisualChangesetInterface;
+  newlyCreatedChangesetId: string | null;
+}> = ({ openSettings, visualChangeset, newlyCreatedChangesetId }) => {
   const apiHost = getApiHost();
-  const [showExtensionDialog, setShowExtensionDialog] = useState(false);
+  const [errorType, setErrorType] = useState<VisualEditorError | null>(null);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasRequestedExtension, setHasRequestedExtension] = useState(false);
 
   const isChromeBrowser = useMemo(() => {
     const ua = navigator.userAgent;
     return ua.indexOf("Chrome") > -1 && ua.indexOf("Edge") === -1;
   }, []);
 
-  const url = useMemo(() => {
-    if (!visualEditorUrl) return "";
+  const { apiCall } = useAuth();
 
-    // Trim whitespace to prevent simple copy/paste errors
-    let url = visualEditorUrl.trim();
+  const url = useMemo(() => {
+    let url = visualChangeset.editorUrl.trim();
 
     // Force all URLs to be absolute
     if (!url.match(/^http(s)?:/)) {
@@ -38,29 +103,112 @@ const OpenVisualEditorLink: FC<{
     }
 
     url = appendQueryParamsToURL(url, {
-      "vc-id": id,
-      "v-idx": changeIndex,
+      "vc-id": visualChangeset.id,
+      "v-idx": 1,
+      // for backwards compatibility, we need to pass the experiment url
       "exp-url": encodeURIComponent(window.location.href),
-      "api-host": encodeURIComponent(apiHost),
     });
 
     return url;
-  }, [visualEditorUrl, id, changeIndex, apiHost]);
+  }, [visualChangeset.editorUrl, visualChangeset.id]);
 
-  const navigate = useCallback(() => {
-    track("Open visual editor", {
-      source: "visual-editor-ui",
-      status: "success",
+  const getVisualEditorKey = useCallback(async () => {
+    const res = await apiCall<{ key: string }>("/visual-editor/key", {
+      method: "GET",
     });
-    window.location.href = url;
-  }, [url]);
+    return res.key;
+  }, [apiCall]);
+
+  const navigate = useCallback(
+    async (options?: { bypass: boolean }) => {
+      setIsLoading(true);
+
+      try {
+        const key = await getVisualEditorKey();
+        window.postMessage(
+          {
+            type: "GB_REQUEST_OPEN_VISUAL_EDITOR",
+            data: {
+              apiHost,
+              apiKey: key,
+            },
+          },
+          window.location.origin
+        );
+        setHasRequestedExtension(true);
+
+        if (options?.bypass) {
+          setIsLoading(false);
+          track("Open visual editor", {
+            source: "visual-editor-ui",
+            status: "bypass",
+          });
+          window.location.href = url;
+          return;
+        }
+
+        // for backwards compatibility, we force routing to the page if it doesn't
+        // happen automatically after 1.5 seconds. this can be deleted once the
+        // chrome extension is updated to support the postMessage auth token flow
+        setTimeout(() => {
+          setIsLoading(false);
+          window.location.href = url;
+        }, 1500);
+      } catch (e) {
+        setIsLoading(false);
+        setErrorType("api-key-failed");
+        return;
+      }
+    },
+    [url, getVisualEditorKey, apiHost]
+  );
+
+  // after postMessage is sent, listen for a response from the extension
+  // to confirm that it was received and the extension is installed.
+  // then navigate to the visual editor
+  useEffect(() => {
+    if (!url) return;
+
+    const onMessage = (
+      event: MessageEvent<{ type?: "GB_RESPONSE_OPEN_VISUAL_EDITOR" } | null>
+    ) => {
+      if (
+        hasRequestedExtension &&
+        event.data?.type === "GB_RESPONSE_OPEN_VISUAL_EDITOR"
+      ) {
+        track("Open visual editor", {
+          source: "visual-editor-ui",
+          status: "success",
+        });
+        setIsLoading(false);
+        window.location.href = url;
+      }
+    };
+
+    window.addEventListener("message", onMessage);
+
+    return () => window.removeEventListener("message", onMessage);
+  }, [url, hasRequestedExtension]);
+
+  // automatically navigate to newly created changesets
+  useEffect(() => {
+    if (
+      !newlyCreatedChangesetId ||
+      newlyCreatedChangesetId !== visualChangeset.id
+    )
+      return;
+    navigate();
+  }, [newlyCreatedChangesetId, navigate, visualChangeset.id]);
 
   return (
     <>
       <span
         className="btn btn-sm btn-primary"
+        style={{ width: "144px" }}
         onClick={async (e) => {
-          if (!visualEditorUrl) {
+          e.preventDefault();
+
+          if (!visualChangeset.editorUrl) {
             e.preventDefault();
             setShowEditorUrlDialog(true);
             track("Open visual editor", {
@@ -70,38 +218,27 @@ const OpenVisualEditorLink: FC<{
             return false;
           }
 
-          let isExtensionInstalled = false;
-          await fetch(
-            "chrome-extension://opemhndcehfgipokneipaafbglcecjia/js/logo192.png",
-            {
-              method: "HEAD",
-            }
-          )
-            .then((resp) => {
-              if (resp.status === 200) {
-                isExtensionInstalled = true;
-              }
-            })
-            .catch((e) => {
-              console.log("chrome extension check failed", e.message);
-            });
+          const isExtensionInstalled = await isChromeExtInstalledLocally();
 
           if (!isExtensionInstalled) {
-            e.preventDefault();
-            setShowExtensionDialog(true);
+            setErrorType(isChromeBrowser ? "no-extension" : "not-chrome");
             track("Open visual editor", {
               source: "visual-editor-ui",
-              status: "missing extension",
+              status: isChromeBrowser ? "no extension" : "not chrome",
             });
             return false;
           }
 
-          if (url) {
-            navigate();
-          }
+          navigate();
         }}
       >
-        Open Visual Editor <FaExternalLinkAlt />
+        {isLoading ? (
+          <LoadingSpinner />
+        ) : (
+          <>
+            Open Visual Editor <FaExternalLinkAlt />
+          </>
+        )}
       </span>
 
       {showEditorUrlDialog && openSettings && (
@@ -120,41 +257,19 @@ const OpenVisualEditorLink: FC<{
         </Modal>
       )}
 
-      {showExtensionDialog && (
-        <Modal
-          open
-          header="GrowthBook DevTools Extension"
-          close={() => setShowExtensionDialog(false)}
-          closeCta="Close"
-          cta="View extension"
+      {errorType && (
+        <ExtensionDialog
+          errorType={errorType}
+          close={() => setErrorType(null)}
           submit={
-            isChromeBrowser
+            errorType === "no-extension"
               ? () => {
                   window.open(CHROME_EXTENSION_LINK);
                 }
               : undefined
           }
-        >
-          {isChromeBrowser ? (
-            <>
-              You&apos;ll need to install the GrowthBook DevTools Chrome
-              extension to use the visual editor.{" "}
-              <a href="#" onClick={navigate} target="_blank" rel="noreferrer">
-                Click here to proceed anyway
-              </a>
-              .
-            </>
-          ) : (
-            <>
-              The Visual Editor is currently only supported in Chrome. We are
-              working on bringing the Visual Editor to other browsers.{" "}
-              <a href={CHROME_EXTENSION_LINK} target="_blank" rel="noreferrer">
-                Click here to proceed anyway
-              </a>
-              .
-            </>
-          )}
-        </Modal>
+          bypass={() => navigate({ bypass: true })}
+        ></ExtensionDialog>
       )}
     </>
   );

@@ -31,6 +31,7 @@ export interface Props {
   coverageTooltip?: string;
   valueAsId?: boolean;
   showPreview?: boolean;
+  hideCoverage?: boolean;
 }
 
 export default function FeatureVariationsInput({
@@ -44,6 +45,7 @@ export default function FeatureVariationsInput({
   coverageTooltip = "Users not included in the experiment will skip this rule.",
   valueAsId = false,
   showPreview = true,
+  hideCoverage = false,
 }: Props) {
   const weights = variations.map((v) => v.weight);
   const isEqualWeights = weights.every((w) => w === weights[0]);
@@ -59,56 +61,60 @@ export default function FeatureVariationsInput({
     <div className="form-group">
       {setVariations ? (
         <label>Exposure, Variations and Weights</label>
+      ) : hideCoverage ? (
+        <label>Traffic Split</label>
       ) : (
         <label>Exposure and Weights</label>
       )}
       <div className="gbtable bg-light">
-        <div className="p-3 pb-0 border-bottom">
-          <label>
-            Percent of traffic included in this experiment{" "}
-            <Tooltip body={coverageTooltip} />
-          </label>
-          <div className="row align-items-center pb-3">
-            <div className="col">
-              <input
-                value={isNaN(coverage) ? 0 : decimalToPercent(coverage)}
-                onChange={(e) => {
-                  let decimal = percentToDecimal(e.target.value);
-                  if (decimal > 1) decimal = 1;
-                  if (decimal < 0) decimal = 0;
-                  setCoverage(decimal);
-                }}
-                min="0"
-                max="100"
-                step="1"
-                type="range"
-                className="w-100"
-              />
-            </div>
-            <div
-              className={`col-auto ${styles.percentInputWrap}`}
-              style={{ fontSize: "1em" }}
-            >
-              <div className="form-group mb-0 position-relative">
+        {!hideCoverage && (
+          <div className="p-3 pb-0 border-bottom">
+            <label>
+              Percent of traffic included in this experiment{" "}
+              <Tooltip body={coverageTooltip} />
+            </label>
+            <div className="row align-items-center pb-3">
+              <div className="col">
                 <input
-                  className={`form-control ${styles.percentInput}`}
-                  value={isNaN(coverage) ? "" : decimalToPercent(coverage)}
+                  value={isNaN(coverage) ? 0 : decimalToPercent(coverage)}
                   onChange={(e) => {
                     let decimal = percentToDecimal(e.target.value);
                     if (decimal > 1) decimal = 1;
                     if (decimal < 0) decimal = 0;
                     setCoverage(decimal);
                   }}
-                  type="number"
-                  min={0}
-                  max={100}
+                  min="0"
+                  max="100"
                   step="1"
+                  type="range"
+                  className="w-100"
                 />
-                <span>%</span>
+              </div>
+              <div
+                className={`col-auto ${styles.percentInputWrap}`}
+                style={{ fontSize: "1em" }}
+              >
+                <div className="form-group mb-0 position-relative">
+                  <input
+                    className={`form-control ${styles.percentInput}`}
+                    value={isNaN(coverage) ? "" : decimalToPercent(coverage)}
+                    onChange={(e) => {
+                      let decimal = percentToDecimal(e.target.value);
+                      if (decimal > 1) decimal = 1;
+                      if (decimal < 0) decimal = 0;
+                      setCoverage(decimal);
+                    }}
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="1"
+                  />
+                  <span>%</span>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
         <table className="table bg-light mb-0">
           <thead className={`${styles.variationSplitHeader}`}>
             <tr>
