@@ -315,7 +315,9 @@ export async function getMetricsFromTrackedEvents(
     );
 
     if (!trackedEvents.length) {
-      throw new Error("No recent events found");
+      throw new Error(
+        "No events found. The query we run to identify tracked events only looks at events from the last 7 days."
+      );
     }
 
     return res.status(200).json({
@@ -326,8 +328,7 @@ export async function getMetricsFromTrackedEvents(
     res.status(200).json({
       status: 200,
       trackedEvents: [],
-      message:
-        "We were unable to identify any metrics to generate for you automatically. You can still create metrics manually.",
+      message: e.message,
     });
     return;
   }
