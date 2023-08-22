@@ -154,16 +154,16 @@ const DEMO_FEATURES: Omit<
             experimentId: getDemoDataSourceFeatureId(), // This value is replaced below after the experiment is created.
             variations: [
               {
-                value: "v0",
-                variationId: "current",
+                variationId: "v0",
+                value: "current",
               },
               {
-                value: "v1",
-                variationId: "dev-compact",
+                variationId: "v1",
+                value: "dev-compact",
               },
               {
-                value: "v2",
-                variationId: "dev",
+                variationId: "v2",
+                value: "dev",
               },
             ],
           },
