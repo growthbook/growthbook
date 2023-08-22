@@ -25,7 +25,7 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import track, { trackSnapshot } from "@/services/track";
+import { trackSnapshot } from "@/services/track";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import DimensionChooser from "../Dimensions/DimensionChooser";
@@ -133,9 +133,6 @@ export default function AnalysisSettingsBar({
   regressionAdjustmentHasValidMetrics,
   metricRegressionAdjustmentStatuses,
   onRegressionAdjustmentChange,
-  showAdvancedResultsToggle = false,
-  advancedResults = false,
-  setAdvancedResults,
   newUi = false,
   showMoreMenu = true,
 }: {
@@ -150,9 +147,6 @@ export default function AnalysisSettingsBar({
   regressionAdjustmentHasValidMetrics?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   onRegressionAdjustmentChange?: (enabled: boolean) => void;
-  showAdvancedResultsToggle?: boolean;
-  advancedResults?: boolean;
-  setAdvancedResults?: (show: boolean) => void;
   newUi?: boolean;
   showMoreMenu?: boolean;
 }) {
@@ -231,35 +225,6 @@ export default function AnalysisSettingsBar({
               labelClassName="mr-2"
             />
           </div>
-          {showAdvancedResultsToggle ? (
-            <div className="col-auto">
-              <label
-                htmlFor={"toggle-show-advanced"}
-                className={`d-flex btn my-0 pl-2 pr-1 py-1 form-inline align-items-center`}
-              >
-                <div
-                  className="text-right text-dark"
-                  style={{ fontSize: "11px", lineHeight: "12px" }}
-                >
-                  show
-                  <br />
-                  advanced
-                </div>
-                <Toggle
-                  id="toggle-show-advanced"
-                  value={advancedResults}
-                  setValue={(value) => {
-                    setAdvancedResults?.(value);
-                    track("Toggled advanced results", {
-                      switchTo: value ? "on" : "off",
-                    });
-                  }}
-                  className={`m-0`}
-                  style={{ transform: "scale(0.8)" }}
-                />
-              </label>
-            </div>
-          ) : null}
           <div style={{ flex: 1 }} />
           <div className="col-auto">
             {regressionAdjustmentAvailable && (

@@ -70,7 +70,6 @@ export type ResultsTableProps = {
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
-  showAdvanced: boolean;
   isTabActive: boolean;
 };
 
@@ -92,7 +91,6 @@ export default function ResultsTable({
   statsEngine,
   pValueCorrection,
   sequentialTestingEnabled = false,
-  showAdvanced,
   isTabActive,
 }: ResultsTableProps) {
   const {
@@ -129,7 +127,7 @@ export default function ResultsTable({
     return () => window.removeEventListener("resize", onResize, false);
   }, []);
   useLayoutEffect(onResize, []);
-  useEffect(onResize, [showAdvanced, isTabActive]);
+  useEffect(onResize, [isTabActive]);
 
   const baselineRow = 0;
 
@@ -404,8 +402,6 @@ export default function ResultsTable({
                 </th>
                 {!noMetrics ? (
                   <>
-                    {showAdvanced ? (
-                      <>
                         <th
                           style={{
                             width: 130 * tableCellScale,
@@ -441,8 +437,6 @@ export default function ResultsTable({
                         >
                           Value
                         </th>
-                      </>
-                    ) : null}
                     <th
                       style={{ width: 120 * tableCellScale }}
                       className="axis-col label text-right has-tooltip"
@@ -463,7 +457,6 @@ export default function ResultsTable({
                                 pValueCorrection ?? null,
                                 orgSettings.pValueThreshold ?? 0.05,
                                 tableRowAxis,
-                                showAdvanced
                               )}
                             </div>
                           }
@@ -519,7 +512,7 @@ export default function ResultsTable({
                 ) : (
                   <th
                     className="axis-col label"
-                    colSpan={showAdvanced ? 5 : 3}
+                    colSpan={5}
                   />
                 )}
               </tr>
@@ -541,7 +534,6 @@ export default function ResultsTable({
                   {drawEmptyRow({
                     className: "results-label-row",
                     label: renderLabelColumn(row.label, row.metric, row),
-                    showAdvanced,
                     graphCellWidth,
                     graphHeight: 35,
                     id,
@@ -572,7 +564,6 @@ export default function ResultsTable({
                               Query error
                             </div>
                           ),
-                          showAdvanced,
                           graphCellWidth,
                           graphHeight: 35,
                           id,
@@ -625,8 +616,7 @@ export default function ResultsTable({
                             </span>
                           </div>
                         </td>
-                        {showAdvanced ? (
-                          j === 1 ? (
+                        {j === 1 ? (
                             // draw baseline value once, merge rows
                             <MetricValueColumn
                               metric={row.metric}
@@ -662,9 +652,7 @@ export default function ResultsTable({
                                 />
                               ) : null}
                             </td>
-                          )
-                        ) : null}
-                        {showAdvanced ? (
+                          )}
                           <MetricValueColumn
                             metric={row.metric}
                             stats={stats}
@@ -689,7 +677,6 @@ export default function ResultsTable({
                               })
                             }
                           />
-                        ) : null}
                         {j > 0 ? (
                           statsEngine === "bayesian" ? (
                             <ChanceToWinColumn
@@ -723,7 +710,7 @@ export default function ResultsTable({
                               showSuspicious={true}
                               showPercentComplete={false}
                               showTimeRemaining={false}
-                              showUnadjustedPValue={showAdvanced}
+                              showUnadjustedPValue={true}
                               showGuardrailWarning={metricsAsGuardrails}
                               className={clsx(
                                 "text-right results-pval",
@@ -751,7 +738,7 @@ export default function ResultsTable({
                               stats={stats}
                               id={`${id}_violin_row${i}_var${j}`}
                               graphWidth={graphCellWidth}
-                              height={showAdvanced ? 42 : 35}
+                              height={42}
                               newUi={true}
                               isHovered={isHovered}
                               onPointerMove={(e) =>
@@ -794,14 +781,14 @@ export default function ResultsTable({
                             onPointerMove={(e) =>
                               onPointerMove(e, {
                                 x: "element-left",
-                                offsetX: showAdvanced ? 5 : 50,
+                                offsetX: 5,
                               })
                             }
                             onPointerLeave={onPointerLeave}
                             onClick={(e) =>
                               onPointerMove(e, {
                                 x: "element-left",
-                                offsetX: showAdvanced ? 5 : 50,
+                                offsetX: 5,
                               })
                             }
                           />
@@ -814,7 +801,6 @@ export default function ResultsTable({
 
                   {/*spacer row*/}
                   {drawEmptyRow({
-                    showAdvanced,
                     graphCellWidth,
                     id,
                     domain,
@@ -854,7 +840,6 @@ function drawEmptyRow({
   className,
   style,
   label,
-  showAdvanced,
   graphCellWidth,
   graphHeight = 10,
   id,
@@ -864,7 +849,6 @@ function drawEmptyRow({
   className?: string;
   style?: CSSProperties;
   label?: string | ReactElement;
-  showAdvanced: boolean;
   graphCellWidth: number;
   graphHeight?: number;
   id: string;
@@ -872,7 +856,7 @@ function drawEmptyRow({
 }) {
   return (
     <tr key={key} style={style} className={className}>
-      <td colSpan={showAdvanced ? 4 : 2}>{label}</td>
+      <td colSpan={4}>{label}</td>
       <td className="graph-cell">
         <AlignedGraph
           id={`${id}_axis`}
@@ -937,7 +921,6 @@ function getPValueTooltip(
   pValueCorrection: PValueCorrection,
   pValueThreshold: number,
   tableRowAxis: "dimension" | "metric",
-  showAdvanced: boolean
 ) {
   return (
     <>
@@ -958,10 +941,8 @@ function getPValueTooltip(
           {tableRowAxis === "dimension"
             ? "all dimension values, non-guardrail metrics, and variations"
             : "all non-guardrail metrics and variations"}
-          .
-          {showAdvanced
-            ? " The unadjusted p-values are returned in parentheses."
-            : ""}
+          .{" "}
+          The unadjusted p-values are returned in parentheses.
         </div>
       )}
     </>

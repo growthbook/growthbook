@@ -43,7 +43,6 @@ const CompactResults: FC<{
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
-  showAdvanced?: boolean;
   isTabActive: boolean;
 }> = ({
   editMetrics,
@@ -64,7 +63,6 @@ const CompactResults: FC<{
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
   sequentialTestingEnabled,
-  showAdvanced = false,
   isTabActive,
 }) => {
   const { getMetricById, ready } = useDefinitions();
@@ -149,7 +147,6 @@ const CompactResults: FC<{
         sequentialTestingEnabled={sequentialTestingEnabled}
         pValueCorrection={pValueCorrection}
         renderLabelColumn={getRenderLabelColumn(regressionAdjustmentEnabled)}
-        showAdvanced={showAdvanced}
         isTabActive={isTabActive}
       />
 
@@ -175,7 +172,6 @@ const CompactResults: FC<{
             renderLabelColumn={getRenderLabelColumn(
               regressionAdjustmentEnabled
             )}
-            showAdvanced={showAdvanced}
             isTabActive={isTabActive}
           />
         </div>

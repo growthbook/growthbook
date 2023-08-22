@@ -19,7 +19,6 @@ import StatusBanner from "@/components/Experiment/StatusBanner";
 import { GBCuped, GBSequential } from "@/components/Icons";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 
 const BreakDownResults = dynamic(
   () => import("@/components/Experiment/BreakDownResults")
@@ -87,11 +86,6 @@ const Results: FC<{
   const permissions = usePermissions();
   const { getDatasourceById } = useDefinitions();
 
-  const [advancedResults, setAdvancedResults] = useLocalStorage<boolean>(
-    `experiment-page__${experiment.id}__advanced-results`,
-    true
-  );
-
   const { status } = getQueryStatus(latest?.queries || [], latest?.error);
 
   const hasData =
@@ -153,9 +147,6 @@ const Results: FC<{
             metricRegressionAdjustmentStatuses
           }
           onRegressionAdjustmentChange={onRegressionAdjustmentChange}
-          showAdvancedResultsToggle={showCompactResults}
-          advancedResults={advancedResults}
-          setAdvancedResults={setAdvancedResults}
           newUi={true}
           showMoreMenu={false}
         />
@@ -321,7 +312,6 @@ const Results: FC<{
               snapshotMetricRegressionAdjustmentStatuses
             }
             sequentialTestingEnabled={analysis.settings?.sequentialTesting}
-            showAdvanced={advancedResults}
             isTabActive={isTabActive}
           />
         </>
