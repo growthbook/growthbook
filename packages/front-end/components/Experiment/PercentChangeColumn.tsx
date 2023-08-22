@@ -69,12 +69,7 @@ export default function PercentChangeColumn({
             ) : null}
           </div>
           {showCI ? (
-            <div
-              className="text-right nowrap ci"
-              style={{
-                lineHeight: "1.2em",
-              }}
-            >
+            <div className="text-right nowrap ci">
               [{percentFormatter.format(stats.ci?.[0] ?? 0)},{" "}
               {percentFormatter.format(stats.ci?.[1] ?? 0)}]
             </div>

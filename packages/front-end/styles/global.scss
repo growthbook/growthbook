@@ -484,7 +484,8 @@ pre {
   .value,
   .chance,
   .change {
-    line-height: 14px;
+    font-size: 14px;
+    line-height: 16px;
   }
   .graph-cell {
     padding: 0;
@@ -493,6 +494,9 @@ pre {
     font-weight: bold;
   }
   .variation {
+    font-size: 12px;
+  }
+  .result-number-sub {
     font-size: 12px;
   }
   .chance {

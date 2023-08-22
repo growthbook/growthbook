@@ -638,7 +638,8 @@ export default function ResultsTable({
                             stats={baseline}
                             users={baseline?.users || 0}
                             style={{ backgroundColor: "rgb(127 127 127 / 6%)" }}
-                            className="value variation"
+                            className="value"
+                            newUi={true}
                             rowSpan={variations.length - 1}
                           />
                         ) : null}
@@ -647,9 +648,10 @@ export default function ResultsTable({
                             metric={row.metric}
                             stats={stats}
                             users={stats?.users || 0}
-                            className={clsx("value variation", {
+                            className={clsx("value", {
                               hover: isHovered,
                             })}
+                            newUi={true}
                             onPointerMove={onPointerMove}
                             onPointerLeave={onPointerLeave}
                             onClick={onPointerMove}

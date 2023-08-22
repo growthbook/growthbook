@@ -77,13 +77,13 @@ export default function PValueColumn({
         />
       ) : (
         <div className="d-flex align-items-center justify-content-end">
-          <div className="d-inline-block ml-2" style={{ lineHeight: "14px" }}>
+          <div className="d-inline-block ml-2">
             {pValText || "P-value missing"}
           </div>
           {shouldRenderRisk ? (
             <span
               className={rowResults.riskMeta.riskStatus}
-              style={{ fontSize: 14, marginLeft: 1 }}
+              style={{ marginLeft: 1 }}
             >
               <HiOutlineExclamationCircle />
             </span>
@@ -91,15 +91,12 @@ export default function PValueColumn({
           {showGuardrailWarning &&
           rowResults.guardrailWarning &&
           !shouldRenderRisk ? (
-            <span className="warning" style={{ fontSize: 14, marginLeft: 1 }}>
+            <span className="warning" style={{ marginLeft: 1 }}>
               <HiOutlineExclamationCircle />
             </span>
           ) : null}
           {showSuspicious && rowResults.suspiciousChange ? (
-            <span
-              className="suspicious"
-              style={{ fontSize: 14, marginLeft: 1 }}
-            >
+            <span className="suspicious" style={{ marginLeft: 1 }}>
               <GBSuspicious />
             </span>
           ) : null}
