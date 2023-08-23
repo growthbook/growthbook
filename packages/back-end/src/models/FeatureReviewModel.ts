@@ -189,6 +189,30 @@ export const createFeatureReviewRequest = async ({
 
 // region update FeatureReviewRequest
 
+type MarkFeatureReviewRequestStaleParams = {
+  featureReviewRequestId: string;
+  organizationId: string;
+};
+
+export const markFeatureReviewRequestAsStale = async ({
+  organizationId,
+  featureReviewRequestId,
+}: MarkFeatureReviewRequestStaleParams): Promise<boolean> => {
+  const result = await FeatureReviewRequestModel.updateOne(
+    {
+      id: featureReviewRequestId,
+      organizationId,
+    },
+    {
+      $set: {
+        state: "stale",
+      },
+    }
+  );
+
+  return result.modifiedCount === 1;
+};
+
 type RequestReviewFromUserParams = {
   userId: string;
   featureReviewRequestId: string;
