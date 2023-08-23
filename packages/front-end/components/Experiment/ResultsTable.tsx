@@ -582,8 +582,14 @@ export default function ResultsTable({
                     const onPointerMove = (
                       e,
                       settings?: TooltipHoverSettings
-                    ) => hoverRow(i, j, e, settings);
-                    const onPointerLeave = () => leaveRow();
+                    ) => {
+                      if (!rowResults.hasData) return;
+                      hoverRow(i, j, e, settings);
+                    };
+                    const onPointerLeave = () => {
+                      if (!rowResults.hasData) return;
+                      leaveRow();
+                    };
 
                     return (
                       <tr

@@ -518,6 +518,7 @@ export type RowResults = {
   directionalStatus: "winning" | "losing";
   resultsStatus: "won" | "lost" | "draw" | "";
   resultsReason: string;
+  hasData: boolean;
   enoughData: boolean;
   enoughDataMeta: EnoughDataMeta;
   significant: boolean;
@@ -618,6 +619,7 @@ export function getRowResults({
     }
   }
 
+  const hasData = !!stats?.value && !!baseline?.value;
   const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
   const enoughDataReason = `This metric has a minimum total of ${minSampleSize}; this value must be reached in one variation before results are displayed. The total metric value of the variation is ${stats.value} and the baseline total is ${baseline.value}.`;
   const percentComplete =
@@ -771,6 +773,7 @@ export function getRowResults({
     directionalStatus,
     resultsStatus,
     resultsReason,
+    hasData,
     enoughData,
     enoughDataMeta,
     significant,

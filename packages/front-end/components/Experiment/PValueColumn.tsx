@@ -67,7 +67,7 @@ export default function PValueColumn({
       {...otherProps}
     >
       {!baseline?.value || !stats?.value ? (
-        <em className="text-gray">no data</em>
+        <em className="text-gray font-weight-normal">no data</em>
       ) : !rowResults.enoughData ? (
         <NotEnoughData
           rowResults={rowResults}
