@@ -604,6 +604,7 @@ export function getInitialSettings(
       })),
       identityJoins: schema.getIdentitySQL(getTablePrefix(params), options),
     },
+    projectId: options?.projectId,
   };
 }
 

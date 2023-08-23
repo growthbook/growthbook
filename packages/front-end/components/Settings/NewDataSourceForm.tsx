@@ -200,10 +200,10 @@ const NewDataSourceForm: FC<{
       }
       // Create
       else {
-        // const options = {
-        //   ...form.watch("settings.schemaOptions"),
-        //   projectId: form.watch("settings.projectId"),
-        // };
+        const options = {
+          ...form.watch("settings.schemaOptions"),
+          projectId: form.watch("settings.projectId"),
+        };
         const updatedDatasource = {
           ...datasource,
           settings: {
@@ -211,12 +211,9 @@ const NewDataSourceForm: FC<{
               selectedSchema.value,
               // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'PostgresConnectionParams | Athen... Remove this comment to see the full error message
               datasource.params,
-              // options
-              form.watch("settings.schemaOptions")
-              // form.watch("settings.projectId")
+              options
             ),
             ...(datasource.settings || {}),
-            projectId: form.watch("settings.projectId"),
           },
         };
         const res = await apiCall<{ id: string }>(`/datasources`, {
@@ -248,11 +245,15 @@ const NewDataSourceForm: FC<{
   };
 
   const updateSettings = async () => {
+    const options = {
+      ...form.watch("settings.schemaOptions"),
+      projectId: form.watch("settings.projectId"),
+    };
     const settings = getInitialSettings(
       selectedSchema.value,
       // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'PostgresConnectionParams | Athen... Remove this comment to see the full error message
       datasource.params,
-      form.watch("settings.schemaOptions")
+      options
     );
     if (!dataSourceId) {
       throw new Error("Could not find existing data source id");
