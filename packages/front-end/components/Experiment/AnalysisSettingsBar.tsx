@@ -13,7 +13,7 @@ import {
   FaInfoCircle,
 } from "react-icons/fa";
 import { OrganizationSettings } from "back-end/types/organization";
-import { ago, datetime } from "shared/dates";
+import { ago, datetime, getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import { getSnapshotAnalysis } from "shared/util";
 import { useAuth } from "@/services/auth";
@@ -42,6 +42,16 @@ function isDifferent(
   if (!val1 && !val2) return false;
   return val1 !== val2;
 }
+function isDifferentArray(val1?: string[] | null, val2?: string[] | null) {
+  if (!val1 && !val2) return false;
+  if (!val1 || !val2) return true;
+  if (val1.length !== val2.length) return true;
+  return val1.some((v) => !val2.includes(v));
+}
+function isDifferentDate(val1: Date, val2: Date, threshold: number = 86400000) {
+  // 86400000 = 1 day
+  return Math.abs(val1.getTime() - val2.getTime()) >= threshold;
+}
 
 function isOutdated(
   experiment: ExperimentInterfaceStringDates | undefined,
@@ -49,7 +59,8 @@ function isOutdated(
   orgSettings: OrganizationSettings,
   statsEngine: StatsEngine,
   hasRegressionAdjustmentFeature: boolean,
-  hasSequentialFeature: boolean
+  hasSequentialFeature: boolean,
+  phase: number | undefined
 ): { outdated: boolean; reason: string } {
   const snapshotSettings = snapshot?.settings;
   const analysisSettings = snapshot
@@ -93,6 +104,30 @@ function isOutdated(
   }
   if (isDifferent(experiment.queryFilter, snapshotSettings.queryFilter)) {
     return { outdated: true, reason: "SQL filter changed" };
+  }
+  if (
+    isDifferentArray(
+      [...experiment.metrics, ...(experiment?.guardrails || [])],
+      [...snapshotSettings.goalMetrics, ...snapshotSettings.guardrailMetrics]
+    )
+  ) {
+    return { outdated: true, reason: "Metrics changed" };
+  }
+  if (
+    isDifferentDate(
+      getValidDate(experiment.phases?.[phase ?? 0]?.dateStarted ?? ""),
+      getValidDate(snapshotSettings.startDate)
+    ) ||
+    isDifferentDate(
+      getValidDate(experiment.phases?.[phase ?? 0]?.dateEnded ?? ""),
+      getValidDate(snapshotSettings.endDate)
+    )
+  ) {
+    console.log(
+      getValidDate(experiment.phases?.[phase ?? 0]?.dateEnded ?? ""),
+      getValidDate(snapshotSettings.endDate)
+    );
+    return { outdated: true, reason: "Analysis dates changed" };
   }
 
   const experimentRegressionAdjustmentEnabled =
@@ -190,7 +225,8 @@ export default function AnalysisSettingsBar({
     orgSettings,
     statsEngine,
     hasRegressionAdjustmentFeature,
-    hasSequentialFeature
+    hasSequentialFeature,
+    phase
   );
 
   const [modalOpen, setModalOpen] = useState(false);
