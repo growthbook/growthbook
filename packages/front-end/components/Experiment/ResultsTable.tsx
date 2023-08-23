@@ -446,7 +446,13 @@ export default function ResultsTable({
                       className="axis-col label text-right has-tooltip"
                     >
                       {statsEngine === "bayesian" ? (
-                        <div style={{ lineHeight: "16px", marginBottom: 2 }}>
+                        <div
+                          style={{
+                            lineHeight: "16px",
+                            marginBottom: 2,
+                            marginLeft: -20,
+                          }}
+                        >
                           <span className="nowrap">Chance</span>{" "}
                           <span className="nowrap">to Win</span>
                         </div>
@@ -690,7 +696,7 @@ export default function ResultsTable({
                               showTimeRemaining={true}
                               showGuardrailWarning={metricsAsGuardrails}
                               className={clsx(
-                                "text-right results-pval",
+                                "text-right results-ctw",
                                 resultsHighlightClassname
                               )}
                               onPointerMove={onPointerMove}

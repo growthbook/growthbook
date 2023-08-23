@@ -535,11 +535,19 @@ pre {
     &.hover {
       color: #11ce21;
     }
+    &.results-ctw,
+    &.results-pval {
+      background: linear-gradient(-40deg, #09ac1730, #09ac1716);
+    }
   }
   .lost {
     color: #ce3729;
     &.hover {
       color: #ee1500;
+    }
+    &.results-ctw,
+    &.results-pval {
+      background: linear-gradient(-40deg, #ce372930, #ce372916);
     }
   }
   //&.draw {

@@ -117,7 +117,7 @@ function isOutdated(
   }
   if (
     isDifferentStringArray(
-      experiment.variations.map((v) => v.id),
+      experiment.variations.map((v) => v.key),
       snapshotSettings.variations.map((v) => v.id)
     )
   ) {
