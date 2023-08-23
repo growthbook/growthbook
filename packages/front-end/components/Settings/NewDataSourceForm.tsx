@@ -13,6 +13,8 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import { MetricType } from "@/../back-end/types/metric";
 import { TrackedEventData } from "@/../back-end/src/types/Integration";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
+import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getInitialSettings } from "@/services/datasources";
@@ -42,7 +44,7 @@ const NewDataSourceForm: FC<{
   source: string;
   onCancel?: () => void;
   onSuccess: (id: string) => Promise<void>;
-  importSampleData?: (source: string) => Promise<void>;
+  showImportSampleData: boolean;
   inline?: boolean;
   secondaryCTA?: ReactElement;
 }> = ({
@@ -51,12 +53,12 @@ const NewDataSourceForm: FC<{
   onCancel,
   source,
   existing,
-  importSampleData,
+  showImportSampleData,
   inline,
   secondaryCTA,
 }) => {
   const {
-    projects,
+    projects: allProjects,
     project,
     getDatasourceById,
     mutateDefinitions,
@@ -156,7 +158,16 @@ const NewDataSourceForm: FC<{
     form.setValue("metricsToCreate", updatedMetricsToCreate);
   }, [form, trackedEvents]);
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
+
+  // Filter out demo datasource from available projects
+  const projects = allProjects.filter(
+    (p) =>
+      !isDemoDatasourceProject({
+        projectId: p.id,
+        organizationId: orgId || "",
+      })
+  );
 
   if (!datasource) {
     return null;
@@ -422,22 +433,20 @@ const NewDataSourceForm: FC<{
               </p>
             </a>
           </div>
-          {importSampleData && (
+          {showImportSampleData && (
             <div className="col-4">
-              <a
-                className={`btn btn-light-hover btn-outline-${
-                  "custom" === schema ? "selected" : "primary"
-                } mb-3 py-3 ml-auto`}
-                onClick={async (e) => {
-                  e.preventDefault();
-                  await importSampleData("new data source form");
-                }}
-              >
-                <h4>Use Sample Dataset</h4>
-                <p className="mb-0 text-dark">
-                  Explore GrowthBook with a pre-loaded sample dataset.
-                </p>
-              </a>
+              <Link href="/demo-datasource-project">
+                <a
+                  className={`btn btn-light-hover btn-outline-${
+                    "custom" === schema ? "selected" : "primary"
+                  } mb-3 py-3 ml-auto`}
+                >
+                  <h4>Use Sample Dataset</h4>
+                  <p className="mb-0 text-dark">
+                    Explore GrowthBook with a pre-loaded sample dataset.
+                  </p>
+                </a>
+              </Link>
             </div>
           )}
         </div>
