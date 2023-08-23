@@ -711,7 +711,7 @@ export default function ResultsTable({
                               showSuspicious={true}
                               showPercentComplete={false}
                               showTimeRemaining={false}
-                              showUnadjustedPValue={true}
+                              showUnadjustedPValue={false}
                               showGuardrailWarning={metricsAsGuardrails}
                               className={clsx(
                                 "text-right results-pval",
