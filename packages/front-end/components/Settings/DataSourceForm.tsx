@@ -17,6 +17,7 @@ import track from "@/services/track";
 import Modal from "@/components/Modal";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import Field from "../Forms/Field";
 
 const typeOptions = dataSourceConnections;
 
@@ -257,6 +258,26 @@ const DataSourceForm: FC<{
         setDatasource={setDatasource}
         setDirty={setDirty}
       />
+      {datasource.settings?.schemaFormat === "amplitude" ? (
+        <div className="form-group">
+          <Field
+            label="Amplitude Project ID"
+            placeholder="123456"
+            value={datasource.settings?.projectId || ""}
+            onChange={(e) => {
+              setDatasource({
+                ...datasource,
+                settings: {
+                  ...datasource.settings,
+                  projectId: e.target.value,
+                },
+              } as Partial<DataSourceInterfaceWithParams>);
+              setDirty(true);
+            }}
+            helpText="Required to unlock access to automatic metric generation."
+          />
+        </div>
+      ) : null}
     </Modal>
   );
 };

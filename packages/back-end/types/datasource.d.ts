@@ -156,6 +156,8 @@ export type DataSourceSettings = {
   experimentDimensions?: string[];
   notebookRunQuery?: string;
   informationSchemaId?: string;
+  // Some event trackers (currently only Amplitude) require a projectId to support auto metrics
+  projectId?: string;
   schemaFormat?: SchemaFormat;
   schemaOptions?: Record<string, string | number>;
   userIdTypes?: UserIdType[];

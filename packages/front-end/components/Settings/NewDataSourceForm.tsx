@@ -200,6 +200,10 @@ const NewDataSourceForm: FC<{
       }
       // Create
       else {
+        // const options = {
+        //   ...form.watch("settings.schemaOptions"),
+        //   projectId: form.watch("settings.projectId"),
+        // };
         const updatedDatasource = {
           ...datasource,
           settings: {
@@ -207,9 +211,12 @@ const NewDataSourceForm: FC<{
               selectedSchema.value,
               // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'PostgresConnectionParams | Athen... Remove this comment to see the full error message
               datasource.params,
+              // options
               form.watch("settings.schemaOptions")
+              // form.watch("settings.projectId")
             ),
             ...(datasource.settings || {}),
+            projectId: form.watch("settings.projectId"),
           },
         };
         const res = await apiCall<{ id: string }>(`/datasources`, {
@@ -253,7 +260,7 @@ const NewDataSourceForm: FC<{
 
     const newVal = {
       ...datasource,
-      settings,
+      settings: { ...settings, projectId: form.watch("settings.projectId") },
       metricsToCreate: form.watch("metricsToCreate"),
     };
     setDatasource(newVal as Partial<DataSourceInterfaceWithParams>);
@@ -538,6 +545,19 @@ const NewDataSourceForm: FC<{
           hasError={!!lastError}
           setDatasource={setDatasource}
         />
+        {schema && schema === "amplitude" ? (
+          <div className="form-group">
+            <Field
+              label="Amplitude Project ID"
+              placeholder="123456"
+              value={form.watch("settings.projectId")}
+              onChange={(e) => {
+                form.setValue("settings.projectId", e.target.value);
+              }}
+              helpText="Required to unlock access to automatic metric generation."
+            />
+          </div>
+        ) : null}
       </div>
     );
   } else {

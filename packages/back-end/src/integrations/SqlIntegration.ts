@@ -1448,11 +1448,11 @@ export default abstract class SqlIntegration
     switch (schemaFormat) {
       case "amplitude": {
         return {
-          trackedEventTableName: "$events",
+          trackedEventTableName: `EVENT_${this.settings.projectId || `*`}`, // Update this with their actual amplitude project Id
           eventColumn: "event_type",
           timestampColumn: "event_time",
           userIdColumn: "user_id",
-          anonymousIdColumn: "$amplitude_id",
+          anonymousIdColumn: "amplitude_id",
           getMetricTableName: (eventName: string) =>
             this.generateTablePath(eventName),
           getDateLimitClause: (start: Date, end: Date) =>

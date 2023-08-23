@@ -95,7 +95,7 @@ const BigQueryForm: FC<{
             {params && params.projectId ? (
               <ul>
                 <li>
-                  <strong>Project Id:</strong> {params.projectId}
+                  <strong>BigQuery Project Id:</strong> {params.projectId}
                 </li>
                 <li>
                   <strong>Client Email:</strong> {params.clientEmail}
@@ -115,7 +115,7 @@ const BigQueryForm: FC<{
       )}
       <div className="form-group col-md-12">
         <label>
-          Project ID{" "}
+          BigQuery Project ID{" "}
           <Tooltip body="The default project ID GrowthBook will use when creating queries and discovering metrics. You can find this value from your BigQuery project info card on your BigQuery Dashboard, or the name of the top level SQL item in the BigQuery console SQL workspace. This value can be edited later if needed." />
         </label>
         <Field
