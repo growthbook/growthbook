@@ -81,7 +81,19 @@ function isOutdated(
       reason: "In-progress conversion behavior changed",
     };
   }
-  // todo: attribution model? (which doesn't live in the snapshot currently)
+  if (
+    isDifferent(experiment.exposureQueryId, snapshotSettings.exposureQueryId)
+  ) {
+    return { outdated: true, reason: "Experiment assignment query changed" };
+  }
+  if (
+    isDifferent(experiment.attributionModel, snapshotSettings.attributionModel)
+  ) {
+    return { outdated: true, reason: "Attribution model changed" };
+  }
+  if (isDifferent(experiment.queryFilter, snapshotSettings.queryFilter)) {
+    return { outdated: true, reason: "SQL filter changed" };
+  }
 
   const experimentRegressionAdjustmentEnabled =
     statsEngine !== "frequentist" || !hasRegressionAdjustmentFeature
@@ -180,6 +192,7 @@ export default function AnalysisSettingsBar({
     hasRegressionAdjustmentFeature,
     hasSequentialFeature
   );
+
   const [modalOpen, setModalOpen] = useState(false);
 
   const permissions = usePermissions();
