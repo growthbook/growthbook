@@ -77,7 +77,7 @@ When we go to conduct experiment analysis, any `user_id` that has a conversion i
 
 #### SQL Templates
 
-We use [Handlebars](https://handlebarsjs.com/guide/#language-features) to compile the sql into what is actually called to your database. This allows you to create template metrics that can be copied and reused by changing the variable values associate with the metrics.
+We use {{[Handlebars](https://handlebarsjs.com/guide/#language-features)}} to compile the sql into what is actually called to your database. This allows you to create template metrics that can be copied and reused by changing the variable values associate with the metrics.
 
 You can use the following user configurable variables within SQL templates:
 
@@ -87,21 +87,23 @@ You can use the following user configurable variables within SQL templates:
 You can also use any of the in-built variables that Growthbook automatically sets:
 
 - **startDate** - `yyyy-MM-dd HH:mm:ss` of the earliest data that needs to be included
-- **startDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the startDate in ISO format. This can then be used with the `date` helper to achieve whatever [format](#dateformat) you like (ex. `{{date startDateISO "dd.MM.yyyy"}}`)
+- **startDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the startDate in ISO format. This can then be used with the `date` helper to achieve whatever [format](#dateformat) you like (ex. `{{date startDateISO "yyyyMMdd"}}`)
 - **endDate** - `yyyy-MM-dd HH:mm:ss` of the latest data that needs to be included
-- **endDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the endDate in ISO format. This can then be used with the `date` helper to achieve whatever [format](#dateformat) you like (ex. `{{date endDateISO "dd.MM.yyyy"}}`)
+- **endDateISO** - `yyyy-MM-dd'T'HH:mm:ss.SSS'Z'` of the endDate in ISO format. This can then be used with the `date` helper to achieve whatever [format](#dateformat) you like (ex. `{{date endDateISO "yyyyMMdd"}}`)
 - **experimentId** - Either a specific experiment id OR `%` if you should include all experiments
 
 You can also use any of the in-built helper functions:
 
-- **camelcase** - ex. `{{camelcase "My event"}}` compiles to `myEvent`.
-- **dotcase** - ex. `{{dotcase "My event"}}` compiles to `my.event`.
-- **kebabcase** - ex. `{{kebabcase "My event"}}` compiles to `my-event`.
-- **lowercase** - ex. `{{lowercase "My event"}}` compiles to `my event`.
-- **pascalcase** - ex. `{{pascalcase "My event"}}` compiles to `MyEvent`.
-- **uppercase** - ex. `{{uppercase "My event"}}` compiles to `MY EVENT`.
+- **camelcase [str]** - ex. `{{camelcase "My database"}}` compiles to `myDatabase`.
+- **dotcase [str]** - ex. `{{dotcase "My database"}}` compiles to `my.database`.
+- **kebabcase [str]** - ex. `{{kebabcase "My database"}}` compiles to `my-database`.
+- **lowercase [str]** - ex. `{{lowercase "My database"}}` compiles to `my database`.
+- **pascalcase [str]** - ex. `{{pascalcase "My database"}}` compiles to `MyDatabase`.
+- **replace [str]&nbsp;[pattern]&nbsp;[replacement]** - Replace all occurences of a regular expression with something else. ex. `{{replace "My%%%Database!" "\[^a-zA-Z\]" ""}}` compiles to `MyDatabase`
+- **snakecase [str]** - ex. `{{pascalcase "My database"}}` compiles to `my_database`.
+- **uppercase [str]** - ex. `{{uppercase "My database"}}` compiles to `MY DATABASE`.
   <a id="dateformat"/>
-- **date** - Format an ISO date according to this [format](https://date-fns.org/v2.29.3/docs/format), being careful not to mix up months (MM) and minutes (mm). ex. `{{date startDateISO "dd.MM.yyyy"}}` might compile to `30.0.1.2023`. The most common codes are:
+- **date [date]&nbsp;[format]** - Format an ISO date according to this [format](https://date-fns.org/v2.29.3/docs/format), being careful not to mix up months (MM) and minutes (mm). ex. `{{date startDateISO "yyyyMMdd"}}` might compile to `20230130`. The most common codes are:
 
 <ul>
 
@@ -125,7 +127,7 @@ SELECT
   received_at as timestamp,
   {{valueColumn}} as value
 FROM
-  database.{{eventName}}
+  database.{{snakecase eventName}}
 WHERE
   received_at BETWEEN '{{ startDate }}' AND '{{ endDate }}'
 ```

@@ -24,7 +24,11 @@ describe("backend", () => {
     expect(
       compileSqlTemplate(
         `SELECT {{valueColumn}} as value from db.{{eventName}}`,
-        { startDate, endDate, eventName: "purchase", valueColumn: "amount" }
+        {
+          startDate,
+          endDate,
+          templateVariables: { eventName: "purchase", valueColumn: "amount" },
+        }
       )
     ).toEqual("SELECT amount as value from db.purchase");
 
@@ -67,9 +71,7 @@ describe("backend", () => {
         startDate,
         endDate,
       });
-    }).toThrowError(
-      "Unknown helper: unknownFunc. Available helpers: camelcase, dotcase, kebabcase, lowercase, pascalcase, uppercase, date"
-    );
+    }).toThrowError("Unknown helper: unknownFunc. Available helpers:");
 
     expect(
       compileSqlTemplate(

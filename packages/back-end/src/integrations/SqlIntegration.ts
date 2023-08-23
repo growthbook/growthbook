@@ -41,6 +41,7 @@ import {
 } from "../util/sql";
 import { formatInformationSchema } from "../util/informationSchemas";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
+import { TemplateVariables } from "../../types/sql";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -540,16 +541,14 @@ export default abstract class SqlIntegration
   //Test the validity of a query as cheaply as possible
   getTestValidityQuery(
     query: string,
-    eventName?: string,
-    valueColumn?: string
+    templateVariables?: TemplateVariables
   ): string {
-    return this.getTestQuery(query, eventName, valueColumn, 1);
+    return this.getTestQuery(query, templateVariables, 1);
   }
 
   getTestQuery(
     query: string,
-    eventName?: string,
-    valueColumn?: string,
+    templateVariables?: TemplateVariables,
     limit: number = 5
   ): string {
     const startDate = new Date();
@@ -561,8 +560,7 @@ export default abstract class SqlIntegration
       ${this.selectSampleRows("__table", limit)}`,
       {
         startDate,
-        eventName,
-        valueColumn,
+        templateVariables,
       }
     );
     return format(limitedQuery, this.getFormatDialect());
@@ -821,8 +819,7 @@ export default abstract class SqlIntegration
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
-        eventName: metric.eventName,
-        valueColumn: metric.valueColumn,
+        templateVariables: metric.templateVariables,
       });
     }
     // Replace any placeholders in the segment SQL
@@ -831,8 +828,7 @@ export default abstract class SqlIntegration
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
-        eventName: metric.eventName,
-        valueColumn: metric.valueColumn,
+        templateVariables: metric.templateVariables,
       });
     }
 
@@ -951,8 +947,7 @@ export default abstract class SqlIntegration
           startDate: settings.startDate,
           endDate: settings.endDate,
           experimentId: settings.experimentId,
-          eventName: metric.eventName,
-          valueColumn: metric.valueColumn,
+          templateVariables: metric.templateVariables,
         })}
       ),
       __experiment as (${this.getExperimentCTE({
@@ -1824,8 +1819,7 @@ export default abstract class SqlIntegration
                 startDate,
                 endDate: endDate || undefined,
                 experimentId,
-                eventName: metric.eventName,
-                valueColumn: metric.valueColumn,
+                templateVariables: metric.templateVariables,
               })}
               )`
             : (schema && !metric.table?.match(/\./) ? schema + "." : "") +

@@ -135,7 +135,7 @@ WHERE
       : type === "binomial"
       ? ""
       : type === "count"
-      ? "\n  1 as value"
+      ? ",\n  1 as value"
       : `,\n  se_value as value`
   }
 FROM
@@ -173,12 +173,10 @@ FROM
       ? ",\n  revenue as value"
       : type === "binomial"
       ? ""
-      : type === "count"
-      ? "\n  1 as value"
       : `,\n  {{valueColumn}} as value`
   }
 FROM
-  ${tablePrefix}{{eventName}}`;
+  ${tablePrefix}{{snakecase eventName}}`;
   },
 };
 
@@ -219,7 +217,7 @@ WHERE
       : type === "binomial"
       ? ""
       : type === "count"
-      ? "\n  1 as value"
+      ? ",\n  1 as value"
       : `,\n  event_properties:value as value`
   }
 FROM
@@ -277,14 +275,10 @@ FROM
   user_id,
   anonymous_id,
   received_at as timestamp${
-    type === "binomial"
-      ? ""
-      : type === "count"
-      ? ",\n  1 as value"
-      : ",\n  {{valueColumn}} as value"
+    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
   }
 FROM
-  ${tablePrefix}{{eventName}}`;
+  ${tablePrefix}{{snakecase eventName}}`;
   },
 };
 
@@ -323,14 +317,10 @@ WHERE
     return `SELECT
   anonymous_id,
   received_at as timestamp${
-    type === "binomial"
-      ? ""
-      : type === "count"
-      ? ",\n  1 as value"
-      : ",\n  {{valueColumn}} as value"
+    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
   }
 FROM
-  ${tablePrefix}{{eventName}}`;
+  ${tablePrefix}{{snakecase eventName}}`;
   },
 };
 
@@ -384,11 +374,7 @@ FROM
     return `SELECT
   conv(hex(events.idvisitor), 16, 16) as anonymous_id,
   server_time as timestamp${
-    type === "binomial"
-      ? ""
-      : type === "count"
-      ? ",\n  1 as value"
-      : ",\n  {{valueColumn}} as value"
+    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
   }
 FROM
   ${tablePrefix}_log_link_visit_action`;
@@ -433,14 +419,10 @@ FROM
   user_id,
   device_id,
   sent_at as timestamp${
-    type === "binomial"
-      ? ""
-      : type === "count"
-      ? ",\n  1 as value"
-      : ",\n  {{valueColumn}} as value"
+    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
   }
 FROM
-  ${tablePrefix}{{eventName}}`;
+  ${tablePrefix}{{snakecase eventName}}`;
   },
 };
 
@@ -482,14 +464,10 @@ WHERE
     return `SELECT
   user_id,
   sent_at as timestamp${
-    type === "binomial"
-      ? ""
-      : type === "count"
-      ? ",\n  1 as value"
-      : ",\n  {{valueColumn}} as value"
+    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
   }
 FROM
-  ${tablePrefix}{{eventName}}`;
+  ${tablePrefix}{{snakecase eventName}}`;
   },
 };
 
@@ -528,14 +506,10 @@ WHERE
     return `SELECT
   device_id,
   TIMESTAMP_MICROS(event_time) as timestamp${
-    type === "binomial"
-      ? ""
-      : type === "count"
-      ? ",\n  1 as value"
-      : ",\n  {{valueColumn}} as value"
+    type === "binomial" ? "" : ",\n  {{valueColumn}} as value"
   }
   FROM
-    ${tablePrefix}{{eventName}}`;
+    ${tablePrefix}{{snakecase eventName}}`;
   },
 };
 

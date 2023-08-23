@@ -1,6 +1,7 @@
 import { format as sqlFormat, FormatOptions } from "sql-formatter";
 import Handlebars from "handlebars";
 import { helpers } from "./handlebarsHelpers";
+import { SQLVars } from "../../types/sql";
 
 // Register all the helpers from handlebarsHelpers
 Object.keys(helpers).forEach((helperName) => {
@@ -57,16 +58,9 @@ export function getBaseIdTypeAndJoins(
 }
 
 // Compile sql template with handlebars, replacing vars (e.g. '{{startDate}}') and evaluating helpers (e.g. '{{camelcase eventName}}')
-export type SQLVars = {
-  startDate: Date;
-  endDate?: Date;
-  experimentId?: string;
-  eventName?: string;
-  valueColumn?: string;
-};
 export function compileSqlTemplate(
   sql: string,
-  { startDate, endDate, experimentId, eventName, valueColumn }: SQLVars
+  { startDate, endDate, experimentId, templateVariables }: SQLVars
 ) {
   // If there's no end date, use a near future date by default
   // We want to use at least 24 hours in the future in case of timezone issues
@@ -106,12 +100,12 @@ export function compileSqlTemplate(
     experimentId,
   };
 
-  if (eventName) {
-    replacements.eventName = eventName;
+  if (templateVariables?.eventName) {
+    replacements.eventName = templateVariables.eventName;
   }
 
-  if (valueColumn) {
-    replacements.valueColumn = valueColumn;
+  if (templateVariables?.valueColumn) {
+    replacements.valueColumn = templateVariables.valueColumn;
   }
 
   try {

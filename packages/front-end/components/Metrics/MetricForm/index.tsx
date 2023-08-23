@@ -47,13 +47,6 @@ import { useCurrency } from "@/hooks/useCurrency";
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
 
-function safeTableName(name: string) {
-  return name
-    .toLowerCase()
-    .replace(/\s+/g, "_")
-    .replace(/[^-a-zA-Z0-9_]+/g, "");
-}
-
 export type MetricFormProps = {
   initialStep?: number;
   current: Partial<MetricInterface>;
@@ -68,22 +61,32 @@ export type MetricFormProps = {
   secondaryCTA?: ReactElement;
 };
 
+function usesValueColumn(sql: string) {
+  return sql.match(/\{\{[^}]*valueColumn/g);
+}
+
+function usesEventName(sql: string) {
+  return sql.match(/\{\{[^}]*eventName/g);
+}
+
 function validateMetricSQL(
   sql: string,
   type: MetricType,
   userIdTypes: string[],
-  valueColumn?: string,
-  eventName?: string
+  templateVariables?: {
+    valueColumn?: string;
+    eventName?: string;
+  }
 ) {
   // Require specific columns to be selected
   const requiredCols = ["timestamp", ...userIdTypes];
   if (type !== "binomial") {
     requiredCols.push("value");
-    if (sql.includes("valueColumn") && !valueColumn) {
+    if (usesValueColumn(sql) && !templateVariables?.valueColumn) {
       throw new Error("Value column is required");
     }
   }
-  if (sql.includes("eventName") && !eventName) {
+  if (usesEventName(sql) && !templateVariables?.eventName) {
     throw new Error("Event name is required");
   }
 
@@ -102,8 +105,10 @@ function validateQuerySettings(
     type: MetricType;
     userIdTypes: string[];
     table: string;
-    valueColumn: string;
-    eventName: string;
+    templateVariables?: {
+      valueColumn?: string;
+      eventName?: string;
+    };
   }
 ) {
   if (!datasourceSettingsSupport) {
@@ -114,8 +119,7 @@ function validateQuerySettings(
       value.sql,
       value.type,
       value.userIdTypes,
-      value.valueColumn,
-      value.eventName
+      value.templateVariables
     );
   } else {
     if (value.table.length < 1) {
@@ -275,8 +279,8 @@ const MetricForm: FC<MetricFormProps> = ({
         current.conversionWindowHours || getDefaultConversionWindowHours(),
       conversionDelayHours: current.conversionDelayHours || 0,
       sql: current.sql || "",
-      eventName: current.eventName || "",
-      valueColumn: current.valueColumn || "",
+      eventName: current.templateVariables?.eventName || "",
+      valueColumn: current.templateVariables?.valueColumn || "",
       aggregation: current.aggregation || "",
       conditions: current.conditions || [],
       userIdTypes: current.userIdTypes || [],
@@ -327,8 +331,10 @@ const MetricForm: FC<MetricFormProps> = ({
     tags: form.watch("tags"),
     projects: form.watch("projects"),
     sql: form.watch("sql"),
-    eventName: form.watch("eventName"),
-    valueColumn: form.watch("valueColumn"),
+    templateVariables: {
+      eventName: form.watch("eventName"),
+      valueColumn: form.watch("valueColumn"),
+    },
     conditions: form.watch("conditions"),
     regressionAdjustmentOverride: form.watch("regressionAdjustmentOverride"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
@@ -435,13 +441,14 @@ const MetricForm: FC<MetricFormProps> = ({
       maxPercentChange,
       minPercentChange,
       capping,
+      eventName,
       valueColumn,
       ...otherValues
     } = value;
 
     const sendValue: Partial<MetricInterface> = {
       ...otherValues,
-      valueColumn: value.type == "binomial" ? "1" : valueColumn,
+      templateVariables: { eventName, valueColumn },
       winRisk: winRisk / 100,
       loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
@@ -539,10 +546,10 @@ const MetricForm: FC<MetricFormProps> = ({
           requiredColumns={requiredColumns}
           value={value.sql}
           save={async (sql) => form.setValue("sql", sql)}
-          eventName={form.watch("eventName")}
-          valueColumn={
-            value.type == "binomial" ? "1" : form.watch("valueColumn")
-          }
+          templateVariables={{
+            eventName: form.watch("eventName"),
+            valueColumn: form.watch("valueColumn"),
+          }}
         />
       )}
       <PagedModal
@@ -642,7 +649,15 @@ const MetricForm: FC<MetricFormProps> = ({
             <RadioSelector
               name="type"
               value={value.type}
-              setValue={(val: MetricType) => form.setValue("type", val)}
+              setValue={(val: MetricType) => {
+                if (val === "count") {
+                  form.setValue("valueColumn", "1");
+                } else if (value.templateVariables?.valueColumn === "1") {
+                  // 1 only makes sense for count type, but keep it if it's already set to something else
+                  form.setValue("valueColumn", "");
+                }
+                form.setValue("type", val);
+              }}
               options={metricTypeOptions}
             />
           </div>
@@ -719,23 +734,27 @@ const MetricForm: FC<MetricFormProps> = ({
                     }))}
                     label="Identifier Types Supported"
                   />
-                  {value.sql && value.sql.includes("eventName") && (
+                  {value.sql && usesEventName(value.sql) && (
                     <div className="form-group">
                       <Field
                         label="Event Name"
-                        placeholder={safeTableName(value.name)}
+                        placeholder={value.name}
                         helpText="The event name associated with this metric.  This can then be referenced in your sql template as {{eventName}}."
                         {...form.register("eventName")}
                       />
                     </div>
                   )}
                   {value.sql &&
-                    value.sql.includes("valueColumn") &&
+                    usesValueColumn(value.sql) &&
                     value.type != "binomial" && (
                       <div className="form-group">
                         <Field
                           label="Value Column"
-                          helpText="The column in your datawarehouse table with the metric data.  This can then be referenced in your sql template as {{valueColumn}}."
+                          helpText={
+                            value.type === "count"
+                              ? "Use 1 to count the number of rows (most common). This can then be referenced in your sql template as {{valueColumn}}."
+                              : "The column in your datawarehouse table with the metric data.  This can then be referenced in your sql template as {{valueColumn}}."
+                          }
                           {...form.register("valueColumn")}
                         ></Field>
                       </div>
