@@ -94,6 +94,16 @@ const Modal: FC<ModalProps> = ({
     }, 70);
   }, [open, autoFocusSelector]);
 
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === "Escape" && close) {
+        close();
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [close]);
+
   const contents = (
     <div
       className={`modal-content ${className}`}
