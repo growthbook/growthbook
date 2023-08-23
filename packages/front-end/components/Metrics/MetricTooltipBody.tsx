@@ -31,6 +31,7 @@ const MetricTooltipBody = ({
     const regExp = new RegExp(/[A-Za-z0-9]/);
     return regExp.test(description);
   }
+  const metricOverrideFields = row?.metricOverrideFields ?? [];
 
   const metricInfo: MetricInfo[] = [
     {
@@ -39,10 +40,9 @@ const MetricTooltipBody = ({
       body: metric.type,
     },
     {
-      // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
-      show: metric.tags?.length > 0,
+      show: (metric.tags?.length ?? 0) > 0,
       label: "Tags",
-      body: <SortedTags tags={metric.tags} />,
+      body: <SortedTags tags={metric.tags} skipFirstMargin={true} />,
     },
     {
       show:
@@ -55,14 +55,26 @@ const MetricTooltipBody = ({
         !isNullUndefinedOrEmpty(metric.conversionDelayHours) &&
         metric.conversionDelayHours !== 0,
       label: "Conversion Delay Hours",
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
-      body: metric.conversionDelayHours,
+      body: (
+        <>
+          {metric.conversionDelayHours}
+          {metricOverrideFields.includes("conversionDelayHours") ? (
+            <small className="text-purple ml-1">(override)</small>
+          ) : null}
+        </>
+      ),
     },
     {
       show: !isNullUndefinedOrEmpty(metric.conversionWindowHours),
       label: "Conversion Window Hours",
-      // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'number | undefined' is not assignable to typ... Remove this comment to see the full error message
-      body: metric.conversionWindowHours,
+      body: (
+        <>
+          {metric.conversionWindowHours}
+          {metricOverrideFields.includes("conversionWindowHours") ? (
+            <small className="text-purple ml-1">(override)</small>
+          ) : null}
+        </>
+      ),
     },
   ];
 
@@ -70,15 +82,29 @@ const MetricTooltipBody = ({
     metricInfo.push({
       show: true,
       label: "CUPED",
-      body: row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled
-        ? "Enabled"
-        : "Disabled",
+      body: (
+        <>
+          {row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled
+            ? "Enabled"
+            : "Disabled"}
+          {metricOverrideFields.includes("regressionAdjustmentEnabled") ? (
+            <small className="text-purple ml-1">(override)</small>
+          ) : null}
+        </>
+      ),
     });
     if (row?.regressionAdjustmentStatus?.regressionAdjustmentEnabled) {
       metricInfo.push({
         show: true,
         label: "CUPED Lookback (days)",
-        body: row?.regressionAdjustmentStatus?.regressionAdjustmentDays,
+        body: (
+          <>
+            {row?.regressionAdjustmentStatus?.regressionAdjustmentDays}
+            {metricOverrideFields.includes("regressionAdjustmentDays") ? (
+              <small className="text-purple ml-1">(override)</small>
+            ) : null}
+          </>
+        ),
       });
     }
   }

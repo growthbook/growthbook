@@ -15,6 +15,7 @@ import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { getValidDate } from "shared/dates";
+import { isNil } from "lodash";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import {
   defaultLoseRiskThreshold,
@@ -25,6 +26,7 @@ import {
 export type ExperimentTableRow = {
   label: string;
   metric: MetricInterface;
+  metricOverrideFields: string[];
   variations: SnapshotMetric[];
   rowClass?: string;
   regressionAdjustmentStatus?: MetricRegressionAdjustmentStatus;
@@ -269,35 +271,36 @@ export function applyMetricOverrides(
   const overrideFields: string[] = [];
   const metricOverride = metricOverrides.find((mo) => mo.id === newMetric.id);
   if (metricOverride) {
-    if ("conversionWindowHours" in metricOverride) {
+    if (!isNil(metricOverride?.conversionWindowHours)) {
       newMetric.conversionWindowHours = metricOverride.conversionWindowHours;
       overrideFields.push("conversionWindowHours");
     }
-    if ("conversionDelayHours" in metricOverride) {
+    if (!isNil(metricOverride?.conversionDelayHours)) {
       newMetric.conversionDelayHours = metricOverride.conversionDelayHours;
       overrideFields.push("conversionDelayHours");
     }
-    if ("winRisk" in metricOverride) {
+    if (!isNil(metricOverride?.winRisk)) {
       newMetric.winRisk = metricOverride.winRisk;
       overrideFields.push("winRisk");
     }
-    if ("loseRisk" in metricOverride) {
+    if (!isNil(metricOverride?.loseRisk)) {
       newMetric.loseRisk = metricOverride.loseRisk;
       overrideFields.push("loseRisk");
     }
-    if ("regressionAdjustmentOverride" in metricOverride) {
+    if (!isNil(metricOverride?.regressionAdjustmentOverride)) {
       // only apply RA fields if doing an override
       newMetric.regressionAdjustmentOverride =
         metricOverride.regressionAdjustmentOverride;
       newMetric.regressionAdjustmentEnabled = !!metricOverride.regressionAdjustmentEnabled;
-      newMetric.regressionAdjustmentDays =
-        metricOverride.regressionAdjustmentDays ??
-        newMetric.regressionAdjustmentDays;
       overrideFields.push(
         "regressionAdjustmentOverride",
-        "regressionAdjustmentEnabled",
-        "regressionAdjustmentDays"
+        "regressionAdjustmentEnabled"
       );
+      if (!isNil(metricOverride?.regressionAdjustmentDays)) {
+        newMetric.regressionAdjustmentDays =
+          metricOverride.regressionAdjustmentDays;
+        overrideFields.push("regressionAdjustmentDays");
+      }
     }
   }
   return { newMetric, overrideFields };

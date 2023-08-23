@@ -9,6 +9,7 @@ import { ExperimentStatus, MetricOverride } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import Link from "next/link";
 import { FaTimes } from "react-icons/fa";
+import { MetricInterface } from "back-end/types/metric";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   applyMetricOverrides,
@@ -71,7 +72,10 @@ const CompactResults: FC<{
     function getRow(metricId: string, isGuardrail: boolean) {
       const metric = getMetricById(metricId);
       if (!metric) return null;
-      const { newMetric } = applyMetricOverrides(metric, metricOverrides);
+      const { newMetric, overrideFields } = applyMetricOverrides(
+        metric,
+        metricOverrides
+      );
       let regressionAdjustmentStatus:
         | MetricRegressionAdjustmentStatus
         | undefined;
@@ -83,6 +87,7 @@ const CompactResults: FC<{
       return {
         label: newMetric?.name,
         metric: newMetric,
+        metricOverrideFields: overrideFields,
         rowClass: newMetric?.inverse ? "inverse" : "",
         variations: results.variations.map((v) => {
           return v.metrics[metricId];
@@ -184,7 +189,11 @@ const CompactResults: FC<{
 export default CompactResults;
 
 function getRenderLabelColumn(regressionAdjustmentEnabled) {
-  return function renderLabelColumn(label, metric, row) {
+  return function renderLabelColumn(
+    label: string,
+    metric: MetricInterface,
+    row: ExperimentTableRow
+  ) {
     const metricLink = (
       <Tooltip
         body={
