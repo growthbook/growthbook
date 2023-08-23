@@ -44,10 +44,8 @@ export default function TabButton({
       href={anchor ? `#${anchor}` : "#"}
       aria-selected={active ? "true" : "false"}
       onClick={(e) => {
-        e.preventDefault();
-        if (anchor) {
-          const newUrl = window.location.href.replace(/#.*/, "") + "#" + anchor;
-          window.history.replaceState("", "", newUrl);
+        if (!anchor) {
+          e.preventDefault();
         }
         onClick();
       }}

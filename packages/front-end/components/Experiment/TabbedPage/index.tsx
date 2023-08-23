@@ -105,7 +105,8 @@ export default function TabbedPage({
   const setTabAndScroll = (tab: ExperimentTab) => {
     setTab(tab);
     const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
-    window.history.replaceState("", "", newUrl);
+    if (newUrl === window.location.href) return;
+    window.history.pushState("", "", newUrl);
     window.scrollTo({
       top: 0,
       behavior: "smooth",
