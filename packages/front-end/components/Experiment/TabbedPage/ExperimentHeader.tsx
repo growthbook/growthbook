@@ -3,7 +3,7 @@ import {
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import Link from "next/link";
-import { FaChartBar, FaHome, FaUsers } from "react-icons/fa";
+import { FaHome, FaUsers } from "react-icons/fa";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import React, { useMemo, useState } from "react";
@@ -13,7 +13,7 @@ import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import clsx from "clsx";
 import { useAuth } from "@/services/auth";
-import { GBCircleArrowLeft } from "@/components/Icons";
+import { GBCircleArrowLeft, GBReportBars } from "@/components/Icons";
 import WatchButton from "@/components/WatchButton";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import ConfirmButton from "@/components/Modal/ConfirmButton";
@@ -400,7 +400,7 @@ export default function ExperimentHeader({
                   active={tab === "results"}
                   display={
                     <>
-                      <FaChartBar /> Results
+                      <GBReportBars /> Results
                     </>
                   }
                   anchor="results"
