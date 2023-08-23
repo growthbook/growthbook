@@ -4,7 +4,7 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
-import SqlIntegration from "./SqlIntegration";
+import SqlIntegration, { QueryResponse } from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -41,8 +41,7 @@ export default class BigQuery extends SqlIntegration {
     });
   }
 
-  async runQuery(sql: string) {
-    // TODO consider adding labels to help track impact
+  async runQuery(sql: string): Promise<QueryResponse> {
     const client = this.getClient();
 
     const [job] = await client.createQueryJob({
@@ -51,7 +50,17 @@ export default class BigQuery extends SqlIntegration {
       useLegacySql: false,
     });
     const [rows] = await job.getQueryResults();
-    return rows;
+    console.log(job);
+    console.log(job.metadata.statistics.query);
+    return {
+      rows: rows,
+      statistics: {
+        executionDurationMs: job.metadata.statistics.finalExecutionDurationMs,
+        totalSlotMs: job.metadata.statistics.totalSlotMs,
+        bytesProcessed: job.metadata.statistics.totalBytesProcessed,
+        bytesBilled: job.metadata.statistics.query.totalBytesBilled,
+      }
+    };
   }
 
   createUnitsTableOptions() {

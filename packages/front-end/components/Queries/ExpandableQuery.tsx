@@ -103,7 +103,7 @@ const ExpandableQuery: FC<{
         <div className="alert alert-info">
           <em>
             Running
-            {query.parentQueryIds?.length
+            {query.dependencies?.length
               ? " or waiting for parent queries"
               : ""}{" "}
             for{" "}

@@ -46,7 +46,7 @@ export const startExperimentResultQueries = async (
   startQuery: (
     name: string,
     query: string,
-    parentQueryIds: string[],
+    dependencies: string[],
     // eslint-disable-next-line
     run: (query: string) => Promise<any[]>,
     // eslint-disable-next-line
@@ -147,22 +147,7 @@ export const startExperimentResultQueries = async (
   });
 
   await Promise.all(promises);
-  if (
-    useUnitsTable &&
-    integration.settings.pipelineSettings?.deleteTablesWhenCompleted
-  ) {
-    const dropUnitsTableQuery = await startQuery(
-      queryParentId.concat("_delete"),
-      integration.getDropTableQuery(unitsTableFullName),
-      queries.map((q) => q.query),
-      (query) => integration.runDropTableQuery(query),
-      (rows) => rows
-    );
-    queries.push(dropUnitsTableQuery);
-  }
 
-  // TODO eventually also store query graph to help with front-end, or even
-  // build it first and then have the queries start based on that
   return queries;
 };
 

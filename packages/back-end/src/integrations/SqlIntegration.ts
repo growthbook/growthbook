@@ -42,6 +42,13 @@ import {
 } from "../util/sql";
 import { formatInformationSchema } from "../util/informationSchemas";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
+import { QueryStatistics } from "../../types/query";
+
+export type QueryResponse = {
+  // eslint-disable-next-line
+  rows: any[];
+  statistics?: QueryStatistics;
+}
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -53,8 +60,7 @@ export default abstract class SqlIntegration
   params: any;
   type!: DataSourceType;
   abstract setParams(encryptedParams: string): void;
-  // eslint-disable-next-line
-  abstract runQuery(sql: string): Promise<any[]>;
+  abstract runQuery(sql: string): Promise<QueryResponse>;
   abstract getSensitiveParamKeys(): string[];
 
   constructor(encryptedParams: string, settings: DataSourceSettings) {
@@ -338,7 +344,7 @@ export default abstract class SqlIntegration
     );
   }
   async runPastExperimentQuery(query: string): Promise<PastExperimentResponse> {
-    const rows = await this.runQuery(query);
+    const { rows } = await this.runQuery(query);
 
     return rows.map((row) => {
       return {
@@ -486,7 +492,7 @@ export default abstract class SqlIntegration
   async runExperimentMetricQuery(
     query: string
   ): Promise<ExperimentMetricQueryResponse> {
-    const rows = await this.runQuery(query);
+    const { rows } = await this.runQuery(query);
     return rows.map((row) => {
       return {
         variation: row.variation ?? "",
@@ -530,7 +536,7 @@ export default abstract class SqlIntegration
   }
 
   async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
-    const rows = await this.runQuery(query);
+    const { rows } = await this.runQuery(query);
 
     return rows.map((row) => {
       const { date, count, main_sum, main_sum_squares } = row;
@@ -569,10 +575,10 @@ export default abstract class SqlIntegration
   async runTestQuery(sql: string): Promise<TestQueryResult> {
     // Calculate the run time of the query
     const queryStartTime = Date.now();
-    const results = await this.runQuery(sql);
+    const { rows } = await this.runQuery(sql);
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
-    return { results, duration };
+    return { results: rows, duration };
   }
 
   private getIdentitiesCTE(
@@ -1561,14 +1567,14 @@ export default abstract class SqlIntegration
     WHERE ${this.getInformationSchemaWhereClause()}
     GROUP BY table_name, table_schema, table_catalog`;
 
-    const results = await this.runQuery(format(sql, this.getFormatDialect()));
+    const { rows } = await this.runQuery(format(sql, this.getFormatDialect()));
 
-    if (!results.length) {
+    if (!rows.length) {
       throw new Error(`No tables found.`);
     }
 
     return formatInformationSchema(
-      results as RawInformationSchema[],
+      rows as RawInformationSchema[],
       this.type
     );
   }
@@ -1588,9 +1594,9 @@ export default abstract class SqlIntegration
     AND table_schema = '${tableSchema}'
     AND table_catalog = '${databaseName}'`;
 
-    const tableData = await this.runQuery(format(sql, this.getFormatDialect()));
+    const { rows } = await this.runQuery(format(sql, this.getFormatDialect()));
 
-    return { tableData };
+    return { tableData: rows };
   }
   getSchemaFormatConfig(schemaFormat: SchemaFormat): SchemaFormatConfig {
     switch (schemaFormat) {
@@ -1768,8 +1774,8 @@ export default abstract class SqlIntegration
         GROUP BY ${groupByColumns.join(", ")}
     `;
 
-    const results = await this.runQuery(format(sql, this.getFormatDialect()));
-
+    const trackedResponse = await this.runQuery(format(sql, this.getFormatDialect()));
+    const results = trackedResponse.rows;
     if (includesPagesTable) {
       const pageViewedSql = `
         SELECT
@@ -1783,11 +1789,11 @@ export default abstract class SqlIntegration
         WHERE received_at < '${today}' AND received_at > '${sevenDaysAgo}'`;
 
       try {
-        const pageViewedResults = await this.runQuery(
+        const pageViewedResponse = await this.runQuery(
           format(pageViewedSql, this.getFormatDialect())
         );
 
-        pageViewedResults.forEach((result) => {
+        pageViewedResponse.rows.forEach((result) => {
           if (result.count > 0) {
             results.push(result);
           }
@@ -1814,7 +1820,7 @@ export default abstract class SqlIntegration
           format(screenViewedSql, this.getFormatDialect())
         );
 
-        screenViewedResults.forEach((result) => {
+        screenViewedResults.rows.forEach((result) => {
           if (result.count > 0) {
             results.push(result);
           }

@@ -2,7 +2,7 @@ import { MssqlConnectionParams } from "../../types/integrations/mssql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
 import { findOrCreateConnection } from "../util/mssqlPoolManager";
-import SqlIntegration from "./SqlIntegration";
+import SqlIntegration, { QueryResponse } from "./SqlIntegration";
 
 export default class Mssql extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -20,7 +20,7 @@ export default class Mssql extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password"];
   }
-  async runQuery(sqlStr: string) {
+  async runQuery(sqlStr: string): Promise<QueryResponse> {
     const conn = await findOrCreateConnection(this.datasource, {
       server: this.params.server,
       port: parseInt(this.params.port + "", 10),
@@ -31,7 +31,7 @@ export default class Mssql extends SqlIntegration {
     });
 
     const results = await conn.request().query(sqlStr);
-    return results.recordset;
+    return {rows: results.recordset};
   }
 
   // MS SQL Server doesn't support the LIMIT keyword, so we have to use the TOP or OFFSET and FETCH keywords instead.

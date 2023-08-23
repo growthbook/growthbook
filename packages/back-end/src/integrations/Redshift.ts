@@ -2,7 +2,7 @@ import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runPostgresQuery } from "../services/postgres";
 import { FormatDialect } from "../util/sql";
-import SqlIntegration from "./SqlIntegration";
+import SqlIntegration, { QueryResponse } from "./SqlIntegration";
 
 export default class Redshift extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -19,7 +19,7 @@ export default class Redshift extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password", "caCert", "clientCert", "clientKey"];
   }
-  runQuery(sql: string) {
+  runQuery(sql: string): Promise<QueryResponse> {
     return runPostgresQuery(this.params, sql);
   }
   getSchema(): string {
