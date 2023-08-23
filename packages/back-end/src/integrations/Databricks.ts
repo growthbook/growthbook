@@ -21,7 +21,7 @@ export default class Databricks extends SqlIntegration {
     const sensitiveKeys: (keyof DatabricksConnectionParams)[] = ["token"];
     return sensitiveKeys;
   }
-  runQuery(sql: string) {
+  runQuery(sql: string): Promise<QueryResponse> {
     return runDatabricksQuery(this.params, sql);
   }
   toTimestamp(date: Date) {

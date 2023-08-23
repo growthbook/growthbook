@@ -5,7 +5,12 @@ import {
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
 import { MetricInterface } from "../../types/metric";
-import { Queries, QueryPointer, QueryStatus } from "../../types/query";
+import {
+  Queries,
+  QueryPointer,
+  QueryStatistics,
+  QueryStatus,
+} from "../../types/query";
 import { SegmentInterface } from "../../types/segment";
 import {
   findSnapshotById,
@@ -19,6 +24,7 @@ import {
   ExperimentMetricStats,
   ExperimentQueryResponses,
   ExperimentResults,
+  QueryResponseRows,
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
@@ -44,10 +50,10 @@ export const startExperimentResultQueries = async (
   startQuery: (
     name: string,
     query: string,
-    // eslint-disable-next-line
-    run: (query: string) => Promise<any[]>,
-    // eslint-disable-next-line
-    process: (rows: any[]) => any,
+    run: (
+      query: string
+    ) => Promise<{ statistics: QueryStatistics; rows: QueryResponseRows }>,
+    process: (rows: QueryResponseRows) => QueryResponseRows,
     useExisting?: boolean
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
@@ -273,7 +279,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
             activationMetrics[0],
             dimension
             // eslint-disable-next-line
-            ) as Promise<any[]>,
+            ) as Promise<ExperimentQueryResponses>,
         (rows: ExperimentQueryResponses) =>
           this.processLegacyExperimentResultsResponse(snapshotSettings, rows)
       ),

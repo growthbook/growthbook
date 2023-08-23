@@ -2,11 +2,12 @@ import { DBSQLClient } from "@databricks/sql";
 import { DatabricksConnectionParams } from "../../types/integrations/databricks";
 import { logger } from "../util/logger";
 import { ENVIRONMENT } from "../util/secrets";
+import { QueryResponse } from "../integrations/SqlIntegration";
 
 export async function runDatabricksQuery<T>(
   conn: DatabricksConnectionParams,
   sql: string
-): Promise<T[]> {
+): Promise<QueryResponse> {
   // Because of how Databrick's SDK is written, it may reject or resolve multiple times
   // So we have a quick boolean check to make sure we only do it the first time
   let finished = false;
@@ -66,5 +67,5 @@ export async function runDatabricksQuery<T>(
         }
       });
   });
-  return result;
+  return { rows: result };
 }
