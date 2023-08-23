@@ -42,7 +42,10 @@ function isDifferent(
   if (!val1 && !val2) return false;
   return val1 !== val2;
 }
-function isDifferentArray(val1?: string[] | null, val2?: string[] | null) {
+function isDifferentStringArray(
+  val1?: string[] | null,
+  val2?: string[] | null
+) {
   if (!val1 && !val2) return false;
   if (!val1 || !val2) return true;
   if (val1.length !== val2.length) return true;
@@ -105,12 +108,20 @@ function isOutdated(
     reasons.push("Query filter changed");
   }
   if (
-    isDifferentArray(
+    isDifferentStringArray(
       [...experiment.metrics, ...(experiment?.guardrails || [])],
       [...snapshotSettings.goalMetrics, ...snapshotSettings.guardrailMetrics]
     )
   ) {
     reasons.push("Metrics changed");
+  }
+  if (
+    isDifferentStringArray(
+      experiment.variations.map((v) => v.id),
+      snapshotSettings.variations.map((v) => v.id)
+    )
+  ) {
+    reasons.push("Variations changed");
   }
   if (
     isDifferentDate(
@@ -337,7 +348,9 @@ export default function AnalysisSettingsBar({
               (outdated && status !== "running" ? (
                 <Tooltip
                   body={
-                    reasons.length > 0 ? (
+                    reasons.length === 1 ? (
+                      reasons[0]
+                    ) : reasons.length > 0 ? (
                       <ul className="ml-0 pl-3 mb-0">
                         {reasons.map((reason, i) => (
                           <li key={i}>{reason}</li>
