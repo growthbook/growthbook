@@ -73,6 +73,10 @@ export type ResultsTableProps = {
   isTabActive: boolean;
 };
 
+const ROW_HEIGHT = 40;
+const METRIC_LABEL_ROW_HEIGHT = 34;
+const SPACER_ROW_HEIGHT = 6;
+
 export default function ResultsTable({
   id,
   isLatestPhase,
@@ -532,7 +536,7 @@ export default function ResultsTable({
                     className: "results-label-row",
                     label: renderLabelColumn(row.label, row.metric, row),
                     graphCellWidth,
-                    graphHeight: 35,
+                    rowHeight: METRIC_LABEL_ROW_HEIGHT,
                     id,
                     domain,
                   })}
@@ -562,7 +566,7 @@ export default function ResultsTable({
                             </div>
                           ),
                           graphCellWidth,
-                          graphHeight: 35,
+                          rowHeight: ROW_HEIGHT,
                           id,
                           domain,
                         });
@@ -638,7 +642,7 @@ export default function ResultsTable({
                                 marginLeft: "20px",
                                 width: 1,
                                 height:
-                                  42 -
+                                  ROW_HEIGHT -
                                   (j < variations.length - 1 ? 0 : 18) -
                                   (j == 2 ? 5 : 0),
                                 marginTop: j == 2 ? 5 : 0,
@@ -739,7 +743,7 @@ export default function ResultsTable({
                               stats={stats}
                               id={`${id}_violin_row${i}_var${j}`}
                               graphWidth={graphCellWidth}
-                              height={42}
+                              height={ROW_HEIGHT}
                               newUi={true}
                               isHovered={isHovered}
                               onPointerMove={(e) =>
@@ -842,7 +846,7 @@ function drawEmptyRow({
   style,
   label,
   graphCellWidth,
-  graphHeight = 10,
+  rowHeight = SPACER_ROW_HEIGHT,
   id,
   domain,
 }: {
@@ -851,7 +855,7 @@ function drawEmptyRow({
   style?: CSSProperties;
   label?: string | ReactElement;
   graphCellWidth: number;
-  graphHeight?: number;
+  rowHeight?: number;
   id: string;
   domain: [number, number];
 }) {
@@ -866,7 +870,7 @@ function drawEmptyRow({
           showAxis={false}
           axisOnly={true}
           graphWidth={graphCellWidth}
-          height={graphHeight}
+          height={rowHeight}
           newUi={true}
         />
       </td>
