@@ -141,6 +141,44 @@ const createRejectedReview = ({
 
 // endregion Review types
 
+// region get FeatureReviewRequest
+
+type GetFeatureReviewRequestsParams = {
+  organizationId: string;
+  featureId: string;
+};
+
+export const getFeatureReviewRequests = async ({
+  organizationId,
+  featureId,
+}: GetFeatureReviewRequestsParams): Promise<FeatureReviewRequest[]> => {
+  const docs = await FeatureReviewRequestModel.find({
+    organizationId,
+    featureId,
+  });
+
+  return docs.map(toInterface);
+};
+
+type GetFeatureReviewRequestParams = {
+  id: string;
+  organizationId: string;
+};
+
+export const getFeatureReviewRequest = async ({
+  organizationId,
+  id,
+}: GetFeatureReviewRequestParams): Promise<FeatureReviewRequest | null> => {
+  const doc = await FeatureReviewRequestModel.findOne({
+    organizationId,
+    id,
+  });
+
+  return doc ? toInterface(doc) : null;
+};
+
+// endregion get FeatureReviewRequest
+
 // region create FeatureReviewRequest
 
 type CreateFeatureReviewRequestParams = {
