@@ -434,20 +434,43 @@ pre {
 
 .main.experiment {
   .experiment-header {
+    margin: -4px -8px 0;
+  }
+  .experiment-tabs {
     position: sticky;
     z-index: 830;
-    top: -20px;
-    height: 121px;
-    margin: -4px -8px -3px;
+    top: 55px;
+    height: 44px;
+    margin: 0 -8px -3px;
     transition: 150ms all;
-    .experiment-title {
-      margin: 10px 0 0 0;
-      transition: 150ms all;
+    .header-tabs {
+      flex-wrap: nowrap;
+      .date-dropdown {
+        text-align: right;
+        @media (max-width: 750px) {
+          font-size: 12px;
+          max-width: 140px;
+        }
+      }
+      .users {
+        text-align: right;
+        @media (max-width: 750px) {
+          font-size: 12px;
+          margin-right: 0 !important;
+          padding: 0 !important;
+        }
+      }
     }
     &.pinned {
       box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
       overflow: hidden;
     }
+  }
+}
+
+.experiment-results-wrapper {
+  @media (max-width: 750px) {
+    overflow-x: auto;
   }
 }
 
@@ -466,6 +489,9 @@ pre {
       background-color: var(--surface-background-color);
       z-index: 800;
       box-shadow: 0 -1px 0 var(--text-link-hover-color) inset;
+      @media (max-width: 750px) {
+        position: static;
+      }
       &.has-tooltip {
         z-index: 801;
       }

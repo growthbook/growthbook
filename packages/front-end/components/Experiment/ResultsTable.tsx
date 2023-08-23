@@ -108,7 +108,7 @@ export default function ResultsTable({
   const domain = useDomain(variations, rows);
 
   const tableContainerRef = useRef<HTMLDivElement | null>(null);
-  const [graphCellWidth, setGraphCellWidth] = useState(200);
+  const [graphCellWidth, setGraphCellWidth] = useState(800);
   const [tableCellScale, setTableCellScale] = useState(1);
 
   function onResize() {
@@ -123,7 +123,7 @@ export default function ResultsTable({
     }
     const graphWidth = tableWidth - totalCellWidth;
     setGraphCellWidth(Math.max(graphWidth, 200));
-    setTableCellScale(Math.max(Math.min(1, tableWidth / 1000), 0.5));
+    setTableCellScale(Math.max(Math.min(1, tableWidth / 1000), 0.85));
   }
 
   useEffect(() => {
@@ -375,8 +375,8 @@ export default function ResultsTable({
         />
       </CSSTransition>
 
-      <div ref={tableContainerRef} style={{ minWidth: 600 }}>
-        <div className="w-100">
+      <div ref={tableContainerRef} className="experiment-results-wrapper">
+        <div className="w-100" style={{ minWidth: 700 }}>
           <table
             id="main-results"
             className="experiment-results table-borderless table-sm"
@@ -479,7 +479,12 @@ export default function ResultsTable({
                     </th>
                     <th
                       className="axis-col graph-cell"
-                      style={{ maxWidth: graphCellWidth }}
+                      style={{
+                        width:
+                          window.innerWidth < 900 ? graphCellWidth : undefined,
+                        minWidth:
+                          window.innerWidth >= 900 ? graphCellWidth : undefined,
+                      }}
                     >
                       <div className="position-relative">
                         <AlignedGraph

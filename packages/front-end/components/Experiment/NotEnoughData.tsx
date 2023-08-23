@@ -42,7 +42,7 @@ export default function NotEnoughData({
       {showTimeRemaining && rowResults.enoughDataMeta.showTimeRemaining && (
         <div
           className={clsx("text-muted time-remaining", { small: !noStyle })}
-          style={noStyle ? {} : { fontSize: "10.5px", lineHeight: "14px" }}
+          style={noStyle ? {} : { fontSize: "10.5px", lineHeight: "12px" }}
         >
           {(rowResults.enoughDataMeta.timeRemainingMs ?? 0) > 0 ? (
             <>
