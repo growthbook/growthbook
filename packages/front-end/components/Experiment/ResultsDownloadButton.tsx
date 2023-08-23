@@ -68,6 +68,7 @@ export default function ResultsDownloadButton({
           const row: ExperimentTableRow = {
             label: metric.name,
             metric: metric,
+            metricOverrideFields: [],
             rowClass: metric?.inverse ? "inverse" : "",
             variations: result.variations.map((v) => {
               return v.metrics[m];
