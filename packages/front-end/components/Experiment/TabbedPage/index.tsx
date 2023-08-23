@@ -7,7 +7,7 @@ import {
   getMatchingRules,
   includeExperimentInPayload,
 } from "shared/util";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FaChartBar } from "react-icons/fa";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useEnvironments, useFeaturesList } from "@/services/features";
@@ -31,7 +31,8 @@ import Implementation from "./Implementation";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 
-export type ExperimentTab = "setup" | "results";
+const experimentTabs = ["overview", "results"] as const;
+export type ExperimentTab = typeof experimentTabs[number];
 
 export type LinkedFeature = {
   feature: FeatureInterface;
@@ -72,7 +73,7 @@ export default function TabbedPage({
 }: Props) {
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
-    "setup"
+    "overview"
   );
 
   const { apiCall } = useAuth();
@@ -84,12 +85,26 @@ export default function TabbedPage({
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
 
+  useEffect(() => {
+    const handler = () => {
+      const hash = window.location.hash.replace(/^#/, "") as ExperimentTab;
+      if (experimentTabs.includes(hash)) {
+        setTab(hash);
+      }
+    };
+    handler();
+    window.addEventListener("hashchange", handler, false);
+    return () => window.removeEventListener("hashchange", handler, false);
+  }, [setTab]);
+
   const { phase, setPhase } = useSnapshot();
   const viewingOldPhase =
     experiment.phases.length > 0 && phase < experiment.phases.length - 1;
 
   const setTabAndScroll = (tab: ExperimentTab) => {
     setTab(tab);
+    const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
+    window.history.replaceState("", "", newUrl);
     window.scrollTo({
       top: 0,
       behavior: "smooth",
@@ -251,7 +266,7 @@ export default function TabbedPage({
         {viewingOldPhase && (
           <div className="alert alert-warning mt-3">
             You are viewing the {tab} of a previous experiment phase.{" "}
-            {tab === "setup" ? "Editing has been disabled. " : ""}
+            {tab === "overview" ? "Editing has been disabled. " : ""}
             <a
               href="#"
               onClick={(e) => {
@@ -265,7 +280,7 @@ export default function TabbedPage({
         )}
         <div
           className="pt-3"
-          style={{ display: tab === "setup" ? "block" : "none" }}
+          style={{ display: tab === "overview" ? "block" : "none" }}
         >
           <ProjectTagBar
             experiment={experiment}
@@ -317,7 +332,7 @@ export default function TabbedPage({
             newPhase={newPhase}
             connections={connections}
             linkedFeatures={linkedFeatures}
-            setTab={setTab}
+            setTab={setTabAndScroll}
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
             isTabActive={tab === "results"}

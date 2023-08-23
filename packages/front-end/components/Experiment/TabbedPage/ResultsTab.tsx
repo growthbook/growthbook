@@ -218,7 +218,7 @@ export default function ResultsTab({
                 visualChangesets={visualChangesets}
                 editTargeting={editTargeting}
                 connections={connections}
-                openSetupTab={() => setTab("setup")}
+                openSetupTab={() => setTab("overview")}
                 newPhase={newPhase}
               />
             </div>

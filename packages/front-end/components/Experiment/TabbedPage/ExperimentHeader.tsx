@@ -164,7 +164,9 @@ export default function ExperimentHeader({
             visualChangesets={visualChangesets}
             editTargeting={editTargeting}
             newPhase={newPhase}
-            openSetupTab={tab !== "setup" ? () => setTab("setup") : undefined}
+            openSetupTab={
+              tab !== "overview" ? () => setTab("overview") : undefined
+            }
             onStart={() => {
               setTab("results");
               setStartExperiment(false);
@@ -364,13 +366,14 @@ export default function ExperimentHeader({
           <div className="col-auto pt-2" id="experiment-page-tabs">
             <TabButtons className="mb-0 pb-0">
               <TabButton
-                active={tab === "setup"}
+                active={tab === "overview"}
                 display={
                   <>
                     <FaHome /> Overview
                   </>
                 }
-                onClick={() => setTab("setup")}
+                anchor="overview"
+                onClick={() => setTab("overview")}
                 newStyle={false}
                 activeClassName="active-tab"
               />
@@ -381,6 +384,7 @@ export default function ExperimentHeader({
                     <FaChartBar /> Results
                   </>
                 }
+                anchor="results"
                 onClick={() => setTab("results")}
                 newStyle={false}
                 activeClassName="active-tab"
