@@ -226,7 +226,19 @@ export const requestReviewFromUser = async ({
   reviewRequest.set(`reviews.${userId}`, createPendingReview());
   await reviewRequest.save();
 
-  // todo: onReviewRequested()
+  await onReviewRequested({ userId, featureReviewRequestId });
+};
+
+type OnReviewRequestedParams = {
+  userId: string;
+  featureReviewRequestId: string;
+};
+
+const onReviewRequested = async ({
+  userId,
+  featureReviewRequestId,
+}: OnReviewRequestedParams): Promise<void> => {
+  // todo: email notification
 };
 
 type ApproveReviewParams = {
@@ -266,7 +278,24 @@ export const approveReviewAsUser = async ({
   reviewRequest.set(`reviews.${userId}`, createApprovedReview());
   await reviewRequest.save();
 
-  // todo: onReviewRequested()
+  await onReviewAnswer({ userId, featureReviewRequestId, answer: "approved" });
+};
+
+type OnReviewAnswerParams = {
+  userId: string;
+  featureReviewRequestId: string;
+  answer: "approved" | "rejected";
+};
+
+const onReviewAnswer = async (_params: OnReviewAnswerParams): Promise<void> => {
+  // const onReviewAnswer = async ({
+  //   userId,
+  //   featureReviewRequestId,
+  //   answer,
+  // }: OnReviewAnswerParams): Promise<void> => {
+  // todo: email notification
+  // your request has been approved
+  // your request has been rejected
 };
 
 type RejectReviewParams = {
@@ -304,7 +333,53 @@ export const rejectReviewAsUser = async ({
   reviewRequest.set(`reviews.${userId}`, createRejectedReview({ comments }));
   await reviewRequest.save();
 
-  // todo: onReviewRequested()
+  await onReviewAnswer({ userId, featureReviewRequestId, answer: "rejected" });
+};
+
+type DismissReviewParams = {
+  userId: string; // user ID of the reviewer
+  featureReviewRequestId: string;
+  organizationId: string;
+  comments: string;
+};
+
+/**
+ * @throws Error if the review request doesn't exist or there's no existing review from the user
+ * @param userId
+ * @param featureReviewRequestId
+ * @param organizationId
+ * @param comments
+ */
+export const dismissReviewAsUser = async ({
+  userId,
+  featureReviewRequestId,
+  organizationId,
+  comments,
+}: DismissReviewParams): Promise<void> => {
+  const reviewRequest = await FeatureReviewRequestModel.findOne({
+    id: featureReviewRequestId,
+    organizationId,
+  });
+
+  if (!reviewRequest) {
+    throw new Error(
+      `No feature review request with ID ${featureReviewRequestId} for organization ${organizationId}`
+    );
+  }
+
+  const existingReview = reviewRequest.get(`reviews.${userId}`);
+  if (!existingReview) {
+    throw new Error(`No review by user ${userId} to dismiss`);
+  }
+
+  reviewRequest.set(
+    `reviews.${userId}`,
+    createDismissedReview({
+      approvedAt: existingReview.approvedAt,
+      comments,
+    })
+  );
+  await reviewRequest.save();
 };
 
 // endregion update FeatureReviewRequest
