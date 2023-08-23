@@ -20,6 +20,7 @@ interface Props
   stats: SnapshotMetric;
   rowResults: RowResults;
   statsEngine: StatsEngine;
+  showPlusMinus?: boolean;
   showCI?: boolean;
   className?: string;
 }
@@ -29,6 +30,7 @@ export default function PercentChangeColumn({
   stats,
   rowResults,
   statsEngine,
+  showPlusMinus = true,
   showCI = false,
   className,
   ...otherProps
@@ -55,8 +57,8 @@ export default function PercentChangeColumn({
             <span className="expected">
               {parseFloat(((stats.expected ?? 0) * 100).toFixed(1)) + "%"}{" "}
             </span>
-            {statsEngine === "frequentist" && showCI ? (
-              <span className="plusminus ml-1">
+            {statsEngine === "frequentist" && showPlusMinus ? (
+              <span className="plusminus font-weight-normal text-gray ml-1">
                 {"±" +
                   parseFloat(
                     (
@@ -69,7 +71,7 @@ export default function PercentChangeColumn({
             ) : null}
           </div>
           {showCI ? (
-            <div className="text-right nowrap ci">
+            <div className="ci text-right nowrap font-weight-normal text-gray">
               [{percentFormatter.format(stats.ci?.[0] ?? 0)},{" "}
               {percentFormatter.format(stats.ci?.[1] ?? 0)}]
             </div>

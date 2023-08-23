@@ -335,7 +335,6 @@ pre {
         box-sizing: border-box;
         color: #7a7a7a;
         font-weight: normal;
-        font-size: 12px;
       }
     }
     .results-change {
@@ -499,8 +498,11 @@ pre {
   .variation {
     font-size: 14px;
   }
-  .result-number-sub {
+  .result-number-sub,
+  .plusminus {
     font-size: 12px;
+    font-style: italic;
+    white-space: nowrap;
   }
   .chance {
     .ok {

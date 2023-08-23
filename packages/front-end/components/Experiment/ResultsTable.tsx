@@ -408,7 +408,7 @@ export default function ResultsTable({
                   <>
                     <th
                       style={{
-                        width: 130 * tableCellScale,
+                        width: 120 * tableCellScale,
                         lineHeight: "16px",
                       }}
                       className="axis-col label"
@@ -436,13 +436,13 @@ export default function ResultsTable({
                       </div>
                     </th>
                     <th
-                      style={{ width: 130 * tableCellScale }}
+                      style={{ width: 120 * tableCellScale }}
                       className="axis-col label"
                     >
                       Value
                     </th>
                     <th
-                      style={{ width: 120 * tableCellScale }}
+                      style={{ width: 100 * tableCellScale }}
                       className="axis-col label text-right has-tooltip"
                     >
                       {statsEngine === "bayesian" ? (
@@ -489,9 +489,7 @@ export default function ResultsTable({
                       </div>
                     </th>
                     <th
-                      style={{
-                        width: 110 * Math.max(0.75, tableCellScale),
-                      }}
+                      style={{ width: 140 }}
                       className="axis-col label text-right has-tooltip"
                     >
                       <div style={{ lineHeight: "16px", marginBottom: 2 }}>
