@@ -9,6 +9,7 @@ import {
 } from "shared/util";
 import { useEffect, useMemo, useState } from "react";
 import { FaChartBar } from "react-icons/fa";
+import clsx from "clsx";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import FeatureFromExperimentModal from "@/components/Features/FeatureModal/FeatureFromExperimentModal";
@@ -279,8 +280,10 @@ export default function TabbedPage({
           </div>
         )}
         <div
-          className="pt-3"
-          style={{ display: tab === "overview" ? "block" : "none" }}
+          className={clsx(
+            "pt-3",
+            tab === "overview" ? "d-block" : "d-none d-print-block"
+          )}
         >
           <ProjectTagBar
             experiment={experiment}
@@ -309,7 +312,7 @@ export default function TabbedPage({
             setTab={setTabAndScroll}
           />
           {experiment.status !== "draft" && (
-            <div className="mt-3 mb-2 text-center">
+            <div className="mt-3 mb-2 text-center d-print-none">
               <button
                 className="btn btn-lg btn-primary"
                 onClick={(e) => {
@@ -322,7 +325,7 @@ export default function TabbedPage({
             </div>
           )}
         </div>
-        <div style={{ display: tab === "results" ? "block" : "none" }}>
+        <div className={tab === "results" ? "d-block" : "d-none d-print-block"}>
           <ResultsTab
             experiment={experiment}
             mutate={mutate}
