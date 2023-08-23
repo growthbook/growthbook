@@ -6,6 +6,7 @@ import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
 import { InformationSchema, RawInformationSchema } from "../types/Integration";
 import { formatInformationSchema } from "../util/informationSchemas";
+import { logger } from "../util/logger";
 import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
@@ -122,7 +123,7 @@ export default class BigQuery extends SqlIntegration {
         table_schema as table_schema,
         count(column_name) as column_count
       FROM
-        ${this.getInformationSchemaTable(`${dataset.schema_name}1`)}
+        ${this.getInformationSchemaTable(`${dataset.schema_name}`)}
         WHERE ${this.getInformationSchemaWhereClause()}
       GROUP BY table_name, table_schema, table_catalog
       ORDER BY table_name;`;
@@ -136,7 +137,10 @@ export default class BigQuery extends SqlIntegration {
           results.push(...datasetResults);
         }
       } catch (e) {
-        // Ignore
+        logger.error(
+          `Error fetching information schema data for dataset: ${dataset.schema_name}`,
+          e
+        );
       }
     }
 
