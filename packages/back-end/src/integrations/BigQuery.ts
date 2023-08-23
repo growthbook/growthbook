@@ -113,28 +113,32 @@ export default class BigQuery extends SqlIntegration {
       `SELECT * FROM ${`\`${this.params.projectId}.INFORMATION_SCHEMA.SCHEMATA\``}`
     );
 
-    const query: string[] = [];
+    const results = [];
 
     for (const dataset of datasets) {
-      query.push(`
-      SELECT
+      const query = `SELECT
         table_name as table_name,
         table_catalog as table_catalog,
         table_schema as table_schema,
         count(column_name) as column_count
       FROM
-        ${this.getInformationSchemaTable(dataset.schema_name)}
+        ${this.getInformationSchemaTable(`${dataset.schema_name}1`)}
         WHERE ${this.getInformationSchemaWhereClause()}
-      GROUP BY table_name, table_schema, table_catalog`);
+      GROUP BY table_name, table_schema, table_catalog
+      ORDER BY table_name;`;
+
+      try {
+        const datasetResults = await this.runQuery(
+          format(query, this.getFormatDialect())
+        );
+
+        if (datasetResults.length > 0) {
+          results.push(...datasetResults);
+        }
+      } catch (e) {
+        // Ignore
+      }
     }
-
-    let queryString = query.join("\nUNION ALL\n");
-
-    queryString = queryString + " ORDER BY table_name;";
-
-    const results = await this.runQuery(
-      format(queryString, this.getFormatDialect())
-    );
 
     if (!results.length) {
       throw new Error(`No tables found.`);
