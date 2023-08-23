@@ -1448,7 +1448,7 @@ export default abstract class SqlIntegration
     switch (schemaFormat) {
       case "amplitude": {
         return {
-          trackedEventTableName: `EVENT_${this.settings.projectId || `*`}`, // Update this with their actual amplitude project Id
+          trackedEventTableName: `EVENT_${this.settings.projectId || `*`}`,
           eventColumn: "event_type",
           timestampColumn: "event_time",
           userIdColumn: "user_id",
