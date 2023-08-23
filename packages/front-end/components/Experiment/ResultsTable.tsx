@@ -627,10 +627,8 @@ export default function ResultsTable({
                             metric={row.metric}
                             stats={baseline}
                             users={baseline?.users || 0}
-                            // style={{ backgroundColor: "rgb(127 127 127 / 6%)" }}
                             className="value"
                             newUi={true}
-                            // rowSpan={variations.length - 1}
                           />
                         ) : (
                           <td className="align-top">
@@ -689,7 +687,7 @@ export default function ResultsTable({
                               showRisk={true}
                               showSuspicious={true}
                               showPercentComplete={false}
-                              showTimeRemaining={false}
+                              showTimeRemaining={true}
                               showGuardrailWarning={metricsAsGuardrails}
                               className={clsx(
                                 "text-right results-pval",
@@ -712,7 +710,7 @@ export default function ResultsTable({
                               showRisk={true}
                               showSuspicious={true}
                               showPercentComplete={false}
-                              showTimeRemaining={false}
+                              showTimeRemaining={true}
                               showUnadjustedPValue={false}
                               showGuardrailWarning={metricsAsGuardrails}
                               className={clsx(

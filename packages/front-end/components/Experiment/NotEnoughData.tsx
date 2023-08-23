@@ -40,7 +40,10 @@ export default function NotEnoughData({
         </div>
       </div>
       {showTimeRemaining && rowResults.enoughDataMeta.showTimeRemaining && (
-        <div className={clsx("text-muted time-remaining", { small: !noStyle })}>
+        <div
+          className={clsx("text-muted time-remaining", { small: !noStyle })}
+          style={noStyle ? {} : { fontSize: "10.5px", lineHeight: "14px" }}
+        >
           {(rowResults.enoughDataMeta.timeRemainingMs ?? 0) > 0 ? (
             <>
               <span className="nowrap">
