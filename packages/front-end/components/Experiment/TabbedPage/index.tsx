@@ -19,6 +19,7 @@ import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import DiscussionThread from "@/components/DiscussionThread";
+import { useAuth } from "@/services/auth";
 import EditStatusModal from "../EditStatusModal";
 import VisualChangesetModal from "../VisualChangesetModal";
 import EditExperimentNameForm from "../EditExperimentNameForm";
@@ -73,6 +74,8 @@ export default function TabbedPage({
     `tabbedPageTab__${experiment.id}`,
     "setup"
   );
+
+  const { apiCall } = useAuth();
 
   const [editNameOpen, setEditNameOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
@@ -192,7 +195,7 @@ export default function TabbedPage({
           close={() => setVisualEditorModal(false)}
           onCreate={async (vc) => {
             // Try to immediately open the visual editor
-            await openVisualEditor(vc);
+            await openVisualEditor(vc, apiCall);
           }}
           cta="Open Visual Editor"
         />

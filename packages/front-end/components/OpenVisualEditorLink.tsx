@@ -4,7 +4,9 @@ import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import { getApiHost } from "@/services/env";
 import track from "@/services/track";
 import { appendQueryParamsToURL } from "@/services/utils";
+import { AuthContextValue, useAuth } from "@/services/auth";
 import Modal from "./Modal";
+import Button from "./Button";
 
 // TODO - parameterize this
 const CHROME_EXTENSION_LINK =
@@ -17,6 +19,7 @@ type OpenVisualEditorResponse =
 
 export async function openVisualEditor(
   vc: VisualChangesetInterface,
+  apiCall: AuthContextValue["apiCall"],
   bypassChecks: boolean = false
 ): Promise<null | OpenVisualEditorResponse> {
   let url = vc.editorUrl.trim();
@@ -27,8 +30,6 @@ export async function openVisualEditor(
     });
     return { error: "NO_URL" };
   }
-  const windowTarget = url;
-
   // Force all URLs to be absolute
   if (!url.match(/^http(s)?:/)) {
     // We could use https here, but then it would break for people testing on localhost
@@ -71,13 +72,34 @@ export async function openVisualEditor(
       });
       return { error: "NO_EXTENSION" };
     }
+
+    try {
+      const res = await apiCall<{ key: string }>("/visual-editor/key", {
+        method: "GET",
+      });
+      const apiKey = res.key;
+      window.postMessage(
+        {
+          type: "GB_REQUEST_OPEN_VISUAL_EDITOR",
+          data: {
+            apiHost,
+            apiKey,
+          },
+        },
+        window.location.origin
+      );
+      // Give time for the Chrome extension to receive the API host/key
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    } catch (e) {
+      console.error("Failed to set visual editor key automatically", e);
+    }
   }
 
   track("Open visual editor", {
     source: "visual-editor-ui",
     status: "success",
   });
-  window.open(url, windowTarget)?.focus();
+  window.location.href = url;
   return null;
 }
 
@@ -88,6 +110,8 @@ const OpenVisualEditorLink: FC<{
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [showEditorUrlDialog, setShowEditorUrlDialog] = useState(false);
 
+  const { apiCall } = useAuth();
+
   const isChromeBrowser = useMemo(() => {
     const ua = navigator.userAgent;
     return ua.indexOf("Chrome") > -1 && ua.indexOf("Edge") === -1;
@@ -95,13 +119,16 @@ const OpenVisualEditorLink: FC<{
 
   return (
     <>
-      <span
-        className="btn btn-sm btn-primary"
-        onClick={async (e) => {
-          e.preventDefault();
-
-          const res = await openVisualEditor(visualChangeset);
-          if (!res) return;
+      <Button
+        color="primary"
+        className="btn-sm"
+        onClick={async () => {
+          const res = await openVisualEditor(visualChangeset, apiCall);
+          if (!res) {
+            // Stay in a loading state until window redirects
+            await new Promise((resolve) => setTimeout(resolve, 5000));
+            return;
+          }
 
           if (res.error === "NO_URL") {
             setShowEditorUrlDialog(true);
@@ -115,7 +142,7 @@ const OpenVisualEditorLink: FC<{
         }}
       >
         Open Visual Editor <FaExternalLinkAlt />
-      </span>
+      </Button>
 
       {showEditorUrlDialog && openSettings && (
         <Modal
@@ -140,13 +167,9 @@ const OpenVisualEditorLink: FC<{
           close={() => setShowExtensionDialog(false)}
           closeCta="Close"
           cta="View extension"
-          submit={
-            isChromeBrowser
-              ? () => {
-                  window.open(CHROME_EXTENSION_LINK);
-                }
-              : undefined
-          }
+          submit={() => {
+            window.open(CHROME_EXTENSION_LINK);
+          }}
         >
           {isChromeBrowser ? (
             <>
@@ -156,7 +179,7 @@ const OpenVisualEditorLink: FC<{
                 href="#"
                 onClick={(e) => {
                   e.preventDefault();
-                  openVisualEditor(visualChangeset, true);
+                  openVisualEditor(visualChangeset, apiCall, true);
                 }}
               >
                 Click here to proceed anyway
@@ -166,11 +189,7 @@ const OpenVisualEditorLink: FC<{
           ) : (
             <>
               The Visual Editor is currently only supported in Chrome. We are
-              working on bringing the Visual Editor to other browsers.{" "}
-              <a href={CHROME_EXTENSION_LINK} target="_blank" rel="noreferrer">
-                Click here to proceed anyway
-              </a>
-              .
+              working on bringing the Visual Editor to other browsers.
             </>
           )}
         </Modal>

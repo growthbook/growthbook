@@ -83,6 +83,7 @@ import Button from "../Button";
 import { DocLink } from "../DocLink";
 import FeatureFromExperimentModal from "../Features/FeatureModal/FeatureFromExperimentModal";
 import ConfirmButton from "../Modal/ConfirmButton";
+import { openVisualEditor } from "../OpenVisualEditorLink";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import ResultsIndicator from "./ResultsIndicator";
 import EditStatusModal from "./EditStatusModal";
@@ -282,9 +283,6 @@ export default function SinglePage({
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
-  const [newlyCreatedChangesetId, setNewlyCreatedChangesetId] = useState<
-    string | null
-  >(null);
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
@@ -547,8 +545,9 @@ export default function SinglePage({
           experiment={experiment}
           mutate={mutate}
           close={() => setVisualEditorModal(false)}
-          onCreate={(vc) => {
-            setNewlyCreatedChangesetId(vc.id);
+          onCreate={async (vc) => {
+            // Try to immediately open the visual editor
+            await openVisualEditor(vc, apiCall);
           }}
           cta="Open Visual Editor"
         />
@@ -1149,7 +1148,6 @@ export default function SinglePage({
                     <VisualChangesetTable
                       experiment={experiment}
                       visualChangesets={visualChangesets}
-                      newlyCreatedChangesetId={newlyCreatedChangesetId}
                       mutate={mutate}
                       canEditVisualChangesets={hasVisualEditorPermission}
                       setVisualEditorModal={setVisualEditorModal}
