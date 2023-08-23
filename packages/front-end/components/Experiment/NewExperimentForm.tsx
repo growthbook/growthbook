@@ -195,6 +195,18 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     if (data.status !== "stopped" && data.phases?.[0]) {
       data.phases[0].dateEnded = "";
     }
+    // Turn phase dates into proper UTC timestamps
+    if (data.phases?.[0]) {
+      if (
+        data.phases[0].dateStarted &&
+        !data.phases[0].dateStarted.match(/Z$/)
+      ) {
+        data.phases[0].dateStarted += ":00Z";
+      }
+      if (data.phases[0].dateEnded && !data.phases[0].dateEnded.match(/Z$/)) {
+        data.phases[0].dateEnded += ":00Z";
+      }
+    }
 
     const body = JSON.stringify(data);
 
