@@ -61,49 +61,48 @@ function isOutdated(
   hasRegressionAdjustmentFeature: boolean,
   hasSequentialFeature: boolean,
   phase: number | undefined
-): { outdated: boolean; reason: string } {
+): { outdated: boolean; reasons: string[] } {
   const snapshotSettings = snapshot?.settings;
   const analysisSettings = snapshot
     ? getSnapshotAnalysis(snapshot)?.settings
     : null;
-
   if (!experiment || !snapshotSettings || !analysisSettings) {
-    return { outdated: false, reason: "" };
+    return { outdated: false, reasons: [] };
   }
+
+  const reasons: string[] = [];
+
   if (isDifferent(analysisSettings.statsEngine, statsEngine)) {
-    return { outdated: true, reason: "Stats engine changed" };
+    reasons.push("Stats engine changed");
   }
   if (
     isDifferent(experiment.activationMetric, snapshotSettings.activationMetric)
   ) {
-    return { outdated: true, reason: "Activation metric changed" };
+    reasons.push("Activation metric changed");
   }
   if (isDifferent(experiment.segment, snapshotSettings.segment)) {
-    return { outdated: true, reason: "Segment changed" };
+    reasons.push("Segment changed");
   }
   if (isDifferent(experiment.queryFilter, snapshotSettings.queryFilter)) {
-    return { outdated: true, reason: "Query filter changed" };
+    reasons.push("Query filter changed");
   }
   if (
     isDifferent(experiment.skipPartialData, snapshotSettings.skipPartialData)
   ) {
-    return {
-      outdated: true,
-      reason: "In-progress conversion behavior changed",
-    };
+    reasons.push("In-progress conversion behavior changed");
   }
   if (
     isDifferent(experiment.exposureQueryId, snapshotSettings.exposureQueryId)
   ) {
-    return { outdated: true, reason: "Experiment assignment query changed" };
+    reasons.push("Experiment assignment query changed");
   }
   if (
     isDifferent(experiment.attributionModel, snapshotSettings.attributionModel)
   ) {
-    return { outdated: true, reason: "Attribution model changed" };
+    reasons.push("Attribution model changed");
   }
   if (isDifferent(experiment.queryFilter, snapshotSettings.queryFilter)) {
-    return { outdated: true, reason: "SQL filter changed" };
+    reasons.push("Query filter changed");
   }
   if (
     isDifferentArray(
@@ -111,7 +110,7 @@ function isOutdated(
       [...snapshotSettings.goalMetrics, ...snapshotSettings.guardrailMetrics]
     )
   ) {
-    return { outdated: true, reason: "Metrics changed" };
+    reasons.push("Metrics changed");
   }
   if (
     isDifferentDate(
@@ -123,11 +122,7 @@ function isOutdated(
       getValidDate(snapshotSettings.endDate)
     )
   ) {
-    console.log(
-      getValidDate(experiment.phases?.[phase ?? 0]?.dateEnded ?? ""),
-      getValidDate(snapshotSettings.endDate)
-    );
-    return { outdated: true, reason: "Analysis dates changed" };
+    reasons.push("Analysis dates changed");
   }
 
   const experimentRegressionAdjustmentEnabled =
@@ -141,7 +136,7 @@ function isOutdated(
     ) &&
     statsEngine === "frequentist"
   ) {
-    return { outdated: true, reason: "CUPED settings changed" };
+    reasons.push("CUPED settings changed");
   }
 
   const experimentSequentialEnabled =
@@ -163,9 +158,10 @@ function isOutdated(
           analysisSettings?.sequentialTestingTuningParameter)) &&
     statsEngine === "frequentist"
   ) {
-    return { outdated: true, reason: "Sequential testing settings changed" };
+    reasons.push("Sequential testing settings changed");
   }
-  return { outdated: false, reason: "" };
+
+  return { outdated: reasons.length > 0, reasons };
 }
 
 export default function AnalysisSettingsBar({
@@ -219,7 +215,7 @@ export default function AnalysisSettingsBar({
   );
   const hasSequentialFeature = hasCommercialFeature("sequential-testing");
 
-  const { outdated, reason } = isOutdated(
+  const { outdated, reasons } = isOutdated(
     experiment,
     snapshot,
     orgSettings,
@@ -339,7 +335,19 @@ export default function AnalysisSettingsBar({
           <div className="col-auto">
             {hasData &&
               (outdated && status !== "running" ? (
-                <Tooltip body={reason}>
+                <Tooltip
+                  body={
+                    reasons.length > 0 ? (
+                      <ul className="ml-0 pl-3 mb-0">
+                        {reasons.map((reason, i) => (
+                          <li key={i}>{reason}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      ""
+                    )
+                  }
+                >
                   <div
                     className="badge badge-warning d-block py-1"
                     style={{ width: 100, marginBottom: 3 }}
