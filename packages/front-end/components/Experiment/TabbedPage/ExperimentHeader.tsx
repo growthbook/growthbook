@@ -178,40 +178,38 @@ export default function ExperimentHeader({
           </Modal>
         )}
         <div className="container-fluid pagecontents position-relative">
-          <div className="row align-items-top">
-            <div className="col-auto">
-              <div style={{ marginTop: -8, marginBottom: 8 }}>
-                <Link
-                  href={`/experiments${
-                    experiment.status === "draft"
-                      ? "#drafts"
-                      : experiment.status === "stopped"
-                      ? "#stopped"
-                      : ""
-                  }`}
-                >
-                  <a>
-                    <GBCircleArrowLeft /> Back to all experiments
-                  </a>
-                </Link>
-              </div>
-
+          <div style={{ marginTop: -8, marginBottom: 8 }}>
+            <Link
+              href={`/experiments${
+                experiment.status === "draft"
+                  ? "#drafts"
+                  : experiment.status === "stopped"
+                  ? "#stopped"
+                  : ""
+              }`}
+            >
+              <a>
+                <GBCircleArrowLeft /> Back to all experiments
+              </a>
+            </Link>
+          </div>
+          <div className="d-flex align-items-center">
+            <div>
               <HeaderWithEdit
                 className="h1 mb-0"
+                containerClassName=""
                 edit={
                   canRunExperiment ? () => setEditNameOpen(true) : undefined
                 }
                 editClassName="ml-1"
               >
-                <OverflowText maxWidth={550} title={experiment.name}>
-                  {experiment.name}
-                </OverflowText>
+                {experiment.name}
               </HeaderWithEdit>
             </div>
 
-            <div className="ml-auto"></div>
+            <div className="ml-auto flex-1"></div>
 
-            <div className="col-auto pt-2">
+            <div className="ml-3 d-md-block d-none">
               {experiment.archived ? (
                 <div className="badge badge-secondary">archived</div>
               ) : (
@@ -219,7 +217,7 @@ export default function ExperimentHeader({
               )}
             </div>
 
-            <div className="col-auto">
+            <div className="ml-2">
               {experiment.status === "running" ? (
                 <StopExperimentButton
                   editResult={editResult}
@@ -247,7 +245,7 @@ export default function ExperimentHeader({
               ) : null}
             </div>
 
-            <div className="col-auto">
+            <div className="ml-2">
               <MoreMenu>
                 {canRunExperiment && (
                   <button
