@@ -1,7 +1,7 @@
 import { format as sqlFormat, FormatOptions } from "sql-formatter";
 import Handlebars from "handlebars";
-import { helpers } from "./handlebarsHelpers";
 import { SQLVars } from "../../types/sql";
+import { helpers } from "./handlebarsHelpers";
 
 // Register all the helpers from handlebarsHelpers
 Object.keys(helpers).forEach((helperName) => {
