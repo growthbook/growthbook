@@ -1,4 +1,11 @@
 import { format as sqlFormat, FormatOptions } from "sql-formatter";
+import Handlebars from "handlebars";
+import { helpers } from "./handlebarsHelpers";
+
+// Register all the helpers from handlebarsHelpers
+Object.keys(helpers).forEach((helperName) => {
+  Handlebars.registerHelper(helperName, helpers[helperName]);
+});
 
 function getBaseIdType(objects: string[][], forcedBaseIdType?: string) {
   // If a specific id type is already chosen as the base, return it
@@ -49,13 +56,13 @@ export function getBaseIdTypeAndJoins(
   };
 }
 
-// Replace vars in SQL queries (e.g. '{{startDate}}')
+// Compile sql template with handlebars, replacing vars (e.g. '{{startDate}}') and evaluating helpers (e.g. '{{camelcase eventName}}')
 export type SQLVars = {
   startDate: Date;
   endDate?: Date;
   experimentId?: string;
 };
-export function replaceSQLVars(
+export function compileSqlTemplate(
   sql: string,
   { startDate, endDate, experimentId }: SQLVars
 ) {
@@ -83,11 +90,13 @@ export function replaceSQLVars(
 
   const replacements: Record<string, string> = {
     startDateUnix: "" + Math.floor(startDate.getTime() / 1000),
+    startDateISO: startDate.toISOString(),
     startDate: startDate.toISOString().substr(0, 19).replace("T", " "),
     startYear: startDate.toISOString().substr(0, 4),
     startMonth: startDate.toISOString().substr(5, 2),
     startDay: startDate.toISOString().substr(8, 2),
     endDateUnix: "" + Math.floor(endDate.getTime() / 1000),
+    endDateISO: endDate.toISOString(),
     endDate: endDate.toISOString().substr(0, 19).replace("T", " "),
     endYear: endDate.toISOString().substr(0, 4),
     endMonth: endDate.toISOString().substr(5, 2),
@@ -95,12 +104,37 @@ export function replaceSQLVars(
     experimentId,
   };
 
-  Object.keys(replacements).forEach((key) => {
-    const re = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, "g");
-    sql = sql.replace(re, replacements[key]);
-  });
-
-  return sql;
+  try {
+    // TODO: Do sql escaping instead of html escaping for any new replacements
+    const template = Handlebars.compile(sql, {
+      strict: true,
+      noEscape: true,
+      knownHelpers: Object.keys(helpers).reduce((acc, helperName) => {
+        acc[helperName] = true;
+        return acc;
+      }, {} as Record<string, true>),
+      knownHelpersOnly: true,
+    });
+    return template(replacements);
+  } catch (e) {
+    if (e.message.includes("not defined in [object Object]")) {
+      const variableName = e.message.match(/"(.+?)"/)[1];
+      throw new Error(
+        `Unknown variable: ${variableName}. Available variables: ${Object.keys(
+          replacements
+        ).join(", ")}`
+      );
+    }
+    if (e.message.includes("unknown helper")) {
+      const helperName = e.message.match(/unknown helper (\w*)/)[1];
+      throw new Error(
+        `Unknown helper: ${helperName}. Available helpers: ${Object.keys(
+          helpers
+        ).join(", ")}`
+      );
+    }
+    throw new Error(`Error compiling SQL template: ${e.message}`);
+  }
 }
 
 export type FormatDialect = FormatOptions["language"] | "";

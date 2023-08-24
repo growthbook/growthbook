@@ -35,7 +35,7 @@ import {
 import { SegmentInterface } from "../../types/segment";
 import {
   getBaseIdTypeAndJoins,
-  replaceSQLVars,
+  compileSqlTemplate,
   format,
   FormatDialect,
   replaceCountStar,
@@ -261,7 +261,7 @@ export default abstract class SqlIntegration
             count(distinct ${q.userIdType}) as users
           FROM
             (
-              ${replaceSQLVars(q.query, { startDate: params.from })}
+              ${compileSqlTemplate(q.query, { startDate: params.from })}
             ) e${i}
           WHERE
             timestamp > ${this.toTimestamp(params.from)}
@@ -539,7 +539,7 @@ export default abstract class SqlIntegration
   getTestQuery(query: string, limit: number = 5): string {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);
-    const limitedQuery = replaceSQLVars(
+    const limitedQuery = compileSqlTemplate(
       `WITH __table as (
         ${query}
       )
@@ -800,7 +800,7 @@ export default abstract class SqlIntegration
     }
     // Replace any placeholders in the user defined dimension SQL
     if (dimension?.type === "user") {
-      dimension.dimension.sql = replaceSQLVars(dimension.dimension.sql, {
+      dimension.dimension.sql = compileSqlTemplate(dimension.dimension.sql, {
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
@@ -808,7 +808,7 @@ export default abstract class SqlIntegration
     }
     // Replace any placeholders in the segment SQL
     if (segment?.sql) {
-      segment.sql = replaceSQLVars(segment.sql, {
+      segment.sql = compileSqlTemplate(segment.sql, {
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
@@ -926,7 +926,7 @@ export default abstract class SqlIntegration
     WITH
       ${idJoinSQL}
       __rawExperiment as (
-        ${replaceSQLVars(exposureQuery.query, {
+        ${compileSqlTemplate(exposureQuery.query, {
           startDate: settings.startDate,
           endDate: settings.endDate,
           experimentId: settings.experimentId,
@@ -1814,7 +1814,7 @@ export default abstract class SqlIntegration
         ${
           queryFormat === "sql"
             ? `(
-              ${replaceSQLVars(metric.sql || "", {
+              ${compileSqlTemplate(metric.sql || "", {
                 startDate,
                 endDate: endDate || undefined,
                 experimentId,
@@ -2107,7 +2107,7 @@ export default abstract class SqlIntegration
             ${id2}
           FROM
             (
-              ${replaceSQLVars(join.query, {
+              ${compileSqlTemplate(join.query, {
                 startDate: from,
                 endDate: to,
                 experimentId,
@@ -2131,7 +2131,7 @@ export default abstract class SqlIntegration
           user_id,
           anonymous_id
         FROM
-          (${replaceSQLVars(settings.queries.pageviewsQuery, {
+          (${compileSqlTemplate(settings.queries.pageviewsQuery, {
             startDate: from,
             endDate: to,
             experimentId,
