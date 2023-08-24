@@ -29,6 +29,10 @@ export interface Props {
   requiredColumns: Set<string>;
   placeholder?: string;
   validateResponse?: (response: TestQueryResults) => void;
+  templateVariables?: {
+    eventName?: string;
+    valueColumn?: string;
+  };
 }
 
 export default function EditSqlModal({
@@ -39,6 +43,7 @@ export default function EditSqlModal({
   placeholder = "",
   datasourceId,
   validateResponse,
+  templateVariables,
 }: Props) {
   const [
     testQueryResults,
@@ -65,6 +70,7 @@ export default function EditSqlModal({
       body: JSON.stringify({
         query: sql,
         datasourceId: datasourceId,
+        templateVariables: templateVariables,
       }),
     });
 

@@ -56,7 +56,7 @@
   height: 300px;
   left: 0;
   right: 0;
-  z-index: 999;
+  z-index: 1100;
   text-align: center;
 }
 .topBar {
@@ -65,7 +65,7 @@
   left: 0;
   right: 0;
   height: 60px;
-  z-index: 999;
+  z-index: 1100;
 
   img {
     height: 30px;
@@ -90,7 +90,7 @@
   right: 0;
   height: 36px;
   box-shadow: 0 3px 6px 0 rgba(0, 0, 0, 0.3);
-  z-index: 998;
+  z-index: 1090;
 }
 .breadcrumb {
   overflow: hidden;

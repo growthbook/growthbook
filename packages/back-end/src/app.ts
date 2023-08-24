@@ -440,6 +440,12 @@ app.delete(
   experimentsController.deleteVisualChangeset
 );
 
+// Visual editor auth
+app.get(
+  "/visual-editor/key",
+  experimentsController.findOrCreateVisualEditorToken
+);
+
 // Reports
 app.get("/report/:id", reportsController.getReport);
 app.put("/report/:id", reportsController.putReport);
@@ -559,7 +565,6 @@ app.post("/file/upload/:filetype", discussionsController.postImageUploadUrl);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);
-app.post("/admin/organization/:id/populate", adminController.addSampleData);
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {

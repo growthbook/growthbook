@@ -800,7 +800,7 @@ export async function addMemberFromSSOConnection(
   }
   // When self-hosting, there should be only one organization in Mongo
   else {
-    const orgs = await findAllOrganizations();
+    const { organizations: orgs } = await findAllOrganizations(1, "");
     // Sanity check in case there are multiple orgs for whatever reason
     if (orgs.length > 1) {
       req.log.error(

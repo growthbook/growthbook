@@ -19,6 +19,9 @@ responses:
           type: object
           required:
             - nModified
+            - visualChangeset
           properties:
             nModified:
               type: number
+            visualChangeset:
+              $ref: "../schemas/VisualChangeset.yaml"

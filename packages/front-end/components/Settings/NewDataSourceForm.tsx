@@ -14,6 +14,8 @@ import cloneDeep from "lodash/cloneDeep";
 import { MetricType } from "@/../back-end/types/metric";
 import { TrackedEventData } from "@/../back-end/src/types/Integration";
 import clsx from "clsx";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
+import Link from "next/link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { getInitialSettings } from "@/services/datasources";
@@ -44,7 +46,7 @@ const NewDataSourceForm: FC<{
   source: string;
   onCancel?: () => void;
   onSuccess: (id: string) => Promise<void>;
-  importSampleData?: (source: string) => Promise<void>;
+  showImportSampleData: boolean;
   inline?: boolean;
   secondaryCTA?: ReactElement;
 }> = ({
@@ -53,12 +55,12 @@ const NewDataSourceForm: FC<{
   onCancel,
   source,
   existing,
-  importSampleData,
+  showImportSampleData,
   inline,
   secondaryCTA,
 }) => {
   const {
-    projects,
+    projects: allProjects,
     project,
     getDatasourceById,
     mutateDefinitions,
@@ -160,7 +162,16 @@ const NewDataSourceForm: FC<{
     form.setValue("metricsToCreate", updatedMetricsToCreate);
   }, [form, trackedEvents]);
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
+
+  // Filter out demo datasource from available projects
+  const projects = allProjects.filter(
+    (p) =>
+      !isDemoDatasourceProject({
+        projectId: p.id,
+        organizationId: orgId || "",
+      })
+  );
 
   if (!datasource) {
     return null;
@@ -400,7 +411,10 @@ const NewDataSourceForm: FC<{
           <h4>Choose Your Setup</h4>
           <div className="d-flex flex-wrap">
             <div
-              className={clsx(styles.ctaContainer, !importSampleData && "w-50")}
+              className={clsx(
+                styles.ctaContainer,
+                !showImportSampleData && "w-50"
+              )}
               onClick={() => setStep(1)}
             >
               <div className={styles.ctaButton}>
@@ -413,7 +427,10 @@ const NewDataSourceForm: FC<{
               </div>
             </div>
             <div
-              className={clsx(styles.ctaContainer, !importSampleData && "w-50")}
+              className={clsx(
+                styles.ctaContainer,
+                !showImportSampleData && "w-50"
+              )}
               onClick={(e) => {
                 e.preventDefault();
                 handleCustomSetup();
@@ -428,22 +445,20 @@ const NewDataSourceForm: FC<{
                 </div>
               </div>
             </div>
-            {importSampleData ? (
-              <div
-                className={clsx(styles.ctaContainer)}
-                onClick={async (e) => {
-                  e.preventDefault();
-                  await importSampleData("new data source form");
-                }}
-              >
-                <div className={styles.ctaButton}>
-                  <div>
-                    <h3 className={styles.ctaText}>Use our Sample Database</h3>
-                    <p>Explore GrowthBook with our sample data warehouse.</p>
+            {showImportSampleData && (
+              <Link href="/demo-datasource-project">
+                <div className={styles.ctaContainer}>
+                  <div className={styles.ctaButton}>
+                    <a>
+                      <h3 className={styles.ctaText}>Use Sample Dataset</h3>
+                      <p className="mb-0 text-dark">
+                        Explore GrowthBook with a pre-loaded sample dataset.
+                      </p>
+                    </a>
                   </div>
                 </div>
-              </div>
-            ) : null}
+              </Link>
+            )}
           </div>
         </div>
         {secondaryCTA && (

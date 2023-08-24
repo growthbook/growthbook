@@ -82,7 +82,6 @@ import Tooltip from "../Tooltip/Tooltip";
 import Button from "../Button";
 import { DocLink } from "../DocLink";
 import FeatureFromExperimentModal from "../Features/FeatureModal/FeatureFromExperimentModal";
-import { openVisualEditor } from "../OpenVisualEditorLink";
 import ConfirmButton from "../Modal/ConfirmButton";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import ResultsIndicator from "./ResultsIndicator";
@@ -297,6 +296,9 @@ export default function SinglePage({
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
+  const [newlyCreatedChangesetId, setNewlyCreatedChangesetId] = useState<
+    string | null
+  >(null);
 
   const permissions = usePermissions();
   const { apiCall } = useAuth();
@@ -555,9 +557,8 @@ export default function SinglePage({
           experiment={experiment}
           mutate={mutate}
           close={() => setVisualEditorModal(false)}
-          onCreate={async (vc) => {
-            // Try to immediately open the visual editor
-            await openVisualEditor(vc);
+          onCreate={(vc) => {
+            setNewlyCreatedChangesetId(vc.id);
           }}
           cta="Open Visual Editor"
         />
@@ -1029,7 +1030,7 @@ export default function SinglePage({
 
           <div className="mb-4 mx-4">
             <HeaderWithEdit
-              edit={(safeToEdit ? editTargeting : newPhase) || undefined}
+              edit={editTargeting || undefined}
               containerClassName="mb-2"
             >
               Targeting
@@ -1184,6 +1185,7 @@ export default function SinglePage({
                     <VisualChangesetTable
                       experiment={experiment}
                       visualChangesets={visualChangesets}
+                      newlyCreatedChangesetId={newlyCreatedChangesetId}
                       mutate={mutate}
                       canEditVisualChangesets={hasVisualEditorPermission}
                       setVisualEditorModal={setVisualEditorModal}

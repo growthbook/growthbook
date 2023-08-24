@@ -164,4 +164,7 @@ export type ExperimentTargetingData = Pick<
   Pick<
     ExperimentInterfaceStringDates,
     "hashAttribute" | "hashVersion" | "trackingKey"
-  >;
+  > & {
+    newPhase: boolean;
+    reseed: boolean;
+  };

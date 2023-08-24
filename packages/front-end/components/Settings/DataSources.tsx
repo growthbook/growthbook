@@ -11,6 +11,7 @@ import { hasFileConfig } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import NewDataSourceForm from "./NewDataSourceForm";
 
 const DataSources: FC = () => {
@@ -32,6 +33,14 @@ const DataSources: FC = () => {
   });
 
   const permissions = usePermissions();
+
+  const {
+    exists: demoDataSourceExists,
+    currentProjectIsDemo,
+  } = useDemoDataSourceProject();
+  const buttonTitle = currentProjectIsDemo
+    ? "You cannot create a datasource under the demo project"
+    : "";
 
   if (error) {
     return <div className="alert alert-danger">{error}</div>;
@@ -120,6 +129,17 @@ const DataSources: FC = () => {
             require minimal read-only permissions, so you can be sure your
             source data remains secure.
           </p>
+          {!demoDataSourceExists && !currentProjectIsDemo && (
+            <>
+              <p>
+                You can also create a{" "}
+                <Link href="/demo-datasource-project">
+                  <a className="info">demo datasource project</a>
+                </Link>
+                .
+              </p>
+            </>
+          )}
           {hasFileConfig() && (
             <div className="alert alert-info">
               It looks like you have a <code>config.yml</code> file. Data
@@ -133,6 +153,8 @@ const DataSources: FC = () => {
       {!hasFileConfig() && permissions.check("createDatasources", project) && (
         <button
           className="btn btn-primary"
+          disabled={currentProjectIsDemo}
+          title={buttonTitle}
           onClick={(e) => {
             e.preventDefault();
             setNewModalOpen(true);
@@ -162,6 +184,7 @@ const DataSources: FC = () => {
           onCancel={() => {
             setNewModalOpen(false);
           }}
+          showImportSampleData={!demoDataSourceExists}
         />
       )}
     </div>
