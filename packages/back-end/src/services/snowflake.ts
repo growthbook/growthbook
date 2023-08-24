@@ -1,6 +1,6 @@
 import { Snowflake } from "snowflake-promise";
 import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
-import { QueryResponse } from "../integrations/SqlIntegration";
+import { QueryResponse } from "../types/Integration";
 
 type ProxyOptions = {
   proxyHost?: string;

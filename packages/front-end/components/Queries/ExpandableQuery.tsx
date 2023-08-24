@@ -93,7 +93,6 @@ const ExpandableQuery: FC<{
             Took{" "}
             {formatDistanceStrict(
               getValidDate(query.startedAt),
-              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | undefined' is not assigna... Remove this comment to see the full error message
               getValidDate(query.finishedAt)
             )}
           </em>

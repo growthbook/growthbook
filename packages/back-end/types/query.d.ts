@@ -1,6 +1,7 @@
 import { QueryLanguage } from "./datasource";
 
 export type QueryStatus =
+  | "queued"
   | "running"
   | "failed"
   | "partially-succeeded"
@@ -12,7 +13,7 @@ export type QueryStatistics = {
   bytesProcessed?: number;
   bytesBilled?: number;
   warehouseCachedResult?: boolean;
-  partitionsUsed?: number;
+  partitionsUsed?: boolean;
 };
 
 export type QueryPointer = {
@@ -30,12 +31,14 @@ export interface QueryInterface {
   query: string;
   status: QueryStatus;
   createdAt: Date;
-  startedAt: Date;
+  startedAt?: Date;
   finishedAt?: Date;
   heartbeat: Date;
   // eslint-disable-next-line
   result?: Record<string, any>;
   rawResult?: Record<string, number | string | boolean>[];
   error?: string;
+  dependencies?: string[];
+  cachedQueryUsed?: string;
   statistics?: QueryStatistics;
 }

@@ -5,12 +5,7 @@ import {
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
 import { MetricInterface } from "../../types/metric";
-import {
-  Queries,
-  QueryPointer,
-  QueryStatistics,
-  QueryStatus,
-} from "../../types/query";
+import { Queries, QueryPointer, QueryStatus } from "../../types/query";
 import { SegmentInterface } from "../../types/segment";
 import {
   findSnapshotById,
@@ -24,11 +19,15 @@ import {
   ExperimentMetricStats,
   ExperimentQueryResponses,
   ExperimentResults,
-  QueryResponseRows,
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import {
+  QueryRunner,
+  QueryMap,
+  RunCallback,
+  ProcessCallback,
+} from "./QueryRunner";
 
 export type SnapshotResult = {
   unknownVariations: string[];
@@ -50,10 +49,9 @@ export const startExperimentResultQueries = async (
   startQuery: (
     name: string,
     query: string,
-    run: (
-      query: string
-    ) => Promise<{ statistics: QueryStatistics; rows: QueryResponseRows }>,
-    process: (rows: QueryResponseRows) => QueryResponseRows,
+    dependencies: string[],
+    run: RunCallback,
+    process: ProcessCallback,
     useExisting?: boolean
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
@@ -110,15 +108,16 @@ export const startExperimentResultQueries = async (
       segment: segmentObj,
       settings: snapshotSettings,
     };
-    queries.push(
-      await startQuery(
-        m.id,
-        integration.getExperimentMetricQuery(params),
-        (query) => integration.runExperimentMetricQuery(query),
-        (rows) => rows
-      )
+    const metricQuery = await startQuery(
+      m.id,
+      integration.getExperimentMetricQuery(params),
+      [],
+      (query) => integration.runExperimentMetricQuery(query),
+      (rows) => rows
     );
+    queries.push(metricQuery);
   });
+
   await Promise.all(promises);
 
   return queries;
@@ -135,7 +134,6 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
-
     if (
       this.integration.getSourceProperties().separateExperimentResultQueries
     ) {
@@ -272,14 +270,16 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       await this.startQuery(
         "results",
         query,
-        () =>
-          this.integration.getExperimentResults(
+        [],
+        async () => {
+          const rows = (await this.integration.getExperimentResults(
             snapshotSettings,
             selectedMetrics,
             activationMetrics[0],
             dimension
-            // eslint-disable-next-line
-            ) as Promise<ExperimentQueryResponses>,
+          )) as ExperimentQueryResponses;
+          return { rows: rows };
+        },
         (rows: ExperimentQueryResponses) =>
           this.processLegacyExperimentResultsResponse(snapshotSettings, rows)
       ),
