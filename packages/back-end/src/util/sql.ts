@@ -57,6 +57,10 @@ export function getBaseIdTypeAndJoins(
   };
 }
 
+function usesTemplateVariable(sql: string, variableName: string) {
+  return sql.match(new RegExp(`{{[^}]*${variableName}`, "g"));
+}
+
 // Compile sql template with handlebars, replacing vars (e.g. '{{startDate}}') and evaluating helpers (e.g. '{{camelcase eventName}}')
 export function compileSqlTemplate(
   sql: string,
@@ -102,10 +106,18 @@ export function compileSqlTemplate(
 
   if (templateVariables?.eventName) {
     replacements.eventName = templateVariables.eventName;
+  } else if (usesTemplateVariable(sql, "eventName")) {
+    throw new Error(
+      "Error compiling SQL template: You must set eventName first."
+    );
   }
 
   if (templateVariables?.valueColumn) {
     replacements.valueColumn = templateVariables.valueColumn;
+  } else if (usesTemplateVariable(sql, "valueColumn")) {
+    throw new Error(
+      "Error compiling SQL template: You must set valueColumn first."
+    );
   }
 
   try {

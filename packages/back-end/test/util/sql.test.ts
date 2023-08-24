@@ -33,7 +33,7 @@ describe("backend", () => {
     ).toEqual("SELECT amount as value from db.purchase");
 
     expect(() => {
-      compileSqlTemplate(`SELECT {{ eventName }}`, {
+      compileSqlTemplate(`SELECT {{ snakecase eventName }}`, {
         startDate,
         endDate,
       });
@@ -42,7 +42,7 @@ describe("backend", () => {
     );
 
     expect(() => {
-      compileSqlTemplate(`SELECT {{ valueColumn }} as value`, {
+      compileSqlTemplate(`SELECT {{ snakecase valueColumn }} as value`, {
         startDate,
         endDate,
       });
