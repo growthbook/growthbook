@@ -1,4 +1,4 @@
-import { FC, useEffect, useState } from "react";
+import React, { FC, useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
@@ -15,6 +15,7 @@ import { getExposureQuery } from "@/services/datasources";
 import { getEqualWeights } from "@/services/utils";
 import { generateVariationId, useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import MarkdownInput from "../Markdown/MarkdownInput";
 import TagsInput from "../Tags/TagsInput";
 import Page from "../Modal/Page";
@@ -237,6 +238,8 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
   const exposureQueries = datasource?.settings?.queries?.exposure || [];
   const status = form.watch("status");
 
+  const { currentProjectIsDemo } = useDemoDataSourceProject();
+
   return (
     <PagedModal
       header={isNewExperiment ? "New Experiment" : "New Experiment Analysis"}
@@ -252,6 +255,15 @@ const NewExperimentForm: FC<NewExperimentFormProps> = ({
     >
       <Page display="Basic Info">
         {msg && <div className="alert alert-info">{msg}</div>}
+
+        {currentProjectIsDemo && (
+          <div className="alert alert-warning">
+            You are creating an experiment under the demo datasource project.
+            This experiment will be deleted when the demo datasource project is
+            deleted.
+          </div>
+        )}
+
         <Field label="Name" required minLength={2} {...form.register("name")} />
         {!isImport && !fromFeature && datasource && !isNewExperiment && (
           <Field
