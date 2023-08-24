@@ -91,9 +91,9 @@ const VariationsTable: FC<Props> = ({
   const hasUniqueIDs = variations.some((v, i) => v.key !== i + "");
 
   return (
-    <div className="mx-1">
+    <div>
       <div
-        className="mb-2 fade-mask-1rem"
+        className="fade-mask-1rem"
         style={{
           overflowX: "auto",
         }}
