@@ -218,7 +218,12 @@ export const createFeatureReviewRequest = async ({
     state: "active",
   });
 
-  // todo: requestedUserIds.forEach { onReviewRequested() }
+  requestedUserIds.forEach((id) => {
+    onReviewRequested({
+      userId: id,
+      featureReviewRequestId: doc.id,
+    });
+  });
 
   return toInterface(doc);
 };
@@ -445,3 +450,27 @@ export const dismissReviewAsUser = async ({
 };
 
 // endregion update FeatureReviewRequest
+
+// region delete FeatureReviewRequest
+
+type DeleteFeatureReviewRequestParams = {
+  userId: string;
+  organizationId: string;
+  featureReviewRequestId: string;
+};
+
+export const deleteFeatureReviewRequest = async ({
+  userId,
+  organizationId,
+  featureReviewRequestId,
+}: DeleteFeatureReviewRequestParams): Promise<boolean> => {
+  const result = await FeatureReviewRequestModel.deleteOne({
+    userId,
+    organizationId,
+    id: featureReviewRequestId,
+  });
+
+  return result.deletedCount === 1;
+};
+
+// endregion delete FeatureReviewRequest
