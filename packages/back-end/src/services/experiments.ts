@@ -23,7 +23,6 @@ import {
 import { getMetricsByIds, insertMetric } from "../models/MetricModel";
 import { checkSrm, sumSquaresFromStats } from "../util/stats";
 import { addTags } from "../models/TagModel";
-import { WatchModel } from "../models/WatchModel";
 import { Dimension, ExperimentMetricQueryResponse } from "../types/Integration";
 import { createExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import {
@@ -483,39 +482,6 @@ export async function createSnapshot({
   return queryRunner;
 }
 
-export async function ensureWatching(
-  userId: string,
-  orgId: string,
-  item: string,
-  type: "experiments" | "features"
-) {
-  await WatchModel.updateOne(
-    {
-      userId,
-      organization: orgId,
-    },
-    {
-      $addToSet: {
-        [type]: item,
-      },
-    },
-    {
-      upsert: true,
-    }
-  );
-}
-
-export async function getExperimentWatchers(
-  experimentId: string,
-  orgId: string
-) {
-  const watchers = await WatchModel.find({
-    experiments: experimentId,
-    organization: orgId,
-  });
-  return watchers;
-}
-
 function getExperimentMetric(
   experiment: ExperimentInterface,
   id: string
@@ -572,6 +538,7 @@ export async function toExperimentApiInterface(
     status: experiment.status,
     autoRefresh: !!experiment.autoSnapshots,
     hashAttribute: experiment.hashAttribute || "id",
+    hashVersion: experiment.hashVersion || 2,
     variations: experiment.variations.map((v) => ({
       variationId: v.id,
       key: v.key,
@@ -1482,6 +1449,7 @@ export function postExperimentApiPayloadToInterface(
     datasource: datasource.id,
     archived: payload.archived ?? false,
     hashAttribute: payload.hashAttribute ?? "",
+    hashVersion: payload.hashVersion ?? 2,
     autoSnapshots: true,
     project: payload.project,
     owner: payload.owner || "",
@@ -1497,7 +1465,7 @@ export function postExperimentApiPayloadToInterface(
     hypothesis: payload.hypothesis || "",
     metrics: payload.metrics || [],
     metricOverrides: [],
-    guardrails: [],
+    guardrails: payload.guardrailMetrics || [],
     activationMetric: "",
     segment: "",
     queryFilter: "",
@@ -1542,11 +1510,13 @@ export function updateExperimentApiPayloadToInterface(
     owner,
     assignmentQueryId,
     hashAttribute,
+    hashVersion,
     name,
     tags,
     description,
     hypothesis,
     metrics,
+    guardrailMetrics,
     archived,
     status,
     phases,
@@ -1560,11 +1530,13 @@ export function updateExperimentApiPayloadToInterface(
     ...(owner !== undefined ? { owner } : {}),
     ...(assignmentQueryId ? { assignmentQueryId } : {}),
     ...(hashAttribute ? { hashAttribute } : {}),
+    ...(hashVersion ? { hashVersion } : {}),
     ...(name ? { name } : {}),
     ...(tags ? { tags } : {}),
     ...(description !== undefined ? { description } : {}),
     ...(hypothesis !== undefined ? { hypothesis } : {}),
     ...(metrics ? { metrics } : {}),
+    ...(guardrailMetrics ? { guardrails: guardrailMetrics } : {}),
     ...(archived !== undefined ? { archived } : {}),
     ...(status ? { status } : {}),
     ...(releasedVariationId !== undefined ? { releasedVariationId } : {}),

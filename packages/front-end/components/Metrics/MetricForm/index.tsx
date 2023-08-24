@@ -1,10 +1,10 @@
-import React, { FC, ReactElement, useState, useEffect, useMemo } from "react";
+import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
 import {
-  MetricInterface,
   Condition,
+  MetricCappingType,
+  MetricInterface,
   MetricType,
   Operator,
-  MetricCappingType,
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
 import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
@@ -12,6 +12,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
 } from "shared/constants";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -43,6 +44,7 @@ import useSchemaFormOptions from "@/hooks/useSchemaFormOptions";
 import { GBCuped } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import { useCurrency } from "@/hooks/useCurrency";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -262,8 +264,11 @@ const MetricForm: FC<MetricFormProps> = ({
   const form = useForm({
     defaultValues: {
       datasource:
-        ("datasource" in current ? current.datasource : datasources[0]?.id) ||
-        "",
+        ("datasource" in current
+          ? current.datasource
+          : settings.defaultDataSource
+          ? settings.defaultDataSource
+          : datasources[0]?.id) || "",
       name: current.name || "",
       description: current.description || "",
       type: current.type || "binomial",
@@ -310,7 +315,7 @@ const MetricForm: FC<MetricFormProps> = ({
     },
   });
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
 
   const type = form.watch("type");
 
@@ -340,6 +345,20 @@ const MetricForm: FC<MetricFormProps> = ({
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
   };
+
+  // We want to show a warning when someone tries to create a metric for just the demo project
+  const isExclusivelyForDemoDatasourceProject = useMemo(() => {
+    const projects = value.projects || [];
+
+    if (projects.length !== 1) return false;
+
+    return isDemoDatasourceProject({
+      projectId: projects[0],
+      organizationId: orgId || "",
+    });
+  }, [orgId, value.projects]);
+
+  const { demoDataSourceId } = useDemoDataSourceProject();
 
   const denominatorOptions = useMemo(() => {
     return metrics
@@ -587,6 +606,11 @@ const MetricForm: FC<MetricFormProps> = ({
             }
           }}
         >
+          {isExclusivelyForDemoDatasourceProject && (
+            <div className="alert alert-warning">
+              You are creating a metric under the demo datasource project.
+            </div>
+          )}
           <div className="form-group">
             <label>Metric Name</label>
             <input
@@ -628,21 +652,35 @@ const MetricForm: FC<MetricFormProps> = ({
                 onChange={(v) => form.setValue("projects", v)}
                 customClassName="label-overflow-ellipsis"
                 helpText="Assign this metric to specific projects"
+                disabled={isExclusivelyForDemoDatasourceProject}
               />
             </div>
           )}
           <SelectField
             label="Data Source"
-            value={value.datasource || ""}
+            value={
+              isExclusivelyForDemoDatasourceProject && demoDataSourceId
+                ? demoDataSourceId
+                : value.datasource || ""
+            }
             onChange={(v) => form.setValue("datasource", v)}
-            options={(datasources || []).map((d) => ({
-              value: d.id,
-              label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-            }))}
+            options={(datasources || []).map((d) => {
+              const defaultDatasource = d.id === settings.defaultDataSource;
+              return {
+                value: d.id,
+                label: `${d.name}${
+                  d.description ? ` — ${d.description}` : ""
+                } ${defaultDatasource ? " (default)" : ""}`,
+              };
+            })}
             className="portal-overflow-ellipsis"
             name="datasource"
             initialOption="Manual"
-            disabled={edit || source === "datasource-detail"}
+            disabled={
+              isExclusivelyForDemoDatasourceProject ||
+              edit ||
+              source === "datasource-detail"
+            }
           />
           <div className="form-group">
             <label>Metric Type</label>
@@ -1114,7 +1152,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   <input
                     type="number"
                     step="any"
-                    min="1"
+                    min={0.125}
                     className="form-control"
                     placeholder={getDefaultConversionWindowHours() + ""}
                     {...form.register("conversionWindowHours", {

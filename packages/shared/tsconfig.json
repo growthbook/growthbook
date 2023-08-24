@@ -14,5 +14,5 @@
     "strictPropertyInitialization": true,
     "rootDir": "src"
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*", "./util.d.ts"]
 }

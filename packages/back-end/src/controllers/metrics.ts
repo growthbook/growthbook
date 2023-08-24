@@ -176,14 +176,17 @@ export async function cancelMetricAnalysis(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries", "");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
   const metric = await getMetricById(id, org.id, true);
   if (!metric) {
     throw new Error("Could not cancel query");
   }
+
+  req.checkPermissions(
+    "runQueries",
+    metric.projects?.length ? metric.projects : ""
+  );
 
   const integration = await getIntegrationFromDatasourceId(
     org.id,
@@ -201,8 +204,6 @@ export async function postMetricAnalysis(
   req: AuthRequest<null, { id: string }>,
   res: Response
 ) {
-  req.checkPermissions("runQueries", "");
-
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
 
@@ -214,6 +215,11 @@ export async function postMetricAnalysis(
       message: "Metric not found",
     });
   }
+
+  req.checkPermissions(
+    "runQueries",
+    metric.projects?.length ? metric.projects : ""
+  );
 
   try {
     await refreshMetric(

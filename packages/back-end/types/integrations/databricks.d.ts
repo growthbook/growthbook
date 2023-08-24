@@ -3,4 +3,5 @@ export interface DatabricksConnectionParams {
   host: string;
   port: number;
   path: string;
+  catalog: string;
 }

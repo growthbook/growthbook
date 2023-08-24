@@ -6,6 +6,7 @@ import { FeatureRevisionInterface } from "back-end/types/feature-revision";
 import React, { useState } from "react";
 import { FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
 import { datetime } from "shared/dates";
+import { getValidation } from "shared/util";
 import MoreMenu from "@/components/Dropdown/MoreMenu";
 import { GBAddCircle, GBCircleArrowLeft, GBEdit } from "@/components/Icons";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -31,7 +32,6 @@ import {
   useEnvironments,
   getEnabledEnvironments,
   getAffectedEnvs,
-  getValidation,
 } from "@/services/features";
 import Tab from "@/components/Tabs/Tab";
 import FeatureImplementationModal from "@/components/Features/FeatureImplementationModal";
@@ -754,7 +754,7 @@ export default function FeaturePage() {
                     setRuleModal({
                       environment: env,
                       i: getRules(data.feature, env).length,
-                      defaultType: "experiment",
+                      defaultType: "experiment-ref-new",
                     });
                     track("Viewed Rule Modal", {
                       source: "add-rule",
