@@ -63,7 +63,7 @@ export default function PValueColumn({
 
   return (
     <td
-      className={clsx("variation chance result-number align-middle", className)}
+      className={clsx("variation chance align-middle", className)}
       {...otherProps}
     >
       {!baseline?.value || !stats?.value ? (
@@ -77,7 +77,7 @@ export default function PValueColumn({
         />
       ) : (
         <div className="d-flex align-items-center justify-content-end">
-          <div className="d-inline-block ml-2">
+          <div className="result-number d-inline-block">
             {pValText || "P-value missing"}
           </div>
           {shouldRenderRisk ? (

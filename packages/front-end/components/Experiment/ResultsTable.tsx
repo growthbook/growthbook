@@ -73,7 +73,7 @@ export type ResultsTableProps = {
   isTabActive: boolean;
 };
 
-const ROW_HEIGHT = 40;
+const ROW_HEIGHT = 42;
 const METRIC_LABEL_ROW_HEIGHT = 34;
 const SPACER_ROW_HEIGHT = 6;
 
@@ -261,7 +261,7 @@ export default function ResultsTable({
 
     const layoutX: LayoutX = settings?.x ?? "element-right";
     const offsetX = settings?.offsetX ?? 0;
-    const offsetY = settings?.offsetY ?? 0;
+    const offsetY = settings?.offsetY ?? 3;
     const el = event.target as HTMLElement;
     const target = settings?.targetClassName
       ? (el.classList.contains(settings.targetClassName)
@@ -500,7 +500,7 @@ export default function ResultsTable({
                       </div>
                     </th>
                     <th
-                      style={{ width: 140 }}
+                      style={{ width: 140 * tableCellScale }}
                       className="axis-col label text-right has-tooltip"
                     >
                       <div style={{ lineHeight: "16px", marginBottom: 2 }}>
@@ -638,7 +638,7 @@ export default function ResultsTable({
                             metric={row.metric}
                             stats={baseline}
                             users={baseline?.users || 0}
-                            className="value"
+                            className="value baseline"
                             newUi={true}
                           />
                         ) : (
@@ -793,14 +793,14 @@ export default function ResultsTable({
                             onPointerMove={(e) =>
                               onPointerMove(e, {
                                 x: "element-left",
-                                offsetX: 5,
+                                offsetX: 50,
                               })
                             }
                             onPointerLeave={onPointerLeave}
                             onClick={(e) =>
                               onPointerMove(e, {
                                 x: "element-left",
-                                offsetX: 5,
+                                offsetX: 50,
                               })
                             }
                           />
@@ -809,13 +809,6 @@ export default function ResultsTable({
                         )}
                       </tr>
                     );
-                  })}
-
-                  {/*spacer row*/}
-                  {drawEmptyRow({
-                    graphCellWidth,
-                    id,
-                    domain,
                   })}
                 </tbody>
               );

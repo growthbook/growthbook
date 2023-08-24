@@ -44,10 +44,7 @@ export default function ChanceToWinColumn({
     ["warning", "danger"].includes(rowResults.riskMeta.riskStatus) &&
     rowResults.resultsStatus !== "lost";
   return (
-    <td
-      className={clsx("chance result-number align-middle", className)}
-      {...otherProps}
-    >
+    <td className={clsx("chance align-middle", className)} {...otherProps}>
       {!baseline?.value || !stats?.value ? (
         <em className="text-muted font-weight-normal">no data</em>
       ) : !rowResults.enoughData ? (
@@ -59,7 +56,7 @@ export default function ChanceToWinColumn({
         />
       ) : (
         <>
-          <div className="d-inline-block ml-2">
+          <div className="result-number d-inline-block">
             {percentFormatter.format(stats.chanceToWin ?? 0)}
           </div>
           {shouldRenderRisk ? (

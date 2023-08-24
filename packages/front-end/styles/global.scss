@@ -474,7 +474,8 @@ pre {
 }
 
 .experiment-results-wrapper {
-  @media (max-width: 750px) {
+  padding-bottom: 1px; // to allow for bottom border
+  @media (max-width: 900px) {
     overflow-x: auto;
   }
 }
@@ -494,7 +495,7 @@ pre {
       background-color: var(--surface-background-color);
       z-index: 800;
       box-shadow: 0 -1px 0 var(--text-link-hover-color) inset;
-      @media (max-width: 750px) {
+      @media (max-width: 900px) {
         position: static;
       }
       &.has-tooltip {
@@ -516,12 +517,14 @@ pre {
   .change {
     font-size: 14px;
     line-height: 16px;
+    &:not(.baseline) {
+      .result-number {
+        font-weight: bold;
+      }
+    }
   }
   .graph-cell {
     padding: 0;
-  }
-  .result-number {
-    font-weight: bold;
   }
   .metric-label {
     font-size: 14px;
