@@ -58,11 +58,7 @@ export type SchemaFormat =
   | "clevertap"
   | "custom";
 
-export type SchemaThatSupportsAutoMetrics =
-  | "segment"
-  | "rudderstack"
-  | "amplitude"
-  | "ga4";
+export type AutoMetricSchemas = "segment" | "rudderstack" | "amplitude" | "ga4";
 
 export type SchemaOption = {
   name: string;
