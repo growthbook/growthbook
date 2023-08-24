@@ -616,18 +616,18 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   // Add email/name to the organization members array
   const userInfo = await getUsersByIds(members.map((m) => m.id));
   const expandedMembers: ExpandedMember[] = [];
-  for (const user of userInfo) {
-    const memberInfo = members.find((m) => m.id === user.id);
+  userInfo.forEach(({ id, email, verified, name, _id }) => {
+    const memberInfo = members.find((m) => m.id === id);
     if (!memberInfo) return;
 
     expandedMembers.push({
-      email: user.email,
-      verified: user.verified,
+      email,
+      verified,
       name: name || "",
       ...memberInfo,
-      dateCreated: memberInfo.dateCreated || user._id.getTimestamp(),
+      dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
     });
-  }
+  });
 
   const currentUserPermissions = getUserPermissions(userId, org);
 
