@@ -1959,6 +1959,7 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           metrics?: (string)[];
+          guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
           owner: string;
           archived?: boolean;
@@ -2237,6 +2238,7 @@ export interface operations {
           description?: string;
           tags?: (string)[];
           metrics?: (string)[];
+          guardrailMetrics?: (string)[];
           /** @description Email of the person who owns this experiment */
           owner?: string;
           archived?: boolean;
@@ -3115,6 +3117,32 @@ export interface operations {
         content: {
           "application/json": {
             nModified: number;
+            visualChangeset: {
+              id?: string;
+              urlPatterns: ({
+                  include?: boolean;
+                  /** @enum {string} */
+                  type: "simple" | "regex";
+                  pattern: string;
+                })[];
+              editorUrl: string;
+              experiment: string;
+              visualChanges: ({
+                  description?: string;
+                  css?: string;
+                  js?: string;
+                  variation: string;
+                  domMutations: ({
+                      selector: string;
+                      /** @enum {string} */
+                      action: "append" | "set" | "remove";
+                      attribute: string;
+                      value?: string;
+                      parentSelector?: string;
+                      insertBeforeSelector?: string;
+                    })[];
+                })[];
+            };
           };
         };
       };

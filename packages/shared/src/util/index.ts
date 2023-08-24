@@ -1,3 +1,4 @@
+import uniqid from "uniqid";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
@@ -7,7 +8,8 @@ import {
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import uniqid from "uniqid";
+
+export * from "./features";
 
 export function getAffectedEnvsForExperiment({
   experiment,

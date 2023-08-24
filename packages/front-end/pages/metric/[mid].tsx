@@ -451,6 +451,7 @@ const MetricPage: FC = () => {
           {canEditProjects && (
             <a
               href="#"
+              className="ml-2"
               onClick={(e) => {
                 e.preventDefault();
                 setEditProjects(true);
@@ -981,6 +982,24 @@ const MetricPage: FC = () => {
                           {metric.userIdTypes}
                         </RightRailSectionGroup>
                       )}
+                      {metric.templateVariables?.eventName && (
+                        <RightRailSectionGroup title="Event Name" type="custom">
+                          <span className="font-weight-bold">
+                            {metric.templateVariables.eventName}
+                          </span>
+                        </RightRailSectionGroup>
+                      )}
+                      {metric.type != "binomial" &&
+                        metric.templateVariables?.valueColumn && (
+                          <RightRailSectionGroup
+                            title="Value Column"
+                            type="custom"
+                          >
+                            <span className="font-weight-bold">
+                              {metric.templateVariables.valueColumn}
+                            </span>
+                          </RightRailSectionGroup>
+                        )}
                       <RightRailSectionGroup title="Metric SQL" type="custom">
                         <Code language="sql" code={metric.sql} />
                       </RightRailSectionGroup>

@@ -1,10 +1,10 @@
-import React, { FC, ReactElement, useState, useEffect, useMemo } from "react";
+import React, { FC, ReactElement, useEffect, useMemo, useState } from "react";
 import {
-  MetricInterface,
   Condition,
+  MetricCappingType,
+  MetricInterface,
   MetricType,
   Operator,
-  MetricCappingType,
 } from "back-end/types/metric";
 import { useFieldArray, useForm } from "react-hook-form";
 import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
@@ -12,6 +12,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
 } from "shared/constants";
+import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -44,6 +45,7 @@ import { GBCuped } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import { useCurrency } from "@/hooks/useCurrency";
 import ConfirmModal from "@/components/ConfirmModal";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -62,16 +64,35 @@ export type MetricFormProps = {
   secondaryCTA?: ReactElement;
 };
 
+function usesValueColumn(sql: string) {
+  return sql.match(/\{\{[^}]*valueColumn/g);
+}
+
+function usesEventName(sql: string) {
+  return sql.match(/\{\{[^}]*eventName/g);
+}
+
 function validateMetricSQL(
   sql: string,
   type: MetricType,
-  userIdTypes: string[]
+  userIdTypes: string[],
+  templateVariables?: {
+    valueColumn?: string;
+    eventName?: string;
+  }
 ) {
   // Require specific columns to be selected
   const requiredCols = ["timestamp", ...userIdTypes];
   if (type !== "binomial") {
     requiredCols.push("value");
+    if (usesValueColumn(sql) && !templateVariables?.valueColumn) {
+      throw new Error("Value column is required");
+    }
   }
+  if (usesEventName(sql) && !templateVariables?.eventName) {
+    throw new Error("Event name is required");
+  }
+
   validateSQL(sql, requiredCols);
 }
 function validateBasicInfo(value: { name: string }) {
@@ -87,13 +108,22 @@ function validateQuerySettings(
     type: MetricType;
     userIdTypes: string[];
     table: string;
+    templateVariables?: {
+      valueColumn?: string;
+      eventName?: string;
+    };
   }
 ) {
   if (!datasourceSettingsSupport) {
     return;
   }
   if (sqlInput) {
-    validateMetricSQL(value.sql, value.type, value.userIdTypes);
+    validateMetricSQL(
+      value.sql,
+      value.type,
+      value.userIdTypes,
+      value.templateVariables
+    );
   } else {
     if (value.table.length < 1) {
       throw new Error("Table name cannot be empty");
@@ -196,7 +226,7 @@ const MetricForm: FC<MetricFormProps> = ({
 
   const currentDefaultSql =
     currentDatasource && current.type && current.name
-      ? getInitialMetricQuery(currentDatasource, current.type, current.name)[1]
+      ? getInitialMetricQuery(currentDatasource, current.type)[1]
       : null;
 
   // Only set the default to true for new metrics with no sql or an edited or
@@ -281,6 +311,8 @@ const MetricForm: FC<MetricFormProps> = ({
         current.conversionWindowHours || getDefaultConversionWindowHours(),
       conversionDelayHours: current.conversionDelayHours || 0,
       sql: current.sql || "",
+      eventName: current.templateVariables?.eventName || "",
+      valueColumn: current.templateVariables?.valueColumn || "",
       aggregation: current.aggregation || "",
       conditions: current.conditions || [],
       userIdTypes: current.userIdTypes || [],
@@ -310,7 +342,7 @@ const MetricForm: FC<MetricFormProps> = ({
     },
   });
 
-  const { apiCall } = useAuth();
+  const { apiCall, orgId } = useAuth();
 
   const type = form.watch("type");
 
@@ -331,11 +363,29 @@ const MetricForm: FC<MetricFormProps> = ({
     tags: form.watch("tags"),
     projects: form.watch("projects"),
     sql: form.watch("sql"),
+    templateVariables: {
+      eventName: form.watch("eventName"),
+      valueColumn: form.watch("valueColumn"),
+    },
     conditions: form.watch("conditions"),
     regressionAdjustmentOverride: form.watch("regressionAdjustmentOverride"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
     regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
   };
+
+  // We want to show a warning when someone tries to create a metric for just the demo project
+  const isExclusivelyForDemoDatasourceProject = useMemo(() => {
+    const projects = value.projects || [];
+
+    if (projects.length !== 1) return false;
+
+    return isDemoDatasourceProject({
+      projectId: projects[0],
+      organizationId: orgId || "",
+    });
+  }, [orgId, value.projects]);
+
+  const { demoDataSourceId } = useDemoDataSourceProject();
 
   const denominatorOptions = useMemo(() => {
     return metrics
@@ -431,12 +481,12 @@ const MetricForm: FC<MetricFormProps> = ({
   });
 
   const defaultSqlTemplate = selectedDataSource
-    ? getInitialMetricQuery(selectedDataSource, value.type, value.name)[1]
+    ? getInitialMetricQuery(selectedDataSource, value.type)[1]
     : "";
 
-  const resetSqlToDefault = (datasource, type, name) => {
+  const resetSqlToDefault = (datasource, type) => {
     if (datasource && datasource.properties?.queryLanguage === "sql") {
-      const [userTypes, sql] = getInitialMetricQuery(datasource, type, name);
+      const [userTypes, sql] = getInitialMetricQuery(datasource, type);
       if (usingDefaultQueryFormat) {
         // The default queryFormat for new sql queries should be "sql", but we
         // won't change it later if they manually change it to "builder".
@@ -460,11 +510,14 @@ const MetricForm: FC<MetricFormProps> = ({
       maxPercentChange,
       minPercentChange,
       capping,
+      eventName,
+      valueColumn,
       ...otherValues
     } = value;
 
     const sendValue: Partial<MetricInterface> = {
       ...otherValues,
+      templateVariables: { eventName, valueColumn },
       winRisk: winRisk / 100,
       loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
@@ -569,6 +622,10 @@ const MetricForm: FC<MetricFormProps> = ({
             // of their changes automatically.
             setAllowAutomaticSqlReset(sql == defaultSqlTemplate);
           }}
+          templateVariables={{
+            eventName: form.watch("eventName"),
+            valueColumn: form.watch("valueColumn"),
+          }}
         />
       )}
       <PagedModal
@@ -592,25 +649,23 @@ const MetricForm: FC<MetricFormProps> = ({
           display="Basic Info"
           validate={async () => {
             validateBasicInfo(form.getValues());
+            if (allowAutomaticSqlReset) {
+              resetSqlToDefault(selectedDataSource, value.type);
+            }
           }}
         >
+          {isExclusivelyForDemoDatasourceProject && (
+            <div className="alert alert-warning">
+              You are creating a metric under the demo datasource project.
+            </div>
+          )}
           <div className="form-group">
             <label>Metric Name</label>
             <input
               type="text"
               required
               className="form-control"
-              value={value.name || ""}
-              onChange={(event) => {
-                form.setValue("name", event.target.value);
-                if (allowAutomaticSqlReset) {
-                  resetSqlToDefault(
-                    selectedDataSource,
-                    value.type,
-                    event.target.value
-                  );
-                }
-              }}
+              {...form.register("name")}
             />
           </div>
           <div className="form-group">
@@ -645,16 +700,21 @@ const MetricForm: FC<MetricFormProps> = ({
                 onChange={(v) => form.setValue("projects", v)}
                 customClassName="label-overflow-ellipsis"
                 helpText="Assign this metric to specific projects"
+                disabled={isExclusivelyForDemoDatasourceProject}
               />
             </div>
           )}
           <SelectField
             label="Data Source"
-            value={value.datasource || ""}
+            value={
+              isExclusivelyForDemoDatasourceProject && demoDataSourceId
+                ? demoDataSourceId
+                : value.datasource || ""
+            }
             onChange={(v) => {
               form.setValue("datasource", v);
               if (allowAutomaticSqlReset) {
-                resetSqlToDefault(getDatasourceById(v), value.type, value.name);
+                resetSqlToDefault(getDatasourceById(v), value.type);
               }
             }}
             options={(datasources || []).map((d) => {
@@ -669,7 +729,11 @@ const MetricForm: FC<MetricFormProps> = ({
             className="portal-overflow-ellipsis"
             name="datasource"
             initialOption="Manual"
-            disabled={edit || source === "datasource-detail"}
+            disabled={
+              isExclusivelyForDemoDatasourceProject ||
+              edit ||
+              source === "datasource-detail"
+            }
           />
           <div className="form-group">
             <label>Metric Type</label>
@@ -678,8 +742,16 @@ const MetricForm: FC<MetricFormProps> = ({
               value={value.type}
               setValue={(val: MetricType) => {
                 form.setValue("type", val);
+
                 if (allowAutomaticSqlReset) {
-                  resetSqlToDefault(selectedDataSource, val, value.name);
+                  resetSqlToDefault(selectedDataSource, val);
+                }
+
+                if (val === "count") {
+                  form.setValue("valueColumn", "1");
+                } else if (value.templateVariables?.valueColumn === "1") {
+                  // 1 only makes sense for count type, but keep it if it's already set to something else
+                  form.setValue("valueColumn", "");
                 }
               }}
               options={metricTypeOptions}
@@ -758,6 +830,31 @@ const MetricForm: FC<MetricFormProps> = ({
                     }))}
                     label="Identifier Types Supported"
                   />
+                  {value.sql && usesEventName(value.sql) && (
+                    <div className="form-group">
+                      <Field
+                        label="Event Name"
+                        placeholder={value.name}
+                        helpText="The event name associated with this metric.  This can then be referenced in your sql template as {{eventName}}."
+                        {...form.register("eventName")}
+                      />
+                    </div>
+                  )}
+                  {value.sql &&
+                    usesValueColumn(value.sql) &&
+                    value.type != "binomial" && (
+                      <div className="form-group">
+                        <Field
+                          label="Value Column"
+                          helpText={
+                            value.type === "count"
+                              ? "Use 1 to count the number of rows (most common). This can then be referenced in your sql template as {{valueColumn}}."
+                              : "The column in your datawarehouse table with the metric data.  This can then be referenced in your sql template as {{valueColumn}}."
+                          }
+                          {...form.register("valueColumn")}
+                        ></Field>
+                      </div>
+                    )}
                   <div className="form-group">
                     <label>Query</label>
                     {value.sql && (
@@ -789,7 +886,7 @@ const MetricForm: FC<MetricFormProps> = ({
                       {showSqlResetConfirmationModal && (
                         <ConfirmModal
                           title={"Reset to default SQL"}
-                          subtitle="This will reset your SQL and identifier types to the default template for your datasource and type. It can't be undone to return to your current sql."
+                          subtitle="This will reset both your SQL and identifier types to the default template for your datasource and type."
                           yesText="Reset"
                           noText="Cancel"
                           modalState={showSqlResetConfirmationModal}
@@ -797,11 +894,7 @@ const MetricForm: FC<MetricFormProps> = ({
                             setShowSqlResetConfirmationModal(state)
                           }
                           onConfirm={async () => {
-                            resetSqlToDefault(
-                              selectedDataSource,
-                              value.type,
-                              value.name
-                            );
+                            resetSqlToDefault(selectedDataSource, value.type);
                             setShowSqlResetConfirmationModal(false);
                           }}
                         />
@@ -1145,7 +1238,7 @@ const MetricForm: FC<MetricFormProps> = ({
                   <input
                     type="number"
                     step="any"
-                    min="1"
+                    min={0.125}
                     className="form-control"
                     placeholder={getDefaultConversionWindowHours() + ""}
                     {...form.register("conversionWindowHours", {

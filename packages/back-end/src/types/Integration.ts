@@ -8,6 +8,7 @@ import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { MetricInterface, MetricType } from "../../types/metric";
 import { SegmentInterface } from "../../types/segment";
 import { FormatDialect } from "../util/sql";
+import { TemplateVariables } from "../../types/sql";
 
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
@@ -303,8 +304,11 @@ export interface SourceIntegrationInterface {
     tableName: string
   ): Promise<{ tableData: null | unknown[] }>;
   getInformationSchema?(): Promise<InformationSchema[]>;
-  getTestValidityQuery?(query: string): string;
-  getTestQuery?(query: string): string;
+  getTestValidityQuery?(
+    query: string,
+    templateVariables?: TemplateVariables
+  ): string;
+  getTestQuery?(query: string, templateVariables?: TemplateVariables): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
