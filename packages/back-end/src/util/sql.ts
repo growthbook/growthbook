@@ -1,5 +1,6 @@
 import { format as sqlFormat, FormatOptions } from "sql-formatter";
 import Handlebars from "handlebars";
+import { SQLVars } from "../../types/sql";
 import { helpers } from "./handlebarsHelpers";
 
 // Register all the helpers from handlebarsHelpers
@@ -56,15 +57,14 @@ export function getBaseIdTypeAndJoins(
   };
 }
 
+function usesTemplateVariable(sql: string, variableName: string) {
+  return sql.match(new RegExp(`{{[^}]*${variableName}`, "g"));
+}
+
 // Compile sql template with handlebars, replacing vars (e.g. '{{startDate}}') and evaluating helpers (e.g. '{{camelcase eventName}}')
-export type SQLVars = {
-  startDate: Date;
-  endDate?: Date;
-  experimentId?: string;
-};
 export function compileSqlTemplate(
   sql: string,
-  { startDate, endDate, experimentId }: SQLVars
+  { startDate, endDate, experimentId, templateVariables }: SQLVars
 ) {
   // If there's no end date, use a near future date by default
   // We want to use at least 24 hours in the future in case of timezone issues
@@ -104,6 +104,22 @@ export function compileSqlTemplate(
     experimentId,
   };
 
+  if (templateVariables?.eventName) {
+    replacements.eventName = templateVariables.eventName;
+  } else if (usesTemplateVariable(sql, "eventName")) {
+    throw new Error(
+      "Error compiling SQL template: You must set eventName first."
+    );
+  }
+
+  if (templateVariables?.valueColumn) {
+    replacements.valueColumn = templateVariables.valueColumn;
+  } else if (usesTemplateVariable(sql, "valueColumn")) {
+    throw new Error(
+      "Error compiling SQL template: You must set valueColumn first."
+    );
+  }
+
   try {
     // TODO: Do sql escaping instead of html escaping for any new replacements
     const template = Handlebars.compile(sql, {
@@ -117,6 +133,16 @@ export function compileSqlTemplate(
     });
     return template(replacements);
   } catch (e) {
+    if (e.message.includes("eventName")) {
+      throw new Error(
+        "Error compiling SQL template: You must set eventName first."
+      );
+    }
+    if (e.message.includes("valueColumn")) {
+      throw new Error(
+        "Error compiling SQL template: You must set valueColumn first."
+      );
+    }
     if (e.message.includes("not defined in [object Object]")) {
       const variableName = e.message.match(/"(.+?)"/)[1];
       throw new Error(

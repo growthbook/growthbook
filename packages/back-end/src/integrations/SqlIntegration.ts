@@ -41,6 +41,7 @@ import {
 } from "../util/sql";
 import { formatInformationSchema } from "../util/informationSchemas";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
+import { TemplateVariables } from "../../types/sql";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -229,7 +230,7 @@ export default abstract class SqlIntegration
     return match;
   }
 
-  getPastExperimentQuery(params: PastExperimentParams) {
+  getPastExperimentQuery(params: PastExperimentParams): string {
     // TODO: for past experiments, UNION all exposure queries together
     const experimentQueries = (
       this.settings.queries?.exposure || []
@@ -530,11 +531,18 @@ export default abstract class SqlIntegration
   }
 
   //Test the validity of a query as cheaply as possible
-  getTestValidityQuery(query: string): string {
-    return this.getTestQuery(query, 1);
+  getTestValidityQuery(
+    query: string,
+    templateVariables?: TemplateVariables
+  ): string {
+    return this.getTestQuery(query, templateVariables, 1);
   }
 
-  getTestQuery(query: string, limit: number = 5): string {
+  getTestQuery(
+    query: string,
+    templateVariables?: TemplateVariables,
+    limit: number = 5
+  ): string {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);
     const limitedQuery = compileSqlTemplate(
@@ -544,6 +552,7 @@ export default abstract class SqlIntegration
       ${this.selectSampleRows("__table", limit)}`,
       {
         startDate,
+        templateVariables,
       }
     );
     return format(limitedQuery, this.getFormatDialect());
@@ -802,6 +811,7 @@ export default abstract class SqlIntegration
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
+        templateVariables: metric.templateVariables,
       });
     }
     // Replace any placeholders in the segment SQL
@@ -810,6 +820,7 @@ export default abstract class SqlIntegration
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
+        templateVariables: metric.templateVariables,
       });
     }
 
@@ -928,6 +939,7 @@ export default abstract class SqlIntegration
           startDate: settings.startDate,
           endDate: settings.endDate,
           experimentId: settings.experimentId,
+          templateVariables: metric.templateVariables,
         })}
       ),
       __experiment as (${this.getExperimentCTE({
@@ -1803,6 +1815,7 @@ export default abstract class SqlIntegration
                 startDate,
                 endDate: endDate || undefined,
                 experimentId,
+                templateVariables: metric.templateVariables,
               })}
               )`
             : (schema && !metric.table?.match(/\./) ? schema + "." : "") +

@@ -4,7 +4,7 @@ import {
   expandDenominatorMetrics,
   format,
   replaceCountStar,
-} from "../src/util/sql";
+} from "../../src/util/sql";
 
 describe("backend", () => {
   it("compiles SQL template", () => {
@@ -21,14 +21,49 @@ describe("backend", () => {
       "SELECT '2021-01-05 10:20:15' as full, '2021' as year, '01' as month, '05' as day"
     );
 
+    expect(
+      compileSqlTemplate(
+        `SELECT {{valueColumn}} as value from db.{{eventName}}`,
+        {
+          startDate,
+          endDate,
+          templateVariables: { eventName: "purchase", valueColumn: "amount" },
+        }
+      )
+    ).toEqual("SELECT amount as value from db.purchase");
+
     expect(() => {
-      compileSqlTemplate(`SELECT {{ unknown }}`, { startDate, endDate });
+      compileSqlTemplate(`SELECT {{ snakecase eventName }}`, {
+        startDate,
+        endDate,
+      });
+    }).toThrowError(
+      "Error compiling SQL template: You must set eventName first."
+    );
+
+    expect(() => {
+      compileSqlTemplate(`SELECT {{ snakecase valueColumn }} as value`, {
+        startDate,
+        endDate,
+      });
+    }).toThrowError(
+      "Error compiling SQL template: You must set valueColumn first."
+    );
+
+    expect(() => {
+      compileSqlTemplate(`SELECT {{ unknown }}`, {
+        startDate,
+        endDate,
+      });
     }).toThrowError(
       "Unknown variable: unknown. Available variables: startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId"
     );
 
     expect(
-      compileSqlTemplate(`SELECT {{lowercase "HELLO"}}`, { startDate, endDate })
+      compileSqlTemplate(`SELECT {{lowercase "HELLO"}}`, {
+        startDate,
+        endDate,
+      })
     ).toEqual("SELECT hello");
 
     expect(() => {
@@ -36,9 +71,7 @@ describe("backend", () => {
         startDate,
         endDate,
       });
-    }).toThrowError(
-      "Unknown helper: unknownFunc. Available helpers: camelcase, dotcase, kebabcase, lowercase, pascalcase, uppercase, date"
-    );
+    }).toThrowError("Unknown helper: unknownFunc. Available helpers:");
 
     expect(
       compileSqlTemplate(

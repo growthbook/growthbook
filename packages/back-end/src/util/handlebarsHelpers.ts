@@ -157,6 +157,42 @@ helpers.pascalcase = function (str: string) {
 };
 
 /**
+ * replace the characters in the given `string` that match a regular expression with the given replacement.
+ *
+ * ```handlebars
+ * {{replace "a-b-c d_e" "[^a-z]" ""}}
+ * <!-- results in:  'abcde' -->
+ * ```
+ * @param {String} `string`
+ * @param {String} `pattern` The pattern to replace.
+ * @param {String} `replacement` The replacement for `pattern`.
+ * @return {String}
+ * @api public
+ */
+helpers.replace = function (str: string, pattern: string, replacement: string) {
+  return str.replace(new RegExp(pattern, "g"), replacement);
+};
+
+/**
+ * snake_case the characters in the given `string`.
+ *
+ * ```handlebars
+ * {{snakecase "a-b-c d_e"}}
+ * <!-- results in:  'a_b_c_d_e' -->
+ * ```
+ * @param {String} `string`
+ * @return {String}
+ * @api public
+ */
+
+helpers.snakecase = function (str) {
+  if (!isString(str)) return "";
+  return changecase(str, function (ch) {
+    return "_" + ch;
+  });
+};
+
+/**
  * Uppercase all of the characters in the given string. Alias for [uppercase](#uppercase).
  *
  * ```handlebars

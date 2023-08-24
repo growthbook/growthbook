@@ -63,16 +63,35 @@ export type MetricFormProps = {
   secondaryCTA?: ReactElement;
 };
 
+function usesValueColumn(sql: string) {
+  return sql.match(/\{\{[^}]*valueColumn/g);
+}
+
+function usesEventName(sql: string) {
+  return sql.match(/\{\{[^}]*eventName/g);
+}
+
 function validateMetricSQL(
   sql: string,
   type: MetricType,
-  userIdTypes: string[]
+  userIdTypes: string[],
+  templateVariables?: {
+    valueColumn?: string;
+    eventName?: string;
+  }
 ) {
   // Require specific columns to be selected
   const requiredCols = ["timestamp", ...userIdTypes];
   if (type !== "binomial") {
     requiredCols.push("value");
+    if (usesValueColumn(sql) && !templateVariables?.valueColumn) {
+      throw new Error("Value column is required");
+    }
   }
+  if (usesEventName(sql) && !templateVariables?.eventName) {
+    throw new Error("Event name is required");
+  }
+
   validateSQL(sql, requiredCols);
 }
 function validateBasicInfo(value: { name: string }) {
@@ -88,13 +107,22 @@ function validateQuerySettings(
     type: MetricType;
     userIdTypes: string[];
     table: string;
+    templateVariables?: {
+      valueColumn?: string;
+      eventName?: string;
+    };
   }
 ) {
   if (!datasourceSettingsSupport) {
     return;
   }
   if (sqlInput) {
-    validateMetricSQL(value.sql, value.type, value.userIdTypes);
+    validateMetricSQL(
+      value.sql,
+      value.type,
+      value.userIdTypes,
+      value.templateVariables
+    );
   } else {
     if (value.table.length < 1) {
       throw new Error("Table name cannot be empty");
@@ -256,6 +284,8 @@ const MetricForm: FC<MetricFormProps> = ({
         current.conversionWindowHours || getDefaultConversionWindowHours(),
       conversionDelayHours: current.conversionDelayHours || 0,
       sql: current.sql || "",
+      eventName: current.templateVariables?.eventName || "",
+      valueColumn: current.templateVariables?.valueColumn || "",
       aggregation: current.aggregation || "",
       conditions: current.conditions || [],
       userIdTypes: current.userIdTypes || [],
@@ -306,6 +336,10 @@ const MetricForm: FC<MetricFormProps> = ({
     tags: form.watch("tags"),
     projects: form.watch("projects"),
     sql: form.watch("sql"),
+    templateVariables: {
+      eventName: form.watch("eventName"),
+      valueColumn: form.watch("valueColumn"),
+    },
     conditions: form.watch("conditions"),
     regressionAdjustmentOverride: form.watch("regressionAdjustmentOverride"),
     regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
@@ -426,11 +460,14 @@ const MetricForm: FC<MetricFormProps> = ({
       maxPercentChange,
       minPercentChange,
       capping,
+      eventName,
+      valueColumn,
       ...otherValues
     } = value;
 
     const sendValue: Partial<MetricInterface> = {
       ...otherValues,
+      templateVariables: { eventName, valueColumn },
       winRisk: winRisk / 100,
       loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
@@ -528,6 +565,10 @@ const MetricForm: FC<MetricFormProps> = ({
           requiredColumns={requiredColumns}
           value={value.sql}
           save={async (sql) => form.setValue("sql", sql)}
+          templateVariables={{
+            eventName: form.watch("eventName"),
+            valueColumn: form.watch("valueColumn"),
+          }}
         />
       )}
       <PagedModal
@@ -556,8 +597,7 @@ const MetricForm: FC<MetricFormProps> = ({
             if (supportsSQL && selectedDataSource && !value.sql) {
               const [userTypes, sql] = getInitialMetricQuery(
                 selectedDataSource,
-                value.type,
-                value.name
+                value.type
               );
 
               form.setValue("sql", sql);
@@ -647,7 +687,15 @@ const MetricForm: FC<MetricFormProps> = ({
             <RadioSelector
               name="type"
               value={value.type}
-              setValue={(val: MetricType) => form.setValue("type", val)}
+              setValue={(val: MetricType) => {
+                if (val === "count") {
+                  form.setValue("valueColumn", "1");
+                } else if (value.templateVariables?.valueColumn === "1") {
+                  // 1 only makes sense for count type, but keep it if it's already set to something else
+                  form.setValue("valueColumn", "");
+                }
+                form.setValue("type", val);
+              }}
               options={metricTypeOptions}
             />
           </div>
@@ -724,6 +772,31 @@ const MetricForm: FC<MetricFormProps> = ({
                     }))}
                     label="Identifier Types Supported"
                   />
+                  {value.sql && usesEventName(value.sql) && (
+                    <div className="form-group">
+                      <Field
+                        label="Event Name"
+                        placeholder={value.name}
+                        helpText="The event name associated with this metric.  This can then be referenced in your sql template as {{eventName}}."
+                        {...form.register("eventName")}
+                      />
+                    </div>
+                  )}
+                  {value.sql &&
+                    usesValueColumn(value.sql) &&
+                    value.type != "binomial" && (
+                      <div className="form-group">
+                        <Field
+                          label="Value Column"
+                          helpText={
+                            value.type === "count"
+                              ? "Use 1 to count the number of rows (most common). This can then be referenced in your sql template as {{valueColumn}}."
+                              : "The column in your datawarehouse table with the metric data.  This can then be referenced in your sql template as {{valueColumn}}."
+                          }
+                          {...form.register("valueColumn")}
+                        ></Field>
+                      </div>
+                    )}
                   <div className="form-group">
                     <label>Query</label>
                     {value.sql && (
