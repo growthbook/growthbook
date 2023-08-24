@@ -1,19 +1,19 @@
 import {
   getBaseIdTypeAndJoins,
-  replaceSQLVars,
+  compileSqlTemplate,
   expandDenominatorMetrics,
   format,
   replaceCountStar,
 } from "../src/util/sql";
 
 describe("backend", () => {
-  it("replaces vars in SQL", () => {
+  it("compiles SQL template", () => {
     const startDate = new Date(Date.UTC(2021, 0, 5, 10, 20, 15));
     const endDate = new Date(Date.UTC(2022, 1, 9, 11, 30, 12));
     const experimentId = "my-experiment";
 
     expect(
-      replaceSQLVars(
+      compileSqlTemplate(
         `SELECT '{{ startDate }}' as full, '{{startYear}}' as year, '{{ startMonth}}' as month, '{{startDay }}' as day`,
         { startDate, endDate }
       )
@@ -21,12 +21,37 @@ describe("backend", () => {
       "SELECT '2021-01-05 10:20:15' as full, '2021' as year, '01' as month, '05' as day"
     );
 
-    expect(
-      replaceSQLVars(`SELECT {{ unknown }}`, { startDate, endDate })
-    ).toEqual("SELECT {{ unknown }}");
+    expect(() => {
+      compileSqlTemplate(`SELECT {{ unknown }}`, { startDate, endDate });
+    }).toThrowError(
+      "Unknown variable: unknown. Available variables: startDateUnix, startDateISO, startDate, startYear, startMonth, startDay, endDateUnix, endDateISO, endDate, endYear, endMonth, endDay, experimentId"
+    );
 
     expect(
-      replaceSQLVars(
+      compileSqlTemplate(`SELECT {{lowercase "HELLO"}}`, { startDate, endDate })
+    ).toEqual("SELECT hello");
+
+    expect(() => {
+      compileSqlTemplate(`SELECT {{unknownFunc "HELLO"}}`, {
+        startDate,
+        endDate,
+      });
+    }).toThrowError(
+      "Unknown helper: unknownFunc. Available helpers: camelcase, dotcase, kebabcase, lowercase, pascalcase, uppercase, date"
+    );
+
+    expect(
+      compileSqlTemplate(
+        `SELECT {{date startDateISO "hh"}} as hour, {{date startDate "z"}} as tz`,
+        {
+          startDate,
+          endDate,
+        }
+      )
+    ).toEqual("SELECT 10 as hour, UTC as tz");
+
+    expect(
+      compileSqlTemplate(
         `SELECT '{{ endDate }}' as full, '{{endYear}}' as year, '{{ endMonth}}' as month, '{{endDay }}' as day`,
         { startDate, endDate }
       )
@@ -35,21 +60,24 @@ describe("backend", () => {
     );
 
     expect(
-      replaceSQLVars(`time > {{startDateUnix}} && time < {{ endDateUnix }}`, {
-        startDate,
-        endDate,
-      })
+      compileSqlTemplate(
+        `time > {{startDateUnix}} && time < {{ endDateUnix }}`,
+        {
+          startDate,
+          endDate,
+        }
+      )
     ).toEqual(`time > 1609842015 && time < 1644406212`);
 
     expect(
-      replaceSQLVars(`SELECT * WHERE expid LIKE '{{experimentId}}'`, {
+      compileSqlTemplate(`SELECT * WHERE expid LIKE '{{experimentId}}'`, {
         startDate,
         endDate,
       })
     ).toEqual(`SELECT * WHERE expid LIKE '%'`);
 
     expect(
-      replaceSQLVars(`SELECT * WHERE expid LIKE '{{experimentId}}'`, {
+      compileSqlTemplate(`SELECT * WHERE expid LIKE '{{experimentId}}'`, {
         startDate,
         endDate,
         experimentId,
