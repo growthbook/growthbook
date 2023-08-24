@@ -164,7 +164,8 @@ type PutTeamRequest = AuthRequest<
 >;
 
 type PutTeamResponse = {
-  status: 200;
+  status: 200 | 404;
+  message?: string;
 };
 
 /**
@@ -184,6 +185,13 @@ export const updateTeam = async (
   req.checkPermissions("manageTeam");
 
   const team = await findTeamById(id, org.id);
+
+  if (!team) {
+    return res.status(404).json({
+      status: 404,
+      message: "Cannot find team",
+    });
+  }
 
   const changes = await updateTeamMetadata(id, org.id, {
     name,
