@@ -5,7 +5,12 @@ import {
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
 import { MetricInterface } from "../../types/metric";
-import { Queries, QueryPointer, QueryStatus } from "../../types/query";
+import {
+  Queries,
+  QueryPointer,
+  QueryStatistics,
+  QueryStatus,
+} from "../../types/query";
 import { SegmentInterface } from "../../types/segment";
 import {
   findSnapshotById,
@@ -22,12 +27,7 @@ import {
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
-import {
-  QueryRunner,
-  QueryMap,
-  RunCallback,
-  ProcessCallback,
-} from "./QueryRunner";
+import { QueryRunner, QueryMap } from "./QueryRunner";
 
 export type SnapshotResult = {
   unknownVariations: string[];
@@ -50,8 +50,10 @@ export const startExperimentResultQueries = async (
     name: string,
     query: string,
     dependencies: string[],
-    run: RunCallback,
-    process: ProcessCallback,
+    // eslint-disable-next-line
+    run: (query: string) => Promise<{ statistics?: QueryStatistics; rows: any[] }>,
+    // eslint-disable-next-line
+    process: (rows: any[]) => any,
     useExisting?: boolean
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
@@ -277,7 +279,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
             selectedMetrics,
             activationMetrics[0],
             dimension
-          )) as ExperimentQueryResponses;
+            // eslint-disable-next-line
+          )) as any[];
           return { rows: rows };
         },
         (rows: ExperimentQueryResponses) =>

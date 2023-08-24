@@ -7,7 +7,6 @@ import {
 import { MetricInterface } from "../../types/metric";
 import { ExperimentMetricAnalysis, StatsEngine } from "../../types/stats";
 import {
-  ExperimentMetricQueryResponse,
   ExperimentMetricQueryResponseRows,
   ExperimentResults,
 } from "../types/Integration";
