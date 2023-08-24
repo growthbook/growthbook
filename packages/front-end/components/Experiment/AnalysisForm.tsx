@@ -26,7 +26,11 @@ import UpgradeModal from "../Settings/UpgradeModal";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import MetricsSelector from "./MetricsSelector";
-import { EditMetricsFormInterface } from "./EditMetricsForm";
+import {
+  EditMetricsFormInterface,
+  fixMetricOverridesBeforeSaving,
+  getDefaultMetricOverridesFormValue,
+} from "./EditMetricsForm";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -50,6 +54,8 @@ const AnalysisForm: FC<{
     segments,
     getProjectById,
     getDatasourceById,
+    getMetricById,
+    getSegmentById,
     datasources,
   } = useDefinitions();
 
@@ -127,7 +133,11 @@ const AnalysisForm: FC<{
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       metrics: experiment.metrics,
       guardrails: experiment.guardrails || [],
-      metricOverrides: experiment.metricOverrides || [],
+      metricOverrides: getDefaultMetricOverridesFormValue(
+        experiment.metricOverrides || [],
+        getMetricById,
+        orgSettings
+      ),
     },
   });
 
@@ -213,11 +223,7 @@ const AnalysisForm: FC<{
           skipPartialData: skipPartialData === "strict",
         };
 
-        // Metrics/guardrails are tied to a data source, so if we change it, they need to be removed.
-        if (body.datasource !== experiment.datasource) {
-          body.metrics = [];
-          body.guardrails = [];
-        }
+        fixMetricOverridesBeforeSaving(body.metricOverrides || []);
 
         if (experiment.status === "stopped") {
           body.phaseEndDate = dateEnded;
@@ -243,11 +249,45 @@ const AnalysisForm: FC<{
         labelClassName="font-weight-bold"
         value={datasource?.id || ""}
         onChange={(newDatasource) => {
-          if (datasource && newDatasource !== datasource?.id) {
-            form.setValue("segment", "");
-            form.setValue("activationMetric", "");
-            form.setValue("exposureQueryId", "");
+          // Don't do anything if the selected one doesn't change
+          if (newDatasource === (datasource?.id || "")) {
+            return;
           }
+
+          const segment = form.watch("segment");
+          const activationMetric = form.watch("activationMetric");
+          const metrics = form.watch("metrics");
+          const guardrails = form.watch("guardrails");
+
+          form.setValue("exposureQueryId", "");
+
+          if (
+            segment &&
+            getSegmentById(segment)?.datasource !== newDatasource
+          ) {
+            form.setValue("segment", "");
+          }
+
+          if (
+            activationMetric &&
+            getMetricById(activationMetric)?.datasource !== newDatasource
+          ) {
+            form.setValue("activationMetric", "");
+          }
+
+          form.setValue(
+            "metrics",
+            metrics.filter(
+              (m) => getMetricById(m)?.datasource === newDatasource
+            )
+          );
+          form.setValue(
+            "guardrails",
+            guardrails.filter(
+              (m) => getMetricById(m)?.datasource === newDatasource
+            )
+          );
+
           form.setValue("datasource", newDatasource);
         }}
         options={datasources.map((d) => ({
