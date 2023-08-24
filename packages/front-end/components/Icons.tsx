@@ -657,28 +657,3 @@ export function GBSuspicious({
     </svg>
   );
 }
-
-export function GBReportBars({
-  className = "",
-  size = 18,
-  ...otherProps
-}): React.ReactElement {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 512 384"
-      fill="currentColor"
-      xmlns="http://www.w3.org/2000/svg"
-      className={className}
-      {...otherProps}
-    >
-      <path
-        d="M305.3,192L305.3,192c0,24.2,19.8,44,44,44h108.4c24.2,0,44-19.8,44-44v0c0-24.2-19.8-44-44-44H349.3
-	C325.1,148,305.3,167.8,305.3,192z M77.9,319.1L77.9,319.1c0,24.2,19.8,44,44,44h264.2c24.2,0,44-19.8,44-44v0c0-24.2-19.8-44-44-44
-	H121.9C97.7,275.1,77.9,294.9,77.9,319.1z M238,0v384H274V0H238z M39.1,65L39.1,65c0,24.2,19.8,44,44,44h220.2c24.2,0,44-19.8,44-44
-	v0c0-24.2-19.8-44-44-44H83.1C58.9,20.9,39.1,40.7,39.1,65z"
-      />
-    </svg>
-  );
-}
