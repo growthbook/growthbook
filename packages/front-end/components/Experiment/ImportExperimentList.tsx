@@ -41,7 +41,7 @@ const ImportExperimentList: FC<{
     ? getDatasourceById(data?.experiments?.datasource)
     : null;
 
-  const status = getQueryStatus(
+  const { status } = getQueryStatus(
     data?.experiments?.queries || [],
     data?.experiments?.error
   );

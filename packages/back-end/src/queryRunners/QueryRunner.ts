@@ -206,7 +206,7 @@ export abstract class QueryRunner<
         .map((q) => q.query)
     );
     logger.debug("Starting any queued queries that are ready...");
-    logger.debug(queuedQueries);
+    logger.debug(queuedQueries.map((q) => q.id));
     queuedQueries.map(async (query) => {
       // check if all dependencies are finished
       // assumes all dependencies are within the model, if any are not, query will hang
@@ -440,12 +440,14 @@ export abstract class QueryRunner<
             this.onQueryFinish();
           }
           logger.debug("Updating query to copy cached query");
-          // TODO check this works
           const updatedDoc = await updateQuery(doc, {
             rawResult: existing.rawResult,
             result: existing.result,
             status: existing.status,
             cachedQueryUsed: existing.id,
+            statistics: existing.statistics,
+            startedAt: existing.startedAt,
+            finishedAt: existing.finishedAt,
           });
           return {
             name,

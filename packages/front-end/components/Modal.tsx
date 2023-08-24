@@ -17,8 +17,8 @@ type ModalProps = {
   open: boolean;
   className?: string;
   submitColor?: string;
-  cta?: string;
-  closeCta?: string;
+  cta?: string | ReactElement;
+  closeCta?: string | ReactElement;
   ctaEnabled?: boolean;
   disabledMessage?: string;
   docSection?: DocSection;
@@ -36,6 +36,7 @@ type ModalProps = {
   successMessage?: string;
   children: ReactNode;
   bodyClassName?: string;
+  formRef?: React.RefObject<HTMLFormElement>;
 };
 const Modal: FC<ModalProps> = ({
   header = "logo",
@@ -61,6 +62,7 @@ const Modal: FC<ModalProps> = ({
   secondaryCTA,
   successMessage,
   bodyClassName = "",
+  formRef,
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -236,6 +238,7 @@ const Modal: FC<ModalProps> = ({
       >
         {submit && !isSuccess ? (
           <form
+            ref={formRef}
             onSubmit={async (e) => {
               e.preventDefault();
               if (loading) return;
