@@ -13,18 +13,18 @@ import {
   auditDetailsUpdate,
 } from "../../services/audit";
 import {
+  addMemberToTeam,
   expandOrgMembers,
   getOrgFromReq,
   removeMemberFromTeam,
 } from "../../services/organizations";
 import { AuthRequest } from "../../types/AuthRequest";
-import { MemberRoleWithProjects } from "../../../types/organization";
+import { Member, MemberRoleWithProjects } from "../../../types/organization";
 
 // region POST /teams
 
 type CreateTeamRequest = AuthRequest<{
   name: string;
-  createdBy: string;
   description: string;
   permissions: MemberRoleWithProjects;
 }>;
@@ -156,9 +156,9 @@ export const getTeamById = async (
 type PutTeamRequest = AuthRequest<
   {
     name: string;
-    createdBy: string;
     description: string;
     permissions: MemberRoleWithProjects;
+    members?: string[];
   },
   { id: string }
 >;
@@ -178,7 +178,7 @@ export const updateTeam = async (
   res: Response<PutTeamResponse>
 ) => {
   const { org } = getOrgFromReq(req);
-  const { name, description, permissions } = req.body;
+  const { name, description, permissions, members } = req.body;
   const { id } = req.params;
 
   req.checkPermissions("manageTeam");
@@ -191,6 +191,31 @@ export const updateTeam = async (
     projectRoles: [],
     ...permissions,
   });
+
+  // If making changes to members remove members and add new requested members
+  if (members) {
+    const prevMembers: Member[] = org.members.filter((member) =>
+      member.teams?.includes(id)
+    );
+    await Promise.all(
+      prevMembers.map((member) => {
+        return removeMemberFromTeam({
+          organization: org,
+          userId: member.id,
+          teamId: id,
+        });
+      })
+    );
+    await Promise.all(
+      members.map((member) => {
+        return addMemberToTeam({
+          organization: org,
+          userId: member,
+          teamId: id,
+        });
+      })
+    );
+  }
 
   await req.audit({
     event: "team.update",
@@ -211,6 +236,10 @@ export const updateTeam = async (
 
 // region DELETE /teams/:id
 
+type DeleteTeamResponse = {
+  status: 200 | 400;
+  message?: string;
+};
 /**
  * DELETE /teams/:id
  * Delete team document for given id and remove team id from teams array for any
@@ -220,7 +249,7 @@ export const updateTeam = async (
  */
 export const deleteTeamById = async (
   req: AuthRequest<null, { id: string }>,
-  res: Response<{ status: 200 }>
+  res: Response<DeleteTeamResponse>
 ) => {
   const { org } = getOrgFromReq(req);
   const { id } = req.params;
@@ -231,16 +260,26 @@ export const deleteTeamById = async (
 
   const members = org.members.filter((member) => member.teams?.includes(id));
 
-  // Remove members from team to be deleted
-  await Promise.all(
-    members.map((member) => {
-      return removeMemberFromTeam({
-        organization: org,
-        userId: member.id,
-        teamId: id,
-      });
-    })
-  );
+  if (members) {
+    return res.status(400).json({
+      status: 400,
+      message:
+        "Cannot delete a team that has members. Please delete members before retrying.",
+    });
+  }
+
+  // TODO: Replace error above with code below once we add a double confirm delete dialog for team deletion in the UI
+
+  // // Remove members from team to be deleted
+  // await Promise.all(
+  //   members.map((member) => {
+  //     return removeMemberFromTeam({
+  //       organization: org,
+  //       userId: member.id,
+  //       teamId: id,
+  //     });
+  //   })
+  // );
 
   // Delete the team
   await deleteTeam(id, org.id);

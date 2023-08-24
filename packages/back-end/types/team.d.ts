@@ -11,6 +11,6 @@ export interface TeamInterface {
   role: string;
   limitAccessByEnvironment: boolean;
   environments: string[];
-  projectRoles: ProjectMemberRole[];
+  projectRoles?: ProjectMemberRole[];
   members?: ExpandedMember[];
 }

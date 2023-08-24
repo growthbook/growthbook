@@ -32,6 +32,11 @@ type TeamDocument = mongoose.Document & TeamInterface;
 
 const TeamModel = mongoose.model<TeamInterface>("Team", teamSchema);
 
+type CreateTeamProps = Omit<
+  TeamInterface,
+  "dateCreated" | "dateUpdated" | "id"
+>;
+
 type UpdateTeamProps = Omit<
   TeamInterface,
   "dateCreated" | "dateUpdated" | "id" | "organization" | "createdBy"
@@ -46,7 +51,7 @@ const toInterface = (doc: TeamDocument): TeamInterface => {
 };
 
 export async function createTeam(
-  data: Partial<TeamInterface>
+  data: CreateTeamProps
 ): Promise<TeamInterface> {
   const teamDoc = await TeamModel.create({
     ...data,
@@ -80,7 +85,7 @@ export async function updateTeamMetadata(
   update: UpdateTeamProps
 ): Promise<UpdateTeamProps> {
   const changes = {
-    ...omit(update, "members"),
+    ...update,
     dateUpdated: new Date(),
   };
 

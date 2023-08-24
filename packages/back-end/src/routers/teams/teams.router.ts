@@ -14,6 +14,10 @@ const PermissionZodObject = z.object({
   environments: z.string().array(),
 });
 
+router.get("/:id", teamController.getTeamById);
+
+router.get("/", teamController.getTeams);
+
 router.post(
   "/",
   validateRequestMiddleware({
@@ -32,14 +36,25 @@ router.post(
   teamController.postTeam
 );
 
-// TODO: add zod validation for these routes
-
-router.get("/:id", teamController.getTeamById);
+router.put(
+  "/:id",
+  validateRequestMiddleware({
+    body: z
+      .object({
+        name: z.string(),
+        description: z.string(),
+        permissions: PermissionZodObject.extend({
+          projectRoles: PermissionZodObject.extend({
+            project: z.string(),
+          }).array(),
+        }),
+        members: z.string().array().optional(),
+      })
+      .strict(),
+  }),
+  teamController.updateTeam
+);
 
 router.delete("/:id", teamController.deleteTeamById);
-
-router.get("/", teamController.getTeams);
-
-router.put("/:id", teamController.updateTeam);
 
 export { router as teamRouter };
