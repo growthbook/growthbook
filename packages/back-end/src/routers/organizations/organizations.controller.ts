@@ -577,11 +577,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     });
   }
 
-  if (!req.userId) {
-    throw new Error("Must be logged in");
-  }
-
-  const { org } = getOrgFromReq(req);
+  const { org, userId } = getOrgFromReq(req);
   const {
     invites,
     members,
@@ -620,20 +616,20 @@ export async function getOrganization(req: AuthRequest, res: Response) {
   // Add email/name to the organization members array
   const userInfo = await getUsersByIds(members.map((m) => m.id));
   const expandedMembers: ExpandedMember[] = [];
-  userInfo.forEach(({ id, email, verified, name, _id }) => {
-    const memberInfo = members.find((m) => m.id === id);
+  for (const user of userInfo) {
+    const memberInfo = members.find((m) => m.id === user.id);
     if (!memberInfo) return;
 
-    return expandedMembers.push({
-      email,
-      verified,
+    expandedMembers.push({
+      email: user.email,
+      verified: user.verified,
       name: name || "",
       ...memberInfo,
-      dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
+      dateCreated: memberInfo.dateCreated || user._id.getTimestamp(),
     });
-  });
+  }
 
-  const currentUserPermissions = getUserPermissions(req.userId, org);
+  const currentUserPermissions = getUserPermissions(userId, org);
 
   return res.status(200).json({
     status: 200,

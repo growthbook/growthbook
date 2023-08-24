@@ -184,16 +184,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
     const members = currentOrg?.members;
     if (!members) return userMap;
     members.forEach((member) => {
-      userMap.set(member.id, {
-        ...member,
-        userPermissions:
-          currentOrg?.currentUserPermissions && currentUser?.id === member.id
-            ? currentOrg?.currentUserPermissions
-            : undefined,
-      });
+      userMap.set(member.id, member);
     });
     return userMap;
-  }, [currentOrg?.currentUserPermissions, currentOrg?.members]);
+  }, [currentOrg?.members]);
 
   // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'string | undefined' is not assig... Remove this comment to see the full error message
   let user = users.get(data?.userId);
@@ -207,7 +201,6 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       name: data.userName,
       role: data.admin ? "admin" : "readonly",
       projectRoles: [],
-      userPermissions: undefined,
     };
   }
 
@@ -222,7 +215,8 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   for (const permission in permissionsObj) {
     permissionsObj[permission] =
-      user?.userPermissions?.global.permissions[permission] || false;
+      currentOrg?.currentUserPermissions?.global.permissions[permission] ||
+      false;
   }
 
   // Update current user data for telemetry data
@@ -313,13 +307,20 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         checkProjects = [projects];
       }
       for (const p of checkProjects) {
-        if (!hasPermission(user?.userPermissions, permission, p, envs)) {
+        if (
+          !hasPermission(
+            currentOrg?.currentUserPermissions,
+            permission,
+            p,
+            envs
+          )
+        ) {
           return false;
         }
       }
       return true;
     },
-    [user?.userPermissions]
+    [currentOrg?.currentUserPermissions]
   );
 
   return (

@@ -58,21 +58,14 @@ export function roleToPermissionMap(
   org: OrganizationInterface
 ): PermissionsObject {
   const roles = getRoles(org);
-  const rolePermissionsMap: Record<string, Set<Permission>> = {};
+  const orgRole = roles.find((r) => r.id === role);
+  const permissions = new Set<Permission>(orgRole?.permissions || []);
 
-  roles.forEach((role) => {
-    rolePermissionsMap[role.id] = new Set(role.permissions);
+  const permissionsObj: PermissionsObject = {};
+  ALL_PERMISSIONS.forEach((p) => {
+    permissionsObj[p] = permissions.has(p);
   });
-
-  const permissions: PermissionsObject = {};
-
-  ALL_PERMISSIONS.forEach((permission) => {
-    permissions[permission] =
-      (role && role === "admin"
-        ? true
-        : role && rolePermissionsMap[role].has(permission)) || false;
-  });
-  return permissions;
+  return permissionsObj;
 }
 
 export function getUserPermissions(
@@ -95,9 +88,6 @@ export function getUserPermissions(
       environments: projectRole.environments || [],
       permissions: roleToPermissionMap(projectRole.role, org),
     };
-    userPermissions.projects[
-      projectRole.project
-    ].permissions = roleToPermissionMap(projectRole.role, org);
   });
   return userPermissions;
 }
