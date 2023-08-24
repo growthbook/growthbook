@@ -844,7 +844,7 @@ export default function SinglePage({
             >
               <AiOutlineInfoCircle size={16} className="mr-1" />
               <div>
-                <strong>Experiement</strong> and{" "}
+                <strong>Experiment</strong> and{" "}
                 <strong>Metric settings</strong> are now in the{" "}
                 <a href="#config" className="font-weight-bold">
                   Configure
