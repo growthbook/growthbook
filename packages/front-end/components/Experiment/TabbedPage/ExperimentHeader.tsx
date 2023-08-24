@@ -3,7 +3,8 @@ import {
   ExperimentPhaseStringDates,
 } from "back-end/types/experiment";
 import Link from "next/link";
-import { FaChartBar, FaHome, FaUsers } from "react-icons/fa";
+import { FaHome, FaUsers } from "react-icons/fa";
+import { PiChartBarHorizontalFill } from "react-icons/pi";
 import { useRouter } from "next/router";
 import { getAffectedEnvsForExperiment } from "shared/util";
 import React, { useMemo, useState } from "react";
@@ -400,7 +401,7 @@ export default function ExperimentHeader({
                   active={tab === "results"}
                   display={
                     <>
-                      <FaChartBar /> Results
+                      <PiChartBarHorizontalFill /> Results
                     </>
                   }
                   anchor="results"
