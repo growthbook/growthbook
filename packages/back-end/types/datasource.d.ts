@@ -78,7 +78,7 @@ export interface SchemaInterface {
   ): IdentityJoinQuery[];
   experimentDimensions: string[];
   userIdTypes: string[];
-  getMetricSQL(name: string, type: MetricType, tablePrefix: string): string;
+  getMetricSQL(type: MetricType, tablePrefix: string): string;
 }
 
 export interface SchemaFormatConfig {

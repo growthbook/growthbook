@@ -49,9 +49,6 @@ export default class BigQuery extends SqlIntegration {
     const [rows] = await job.getQueryResults();
     return rows;
   }
-  toTimestamp(date: Date) {
-    return `DATETIME("${date.toISOString().substr(0, 19).replace("T", " ")}")`;
-  }
   addTime(
     col: string,
     unit: "hour" | "minute",

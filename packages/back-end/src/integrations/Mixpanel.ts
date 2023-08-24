@@ -23,7 +23,7 @@ import {
   getAggregateFunctions,
   getMixpanelPropertyColumn,
 } from "../util/mixpanel";
-import { replaceSQLVars } from "../util/sql";
+import { compileSqlTemplate } from "../util/sql";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 
 export default class Mixpanel implements SourceIntegrationInterface {
@@ -605,7 +605,7 @@ function is${name}(event) {
     endDate?: Date,
     experimentId?: string
   ) {
-    return replaceSQLVars(getMixpanelPropertyColumn(col), {
+    return compileSqlTemplate(getMixpanelPropertyColumn(col), {
       startDate,
       endDate,
       experimentId,

@@ -1,7 +1,9 @@
 import { PutVisualChangesetResponse } from "../../../types/openapi";
+import { VisualChangesetInterface } from "../../../types/visual-changeset";
 import { getExperimentById } from "../../models/ExperimentModel";
 import {
   findVisualChangesetById,
+  toVisualChangesetApiInterface,
   updateVisualChangeset,
 } from "../../models/VisualChangesetModel";
 import { createApiRequestHandler } from "../../util/handler";
@@ -32,8 +34,19 @@ export const putVisualChangeset = createApiRequestHandler(
       user: req.eventAudit,
     });
 
+    const updatedVisualChangeset = await findVisualChangesetById(
+      req.params.id,
+      req.organization.id
+    );
+
     return {
       nModified: res.nModified,
+      visualChangeset: updatedVisualChangeset
+        ? toVisualChangesetApiInterface(updatedVisualChangeset)
+        : {
+            ...toVisualChangesetApiInterface(visualChangeset),
+            ...(req.body as Partial<VisualChangesetInterface>),
+          },
     };
   }
 );

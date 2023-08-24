@@ -85,6 +85,10 @@ import { EventAuditUserForResponseLocals } from "../events/event-types";
 import { findProjectById } from "../models/ProjectModel";
 import { ExperimentResultsQueryRunner } from "../queryRunners/ExperimentResultsQueryRunner";
 import { PastExperimentsQueryRunner } from "../queryRunners/PastExperimentsQueryRunner";
+import {
+  createUserVisualEditorApiKey,
+  getVisualEditorApiKey,
+} from "../models/ApiKeyModel";
 import { getExperimentWatchers, upsertWatch } from "../models/WatchModel";
 
 export async function getExperiments(
@@ -2260,5 +2264,29 @@ export async function deleteVisualChangeset(
 
   res.status(200).json({
     status: 200,
+  });
+}
+
+export async function findOrCreateVisualEditorToken(
+  req: AuthRequest,
+  res: Response
+) {
+  const { org } = getOrgFromReq(req);
+
+  if (!req.userId) throw new Error("No user found");
+
+  let visualEditorKey = await getVisualEditorApiKey(org.id, req.userId);
+
+  // if not exist, create one
+  if (!visualEditorKey) {
+    visualEditorKey = await createUserVisualEditorApiKey({
+      userId: req.userId,
+      organizationId: org.id,
+      description: `Created automatically for the Visual Editor`,
+    });
+  }
+
+  res.status(200).json({
+    key: visualEditorKey.key,
   });
 }

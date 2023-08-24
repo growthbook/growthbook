@@ -10,10 +10,9 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { hasFileConfig } from "@/services/env";
-import track from "@/services/track";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import usePermissions from "@/hooks/usePermissions";
+import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import FeatureModal from "../Features/FeatureModal";
 import NewDataSourceForm from "../Settings/NewDataSourceForm";
 import { DocLink, DocSection } from "../DocLink";
@@ -39,7 +38,6 @@ export type Task = {
 export default function GuidedGetStarted({
   features,
   experiments,
-  mutate,
 }: {
   features: FeatureInterface[];
   experiments: ExperimentInterfaceStringDates[];
@@ -55,33 +53,11 @@ export default function GuidedGetStarted({
 
   const { metrics } = useDefinitions();
   const settings = useOrgSettings();
-  const { datasources, mutateDefinitions } = useDefinitions();
+  const { datasources } = useDefinitions();
   const { apiCall } = useAuth();
   const { refreshOrganization } = useUser();
-  const hasDataSource = datasources.length > 0;
-  const hasMetrics =
-    metrics.filter((m) => !m.id.match(/^met_sample/)).length > 0;
-  const hasExperiments =
-    experiments.filter((m) => !m.id.match(/^exp_sample/)).length > 0;
-  const allowImport = !(hasMetrics || hasExperiments) && !hasFileConfig();
 
-  const hasSampleExperiment = experiments.filter((m) =>
-    m.id.match(/^exp_sample/)
-  )[0];
-
-  const importSampleData = (source: string) => async () => {
-    const res = await apiCall<{
-      experiment: string;
-    }>(`/organization/sample-data`, {
-      method: "POST",
-    });
-    await mutateDefinitions();
-    await mutate();
-    track("Add Sample Data", {
-      source,
-    });
-    await router.push("/experiment/" + res.experiment);
-  };
+  const { exists: demoProjectExists } = useDemoDataSourceProject();
 
   const steps: Task[] = [
     {
@@ -267,13 +243,7 @@ export default function GuidedGetStarted({
                   Skip Step
                 </button>
               }
-              // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'boolean' is not assignable to type '(source:... Remove this comment to see the full error message
-              importSampleData={
-                !hasDataSource &&
-                allowImport &&
-                !hasSampleExperiment &&
-                importSampleData("datasource-form")
-              }
+              showImportSampleData={!demoProjectExists}
             />
           )}
         </>

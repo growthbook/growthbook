@@ -1,6 +1,8 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
+import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import Link from "next/link";
+import { useRouter } from "next/router";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { AppFeatures } from "@/types/app-features";
@@ -16,6 +18,21 @@ export const DemoDataSourceGlobalBanner: FC<DemoDataSourceGlobalBannerProps> = (
   currentProjectIsDemo,
 }) => {
   const [show, setShow] = useState(false);
+  const router = useRouter();
+
+  const onNavigate = useCallback(() => {
+    setShow(false);
+  }, []);
+
+  useEffect(() => {
+    if (!router) return;
+
+    router.events.on("routeChangeComplete", onNavigate);
+
+    return () => {
+      router.events.off("routeChangeComplete", onNavigate);
+    };
+  }, [router, onNavigate]);
 
   const onClick = useCallback(() => {
     setShow(!show);
@@ -52,9 +69,14 @@ export const DemoDataSourceGlobalBanner: FC<DemoDataSourceGlobalBannerProps> = (
                   We&apos;ve created everything for you - a data source,
                   metrics, and experiments.
                 </p>
-                <p className="mb-0">
+                <p>
                   Once you are done exploring, you can delete this project and
                   create your own under Settings.
+                </p>
+                <p className="mb-0">
+                  <Link href="/demo-datasource-project">
+                    <a className="info">Visit the demo datasource page</a>
+                  </Link>
                 </p>
               </div>
             </SimpleTooltip>
