@@ -314,6 +314,7 @@ export async function postFeatures(
   });
 }
 
+// todo: deprecate this maybe?
 export async function postFeaturePublish(
   req: AuthRequest<
     { draft: FeatureDraftChanges; comment?: string },
@@ -384,6 +385,7 @@ export async function postFeaturePublish(
   });
 }
 
+// todo: use this
 export async function postFeatureDiscard(
   req: AuthRequest<{ draft: FeatureDraftChanges }, { id: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
@@ -410,6 +412,7 @@ export async function postFeatureDiscard(
   });
 }
 
+// todo: edit this
 export async function postFeatureDraft(
   req: AuthRequest<
     {
