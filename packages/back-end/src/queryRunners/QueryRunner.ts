@@ -267,7 +267,7 @@ export abstract class QueryRunner<
     query: string,
     run: (
       query: string
-    ) => Promise<{ statistics: QueryStatistics; rows: Rows }>,
+    ) => Promise<{ statistics?: QueryStatistics; rows: Rows }>,
     process: (rows: Rows) => ProcessedRows
   ): Promise<QueryPointer> {
     logger.debug("Running query: " + name);

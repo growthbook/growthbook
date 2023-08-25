@@ -24,7 +24,6 @@ import {
   ExperimentMetricStats,
   ExperimentQueryResponses,
   ExperimentResults,
-  QueryResponseRows,
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
@@ -50,10 +49,10 @@ export const startExperimentResultQueries = async (
   startQuery: (
     name: string,
     query: string,
-    run: (
-      query: string
-    ) => Promise<{ statistics: QueryStatistics; rows: QueryResponseRows }>,
-    process: (rows: QueryResponseRows) => QueryResponseRows,
+    // eslint-disable-next-line
+    run: (query: string) => Promise<{ statistics?: QueryStatistics; rows: any[] }>,
+    // eslint-disable-next-line
+    process: (rows: any[]) => any,
     useExisting?: boolean
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
@@ -272,14 +271,16 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
       await this.startQuery(
         "results",
         query,
-        () =>
-          this.integration.getExperimentResults(
+        async () => {
+          const rows = (await this.integration.getExperimentResults(
             snapshotSettings,
             selectedMetrics,
             activationMetrics[0],
             dimension
             // eslint-disable-next-line
-            ) as Promise<ExperimentQueryResponses>,
+          )) as any[];
+          return { rows: rows };
+        },
         (rows: ExperimentQueryResponses) =>
           this.processLegacyExperimentResultsResponse(snapshotSettings, rows)
       ),

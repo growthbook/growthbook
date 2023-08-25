@@ -12,7 +12,7 @@ export type QueryStatistics = {
   bytesProcessed?: number;
   bytesBilled?: number;
   warehouseCachedResult?: boolean;
-  partitionsUsed?: number;
+  partitionsUsed?: boolean;
 };
 
 export type QueryPointer = {
