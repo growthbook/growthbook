@@ -192,24 +192,15 @@ export type ExperimentMetricQueryResponseRows = {
   covariate_sum_squares?: number;
   main_covariate_sum_product?: number;
 }[];
-export type QueryResponse = {
-  // eslint-disable-next-line
-  rows: any[];
-  statistics?: QueryStatistics;
-};
-export type MetricValueQueryResponse = {
-  rows: MetricValueQueryResponseRows;
+
+export type QueryResponse<Row> = {
+  rows: Row[];
   statistics?: QueryStatistics;
 };
 
-export type PastExperimentQueryResponse = {
-  rows: PastExperimentResponseRows;
-  statistics?: QueryStatistics;
-};
-export type ExperimentMetricQueryResponse = {
-  rows: ExperimentMetricQueryResponseRows;
-  statistics?: QueryStatistics;
-};
+export type MetricValueQueryResponse = QueryResponse<MetricValueQueryResponseRows>;
+export type PastExperimentQueryResponse = QueryResponse<PastExperimentResponseRows>;
+export type ExperimentMetricQueryResponse = QueryResponse<ExperimentMetricQueryResponseRows>;
 
 export interface SourceIntegrationConstructor {
   new (
