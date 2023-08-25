@@ -582,7 +582,7 @@ const AnalysisForm: FC<{
             <MetricsSelector
               selected={form.watch("metrics")}
               onChange={(metrics) => form.setValue("metrics", metrics)}
-              datasource={experiment.datasource}
+              datasource={form.watch("datasource")}
               project={experiment.project}
               autoFocus={true}
             />
@@ -597,7 +597,7 @@ const AnalysisForm: FC<{
             <MetricsSelector
               selected={form.watch("guardrails")}
               onChange={(metrics) => form.setValue("guardrails", metrics)}
-              datasource={experiment.datasource}
+              datasource={form.watch("datasource")}
               project={experiment.project}
             />
           </div>
