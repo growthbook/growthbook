@@ -487,7 +487,6 @@ export default abstract class SqlIntegration
     query: string
   ): Promise<ExperimentMetricQueryResponse> {
     const { rows, statistics } = await this.runQuery(query);
-    await new Promise((r) => setTimeout(r, 2000));
     return {
       rows: rows.map((row) => {
         return {
