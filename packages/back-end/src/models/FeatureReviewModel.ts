@@ -232,6 +232,70 @@ export const createFeatureReviewRequest = async ({
 
 // region update FeatureReviewRequest
 
+type UpdateFeatureReviewRequestParams = {
+  featureReviewRequestId: string;
+  organizationId: string;
+  description: string;
+  addReviewers: string[];
+  dismissReviewers: string[];
+  removeReviewers: string[];
+};
+
+export const updateFeatureReviewRequest = async ({
+  description,
+  featureReviewRequestId,
+  organizationId,
+  addReviewers,
+  dismissReviewers,
+  removeReviewers,
+}: UpdateFeatureReviewRequestParams): Promise<void> => {
+  const reviewRequest = await FeatureReviewRequestModel.findOne({
+    id: featureReviewRequestId,
+    organizationId,
+  });
+  if (!reviewRequest) {
+    throw new Error(
+      `No feature review request with ID ${featureReviewRequestId} for organization ${organizationId}`
+    );
+  }
+
+  reviewRequest.set("description", description);
+
+  // Remove reviewers.
+  removeReviewers.forEach((userId) => {
+    const existingReview = reviewRequest.get(`reviews.${userId}`);
+    if (!existingReview) return;
+
+    reviewRequest.set(`reviews.${userId}`, null);
+  });
+
+  // Add reviewers. If they already exist, do nothing
+  addReviewers.forEach((userId) => {
+    const existingReview = reviewRequest.get(`reviews.${userId}`);
+    if (existingReview) return;
+
+    reviewRequest.set(`reviews.${userId}`, createPendingReview());
+    onReviewRequested({ userId, featureReviewRequestId });
+  });
+
+  // Dismiss reviews
+  dismissReviewers.forEach((userId) => {
+    const existingReview = reviewRequest.get(`reviews.${userId}`);
+    if (!existingReview) return;
+
+    reviewRequest.set(
+      `reviews.${userId}`,
+      createDismissedReview({
+        approvedAt: existingReview.approvedAt,
+      })
+    );
+    // TODO: this or no?
+    // onReviewRequested({ userId, featureReviewRequestId });
+  });
+
+  await reviewRequest.save();
+};
+
 type MarkFeatureReviewRequestStaleParams = {
   featureReviewRequestId: string;
   organizationId: string;

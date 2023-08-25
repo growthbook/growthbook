@@ -47,7 +47,7 @@ router.post(
   featureReviewController.postFeatureReview
 );
 
-router.put(
+router.patch(
   "/:id",
   validateRequestMiddleware({
     params: z
@@ -57,11 +57,14 @@ router.put(
       .strict(),
     body: z
       .object({
-        // TODO:
+        description: z.string(),
+        addReviewers: z.array(z.string()),
+        dismissReviewers: z.array(z.string()),
+        removeReviewers: z.array(z.string()),
       })
       .strict(),
   }),
-  featureReviewController.putFeatureReview
+  featureReviewController.patchFeatureReview
 );
 
 router.delete(

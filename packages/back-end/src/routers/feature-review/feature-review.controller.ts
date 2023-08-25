@@ -1,5 +1,4 @@
 import type { Response } from "express";
-import z from "zod";
 import { AuthRequest } from "../../types/AuthRequest";
 import { PrivateApiErrorResponse } from "../../../types/api";
 import { getOrgFromReq } from "../../services/organizations";
@@ -10,6 +9,7 @@ import {
   deleteFeatureReviewRequest,
   getFeatureReviewRequest,
   getFeatureReviewRequests,
+  updateFeatureReviewRequest,
 } from "../../models/FeatureReviewModel";
 
 // region GET /feature-review
@@ -154,34 +154,52 @@ export const postFeatureReview = async (
 
 // todo: /feature-review/review
 
-type PutFeatureReviewRequest = AuthRequest<
-  Record<string, never>,
+type PatchFeatureReviewRequest = AuthRequest<
+  {
+    addReviewers: string[];
+    removeReviewers: string[];
+    dismissReviewers: string[];
+    description: string;
+  },
   { id: string },
   Record<string, never>
 >;
 
-type PutFeatureReviewResponse = {
+type PatchFeatureReviewResponse = {
   featureReview: unknown;
 };
 
 /**
- * PUT /feature-review/:id
- * Update one feature-review resource
+ * PATCH /feature-review/:id
+ * Update select properties of a feature review request
  * @param req
  * @param res
  */
-export const putFeatureReview = async (
-  req: PutFeatureReviewRequest,
+export const patchFeatureReview = async (
+  req: PatchFeatureReviewRequest,
   res: Response<
-    PutFeatureReviewResponse | PrivateApiErrorResponse,
+    PatchFeatureReviewResponse | PrivateApiErrorResponse,
     EventAuditUserForResponseLocals
   >
 ) => {
-  // todo: update description
-
   const { org } = getOrgFromReq(req);
+  const id = req.params.id;
 
-  throw new Error("TODO");
+  const {
+    addReviewers,
+    removeReviewers,
+    description,
+    dismissReviewers,
+  } = req.body;
+
+  await updateFeatureReviewRequest({
+    description,
+    featureReviewRequestId: id,
+    organizationId: org.id,
+    addReviewers,
+    removeReviewers,
+    dismissReviewers,
+  });
 };
 
 // endregion PUT /feature-review/:id
