@@ -45,6 +45,7 @@ import { GBCuped } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import { TestQueryRow } from "back-end/src/types/Integration";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -94,11 +95,13 @@ function validateMetricSQL(
 
   validateSQL(sql, requiredCols);
 }
+
 function validateBasicInfo(value: { name: string }) {
   if (value.name.length < 1) {
     throw new Error("Metric name cannot be empty");
   }
 }
+
 function validateQuerySettings(
   datasourceSettingsSupport: boolean,
   sqlInput: boolean,
@@ -529,6 +532,21 @@ const MetricForm: FC<MetricFormProps> = ({
     return set;
   }, [value.userIdTypes, type]);
 
+  const validateResponse = (result: TestQueryRow) => {
+    if (!result) return;
+
+    const requiredColumnsArray = Array.from(requiredColumns);
+    let missingColumns = requiredColumnsArray.filter(
+      (col) => !((col as string) in result)
+    );
+
+    if (missingColumns.length > 0) {
+      throw new Error(
+        `You are missing the following columns: ${missingColumns.join(", ")}`
+      );
+    }
+  };
+
   useEffect(() => {
     if (type === "binomial") {
       form.setValue("ignoreNulls", false);
@@ -563,6 +581,7 @@ const MetricForm: FC<MetricFormProps> = ({
             "SELECT\n      user_id as user_id, timestamp as timestamp\nFROM\n      test"
           }
           requiredColumns={requiredColumns}
+          validateResponse={validateResponse}
           value={value.sql}
           save={async (sql) => form.setValue("sql", sql)}
           templateVariables={{

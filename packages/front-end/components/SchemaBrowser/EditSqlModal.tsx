@@ -28,7 +28,7 @@ export interface Props {
   close: () => void;
   requiredColumns: Set<string>;
   placeholder?: string;
-  validateResponse?: (response: TestQueryResults) => void;
+  validateResponse?: (response: TestQueryRow) => void;
   templateVariables?: {
     eventName?: string;
     valueColumn?: string;

@@ -13,9 +13,8 @@ import Toggle from "@/components/Forms/Toggle";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
-import EditSqlModal, {
-  TestQueryResults,
-} from "../../../SchemaBrowser/EditSqlModal";
+import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
+import { TestQueryRow } from "back-end/src/types/Integration";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;
@@ -111,7 +110,7 @@ export const AddEditExperimentAssignmentQueryModal: FC<EditExperimentAssignmentQ
     return null;
   }
 
-  const validateResponse = (result: TestQueryResults) => {
+  const validateResponse = (result: TestQueryRow) => {
     if (!result) return;
 
     const namedCols = ["experiment_name", "variation_name"];
