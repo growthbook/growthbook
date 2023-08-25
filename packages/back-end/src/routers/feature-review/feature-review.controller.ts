@@ -5,12 +5,14 @@ import { getOrgFromReq } from "../../services/organizations";
 import { EventAuditUserForResponseLocals } from "../../events/event-types";
 import { FeatureReviewRequest } from "../../../types/feature-review";
 import {
+  approveReviewAsUser,
   createFeatureReviewRequest,
   deleteFeatureReviewRequest,
   getFeatureReviewRequest,
   getFeatureReviewRequests,
   updateFeatureReviewRequest,
 } from "../../models/FeatureReviewModel";
+import { getFeature } from "../../models/FeatureModel";
 
 // region GET /feature-review
 
@@ -126,6 +128,8 @@ export const postFeatureReview = async (
     EventAuditUserForResponseLocals
   >
 ) => {
+  // todo: verify enterprise plan
+
   const {
     featureId,
     featureRevisionId,
@@ -166,7 +170,7 @@ type PatchFeatureReviewRequest = AuthRequest<
 >;
 
 type PatchFeatureReviewResponse = {
-  featureReview: unknown;
+  success: boolean;
 };
 
 /**
@@ -182,6 +186,8 @@ export const patchFeatureReview = async (
     EventAuditUserForResponseLocals
   >
 ) => {
+  // todo: verify enterprise plan
+
   const { org } = getOrgFromReq(req);
   const id = req.params.id;
 
@@ -199,6 +205,60 @@ export const patchFeatureReview = async (
     addReviewers,
     removeReviewers,
     dismissReviewers,
+  });
+
+  return res.json({
+    success: true,
+  });
+};
+
+type ApproveFeatureReviewRequest = AuthRequest<
+  Record<string, never>,
+  {
+    id: string;
+  },
+  {
+    feature: string;
+  }
+>;
+
+type ApproveFeatureReviewResponse = {
+  success: boolean;
+};
+
+export const approveFeatureReview = async (
+  req: ApproveFeatureReviewRequest,
+  res: Response<
+    ApproveFeatureReviewResponse | PrivateApiErrorResponse,
+    EventAuditUserForResponseLocals
+  >
+) => {
+  const { org, userId } = getOrgFromReq(req);
+
+  // todo: verify enterprise plan
+  const { id } = req.params;
+  const { feature: featureId } = req.query;
+  const feature = await getFeature(org.id, featureId);
+
+  if (!feature) {
+    throw new Error("Could not find feature");
+  }
+
+  // Verify approving user has permissions to publish this feature
+  req.checkPermissions(
+    "publishFeatures",
+    feature.project,
+    (org.settings?.environments || []).map((e) => e.id)
+  );
+
+  await approveReviewAsUser({
+    userId,
+    featureReviewRequestId: id,
+    organizationId: org.id,
+  });
+
+  return res.json({
+    success: true,
   });
 };
 

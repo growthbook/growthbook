@@ -20,6 +20,23 @@ router.get(
   featureReviewController.getFeatureReviews
 );
 
+router.post(
+  "/:id/approve",
+  validateRequestMiddleware({
+    query: z
+      .object({
+        feature: z.string(),
+      })
+      .strict(),
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+  }),
+  featureReviewController.approveFeatureReview
+);
+
 router.get(
   "/:id",
   validateRequestMiddleware({
