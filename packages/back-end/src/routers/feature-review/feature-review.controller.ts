@@ -10,6 +10,7 @@ import {
   deleteFeatureReviewRequest,
   getFeatureReviewRequest,
   getFeatureReviewRequests,
+  rejectReviewAsUser,
   updateFeatureReviewRequest,
 } from "../../models/FeatureReviewModel";
 import { getFeature } from "../../models/FeatureModel";
@@ -213,20 +214,22 @@ export const patchFeatureReview = async (
 };
 
 type ApproveFeatureReviewRequest = AuthRequest<
-  Record<string, never>,
+  {
+    feature: string;
+    type: "approved" | "rejected";
+    comments?: string;
+  },
   {
     id: string;
   },
-  {
-    feature: string;
-  }
+  Record<string, never>
 >;
 
 type ApproveFeatureReviewResponse = {
   success: boolean;
 };
 
-export const approveFeatureReview = async (
+export const answerFeatureReview = async (
   req: ApproveFeatureReviewRequest,
   res: Response<
     ApproveFeatureReviewResponse | PrivateApiErrorResponse,
@@ -237,7 +240,7 @@ export const approveFeatureReview = async (
 
   // todo: verify enterprise plan
   const { id } = req.params;
-  const { feature: featureId } = req.query;
+  const { feature: featureId, type, comments = "" } = req.body;
   const feature = await getFeature(org.id, featureId);
 
   if (!feature) {
@@ -251,11 +254,25 @@ export const approveFeatureReview = async (
     (org.settings?.environments || []).map((e) => e.id)
   );
 
-  await approveReviewAsUser({
-    userId,
-    featureReviewRequestId: id,
-    organizationId: org.id,
-  });
+  switch (type) {
+    case "approved":
+      await approveReviewAsUser({
+        userId,
+        featureReviewRequestId: id,
+        organizationId: org.id,
+      });
+      break;
+    case "rejected":
+      await rejectReviewAsUser({
+        userId,
+        featureReviewRequestId: id,
+        organizationId: org.id,
+        comments,
+      });
+      break;
+    default:
+      throw new Error(`Unsupported answer type ${type}`);
+  }
 
   return res.json({
     success: true,

@@ -21,11 +21,13 @@ router.get(
 );
 
 router.post(
-  "/:id/approve",
+  "/:id/answer",
   validateRequestMiddleware({
-    query: z
+    body: z
       .object({
         feature: z.string(),
+        comments: z.string().optional(),
+        type: z.enum(["approved", "rejected"]),
       })
       .strict(),
     params: z
@@ -34,7 +36,7 @@ router.post(
       })
       .strict(),
   }),
-  featureReviewController.approveFeatureReview
+  featureReviewController.answerFeatureReview
 );
 
 router.get(
