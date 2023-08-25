@@ -35,6 +35,7 @@ import SelectField from "../Forms/SelectField";
 import UpgradeModal from "../Settings/UpgradeModal";
 import StatusIndicator from "../Experiment/StatusIndicator";
 import Toggle from "../Forms/Toggle";
+import { getNewExperimentDatasourceDefaults } from "../Experiment/NewExperimentForm";
 import RolloutPercentInput from "./RolloutPercentInput";
 import ConditionInput from "./ConditionInput";
 import FeatureValueField from "./FeatureValueField";
@@ -67,7 +68,7 @@ export default function RuleModal({
   const rules = getRules(feature, environment);
   const rule = rules[i];
 
-  const { project } = useDefinitions();
+  const { project, datasources } = useDefinitions();
 
   const { experiments, experimentsMap, mutateExperiments } = useExperiments(
     project
@@ -243,8 +244,11 @@ export default function RuleModal({
             const exp: Partial<ExperimentInterfaceStringDates> = {
               archived: false,
               autoSnapshots: true,
-              datasource: "",
-              exposureQueryId: "",
+              ...getNewExperimentDatasourceDefaults(
+                datasources,
+                settings,
+                feature.project || ""
+              ),
               hashAttribute: values.hashAttribute,
               metrics: [],
               activationMetric: "",

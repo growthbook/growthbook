@@ -290,10 +290,15 @@ const AnalysisForm: FC<{
 
           form.setValue("datasource", newDatasource);
         }}
-        options={datasources.map((d) => ({
-          value: d.id,
-          label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-        }))}
+        options={datasources
+          .filter(
+            (ds) =>
+              !ds.projects || ds.projects.includes(experiment.project || "")
+          )
+          .map((d) => ({
+            value: d.id,
+            label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
+          }))}
         className="portal-overflow-ellipsis"
         initialOption="Manual"
         helpText={
