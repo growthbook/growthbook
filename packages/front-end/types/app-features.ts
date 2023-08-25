@@ -31,4 +31,8 @@ export type AppFeatures = {
   "remote-evaluation": boolean;
   "import-from-x": boolean;
   "demo-datasource": boolean;
+  "new-experiment-rule": boolean;
+  "visual-editor-ai-enabled": boolean;
+  "team-permissions-enabled": boolean;
+  "ff-approval-flow": boolean;
 };
