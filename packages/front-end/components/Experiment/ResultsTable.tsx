@@ -443,7 +443,7 @@ export default function ResultsTable({
                     </th>
                     <th
                       style={{ width: 100 * tableCellScale }}
-                      className="axis-col label text-right has-tooltip"
+                      className="axis-col label text-right"
                     >
                       {statsEngine === "bayesian" ? (
                         <div
@@ -459,6 +459,7 @@ export default function ResultsTable({
                       ) : !metricsAsGuardrails &&
                         (sequentialTestingEnabled || pValueCorrection) ? (
                         <Tooltip
+                          usePortal={true}
                           innerClassName={"text-left"}
                           body={
                             <div style={{ lineHeight: 1.5 }}>
@@ -501,10 +502,11 @@ export default function ResultsTable({
                     </th>
                     <th
                       style={{ width: 140 * tableCellScale }}
-                      className="axis-col label text-right has-tooltip"
+                      className="axis-col label text-right"
                     >
                       <div style={{ lineHeight: "16px", marginBottom: 2 }}>
                         <Tooltip
+                          usePortal={true}
                           innerClassName={"text-left"}
                           body={
                             <div style={{ lineHeight: 1.5 }}>
