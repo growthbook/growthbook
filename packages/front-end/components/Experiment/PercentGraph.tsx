@@ -18,6 +18,7 @@ interface Props
   graphWidth?: number;
   height?: number;
   newUi?: boolean;
+  splitShading?: boolean;
   isHovered?: boolean;
   onPointerMove?: (e: React.PointerEvent<SVGPathElement>) => void;
   onPointerLeave?: (e: React.PointerEvent<SVGPathElement>) => void;
@@ -35,6 +36,7 @@ export default function PercentGraph({
   graphWidth,
   height,
   newUi = false,
+  splitShading = false,
   isHovered = false,
   onPointerMove,
   onPointerLeave,
@@ -76,6 +78,7 @@ export default function PercentGraph({
       height={height}
       inverse={!!metric?.inverse}
       newUi={newUi}
+      splitShading={splitShading}
       isHovered={isHovered}
       onPointerMove={onPointerMove}
       onPointerLeave={onPointerLeave}

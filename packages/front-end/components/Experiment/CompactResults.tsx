@@ -19,11 +19,16 @@ import {
 } from "@/services/experiments";
 import { GBCuped } from "@/components/Icons";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Tooltip from "../Tooltip/Tooltip";
 import MetricTooltipBody from "../Metrics/MetricTooltipBody";
 import DataQualityWarning from "./DataQualityWarning";
 import ResultsTable from "./ResultsTable";
 import MultipleExposureWarning from "./MultipleExposureWarning";
+
+export type TableDisplaySettings = {
+  splitShading: boolean;
+};
 
 const CompactResults: FC<{
   editMetrics?: () => void;
@@ -67,6 +72,23 @@ const CompactResults: FC<{
   isTabActive,
 }) => {
   const { getMetricById, ready } = useDefinitions();
+
+  // user settings for table display:
+  const [
+    tableDisplaySettings,
+    setTableDisplaySettings,
+  ] = useLocalStorage<TableDisplaySettings>("results-table-display-settings", {
+    splitShading: false,
+  });
+  const updateTableDisplaySettings = (
+    key: keyof TableDisplaySettings,
+    value: boolean
+  ) => {
+    setTableDisplaySettings({
+      ...tableDisplaySettings,
+      [key]: value,
+    });
+  };
 
   const rows = useMemo<ExperimentTableRow[]>(() => {
     function getRow(metricId: string, isGuardrail: boolean) {
@@ -153,6 +175,8 @@ const CompactResults: FC<{
         pValueCorrection={pValueCorrection}
         renderLabelColumn={getRenderLabelColumn(regressionAdjustmentEnabled)}
         isTabActive={isTabActive}
+        tableDisplaySettings={tableDisplaySettings}
+        updateTableDisplaySettings={updateTableDisplaySettings}
       />
 
       {guardrails.length ? (
@@ -178,6 +202,8 @@ const CompactResults: FC<{
               regressionAdjustmentEnabled
             )}
             isTabActive={isTabActive}
+            tableDisplaySettings={tableDisplaySettings}
+            updateTableDisplaySettings={updateTableDisplaySettings}
           />
         </div>
       ) : (

@@ -474,9 +474,41 @@ pre {
 }
 
 .experiment-results-wrapper {
-  padding-bottom: 1px; // to allow for bottom border
-  @media (max-width: 900px) {
-    overflow-x: auto;
+  .experiment-results-scroll-wrapper {
+    padding-bottom: 1px; // to allow for bottom border
+    @media (max-width: 900px) {
+      overflow-x: auto;
+    }
+  }
+  .display-settings {
+    opacity: 0;
+    transition: 150ms all;
+    margin-bottom: -20px;
+    .inner {
+      padding: 4px;
+      border: 1px solid #6662;
+      border-top: 0 none;
+      border-radius: 0 0 5px 5px;
+    }
+    button {
+      opacity: 0.5;
+      transition: 150ms all;
+      padding: 0;
+      width: 25px;
+      height: 25px;
+      text-align: center;
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+  &:hover {
+    .display-settings {
+      opacity: 1;
+    }
   }
 }
 

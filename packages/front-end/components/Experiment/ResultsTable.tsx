@@ -25,7 +25,7 @@ import {
   useDomain,
 } from "@/services/experiments";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { GBEdit } from "@/components/Icons";
+import { GBEdit, GBSplitShading } from "@/components/Icons";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
@@ -42,6 +42,7 @@ import ResultsTableTooltip, {
   YAlign,
 } from "@/components/Experiment/ResultsTableTooltip";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
+import { TableDisplaySettings } from "@/components/Experiment/CompactResults";
 import Tooltip from "../Tooltip/Tooltip";
 import AlignedGraph from "./AlignedGraph";
 import ChanceToWinColumn from "./ChanceToWinColumn";
@@ -71,6 +72,11 @@ export type ResultsTableProps = {
   pValueCorrection?: PValueCorrection;
   sequentialTestingEnabled?: boolean;
   isTabActive: boolean;
+  tableDisplaySettings?: TableDisplaySettings;
+  updateTableDisplaySettings?: (
+    key: keyof TableDisplaySettings,
+    value: boolean
+  ) => void;
 };
 
 const ROW_HEIGHT = 42;
@@ -96,6 +102,8 @@ export default function ResultsTable({
   pValueCorrection,
   sequentialTestingEnabled = false,
   isTabActive,
+  tableDisplaySettings,
+  updateTableDisplaySettings,
 }: ResultsTableProps) {
   const {
     metricDefaults,
@@ -349,7 +357,10 @@ export default function ResultsTable({
   }, [hoverTimeout]);
 
   return (
-    <div className="position-relative" ref={containerRef}>
+    <div
+      className="experiment-results-wrapper position-relative"
+      ref={containerRef}
+    >
       <CSSTransition
         key={`${hoveredMetricRow}-${hoveredVariationRow}`}
         in={
@@ -375,7 +386,10 @@ export default function ResultsTable({
         />
       </CSSTransition>
 
-      <div ref={tableContainerRef} className="experiment-results-wrapper">
+      <div
+        ref={tableContainerRef}
+        className="experiment-results-scroll-wrapper"
+      >
         <div className="w-100" style={{ minWidth: 700 }}>
           <table
             id="main-results"
@@ -748,10 +762,15 @@ export default function ResultsTable({
                               domain={domain}
                               metric={row.metric}
                               stats={stats}
-                              id={`${id}_violin_row${i}_var${j}`}
+                              id={`${id}_violin_row${i}_var${j}_${
+                                metricsAsGuardrails ? "g" : "m"
+                              }`}
                               graphWidth={graphCellWidth}
                               height={ROW_HEIGHT}
                               newUi={true}
+                              splitShading={
+                                !!tableDisplaySettings?.splitShading
+                              }
                               isHovered={isHovered}
                               onPointerMove={(e) =>
                                 onPointerMove(e, {
@@ -836,6 +855,33 @@ export default function ResultsTable({
           ) : null}
         </div>
       </div>
+
+      {tableDisplaySettings && updateTableDisplaySettings ? (
+        <div className="display-settings w-100 d-flex justify-content-end">
+          <div className="inner">
+            <Tooltip
+              body={
+                <>
+                  Split shading (
+                  {tableDisplaySettings?.splitShading ? "ON" : "OFF"})
+                </>
+              }
+            >
+              <button
+                className="btn btn-outline-primary btn-sm"
+                onClick={() => {
+                  updateTableDisplaySettings(
+                    "splitShading",
+                    !tableDisplaySettings?.splitShading
+                  );
+                }}
+              >
+                <GBSplitShading state={tableDisplaySettings?.splitShading} />
+              </button>
+            </Tooltip>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

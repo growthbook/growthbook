@@ -60,10 +60,6 @@ const ExperimentPage = (): ReactElement => {
     "experiment-results-new-ui-v2",
     true
   );
-  const [showFeedbackBanner, setShowFeedbackBanner] = useLocalStorage<boolean>(
-    "experiment-results-new-ui-v2-feedback-banner",
-    true
-  );
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
 
   const { features } = useFeaturesList(false);
@@ -244,20 +240,18 @@ const ExperimentPage = (): ReactElement => {
                 {newUi ? <FaUndo /> : <FaMagic />}
               </a>
             </div>
-            {showFeedbackBanner ? (
-              <div className="border-left pl-3 ml-3 give-feedback">
-                <a
-                  className="a"
-                  role="button"
-                  onClick={() => {
-                    setShowFeedbackModal(true);
-                  }}
-                >
-                  tell us your thoughts
-                  <BsChatSquareQuote size="18" className="ml-1" />
-                </a>
-              </div>
-            ) : null}
+            <div className="border-left pl-3 ml-3 give-feedback">
+              <a
+                className="a"
+                role="button"
+                onClick={() => {
+                  setShowFeedbackModal(true);
+                }}
+              >
+                tell us your thoughts
+                <BsChatSquareQuote size="18" className="ml-1" />
+              </a>
+            </div>
           </div>
         </div>
         <SnapshotProvider experiment={experiment}>
@@ -300,7 +294,6 @@ const ExperimentPage = (): ReactElement => {
         <FeedbackModal
           open={showFeedbackModal}
           close={() => setShowFeedbackModal(false)}
-          submitCallback={() => setShowFeedbackBanner(false)}
           header={
             <>
               <BsChatSquareQuote size="20" className="mr-2" />

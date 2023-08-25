@@ -37,6 +37,7 @@ interface Props
   barColorDanger?: string;
   expectedColor?: string;
   newUi?: boolean;
+  splitShading?: boolean;
   rowStatus?: string;
   isHovered?: boolean;
   onPointerMove?: (e: React.PointerEvent<SVGPathElement>) => void;
@@ -80,6 +81,7 @@ const AlignedGraph: FC<Props> = ({
   barColorWarning = "#d99132cc",
   barColorDanger = "#d94032cc",
   newUi = false,
+  splitShading = false,
   rowStatus,
   isHovered = false,
   onPointerMove,
@@ -88,20 +90,23 @@ const AlignedGraph: FC<Props> = ({
 }) => {
   if (newUi) {
     sigBarColorPos = "#52be5b";
-    sigBarColorNeg = "#d35a5a";
+    sigBarColorNeg = "#b34b4b";
     // barColorDraw = "#9C89BE";
     barColorOk = "#55ab95";
     barColorWarning = "#d99132";
     barColorDanger = "#d94032";
     if (isHovered) {
-      sigBarColorPos = "#39cb45";
-      sigBarColorNeg = "#e34040";
+      sigBarColorPos = "#39cc45";
+      sigBarColorNeg = "#b53333";
       // barColorDraw = "#957dc2";
       barColorOk = "#4ec2a5";
       barColorWarning = "#ea9526";
       barColorDanger = "#e83223";
       barColor = "#aaa";
     }
+  }
+  if(splitShading) {
+    barFillType = "gradient";
   }
 
   if (barType == "violin" && !uplift) {
@@ -136,7 +141,7 @@ const AlignedGraph: FC<Props> = ({
 
   const barHeight = Math.floor(height / 2) - barThickness / 2;
 
-  if (inverse && !rowStatus) {
+  if (inverse && (!rowStatus || splitShading)) {
     [sigBarColorNeg, sigBarColorPos] = [sigBarColorPos, sigBarColorNeg];
   }
   // rough number of columns:
@@ -177,19 +182,21 @@ const AlignedGraph: FC<Props> = ({
       : barColor;
 
   // forced color state (nothing needed for non-significant):
-  if (rowStatus === "won") {
-    barFill = sigBarColorPos;
-  } else if (rowStatus === "lost") {
-    barFill = sigBarColorNeg;
-  } else if (rowStatus === "draw") {
-    // barFill = barColorDraw;
-    barFill = barColor;
-  } else if (rowStatus === "ok") {
-    barFill = barColorOk;
-  } else if (rowStatus === "warning") {
-    barFill = barColorWarning;
-  } else if (rowStatus === "danger") {
-    barFill = barColorDanger;
+  if (!splitShading) {
+    if (rowStatus === "won") {
+      barFill = sigBarColorPos;
+    } else if (rowStatus === "lost") {
+      barFill = sigBarColorNeg;
+    } else if (rowStatus === "draw") {
+      // barFill = barColorDraw;
+      barFill = barColor;
+    } else if (rowStatus === "ok") {
+      barFill = barColorOk;
+    } else if (rowStatus === "warning") {
+      barFill = barColorWarning;
+    } else if (rowStatus === "danger") {
+      barFill = barColorDanger;
+    }
   }
 
   return (
