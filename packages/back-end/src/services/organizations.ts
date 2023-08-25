@@ -323,7 +323,7 @@ export async function removeMemberFromTeam({
 
   const indexToDelete = member.teams.indexOf(teamId);
 
-  member.teams.splice(indexToDelete, indexToDelete);
+  member.teams.splice(indexToDelete, 1);
 
   await updateOrganization(organization.id, { members: organization.members });
 }
