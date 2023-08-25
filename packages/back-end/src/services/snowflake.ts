@@ -27,7 +27,7 @@ export async function runSnowflakeQuery<T>(
   conn: SnowflakeConnectionParams,
   sql: string,
   values: string[] = []
-): Promise<QueryResponse> {
+): Promise<QueryResponse<T[]>> {
   const snowflake = new Snowflake({
     account: conn.account,
     username: conn.username,

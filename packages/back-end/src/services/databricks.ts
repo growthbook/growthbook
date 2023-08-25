@@ -7,7 +7,7 @@ import { QueryResponse } from "../types/Integration";
 export async function runDatabricksQuery<T>(
   conn: DatabricksConnectionParams,
   sql: string
-): Promise<QueryResponse> {
+): Promise<QueryResponse<T[]>> {
   // Because of how Databrick's SDK is written, it may reject or resolve multiple times
   // So we have a quick boolean check to make sure we only do it the first time
   let finished = false;
