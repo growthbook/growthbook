@@ -60,10 +60,7 @@ const ExperimentPage = (): ReactElement => {
     "experiment-results-new-ui-v2",
     true
   );
-  const [showFeedbackBanner, setShowFeedbackBanner] = useLocalStorage<boolean>(
-    "experiment-results-new-ui-v2-feedback-banner",
-    true
-  );
+  const [showFeedbackBanner, setShowFeedbackBanner] = useState<boolean>(true);
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
 
   const { features } = useFeaturesList(false);
