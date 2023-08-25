@@ -35,13 +35,14 @@ import {
 import { SegmentInterface } from "../../types/segment";
 import {
   getBaseIdTypeAndJoins,
-  replaceSQLVars,
+  compileSqlTemplate,
   format,
   FormatDialect,
   replaceCountStar,
 } from "../util/sql";
 import { formatInformationSchema } from "../util/informationSchemas";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
+import { TemplateVariables } from "../../types/sql";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -230,7 +231,7 @@ export default abstract class SqlIntegration
     return match;
   }
 
-  getPastExperimentQuery(params: PastExperimentParams) {
+  getPastExperimentQuery(params: PastExperimentParams): string {
     // TODO: for past experiments, UNION all exposure queries together
     const experimentQueries = (
       this.settings.queries?.exposure || []
@@ -260,7 +261,7 @@ export default abstract class SqlIntegration
             count(distinct ${q.userIdType}) as users
           FROM
             (
-              ${replaceSQLVars(q.query, { startDate: params.from })}
+              ${compileSqlTemplate(q.query, { startDate: params.from })}
             ) e${i}
           WHERE
             timestamp > ${this.toTimestamp(params.from)}
@@ -543,20 +544,28 @@ export default abstract class SqlIntegration
   }
 
   //Test the validity of a query as cheaply as possible
-  getTestValidityQuery(query: string): string {
-    return this.getTestQuery(query, 1);
+  getTestValidityQuery(
+    query: string,
+    templateVariables?: TemplateVariables
+  ): string {
+    return this.getTestQuery(query, templateVariables, 1);
   }
 
-  getTestQuery(query: string, limit: number = 5): string {
+  getTestQuery(
+    query: string,
+    templateVariables?: TemplateVariables,
+    limit: number = 5
+  ): string {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);
-    const limitedQuery = replaceSQLVars(
+    const limitedQuery = compileSqlTemplate(
       `WITH __table as (
         ${query}
       )
       ${this.selectSampleRows("__table", limit)}`,
       {
         startDate,
+        templateVariables,
       }
     );
     return format(limitedQuery, this.getFormatDialect());
@@ -811,18 +820,20 @@ export default abstract class SqlIntegration
     }
     // Replace any placeholders in the user defined dimension SQL
     if (dimension?.type === "user") {
-      dimension.dimension.sql = replaceSQLVars(dimension.dimension.sql, {
+      dimension.dimension.sql = compileSqlTemplate(dimension.dimension.sql, {
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
+        templateVariables: metric.templateVariables,
       });
     }
     // Replace any placeholders in the segment SQL
     if (segment?.sql) {
-      segment.sql = replaceSQLVars(segment.sql, {
+      segment.sql = compileSqlTemplate(segment.sql, {
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
+        templateVariables: metric.templateVariables,
       });
     }
 
@@ -937,10 +948,11 @@ export default abstract class SqlIntegration
     WITH
       ${idJoinSQL}
       __rawExperiment as (
-        ${replaceSQLVars(exposureQuery.query, {
+        ${compileSqlTemplate(exposureQuery.query, {
           startDate: settings.startDate,
           endDate: settings.endDate,
           experimentId: settings.experimentId,
+          templateVariables: metric.templateVariables,
         })}
       ),
       __experiment as (${this.getExperimentCTE({
@@ -1814,10 +1826,11 @@ export default abstract class SqlIntegration
         ${
           queryFormat === "sql"
             ? `(
-              ${replaceSQLVars(metric.sql || "", {
+              ${compileSqlTemplate(metric.sql || "", {
                 startDate,
                 endDate: endDate || undefined,
                 experimentId,
+                templateVariables: metric.templateVariables,
               })}
               )`
             : (schema && !metric.table?.match(/\./) ? schema + "." : "") +
@@ -2107,7 +2120,7 @@ export default abstract class SqlIntegration
             ${id2}
           FROM
             (
-              ${replaceSQLVars(join.query, {
+              ${compileSqlTemplate(join.query, {
                 startDate: from,
                 endDate: to,
                 experimentId,
@@ -2131,7 +2144,7 @@ export default abstract class SqlIntegration
           user_id,
           anonymous_id
         FROM
-          (${replaceSQLVars(settings.queries.pageviewsQuery, {
+          (${compileSqlTemplate(settings.queries.pageviewsQuery, {
             startDate: from,
             endDate: to,
             experimentId,

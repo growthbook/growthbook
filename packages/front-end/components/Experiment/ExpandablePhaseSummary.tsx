@@ -28,7 +28,7 @@ export default function ExpandablePhaseSummary({ i, phase, editPhase }: Props) {
   return (
     <div className={i ? "border-top" : ""}>
       <a
-        className="d-flex text-dark p-3"
+        className={`d-flex text-dark ${i ? "pt-3" : ""} px-3 pb-3`}
         href="#"
         onClick={(e) => {
           e.preventDefault();

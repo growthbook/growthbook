@@ -1,37 +1,60 @@
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { MetricInterface } from "back-end/types/metric";
+import { CSSProperties, DetailedHTMLProps, TdHTMLAttributes } from "react";
 import { formatConversionRate } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 
-const numberFormatter = new Intl.NumberFormat();
+const numberFormatter = Intl.NumberFormat("en-US", {
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
+
+interface Props
+  extends DetailedHTMLProps<
+    TdHTMLAttributes<HTMLTableCellElement>,
+    HTMLTableCellElement
+  > {
+  metric: MetricInterface;
+  stats: SnapshotMetric;
+  users: number;
+  className?: string;
+  newUi?: boolean;
+  style?: CSSProperties;
+  rowSpan?: number;
+  showRatio?: boolean;
+}
 
 export default function MetricValueColumn({
   metric,
   stats,
   users,
   className,
-}: {
-  metric: MetricInterface;
-  stats: SnapshotMetric;
-  users: number;
-  className?: string;
-}) {
+  newUi = false,
+  style,
+  rowSpan,
+  showRatio = true,
+  ...otherProps
+}: Props) {
   const displayCurrency = useCurrency();
   return (
-    <td className={className}>
+    <td className={className} style={style} rowSpan={rowSpan} {...otherProps}>
       {metric && stats.users ? (
         <>
           <div className="result-number">
             {formatConversionRate(metric?.type, stats.cr, displayCurrency)}
           </div>
-          <div>
-            <small className="text-muted">
+          {showRatio ? (
+            <div className="result-number-sub text-muted">
               <em
-                style={{
-                  display: "inline-block",
-                  lineHeight: "1.3em",
-                  marginTop: "0.2em",
-                }}
+                style={
+                  newUi
+                    ? {}
+                    : {
+                        display: "inline-block",
+                        lineHeight: "1.2em",
+                        marginTop: "0.2em",
+                      }
+                }
               >
                 <span
                   style={{
@@ -49,11 +72,11 @@ export default function MetricValueColumn({
                   stats.denominator || stats.users || users
                 )}
               </em>
-            </small>
-          </div>
+            </div>
+          ) : null}
         </>
       ) : (
-        <em>no data</em>
+        <em className={newUi ? "text-muted" : ""}>no data</em>
       )}
     </td>
   );

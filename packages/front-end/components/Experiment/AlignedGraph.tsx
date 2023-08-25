@@ -1,4 +1,4 @@
-import React, { FC } from "react";
+import React, { DetailedHTMLProps, FC, HTMLAttributes } from "react";
 import { GridColumns } from "@visx/grid";
 import { Axis, Orientation, AxisLeft } from "@visx/axis";
 import { scaleLinear } from "@visx/scale";
@@ -7,8 +7,10 @@ import { Line } from "@visx/shape";
 import { FaArrowUp, FaArrowDown } from "react-icons/fa";
 import { ViolinPlot } from "@visx/stats";
 import { jStat } from "jstat";
+import clsx from "clsx";
 
-export interface Props {
+interface Props
+  extends DetailedHTMLProps<HTMLAttributes<SVGPathElement>, SVGPathElement> {
   id: string;
   ci?: [number, number] | [];
   barType?: "pill" | "violin";
@@ -16,7 +18,7 @@ export interface Props {
   uplift?: { dist: string; mean?: number; stddev?: number };
   domain: [number, number];
   //width: string | number;
-  height: number;
+  height?: number;
   inverse?: boolean;
   graphWidth?: number;
   expected?: number;
@@ -29,8 +31,28 @@ export interface Props {
   barColor?: string;
   sigBarColorPos?: string;
   sigBarColorNeg?: string;
+  // barColorDraw?: string;
+  barColorOk?: string;
+  barColorWarning?: string;
+  barColorDanger?: string;
   expectedColor?: string;
+  newUi?: boolean;
+  rowStatus?: string;
+  isHovered?: boolean;
+  onPointerMove?: (e: React.PointerEvent<SVGPathElement>) => void;
+  onPointerLeave?: (e: React.PointerEvent<SVGPathElement>) => void;
+  onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
 }
+
+const smallPercentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 1,
+});
+
+const percentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: 0,
+});
 
 const AlignedGraph: FC<Props> = ({
   id,
@@ -47,18 +69,46 @@ const AlignedGraph: FC<Props> = ({
   height = 30,
   inverse = false,
   graphWidth = 500,
-  gridColor = "#90e0efaa",
+  gridColor = "#5c9ea94c",
   axisColor = "var(--text-link-hover-color)",
   zeroLineColor = "#0077b6",
   barColor = "#aaaaaaaa",
   sigBarColorPos = "#0D8C8Ccc",
   sigBarColorNeg = "#D94032cc",
+  // barColorDraw = "#9C89BEcc",
+  barColorOk = "#55ab95cc",
+  barColorWarning = "#d99132cc",
+  barColorDanger = "#d94032cc",
+  newUi = false,
+  rowStatus,
+  isHovered = false,
+  onPointerMove,
+  onPointerLeave,
+  onClick,
 }) => {
+  if (newUi) {
+    sigBarColorPos = "#52be5b";
+    sigBarColorNeg = "#d35a5a";
+    // barColorDraw = "#9C89BE";
+    barColorOk = "#55ab95";
+    barColorWarning = "#d99132";
+    barColorDanger = "#d94032";
+    if (isHovered) {
+      sigBarColorPos = "#39cb45";
+      sigBarColorNeg = "#e34040";
+      // barColorDraw = "#957dc2";
+      barColorOk = "#4ec2a5";
+      barColorWarning = "#ea9526";
+      barColorDanger = "#e83223";
+      barColor = "#aaa";
+    }
+  }
+
   if (barType == "violin" && !uplift) {
     barType = "pill";
   }
 
-  const barThickness = 16;
+  const barThickness = newUi ? 20 : 16;
 
   const tickLabelColor = axisColor;
   const tickLabelProps = () =>
@@ -75,17 +125,25 @@ const AlignedGraph: FC<Props> = ({
   const leftDomain = domain[0] - domainPadding;
   const rightDomain = domain[1] + domainPadding;
   domain = [leftDomain, rightDomain];
+
+  const domainWidth = rightDomain - leftDomain;
+
   const tickFormat = (v: number) => {
-    return " " + Math.round(v * 100) + "%";
+    return domainWidth < 0.05
+      ? smallPercentFormatter.format(v)
+      : percentFormatter.format(v);
   };
 
   const barHeight = Math.floor(height / 2) - barThickness / 2;
 
-  if (inverse) {
+  if (inverse && !rowStatus) {
     [sigBarColorNeg, sigBarColorPos] = [sigBarColorPos, sigBarColorNeg];
   }
   // rough number of columns:
-  const numTicks = 6;
+  let numTicks = 6;
+  if (newUi) {
+    numTicks = Math.max(graphWidth / 75, 3);
+  }
   // todo: make ticks programic based roughtly on the width
   // todo: make the significant threashold centralized, and adjustable.
 
@@ -109,7 +167,7 @@ const AlignedGraph: FC<Props> = ({
     }
   }
 
-  const barFill =
+  let barFill =
     barFillType === "gradient"
       ? `url(#${gradientId})`
       : significant
@@ -118,10 +176,26 @@ const AlignedGraph: FC<Props> = ({
         : sigBarColorNeg
       : barColor;
 
+  // forced color state (nothing needed for non-significant):
+  if (rowStatus === "won") {
+    barFill = sigBarColorPos;
+  } else if (rowStatus === "lost") {
+    barFill = sigBarColorNeg;
+  } else if (rowStatus === "draw") {
+    // barFill = barColorDraw;
+    barFill = barColor;
+  } else if (rowStatus === "ok") {
+    barFill = barColorOk;
+  } else if (rowStatus === "warning") {
+    barFill = barColorWarning;
+  } else if (rowStatus === "danger") {
+    barFill = barColorDanger;
+  }
+
   return (
     <>
       <div className="d-flex aligned-graph align-items-center aligned-graph-row">
-        <div className="flex-grow-1">
+        <div className={newUi ? "" : "flex-grow-1"}>
           <div style={{ position: "relative" }}>
             <ParentSize className="graph-container" debounceTime={1000}>
               {({ height: visHeight }) => {
@@ -134,7 +208,7 @@ const AlignedGraph: FC<Props> = ({
                   range: [0, graphWidth],
                 });
                 return (
-                  <svg width={graphWidth} height={height}>
+                  <svg width={graphWidth} height={height} className="d-block">
                     {gradient.length > 0 && (
                       <defs>
                         <linearGradient
@@ -184,7 +258,7 @@ const AlignedGraph: FC<Props> = ({
                         scale={xScale}
                         tickLength={5}
                         tickFormat={tickFormat}
-                        stroke={axisColor}
+                        stroke={newUi ? "" : axisColor}
                         tickStroke={axisColor}
                         tickLabelProps={tickLabelProps}
                         tickClassName="ticktext"
@@ -195,6 +269,16 @@ const AlignedGraph: FC<Props> = ({
                       <>
                         {barType === "violin" && (
                           <ViolinPlot
+                            onPointerMove={onPointerMove}
+                            onPointerLeave={onPointerLeave}
+                            onClick={onClick}
+                            className={clsx(
+                              "hover-target aligned-graph-violin",
+                              {
+                                hover: isHovered,
+                              }
+                            )}
+                            style={{ transition: "100ms all" }}
                             top={barHeight}
                             width={barThickness}
                             left={xScale(ci?.[0] ?? 0)}
@@ -243,23 +327,31 @@ const AlignedGraph: FC<Props> = ({
                         )}
                         {barType === "pill" && (
                           <rect
+                            onPointerMove={onPointerMove}
+                            onPointerLeave={onPointerLeave}
+                            onClick={onClick}
+                            className={clsx("hover-target aligned-graph-pill", {
+                              hover: isHovered,
+                            })}
+                            style={{ transition: "100ms all" }}
                             x={xScale(ci?.[0] ?? 0)}
                             y={barHeight}
                             width={xScale(ci?.[1] ?? 0) - xScale(ci?.[0] ?? 0)}
                             height={barThickness}
                             fill={barFill}
-                            rx={8}
+                            rx={newUi ? 10 : 8}
                           />
                         )}
                         <Line
                           fill="#000000"
                           strokeWidth={3}
-                          stroke={"#666"}
+                          stroke={"#0008"}
                           from={{ x: xScale(expected ?? 0), y: barHeight }}
                           to={{
                             x: xScale(expected ?? 0),
                             y: barHeight + barThickness,
                           }}
+                          style={{ pointerEvents: "none" }}
                         />
                       </>
                     )}
@@ -269,7 +361,7 @@ const AlignedGraph: FC<Props> = ({
             </ParentSize>
           </div>
         </div>
-        {!axisOnly && (
+        {!axisOnly && !newUi && (
           <>
             <div className="expectedwrap text-right">
               <span className="expectedArrows">

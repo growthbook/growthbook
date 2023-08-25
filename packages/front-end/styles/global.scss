@@ -99,6 +99,18 @@ pre {
   }
 }
 
+#experiment-page-tabs {
+  font-size: 1.2em;
+  .active-tab {
+    color: var(--text-color-primary);
+    background: linear-gradient(
+      var(--background-primary-light),
+      var(--background-color)
+    );
+    border-bottom-color: var(--background-color);
+  }
+}
+
 .w-100px {
   width: 100px !important;
 }
@@ -138,6 +150,19 @@ pre {
     colors.$premium
   );
   font-weight: bold;
+}
+
+.btn-teal {
+  @include button-variant(
+    colors.$teal,
+    darken(colors.$teal, 7.5%),
+    darken(colors.$teal, 10%),
+    lighten(colors.$teal, 5%),
+    lighten(colors.$teal, 10%),
+    darken(colors.$teal, 30%)
+  );
+  white-space: nowrap;
+  font-weight: 600;
 }
 
 .btn-outline-primary {
@@ -199,6 +224,395 @@ pre {
   background-color: var(--surface-background-color);
   border-radius: 20px !important;
   overflow: hidden;
+}
+.experiment-top-rows {
+  @media (max-width: 1300px) {
+    .row-break {
+      flex-basis: 100%;
+      height: 15px;
+    }
+    .experiment-dates {
+      width: 100px;
+    }
+  }
+}
+
+.experiment-row-tooltip-wrapper {
+  z-index: 820;
+  &.tooltip-animate-appear .experiment-row-tooltip {
+    opacity: 0;
+    transform: scaleX(60%) scaleY(40%);
+  }
+  &.tooltip-animate-appear-done .experiment-row-tooltip {
+    opacity: 1;
+    transform: scaleX(1) scaleY(1);
+  }
+}
+.experiment-row-tooltip {
+  position: absolute;
+  display: inline-block;
+  background-color: var(--surface-background-color-alt);
+  box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
+  padding: 3px 8px;
+  border: 1px solid var(--border-color-300);
+  box-sizing: border-box;
+  border-radius: 2px;
+  font-size: 12px;
+  color: var(--text-color-table);
+  pointer-events: all;
+  transition: 150ms all;
+
+  .opacity50 {
+    opacity: 0.5;
+  }
+
+  .arrow {
+    position: absolute;
+    width: 60px;
+    margin-left: -30px;
+    height: 30px;
+    overflow: hidden;
+    transform: scaleX(0.75);
+    pointer-events: none;
+    &::after {
+      left: 20px;
+      content: "";
+      position: absolute;
+      width: 20px;
+      height: 20px;
+      border-radius: 2px;
+      background-color: var(--surface-background-color-alt);
+      border: 1px solid var(--border-color-300);
+      box-sizing: border-box;
+      transform: rotate(45deg);
+      box-shadow: -1px 2px 4px rgba(0, 0, 0, 0.15);
+    }
+    &.top::after {
+      top: 27px;
+    }
+    &.bottom::after {
+      bottom: 27px;
+    }
+  }
+
+  .results-overview {
+    background-color: #66666610;
+    .label {
+      color: var(--text-dark);
+    }
+
+    &.won {
+      background-color: #09ac171a;
+    }
+    &.lost {
+      background-color: #d940321a;
+    }
+    //&.draw {
+    //  background-color: #8e51f11a;
+    //}
+    .results-status {
+      top: 7px;
+      right: 6px;
+      border-radius: 20px;
+      padding: 2px 8px;
+      font-size: 14px;
+      font-weight: bold;
+      &.won {
+        background-color: #09ac17;
+        color: #fff;
+      }
+      &.lost {
+        background-color: #d94032;
+        color: #fff;
+      }
+      //&.draw {
+      //  background-color: #8e51f1;
+      //  color: #fff;
+      //}
+      &.draw,
+      &.non-significant {
+        border: 1px solid #7a7a7a66;
+        box-sizing: border-box;
+        color: #7a7a7a;
+        font-weight: normal;
+      }
+    }
+    .results-change {
+      &.winning {
+        .value {
+          color: #09ac17;
+        }
+      }
+      &.losing {
+        .value {
+          color: #d94032;
+        }
+      }
+    }
+    .results-chance,
+    .results-ci {
+      &.won {
+        .value {
+          color: #09ac17;
+        }
+      }
+      &.lost {
+        .value {
+          color: #d94032;
+        }
+      }
+      //&.draw {
+      //  .value {
+      //    color: #8e51f1;
+      //  }
+      //}
+    }
+    .results-flagged-items {
+      .flagged {
+        .flag-icon {
+          margin: 0 2px 0 -3px;
+        }
+      }
+      .flagged-not-enough-data {
+        .main-text {
+          color: #17a2b8;
+        }
+        border-color: #17a2b888 !important;
+      }
+      .ok {
+        color: #55ab95;
+        border-color: #55ab9588 !important;
+      }
+      .warning {
+        color: #d99132;
+        border-color: #d9913288 !important;
+      }
+      .danger {
+        color: #d94032;
+        border-color: #d9403288 !important;
+      }
+      .non-significant {
+        font-weight: normal;
+      }
+      .suspicious {
+        color: #ef2bd5;
+        border-color: #ef2bd588 !important;
+      }
+    }
+  }
+  .results-table {
+    width: 100%;
+    thead {
+      text-align: center;
+    }
+    td,
+    th {
+      padding: 0.15rem 0.35rem;
+    }
+    thead {
+      th {
+        border-bottom: 1px solid var(--border-color-300);
+        color: var(--text-color-muted);
+        vertical-align: bottom !important;
+        line-height: 14px;
+      }
+    }
+    tbody {
+      td {
+        border-bottom: 1px solid var(--border-color-100);
+        &:not(:first-child) {
+          text-align: center;
+          border-left: 1px solid var(--border-color-100);
+        }
+      }
+      td:first-child {
+        max-width: 120px;
+      }
+    }
+  }
+}
+
+.main.experiment {
+  .experiment-header {
+    margin: -4px -8px 0;
+  }
+  .experiment-tabs {
+    position: sticky;
+    z-index: 830;
+    top: 55px;
+    height: 44px;
+    margin: 0 -8px -3px;
+    transition: 150ms all;
+    .header-tabs {
+      flex-wrap: nowrap;
+      .date-dropdown {
+        text-align: right;
+        .dropdown-toggle {
+          white-space: normal;
+        }
+        @media (max-width: 750px) {
+          font-size: 12px;
+          max-width: 140px;
+        }
+      }
+      .users {
+        text-align: right;
+        @media (max-width: 750px) {
+          font-size: 12px;
+          margin-right: 0 !important;
+          padding: 0 !important;
+        }
+      }
+    }
+    &.pinned {
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+      .header-tabs {
+        overflow: hidden;
+      }
+    }
+  }
+}
+
+.experiment-results-wrapper {
+  padding-bottom: 1px; // to allow for bottom border
+  @media (max-width: 900px) {
+    overflow-x: auto;
+  }
+}
+
+.experiment-results {
+  table-layout: fixed;
+  width: 100%;
+  th,
+  td {
+    padding: 0 10px;
+  }
+  th {
+    vertical-align: bottom;
+    &.axis-col {
+      position: sticky;
+      top: 95px;
+      background-color: var(--surface-background-color);
+      z-index: 800;
+      box-shadow: 0 -1px 0 var(--text-link-hover-color) inset;
+      @media (max-width: 900px) {
+        position: static;
+      }
+      &.graph-cell {
+        z-index: 801;
+      }
+      &.header-label {
+        padding-bottom: 5px;
+        font-size: 16px;
+      }
+      &.label {
+        color: var(--text-link-hover-color);
+        font-size: 13px;
+        padding-bottom: 5px;
+      }
+    }
+  }
+  .value,
+  .chance,
+  .change {
+    font-size: 14px;
+    line-height: 16px;
+    &:not(.baseline) {
+      .result-number {
+        font-weight: bold;
+      }
+    }
+  }
+  .graph-cell {
+    padding: 0;
+    svg {
+      overflow: initial;
+    }
+  }
+  .metric-label {
+    font-size: 14px;
+  }
+  .variation {
+    font-size: 14px;
+  }
+  .result-number-sub,
+  .plusminus {
+    font-size: 12px;
+    font-style: italic;
+    white-space: nowrap;
+  }
+  .chance {
+    .ok {
+      color: #55ab95;
+    }
+    .warning {
+      color: #d99132;
+    }
+    .danger {
+      color: #d94032;
+    }
+  }
+  .results-change {
+    font-size: 12px;
+    font-weight: bold;
+    .ci {
+      font-weight: normal;
+    }
+  }
+  .draw,
+  .non-significant {
+    //font-weight: normal;
+    //color: #707070;
+    //&.hover {
+    //  color: #888888;
+    //}
+  }
+  .won {
+    color: #09ac17;
+    &.hover {
+      color: #11ce21;
+    }
+    &.results-ctw,
+    &.results-pval {
+      background: linear-gradient(-40deg, #09ac1730, #09ac1716);
+    }
+  }
+  .lost {
+    color: #ce3729;
+    &.hover {
+      color: #ee1500;
+    }
+    &.results-ctw,
+    &.results-pval {
+      background: linear-gradient(-40deg, #ce372930, #ce372916);
+    }
+  }
+  //&.draw {
+  //  color: #8e51f1;
+  //  &.hover {
+  //    color: #7c2cfa;
+  //  }
+  //}
+  .suspicious {
+    color: #ef2bd5;
+  }
+  .hover {
+    cursor: pointer;
+    transition: 100ms all;
+  }
+  .visx-axis-left .visx-axis-line {
+    // axis line has a 0.5 pixel offset. reverse it
+    transform: translateY(-0.5px);
+  }
+}
+main.main.report {
+  .experiment-results {
+    th {
+      &.axis-col {
+        top: 50px;
+      }
+    }
+  }
 }
 
 .badge {
@@ -263,6 +677,29 @@ pre {
   background-color: var(--table-row-highlight-background-color);
 }
 
+.experiment-switch-page {
+  opacity: 0.6;
+  transition: opacity 0.2s;
+  width: auto;
+  margin: 0 auto;
+  pointer-events: all;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  @media (max-width: 980px) {
+    .give-feedback {
+      display: none;
+    }
+  }
+  @media (max-width: 700px) {
+    .switch-back .text {
+      display: none;
+    }
+  }
+}
+
 .hover-show {
   .show-target {
     transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
@@ -279,6 +716,11 @@ pre {
   transition: all 0.3s cubic-bezier(0.685, 0.0473, 0.346, 1);
   &:hover {
     opacity: 1;
+  }
+}
+.hover-underline {
+  &:hover {
+    text-decoration: underline;
   }
 }
 .modal {
@@ -1199,6 +1641,14 @@ pre {
         padding: 0.25rem 0.5rem;
       }
     }
+  }
+}
+
+.table-tiny {
+  th,
+  td {
+    font-size: 10px;
+    padding: 0.15rem 0.35rem;
   }
 }
 
