@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import uniqId from "uniqid";
 import { FaExclamationTriangle, FaExternalLinkAlt } from "react-icons/fa";
+import { TestQueryRow } from "back-end/src/types/Integration";
 import Code from "@/components/SyntaxHighlighting/Code";
 import StringArrayField from "@/components/Forms/StringArrayField";
 import Toggle from "@/components/Forms/Toggle";
@@ -14,7 +15,6 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Modal from "../../../Modal";
 import Field from "../../../Forms/Field";
 import EditSqlModal from "../../../SchemaBrowser/EditSqlModal";
-import { TestQueryRow } from "back-end/src/types/Integration";
 
 type EditExperimentAssignmentQueryProps = {
   exposureQuery?: ExposureQuery;

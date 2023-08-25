@@ -13,6 +13,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
 } from "shared/constants";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
+import { TestQueryRow } from "back-end/src/types/Integration";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -45,7 +46,6 @@ import { GBCuped } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
 import { useCurrency } from "@/hooks/useCurrency";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
-import { TestQueryRow } from "back-end/src/types/Integration";
 
 const weekAgo = new Date();
 weekAgo.setDate(weekAgo.getDate() - 7);
@@ -536,7 +536,7 @@ const MetricForm: FC<MetricFormProps> = ({
     if (!result) return;
 
     const requiredColumnsArray = Array.from(requiredColumns);
-    let missingColumns = requiredColumnsArray.filter(
+    const missingColumns = requiredColumnsArray.filter(
       (col) => !((col as string) in result)
     );
 
