@@ -39,6 +39,11 @@ export interface FeatureInterface {
   defaultValue: string;
   tags?: string[];
   environmentSettings: Record<string, FeatureEnvironment>;
+
+  // todo: find all usages & replace
+  /**
+   * @deprecated
+   */
   draft?: FeatureDraftChanges;
   revision?: {
     version: number;

@@ -15,7 +15,7 @@ import {
   editFeatureRule,
   getAllFeatures,
   getFeature,
-  publishDraft,
+  publishLegacyDraft,
   setDefaultValue,
   toggleFeatureEnvironment,
   updateFeature,
@@ -359,7 +359,8 @@ export async function postFeaturePublish(
 
   verifyDraftsAreEqual(feature.draft, draft);
 
-  const updatedFeature = await publishDraft(
+  // todo: save draft FeatureRevision
+  const updatedFeature = await publishLegacyDraft(
     org,
     feature,
     {

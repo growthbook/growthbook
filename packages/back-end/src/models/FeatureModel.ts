@@ -91,7 +91,12 @@ const featureSchema = new mongoose.Schema({
     },
   ],
   environmentSettings: {},
+
+  /**
+   * @deprecated
+   */
   draft: {},
+
   revision: {},
   linkedExperiments: [String],
   jsonSchema: {},
@@ -752,7 +757,15 @@ export async function discardDraft(
   });
 }
 
-export async function publishDraft(
+/**
+ * @deprecated
+ * Working with the legacy draft property on the {@link FeatureInterface}
+ * @param organization
+ * @param feature
+ * @param user
+ * @param comment
+ */
+export async function publishLegacyDraft(
   organization: OrganizationInterface,
   feature: FeatureInterface,
   user: {
