@@ -48,14 +48,19 @@ export default class BigQuery extends SqlIntegration {
       useLegacySql: false,
     });
     const [rows] = await job.getQueryResults();
+    const [metadata] = await job.getMetadata();
     const statistics = {
-      executionDurationMs: job.metadata.statistics.finalExecutionDurationMs,
-      totalSlotMs: job.metadata.statistics.totalSlotMs,
-      bytesProcessed: job.metadata.statistics.totalBytesProcessed,
-      bytesBilled: job.metadata.statistics.query.totalBytesBilled,
-      warehouseCachedResult: job.metadata.statistics.query.cacheHit,
+      executionDurationMs: Number(
+        metadata?.statistics?.finalExecutionDurationMs
+      ),
+      totalSlotMs: Number(metadata?.statistics?.totalSlotMs),
+      bytesProcessed: Number(metadata?.statistics?.totalBytesProcessed),
+      bytesBilled: Number(metadata?.statistics?.query?.totalBytesBilled),
+      warehouseCachedResult: metadata?.statistics?.query?.cacheHit,
       partitionsUsed:
-        job.metadata.statistics.query.totalPartitionsProcessed > 0 ?? undefined,
+        metadata?.statistics?.query?.totalPartitionsProcessed !== undefined
+          ? metadata.statistics.query.totalPartitionsProcessed > 0
+          : undefined,
     };
     return { rows, statistics };
   }
