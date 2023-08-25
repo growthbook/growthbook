@@ -674,9 +674,17 @@ export function GBSplitShading({
       className={className}
       {...otherProps}
     >
-      <path fill={state ? "#B34B4B" : "#52BE5B"} className="st0" d="M186,107.2H98.3c-50.3,0-91.4,38.4-91.4,85.3v0c0,46.9,41.1,85.3,91.4,85.3H186"/>
-      <path fill="#52BE5B" className="st1" d="M251,277.8h162.7c50.3,0,91.4-38.4,91.4-85.3v0c0-46.9-41.1-85.3-91.4-85.3H251"/>
-      <rect x="186" y="42.5" width="65" height="295"/>
+      <path
+        fill={state ? "#B34B4B" : "#52BE5B"}
+        className="st0"
+        d="M186,107.2H98.3c-50.3,0-91.4,38.4-91.4,85.3v0c0,46.9,41.1,85.3,91.4,85.3H186"
+      />
+      <path
+        fill="#52BE5B"
+        className="st1"
+        d="M251,277.8h162.7c50.3,0,91.4-38.4,91.4-85.3v0c0-46.9-41.1-85.3-91.4-85.3H251"
+      />
+      <rect x="201" y="42.5" width="30" height="295" />
     </svg>
   );
 }

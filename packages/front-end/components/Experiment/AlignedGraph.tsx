@@ -105,7 +105,7 @@ const AlignedGraph: FC<Props> = ({
       barColor = "#aaa";
     }
   }
-  if(splitShading) {
+  if (splitShading) {
     barFillType = "gradient";
   }
 
