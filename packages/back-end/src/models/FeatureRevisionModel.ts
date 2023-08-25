@@ -8,11 +8,28 @@ const featureRevisionSchema = new mongoose.Schema({
   featureId: String,
   version: Number,
   dateCreated: Date,
+  dateUpdated: {
+    type: Date,
+    required: false,
+  },
   revisionDate: Date,
   publishedBy: {},
   comment: String,
   defaultValue: String,
   rules: {},
+  creatorUserId: {
+    type: String,
+    required: false,
+  },
+  status: {
+    type: String,
+    required: false,
+    enum: ["published", "draft"], // todo: everything with these
+  },
+  baseVersion: {
+    type: String,
+    required: false,
+  },
 });
 
 featureRevisionSchema.index(
@@ -38,7 +55,13 @@ export async function getRevisions(
   return docs.map((d) => d.toJSON<FeatureRevisionDocument>());
 }
 
-export async function saveRevision(feature: FeatureInterface) {
+type SaveRevisionParams = {
+  state: "published" | "draft";
+  feature: FeatureInterface;
+};
+
+// todo: support creating draft revisions
+export async function saveRevision({ feature, state }: SaveRevisionParams) {
   const rules: Record<string, FeatureRule[]> = {};
   Object.keys(feature.environmentSettings || {}).forEach((env) => {
     rules[env] = feature.environmentSettings?.[env]?.rules || [];
@@ -51,11 +74,15 @@ export async function saveRevision(feature: FeatureInterface) {
       version: feature.revision?.version || 1,
       dateCreated: new Date(),
       revisionDate: feature.revision?.date || feature.dateCreated,
-      publishedBy: feature.revision?.publishedBy || {
-        id: "",
-        email: "",
-        name: "",
-      },
+      state,
+      publishedBy:
+        state === "draft"
+          ? null
+          : feature.revision?.publishedBy || {
+              id: "",
+              email: "",
+              name: "",
+            },
       comment: feature.revision?.comment || "",
       defaultValue: feature.defaultValue,
       rules,

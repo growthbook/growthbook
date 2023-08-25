@@ -91,7 +91,12 @@ const featureSchema = new mongoose.Schema({
     },
   ],
   environmentSettings: {},
+
+  /**
+   * @deprecated
+   */
   draft: {},
+
   revision: {},
   linkedExperiments: [String],
   jsonSchema: {},
@@ -154,7 +159,7 @@ export async function createFeature(
     ...data,
     linkedExperiments,
   });
-  await saveRevision(toInterface(feature));
+  await saveRevision({ feature: toInterface(feature), state: "published" });
 
   if (linkedExperiments.length > 0) {
     await Promise.all(
@@ -752,7 +757,15 @@ export async function discardDraft(
   });
 }
 
-export async function publishDraft(
+/**
+ * @deprecated
+ * Working with the legacy draft property on the {@link FeatureInterface}
+ * @param organization
+ * @param feature
+ * @param user
+ * @param comment
+ */
+export async function publishLegacyDraft(
   organization: OrganizationInterface,
   feature: FeatureInterface,
   user: {
@@ -769,7 +782,7 @@ export async function publishDraft(
   // Features created before revisions were introduced are missing their initial revision
   // Create it now before publishing the draft and making a 2nd revision
   if (!feature.revision) {
-    await saveRevision(feature);
+    await saveRevision({ feature, state: "published" });
   }
 
   const changes: Partial<FeatureInterface> = {};
@@ -805,7 +818,7 @@ export async function publishDraft(
     changes
   );
 
-  await saveRevision(updatedFeature);
+  await saveRevision({ feature: updatedFeature, state: "published" });
   return updatedFeature;
 }
 

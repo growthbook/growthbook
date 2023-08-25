@@ -15,7 +15,7 @@ import {
   editFeatureRule,
   getAllFeatures,
   getFeature,
-  publishDraft,
+  publishLegacyDraft,
   setDefaultValue,
   toggleFeatureEnvironment,
   updateFeature,
@@ -314,6 +314,7 @@ export async function postFeatures(
   });
 }
 
+// todo: deprecate this maybe?
 export async function postFeaturePublish(
   req: AuthRequest<
     { draft: FeatureDraftChanges; comment?: string },
@@ -330,6 +331,8 @@ export async function postFeaturePublish(
   if (!feature) {
     throw new Error("Could not find feature");
   }
+
+  // todo: check revisions
   if (!feature.draft?.active) {
     throw new Error("There are no changes to publish.");
   }
@@ -356,7 +359,8 @@ export async function postFeaturePublish(
 
   verifyDraftsAreEqual(feature.draft, draft);
 
-  const updatedFeature = await publishDraft(
+  // todo: save draft FeatureRevision
+  const updatedFeature = await publishLegacyDraft(
     org,
     feature,
     {
@@ -384,6 +388,7 @@ export async function postFeaturePublish(
   });
 }
 
+// todo: use this
 export async function postFeatureDiscard(
   req: AuthRequest<{ draft: FeatureDraftChanges }, { id: string }>,
   res: Response<{ status: 200 }, EventAuditUserForResponseLocals>
@@ -410,6 +415,7 @@ export async function postFeatureDiscard(
   });
 }
 
+// todo: edit this
 export async function postFeatureDraft(
   req: AuthRequest<
     {

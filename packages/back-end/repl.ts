@@ -9,6 +9,7 @@ import * as Project from "./src/models/ProjectModel";
 import * as SlackIntegration from "./src/models/SlackIntegrationModel";
 import * as InformationSchema from "./src/models/InformationSchemaModel";
 import * as VisualChangeset from "./src/models/VisualChangesetModel";
+import * as FeatureReview from "./src/models/FeatureReviewModel";
 import mongoInit from "./src/init/mongo";
 
 const SENTRY_DSN = process.env.SENTRY_DSN;
@@ -29,6 +30,7 @@ if (SENTRY_DSN) {
   replServer.context.Event = Event;
   replServer.context.EventWebHook = EventWebHook;
   replServer.context.EventWebHookLog = EventWebHookLog;
+  replServer.context.FeatureReview = FeatureReview;
   replServer.context.Project = Project;
   replServer.context.SlackIntegration = SlackIntegration;
   replServer.context.InformationSchema = InformationSchema;
