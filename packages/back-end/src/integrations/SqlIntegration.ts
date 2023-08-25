@@ -26,6 +26,8 @@ import {
   RawInformationSchema,
   MissingDatasourceParamsError,
   QueryResponse,
+  TrackedEventData,
+  TrackedEventResponseRow,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import {
@@ -1538,13 +1540,7 @@ export default abstract class SqlIntegration
     );
   }
   getMetricsToCreate(
-    result: {
-      event: string;
-      displayName: string;
-      hasUserId: boolean;
-      count: number;
-      lastTrackedAt: Date;
-    },
+    result: TrackedEventResponseRow,
     schemaFormat: SchemaFormat,
     existingMetrics: MetricInterface[]
   ): {
@@ -1597,16 +1593,7 @@ export default abstract class SqlIntegration
   async getEventsTrackedByDatasource(
     schemaFormat: SchemaFormat,
     existingMetrics: MetricInterface[]
-  ): Promise<
-    {
-      event: string;
-      displayName: string;
-      count: number;
-      hasUserId: boolean;
-      lastTrackedAt: Date;
-      metricsToCreate: { name: string; sql: string; type: MetricType }[];
-    }[]
-  > {
+  ): Promise<TrackedEventData[]> {
     const {
       trackedEventTableName,
       eventColumn,
@@ -1645,6 +1632,7 @@ export default abstract class SqlIntegration
       format(sql, this.getFormatDialect())
     );
     const resultRows = trackedResults.rows;
+
     if (includesPagesTable) {
       const pageViewedSql = `
         SELECT
@@ -1704,16 +1692,19 @@ export default abstract class SqlIntegration
     }
 
     return resultRows.map((result) => {
-      // Normalize the lastTrackedAt field - BigQuery stores it as an object
-      result.lastTrackedAt = result.lastTrackedAt.value
-        ? new Date(result.lastTrackedAt.value)
-        : new Date(result.lastTrackedAt);
-      result.metricsToCreate = this.getMetricsToCreate(
-        result,
-        schemaFormat,
-        existingMetrics
-      );
-      return result;
+      const row = result as TrackedEventResponseRow;
+      const processedEventData: TrackedEventData = {
+        ...row,
+        lastTrackedAt: result.lastTrackedAt.value
+          ? new Date(result.lastTrackedAt.value)
+          : new Date(result.lastTrackedAt),
+        metricsToCreate: this.getMetricsToCreate(
+          row,
+          schemaFormat,
+          existingMetrics
+        ),
+      };
+      return processedEventData;
     });
   }
 

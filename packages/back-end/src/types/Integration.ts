@@ -1,3 +1,4 @@
+import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import {
   DataSourceProperties,
   DataSourceSettings,
@@ -138,11 +139,19 @@ export type PastExperimentResult = {
   }[];
 };
 
+export type TrackedEventResponseRow = {
+  event: string;
+  displayName: string;
+  hasUserId: boolean;
+  count: number;
+  lastTrackedAt: Date | BigQueryTimestamp;
+};
+
 export type TrackedEventData = {
   event: string;
   displayName: string;
-  count: number;
   hasUserId: boolean;
+  count: number;
   lastTrackedAt: Date;
   metricsToCreate: {
     name: string;
@@ -192,24 +201,16 @@ export type ExperimentMetricQueryResponseRows = {
   covariate_sum_squares?: number;
   main_covariate_sum_product?: number;
 }[];
-export type QueryResponse = {
-  // eslint-disable-next-line
-  rows: any[];
-  statistics?: QueryStatistics;
-};
-export type MetricValueQueryResponse = {
-  rows: MetricValueQueryResponseRows;
+
+// eslint-disable-next-line
+export type QueryResponse<Rows = Record<string, any>[]> = {
+  rows: Rows;
   statistics?: QueryStatistics;
 };
 
-export type PastExperimentQueryResponse = {
-  rows: PastExperimentResponseRows;
-  statistics?: QueryStatistics;
-};
-export type ExperimentMetricQueryResponse = {
-  rows: ExperimentMetricQueryResponseRows;
-  statistics?: QueryStatistics;
-};
+export type MetricValueQueryResponse = QueryResponse<MetricValueQueryResponseRows>;
+export type PastExperimentQueryResponse = QueryResponse<PastExperimentResponseRows>;
+export type ExperimentMetricQueryResponse = QueryResponse<ExperimentMetricQueryResponseRows>;
 
 export interface SourceIntegrationConstructor {
   new (

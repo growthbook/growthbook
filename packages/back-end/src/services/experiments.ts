@@ -23,7 +23,10 @@ import {
 import { getMetricsByIds, insertMetric } from "../models/MetricModel";
 import { checkSrm, sumSquaresFromStats } from "../util/stats";
 import { addTags } from "../models/TagModel";
-import { Dimension, ExperimentMetricQueryResponseRows } from "../types/Integration";
+import {
+  Dimension,
+  ExperimentMetricQueryResponseRows,
+} from "../types/Integration";
 import { createExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import {
   Condition,
