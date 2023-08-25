@@ -17,17 +17,23 @@ comments and contribute ideas, and then give them an `Experimenter` role for a p
 
 :::
 
-Below are the roles currently available in GrowthBook, ordered from least permissive to most. Each additional level inherits all of the permissions from the roles below it.
+Below are the roles currently available in GrowthBook.
 
-- `readonly` - This role allows the user to view feature flags and experiments, but not make any changes.
-- `collaborator` - This role allows the user to view feature flags and experiments, as well as add comments and contribute ideas.
-- `engineer` - This role allows the user to manage feature flags, but not experiments.
-- `analyst` - This allows the user to analyze experiments.
-- `experimenter` - This allows the user to create feature flags and run experiments.
-- `admin` - This allows the user to manage all aspects of GrowthBook, including billing, organizational settings, and team members.
+- `readonly` - This role allows the user to view nearly all areas of the application, including Feature Flags, Experiments, Metrics, Dimensions, Segments, Data Sources, and more. However, they can't make any edits, nor are they able to access or edit organizational settings like inviting team members, adding/editing API keys, or projects.
+- `collaborator` - This role inherits all of the permissions of a `readonly` user, while allowing the user to add comments to features and experiments and contribute ideas.
+- `engineer` - This role inherits all of the permissions of a `collaborator` user, while also allowing the user to create and edit feature flags, but not experiments.
+- `analyst` - This role inherits all of the permissions of a `collaborator` user, while also allowing the user to create and edit experiments, but not feature flags. Analysts can also create/edit metrics and dimensions.
+- `experimenter` - This role inherits all of the permissions of a `collaborator`, while also allowing the user to create and edit both feature flags and experiments. Experimenters can also create/edit metrics, dimensions, and segments.
+- `admin` - This allows the user to manage all aspects of GrowthBook, including updating plans and billing, inviting and removing team members, setting up projects, API keys, and more. Admins can also create/edit Data Sources
+
+#### Environment Specific Limits
+
+![Environment Specific Limits](/images/user-permissions-env-specific.png)
 
 And finally, there is one last level to GrowthBook's user permissions, which determines environment specific limits. This permission level only applies to `engineer` and `experimenter` roles in organizations in a `Pro` or `Enterprise` account. This
 allows you to limit the feature flags and experiments a user can manage to particular environments. For instance, you can allow and engineer to create and run experiments in a `staging` environment, but not in `production`.
+
+#### How permissions are evaluated
 
 When evaluating whether or not a user has permissions to perform a certain action, GrowthBook will check if the action is taking place within a particular project, and if so, we'll check their project-level permissions first, before falling back to
 the user's global role. If the action is not taking place within a project, we'll just check the user's global role.
