@@ -498,7 +498,7 @@ pre {
       @media (max-width: 900px) {
         position: static;
       }
-      &.has-tooltip {
+      &.graph-cell {
         z-index: 801;
       }
       &.header-label {
@@ -525,6 +525,9 @@ pre {
   }
   .graph-cell {
     padding: 0;
+    svg {
+      overflow: initial;
+    }
   }
   .metric-label {
     font-size: 14px;
