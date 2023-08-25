@@ -1,3 +1,4 @@
+import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import {
   DataSourceProperties,
   DataSourceSettings,
@@ -138,11 +139,19 @@ export type PastExperimentResult = {
   }[];
 };
 
+export type TrackedEventResponseRow = {
+  event: string;
+  displayName: string;
+  hasUserId: boolean;
+  count: number;
+  lastTrackedAt: Date | BigQueryTimestamp;
+};
+
 export type TrackedEventData = {
   event: string;
   displayName: string;
-  count: number;
   hasUserId: boolean;
+  count: number;
   lastTrackedAt: Date;
   metricsToCreate: {
     name: string;
@@ -193,8 +202,9 @@ export type ExperimentMetricQueryResponseRows = {
   main_covariate_sum_product?: number;
 }[];
 
-export type QueryResponse<Row> = {
-  rows: Row[];
+// eslint-disable-next-line
+export type QueryResponse<Rows = Record<string, any>[]> = {
+  rows: Rows;
   statistics?: QueryStatistics;
 };
 
