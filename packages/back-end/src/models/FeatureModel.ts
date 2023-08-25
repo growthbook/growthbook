@@ -154,7 +154,7 @@ export async function createFeature(
     ...data,
     linkedExperiments,
   });
-  await saveRevision(toInterface(feature));
+  await saveRevision({ feature: toInterface(feature), state: "published" });
 
   if (linkedExperiments.length > 0) {
     await Promise.all(
@@ -769,7 +769,7 @@ export async function publishDraft(
   // Features created before revisions were introduced are missing their initial revision
   // Create it now before publishing the draft and making a 2nd revision
   if (!feature.revision) {
-    await saveRevision(feature);
+    await saveRevision({ feature, state: "published" });
   }
 
   const changes: Partial<FeatureInterface> = {};
@@ -805,7 +805,7 @@ export async function publishDraft(
     changes
   );
 
-  await saveRevision(updatedFeature);
+  await saveRevision({ feature: updatedFeature, state: "published" });
   return updatedFeature;
 }
 

@@ -331,6 +331,8 @@ export async function postFeaturePublish(
   if (!feature) {
     throw new Error("Could not find feature");
   }
+
+  // todo: check revisions
   if (!feature.draft?.active) {
     throw new Error("There are no changes to publish.");
   }
