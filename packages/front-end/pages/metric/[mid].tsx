@@ -150,7 +150,7 @@ const MetricPage: FC = () => {
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
 
-  const status = getQueryStatus(metric.queries || [], metric.analysisError);
+  const { status } = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
 
   let regressionAdjustmentAvailableForMetric = true;
@@ -451,6 +451,7 @@ const MetricPage: FC = () => {
           {canEditProjects && (
             <a
               href="#"
+              className="ml-2"
               onClick={(e) => {
                 e.preventDefault();
                 setEditProjects(true);
@@ -554,7 +555,10 @@ const MetricPage: FC = () => {
                                 <span className="mr-1">Apply a segment</span>
                               )}
                               {canEditMetric &&
-                                permissions.check("runQueries", "") && (
+                                permissions.check(
+                                  "runQueries",
+                                  metric.projects || ""
+                                ) && (
                                   <a
                                     onClick={(e) => {
                                       e.preventDefault();
@@ -570,7 +574,10 @@ const MetricPage: FC = () => {
                         </div>
                         <div style={{ flex: 1 }} />
                         <div className="col-auto">
-                          {permissions.check("runQueries", "") && (
+                          {permissions.check(
+                            "runQueries",
+                            metric.projects || ""
+                          ) && (
                             <form
                               onSubmit={async (e) => {
                                 e.preventDefault();
@@ -975,6 +982,24 @@ const MetricPage: FC = () => {
                           {metric.userIdTypes}
                         </RightRailSectionGroup>
                       )}
+                      {metric.templateVariables?.eventName && (
+                        <RightRailSectionGroup title="Event Name" type="custom">
+                          <span className="font-weight-bold">
+                            {metric.templateVariables.eventName}
+                          </span>
+                        </RightRailSectionGroup>
+                      )}
+                      {metric.type != "binomial" &&
+                        metric.templateVariables?.valueColumn && (
+                          <RightRailSectionGroup
+                            title="Value Column"
+                            type="custom"
+                          >
+                            <span className="font-weight-bold">
+                              {metric.templateVariables.valueColumn}
+                            </span>
+                          </RightRailSectionGroup>
+                        )}
                       <RightRailSectionGroup title="Metric SQL" type="custom">
                         <Code language="sql" code={metric.sql} />
                       </RightRailSectionGroup>

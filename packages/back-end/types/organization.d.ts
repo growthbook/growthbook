@@ -36,6 +36,7 @@ export interface MemberRoleInfo {
   role: MemberRole;
   limitAccessByEnvironment: boolean;
   environments: string[];
+  teams?: string[];
 }
 
 export interface ProjectMemberRole extends MemberRoleInfo {
@@ -162,6 +163,7 @@ export interface OrganizationSettings {
   displayCurrency?: string;
   secureAttributeSalt?: string;
   killswitchConfirmation?: boolean;
+  defaultDataSource?: string;
 }
 
 export interface SubscriptionQuote {

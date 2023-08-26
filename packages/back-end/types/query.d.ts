@@ -1,6 +1,10 @@
 import { QueryLanguage } from "./datasource";
 
-export type QueryStatus = "running" | "failed" | "succeeded";
+export type QueryStatus =
+  | "running"
+  | "failed"
+  | "partially-succeeded"
+  | "succeeded";
 
 export type QueryPointer = {
   query: string;

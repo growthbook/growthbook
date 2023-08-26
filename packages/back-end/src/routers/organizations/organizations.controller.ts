@@ -16,6 +16,7 @@ import {
   acceptInvite,
   addMemberToOrg,
   addPendingMemberToOrg,
+  expandOrgMembers,
   findVerifiedOrgForNewUser,
   getInviteUrl,
   getOrgFromReq,
@@ -29,10 +30,9 @@ import {
   getNonSensitiveParams,
   getSourceIntegrationObject,
 } from "../../services/datasource";
-import { getUsersByIds, updatePassword } from "../../services/users";
+import { updatePassword } from "../../services/users";
 import { getAllTags } from "../../models/TagModel";
 import {
-  ExpandedMember,
   Invite,
   MemberRole,
   MemberRoleWithProjects,
@@ -42,11 +42,8 @@ import {
 } from "../../../types/organization";
 import {
   auditDetailsUpdate,
-  findAllByEntityType,
-  findAllByEntityTypeParent,
-  findByEntity,
-  findByEntityParent,
-  getWatchedAudits,
+  getRecentWatchedAudits,
+  isValidAuditEntityType,
 } from "../../services/audit";
 import { getAllFeatures } from "../../models/FeatureModel";
 import { findDimensionsByOrganization } from "../../models/DimensionModel";
@@ -96,6 +93,13 @@ import {
   getExperimentsForActivityFeed,
 } from "../../models/ExperimentModel";
 import { removeEnvironmentFromSlackIntegration } from "../../models/SlackIntegrationModel";
+import {
+  findAllAuditsByEntityType,
+  findAllAuditsByEntityTypeParent,
+  findAuditByEntity,
+  findAuditByEntityParent,
+} from "../../models/AuditModel";
+import { EntityType } from "../../types/Audit";
 
 export async function getDefinitions(req: AuthRequest, res: Response) {
   const { org } = getOrgFromReq(req);
@@ -152,7 +156,7 @@ export async function getDefinitions(req: AuthRequest, res: Response) {
 export async function getActivityFeed(req: AuthRequest, res: Response) {
   const { org, userId } = getOrgFromReq(req);
   try {
-    const docs = await getWatchedAudits(userId, org.id);
+    const docs = await getRecentWatchedAudits(userId, org.id);
 
     if (!docs.length) {
       return res.status(200).json({
@@ -189,9 +193,16 @@ export async function getAllHistory(
   const { org } = getOrgFromReq(req);
   const { type } = req.params;
 
+  if (!isValidAuditEntityType(type)) {
+    return res.status(400).json({
+      status: 400,
+      message: `${type} is not a valid entity type. Possible entity types are: ${EntityType}`,
+    });
+  }
+
   const events = await Promise.all([
-    findAllByEntityType(org.id, type),
-    findAllByEntityTypeParent(org.id, type),
+    findAllAuditsByEntityType(org.id, type),
+    findAllAuditsByEntityTypeParent(org.id, type),
   ]);
 
   const merged = [...events[0], ...events[1]];
@@ -222,9 +233,16 @@ export async function getHistory(
   const { org } = getOrgFromReq(req);
   const { type, id } = req.params;
 
+  if (!isValidAuditEntityType(type)) {
+    return res.status(400).json({
+      status: 400,
+      message: `${type} is not a valid entity type. Possible entity types are: ${EntityType}`,
+    });
+  }
+
   const events = await Promise.all([
-    findByEntity(org.id, type, id),
-    findByEntityParent(org.id, type, id),
+    findAuditByEntity(org.id, type, id),
+    findAuditByEntityParent(org.id, type, id),
   ]);
 
   const merged = [...events[0], ...events[1]];
@@ -591,20 +609,7 @@ export async function getOrganization(req: AuthRequest, res: Response) {
     ? getSSOConnectionSummary(req.loginMethod)
     : null;
 
-  // Add email/name to the organization members array
-  const userInfo = await getUsersByIds(members.map((m) => m.id));
-  const expandedMembers: ExpandedMember[] = [];
-  userInfo.forEach(({ id, email, verified, name, _id }) => {
-    const memberInfo = members.find((m) => m.id === id);
-    if (!memberInfo) return;
-    expandedMembers.push({
-      email,
-      verified,
-      name: name || "",
-      ...memberInfo,
-      dateCreated: memberInfo.dateCreated || _id.getTimestamp(),
-    });
-  });
+  const expandedMembers = await expandOrgMembers(members);
 
   return res.status(200).json({
     status: 200,
@@ -1490,7 +1495,7 @@ export async function getOrphanedUsers(req: AuthRequest, res: Response) {
   }
 
   const allUsers = await getAllUsers();
-  const allOrgs = await findAllOrganizations();
+  const { organizations: allOrgs } = await findAllOrganizations(1, "");
 
   const membersInOrgs = new Set<string>();
   allOrgs.forEach((org) => {

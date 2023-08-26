@@ -384,7 +384,7 @@ export default function CodeSnippetModal({
                     secureAttributeSalt={secureAttributeSalt}
                   />
 
-                  {hashSecureAttributes && (
+                  {hashSecureAttributes && secureAttributes.length > 0 && (
                     <div
                       className="appbox mt-4"
                       style={{ background: "rgb(209 236 241 / 25%)" }}
@@ -419,11 +419,6 @@ export default function CodeSnippetModal({
                                         {a.datatype}
                                       </span>
                                     </td>
-                                    {i < secureAttributes.length - 1 ? (
-                                      <br />
-                                    ) : (
-                                      ""
-                                    )}
                                   </tr>
                                 ))}
                               </table>

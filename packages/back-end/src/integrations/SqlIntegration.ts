@@ -34,13 +34,14 @@ import {
 import { SegmentInterface } from "../../types/segment";
 import {
   getBaseIdTypeAndJoins,
-  replaceSQLVars,
+  compileSqlTemplate,
   format,
   FormatDialect,
   replaceCountStar,
 } from "../util/sql";
 import { formatInformationSchema } from "../util/informationSchemas";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
+import { TemplateVariables } from "../../types/sql";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -159,12 +160,6 @@ export default abstract class SqlIntegration
   convertDate(fromDB: any): Date {
     return getValidDate(fromDB);
   }
-  stddev(col: string) {
-    return `STDDEV(${col})`;
-  }
-  avg(col: string) {
-    return `AVG(${this.ensureFloat(col)})`;
-  }
   formatDate(col: string): string {
     return col;
   }
@@ -182,9 +177,6 @@ export default abstract class SqlIntegration
   }
   castUserDateCol(column: string): string {
     return column;
-  }
-  useAliasInGroupBy(): boolean {
-    return true;
   }
   formatDateTimeString(col: string): string {
     return this.castToString(col);
@@ -238,7 +230,7 @@ export default abstract class SqlIntegration
     return match;
   }
 
-  getPastExperimentQuery(params: PastExperimentParams) {
+  getPastExperimentQuery(params: PastExperimentParams): string {
     // TODO: for past experiments, UNION all exposure queries together
     const experimentQueries = (
       this.settings.queries?.exposure || []
@@ -268,12 +260,10 @@ export default abstract class SqlIntegration
             count(distinct ${q.userIdType}) as users
           FROM
             (
-              ${replaceSQLVars(q.query, { startDate: params.from })}
+              ${compileSqlTemplate(q.query, { startDate: params.from })}
             ) e${i}
           WHERE
-            ${this.castUserDateCol("timestamp")} > ${this.toTimestamp(
-            params.from
-          )}
+            timestamp > ${this.toTimestamp(params.from)}
           GROUP BY
             experiment_id,
             variation_id,
@@ -332,7 +322,10 @@ export default abstract class SqlIntegration
       __variations
     WHERE
       -- Skip experiments at start of date range since it's likely missing data
-      ${this.dateDiff(this.toTimestamp(params.from), "start_date")} > 2
+      ${this.dateDiff(
+        this.castUserDateCol(this.toTimestamp(params.from)),
+        "start_date"
+      )} > 2
     ORDER BY
       experiment_id ASC, variation_id ASC`,
       this.getFormatDialect()
@@ -538,20 +531,28 @@ export default abstract class SqlIntegration
   }
 
   //Test the validity of a query as cheaply as possible
-  getTestValidityQuery(query: string): string {
-    return this.getTestQuery(query, 1);
+  getTestValidityQuery(
+    query: string,
+    templateVariables?: TemplateVariables
+  ): string {
+    return this.getTestQuery(query, templateVariables, 1);
   }
 
-  getTestQuery(query: string, limit: number = 5): string {
+  getTestQuery(
+    query: string,
+    templateVariables?: TemplateVariables,
+    limit: number = 5
+  ): string {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);
-    const limitedQuery = replaceSQLVars(
+    const limitedQuery = compileSqlTemplate(
       `WITH __table as (
         ${query}
       )
       ${this.selectSampleRows("__table", limit)}`,
       {
         startDate,
+        templateVariables,
       }
     );
     return format(limitedQuery, this.getFormatDialect());
@@ -806,18 +807,20 @@ export default abstract class SqlIntegration
     }
     // Replace any placeholders in the user defined dimension SQL
     if (dimension?.type === "user") {
-      dimension.dimension.sql = replaceSQLVars(dimension.dimension.sql, {
+      dimension.dimension.sql = compileSqlTemplate(dimension.dimension.sql, {
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
+        templateVariables: metric.templateVariables,
       });
     }
     // Replace any placeholders in the segment SQL
     if (segment?.sql) {
-      segment.sql = replaceSQLVars(segment.sql, {
+      segment.sql = compileSqlTemplate(segment.sql, {
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
+        templateVariables: metric.templateVariables,
       });
     }
 
@@ -932,10 +935,11 @@ export default abstract class SqlIntegration
     WITH
       ${idJoinSQL}
       __rawExperiment as (
-        ${replaceSQLVars(exposureQuery.query, {
+        ${compileSqlTemplate(exposureQuery.query, {
           startDate: settings.startDate,
           endDate: settings.endDate,
           experimentId: settings.experimentId,
+          templateVariables: metric.templateVariables,
         })}
       ),
       __experiment as (${this.getExperimentCTE({
@@ -1764,7 +1768,8 @@ export default abstract class SqlIntegration
       }
     }
 
-    const timestampCol = this.castUserDateCol(cols.timestamp);
+    // BQ datetime cast for SELECT statements (do not use for where)
+    const timestampDateTimeColumn = this.castUserDateCol(cols.timestamp);
 
     const schema = this.getSchema();
 
@@ -1778,24 +1783,27 @@ export default abstract class SqlIntegration
     }
     // Add a rough date filter to improve query performance
     if (startDate) {
-      where.push(`${timestampCol} >= ${this.toTimestamp(startDate)}`);
+      where.push(`${cols.timestamp} >= ${this.toTimestamp(startDate)}`);
     }
     // endDate is now meaningful if ignoreConversionEnd
     if (endDate) {
-      where.push(`${timestampCol} <= ${this.toTimestamp(endDate)}`);
+      where.push(`${cols.timestamp} <= ${this.toTimestamp(endDate)}`);
     }
 
     return `-- Metric (${metric.name})
       SELECT
         ${userIdCol} as ${baseIdType},
         ${cols.value} as value,
-        ${timestampCol} as timestamp,
-        ${this.addHours(timestampCol, conversionDelayHours)} as conversion_start
+        ${timestampDateTimeColumn} as timestamp,
+        ${this.addHours(
+          timestampDateTimeColumn,
+          conversionDelayHours
+        )} as conversion_start
         ${
           ignoreConversionEnd
             ? ""
             : `, ${this.addHours(
-                timestampCol,
+                timestampDateTimeColumn,
                 conversionDelayHours + conversionWindowHours
               )} as conversion_end`
         }
@@ -1803,10 +1811,11 @@ export default abstract class SqlIntegration
         ${
           queryFormat === "sql"
             ? `(
-              ${replaceSQLVars(metric.sql || "", {
+              ${compileSqlTemplate(metric.sql || "", {
                 startDate,
                 endDate: endDate || undefined,
                 experimentId,
+                templateVariables: metric.templateVariables,
               })}
               )`
             : (schema && !metric.table?.match(/\./) ? schema + "." : "") +
@@ -1865,27 +1874,29 @@ export default abstract class SqlIntegration
     minMetricDelay: number;
     ignoreConversionEnd: boolean;
   }) {
-    const timestampColumn = this.castUserDateCol("e.timestamp");
+    const timestampColumn = "e.timestamp";
+    // BQ datetime cast for SELECT statements (do not use for where)
+    const timestampDateTimeColumn = this.castUserDateCol(timestampColumn);
 
     return `-- Viewed Experiment
     SELECT
       e.${baseIdType} as ${baseIdType},
       ${this.castToString("e.variation_id")} as variation,
-      ${timestampColumn} as timestamp,
+      ${timestampDateTimeColumn} as timestamp,
       ${
         isRegressionAdjusted
           ? `${this.addHours(
-              timestampColumn,
+              timestampDateTimeColumn,
               minMetricDelay
             )} AS preexposure_end,
             ${this.addHours(
-              timestampColumn,
+              timestampDateTimeColumn,
               minMetricDelay - regressionAdjustmentHours
             )} AS preexposure_start,`
           : ""
       }
       ${this.addHours(
-        timestampColumn,
+        timestampDateTimeColumn,
         conversionDelayHours
       )} as conversion_start
       ${experimentDimension ? `, e.${experimentDimension} as dimension` : ""}
@@ -1893,7 +1904,7 @@ export default abstract class SqlIntegration
         ignoreConversionEnd
           ? ""
           : `, ${this.addHours(
-              timestampColumn,
+              timestampDateTimeColumn,
               conversionDelayHours + conversionWindowHours
             )} as conversion_end`
       }    
@@ -2094,7 +2105,7 @@ export default abstract class SqlIntegration
             ${id2}
           FROM
             (
-              ${replaceSQLVars(join.query, {
+              ${compileSqlTemplate(join.query, {
                 startDate: from,
                 endDate: to,
                 experimentId,
@@ -2107,7 +2118,7 @@ export default abstract class SqlIntegration
       }
     }
     if (settings?.queries?.pageviewsQuery) {
-      const timestampColumn = this.castUserDateCol("i.timestamp");
+      const timestampColumn = "i.timestamp";
 
       if (
         ["user_id", "anonymous_id"].includes(id1) &&
@@ -2118,7 +2129,7 @@ export default abstract class SqlIntegration
           user_id,
           anonymous_id
         FROM
-          (${replaceSQLVars(settings.queries.pageviewsQuery, {
+          (${compileSqlTemplate(settings.queries.pageviewsQuery, {
             startDate: from,
             endDate: to,
             experimentId,
