@@ -161,7 +161,7 @@ the `Options` or `Client` types.
 The [code examples](#code-examples) demonstrate typical server usage
 patterns for `Attributes`.
 
-### `Options` And `Client` Types Semantics
+### `Options` and `Client` types semantics
 
 The `Options` type is a simple structure containing options used to
 initialise a GrowthBook client. An `Options` value is created once and
@@ -237,19 +237,91 @@ Here's a full example:
 	gb.LoadFeatures(nil)
 ```
 
-### Feature Auto-Refresh
+### Feature auto-refresh
+
+If your GrowthBook plan supports it, you can enable your Go SDK for
+streaming updates. This allows you to publish updates to feature
+definitions via the GrowthBook web application and for them to be
+immediately available in your Go applications using the Go SDK. (The
+updates are sent using [server-sent
+events](https://en.wikipedia.org/wiki/Server-sent_events)).
+
+In the Go SDK, streaming updates are handled by an autonomous
+goroutine that is managed by the SDK code. All you need to do is to
+call the `LoadFeatures` method with a `FeatureRepoOptions` options
+value with a `true` value for the `AutoRefresh` field. The feature
+values retrieved from the Go SDK will then (up to communications
+delays) be the latest values published in the GrowthBook web
+application.
 
 
+## Tracking Experiments and Feature Usage
 
-## Tracking Experiments
+The Go SDK supports mechanisms for tracking the results of experiments
+and feature usage. The `Options` value supports two kinds of
+callbacks:
+
+- A "tracking callback", which is a function that is called any time
+  an experiment is run to determine the value of a feature, so that
+  users can record the assigned value in an external event tracking or
+  analytics system.
+  
+- A "feature usage callback", which is called the first time a
+  particular result is returned for a feature, which allows for
+  tracking of feature result coverage.
+
+In addition to the tracking and feature usage callbacks, the
+`Client` type also supports more general "subscriptions", which
+are callback functions that are called any time `Run` is called,
+irrespective of whether or not a user is included in an experiment.
+The subscription system ensures that subscription callbacks are only
+called when the result of an experiment changes, or a new experiment
+is run.
+
+### Experiment tracking
 
 Any time an experiment is run to determine the value of a feature, we
 can run a callback function so you can record the assigned value in
-your event tracking or analytics system of choice.
+your event tracking or analytics system of choice. This callback is
+implemented using an `ExperimentTracker` interface with a single
+`Track` method. The `Options` type has an `ExperimentTracker` field
+that you can assign one of these interface values to, and the `Track`
+method of the interface will called whenever an experiment is run.
+
+There is a little bit of complexity here, because in most cases, you
+will not want to record *every* run of an experiment, but only
+*unique* experiments, based on hash values and variation IDs. This
+requires some sort of a cache to ensure that there are no repeated
+calls to the tracker for the same experiment. In server-side
+applications, horizontal scaling means that it is often not acceptable
+to use a simple in-process cache for this sort of thing: you need to
+use Redis or some other distributed caching system. The choice of
+caching system is very dependent on your individual application, so
+the Go SDK does not impose any requirements on your caching layer.
+
+We recommend that you write a caching layer to wrap your
+`ExperimentTracker` or implement the caching directly within your
+`ExperimentTracker` implementation. For development use, we provide a
+simple `SingleProcessExperimentTrackingCache` cache implementation.
+
+:::warning Warning
+The `SingleProcessExperimentTrackingCache` implementation is
+thread-safe, but is not appropriate for use in a multi-process
+setting. If you use it in such a setting, your experiment tracking
+statistics will not be correct, because your tracker will record the
+same experiment in each server process. You need to use a distributed
+cache in this case.
+:::
+
+The simplest possible usage of experiment tracking then looks
+something like this, using a simple callback (the `ExperimentCallback`
+type is used to wrap a simple callback to give an `ExperimentTracker`
+value) and a simple single-process caching implementation (to be used
+only in development!):
 
 ```go
-context.WithTrackingCallback(func(experiment *growthbook.Experiment,
-  result *growthbook.ExperimentResult) {
+func TrackCallback(ctx context.Context,
+  experiment *growthbook.Experiment, result *growthbook.ExperimentResult) {
     // Example using Segment.io
     client.Enqueue(analytics.Track{
       UserId: context.Attributes()["id"],
@@ -260,9 +332,42 @@ context.WithTrackingCallback(func(experiment *growthbook.Experiment,
     })
   }
 )
+
+...
+
+  tracker := growthbook.NewSingleProcessExperimentTrackingCache(
+    &growthbook.ExperimentCallback{TrackCallback},
+  }
+  
+  client := growthbook.NewClient(&growthbook.Options{
+    ...
+    ExperimentTracker: tracker,
+    ...
+  })
 ```
 
-## Error handling and logging
+### Feature usage tracking
+
+A similar mechanism is provided for tracking feature usage. This
+tracker is called any time a feature result is generated which can be
+used for collecting statistics about feature values, rules and so on.
+
+The Go SDK mechanisms to support this parallel the features for
+experiment tracking:
+
+- `FeatureUsageTracker`: an interface with a single `OnFeatureUsage` method;
+- `FeatureUsageCallback`: a wrapper for a simple callback to implement
+  the `FeatureUsageTracker` interface;
+- `SingleProcessFeatureUsageTrackingCache`: a simple single-process
+  feature usage cache for development use.
+
+:::warning Warning
+The considerations about caching in multi-process server
+implementations apply for feature tracking, just as they do for
+experiment tracking!
+:::
+
+## Error Handling and Logging
 
 The GrowthBook Go SDK aims to follow normal Go practices for error
 handling. Most SDK functions that can have error conditions return a
@@ -321,9 +426,10 @@ if result.Source == growthbook.ExperimentResultSource {
 ```
 
 Defaulting of the values of feature results is assisted by the
-`GetValueWithDefault` method on the `FeatureResult` type. For example,
-this code evaluates the result of a feature and returns the feature
-value, defaulting to "blue" if the feature has no value:
+`Client.GetFeatureValue`, which takes a default value, and just
+returns the feature value. For example, this code evaluates the result
+of a feature and returns the feature value, defaulting to "blue" if
+the feature has no value:
 
 ```go
 color, err := gb.GetFeatureValue("signup-button-color", userAttributes, "blue")
@@ -340,20 +446,21 @@ representations](#json-data-representations)).
 
 It is possible to create `Feature` values in the Go SDK by hand,
 simply by creating Go values of the appropriate types (`Feature`,
-`FeatureValue`, `FeatureRule`), but the most common use case is
-likely to be ingesting feature definitions from JSON data using the
-`ParseFeatureMap` function.
+`FeatureValue`, `FeatureRule`), but the most common use case (apart
+from loading features directly from GrowthBook) is likely to be
+ingesting feature definitions from JSON data using Go's standard
+`json.Unmarshal` function.
 
 ## Inline Experiments
 
 Experiments can be defined and run using the `Experiment` type and the
 `Run` method of the `Client` type. Experiment definitions can be
 created directly as values of the `Experiment` type, or parsed from
-JSON definitions using the `ParseExperiment` function. Passing an
-`Experiment` value to the `Run` method of the `Client` type will
-run the experiment, returing an `ExperimentResult` value that contains
-the resulting feature value. This allows users to run arbitrary
-experiments without providing feature definitions up-front.
+JSON definitions using `json.Unmarshal`. Passing an `Experiment` value
+to the `Run` method of the `Client` type will run the experiment,
+returing an `ExperimentResult` value that contains the resulting
+feature value. This allows users to run arbitrary experiments without
+providing feature definitions up-front.
 
 ```go
 experiment :=
@@ -413,7 +520,7 @@ exp := growthbook.NewExperiment("my-test").
   WithNamespace(&growthbook.Namespace{"pricing", 0.0, 0.5})
 ```
 
-### Inline Experiment Return Value
+### Inline experiment return value
 
 A call to `Client.Run(experiment)` returns a value of type
 `*Result`:
@@ -447,7 +554,7 @@ The `HashUsed` flag will only be true if the user was randomly
 assigned a variation. If the user was forced into a specific variation
 instead, this flag will be false.
 
-### Example Experiments
+### Example experiments
 
 3-way experiment with uneven variation weights:
 
@@ -512,29 +619,31 @@ gb.Run(NewExperiment("by-company-id").
 )
 ```
 
-## JSON data representations
+## JSON Data Representations
 
 For interoperability of the GrowthBook Go SDK with versions of the SDK
 in other languages, the core "input" values of the SDK (in particular,
 `Options` and `Experiment` values and maps of feature definitions) can
 be created by parsing JSON data.
 
-A common use case is to download the feature definition from the GrowthBook SDK endpoints, and parse them into a feature map that can be passed into the GrowthBook `Options`.
+A common use case is to download the feature definition from the
+GrowthBook SDK endpoints, and parse them into a feature map that can
+be passed into the GrowthBook `Options`.
 
-The shape of the GrowthBook response can use the following struct:
+The shape of the GrowthBook response is defined in the Go SDK using
+the `FeatureAPIResponse` type:
 
 ```go
-// GBFeaturesResponse
-// GrowthBook features response
-type GBFeaturesResponse struct {
-	Status            int             `json:"status"`
-	Features          json.RawMessage `json:"features"`
-	EncryptedFeatures string          `json:"encryptedFeatures,omitempty"` // Not yet supported in the Go SDK
-	DateUpdated       time.Time       `json:"dateUpdated"`
+type FeatureAPIResponse struct {
+	Status            int                 `json:"status"`
+	Features          map[string]*Feature `json:"features"`
+	DateUpdated       time.Time           `json:"dateUpdated,omitempty"`
+	EncryptedFeatures string              `json:"encryptedFeatures,omitempty"`
 }
 ```
 
-Next, get JSON from GrowthBook and deserialize it into GBFeaturesResponse struct.
+We can retrieve JSON data from GrowthBook and deserialize it into
+a `FeatureAPIResponse` value:
 
 ```go
 res, err := http.Get("https://cdn.growthbook.io/api/features/<environment_key>")
@@ -543,65 +652,45 @@ if err != nil {
 	os.Exit(1)
 }
 
-var featuresResponse GBFeaturesResponse
+var featuresResponse growthbook.FeatureAPIResponse
 err = json.NewDecoder(res.Body).Decode(&featuresResponse)
 if err != nil {
 	fmt.Printf("Error decoding JSON: %s \n", err)
 	os.Exit(1)
 }
 
-features := growthbook.ParseFeatureMap(featuresResponse.Features)
+// Create a growthbook.GrowthBook instance using the decoded features.
+gb := growthbook.NewClient(nil).WithFeatures(featuresResponse.Features).
 
-// Create a growthbook.Options instance with the features and attributes
-context := growthbook.NewOptions().
-	WithFeatures(features).
-	WithAttributes(userAttributes)
-
-// Create a growthbook.GrowthBook instance
-gb := growthbook.New(context)
+// Evaluate a feature.
+result, err := gb.EvalFeature("feature", userAttributes)
 ```
 
-The functions that implement this JSON processing functionality have
-names like `ParseOptions`, `BuildOptions`, and so on. Each `Parse...`
-function process raw JSON data (as a `[]byte` value), while the
-`Build...` functions process JSON objects unmarshalled to Go values of
-type `map[string]any`. This provides flexibility in ingestion of JSON
-data.
+All of the types that might need to be deserialized from JSON suport
+Go's standard `json.UnmarshalJSON` interface.
 
-## Tracking and subscriptions
-
-The `Options` value supports two kinds of callbacks:
-
-- A "tracking callback", which is a function that is called any time
-  an experiment is run to determine the value of a feature, so that
-  users can record the assigned value in an external event tracking or
-  analytics system.
-  
-- A "feature usage callback", which is called the first time a
-  particular result is returned for a feature, which allows for
-  tracking of feature result coverage.
-
-In addition to the tracking and feature usage callbacks, the
-`Client` type also supports more general "subscriptions", which
-are callback functions that are called any time `Run` is called,
-irrespective of whether or not a user is included in an experiment.
-The subscription system ensures that subscription callbacks are only
-called when the result of an experiment changes, or a new experiment
-is run.
+:::tip Recommendation
+In the most common use case, where you use the `Client.LoadFeatures`
+method to load features from GrowthBook, all of the deserialization
+and installation of features is handled for you by the Go SDK. We
+recommend this approach for most users.
+:::
 
 ## Code Examples
 
-- [Go server example that fetches from the GrowthBook API <ExternalLink/>](https://github.com/growthbook/examples/tree/main/go-example)
-- [Go CLI app that ingests features from file <ExternalLink/>](https://github.com/ian-ross/growthbook-golang-example)
+- [Server example using `LoadFeatures` <ExternalLink/>](https://github.com/growthbook/examples/tree/main/go-example)
+- [Server example using Echo framework
+  <ExternalLink/>](https://github.com/growthbook/examples/tree/main/go-echo-example)
+  ([Echo framework](https://echo.labstack.com/))
 
 ## Further Reading
 
 - [godoc <ExternalLink/>](https://growthbook.github.io/growthbook-golang)
 
 
-## Internal Details
+## Implementation Details and Special Cases
 
-### Locking strategy
+### Locking Strategy
 
 To support feature loading from the GrowthBook API, the GrowthBook Go
 SDK includes some data structures that are shared between user
@@ -627,11 +716,7 @@ under these conditions are always unlocked when the function returns
 the function containing the defer, whether that's through a normal
 return, or because of a panic.
 
-
-
-## Special Cases
-
-### Custom Feature Caching
+### Custom feature caching
 
 The GrowthBook Go SDK comes with a custom in-memory cache. If you
 scale your web application horizontally across multiple nodes, the
@@ -717,12 +802,12 @@ var options *redis.Options = &redis.Options{
 growthbook.ConfigureCache(NewRedisFeatureCache("gb:", options))
 ```
 
-### Custom Feature Loading
+### Custom feature loading
 
 If you prefer to handle feature fetching/caching logic yourself, you
 can use the `WithFeatures` method of `Client`. This takes a
 `FeatureMap` value, which is defined as `map[string]*Feature`, and
-which can be created from JSON data using the `ParseFeatureMap`
+which can be created from JSON data by deserializing using Go's susing the `ParseFeatureMap`
 function (see [JSON data
 representations](#json-data-representations)). You can pass a feature
 map generated this way to the `WithFeatures` method of `Client`:
