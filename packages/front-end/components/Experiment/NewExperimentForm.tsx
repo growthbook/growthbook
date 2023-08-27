@@ -74,21 +74,17 @@ export function getNewExperimentDatasourceDefaults(
   project?: string,
   initialValue?: Partial<ExperimentInterfaceStringDates>
 ): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
-  const dsMap = new Map(
-    datasources
-      .filter((d) => isDatasourceValidForProject(d, project))
-      .map((d) => [d.id, d])
+  const validDatasources = datasources.filter((d) =>
+    isDatasourceValidForProject(d, project)
   );
 
-  let initialDatasource = dsMap.get(
-    initialValue?.datasource || settings.defaultDataSource || ""
-  );
+  if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };
 
-  if (!initialDatasource) {
-    const options = [...datasources.values()];
-    if (!options.length) return { datasource: "", exposureQueryId: "" };
-    initialDatasource = options[0];
-  }
+  const initialId = initialValue?.datasource || settings.defaultDataSource;
+
+  const initialDatasource =
+    (initialId && validDatasources.find((d) => d.id === initialId)) ||
+    validDatasources[0];
 
   return {
     datasource: initialDatasource.id,
