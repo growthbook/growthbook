@@ -13,7 +13,10 @@ import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getExposureQuery } from "@/services/datasources";
+import {
+  getExposureQuery,
+  isDatasourceValidForProject,
+} from "@/services/datasources";
 import { getEqualWeights } from "@/services/utils";
 import { generateVariationId, useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -71,22 +74,25 @@ export function getNewExperimentDatasourceDefaults(
   project?: string,
   initialValue?: Partial<ExperimentInterfaceStringDates>
 ): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
-  const initialDatasource =
-    initialValue?.datasource ||
-    (settings.defaultDataSource
-      ? settings.defaultDataSource
-      : datasources?.find(
-          (d) => !d.projects || d.projects.includes(project || "")
-        )?.id) ||
-    "";
+  const dsMap = new Map(
+    datasources
+      .filter((d) => isDatasourceValidForProject(d, project))
+      .map((d) => [d.id, d])
+  );
 
-  const ds = datasources.find((d) => d.id === ds);
+  let initialDatasource = dsMap.get(
+    initialValue?.datasource || settings.defaultDataSource || ""
+  );
+
+  if (!initialDatasource) {
+    initialDatasource = datasources.keys()[0];
+  }
 
   return {
-    datasource: initialDatasource,
+    datasource: initialDatasource?.id || "",
     exposureQueryId:
       getExposureQuery(
-        initialDatasource ? ds?.settings : undefined,
+        initialDatasource ? initialDatasource?.settings : undefined,
         initialValue?.exposureQueryId,
         initialValue?.userIdType
       )?.id || "",

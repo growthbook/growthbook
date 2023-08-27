@@ -68,10 +68,10 @@ export default function RuleModal({
   const rules = getRules(feature, environment);
   const rule = rules[i];
 
-  const { project, datasources } = useDefinitions();
+  const { datasources } = useDefinitions();
 
   const { experiments, experimentsMap, mutateExperiments } = useExperiments(
-    project
+    feature.project
   );
 
   const [allowDuplicateTrackingKey, setAllowDuplicateTrackingKey] = useState(
