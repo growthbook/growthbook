@@ -7,14 +7,14 @@ import {
 import { FaQuestionCircle } from "react-icons/fa";
 import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import { getAffectedEnvsForExperiment } from "shared/util";
+import {
+  getAffectedEnvsForExperiment,
+  isProjectListValidForProject,
+} from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  getExposureQuery,
-  isDatasourceValidForProject,
-} from "@/services/datasources";
+import { getExposureQuery } from "@/services/datasources";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
@@ -294,7 +294,9 @@ const AnalysisForm: FC<{
           form.setValue("datasource", newDatasource);
         }}
         options={datasources
-          .filter((ds) => isDatasourceValidForProject(ds, experiment.project))
+          .filter((ds) =>
+            isProjectListValidForProject(ds.projects, experiment.project)
+          )
           .map((d) => ({
             value: d.id,
             label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,

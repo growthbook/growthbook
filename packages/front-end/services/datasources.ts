@@ -13,20 +13,6 @@ import {
 } from "back-end/types/organization";
 import { PermissionFunctions } from "@/services/UserContext";
 
-export function isDatasourceValidForProject(
-  ds: DataSourceInterfaceWithParams,
-  project?: string
-) {
-  // If a datasource is not limited by project, it's always valid
-  if (!ds.projects || !ds.projects.length) return true;
-
-  // If a datasource IS limited by project, but a project is not selected, it is NOT valid
-  if (!project) return false;
-
-  // It's valid if the datasource project list contains the selected project
-  return ds.projects.includes(project);
-}
-
 function camelToUnderscore(orig) {
   return orig
     .replace(/\s+/g, "_")

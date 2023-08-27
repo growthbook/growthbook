@@ -9,14 +9,12 @@ import { useRouter } from "next/router";
 import { getValidDate } from "shared/dates";
 import { DataSourceInterfaceWithParams } from "back-end/types/datasource";
 import { OrganizationSettings } from "back-end/types/organization";
+import { isProjectListValidForProject } from "shared/util";
 import { useWatching } from "@/services/WatchProvider";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  getExposureQuery,
-  isDatasourceValidForProject,
-} from "@/services/datasources";
+import { getExposureQuery } from "@/services/datasources";
 import { getEqualWeights } from "@/services/utils";
 import { generateVariationId, useAttributeSchema } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -75,7 +73,7 @@ export function getNewExperimentDatasourceDefaults(
   initialValue?: Partial<ExperimentInterfaceStringDates>
 ): Pick<ExperimentInterfaceStringDates, "datasource" | "exposureQueryId"> {
   const validDatasources = datasources.filter((d) =>
-    isDatasourceValidForProject(d, project)
+    isProjectListValidForProject(d.projects, project)
   );
 
   if (!validDatasources.length) return { datasource: "", exposureQueryId: "" };

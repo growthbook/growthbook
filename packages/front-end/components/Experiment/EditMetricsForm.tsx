@@ -8,6 +8,7 @@ import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_REGRESSION_ADJUSTMENT_DAYS } from "shared/constants";
 import { MetricInterface } from "back-end/types/metric";
 import { OrganizationSettings } from "back-end/types/organization";
+import { isProjectListValidForProject } from "shared/util";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "../../services/auth";
 import Modal from "../Modal";
@@ -112,11 +113,9 @@ const EditMetricsForm: FC<{
   const datasource = getDatasourceById(experiment.datasource);
   const filteredMetrics = metrics
     .filter((m) => m.datasource === datasource?.id)
-    .filter((m) => {
-      if (!experiment.project) return true;
-      if (!m?.projects?.length) return true;
-      return m.projects.includes(experiment.project);
-    });
+    .filter((m) =>
+      isProjectListValidForProject(m.projects, experiment.project)
+    );
 
   const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
     experiment.metricOverrides || [],
