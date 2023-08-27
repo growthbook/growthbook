@@ -142,6 +142,7 @@ const CompactResults: FC<{
         status={status}
         queryStatusData={queryStatusData}
         variations={variations}
+        baselineRow={2}
         rows={rows.filter((r) => !r.isGuardrail)}
         id={id}
         hasRisk={risk.hasRisk}

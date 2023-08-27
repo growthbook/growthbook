@@ -11,7 +11,10 @@ import {
 import { CSSTransition } from "react-transition-group";
 import { RxInfoCircled } from "react-icons/rx";
 import { MetricInterface } from "back-end/types/metric";
-import { ExperimentReportVariation } from "back-end/types/report";
+import {
+  ExperimentReportVariation,
+  ExperimentReportVariationWithIndex,
+} from "back-end/types/report";
 import { ExperimentStatus } from "back-end/types/experiment";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
@@ -51,6 +54,8 @@ import PercentGraph from "./PercentGraph";
 export type ResultsTableProps = {
   id: string;
   variations: ExperimentReportVariation[];
+  variationFilter?: number[];
+  baselineRow?: number;
   status: ExperimentStatus;
   queryStatusData?: QueryStatusData;
   isLatestPhase: boolean;
@@ -88,6 +93,8 @@ export default function ResultsTable({
   labelHeader,
   editMetrics,
   variations,
+  variationFilter,
+  baselineRow = 0,
   startDate,
   renderLabelColumn,
   dateCreated,
@@ -97,6 +104,14 @@ export default function ResultsTable({
   sequentialTestingEnabled = false,
   isTabActive,
 }: ResultsTableProps) {
+  // fix any potential filter conflicts
+  if (variationFilter?.includes(baselineRow)) {
+    variationFilter = variationFilter.filter((v) => v !== baselineRow);
+  }
+  if (variationFilter?.length === variations.length) {
+    variationFilter = [];
+  }
+
   const {
     metricDefaults,
     getMinSampleSizeForMetric,
@@ -133,7 +148,14 @@ export default function ResultsTable({
   useLayoutEffect(onResize, []);
   useEffect(onResize, [isTabActive]);
 
-  const baselineRow = 0;
+  const orderedVariations: ExperimentReportVariationWithIndex[] = useMemo(() => {
+    return variations
+      .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
+      .sort((a, b) => {
+        if (a.index === baselineRow) return -1;
+        return a.index - b.index;
+      });
+  }, [variations, baselineRow]);
 
   const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
     const rr: (RowResults | "query error" | null)[][] = [];
@@ -144,9 +166,12 @@ export default function ResultsTable({
         cr: 0,
         users: 0,
       };
-      variations.map((v, j) => {
+      orderedVariations.map((v) => {
         let skipVariation = false; // todo: use filter
-        if (j === baselineRow) {
+        if (variationFilter?.length && !variationFilter?.includes(v.index)) {
+          skipVariation = true;
+        }
+        if (v.index === baselineRow) {
           skipVariation = true;
         }
         if (skipVariation) {
@@ -160,7 +185,7 @@ export default function ResultsTable({
           rr[i].push("query error");
           return;
         }
-        const stats = row.variations[j] || {
+        const stats = row.variations[v.index] || {
           value: 0,
           cr: 0,
           users: 0,
@@ -189,7 +214,9 @@ export default function ResultsTable({
     return rr;
   }, [
     rows,
-    variations,
+    orderedVariations,
+    baselineRow,
+    variationFilter,
     metricDefaults,
     metricsAsGuardrails,
     getMinSampleSizeForMetric,
@@ -297,32 +324,30 @@ export default function ResultsTable({
     }
 
     const row = rows[metricRow];
-    const baseline = row.variations[baselineRow] || {
+    const baseline = row.variations[orderedVariations[0].index] || {
       value: 0,
       cr: 0,
       users: 0,
     };
-    const stats = row.variations[variationRow] || {
+    const stats = row.variations[orderedVariations[variationRow].index] || {
       value: 0,
       cr: 0,
       users: 0,
     };
     const metric = row.metric;
-    const variation = variations[variationRow];
-    const baselineVariation = variations[baselineRow];
+    const variation = orderedVariations[variationRow];
+    const baselineVariation = orderedVariations[0];
     const rowResults = rowsResults[metricRow][variationRow];
     if (!rowResults) return;
     if (rowResults === "query error") return;
     showTooltip({
       tooltipData: {
         metricRow,
-        variationRow,
         metric,
         variation,
         stats,
         baseline,
         baselineVariation,
-        baselineRow,
         rowResults,
         statsEngine,
         pValueCorrection,
@@ -552,8 +577,8 @@ export default function ResultsTable({
                     domain,
                   })}
 
-                  {variations.map((v, j) => {
-                    const stats = row.variations[j] || {
+                  {orderedVariations.map((v, j) => {
+                    const stats = row.variations[v.index] || {
                       value: 0,
                       cr: 0,
                       users: 0,
@@ -612,7 +637,7 @@ export default function ResultsTable({
                         key={j}
                       >
                         <td
-                          className={`variation with-variation-label variation${j}`}
+                          className={`variation with-variation-label variation${v.index}`}
                           style={{
                             width: 220 * tableCellScale,
                           }}
@@ -622,7 +647,7 @@ export default function ResultsTable({
                               className="label ml-1"
                               style={{ width: 20, height: 20 }}
                             >
-                              {j}
+                              {v.index}
                             </span>
                             <span
                               className="d-inline-block text-ellipsis"
@@ -652,12 +677,12 @@ export default function ResultsTable({
                                 width: 1,
                                 height:
                                   ROW_HEIGHT -
-                                  (j < variations.length - 1 ? 0 : 18) -
+                                  (j < orderedVariations.length - 1 ? 0 : 18) -
                                   (j == 2 ? 5 : 0),
                                 marginTop: j == 2 ? 5 : 0,
                               }}
                             />
-                            {j === variations.length - 1 ? (
+                            {j === orderedVariations.length - 1 ? (
                               <div
                                 className="border-top"
                                 style={{
