@@ -85,14 +85,16 @@ export function getNewExperimentDatasourceDefaults(
   );
 
   if (!initialDatasource) {
-    initialDatasource = datasources.keys()[0];
+    const options = [...datasources.values()];
+    if (!options.length) return { datasource: "", exposureQueryId: "" };
+    initialDatasource = options[0];
   }
 
   return {
-    datasource: initialDatasource?.id || "",
+    datasource: initialDatasource.id,
     exposureQueryId:
       getExposureQuery(
-        initialDatasource ? initialDatasource?.settings : undefined,
+        initialDatasource.settings,
         initialValue?.exposureQueryId,
         initialValue?.userIdType
       )?.id || "",
