@@ -352,7 +352,12 @@ export abstract class QueryRunner<
     }, 30000);
 
     // Run the query in the background
-    logger.debug("Start executing query in background");
+    logger.debug(`Start executing query in background: ${doc.id}`);
+    await updateQuery(doc, {
+      startedAt: new Date(),
+      status: "running",
+    });
+
     run(doc.query)
       .then(async ({ rows, statistics }) => {
         clearInterval(timer);
