@@ -295,8 +295,12 @@ export default function ResultsTable({
     if (targetLeft < 0) {
       targetLeft = 0;
     }
-    if (targetLeft + Math.min(TOOLTIP_WIDTH, window.innerWidth) > window.innerWidth) {
-      targetLeft = window.innerWidth - Math.min(TOOLTIP_WIDTH, window.innerWidth);
+    if (
+      targetLeft + Math.min(TOOLTIP_WIDTH, window.innerWidth) >
+      window.innerWidth
+    ) {
+      targetLeft =
+        window.innerWidth - Math.min(TOOLTIP_WIDTH, window.innerWidth);
     }
 
     if (hoveredX === null && hoveredY === null) {
