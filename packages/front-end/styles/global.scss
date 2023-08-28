@@ -451,7 +451,7 @@ pre {
           white-space: normal;
         }
         @media (max-width: 750px) {
-          font-size: 12px;
+          font-size: 10px;
           max-width: 140px;
         }
       }
@@ -461,6 +461,9 @@ pre {
           font-size: 12px;
           margin-right: 0 !important;
           padding: 0 !important;
+        }
+        @media (max-width: 500px) {
+          display: none;
         }
       }
     }

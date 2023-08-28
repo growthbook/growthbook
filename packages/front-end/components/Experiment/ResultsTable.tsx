@@ -279,7 +279,7 @@ export default function ResultsTable({
       yAlign = "bottom";
     }
 
-    const targetLeft: number =
+    let targetLeft: number =
       (layoutX === "element-left"
         ? (target.getBoundingClientRect()?.left ?? 0) - TOOLTIP_WIDTH + 25
         : layoutX === "element-right"
@@ -290,6 +290,14 @@ export default function ResultsTable({
             2 -
           TOOLTIP_WIDTH / 2
         : event.clientX + 10) + offsetX;
+
+    // Prevent tooltip from going off the screen (x-axis)
+    if (targetLeft < 0) {
+      targetLeft = 0;
+    }
+    if (targetLeft + Math.min(TOOLTIP_WIDTH, window.innerWidth) > window.innerWidth) {
+      targetLeft = window.innerWidth - Math.min(TOOLTIP_WIDTH, window.innerWidth);
+    }
 
     if (hoveredX === null && hoveredY === null) {
       setHoveredX(targetLeft - containerBounds.left);
@@ -368,6 +376,7 @@ export default function ResultsTable({
           left={hoveredX ?? 0}
           top={hoveredY ?? 0}
           data={tooltipData}
+          tooltipOpen={tooltipOpen}
           close={closeTooltip}
           onPointerMove={resetTimeout}
           onClick={resetTimeout}
