@@ -74,7 +74,7 @@ export type ResultsTableProps = {
 };
 
 const ROW_HEIGHT = 56;
-const METRIC_LABEL_ROW_HEIGHT = 40;
+const METRIC_LABEL_ROW_HEIGHT = 44;
 const SPACER_ROW_HEIGHT = 6;
 
 export default function ResultsTable({
@@ -590,7 +590,23 @@ export default function ResultsTable({
                             width: 220 * tableCellScale,
                           }}
                         >
-                          {v.name}
+                          <div className="d-flex align-items-center">
+                            <span
+                              className="label ml-1"
+                              style={{ width: 20, height: 20 }}
+                            >
+                              {j}
+                            </span>
+                            <span
+                              className="d-inline-block text-ellipsis"
+                              title={v.name}
+                              style={{
+                                width: 165 * tableCellScale,
+                              }}
+                            >
+                              {v.name}
+                            </span>
+                          </div>
                         </td>
                         {j > 0 ? (
                           // draw baseline value once, merge rows

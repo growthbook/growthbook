@@ -498,26 +498,6 @@ pre {
     border-color: transparent;
   }
 
-  .with-variation-label {
-    padding-left: 18px;
-    &.variation0,
-    &.variation4 {
-      box-shadow: inset 10px 0 0 colors.$variant-0;
-    }
-    &.variation1,
-    &.variation5 {
-      box-shadow: inset 10px 0 0 colors.$variant-1;
-    }
-    &.variation2,
-    &.variation6 {
-      box-shadow: inset 10px 0 0 colors.$variant-2;
-    }
-    &.variation3,
-    &.variation7 {
-      box-shadow: inset 10px 0 0 colors.$variant-3;
-    }
-  }
-
   table-layout: fixed;
   width: 100%;
   th,
