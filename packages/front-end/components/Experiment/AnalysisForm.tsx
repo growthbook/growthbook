@@ -252,18 +252,22 @@ const AnalysisForm: FC<{
         labelClassName="font-weight-bold"
         value={datasource?.id || ""}
         onChange={(newDatasource) => {
-          // Don't do anything if the selected one doesn't change
-          if (newDatasource === (datasource?.id || "")) {
+          form.setValue("datasource", newDatasource);
+
+          // If unsetting the datasource, leave all the other settings alone
+          // That way, it will be restored if the user switches back to the previous value
+          if (!newDatasource) {
             return;
           }
 
+          // If the exposure query is now invalid
+          const ds = getDatasourceById(newDatasource);
+          if (!getExposureQuery(ds?.settings, form.watch("exposureQueryId"))) {
+            form.setValue("exposureQueryId", "");
+          }
+
+          // If the segment is now invalid
           const segment = form.watch("segment");
-          const activationMetric = form.watch("activationMetric");
-          const metrics = form.watch("metrics");
-          const guardrails = form.watch("guardrails");
-
-          form.setValue("exposureQueryId", "");
-
           if (
             segment &&
             getSegmentById(segment)?.datasource !== newDatasource
@@ -271,6 +275,8 @@ const AnalysisForm: FC<{
             form.setValue("segment", "");
           }
 
+          // If the activationMetric is now invalid
+          const activationMetric = form.watch("activationMetric");
           if (
             activationMetric &&
             getMetricById(activationMetric)?.datasource !== newDatasource
@@ -278,20 +284,23 @@ const AnalysisForm: FC<{
             form.setValue("activationMetric", "");
           }
 
+          // Filter the selected metrics to only valid ones
+          const metrics = form.watch("metrics");
           form.setValue(
             "metrics",
             metrics.filter(
               (m) => getMetricById(m)?.datasource === newDatasource
             )
           );
+
+          // Filter the selected guardrails to only valid ones
+          const guardrails = form.watch("guardrails");
           form.setValue(
             "guardrails",
             guardrails.filter(
               (m) => getMetricById(m)?.datasource === newDatasource
             )
           );
-
-          form.setValue("datasource", newDatasource);
         }}
         options={datasources
           .filter((ds) =>
