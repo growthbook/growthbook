@@ -73,8 +73,8 @@ export type ResultsTableProps = {
   isTabActive: boolean;
 };
 
-const ROW_HEIGHT = 42;
-const METRIC_LABEL_ROW_HEIGHT = 34;
+const ROW_HEIGHT = 56;
+const METRIC_LABEL_ROW_HEIGHT = 44;
 const SPACER_ROW_HEIGHT = 6;
 
 export default function ResultsTable({
@@ -390,15 +390,12 @@ export default function ResultsTable({
 
       <div ref={tableContainerRef} className="experiment-results-wrapper">
         <div className="w-100" style={{ minWidth: 700 }}>
-          <table
-            id="main-results"
-            className="experiment-results table-borderless table-sm"
-          >
+          <table id="main-results" className="experiment-results table-sm">
             <thead>
               <tr className="results-top-row">
                 <th
                   style={{
-                    lineHeight: "16px",
+                    lineHeight: "15px",
                     width: 220 * tableCellScale,
                   }}
                   className="axis-col header-label"
@@ -420,48 +417,55 @@ export default function ResultsTable({
                 {!noMetrics ? (
                   <>
                     <th
-                      style={{
-                        width: 120 * tableCellScale,
-                        lineHeight: "16px",
-                      }}
+                      style={{ width: 120 * tableCellScale }}
                       className="axis-col label"
                     >
-                      Baseline
-                      <div
-                        className={`variation variation${baselineRow} with-variation-label d-inline-flex align-items-center`}
-                        style={{ marginBottom: 2 }}
+                      <Tooltip
+                        usePortal={true}
+                        innerClassName={"text-left"}
+                        body={
+                          <div style={{ lineHeight: 1.5 }}>
+                            Each variation is compared against the baseline:
+                            <div
+                              className={`variation variation${baselineRow} with-variation-label d-flex mt-1 align-items-center`}
+                              style={{ marginBottom: 2 }}
+                            >
+                              <span
+                                className="label"
+                                style={{ width: 16, height: 16 }}
+                              >
+                                {baselineRow}
+                              </span>
+                              <span
+                                className="d-inline-block text-ellipsis font-weight-bold"
+                                style={{
+                                  width: 80 * tableCellScale,
+                                  marginRight: -20,
+                                }}
+                              >
+                                {variations[baselineRow].name}
+                              </span>
+                            </div>
+                          </div>
+                        }
                       >
-                        <span
-                          className="label"
-                          style={{ width: 16, height: 16 }}
-                        >
-                          {baselineRow}
-                        </span>
-                        <span
-                          className="d-inline-block text-ellipsis font-weight-bold"
-                          style={{
-                            width: 80 * tableCellScale,
-                            marginRight: -20,
-                          }}
-                        >
-                          {variations[baselineRow].name}
-                        </span>
-                      </div>
+                        Baseline <RxInfoCircled />
+                      </Tooltip>
                     </th>
                     <th
                       style={{ width: 120 * tableCellScale }}
                       className="axis-col label"
                     >
-                      Value
+                      Variation
                     </th>
                     <th
-                      style={{ width: 100 * tableCellScale }}
+                      style={{ width: 120 * tableCellScale }}
                       className="axis-col label text-right"
                     >
                       {statsEngine === "bayesian" ? (
                         <div
                           style={{
-                            lineHeight: "16px",
+                            lineHeight: "15px",
                             marginBottom: 2,
                             marginLeft: -20,
                           }}
@@ -517,7 +521,7 @@ export default function ResultsTable({
                       style={{ width: 140 * tableCellScale }}
                       className="axis-col label text-right"
                     >
-                      <div style={{ lineHeight: "16px", marginBottom: 2 }}>
+                      <div style={{ lineHeight: "15px", marginBottom: 2 }}>
                         <Tooltip
                           usePortal={true}
                           innerClassName={"text-left"}
@@ -551,13 +555,9 @@ export default function ResultsTable({
               };
 
               return (
-                <tbody
-                  className="results-group-row"
-                  key={i}
-                  style={{ boxShadow: "0 1px #66666620" }}
-                >
+                <tbody className={clsx("results-group-row")} key={i}>
                   {drawEmptyRow({
-                    className: "results-label-row",
+                    className: "results-label-row bg-light",
                     label: renderLabelColumn(row.label, row.metric, row),
                     graphCellWidth,
                     rowHeight: METRIC_LABEL_ROW_HEIGHT,
@@ -639,6 +639,7 @@ export default function ResultsTable({
                             </span>
                             <span
                               className="d-inline-block text-ellipsis"
+                              title={v.name}
                               style={{
                                 width: 165 * tableCellScale,
                               }}
@@ -647,7 +648,7 @@ export default function ResultsTable({
                             </span>
                           </div>
                         </td>
-                        {j === 1 ? (
+                        {j > 0 ? (
                           // draw baseline value once, merge rows
                           <MetricValueColumn
                             metric={row.metric}
@@ -657,36 +658,13 @@ export default function ResultsTable({
                             newUi={true}
                           />
                         ) : (
-                          <td className="align-top">
-                            <div
-                              className="border-left"
-                              style={{
-                                marginLeft: "20px",
-                                width: 1,
-                                height:
-                                  ROW_HEIGHT -
-                                  (j < variations.length - 1 ? 0 : 18) -
-                                  (j == 2 ? 5 : 0),
-                                marginTop: j == 2 ? 5 : 0,
-                              }}
-                            />
-                            {j === variations.length - 1 ? (
-                              <div
-                                className="border-top"
-                                style={{
-                                  marginLeft: "16px",
-                                  width: 9,
-                                  height: 1,
-                                }}
-                              />
-                            ) : null}
-                          </td>
+                          <td />
                         )}
                         <MetricValueColumn
                           metric={row.metric}
                           stats={stats}
                           users={stats?.users || 0}
-                          className={clsx("value", resultsHighlightClassname, {
+                          className={clsx("value", {
                             hover: isHovered,
                           })}
                           newUi={true}
@@ -716,7 +694,7 @@ export default function ResultsTable({
                               showTimeRemaining={true}
                               showGuardrailWarning={metricsAsGuardrails}
                               className={clsx(
-                                "text-right results-ctw",
+                                "results-ctw",
                                 resultsHighlightClassname
                               )}
                               onMouseMove={onPointerMove}
@@ -740,7 +718,7 @@ export default function ResultsTable({
                               showUnadjustedPValue={false}
                               showGuardrailWarning={metricsAsGuardrails}
                               className={clsx(
-                                "text-right results-pval",
+                                "results-pval",
                                 resultsHighlightClassname
                               )}
                               onMouseMove={onPointerMove}

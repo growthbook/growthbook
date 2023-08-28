@@ -28,6 +28,7 @@ interface Props
   gridColor?: string;
   axisColor?: string;
   zeroLineColor?: string;
+  zeroLineWidth?: number;
   barColor?: string;
   sigBarColorPos?: string;
   sigBarColorNeg?: string;
@@ -72,6 +73,7 @@ const AlignedGraph: FC<Props> = ({
   gridColor = "#5c9ea94c",
   axisColor = "var(--text-link-hover-color)",
   zeroLineColor = "#0077b6",
+  zeroLineWidth = 1,
   barColor = "#aaaaaaaa",
   sigBarColorPos = "#0D8C8Ccc",
   sigBarColorNeg = "#D94032cc",
@@ -87,6 +89,8 @@ const AlignedGraph: FC<Props> = ({
   onClick,
 }) => {
   if (newUi) {
+    zeroLineWidth = 3;
+    gridColor = "#0077b633";
     sigBarColorPos = "#52be5b";
     sigBarColorNeg = "#d35a5a";
     // barColorDraw = "#9C89BE";
@@ -241,10 +245,11 @@ const AlignedGraph: FC<Props> = ({
                         <AxisLeft
                           key={`test`}
                           orientation={Orientation.left}
-                          left={xScale(0)}
+                          left={xScale(0) - Math.floor(zeroLineWidth / 2)}
                           scale={yScale}
                           tickFormat={tickFormat}
                           stroke={zeroLineColor}
+                          strokeWidth={zeroLineWidth}
                           /*tickValues={[-100, -20, -15, -10, -5, 0, 5, 10, 15, 20]}*/
                           numTicks={0}
                         />
