@@ -5,12 +5,7 @@ import {
   ExperimentSnapshotSettings,
 } from "../../types/experiment-snapshot";
 import { MetricInterface } from "../../types/metric";
-import {
-  Queries,
-  QueryPointer,
-  QueryStatistics,
-  QueryStatus,
-} from "../../types/query";
+import { Queries, QueryPointer, QueryStatus } from "../../types/query";
 import { SegmentInterface } from "../../types/segment";
 import {
   findSnapshotById,
@@ -24,10 +19,16 @@ import {
   ExperimentMetricStats,
   ExperimentQueryResponses,
   ExperimentResults,
+  QueryResponse,
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import {
+  QueryRunner,
+  QueryMap,
+  ProcessedRowsType,
+  RowsType,
+} from "./QueryRunner";
 
 export type SnapshotResult = {
   unknownVariations: string[];
@@ -50,10 +51,8 @@ export const startExperimentResultQueries = async (
     name: string,
     query: string,
     dependencies: string[],
-    // eslint-disable-next-line
-    run: (query: string) => Promise<{ statistics?: QueryStatistics; rows: any[] }>,
-    // eslint-disable-next-line
-    process: (rows: any[]) => any,
+    run: (query: string) => Promise<QueryResponse<RowsType>>,
+    process: (rows: RowsType) => ProcessedRowsType,
     useExisting?: boolean
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
@@ -110,16 +109,16 @@ export const startExperimentResultQueries = async (
       segment: segmentObj,
       settings: snapshotSettings,
     };
-    const metricQuery = await startQuery(
-      m.id,
-      integration.getExperimentMetricQuery(params),
-      [],
-      (query) => integration.runExperimentMetricQuery(query),
-      (rows) => rows
+    queries.push(
+      await startQuery(
+        m.id,
+        integration.getExperimentMetricQuery(params),
+        [],
+        (query) => integration.runExperimentMetricQuery(query),
+        (rows) => rows
+      )
     );
-    queries.push(metricQuery);
   });
-
   await Promise.all(promises);
 
   return queries;
@@ -136,6 +135,7 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
   async startQueries(params: ExperimentResultsQueryParams): Promise<Queries> {
     this.metricMap = params.metricMap;
     this.variationNames = params.variationNames;
+
     if (
       this.integration.getSourceProperties().separateExperimentResultQueries
     ) {

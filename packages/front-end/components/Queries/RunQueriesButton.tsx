@@ -92,7 +92,6 @@ const RunQueriesButton: FC<{
 
   const { status } = getQueryStatus(model.queries || []);
   const timeoutLength = getTimeoutLength(elapsed);
-  console.log(status);
   // Mutate periodically to check for updates
   useEffect(() => {
     if (status !== "running") return;

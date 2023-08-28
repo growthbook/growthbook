@@ -35,6 +35,10 @@ export type QueryStatusEndpointResponse = {
   total: number;
 };
 
+export type RowsType = Record<string, string | boolean | number>[];
+// eslint-disable-next-line
+export type ProcessedRowsType = Record<string, any>;
+
 const FINISH_EVENT = "finish";
 
 export abstract class QueryRunner<
@@ -50,10 +54,10 @@ export abstract class QueryRunner<
   public result: Result | null = null;
   public error = "";
   public runCallbacks: {
-    // TODO how can I define these when I need to use generic types in the
-    // method signatures
-    // eslint-disable-next-line
-    [key: string]: { run: any; process: any };
+    [key: string]: {
+      run: (query: string) => Promise<QueryResponse<RowsType>>;
+      process: (rows: RowsType) => ProcessedRowsType;
+    };
   } = {};
   private useCache: boolean;
 
@@ -207,11 +211,14 @@ export abstract class QueryRunner<
         .filter((q) => q.status === "queued")
         .map((q) => q.query)
     );
-    logger.debug("Starting any queued queries that are ready...");
-    logger.debug(queuedQueries.map((q) => q.id));
+    logger.debug(
+      `Starting any queued queries that are ready: ${queuedQueries.map(
+        (q) => q.id
+      )}`
+    );
     queuedQueries.map(async (query) => {
       // check if all dependencies are finished
-      // assumes all dependencies are within the model, if any are not, query will hang
+      // assumes all dependencies are within the model; if any are not, query will hang
       // in queued state
 
       const failedDependencies: QueryPointer[] = [];
@@ -329,9 +336,8 @@ export abstract class QueryRunner<
   }
 
   public async executeQuery<
-    Rows extends Record<string, string | boolean | number>[],
-    // eslint-disable-next-line
-    ProcessedRows extends Record<string, any>
+    Rows extends RowsType,
+    ProcessedRows extends ProcessedRowsType
   >(
     doc: QueryInterface,
     run: (query: string) => Promise<QueryResponse<Rows>>,
@@ -376,9 +382,8 @@ export abstract class QueryRunner<
   }
 
   public async startQuery<
-    Rows extends Record<string, string | boolean | number>[],
-    // eslint-disable-next-line
-    ProcessedRows extends Record<string, any>
+    Rows extends RowsType,
+    ProcessedRows extends ProcessedRowsType
   >(
     name: string,
     query: string,
