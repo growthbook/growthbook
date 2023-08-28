@@ -1,6 +1,7 @@
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runPostgresQuery } from "../services/postgres";
+import { QueryResponse } from "../types/Integration";
 import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
 
@@ -19,7 +20,7 @@ export default class Redshift extends SqlIntegration {
   getSensitiveParamKeys(): string[] {
     return ["password", "caCert", "clientCert", "clientKey"];
   }
-  runQuery(sql: string) {
+  runQuery(sql: string): Promise<QueryResponse> {
     return runPostgresQuery(this.params, sql);
   }
   getSchema(): string {

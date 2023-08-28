@@ -3,6 +3,7 @@ import { Client, IPrestoClientOptions } from "presto-client";
 import { decryptDataSourceParams } from "../services/datasource";
 import { PrestoConnectionParams } from "../../types/integrations/presto";
 import { FormatDialect } from "../util/sql";
+import { QueryResponse } from "../types/Integration";
 import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
@@ -27,7 +28,7 @@ export default class Presto extends SqlIntegration {
   toTimestamp(date: Date) {
     return `from_iso8601_timestamp('${date.toISOString()}')`;
   }
-  runQuery(sql: string) {
+  runQuery(sql: string): Promise<QueryResponse> {
     const configOptions: IPrestoClientOptions = {
       host: this.params.host,
       port: this.params.port,
@@ -51,7 +52,7 @@ export default class Presto extends SqlIntegration {
     }
     const client = new Client(configOptions);
 
-    return new Promise<Row[]>((resolve, reject) => {
+    return new Promise<QueryResponse>((resolve, reject) => {
       let cols: string[];
       const rows: Row[] = [];
 
@@ -78,7 +79,7 @@ export default class Presto extends SqlIntegration {
           });
         },
         success: () => {
-          resolve(rows);
+          resolve({ rows: rows });
         },
       });
     });

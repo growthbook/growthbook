@@ -28,6 +28,7 @@ interface Props
   gridColor?: string;
   axisColor?: string;
   zeroLineColor?: string;
+  zeroLineWidth?: number;
   barColor?: string;
   sigBarColorPos?: string;
   sigBarColorNeg?: string;
@@ -39,8 +40,8 @@ interface Props
   newUi?: boolean;
   rowStatus?: string;
   isHovered?: boolean;
-  onPointerMove?: (e: React.PointerEvent<SVGPathElement>) => void;
-  onPointerLeave?: (e: React.PointerEvent<SVGPathElement>) => void;
+  onMouseMove?: (e: React.MouseEvent<SVGPathElement>) => void;
+  onMouseLeave?: (e: React.MouseEvent<SVGPathElement>) => void;
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
 }
 
@@ -72,6 +73,7 @@ const AlignedGraph: FC<Props> = ({
   gridColor = "#5c9ea94c",
   axisColor = "var(--text-link-hover-color)",
   zeroLineColor = "#0077b6",
+  zeroLineWidth = 1,
   barColor = "#aaaaaaaa",
   sigBarColorPos = "#0D8C8Ccc",
   sigBarColorNeg = "#D94032cc",
@@ -82,11 +84,13 @@ const AlignedGraph: FC<Props> = ({
   newUi = false,
   rowStatus,
   isHovered = false,
-  onPointerMove,
-  onPointerLeave,
+  onMouseMove,
+  onMouseLeave,
   onClick,
 }) => {
   if (newUi) {
+    zeroLineWidth = 3;
+    gridColor = "#0077b633";
     sigBarColorPos = "#52be5b";
     sigBarColorNeg = "#d35a5a";
     // barColorDraw = "#9C89BE";
@@ -241,10 +245,11 @@ const AlignedGraph: FC<Props> = ({
                         <AxisLeft
                           key={`test`}
                           orientation={Orientation.left}
-                          left={xScale(0)}
+                          left={xScale(0) - Math.floor(zeroLineWidth / 2)}
                           scale={yScale}
                           tickFormat={tickFormat}
                           stroke={zeroLineColor}
+                          strokeWidth={zeroLineWidth}
                           /*tickValues={[-100, -20, -15, -10, -5, 0, 5, 10, 15, 20]}*/
                           numTicks={0}
                         />
@@ -269,8 +274,8 @@ const AlignedGraph: FC<Props> = ({
                       <>
                         {barType === "violin" && (
                           <ViolinPlot
-                            onPointerMove={onPointerMove}
-                            onPointerLeave={onPointerLeave}
+                            onMouseMove={onMouseMove}
+                            onMouseLeave={onMouseLeave}
                             onClick={onClick}
                             className={clsx(
                               "hover-target aligned-graph-violin",
@@ -327,8 +332,8 @@ const AlignedGraph: FC<Props> = ({
                         )}
                         {barType === "pill" && (
                           <rect
-                            onPointerMove={onPointerMove}
-                            onPointerLeave={onPointerLeave}
+                            onMouseMove={onMouseMove}
+                            onMouseLeave={onMouseLeave}
                             onClick={onClick}
                             className={clsx("hover-target aligned-graph-pill", {
                               hover: isHovered,
