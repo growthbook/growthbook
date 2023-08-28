@@ -3,7 +3,6 @@ import {
   Queries,
   QueryInterface,
   QueryPointer,
-  QueryStatistics,
   QueryStatus,
 } from "../../types/query";
 import {
@@ -335,9 +334,7 @@ export abstract class QueryRunner<
     ProcessedRows extends Record<string, any>
   >(
     doc: QueryInterface,
-    run: (
-      query: string
-    ) => Promise<{ statistics?: QueryStatistics; rows: Rows }>,
+    run: (query: string) => Promise<QueryResponse<Rows>>,
     process: (rows: Rows) => ProcessedRows
   ): Promise<void> {
     // Update heartbeat for the query once every 30 seconds
