@@ -193,7 +193,7 @@ function getRenderLabelColumn(regressionAdjustmentEnabled) {
     label: string,
     metric: MetricInterface,
     row: ExperimentTableRow,
-    maxWidth?: number
+    maxRows?: number
   ) {
     const metricLink = (
       <Tooltip
@@ -210,8 +210,18 @@ function getRenderLabelColumn(regressionAdjustmentEnabled) {
       >
         {" "}
         <span
-          className={maxWidth ? "d-inline-block text-ellipsis" : ""}
-          style={maxWidth ? { maxWidth: maxWidth, lineHeight: "1em" } : {}}
+          style={
+            maxRows
+              ? {
+                  display: "-webkit-box",
+                  WebkitLineClamp: maxRows,
+                  WebkitBoxOrient: "vertical",
+                  textOverflow: "ellipsis",
+                  overflow: "hidden",
+                  lineHeight: "1.2em",
+                }
+              : {}
+          }
         >
           <Link href={`/metric/${metric.id}`}>
             <a className="metriclabel text-dark">{label}</a>
@@ -255,7 +265,7 @@ function getRenderLabelColumn(regressionAdjustmentEnabled) {
     ) : null;
 
     return (
-      <span style={{ verticalAlign: "-33%" }}>
+      <span style={{ display: "inline-flex", alignItems: "center" }}>
         {metricLink}
         {metricInverseIconDisplay}
         {cupedIconDisplay}

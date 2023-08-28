@@ -64,7 +64,7 @@ export type ResultsTableProps = {
     label: string,
     metric: MetricInterface,
     row: ExperimentTableRow,
-    maxWidth?: number
+    maxRows?: number
   ) => string | ReactElement;
   dateCreated: Date;
   hasRisk: boolean;
@@ -135,6 +135,8 @@ export default function ResultsTable({
   useEffect(onResize, [isTabActive]);
 
   const baselineRow = 0;
+
+  const compactResults = variations.length === 2;
 
   const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
     const rr: (RowResults | "query error" | null)[][] = [];
@@ -585,7 +587,7 @@ export default function ResultsTable({
 
               return (
                 <tbody className={clsx("results-group-row")} key={i}>
-                  {variations.length > 2 &&
+                  {!compactResults &&
                     drawEmptyRow({
                       className: "results-label-row bg-light",
                       label: renderLabelColumn(row.label, row.metric, row),
@@ -651,10 +653,7 @@ export default function ResultsTable({
 
                     return (
                       <tr
-                        className={clsx(
-                          "results-variation-row align-items-center",
-                          variations.length === 2 ? "extra-bottom-border" : ""
-                        )}
+                        className="results-variation-row align-items-center"
                         key={j}
                       >
                         <td
@@ -663,7 +662,7 @@ export default function ResultsTable({
                             width: 220 * tableCellScale,
                           }}
                         >
-                          {variations.length > 2 ? (
+                          {!compactResults ? (
                             <div className="d-flex align-items-center">
                               <span
                                 className="label ml-1"
@@ -682,12 +681,7 @@ export default function ResultsTable({
                               </span>
                             </div>
                           ) : (
-                            renderLabelColumn(
-                              row.label,
-                              row.metric,
-                              row,
-                              195 * tableCellScale
-                            )
+                            renderLabelColumn(row.label, row.metric, row, 3)
                           )}
                         </td>
                         {j > 0 ? (
@@ -785,7 +779,9 @@ export default function ResultsTable({
                               stats={stats}
                               id={`${id}_violin_row${i}_var${j}`}
                               graphWidth={graphCellWidth}
-                              height={ROW_HEIGHT}
+                              height={
+                                compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT
+                              }
                               newUi={true}
                               isHovered={isHovered}
                               className={resultsHighlightClassname}
