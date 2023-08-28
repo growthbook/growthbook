@@ -63,7 +63,8 @@ export type ResultsTableProps = {
   renderLabelColumn: (
     label: string,
     metric: MetricInterface,
-    row: ExperimentTableRow
+    row: ExperimentTableRow,
+    maxRows?: number
   ) => string | ReactElement;
   dateCreated: Date;
   hasRisk: boolean;
@@ -134,6 +135,8 @@ export default function ResultsTable({
   useEffect(onResize, [isTabActive]);
 
   const baselineRow = 0;
+
+  const compactResults = variations.length === 2;
 
   const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
     const rr: (RowResults | "query error" | null)[][] = [];
@@ -425,24 +428,19 @@ export default function ResultsTable({
                         innerClassName={"text-left"}
                         body={
                           <div style={{ lineHeight: 1.5 }}>
-                            Each variation is compared against the baseline:
+                            The baseline that all variations are compared
+                            against.
                             <div
-                              className={`variation variation${baselineRow} with-variation-label d-flex mt-1 align-items-center`}
+                              className={`variation variation${baselineRow} with-variation-label d-flex mt-1 align-items-top`}
                               style={{ marginBottom: 2 }}
                             >
                               <span
-                                className="label"
-                                style={{ width: 16, height: 16 }}
+                                className="label mr-1"
+                                style={{ width: 16, height: 16, marginTop: 2 }}
                               >
                                 {baselineRow}
                               </span>
-                              <span
-                                className="d-inline-block text-ellipsis font-weight-bold"
-                                style={{
-                                  width: 80 * tableCellScale,
-                                  marginRight: -20,
-                                }}
-                              >
+                              <span className="font-weight-bold">
                                 {variations[baselineRow].name}
                               </span>
                             </div>
@@ -456,7 +454,40 @@ export default function ResultsTable({
                       style={{ width: 120 * tableCellScale }}
                       className="axis-col label"
                     >
-                      Variation
+                      <Tooltip
+                        usePortal={true}
+                        innerClassName={"text-left"}
+                        body={
+                          variations.length > 2 ? (
+                            ""
+                          ) : (
+                            <div style={{ lineHeight: 1.5 }}>
+                              The variation being compared to the baseline.
+                              <div
+                                className={`variation variation1 with-variation-label d-flex mt-1 align-items-top`}
+                                style={{ marginBottom: 2 }}
+                              >
+                                <span
+                                  className="label mr-1"
+                                  style={{
+                                    width: 16,
+                                    height: 16,
+                                    marginTop: 2,
+                                  }}
+                                >
+                                  1
+                                </span>
+                                <span className="font-weight-bold">
+                                  {variations[1]?.name}
+                                </span>
+                              </div>
+                            </div>
+                          )
+                        }
+                      >
+                        Variation{" "}
+                        {variations.length > 2 ? null : <RxInfoCircled />}
+                      </Tooltip>
                     </th>
                     <th
                       style={{ width: 120 * tableCellScale }}
@@ -556,14 +587,15 @@ export default function ResultsTable({
 
               return (
                 <tbody className={clsx("results-group-row")} key={i}>
-                  {drawEmptyRow({
-                    className: "results-label-row bg-light",
-                    label: renderLabelColumn(row.label, row.metric, row),
-                    graphCellWidth,
-                    rowHeight: METRIC_LABEL_ROW_HEIGHT,
-                    id,
-                    domain,
-                  })}
+                  {!compactResults &&
+                    drawEmptyRow({
+                      className: "results-label-row bg-light",
+                      label: renderLabelColumn(row.label, row.metric, row),
+                      graphCellWidth,
+                      rowHeight: METRIC_LABEL_ROW_HEIGHT,
+                      id,
+                      domain,
+                    })}
 
                   {variations.map((v, j) => {
                     const stats = row.variations[j] || {
@@ -630,23 +662,27 @@ export default function ResultsTable({
                             width: 220 * tableCellScale,
                           }}
                         >
-                          <div className="d-flex align-items-center">
-                            <span
-                              className="label ml-1"
-                              style={{ width: 20, height: 20 }}
-                            >
-                              {j}
-                            </span>
-                            <span
-                              className="d-inline-block text-ellipsis"
-                              title={v.name}
-                              style={{
-                                width: 165 * tableCellScale,
-                              }}
-                            >
-                              {v.name}
-                            </span>
-                          </div>
+                          {!compactResults ? (
+                            <div className="d-flex align-items-center">
+                              <span
+                                className="label ml-1"
+                                style={{ width: 20, height: 20 }}
+                              >
+                                {j}
+                              </span>
+                              <span
+                                className="d-inline-block text-ellipsis"
+                                title={v.name}
+                                style={{
+                                  width: 165 * tableCellScale,
+                                }}
+                              >
+                                {v.name}
+                              </span>
+                            </div>
+                          ) : (
+                            renderLabelColumn(row.label, row.metric, row, 3)
+                          )}
                         </td>
                         {j > 0 ? (
                           // draw baseline value once, merge rows
@@ -743,7 +779,9 @@ export default function ResultsTable({
                               stats={stats}
                               id={`${id}_violin_row${i}_var${j}`}
                               graphWidth={graphCellWidth}
-                              height={ROW_HEIGHT}
+                              height={
+                                compactResults ? ROW_HEIGHT + 10 : ROW_HEIGHT
+                              }
                               newUi={true}
                               isHovered={isHovered}
                               className={resultsHighlightClassname}
