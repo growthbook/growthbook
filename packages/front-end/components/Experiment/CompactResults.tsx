@@ -192,7 +192,8 @@ function getRenderLabelColumn(regressionAdjustmentEnabled) {
   return function renderLabelColumn(
     label: string,
     metric: MetricInterface,
-    row: ExperimentTableRow
+    row: ExperimentTableRow,
+    maxWidth?: number
   ) {
     const metricLink = (
       <Tooltip
@@ -207,9 +208,15 @@ function getRenderLabelColumn(regressionAdjustmentEnabled) {
         tipPosition="right"
         className="d-inline-block font-weight-bold metric-label"
       >
-        <Link href={`/metric/${metric.id}`}>
-          <a className="metriclabel text-dark">{label}</a>
-        </Link>
+        {" "}
+        <span
+          className={maxWidth ? "d-inline-block text-ellipsis" : ""}
+          style={maxWidth ? { maxWidth: maxWidth, lineHeight: "1em" } : {}}
+        >
+          <Link href={`/metric/${metric.id}`}>
+            <a className="metriclabel text-dark">{label}</a>
+          </Link>
+        </span>
       </Tooltip>
     );
 
