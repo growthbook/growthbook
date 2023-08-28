@@ -322,8 +322,12 @@ export abstract class QueryRunner<
   }
 
   public async cancelQueries(): Promise<void> {
-    // Only cancel if it's currently running
-    if (this.model.queries.filter((q) => q.status === "running").length > 0) {
+    // Only cancel if it's currently running or queued
+    if (
+      this.model.queries.filter(
+        (q) => q.status === "running" || q.status === "queued"
+      ).length > 0
+    ) {
       const newModel = await this.updateModel({
         queries: [],
         status: "failed",
