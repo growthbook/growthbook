@@ -412,8 +412,7 @@ export default function ResultsTable({
                         innerClassName={"text-left"}
                         body={
                           <div style={{ lineHeight: 1.5 }}>
-                            Each variation results is compared against the
-                            baseline variation:
+                            Each variation is compared against the baseline:
                             <div
                               className={`variation variation${baselineRow} with-variation-label d-flex mt-1 align-items-center`}
                               style={{ marginBottom: 2 }}
