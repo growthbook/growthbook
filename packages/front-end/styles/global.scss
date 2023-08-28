@@ -300,13 +300,6 @@ pre {
     .label {
       color: var(--text-dark);
     }
-
-    &.won {
-      background-color: #09ac171a;
-    }
-    &.lost {
-      background-color: #d940321a;
-    }
     //&.draw {
     //  background-color: #8e51f11a;
     //}
@@ -366,6 +359,39 @@ pre {
       //    color: #8e51f1;
       //  }
       //}
+    }
+    // make the colors more legible when bg is shaded
+    &.won {
+      background-color: #09ac171a;
+      .results-change {
+        &.winning {
+          .value {
+            color: var(--alert-success-color);
+          }
+        }
+        &.losing {
+          .value {
+            color: var(--alert-danger-color);
+          }
+        }
+      }
+      .results-chance,
+      .results-ci {
+        &.won {
+          .value {
+            color: var(--alert-success-color);
+          }
+        }
+
+        &.lost {
+          .value {
+            color: var(--alert-danger-color);
+          }
+        }
+      }
+    }
+    &.lost {
+      background-color: #d940321a;
     }
     .results-flagged-items {
       .flagged {
@@ -474,28 +500,21 @@ pre {
 }
 
 .experiment-results-wrapper {
-  padding-bottom: 1px; // to allow for bottom border
   @media (max-width: 900px) {
     overflow-x: auto;
   }
 }
 
 .experiment-results {
-  border-bottom: 1px solid var(--border-color-100);
-
-  tbody tr {
-    // Fake top/bottom border to allow graph axes to be on top
-    box-shadow: rgba(102, 102, 102, 0.125) 0px 1px inset,
-      rgba(102, 102, 102, 0.125) 0px -1px inset;
-    border-left: 1px solid var(--border-color-100);
-  }
-
-  td:not(.graph-cell) {
-    border-right: 1px solid var(--border-color-100);
-  }
-
-  .results-label-row td:not(:last-child) {
-    border-color: transparent;
+  tbody {
+    tr {
+      box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
+      &:not(.results-label-row) {
+        td:not(.graph-cell):not(:last-child) {
+          box-shadow: rgba(102, 102, 102, 0.125) -1px 0 inset;
+        }
+      }
+    }
   }
 
   table-layout: fixed;
@@ -579,20 +598,22 @@ pre {
     //}
   }
   .won {
-    color: var(--alert-success-color);
+    color: #09ac17;
     font-weight: bold;
 
     &.results-ctw,
     &.results-pval {
+      color: var(--alert-success-color);
       background: linear-gradient(-40deg, #09ac1730, #09ac1716);
     }
   }
   .lost {
-    color: var(--alert-danger-color);
+    color: #ce3729;
     font-weight: bold;
 
     &.results-ctw,
     &.results-pval {
+      color: var(--alert-danger-color);
       background: linear-gradient(-40deg, #ce372930, #ce372916);
     }
   }
@@ -611,7 +632,7 @@ pre {
   }
   .visx-axis-left .visx-axis-line {
     // axis line has a 0.5 pixel offset. reverse it
-    transform: translateY(-0.5px);
+    transform: translate(0.5px, -0.5px);
   }
 }
 main.main.report {

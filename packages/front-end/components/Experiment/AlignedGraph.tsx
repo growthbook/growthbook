@@ -90,7 +90,7 @@ const AlignedGraph: FC<Props> = ({
 }) => {
   if (newUi) {
     zeroLineWidth = 3;
-    gridColor = "#0077b666";
+    gridColor = "#0077b633";
     sigBarColorPos = "#52be5b";
     sigBarColorNeg = "#d35a5a";
     // barColorDraw = "#9C89BE";

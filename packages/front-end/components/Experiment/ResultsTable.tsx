@@ -382,7 +382,7 @@ export default function ResultsTable({
               <tr className="results-top-row">
                 <th
                   style={{
-                    lineHeight: "16px",
+                    lineHeight: "15px",
                     width: 220 * tableCellScale,
                   }}
                   className="axis-col header-label"
@@ -404,13 +404,41 @@ export default function ResultsTable({
                 {!noMetrics ? (
                   <>
                     <th
-                      style={{
-                        width: 120 * tableCellScale,
-                        lineHeight: "16px",
-                      }}
+                      style={{ width: 120 * tableCellScale }}
                       className="axis-col label"
                     >
-                      Baseline
+                      <Tooltip
+                        usePortal={true}
+                        innerClassName={"text-left"}
+                        body={
+                          <div style={{ lineHeight: 1.5 }}>
+                            Each variation results is compared against the
+                            baseline variation:
+                            <div
+                              className={`variation variation${baselineRow} with-variation-label d-flex mt-1 align-items-center`}
+                              style={{ marginBottom: 2 }}
+                            >
+                              <span
+                                className="label"
+                                style={{ width: 16, height: 16 }}
+                              >
+                                {baselineRow}
+                              </span>
+                              <span
+                                className="d-inline-block text-ellipsis font-weight-bold"
+                                style={{
+                                  width: 80 * tableCellScale,
+                                  marginRight: -20,
+                                }}
+                              >
+                                {variations[baselineRow].name}
+                              </span>
+                            </div>
+                          </div>
+                        }
+                      >
+                        Baseline <RxInfoCircled />
+                      </Tooltip>
                     </th>
                     <th
                       style={{ width: 120 * tableCellScale }}
@@ -419,13 +447,13 @@ export default function ResultsTable({
                       Variation
                     </th>
                     <th
-                      style={{ width: 100 * tableCellScale }}
+                      style={{ width: 120 * tableCellScale }}
                       className="axis-col label text-right"
                     >
                       {statsEngine === "bayesian" ? (
                         <div
                           style={{
-                            lineHeight: "16px",
+                            lineHeight: "15px",
                             marginBottom: 2,
                             marginLeft: -20,
                           }}
@@ -481,7 +509,7 @@ export default function ResultsTable({
                       style={{ width: 140 * tableCellScale }}
                       className="axis-col label text-right"
                     >
-                      <div style={{ lineHeight: "16px", marginBottom: 2 }}>
+                      <div style={{ lineHeight: "15px", marginBottom: 2 }}>
                         <Tooltip
                           usePortal={true}
                           innerClassName={"text-left"}
