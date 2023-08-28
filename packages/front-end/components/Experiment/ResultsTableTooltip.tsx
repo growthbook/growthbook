@@ -1,4 +1,4 @@
-import React, { DetailedHTMLProps, HTMLAttributes } from "react";
+import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
 import { MetricInterface } from "back-end/types/metric";
 import { ExperimentReportVariation } from "back-end/types/report";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
@@ -61,15 +61,36 @@ interface Props
   left: number;
   top: number;
   data?: TooltipData;
+  tooltipOpen: boolean;
   close: () => void;
 }
 export default function ResultsTableTooltip({
   left,
   top,
   data,
+  tooltipOpen,
   close,
   ...otherProps
 }: Props) {
+  useEffect(() => {
+    if (!data || !tooltipOpen) return;
+
+    const callback = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target?.closest(".experiment-row-tooltip")) return;
+      close();
+    };
+
+    // let the tooltip animate open before allowing a close
+    const timeout = setTimeout(() => {
+      document.addEventListener("click", callback);
+    }, 200);
+    return () => {
+      clearTimeout(timeout);
+      document.removeEventListener("click", callback);
+    };
+  }, [data, tooltipOpen, close]);
+
   const displayCurrency = useCurrency();
 
   if (!data) {
@@ -145,7 +166,7 @@ export default function ResultsTableTooltip({
       className="experiment-row-tooltip-wrapper"
       style={{
         position: "absolute",
-        width: TOOLTIP_WIDTH,
+        width: Math.min(TOOLTIP_WIDTH, window.innerWidth),
         height: TOOLTIP_HEIGHT,
         left,
         top,
@@ -158,7 +179,7 @@ export default function ResultsTableTooltip({
         })}
         style={{
           position: "absolute",
-          width: TOOLTIP_WIDTH,
+          width: Math.min(TOOLTIP_WIDTH, window.innerWidth),
           top: data.yAlign === "top" ? 0 : "auto",
           bottom: data.yAlign === "bottom" ? 0 : "auto",
           transformOrigin: `${arrowLeft} ${

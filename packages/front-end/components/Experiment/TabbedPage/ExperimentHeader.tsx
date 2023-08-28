@@ -140,11 +140,7 @@ export default function ExperimentHeader({
 
   return (
     <>
-      <div
-        className={clsx("experiment-header bg-white px-3 pt-3", {
-          pinned: headerPinned,
-        })}
-      >
+      <div className="experiment-header bg-white px-3 pt-3">
         {startExperiment && experiment.status === "draft" && (
           <Modal
             open={true}
