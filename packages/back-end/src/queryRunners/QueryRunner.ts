@@ -12,7 +12,10 @@ import {
   getRecentQuery,
   updateQuery,
 } from "../models/QueryModel";
-import { SourceIntegrationInterface } from "../types/Integration";
+import {
+  QueryResponse,
+  SourceIntegrationInterface,
+} from "../types/Integration";
 import { logger } from "../util/logger";
 
 export type QueryMap = Map<string, QueryInterface>;
@@ -383,9 +386,7 @@ export abstract class QueryRunner<
     name: string,
     query: string,
     dependencies: string[],
-    run: (
-      query: string
-    ) => Promise<{ statistics?: QueryStatistics; rows: Rows }>,
+    run: (query: string) => Promise<QueryResponse<Rows>>,
     process: (rows: Rows) => ProcessedRows
   ): Promise<QueryPointer> {
     logger.debug("Creating query: " + name);
