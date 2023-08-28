@@ -421,7 +421,8 @@ const NewDataSourceForm: FC<{
                 <div>
                   <h3 className={styles.ctaText}>Guided Setup</h3>
                   <p>
-                    Select your event tracker and we&apos;ll handle the rest.
+                    Tell us what tool you use for event tracking in your app and
+                    we&apos;ll guide you through the rest
                   </p>
                 </div>
               </div>
@@ -440,7 +441,8 @@ const NewDataSourceForm: FC<{
                 <div>
                   <h3 className={styles.ctaText}>Manual Setup</h3>
                   <p>
-                    Great for complex pipelines with custom data processing.
+                    Connect to your data warehouse and manually configure
+                    GrowthBook with SQL queries
                   </p>
                 </div>
               </div>
@@ -486,8 +488,9 @@ const NewDataSourceForm: FC<{
         </div>
         <h4>Select Your Event Tracker</h4>
         <p>
-          GrowthBook has built-in support for a number of popular event
-          trackers, but also support advanced integrations as well.
+          GrowthBook has built-in support for a number of popular event tracking
+          systems. Don&apos;t see yours listed? GrowthBook can work with
+          virtually any type of data with a custom integration.
         </p>
         <EventSourceList
           onSelect={(s) => {
@@ -595,9 +598,6 @@ const NewDataSourceForm: FC<{
             />
           </div>
         )}
-        {selectedSchema?.value !== "custom" && datasource.type ? (
-          <div className="alert alert-info"></div>
-        ) : null}
         {/* @ts-expect-error TS(2786) If you come across this, please fix it!: 'ConnectionSettings' cannot be used as a JSX compo... Remove this comment to see the full error message */}
         <ConnectionSettings
           datasource={datasource}
