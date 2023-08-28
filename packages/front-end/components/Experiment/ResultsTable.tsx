@@ -690,7 +690,7 @@ export default function ResultsTable({
                             hover: isHovered,
                           })}
                           newUi={true}
-                          onPointerMove={(e) =>
+                          onMouseMove={(e) =>
                             onPointerMove(e, {
                               x: "element-right",
                               offsetX: -45,
@@ -719,8 +719,8 @@ export default function ResultsTable({
                                 "text-right results-ctw",
                                 resultsHighlightClassname
                               )}
-                              onPointerMove={onPointerMove}
-                              onPointerLeave={onPointerLeave}
+                              onMouseMove={onPointerMove}
+                              onMouseLeave={onPointerLeave}
                               onClick={onPointerMove}
                             />
                           ) : (
@@ -743,8 +743,8 @@ export default function ResultsTable({
                                 "text-right results-pval",
                                 resultsHighlightClassname
                               )}
-                              onPointerMove={onPointerMove}
-                              onPointerLeave={onPointerLeave}
+                              onMouseMove={onPointerMove}
+                              onMouseLeave={onPointerLeave}
                               onClick={onPointerMove}
                             />
                           )
@@ -768,22 +768,22 @@ export default function ResultsTable({
                               height={ROW_HEIGHT}
                               newUi={true}
                               isHovered={isHovered}
-                              onPointerMove={(e) =>
+                              className={resultsHighlightClassname}
+                              rowStatus={rowResults.resultsStatus}
+                              onMouseMove={(e) =>
                                 onPointerMove(e, {
                                   x: "element-center",
                                   targetClassName: "hover-target",
                                   offsetY: -8,
                                 })
                               }
-                              onPointerLeave={onPointerLeave}
+                              onMouseLeave={onPointerLeave}
                               onClick={(e) =>
                                 onPointerMove(e, {
                                   x: "element-center",
                                   offsetY: -8,
                                 })
                               }
-                              className={resultsHighlightClassname}
-                              rowStatus={rowResults.resultsStatus}
                             />
                           ) : (
                             <AlignedGraph
@@ -805,13 +805,13 @@ export default function ResultsTable({
                             rowResults={rowResults}
                             statsEngine={statsEngine}
                             className={resultsHighlightClassname}
-                            onPointerMove={(e) =>
+                            onMouseMove={(e) =>
                               onPointerMove(e, {
                                 x: "element-left",
                                 offsetX: 50,
                               })
                             }
-                            onPointerLeave={onPointerLeave}
+                            onMouseLeave={onPointerLeave}
                             onClick={(e) =>
                               onPointerMove(e, {
                                 x: "element-left",

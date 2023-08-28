@@ -39,8 +39,8 @@ interface Props
   newUi?: boolean;
   rowStatus?: string;
   isHovered?: boolean;
-  onPointerMove?: (e: React.PointerEvent<SVGPathElement>) => void;
-  onPointerLeave?: (e: React.PointerEvent<SVGPathElement>) => void;
+  onMouseMove?: (e: React.MouseEvent<SVGPathElement>) => void;
+  onMouseLeave?: (e: React.MouseEvent<SVGPathElement>) => void;
   onClick?: (e: React.MouseEvent<SVGPathElement, MouseEvent>) => void;
 }
 
@@ -82,8 +82,8 @@ const AlignedGraph: FC<Props> = ({
   newUi = false,
   rowStatus,
   isHovered = false,
-  onPointerMove,
-  onPointerLeave,
+  onMouseMove,
+  onMouseLeave,
   onClick,
 }) => {
   if (newUi) {
@@ -269,8 +269,8 @@ const AlignedGraph: FC<Props> = ({
                       <>
                         {barType === "violin" && (
                           <ViolinPlot
-                            onPointerMove={onPointerMove}
-                            onPointerLeave={onPointerLeave}
+                            onMouseMove={onMouseMove}
+                            onMouseLeave={onMouseLeave}
                             onClick={onClick}
                             className={clsx(
                               "hover-target aligned-graph-violin",
@@ -327,8 +327,8 @@ const AlignedGraph: FC<Props> = ({
                         )}
                         {barType === "pill" && (
                           <rect
-                            onPointerMove={onPointerMove}
-                            onPointerLeave={onPointerLeave}
+                            onMouseMove={onMouseMove}
+                            onMouseLeave={onMouseLeave}
                             onClick={onClick}
                             className={clsx("hover-target aligned-graph-pill", {
                               hover: isHovered,
