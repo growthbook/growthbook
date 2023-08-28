@@ -177,7 +177,7 @@ const StopExperimentForm: FC<{
               </small>
             </div>
           </div>
-          {!form.watch("excludeFromPayload") && (
+          {!form.watch("excludeFromPayload") ? (
             <div className="row">
               <SelectField
                 label="Variation to Release"
@@ -187,13 +187,20 @@ const StopExperimentForm: FC<{
                   form.setValue("releasedVariationId", v);
                 }}
                 helpText="Send 100% of experiment traffic to this variation"
-                initialOption="None"
+                placeholder="Pick one..."
+                required
                 options={experiment.variations.map((v) => {
                   return { value: v.id, label: v.name };
                 })}
               />
             </div>
-          )}
+          ) : form.watch("results") === "won" ? (
+            <div className="alert alert-info">
+              If you don&apos;t enable a Temporary Rollout, all experiment
+              traffic will immediately revert to the default control experience
+              when you submit this form.
+            </div>
+          ) : null}
         </>
       )}
 

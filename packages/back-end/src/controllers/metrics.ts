@@ -71,6 +71,7 @@ export const UPDATEABLE_FIELDS: (keyof MetricInterface)[] = [
   "userIdColumns",
   "userIdTypes",
   "timestampColumn",
+  "templateVariables",
 ];
 
 export async function deleteMetric(

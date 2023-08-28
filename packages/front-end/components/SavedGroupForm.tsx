@@ -88,7 +88,10 @@ const SavedGroupForm: FC<{
           value={rawText}
           onChange={(e) => {
             setRawText(e.target.value);
-            form.setValue("groupList", e.target.value.trim().split(","));
+            form.setValue(
+              "groupList",
+              e.target.value.split(",").map((val) => val.trim())
+            );
           }}
         />
       ) : (
@@ -98,7 +101,7 @@ const SavedGroupForm: FC<{
           value={form.watch("groupList")}
           onChange={(values) => {
             form.setValue("groupList", values);
-            setRawText(values.join(", "));
+            setRawText(values.join(","));
           }}
           placeholder="Enter some values..."
           delimiters={["Enter", "Tab"]}

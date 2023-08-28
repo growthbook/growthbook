@@ -475,7 +475,7 @@ const validateVariationIds = (variations: Variation[]) => {
  */
 export async function postExperiments(
   req: AuthRequest<
-    Partial<ExperimentInterface>,
+    Partial<ExperimentInterfaceStringDates>,
     unknown,
     { allowDuplicateTrackingKey?: boolean }
   >,
@@ -546,7 +546,15 @@ export async function postExperiments(
     exposureQueryId: data.exposureQueryId || "",
     userIdType: data.userIdType || "anonymous",
     name: data.name || "",
-    phases: data.phases || [],
+    phases: data.phases
+      ? data.phases.map(({ dateStarted, dateEnded, ...phase }) => {
+          return {
+            ...phase,
+            dateStarted: dateStarted ? getValidDate(dateStarted) : new Date(),
+            dateEnded: dateEnded ? getValidDate(dateEnded) : undefined,
+          };
+        })
+      : [],
     tags: data.tags || [],
     description: data.description || "",
     hypothesis: data.hypothesis || "",

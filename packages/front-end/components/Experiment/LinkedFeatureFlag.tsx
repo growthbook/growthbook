@@ -14,6 +14,7 @@ type Props = {
   rules: MatchingRule[];
   experiment: ExperimentInterfaceStringDates;
   mutateFeatures: () => void;
+  open?: boolean;
 };
 
 function getValues(
@@ -41,6 +42,7 @@ export default function LinkedFeatureFlag({
   rules,
   experiment,
   mutateFeatures,
+  open,
 }: Props) {
   const environments = useEnvironments();
 
@@ -119,7 +121,7 @@ export default function LinkedFeatureFlag({
     <LinkedChange
       changeType={"flag"}
       feature={feature}
-      open={experiment.status === "draft"}
+      open={open ?? experiment.status === "draft"}
     >
       <div className="mt-2 pb-1 px-3">
         <div className="d-flex">

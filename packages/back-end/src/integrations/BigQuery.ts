@@ -4,7 +4,11 @@ import { format, FormatDialect } from "../util/sql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
-import { InformationSchema, RawInformationSchema } from "../types/Integration";
+import {
+  InformationSchema,
+  QueryResponse,
+  RawInformationSchema,
+} from "../types/Integration";
 import { formatInformationSchema } from "../util/informationSchemas";
 import { logger } from "../util/logger";
 import SqlIntegration from "./SqlIntegration";
@@ -41,7 +45,7 @@ export default class BigQuery extends SqlIntegration {
     });
   }
 
-  async runQuery(sql: string) {
+  async runQuery(sql: string): Promise<QueryResponse> {
     const client = this.getClient();
 
     const [job] = await client.createQueryJob({
@@ -50,7 +54,21 @@ export default class BigQuery extends SqlIntegration {
       useLegacySql: false,
     });
     const [rows] = await job.getQueryResults();
-    return rows;
+    const [metadata] = await job.getMetadata();
+    const statistics = {
+      executionDurationMs: Number(
+        metadata?.statistics?.finalExecutionDurationMs
+      ),
+      totalSlotMs: Number(metadata?.statistics?.totalSlotMs),
+      bytesProcessed: Number(metadata?.statistics?.totalBytesProcessed),
+      bytesBilled: Number(metadata?.statistics?.query?.totalBytesBilled),
+      warehouseCachedResult: metadata?.statistics?.query?.cacheHit,
+      partitionsUsed:
+        metadata?.statistics?.query?.totalPartitionsProcessed !== undefined
+          ? metadata.statistics.query.totalPartitionsProcessed > 0
+          : undefined,
+    };
+    return { rows, statistics };
   }
   addTime(
     col: string,
@@ -110,7 +128,7 @@ export default class BigQuery extends SqlIntegration {
     );
   }
   async getInformationSchema(): Promise<InformationSchema[]> {
-    const datasets = await this.runQuery(
+    const { rows: datasets } = await this.runQuery(
       `SELECT * FROM ${`\`${this.params.projectId}.INFORMATION_SCHEMA.SCHEMATA\``}`
     );
 
@@ -129,7 +147,7 @@ export default class BigQuery extends SqlIntegration {
       ORDER BY table_name;`;
 
       try {
-        const datasetResults = await this.runQuery(
+        const { rows: datasetResults } = await this.runQuery(
           format(query, this.getFormatDialect())
         );
 

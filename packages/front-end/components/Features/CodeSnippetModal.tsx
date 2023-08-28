@@ -419,11 +419,6 @@ export default function CodeSnippetModal({
                                         {a.datatype}
                                       </span>
                                     </td>
-                                    {i < secureAttributes.length - 1 ? (
-                                      <br />
-                                    ) : (
-                                      ""
-                                    )}
                                   </tr>
                                 ))}
                               </table>
