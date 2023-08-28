@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { ExperimentTableRow, getRisk } from "@/services/experiments";
+import { ExperimentTableRow, getRiskByVariation } from "@/services/experiments";
 import {
   defaultLoseRiskThreshold,
   defaultWinRiskThreshold,
@@ -21,7 +21,7 @@ export default function RiskColumn({
   riskVariation: number;
 }) {
   const { metricDefaults } = useOrganizationMetricDefaults();
-  const { relativeRisk, risk, showRisk } = getRisk(
+  const { relativeRisk, risk, showRisk } = getRiskByVariation(
     riskVariation,
     row,
     metricDefaults
