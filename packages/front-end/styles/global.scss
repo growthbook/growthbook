@@ -579,11 +579,8 @@ pre {
     //}
   }
   .won {
-    color: #09ac17;
+    color: var(--alert-success-color);
     font-weight: bold;
-    &.hover {
-      color: #11ce21;
-    }
 
     &.results-ctw,
     &.results-pval {
@@ -591,11 +588,9 @@ pre {
     }
   }
   .lost {
-    color: #ce3729;
+    color: var(--alert-danger-color);
     font-weight: bold;
-    &.hover {
-      color: #ee1500;
-    }
+
     &.results-ctw,
     &.results-pval {
       background: linear-gradient(-40deg, #ce372930, #ce372916);
