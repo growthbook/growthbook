@@ -57,6 +57,11 @@ export default function ProjectTagBar({
             <Tooltip
               body={<>This experiment is not in your current project.</>}
             >
+              {projectId ? (
+                <strong>{projectName}</strong>
+              ) : (
+                <em className="text-muted">None</em>
+              )}{" "}
               <FaExclamationTriangle className="text-warning" />
             </Tooltip>
           ) : projectId ? (
