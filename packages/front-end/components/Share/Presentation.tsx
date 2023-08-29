@@ -18,7 +18,7 @@ import {
 import { ExperimentSnapshotInterface } from "back-end/types/experiment-snapshot";
 import clsx from "clsx";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import CompactResults from "../Experiment/CompactResults";
+import CompactResults_old from "../Experiment/CompactResults_old";
 import Markdown from "../Markdown/Markdown";
 import { presentationThemes, defaultTheme } from "./ShareModal";
 
@@ -246,7 +246,7 @@ const Presentation = ({
               fontSize: "95%",
             }}
           >
-            <CompactResults
+            <CompactResults_old
               id={experiment.id}
               isLatestPhase={snapshot.phase === experiment.phases.length - 1}
               metrics={experiment.metrics}

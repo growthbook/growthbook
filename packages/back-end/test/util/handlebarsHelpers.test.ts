@@ -125,6 +125,65 @@ describe("pascalcase", function () {
   });
 });
 
+describe("replace", () => {
+  it("should replace all occurrences of a pattern in a string", () => {
+    const str = "Hello, world! world!";
+    const pattern = "world";
+    const replacement = "universe";
+
+    const fn = Handlebars.compile(
+      `{{replace "${str}" "${pattern}" "${replacement}"}}`
+    ) as HandlebarsCompileFunction;
+
+    expect(fn()).toBe("Hello, universe! universe!");
+  });
+
+  it("should return the original string if the pattern is not found", () => {
+    const str = "Hello, world!";
+    const pattern = "universe";
+    const replacement = "world";
+
+    const fn = Handlebars.compile(
+      `{{replace "${str}" "${pattern}" "${replacement}"}}`
+    ) as HandlebarsCompileFunction;
+
+    expect(fn()).toBe(str);
+  });
+
+  it("should handle special regex characters in the pattern", () => {
+    const str = "Hello, $world!";
+    const pattern = "\\$world";
+    const replacement = "universe";
+
+    const fn = Handlebars.compile(
+      `{{replace "${str}" "${pattern}" "${replacement}"}}`
+    ) as HandlebarsCompileFunction;
+
+    expect(fn()).toBe("Hello, universe!");
+  });
+});
+
+describe("snakecase", function () {
+  it("should return an empty string if undefined", function () {
+    const fn = compile("{{snakecase}}") as HandlebarsCompileFunction;
+    expect(fn()).toBe("");
+  });
+
+  it("should return the string in snakecase", function () {
+    const fn = compile(
+      '{{snakecase "foo bar baz qux"}}'
+    ) as HandlebarsCompileFunction;
+    expect(fn()).toBe("foo_bar_baz_qux");
+  });
+
+  it("should lowercase a single character", function () {
+    const fn = compile('{{snakecase "f"}}') as HandlebarsCompileFunction;
+    expect(fn()).toBe("f");
+    const fn2 = compile('{{snakecase "A"}}') as HandlebarsCompileFunction;
+    expect(fn2()).toBe("a");
+  });
+});
+
 describe("uppercase", function () {
   it("should return an empty string if undefined", function () {
     const fn = compile("{{uppercase}}") as HandlebarsCompileFunction;

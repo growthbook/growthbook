@@ -263,13 +263,15 @@ const DataSourceForm: FC<{
           <Field
             label="Amplitude Project ID"
             placeholder="123456"
-            value={datasource.settings?.projectId || ""}
+            value={datasource.settings?.schemaOptions?.projectId || ""}
             onChange={(e) => {
               setDatasource({
                 ...datasource,
                 settings: {
                   ...datasource.settings,
-                  projectId: e.target.value,
+                  schemaOptions: {
+                    projectId: e.target.value,
+                  },
                 },
               } as Partial<DataSourceInterfaceWithParams>);
               setDirty(true);

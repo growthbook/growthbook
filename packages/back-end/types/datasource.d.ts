@@ -80,7 +80,7 @@ export interface SchemaInterface {
   ): IdentityJoinQuery[];
   experimentDimensions: string[];
   userIdTypes: string[];
-  getMetricSQL(name: string, type: MetricType, tablePrefix: string): string;
+  getMetricSQL(type: MetricType, tablePrefix: string): string;
 }
 
 export interface SchemaFormatConfig {
@@ -152,8 +152,6 @@ export type DataSourceSettings = {
   experimentDimensions?: string[];
   notebookRunQuery?: string;
   informationSchemaId?: string;
-  // Some event trackers (currently only Amplitude) require a projectId to support auto metrics
-  projectId?: string;
   schemaFormat?: SchemaFormat;
   schemaOptions?: Record<string, string | number>;
   userIdTypes?: UserIdType[];

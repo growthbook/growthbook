@@ -14,7 +14,8 @@ import {
   MetricValueParams,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
-  PastExperimentResponse,
+  MetricValueQueryResponseRows,
+  PastExperimentQueryResponse,
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { DEFAULT_CONVERSION_WINDOW_HOURS } from "../util/secrets";
@@ -501,7 +502,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
       ]
     >(this.params, query);
 
-    const result: MetricValueQueryResponse = [];
+    const result: MetricValueQueryResponseRows = [];
     const overall: MetricValueQueryResponseRow = {
       date: "",
       count: 0,
@@ -529,12 +530,12 @@ export default class Mixpanel implements SourceIntegrationInterface {
         }
       });
 
-    return [overall, ...result];
+    return { rows: [overall, ...result] };
   }
   getPastExperimentQuery(): string {
     throw new Error("Method not implemented.");
   }
-  async runPastExperimentQuery(): Promise<PastExperimentResponse> {
+  async runPastExperimentQuery(): Promise<PastExperimentQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getSensitiveParamKeys(): string[] {

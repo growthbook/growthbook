@@ -1,4 +1,5 @@
 import { Queries } from "./query";
+import { TemplateVariables } from "./sql";
 
 export type Operator = "=" | "!=" | "~" | "!~" | ">" | "<" | "<=" | ">=" | "=>";
 export type MetricType = "binomial" | "count" | "duration" | "revenue";
@@ -64,6 +65,7 @@ export interface MetricInterface {
   status?: MetricStatus;
   sql?: string;
   aggregation?: string;
+  templateVariables?: TemplateVariables;
   // Query Builder Props (alternative to sql)
   table?: string;
   column?: string;

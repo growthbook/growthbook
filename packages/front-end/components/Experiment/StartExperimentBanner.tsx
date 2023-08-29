@@ -1,9 +1,7 @@
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
-import { FeatureInterface } from "back-end/types/feature";
 import { SDKConnectionInterface } from "back-end/types/sdk-connection";
 import { VisualChangesetInterface } from "back-end/types/visual-changeset";
 import Link from "next/link";
-import { MatchingRule } from "shared/util";
 import { MdRocketLaunch } from "react-icons/md";
 import { ReactElement } from "react";
 import { FaCheckSquare, FaExternalLinkAlt, FaTimes } from "react-icons/fa";
@@ -12,6 +10,7 @@ import { useAuth } from "@/services/auth";
 import Button from "../Button";
 import Tooltip from "../Tooltip/Tooltip";
 import ConfirmButton from "../Modal/ConfirmButton";
+import { LinkedFeature } from "./TabbedPage";
 
 export function StartExperimentBanner({
   experiment,
@@ -22,18 +21,21 @@ export function StartExperimentBanner({
   newPhase,
   editTargeting,
   onStart,
+  openSetupTab,
+  className,
+  noConfirm,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  linkedFeatures: {
-    feature: FeatureInterface;
-    rules: MatchingRule[];
-  }[];
+  linkedFeatures: LinkedFeature[];
   visualChangesets: VisualChangesetInterface[];
   connections: SDKConnectionInterface[];
   mutateExperiment: () => unknown | Promise<unknown>;
   newPhase?: (() => void) | null;
   editTargeting?: (() => void) | null;
-  onStart: () => void;
+  onStart?: () => void;
+  openSetupTab?: () => void;
+  className?: string;
+  noConfirm?: boolean;
 }) {
   const { apiCall } = useAuth();
 
@@ -43,6 +45,7 @@ export function StartExperimentBanner({
     display: string | ReactElement;
     status: "error" | "success";
     tooltip?: string | ReactElement;
+    action?: ReactElement | null;
   };
   const checklist: CheckListItem[] = [];
 
@@ -50,8 +53,20 @@ export function StartExperimentBanner({
   const hasLinkedChanges =
     linkedFeatures.length > 0 || visualChangesets.length > 0;
   checklist.push({
-    display: "Add at least one Linked Feature or Visual Editor change",
+    display: "Add at least one Linked Feature or Visual Editor change.",
     status: hasLinkedChanges ? "success" : "error",
+    action:
+      openSetupTab && !hasLinkedChanges ? (
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            openSetupTab();
+          }}
+        >
+          Setup Experiment
+        </a>
+      ) : null,
   });
 
   // No unpublished feature flags
@@ -63,8 +78,19 @@ export function StartExperimentBanner({
         )
     );
     checklist.push({
-      display: "Publish and enable all Linked Feature rules",
+      display: "Publish and enable all Linked Feature rules.",
       status: hasFeatureFlagsErrors ? "error" : "success",
+      action: openSetupTab ? (
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            openSetupTab();
+          }}
+        >
+          Manage Linked Features
+        </a>
+      ) : null,
     });
   }
 
@@ -77,8 +103,19 @@ export function StartExperimentBanner({
       )
     );
     checklist.push({
-      display: "Add changes in the Visual Editor",
+      display: "Add changes in the Visual Editor.",
       status: hasSomeVisualChanges ? "success" : "error",
+      action: openSetupTab ? (
+        <a
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            openSetupTab();
+          }}
+        >
+          Manage Visual Changes
+        </a>
+      ) : null,
     });
   }
 
@@ -97,18 +134,16 @@ export function StartExperimentBanner({
     (connection) => connection.connected
   );
   checklist.push({
-    display: (
-      <>
-        Integrate the GrowthBook SDK into your app.{" "}
-        <Link href="/sdks">
-          <a>
-            {connections.length > 0
-              ? "Manage SDK Connections"
-              : "Create an SDK Connection"}{" "}
-            <FaExternalLinkAlt />
-          </a>
-        </Link>
-      </>
+    display: "Integrate the GrowthBook SDK into your app.",
+    action: (
+      <Link href="/sdks">
+        <a>
+          {connections.length > 0
+            ? "Manage SDK Connections"
+            : "Create an SDK Connection"}{" "}
+          <FaExternalLinkAlt />
+        </a>
+      </Link>
     ),
     status: verifiedConnections.length > 0 ? "success" : "error",
     tooltip:
@@ -126,24 +161,19 @@ export function StartExperimentBanner({
   // Experiment has phases
   const hasPhases = experiment.phases.length > 0;
   checklist.push({
-    display: (
-      <>
-        Configure variation assignment and targeting behavior{" "}
-        {editTargeting ? (
-          <a
-            href="#"
-            className="ml-2"
-            onClick={(e) => {
-              e.preventDefault();
-              editTargeting();
-              track("Edit targeting", { source: "experiment-start-banner" });
-            }}
-          >
-            Edit Targeting
-          </a>
-        ) : null}
-      </>
-    ),
+    display: "Configure variation assignment and targeting behavior.",
+    action: editTargeting ? (
+      <a
+        href="#"
+        onClick={(e) => {
+          e.preventDefault();
+          editTargeting();
+          track("Edit targeting", { source: "experiment-start-banner" });
+        }}
+      >
+        Edit Targeting
+      </a>
+    ) : null,
     status: hasPhases ? "success" : "error",
   });
 
@@ -191,7 +221,7 @@ export function StartExperimentBanner({
 
   // Prompt them to start with an option to edit the targeting first
   return (
-    <div className="appbox p-4 my-4 text-center">
+    <div className={className ?? `appbox p-4 my-4`}>
       <div className="row">
         <div className="col-auto text-left">
           <h3 className="text-purple">Pre-launch Check List</h3>
@@ -202,6 +232,7 @@ export function StartExperimentBanner({
                 style={{
                   listStyleType: "none",
                   marginLeft: 0,
+                  marginBottom: 3,
                 }}
               >
                 <Tooltip body={item.tooltip || ""}>
@@ -213,6 +244,9 @@ export function StartExperimentBanner({
                     ""
                   )}{" "}
                   {item.display}
+                  {item.action ? (
+                    <span className="ml-2">{item.action}</span>
+                  ) : null}
                 </Tooltip>
               </li>
             ))}
@@ -230,15 +264,19 @@ export function StartExperimentBanner({
           </ul>
         </div>
 
-        <div className="col pt-3">
+        <div className="col pt-3 text-center">
           {allPassed ? (
             <p>Everything looks great! Let&apos;s Go!</p>
+          ) : noConfirm ? (
+            <p style={{ fontSize: "1.2em", fontWeight: "bold" }}>
+              Are you sure you still want to start?
+            </p>
           ) : (
             <p>Almost there! Just a few things left</p>
           )}
-          {allPassed ? (
+          {allPassed || noConfirm ? (
             <Button
-              color="primary"
+              color="teal"
               className="btn-lg mb-2"
               onClick={async () => {
                 await startExperiment();
@@ -258,7 +296,7 @@ export function StartExperimentBanner({
               }
             >
               <button
-                className="btn btn-primary btn-lg mb-2 disabled"
+                className="btn btn-teal btn-lg mb-2 disabled"
                 type="button"
               >
                 Start Experiment <MdRocketLaunch />
