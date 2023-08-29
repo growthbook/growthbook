@@ -13,6 +13,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
 } from "shared/constants";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
+import { isProjectListValidForProject } from "shared/util";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { getInitialMetricQuery, validateSQL } from "@/services/datasources";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -228,6 +229,12 @@ const MetricForm: FC<MetricFormProps> = ({
     metricDefaults,
   } = useOrganizationMetricDefaults();
 
+  const validDatasources = datasources.filter(
+    (d) =>
+      d.id === current.datasource ||
+      isProjectListValidForProject(d.projects, project)
+  );
+
   useEffect(() => {
     track("View Metric Form", {
       source,
@@ -261,14 +268,15 @@ const MetricForm: FC<MetricFormProps> = ({
     },
   ];
 
+  const initialDatasourceId =
+    current?.datasource || settings?.defaultDataSource;
+  const initialDatasource =
+    validDatasources.find((d) => d.id === initialDatasourceId) ||
+    validDatasources[0];
+
   const form = useForm({
     defaultValues: {
-      datasource:
-        ("datasource" in current
-          ? current.datasource
-          : settings.defaultDataSource
-          ? settings.defaultDataSource
-          : datasources[0]?.id) || "",
+      datasource: initialDatasource?.id || "",
       name: current.name || "",
       description: current.description || "",
       type: current.type || "binomial",
@@ -664,7 +672,7 @@ const MetricForm: FC<MetricFormProps> = ({
                 : value.datasource || ""
             }
             onChange={(v) => form.setValue("datasource", v)}
-            options={(datasources || []).map((d) => {
+            options={validDatasources.map((d) => {
               const defaultDatasource = d.id === settings.defaultDataSource;
               return {
                 value: d.id,
