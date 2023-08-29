@@ -32,22 +32,14 @@ export default function VariationChooser({
   const requiresDropdown = validVariations.length > 1;
 
   let title = (
-    <div
-      className={clsx("d-inline-block btn-link", {
-        "btn-link": requiresDropdown,
-      })}
-    >
-      <span className="font-weight-bold ">All variations</span>
+    <div className="d-inline-block">
+      <span className="font-weight-bold hover">All variations</span>
     </div>
   );
   if (filteredVariations.length < validVariations.length) {
     title = (
-      <div
-        className={clsx("d-inline-block btn-link", {
-          "btn-link": requiresDropdown,
-        })}
-      >
-        <span className="font-weight-bold">
+      <div className="d-inline-block">
+        <span className="font-weight-bold hover">
           {filteredVariations.length} Variations
         </span>
       </div>
@@ -55,27 +47,18 @@ export default function VariationChooser({
   }
   if (filteredVariations.length <= 1) {
     title = (
-      <div
-        className={clsx("d-inline-flex align-items-center", {
-          "variation-chooser-hover-underline": requiresDropdown,
-        })}
-      >
+      <div className="d-inline-flex align-items-center">
         <div
           className={`variation variation${
             filteredVariations[filteredVariations.length - 1].index
           } with-variation-label d-flex align-items-center`}
         >
-          <span
-            className="label skip-underline"
-            style={{ width: 20, height: 20 }}
-          >
+          <span className="label" style={{ width: 20, height: 20 }}>
             {filteredVariations[filteredVariations.length - 1].index}
           </span>
           <span
-            className="d-inline-block text-ellipsis font-weight-bold"
-            style={{
-              maxWidth: 150,
-            }}
+            className="d-inline-block text-ellipsis font-weight-bold hover"
+            style={{ maxWidth: 150 }}
           >
             {filteredVariations[filteredVariations.length - 1].name}
           </span>
@@ -89,14 +72,13 @@ export default function VariationChooser({
       <Dropdown
         uuid={"variation-filter"}
         right={false}
-        className="mt-2"
-        toggle={
-          <div
-            className="d-inline-flex align-items-center"
-            style={{ height: 38 }}
-          >
-            {title}
-          </div>
+        className="mt-3"
+        toggleClassName={clsx({ "dropdown-underline": requiresDropdown })}
+        toggle={<div className="d-inline-flex align-items-center">{title}</div>}
+        header={
+          <>
+            <div className="h6 mb-0">Show variations</div>
+          </>
         }
         caret={requiresDropdown}
         enabled={requiresDropdown}
@@ -104,16 +86,21 @@ export default function VariationChooser({
         setOpen={(b: boolean) => setOpen(b)}
       >
         {validVariations.length <= 1 ? null : (
-          <div className="d-flex align-items-center px-3 py-1 cursor-pointer">
+          <div
+            className={clsx(
+              "d-flex align-items-center px-3 py-1 cursor-pointer",
+              {
+                "hover-highlight": variationFilter.length > 0,
+              }
+            )}
+          >
             <div
-              className={clsx("d-flex flex-1 align-items-center py-1", {
-                "btn-link": variationFilter.length > 0,
-              })}
+              className="d-flex flex-1 align-items-center py-1"
               onClick={() => {
                 setVariationFilter([]);
               }}
             >
-              <div className="flex align-items-center justify-content-center px-1 mr-3">
+              <div className="flex align-items-center justify-content-center px-1 mr-2">
                 <input
                   readOnly
                   id={`variation-filter-checkbox-all`}
@@ -167,10 +154,10 @@ export default function VariationChooser({
           return (
             <div
               key={variation.id}
-              className="d-flex align-items-center px-3 py-1"
+              className="d-flex align-items-center px-3 py-1 hover-highlight"
             >
               <div
-                className="flex align-items-center justify-content-center cursor-pointer px-1 mr-3 py-1"
+                className="flex align-items-center justify-content-center cursor-pointer px-1 mr-2 py-1"
                 onClick={toggleVariation}
               >
                 <input
@@ -188,31 +175,26 @@ export default function VariationChooser({
                 />
               </div>
               <div
-                className="d-flex align-items-center flex-1 variation-chooser-hover-underline cursor-pointer py-2"
+                className="d-flex align-items-center flex-1 cursor-pointer py-2"
                 onClick={() => {
                   selectVariation();
                   setOpen(false);
                 }}
               >
-                <div className="mr-2">
-                  <div
-                    className={`variation variation${variation.index} with-variation-label d-flex align-items-center`}
+                <div
+                  className={`variation variation${variation.index} with-variation-label d-flex align-items-center`}
+                >
+                  <span className="label" style={{ width: 20, height: 20 }}>
+                    {variation.index}
+                  </span>
+                  <span
+                    className="d-inline-block text-ellipsis"
+                    style={{
+                      maxWidth: 200,
+                    }}
                   >
-                    <span
-                      className="label skip-underline"
-                      style={{ width: 16, height: 16 }}
-                    >
-                      {variation.index}
-                    </span>
-                    <span
-                      className="d-inline-block text-ellipsis font-weight-bold"
-                      style={{
-                        maxWidth: 200,
-                      }}
-                    >
-                      {variation.name}
-                    </span>
-                  </div>
+                    {variation.name}
+                  </span>
                 </div>
               </div>
             </div>

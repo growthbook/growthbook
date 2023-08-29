@@ -4,6 +4,7 @@ import {
 } from "back-end/types/report";
 import clsx from "clsx";
 import { useState } from "react";
+import { FaCheck } from "react-icons/fa";
 import Dropdown from "@/components/Dropdown/Dropdown";
 
 export interface Props {
@@ -28,25 +29,20 @@ export default function BaselineChooser({
   const baselineVariation =
     indexedVariations.find((v) => v.index === baselineRow) ??
     indexedVariations[0];
+
+  // baseline selection is still WIP:
   const dropdownEnabled = false;
 
   const title = (
-    <div
-      className={clsx("d-inline-flex align-items-center", {
-        "variation-chooser-hover-underline": dropdownEnabled,
-      })}
-    >
+    <div className="d-inline-flex align-items-center">
       <div
         className={`variation variation${baselineVariation.index} with-variation-label d-flex align-items-center`}
       >
-        <span
-          className="label skip-underline"
-          style={{ width: 20, height: 20 }}
-        >
+        <span className="label" style={{ width: 20, height: 20 }}>
           {baselineVariation.index}
         </span>
         <span
-          className="d-inline-block text-ellipsis font-weight-bold"
+          className="d-inline-block text-ellipsis font-weight-bold hover"
           style={{
             maxWidth: 150,
           }}
@@ -60,16 +56,24 @@ export default function BaselineChooser({
   return (
     <>
       <Dropdown
-        uuid={"variation-filter"}
+        uuid={"baseline-selector"}
         right={false}
-        className="mt-2"
+        className="mt-3"
+        toggleClassName={clsx({
+          "dropdown-underline": dropdownEnabled,
+          "dropdown-underline-disabled": !dropdownEnabled,
+        })}
+        header={
+          <>
+            <div className="h6 mb-0">Baseline variation</div>
+            <small>Changing the baseline will recompute results</small>
+          </>
+        }
         toggle={
-          <div
-            className="d-inline-flex align-items-center"
-            style={{ height: 38 }}
-          >
-            {title}
-          </div>
+          <>
+            <div className="d-inline-flex align-items-center">{title}</div>
+            <div className="sub text-muted text-uppercase">baseline</div>
+          </>
         }
         caret={dropdownEnabled}
         enabled={dropdownEnabled}
@@ -84,34 +88,35 @@ export default function BaselineChooser({
           return (
             <div
               key={variation.id}
-              className="d-flex align-items-center px-3 py-1"
+              className="d-flex align-items-center hover-highlight px-3 py-1"
             >
               <div
-                className="d-flex align-items-center flex-1 variation-chooser-hover-underline cursor-pointer py-2"
+                className="d-flex align-items-center flex-1 cursor-pointer py-2"
                 onClick={() => {
                   selectVariation();
                   setOpen(false);
                 }}
               >
-                <div className="mr-2">
-                  <div
-                    className={`variation variation${variation.index} with-variation-label d-flex align-items-center`}
+                <div
+                  className="flex align-items-center justify-content-center px-1 mr-2"
+                  style={{ width: 20 }}
+                >
+                  {baselineVariation.index === variation.index && <FaCheck />}
+                </div>
+                <div
+                  className={`variation variation${variation.index} with-variation-label d-flex align-items-center`}
+                >
+                  <span className="label" style={{ width: 20, height: 20 }}>
+                    {variation.index}
+                  </span>
+                  <span
+                    className="d-inline-block text-ellipsis"
+                    style={{
+                      maxWidth: 200,
+                    }}
                   >
-                    <span
-                      className="label skip-underline"
-                      style={{ width: 16, height: 16 }}
-                    >
-                      {variation.index}
-                    </span>
-                    <span
-                      className="d-inline-block text-ellipsis font-weight-bold"
-                      style={{
-                        maxWidth: 200,
-                      }}
-                    >
-                      {variation.name}
-                    </span>
-                  </div>
+                    {variation.name}
+                  </span>
                 </div>
               </div>
             </div>

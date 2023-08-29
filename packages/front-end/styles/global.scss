@@ -502,14 +502,6 @@ pre {
   }
 }
 
-.variation-chooser-hover-underline {
-  &:hover {
-    span:not(.skip-underline) {
-      text-decoration: underline;
-    }
-  }
-}
-
 .experiment-results-wrapper {
   @media (max-width: 900px) {
     overflow-x: auto;
@@ -2451,9 +2443,39 @@ html {
 .bg-impact {
   background-color: colors.$bg-impact;
 }
-.dropdown-outline {
-  border: 1px solid var(--border-color-200);
-  border-radius: 4px;
+.dropdown-underline {
+  position: relative;
+  border-radius: 0 !important;
+  height: 24px;
+  padding: 0 1px;
+  border-bottom: 1px solid var(--border-color-300);
+  span.hover {
+    color: var(--text-link-color);
+  }
+  &:hover {
+    border-bottom: 1px solid var(--text-link-hover-color);
+    span.hover {
+      color: var(--text-link-hover-color);
+    }
+  }
+  .sub {
+    position: absolute;
+    right: 1px;
+    bottom: -13px;
+    font-size: 10px;
+  }
+}
+.dropdown-underline-disabled {
+  position: relative;
+  border-radius: 0 !important;
+  height: 24px;
+  border-bottom: 1px transparent;
+  .sub {
+    position: absolute;
+    right: 0;
+    bottom: -7px;
+    font-size: 10px;
+  }
 }
 
 #modal {

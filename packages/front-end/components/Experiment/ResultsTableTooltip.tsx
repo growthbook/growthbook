@@ -534,7 +534,7 @@ export default function ResultsTableTooltip({
                               marginLeft: 20,
                             }}
                           >
-                            (baseline)
+                            baseline
                           </div>
                         ) : null}
                       </td>
