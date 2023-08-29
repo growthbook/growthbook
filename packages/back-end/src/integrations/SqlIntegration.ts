@@ -7,7 +7,6 @@ import {
   DataSourceProperties,
   ExposureQuery,
   DataSourceType,
-  SchemaFormat,
   SchemaFormatConfig,
   AutoMetricSchemas,
 } from "../../types/datasource";
