@@ -49,6 +49,7 @@ export interface MemberRoleInfo {
   role: MemberRole;
   limitAccessByEnvironment: boolean;
   environments: string[];
+  teams?: string[];
 }
 
 export interface ProjectMemberRole extends MemberRoleInfo {

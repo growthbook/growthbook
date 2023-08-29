@@ -12,6 +12,7 @@ export interface Props {
   newStyle?: boolean;
   className?: string;
   showActiveCount?: boolean;
+  activeClassName?: string;
 }
 
 export default function TabButton({
@@ -25,14 +26,20 @@ export default function TabButton({
   newStyle = true,
   className,
   showActiveCount = false,
+  activeClassName,
 }: Props) {
   return (
     <a
-      className={clsx("nav-item nav-link", className, {
-        active,
-        last,
-        "nav-button-item": newStyle,
-      })}
+      className={clsx(
+        "nav-item nav-link",
+        className,
+        {
+          active,
+          last,
+          "nav-button-item": newStyle,
+        },
+        activeClassName && active ? activeClassName : null
+      )}
       role="tab"
       href={anchor ? `#${anchor}` : "#"}
       aria-selected={active ? "true" : "false"}

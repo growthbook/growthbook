@@ -74,7 +74,11 @@ export default function FeaturePage() {
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [editOwnerModal, setEditOwnerModal] = useState(false);
 
-  const { getProjectById, projects } = useDefinitions();
+  const {
+    getProjectById,
+    project: currentProject,
+    projects,
+  } = useDefinitions();
 
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -201,6 +205,14 @@ export default function FeaturePage() {
           mutate={mutate}
           method="PUT"
           current={data.feature.project}
+          additionalMessage={
+            data.feature.linkedExperiments?.length ? (
+              <div className="alert alert-danger">
+                Changing the project may prevent your linked Experiments from
+                being sent to users.
+              </div>
+            ) : null
+          }
         />
       )}
       {editTagsModal && (
@@ -392,6 +404,15 @@ export default function FeaturePage() {
                 <span className="text-danger">
                   <FaExclamationTriangle /> Invalid project
                 </span>
+              </Tooltip>
+            ) : currentProject && currentProject !== data.feature.project ? (
+              <Tooltip body={<>This feature is not in your current project.</>}>
+                {projectId ? (
+                  <strong>{projectName}</strong>
+                ) : (
+                  <em className="text-muted">None</em>
+                )}{" "}
+                <FaExclamationTriangle className="text-warning" />
               </Tooltip>
             ) : projectId ? (
               <strong>{projectName}</strong>
