@@ -1,5 +1,11 @@
 # Changelog
 
+## **0.28.0** - Aug 29, 2023
+
+- Fix bug with streaming SSE connections only working on initial page load
+- Add missing types for TypeScript 5
+- Add additional type exports `AutoExperiment` and `AutoExperimentVariation`
+
 ## **0.27.0** - May 23, 2023
 
 - SemVer targeting conditions support (and other SemVer-like version strings)
