@@ -2477,6 +2477,54 @@ html {
     font-size: 10px;
   }
 }
+.select-dropdown-underline {
+  .gb-select__control {
+    border-radius: 0 !important;
+    border: 0 transparent !important;
+    border-bottom: 1px solid var(--border-color-300) !important;
+    height: 24px !important;
+    min-height: initial !important;
+    cursor: pointer !important;
+    .gb-select__value-container {
+      padding: 0 !important;
+      .gb-select__input-container {
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .gb-select__single-value {
+        margin: 0 !important;
+        padding: 0 1px !important;
+        color: var(--text-link-color) !important;
+        &:after {
+          display: inline-block;
+          margin-left: 0.255em;
+          vertical-align: 0.255em;
+          content: "";
+          border-top: 0.3em solid;
+          border-right: 0.3em solid transparent;
+          border-bottom: 0;
+          border-left: 0.3em solid transparent;
+          color: var(--text-color-main) !important;
+        }
+      }
+    }
+    .gb-select__indicators {
+      display: none;
+    }
+    &:hover {
+      border-bottom: 1px solid var(--text-link-hover-color) !important;
+      .gb-select__value-container .gb-select__single-value {
+        color: var(--text-link-hover-color) !important;
+        &:after {
+          color: var(--text-color-main) !important;
+        }
+      }
+    }
+    &.gb-select__control--is-focused {
+      box-shadow: none !important;
+    }
+  }
+}
 
 #modal {
   position: relative;

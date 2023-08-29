@@ -148,14 +148,14 @@ export default function AnalysisSettingsBar({
           setVariationFilter &&
           setBaselineRow ? (
             <>
-              <div className="col-auto form-inline pr-4">
+              <div className="col-auto form-inline pr-5">
                 <VariationChooser
                   variations={variations}
                   variationFilter={variationFilter ?? []}
                   setVariationFilter={setVariationFilter}
                   baselineRow={baselineRow ?? 0}
                 />
-                <em className="text-muted mx-2">vs</em>
+                <em className="text-muted mx-2" style={{ marginTop: -4 }}>vs</em>
                 <BaselineChooser
                   variations={variations}
                   variationFilter={variationFilter ?? []}
@@ -175,6 +175,7 @@ export default function AnalysisSettingsBar({
               exposureQueryId={experiment.exposureQueryId}
               userIdType={experiment.userIdType}
               labelClassName="mr-2"
+              newUi={newUi}
             />
           </div>
           <div style={{ flex: 1 }} />

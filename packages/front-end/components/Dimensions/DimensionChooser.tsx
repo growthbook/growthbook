@@ -12,6 +12,7 @@ export interface Props {
   userIdType?: "user" | "anonymous";
   labelClassName?: string;
   showHelp?: boolean;
+  newUi?: boolean;
 }
 
 export default function DimensionChooser({
@@ -23,6 +24,7 @@ export default function DimensionChooser({
   userIdType,
   labelClassName,
   showHelp,
+  newUi = false,
 }: Props) {
   const { dimensions, getDatasourceById } = useDefinitions();
   const datasource = datasourceId ? getDatasourceById(datasourceId) : null;
@@ -94,6 +96,7 @@ export default function DimensionChooser({
     <SelectField
       label="Dimension"
       labelClassName={labelClassName}
+      containerClassName={newUi ? "select-dropdown-underline" : ""}
       options={[
         {
           label: "Built-in",
