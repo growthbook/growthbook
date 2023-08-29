@@ -23,7 +23,8 @@ export interface ExperimentReportVariation {
   name: string;
   weight: number;
 }
-export interface ExperimentReportVariationWithIndex extends ExperimentReportVariation {
+export interface ExperimentReportVariationWithIndex
+  extends ExperimentReportVariation {
   index: number;
 }
 export interface MetricRegressionAdjustmentStatus {

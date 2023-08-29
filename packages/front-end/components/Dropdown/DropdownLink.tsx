@@ -22,10 +22,14 @@ const DropdownLink: FC<{
         disabled,
       })}
       role="button"
-      onClick={onClick !== undefined ? (e) => {
-        e.preventDefault();
-        onClick();
-      } : undefined}
+      onClick={
+        onClick !== undefined
+          ? (e) => {
+              e.preventDefault();
+              onClick();
+            }
+          : undefined
+      }
     >
       {children}
     </a>
