@@ -54,8 +54,8 @@ export default function AnalysisSettingsBar({
   variationFilter,
   setVariationFilter,
   baselineRow,
-  setBaselineRow,
-}: {
+}: // setBaselineRow,
+{
   mutateExperiment: () => void;
   editMetrics?: () => void;
   editPhases?: () => void;

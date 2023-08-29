@@ -2451,28 +2451,9 @@ html {
 .bg-impact {
   background-color: colors.$bg-impact;
 }
-.dropdownmenu {
-  position: absolute;
-  background-color: var(--surface-background-color);
-  z-index: 1200;
-  right: 10px;
-  top: 2rem;
-  width: 160px;
-  border: var(--border-color-300);
-  box-shadow: 1px 1px 4px var(--border-color-100);
-
-  a {
-    padding: 4px 10px;
-    display: block;
-    cursor: pointer;
-  }
-  a:hover {
-    background-color: colors.$blue;
-    color: #fff;
-  }
-  &.closed {
-    display: none;
-  }
+.dropdown-outline {
+  border: 1px solid var(--border-color-200);
+  border-radius: 4px;
 }
 
 #modal {

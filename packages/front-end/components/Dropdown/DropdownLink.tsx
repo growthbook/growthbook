@@ -6,7 +6,7 @@ const DropdownLink: FC<{
   active?: boolean;
   disabled?: boolean;
   className?: string;
-  onClick: () => void | Promise<void>;
+  onClick?: () => void | Promise<void>;
   children: ReactNode;
 }> = ({
   active = false,
@@ -21,11 +21,11 @@ const DropdownLink: FC<{
         active,
         disabled,
       })}
-      href="#"
-      onClick={(e) => {
+      role="button"
+      onClick={onClick !== undefined ? (e) => {
         e.preventDefault();
         onClick();
-      }}
+      } : undefined}
     >
       {children}
     </a>

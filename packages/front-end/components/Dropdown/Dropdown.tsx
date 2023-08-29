@@ -20,6 +20,7 @@ const Dropdown: FC<{
   right?: boolean;
   width?: number | string;
   className?: string;
+  toggleClassName?: string;
   open?: boolean;
   setOpen?: (open: boolean) => void;
   children: ReactNode;
@@ -32,6 +33,7 @@ const Dropdown: FC<{
   right = true,
   width = "auto",
   className = "",
+  toggleClassName = "",
   open,
   setOpen,
 }) => {
@@ -61,7 +63,7 @@ const Dropdown: FC<{
 
   return (
     <div
-      className={clsx("dropdown", uuid, styles.dropdownwrap, {
+      className={clsx("dropdown", uuid, styles.dropdownwrap, toggleClassName, {
         [styles.open]: open,
       })}
     >

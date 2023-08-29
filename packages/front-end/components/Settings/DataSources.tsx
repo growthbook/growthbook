@@ -3,6 +3,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { FaExclamationTriangle } from "react-icons/fa";
 import { ago } from "shared/dates";
+import { isProjectListValidForProject } from "shared/util";
 import ProjectBadges from "@/components/ProjectBadges";
 import { GBAddCircle } from "@/components/Icons";
 import usePermissions from "@/hooks/usePermissions";
@@ -26,11 +27,11 @@ const DataSources: FC = () => {
     mutateDefinitions,
     ready,
   } = useDefinitions();
-  const filteredDatasources = datasources.filter((ds) => {
-    if (!project) return true;
-    if (!ds?.projects?.length) return true;
-    return ds?.projects?.includes(project);
-  });
+  const filteredDatasources = project
+    ? datasources.filter((ds) =>
+        isProjectListValidForProject(ds.projects, project)
+      )
+    : datasources;
 
   const permissions = usePermissions();
 
