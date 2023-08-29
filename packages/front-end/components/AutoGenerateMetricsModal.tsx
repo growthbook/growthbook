@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { TrackedEventData } from "@/../back-end/src/types/Integration";
+import {
+  InformationSchemaInterface,
+  TrackedEventData,
+} from "@/../back-end/src/types/Integration";
 import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
@@ -11,7 +14,6 @@ import { FaRedo } from "react-icons/fa";
 import track from "@/services/track";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import useApi from "@/hooks/useApi";
 import Button from "./Button";
 import { DocLink } from "./DocLink";
 import Modal from "./Modal";
@@ -44,6 +46,11 @@ export default function AutoGenerateMetricsModal({
   const [refreshingSchema, setRefreshingSchema] = useState(false);
   const [retryCount, setRetryCount] = useState(1);
   const [refreshingSchemaError, setRefreshingSchemaError] = useState("");
+  const [selectedDatasourceData, setSelectedDatasourceData] = useState<{
+    informationSchema: InformationSchemaInterface | undefined;
+  }>({
+    informationSchema: undefined,
+  });
 
   const form = useForm<{
     datasourceId: string;
@@ -68,9 +75,12 @@ export default function AutoGenerateMetricsModal({
   const selectedDatasource =
     datasource || getDatasourceById(form.watch("datasourceId"));
 
-  const { data: selectedDatasourceData } = useApi(
-    `/datasource/${selectedDatasource?.id}/schema`
-  );
+  const schemaName =
+    selectedDatasource?.type === "bigquery"
+      ? "Dataset"
+      : selectedDatasource?.type === "athena"
+      ? "Catalog"
+      : "Schema";
 
   const submit = form.handleSubmit(async (data) => {
     track("Generating Auto Metrics For User", {
@@ -243,6 +253,23 @@ export default function AutoGenerateMetricsModal({
     selectedDatasourceData?.informationSchema?.status,
   ]);
 
+  useEffect(() => {
+    async function getInformationSchema(dataSourceId: string) {
+      const { informationSchema } = await apiCall<{
+        status: number;
+        informationSchema?: InformationSchemaInterface;
+      }>(`/datasource/${dataSourceId}/schema`, {});
+      if (informationSchema?.error?.message) {
+        setAutoMetricError(informationSchema.error.message);
+      }
+      setSelectedDatasourceData({ informationSchema });
+    }
+
+    if (selectedDatasource?.id) {
+      getInformationSchema(selectedDatasource.id);
+    }
+  }, [apiCall, selectedDatasource?.id]);
+
   return (
     <Modal
       size="lg"
@@ -283,9 +310,12 @@ export default function AutoGenerateMetricsModal({
             }
             label={
               <div className="d-flex align-items-center">
-                Select a Data Set
+                Select a {schemaName}
                 {selectedDatasource?.id ? (
-                  <Tooltip body="Refresh list of data sets" tipPosition="top">
+                  <Tooltip
+                    body={`Refresh list of ${schemaName.toLocaleLowerCase()}s`}
+                    tipPosition="top"
+                  >
                     <button
                       className="btn btn-link p-0 pl-1 text-secondary"
                       disabled={refreshingSchema}
@@ -428,7 +458,7 @@ export default function AutoGenerateMetricsModal({
         )}
         {refreshingSchema ? (
           <div className="alert alert-info">
-            Refreshing list of data sets...
+            Refreshing list of {schemaName.toLocaleLowerCase()}s...
           </div>
         ) : null}
         {refreshingSchemaError ? (
