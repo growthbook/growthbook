@@ -3,6 +3,7 @@ import {
   Queries,
   QueryInterface,
   QueryPointer,
+  QueryStatistics,
   QueryStatus,
 } from "../../types/query";
 import {
@@ -264,7 +265,9 @@ export abstract class QueryRunner<
   >(
     name: string,
     query: string,
-    run: (query: string) => Promise<Rows>,
+    run: (
+      query: string
+    ) => Promise<{ statistics?: QueryStatistics; rows: Rows }>,
     process: (rows: Rows) => ProcessedRows
   ): Promise<QueryPointer> {
     logger.debug("Running query: " + name);
@@ -342,7 +345,7 @@ export abstract class QueryRunner<
     // Run the query in the background
     logger.debug("Start executing query in background");
     run(query)
-      .then(async (rows) => {
+      .then(async ({ statistics, rows }) => {
         clearInterval(timer);
         logger.debug("Query succeeded");
         await updateQuery(doc, {
@@ -350,6 +353,7 @@ export abstract class QueryRunner<
           status: "succeeded",
           rawResult: rows,
           result: process(rows),
+          statistics: statistics,
         });
         this.onQueryFinish();
       })

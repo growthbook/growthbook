@@ -300,13 +300,6 @@ pre {
     .label {
       color: var(--text-dark);
     }
-
-    &.won {
-      background-color: #09ac171a;
-    }
-    &.lost {
-      background-color: #d940321a;
-    }
     //&.draw {
     //  background-color: #8e51f11a;
     //}
@@ -366,6 +359,39 @@ pre {
       //    color: #8e51f1;
       //  }
       //}
+    }
+    // make the colors more legible when bg is shaded
+    &.won {
+      background-color: #09ac171a;
+      .results-change {
+        &.winning {
+          .value {
+            color: var(--alert-success-color);
+          }
+        }
+        &.losing {
+          .value {
+            color: var(--alert-danger-color);
+          }
+        }
+      }
+      .results-chance,
+      .results-ci {
+        &.won {
+          .value {
+            color: var(--alert-success-color);
+          }
+        }
+
+        &.lost {
+          .value {
+            color: var(--alert-danger-color);
+          }
+        }
+      }
+    }
+    &.lost {
+      background-color: #d940321a;
     }
     .results-flagged-items {
       .flagged {
@@ -451,7 +477,7 @@ pre {
           white-space: normal;
         }
         @media (max-width: 750px) {
-          font-size: 12px;
+          font-size: 10px;
           max-width: 140px;
         }
       }
@@ -461,6 +487,9 @@ pre {
           font-size: 12px;
           margin-right: 0 !important;
           padding: 0 !important;
+        }
+        @media (max-width: 500px) {
+          display: none;
         }
       }
     }
@@ -474,13 +503,23 @@ pre {
 }
 
 .experiment-results-wrapper {
-  padding-bottom: 1px; // to allow for bottom border
   @media (max-width: 900px) {
     overflow-x: auto;
   }
 }
 
 .experiment-results {
+  tbody {
+    tr {
+      box-shadow: rgba(102, 102, 102, 0.125) 0 -1px inset;
+      &:not(.results-label-row) {
+        td:not(.graph-cell):not(:last-child) {
+          box-shadow: rgba(102, 102, 102, 0.125) -1px 0 inset;
+        }
+      }
+    }
+  }
+
   table-layout: fixed;
   width: 100%;
   th,
@@ -498,7 +537,7 @@ pre {
       @media (max-width: 900px) {
         position: static;
       }
-      &.has-tooltip {
+      &.graph-cell {
         z-index: 801;
       }
       &.header-label {
@@ -517,14 +556,12 @@ pre {
   .change {
     font-size: 14px;
     line-height: 16px;
-    &:not(.baseline) {
-      .result-number {
-        font-weight: bold;
-      }
-    }
   }
   .graph-cell {
     padding: 0;
+    svg {
+      overflow: initial;
+    }
   }
   .metric-label {
     font-size: 14px;
@@ -551,7 +588,6 @@ pre {
   }
   .results-change {
     font-size: 12px;
-    font-weight: bold;
     .ci {
       font-weight: normal;
     }
@@ -566,21 +602,21 @@ pre {
   }
   .won {
     color: #09ac17;
-    &.hover {
-      color: #11ce21;
-    }
+    font-weight: bold;
+
     &.results-ctw,
     &.results-pval {
+      color: var(--alert-success-color);
       background: linear-gradient(-40deg, #09ac1730, #09ac1716);
     }
   }
   .lost {
     color: #ce3729;
-    &.hover {
-      color: #ee1500;
-    }
+    font-weight: bold;
+
     &.results-ctw,
     &.results-pval {
+      color: var(--alert-danger-color);
       background: linear-gradient(-40deg, #ce372930, #ce372916);
     }
   }
@@ -599,7 +635,7 @@ pre {
   }
   .visx-axis-left .visx-axis-line {
     // axis line has a 0.5 pixel offset. reverse it
-    transform: translateY(-0.5px);
+    transform: translate(0.5px, -0.5px);
   }
 }
 main.main.report {
