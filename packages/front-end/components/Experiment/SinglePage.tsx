@@ -36,7 +36,6 @@ import { BsFlag } from "react-icons/bs";
 import clsx from "clsx";
 import { FeatureInterface } from "back-end/types/feature";
 import { MdInfoOutline } from "react-icons/md";
-import { AiOutlineInfoCircle } from "react-icons/ai";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissions from "@/hooks/usePermissions";
 import { useAuth } from "@/services/auth";
@@ -59,6 +58,7 @@ import LinkedFeatureFlag from "@/components/Experiment/LinkedFeatureFlag";
 import { useEnvironments, useFeaturesList } from "@/services/features";
 import track from "@/services/track";
 import { formatTrafficSplit } from "@/services/utils";
+import Results_old from "@/components/Experiment/Results_old";
 import MoreMenu from "../Dropdown/MoreMenu";
 import WatchButton from "../WatchButton";
 import SortedTags from "../Tags/SortedTags";
@@ -82,8 +82,8 @@ import Tooltip from "../Tooltip/Tooltip";
 import Button from "../Button";
 import { DocLink } from "../DocLink";
 import FeatureFromExperimentModal from "../Features/FeatureModal/FeatureFromExperimentModal";
-import { openVisualEditor } from "../OpenVisualEditorLink";
 import ConfirmButton from "../Modal/ConfirmButton";
+import { openVisualEditor } from "../OpenVisualEditorLink";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import ResultsIndicator from "./ResultsIndicator";
 import EditStatusModal from "./EditStatusModal";
@@ -91,7 +91,6 @@ import EditExperimentNameForm from "./EditExperimentNameForm";
 import { useSnapshot } from "./SnapshotProvider";
 import ExperimentReportsList from "./ExperimentReportsList";
 import AnalysisForm from "./AnalysisForm";
-import Results from "./Results";
 import StatusIndicator from "./StatusIndicator";
 import ExpandablePhaseSummary from "./ExpandablePhaseSummary";
 import VariationsTable from "./VariationsTable";
@@ -205,19 +204,6 @@ export default function SinglePage({
   editPhase,
   editTargeting,
 }: Props) {
-  let alreadyUsingNewPage = false;
-  try {
-    if (window.localStorage.getItem("single-page-new-ui-v1") === "true") {
-      alreadyUsingNewPage = true;
-    }
-  } catch (e) {
-    // Ignore localStorage errors
-  }
-  const [hideNewExperimentHelp, setHideNewExperimentHelp] = useLocalStorage(
-    `experiment-page__hide-new-experiment-help`,
-    alreadyUsingNewPage
-  );
-
   const [metaInfoOpen, setMetaInfoOpen] = useLocalStorage<boolean>(
     `experiment-page__${experiment.id}__meta-info-open`,
     true
@@ -492,20 +478,24 @@ export default function SinglePage({
 
   return (
     <div className="container-fluid experiment-details pagecontents pb-3">
-      <div className="mb-2 mt-1">
-        <Link
-          href={`/experiments${
-            experiment.status === "draft"
-              ? "#drafts"
-              : experiment.status === "stopped"
-              ? "#stopped"
-              : ""
-          }`}
-        >
-          <a>
-            <GBCircleArrowLeft /> Back to all experiments
-          </a>
-        </Link>
+      <div className="row">
+        <div className="col-auto">
+          <div className="mb-2 mt-1">
+            <Link
+              href={`/experiments${
+                experiment.status === "draft"
+                  ? "#drafts"
+                  : experiment.status === "stopped"
+                  ? "#stopped"
+                  : ""
+              }`}
+            >
+              <a>
+                <GBCircleArrowLeft /> Back to all experiments
+              </a>
+            </Link>
+          </div>
+        </div>
       </div>
       {reportSettingsOpen && (
         <AnalysisForm
@@ -557,7 +547,7 @@ export default function SinglePage({
           close={() => setVisualEditorModal(false)}
           onCreate={async (vc) => {
             // Try to immediately open the visual editor
-            await openVisualEditor(vc);
+            await openVisualEditor(vc, apiCall);
           }}
           cta="Open Visual Editor"
         />
@@ -705,8 +695,8 @@ export default function SinglePage({
       </div>
 
       <div className="mb-4">
-        <div className="row align-items-center mb-2">
-          {(projects.length > 0 || projectIsDeReferenced) && (
+        <div className="experiment-top-rows row align-items-center mb-2">
+          {projects.length > 0 || projectIsDeReferenced ? (
             <div className="col-auto pr-3">
               Project:{" "}
               {projectIsDeReferenced ? (
@@ -739,7 +729,7 @@ export default function SinglePage({
                 </a>
               )}
             </div>
-          )}
+          ) : null}
           <div className="col-auto pr-3 ml-2">
             Tags:{" "}
             {experiment.tags?.length > 0 ? (
@@ -762,7 +752,7 @@ export default function SinglePage({
               </a>
             )}
           </div>
-          <div className="col-auto pr-3 ml-2">
+          <div className="col-auto pr-3 ml-2 mr-4">
             Owner:{" "}
             {ownerName ? (
               <strong>{ownerName}</strong>
@@ -770,9 +760,10 @@ export default function SinglePage({
               <em className="text-muted">None</em>
             )}{" "}
           </div>
+          <div className="row-break" />
           {linkedFeatures.length > 0 ? (
             <div
-              className="col-auto ml-5 pr-3 d-flex flex-column"
+              className="col-auto pr-3 d-flex flex-column"
               style={{ height: 42, justifyContent: "space-between" }}
             >
               <div>Linked features</div>
@@ -789,7 +780,7 @@ export default function SinglePage({
             </div>
           ) : null}
           <div
-            className="col-auto ml-5 pr-3 d-flex flex-column"
+            className="col-auto ml-4 pr-3 d-flex flex-column"
             style={{ height: 42, justifyContent: "space-between" }}
           >
             <div>Experiment key</div>
@@ -798,7 +789,7 @@ export default function SinglePage({
 
           <div className="flex-1 col"></div>
 
-          <div className="col-auto pr-2">
+          <div className="col-auto experiment-dates text-center">
             <div className="mt-1 small text-gray">
               {startDate && (
                 <>
@@ -831,36 +822,6 @@ export default function SinglePage({
             </div>
           </div>
         </div>
-
-        {!hideNewExperimentHelp ? (
-          <div
-            className="d-flex justify-content-end small mt-1"
-            style={{ marginBottom: -10 }}
-          >
-            <div
-              className="text-gray py-1 rounded text-center d-flex align-items-center justify-content-center"
-              style={{ backgroundColor: "#e499ff33", width: 530 }}
-            >
-              <AiOutlineInfoCircle size={16} className="mr-1" />
-              <div>
-                <strong>Experiement</strong> and{" "}
-                <strong>Metric settings</strong> are now in the{" "}
-                <a href="#config" className="font-weight-bold">
-                  Configure
-                </a>{" "}
-                section below.
-              </div>
-              <a
-                role="button"
-                className="btn btn-sm btn-link ml-3"
-                style={{ padding: "2px 4px" }}
-                onClick={() => setHideNewExperimentHelp(true)}
-              >
-                Dismiss
-              </a>
-            </div>
-          </div>
-        ) : null}
 
         {currentProject && currentProject !== experiment.project && (
           <div className="alert alert-warning p-2 mb-2 text-center">
@@ -1038,68 +999,71 @@ export default function SinglePage({
               <div className="row">
                 <div className="col">
                   <table className="table table-sm w-auto">
-                    <tr>
-                      <th>
-                        Experiment Key{" "}
-                        <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
-                      </th>
-                      <td>{experiment.trackingKey}</td>
-                    </tr>
-                    <tr>
-                      <th className="pr-5">
-                        Assignment Attribute{" "}
-                        <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
-                          <MdInfoOutline className="text-info" />
-                        </Tooltip>
-                      </th>
-                      <td>
-                        {experiment.hashAttribute || "id"}{" "}
-                        {
-                          <HashVersionTooltip>
-                            <small className="text-muted ml-1">
-                              (V{experiment.hashVersion || 2} hashing)
-                            </small>
-                          </HashVersionTooltip>
-                        }
-                      </td>
-                    </tr>
-                    <tr>
-                      <th>Targeting Conditions</th>
-                      <td>
-                        {lastPhase.condition && lastPhase.condition !== "{}" ? (
-                          <ConditionDisplay condition={lastPhase.condition} />
-                        ) : (
-                          <em>No conditions</em>
-                        )}
-                      </td>
-                    </tr>
-                    <tr>
-                      <th>Traffic</th>
-                      <td>
-                        {Math.floor(lastPhase.coverage * 100)}% included,{" "}
-                        {formatTrafficSplit(lastPhase.variationWeights)} split
-                      </td>
-                    </tr>
-                    <tr>
-                      <th>
-                        Namespace{" "}
-                        <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration -> Namespaces">
-                          <MdInfoOutline className="text-info" />
-                        </Tooltip>
-                      </th>
-                      <td>
-                        {hasNamespace ? (
-                          <>
-                            {lastPhase.namespace.name}{" "}
-                            <span className="text-muted">
-                              ({percentFormatter.format(namespaceRange)})
-                            </span>
-                          </>
-                        ) : (
-                          <em>Global (all users)</em>
-                        )}
-                      </td>
-                    </tr>
+                    <tbody>
+                      <tr>
+                        <th>
+                          Experiment Key{" "}
+                          <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
+                        </th>
+                        <td>{experiment.trackingKey}</td>
+                      </tr>
+                      <tr>
+                        <th className="pr-5">
+                          Assignment Attribute{" "}
+                          <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
+                            <MdInfoOutline className="text-info" />
+                          </Tooltip>
+                        </th>
+                        <td>
+                          {experiment.hashAttribute || "id"}{" "}
+                          {
+                            <HashVersionTooltip>
+                              <small className="text-muted ml-1">
+                                (V{experiment.hashVersion || 2} hashing)
+                              </small>
+                            </HashVersionTooltip>
+                          }
+                        </td>
+                      </tr>
+                      <tr>
+                        <th>Targeting Conditions</th>
+                        <td>
+                          {lastPhase.condition &&
+                          lastPhase.condition !== "{}" ? (
+                            <ConditionDisplay condition={lastPhase.condition} />
+                          ) : (
+                            <em>No conditions</em>
+                          )}
+                        </td>
+                      </tr>
+                      <tr>
+                        <th>Traffic</th>
+                        <td>
+                          {Math.floor(lastPhase.coverage * 100)}% included,{" "}
+                          {formatTrafficSplit(lastPhase.variationWeights)} split
+                        </td>
+                      </tr>
+                      <tr>
+                        <th>
+                          Namespace{" "}
+                          <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under SDK Configuration -> Namespaces">
+                            <MdInfoOutline className="text-info" />
+                          </Tooltip>
+                        </th>
+                        <td>
+                          {hasNamespace ? (
+                            <>
+                              {lastPhase.namespace.name}{" "}
+                              <span className="text-muted">
+                                ({percentFormatter.format(namespaceRange)})
+                              </span>
+                            </>
+                          ) : (
+                            <em>Global (all users)</em>
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
                   </table>
                 </div>
               </div>
@@ -1280,7 +1244,7 @@ export default function SinglePage({
                 results.
               </div>
             ) : (
-              <Results
+              <Results_old
                 experiment={experiment}
                 mutateExperiment={mutate}
                 editMetrics={editMetrics ?? undefined}

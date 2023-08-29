@@ -5,6 +5,7 @@ import { useRouter } from "next/router";
 import Link from "next/link";
 import { ago, datetime } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
+import { isProjectListValidForProject } from "shared/util";
 import SortedTags from "@/components/Tags/SortedTags";
 import { GBAddCircle } from "@/components/Icons";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -157,11 +158,9 @@ const MetricsPage = (): React.ReactElement => {
     }),
     [getDatasourceById, experimentData]
   );
-  const filteredMetrics = metrics.filter((m) => {
-    if (!project) return true;
-    if (!m?.projects?.length) return true;
-    return m?.projects?.includes(project);
-  });
+  const filteredMetrics = project
+    ? metrics.filter((m) => isProjectListValidForProject(m.projects, project))
+    : metrics;
 
   // Searching
   const filterResults = useCallback(

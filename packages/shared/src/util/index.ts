@@ -1,3 +1,4 @@
+import uniqid from "uniqid";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
@@ -7,7 +8,8 @@ import {
   ExperimentSnapshotInterface,
 } from "back-end/types/experiment-snapshot";
 import { FeatureInterface, FeatureRule } from "back-end/types/feature";
-import uniqid from "uniqid";
+
+export * from "./features";
 
 export function getAffectedEnvsForExperiment({
   experiment,
@@ -143,4 +145,18 @@ export function getMatchingRules(
   }
 
   return matches;
+}
+
+export function isProjectListValidForProject(
+  projects?: string[],
+  project?: string
+) {
+  // If project list is empty, it's always valid no matter what
+  if (!projects || !projects.length) return true;
+
+  // If there is no selected project, it's invalid
+  if (!project) return false;
+
+  // It's valid only if the project list contains the selected project
+  return projects.includes(project);
 }

@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "Simple python package to manage dependencies for integration-query-runner.py"
 authors = ["Luke Sonnet <luke@growthbook.io>"]
 readme = "README.md"
-packages = [{include = "integration_query_runner"}]
 
 [tool.poetry.dependencies]
 python = "^3.8"
