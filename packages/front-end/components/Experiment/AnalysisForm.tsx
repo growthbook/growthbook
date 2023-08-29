@@ -7,7 +7,10 @@ import {
 import { FaQuestionCircle } from "react-icons/fa";
 import { getValidDate } from "shared/dates";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
-import { getAffectedEnvsForExperiment } from "shared/util";
+import {
+  getAffectedEnvsForExperiment,
+  isProjectListValidForProject,
+} from "shared/util";
 import { getScopedSettings } from "shared/settings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -26,7 +29,11 @@ import UpgradeModal from "../Settings/UpgradeModal";
 import { AttributionModelTooltip } from "./AttributionModelTooltip";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import MetricsSelector from "./MetricsSelector";
-import { EditMetricsFormInterface } from "./EditMetricsForm";
+import {
+  EditMetricsFormInterface,
+  fixMetricOverridesBeforeSaving,
+  getDefaultMetricOverridesFormValue,
+} from "./EditMetricsForm";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -50,6 +57,8 @@ const AnalysisForm: FC<{
     segments,
     getProjectById,
     getDatasourceById,
+    getMetricById,
+    getSegmentById,
     datasources,
   } = useDefinitions();
 
@@ -127,7 +136,11 @@ const AnalysisForm: FC<{
             DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
       metrics: experiment.metrics,
       guardrails: experiment.guardrails || [],
-      metricOverrides: experiment.metricOverrides || [],
+      metricOverrides: getDefaultMetricOverridesFormValue(
+        experiment.metricOverrides || [],
+        getMetricById,
+        orgSettings
+      ),
     },
   });
 
@@ -213,11 +226,7 @@ const AnalysisForm: FC<{
           skipPartialData: skipPartialData === "strict",
         };
 
-        // Metrics/guardrails are tied to a data source, so if we change it, they need to be removed.
-        if (body.datasource !== experiment.datasource) {
-          body.metrics = [];
-          body.guardrails = [];
-        }
+        fixMetricOverridesBeforeSaving(body.metricOverrides || []);
 
         if (experiment.status === "stopped") {
           body.phaseEndDate = dateEnded;
@@ -243,17 +252,64 @@ const AnalysisForm: FC<{
         labelClassName="font-weight-bold"
         value={datasource?.id || ""}
         onChange={(newDatasource) => {
-          if (datasource && newDatasource !== datasource?.id) {
-            form.setValue("segment", "");
-            form.setValue("activationMetric", "");
+          form.setValue("datasource", newDatasource);
+
+          // If unsetting the datasource, leave all the other settings alone
+          // That way, it will be restored if the user switches back to the previous value
+          if (!newDatasource) {
+            return;
+          }
+
+          // If the exposure query is now invalid
+          const ds = getDatasourceById(newDatasource);
+          if (!getExposureQuery(ds?.settings, form.watch("exposureQueryId"))) {
             form.setValue("exposureQueryId", "");
           }
-          form.setValue("datasource", newDatasource);
+
+          // If the segment is now invalid
+          const segment = form.watch("segment");
+          if (
+            segment &&
+            getSegmentById(segment)?.datasource !== newDatasource
+          ) {
+            form.setValue("segment", "");
+          }
+
+          // If the activationMetric is now invalid
+          const activationMetric = form.watch("activationMetric");
+          if (
+            activationMetric &&
+            getMetricById(activationMetric)?.datasource !== newDatasource
+          ) {
+            form.setValue("activationMetric", "");
+          }
+
+          // Filter the selected metrics to only valid ones
+          const metrics = form.watch("metrics");
+          form.setValue(
+            "metrics",
+            metrics.filter(
+              (m) => getMetricById(m)?.datasource === newDatasource
+            )
+          );
+
+          // Filter the selected guardrails to only valid ones
+          const guardrails = form.watch("guardrails");
+          form.setValue(
+            "guardrails",
+            guardrails.filter(
+              (m) => getMetricById(m)?.datasource === newDatasource
+            )
+          );
         }}
-        options={datasources.map((d) => ({
-          value: d.id,
-          label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-        }))}
+        options={datasources
+          .filter((ds) =>
+            isProjectListValidForProject(ds.projects, experiment.project)
+          )
+          .map((d) => ({
+            value: d.id,
+            label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
+          }))}
         className="portal-overflow-ellipsis"
         initialOption="Manual"
         helpText={
@@ -542,7 +598,7 @@ const AnalysisForm: FC<{
             <MetricsSelector
               selected={form.watch("metrics")}
               onChange={(metrics) => form.setValue("metrics", metrics)}
-              datasource={experiment.datasource}
+              datasource={form.watch("datasource")}
               project={experiment.project}
               autoFocus={true}
             />
@@ -557,7 +613,7 @@ const AnalysisForm: FC<{
             <MetricsSelector
               selected={form.watch("guardrails")}
               onChange={(metrics) => form.setValue("guardrails", metrics)}
-              datasource={experiment.datasource}
+              datasource={form.watch("datasource")}
               project={experiment.project}
             />
           </div>
