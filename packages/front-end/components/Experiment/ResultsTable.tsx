@@ -155,9 +155,9 @@ export default function ResultsTable({
       });
   }, [variations, baselineRow]);
 
-  const compactResults = orderedVariations
-    .filter((_, i) => !variationFilter?.includes(i))
-    .length === 2;
+  const compactResults =
+    orderedVariations.filter((_, i) => !variationFilter?.includes(i)).length ===
+    2;
 
   const rowsResults: (RowResults | "query error" | null)[][] = useMemo(() => {
     const rr: (RowResults | "query error" | null)[][] = [];
@@ -713,8 +713,23 @@ export default function ResultsTable({
                             metric={row.metric}
                             stats={baseline}
                             users={baseline?.users || 0}
-                            className="value baseline"
+                            className={clsx("value baseline", {
+                              hover: isHovered,
+                            })}
                             newUi={true}
+                            onMouseMove={(e) =>
+                              onPointerMove(e, {
+                                x: "element-right",
+                                offsetX: -45,
+                              })
+                            }
+                            onPointerLeave={onPointerLeave}
+                            onClick={(e) =>
+                              onPointerMove(e, {
+                                x: "element-right",
+                                offsetX: -45,
+                              })
+                            }
                           />
                         ) : (
                           <td />
