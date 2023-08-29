@@ -146,3 +146,17 @@ export function getMatchingRules(
 
   return matches;
 }
+
+export function isProjectListValidForProject(
+  projects?: string[],
+  project?: string
+) {
+  // If project list is empty, it's always valid no matter what
+  if (!projects || !projects.length) return true;
+
+  // If there is no selected project, it's invalid
+  if (!project) return false;
+
+  // It's valid only if the project list contains the selected project
+  return projects.includes(project);
+}

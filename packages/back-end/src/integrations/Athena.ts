@@ -1,5 +1,6 @@
 import { decryptDataSourceParams } from "../services/datasource";
 import { runAthenaQuery } from "../services/athena";
+import { QueryResponse } from "../types/Integration";
 import { AthenaConnectionParams } from "../../types/integrations/athena";
 import { FormatDialect } from "../util/sql";
 import SqlIntegration from "./SqlIntegration";
@@ -23,7 +24,7 @@ export default class Athena extends SqlIntegration {
   toTimestamp(date: Date) {
     return `from_iso8601_timestamp('${date.toISOString()}')`;
   }
-  runQuery(sql: string) {
+  runQuery(sql: string): Promise<QueryResponse> {
     return runAthenaQuery(this.params, sql);
   }
   addTime(

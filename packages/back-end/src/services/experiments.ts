@@ -23,7 +23,10 @@ import {
 import { getMetricsByIds, insertMetric } from "../models/MetricModel";
 import { checkSrm, sumSquaresFromStats } from "../util/stats";
 import { addTags } from "../models/TagModel";
-import { Dimension, ExperimentMetricQueryResponse } from "../types/Integration";
+import {
+  Dimension,
+  ExperimentMetricQueryResponseRows,
+} from "../types/Integration";
 import { createExperimentSnapshotModel } from "../models/ExperimentSnapshotModel";
 import {
   Condition,
@@ -178,7 +181,7 @@ export async function getManualSnapshotData(
       const metric = metricMap.get(m);
       return async () => {
         if (!metric) return;
-        const rows: ExperimentMetricQueryResponse = stats.map((s, i) => {
+        const rows: ExperimentMetricQueryResponseRows = stats.map((s, i) => {
           return {
             dimension: "All",
             variation: experiment.variations[i].key || i + "",

@@ -21,6 +21,7 @@ import {
 import Mysql from "../integrations/Mysql";
 import Mssql from "../integrations/Mssql";
 import { getDataSourceById } from "../models/DataSourceModel";
+import { TemplateVariables } from "../../types/sql";
 
 export function decryptDataSourceParams<T = DataSourceParams>(
   encrypted: string
@@ -134,7 +135,8 @@ export async function testDataSourceConnection(
 
 export async function testQuery(
   datasource: DataSourceInterface,
-  query: string
+  query: string,
+  templateVariables?: TemplateVariables
 ): Promise<{
   results?: TestQueryRow[];
   duration?: number;
@@ -148,7 +150,7 @@ export async function testQuery(
     throw new Error("Unable to test query.");
   }
 
-  const sql = integration.getTestQuery(query);
+  const sql = integration.getTestQuery(query, templateVariables);
   try {
     const { results, duration } = await integration.runTestQuery(sql);
     return {
