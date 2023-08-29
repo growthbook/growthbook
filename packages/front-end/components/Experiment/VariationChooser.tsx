@@ -73,7 +73,10 @@ export default function VariationChooser({
         uuid={"variation-filter"}
         right={false}
         className="mt-3"
-        toggleClassName={clsx({ "dropdown-underline": requiresDropdown })}
+        toggleClassName={clsx({
+          "dropdown-underline": requiresDropdown,
+          "dropdown-underline-disabled": !requiresDropdown,
+        })}
         toggle={<div className="d-inline-flex align-items-center">{title}</div>}
         header={
           <>

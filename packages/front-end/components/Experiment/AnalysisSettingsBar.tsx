@@ -155,7 +155,9 @@ export default function AnalysisSettingsBar({
                   setVariationFilter={setVariationFilter}
                   baselineRow={baselineRow ?? 0}
                 />
-                <em className="text-muted mx-2" style={{ marginTop: -4 }}>vs</em>
+                <em className="text-muted mx-2" style={{ marginTop: -2 }}>
+                  vs
+                </em>
                 <BaselineChooser
                   variations={variations}
                   variationFilter={variationFilter ?? []}

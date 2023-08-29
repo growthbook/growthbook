@@ -2449,6 +2449,7 @@ html {
   height: 24px;
   padding: 0 1px;
   border-bottom: 1px solid var(--border-color-300);
+  top: 1px;
   span.hover {
     color: var(--text-link-color);
   }
@@ -2470,6 +2471,7 @@ html {
   border-radius: 0 !important;
   height: 24px;
   border-bottom: 1px transparent;
+  top: 1px;
   .sub {
     position: absolute;
     right: 0;
