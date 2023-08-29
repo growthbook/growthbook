@@ -502,6 +502,14 @@ pre {
   }
 }
 
+.variation-chooser-hover-underline {
+  &:hover {
+    span:not(.skip-underline) {
+      text-decoration: underline;
+    }
+  }
+}
+
 .experiment-results-wrapper {
   @media (max-width: 900px) {
     overflow-x: auto;

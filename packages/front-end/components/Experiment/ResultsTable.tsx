@@ -108,9 +108,6 @@ export default function ResultsTable({
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
   }
-  if (variationFilter?.length === variations.length) {
-    variationFilter = [];
-  }
 
   const {
     metricDefaults,
@@ -167,8 +164,8 @@ export default function ResultsTable({
         users: 0,
       };
       orderedVariations.map((v) => {
-        let skipVariation = false; // todo: use filter
-        if (variationFilter?.length && !variationFilter?.includes(v.index)) {
+        let skipVariation = false;
+        if (variationFilter?.length && variationFilter?.includes(v.index)) {
           skipVariation = true;
         }
         if (v.index === baselineRow) {
@@ -464,8 +461,7 @@ export default function ResultsTable({
                               <span
                                 className="d-inline-block text-ellipsis font-weight-bold"
                                 style={{
-                                  width: 80 * tableCellScale,
-                                  marginRight: -20,
+                                  maxWidth: 250,
                                 }}
                               >
                                 {variations[baselineRow].name}

@@ -28,6 +28,8 @@ import MultipleExposureWarning from "./MultipleExposureWarning";
 const CompactResults: FC<{
   editMetrics?: () => void;
   variations: ExperimentReportVariation[];
+  variationFilter?: number[];
+  baselineRow?: number;
   multipleExposures?: number;
   results: ExperimentReportResultDimension;
   queryStatusData?: QueryStatusData;
@@ -48,6 +50,8 @@ const CompactResults: FC<{
 }> = ({
   editMetrics,
   variations,
+  variationFilter,
+  baselineRow = 0,
   multipleExposures = 0,
   results,
   queryStatusData,
@@ -142,7 +146,8 @@ const CompactResults: FC<{
         status={status}
         queryStatusData={queryStatusData}
         variations={variations}
-        baselineRow={2}
+        variationFilter={variationFilter}
+        baselineRow={baselineRow}
         rows={rows.filter((r) => !r.isGuardrail)}
         id={id}
         hasRisk={risk.hasRisk}
@@ -165,6 +170,8 @@ const CompactResults: FC<{
             status={status}
             queryStatusData={queryStatusData}
             variations={variations}
+            variationFilter={variationFilter}
+            baselineRow={baselineRow}
             rows={rows.filter((r) => r.isGuardrail)}
             id={id}
             hasRisk={risk.hasRisk}
