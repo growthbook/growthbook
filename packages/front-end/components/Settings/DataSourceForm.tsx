@@ -17,7 +17,6 @@ import track from "@/services/track";
 import Modal from "@/components/Modal";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import Field from "../Forms/Field";
 
 const typeOptions = dataSourceConnections;
 

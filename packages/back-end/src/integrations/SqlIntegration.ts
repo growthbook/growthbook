@@ -1472,7 +1472,7 @@ export default abstract class SqlIntegration
     switch (schemaFormat) {
       case "amplitude": {
         return {
-          trackedEventTableName: `EVENT_${
+          trackedEventTableName: `EVENTS_${
             this.settings.schemaOptions?.projectId || `*`
           }`,
           eventColumn: "event_type",
@@ -1481,7 +1481,7 @@ export default abstract class SqlIntegration
           anonymousIdColumn: "amplitude_id",
           getMetricTableName: () =>
             this.generateTablePath(
-              `EVENT_${this.settings.schemaOptions?.projectId || `*`}`
+              `EVENTS_${this.settings.schemaOptions?.projectId || `*`}`
             ),
           getDateLimitClause: (start: Date, end: Date) =>
             `event_time BETWEEN '${formatDate(
