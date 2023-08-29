@@ -168,10 +168,7 @@ export default function AnalysisSettingsSummary({
           editMetrics={true}
         />
       )}
-      <div
-        className="row align-items-center text-muted"
-        style={{ fontSize: "1.1em" }}
-      >
+      <div className="row align-items-center text-muted">
         <div className="col-auto">
           <a
             href="#"
