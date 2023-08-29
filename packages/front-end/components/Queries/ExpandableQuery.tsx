@@ -115,18 +115,18 @@ const ExpandableQuery: FC<{
               Running for{" "}
               {formatDistanceStrict(getValidDate(query.startedAt), new Date())}
             </em>
+            {query.dependencies?.length ? (
+              <div>
+                <em>
+                  Was queued for{" "}
+                  {formatDistanceStrict(
+                    getValidDate(query.createdAt),
+                    getValidDate(query.startedAt)
+                  )}
+                </em>
+              </div>
+            ) : null}
           </div>
-          {query.dependencies?.length ? (
-            <div className="alert alert-info">
-              <em>
-                Was queued for{" "}
-                {formatDistanceStrict(
-                  getValidDate(query.createdAt),
-                  getValidDate(query.startedAt)
-                )}
-              </em>
-            </div>
-          ) : null}
         </>
       )}
       {query.status === "queued" && (
