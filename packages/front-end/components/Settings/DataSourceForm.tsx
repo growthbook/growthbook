@@ -258,28 +258,6 @@ const DataSourceForm: FC<{
         setDatasource={setDatasource}
         setDirty={setDirty}
       />
-      {datasource.settings?.schemaFormat === "amplitude" ? (
-        <div className="form-group">
-          <Field
-            label="Amplitude Project ID"
-            placeholder="123456"
-            value={datasource.settings?.schemaOptions?.projectId || ""}
-            onChange={(e) => {
-              setDatasource({
-                ...datasource,
-                settings: {
-                  ...datasource.settings,
-                  schemaOptions: {
-                    projectId: e.target.value,
-                  },
-                },
-              } as Partial<DataSourceInterfaceWithParams>);
-              setDirty(true);
-            }}
-            helpText="Required to unlock access to automatic metric generation."
-          />
-        </div>
-      ) : null}
     </Modal>
   );
 };

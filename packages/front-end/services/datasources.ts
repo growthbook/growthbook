@@ -186,6 +186,7 @@ const AmplitudeSchema: SchemaInterface = {
     const userCol = userId === "user_id" ? "user_id" : "amplitude_id";
     // @ts-expect-error TS(2532) If you come across this, please fix it!: Object is possibly 'undefined'.
     const eventType = options.eventType || "Experiment Viewed";
+    const projectId = options?.projectId || "AMPLITUDE_PROJECT_ID";
 
     return `SELECT
   ${userCol} as ${userId},
@@ -197,7 +198,7 @@ const AmplitudeSchema: SchemaInterface = {
   country,
   paying
 FROM
-  ${tablePrefix}EVENTS_${options?.projectId || "AMPLITUDE_PROJECT_ID"}
+  ${tablePrefix}EVENTS_${projectId}
 WHERE
   event_type = '${eventType}'
   AND ${userCol} is not null

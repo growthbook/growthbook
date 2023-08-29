@@ -225,9 +225,6 @@ const NewDataSourceForm: FC<{
               form.watch("settings.schemaOptions")
             ),
             ...(datasource.settings || {}),
-            schemaOptions: {
-              projectId: form.watch("settings.schemaOptions.projectId"),
-            },
           },
         };
         const res = await apiCall<{ id: string }>(`/datasources`, {
@@ -273,9 +270,7 @@ const NewDataSourceForm: FC<{
       ...datasource,
       settings: {
         ...settings,
-        schemaOptions: {
-          projectId: form.watch("settings.schemaOptions.projectId"),
-        },
+        schemaOptions: form.watch("settings.schemaOptions"),
       },
       metricsToCreate: form.watch("metricsToCreate"),
     };
@@ -613,22 +608,6 @@ const NewDataSourceForm: FC<{
           hasError={!!lastError}
           setDatasource={setDatasource}
         />
-        {schema && schema === "amplitude" ? (
-          <div className="form-group">
-            <Field
-              label="Amplitude Project ID"
-              placeholder="123456"
-              value={form.watch("settings.schemaOptions.projectId")}
-              onChange={(e) => {
-                form.setValue(
-                  "settings.schemaOptions.projectId",
-                  e.target.value
-                );
-              }}
-              helpText="Required to unlock access to automatic metric generation."
-            />
-          </div>
-        ) : null}
       </div>
     );
   } else {

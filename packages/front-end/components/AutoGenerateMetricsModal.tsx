@@ -98,7 +98,7 @@ export default function AutoGenerateMetricsModal({
 
       if (
         datasourceObj.settings.schemaFormat === "amplitude" &&
-        !datasourceObj.settings.projectId
+        !datasourceObj.settings?.schemaOptions?.projectId
       ) {
         setAutoMetricError(
           "Missing Amplitude Project Id - Click the 'Edit Connection Info' button at the top of this page to add your project id."
