@@ -27,6 +27,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { trackSnapshot } from "@/services/track";
 import VariationChooser from "@/components/Experiment/VariationChooser";
+import BaselineChooser from "@/components/Experiment/BaselineChooser";
 import RunQueriesButton, { getQueryStatus } from "../Queries/RunQueriesButton";
 import ViewAsyncQueriesButton from "../Queries/ViewAsyncQueriesButton";
 import DimensionChooser from "../Dimensions/DimensionChooser";
@@ -54,8 +55,8 @@ export default function AnalysisSettingsBar({
   variationFilter,
   setVariationFilter,
   baselineRow,
-}: // setBaselineRow,
-{
+  setBaselineRow,
+}: {
   mutateExperiment: () => void;
   editMetrics?: () => void;
   editPhases?: () => void;
@@ -142,15 +143,28 @@ export default function AnalysisSettingsBar({
                 />
               </div>
             )}
-          {newUi && showCompactResults && setVariationFilter ? (
-            <div className="col-auto form-inline">
-              <VariationChooser
-                variations={variations}
-                variationFilter={variationFilter ?? []}
-                setVariationFilter={setVariationFilter}
-                baselineRow={baselineRow ?? 0}
-              />
-            </div>
+          {newUi &&
+          showCompactResults &&
+          setVariationFilter &&
+          setBaselineRow ? (
+            <>
+              <div className="col-auto form-inline pr-4">
+                <VariationChooser
+                  variations={variations}
+                  variationFilter={variationFilter ?? []}
+                  setVariationFilter={setVariationFilter}
+                  baselineRow={baselineRow ?? 0}
+                />
+                <em className="text-muted mx-2">vs</em>
+                <BaselineChooser
+                  variations={variations}
+                  variationFilter={variationFilter ?? []}
+                  setVariationFilter={setVariationFilter}
+                  baselineRow={baselineRow ?? 0}
+                  setBaselineRow={setBaselineRow}
+                />
+              </div>
+            </>
           ) : null}
           <div className="col-auto form-inline">
             <DimensionChooser

@@ -90,7 +90,6 @@ export default function VariationChooser({
         uuid={"variation-filter"}
         right={false}
         className="mt-2"
-        toggleClassName="mr-2"
         toggle={
           <div
             className="d-inline-flex align-items-center"
@@ -153,7 +152,7 @@ export default function VariationChooser({
                 variationFilter.filter((v) => v !== variation.index)
               );
             } else {
-              setVariationFilter([...variationFilter, variation.index]);
+              setVariationFilter([...variationFilter, variation.index].sort());
             }
           };
 
