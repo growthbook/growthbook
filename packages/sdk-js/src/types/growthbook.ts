@@ -249,6 +249,9 @@ export type ClientKey = string;
 export type RepositoryKey = `${ApiHost}||${ClientKey}`;
 
 export type LoadFeaturesOptions = {
+  /**
+   * @deprecated
+   */
   autoRefresh?: boolean;
   timeout?: number;
   skipCache?: boolean;

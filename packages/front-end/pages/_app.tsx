@@ -32,6 +32,7 @@ const growthbook = new GrowthBook<AppFeatures>({
       ? "sdk-ueFMOgZ2daLa0M"
       : "sdk-UmQ03OkUDAu7Aox",
   enableDevMode: true,
+  subscribeToChanges: true,
   realtimeKey: "key_prod_cb40dfcb0eb98e44",
   trackingCallback: (experiment, result) => {
     track("Experiment Viewed", {
@@ -74,7 +75,7 @@ function App({
 
   useEffect(() => {
     // Load feature definitions JSON from GrowthBook API
-    growthbook.loadFeatures({ autoRefresh: true }).catch(() => {
+    growthbook.loadFeatures().catch(() => {
       console.log("Failed to fetch GrowthBook feature definitions");
     });
   }, [router.pathname]);
