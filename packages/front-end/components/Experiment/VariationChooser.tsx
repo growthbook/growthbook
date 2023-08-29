@@ -27,8 +27,7 @@ export default function VariationChooser({
     <div
       className={clsx("d-inline-block btn-link", { "btn-link": showDropdown })}
     >
-      <span className="font-weight-bold ">All variations</span> (
-      {variations.length - 1})
+      <span className="font-weight-bold ">All variations</span>
     </div>
   );
   if (filteredVariations.length <= variations.length - 1) {
@@ -41,7 +40,7 @@ export default function VariationChooser({
         <span className="font-weight-bold">
           {filteredVariations.length - 1} Variations
         </span>{" "}
-        ({variations.length - 1} total)
+        <span className="text-muted small">({variations.length - 1} total)</span>
       </div>
     );
   }
@@ -114,14 +113,14 @@ export default function VariationChooser({
               }}
             >
               <div className={`d-flex align-items-center`}>
-                <div className="mr-2">
-                  <input
-                    readOnly
-                    type="checkbox"
-                    style={{ pointerEvents: "none", verticalAlign: "-1px" }}
-                    checked={!variationFilter.includes(i)}
-                  />
-                </div>
+                <input
+                  readOnly
+                  id={`variation-filter-checkbox-${i}`}
+                  type="checkbox"
+                  className="mr-3"
+                  style={{ pointerEvents: "none", verticalAlign: "-1px", width: 16, height: 16 }}
+                  checked={!variationFilter.includes(i)}
+                />
                 <div className="d-flex align-items-center">
                   <div className="mr-2">
                     <div
