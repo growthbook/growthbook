@@ -40,6 +40,7 @@ const CompactResults: FC<{
   regressionAdjustmentEnabled?: boolean;
   metricRegressionAdjustmentStatuses?: MetricRegressionAdjustmentStatus[];
   sequentialTestingEnabled?: boolean;
+  showTitle?: boolean;
 }> = ({
   results,
   variations,
@@ -57,6 +58,7 @@ const CompactResults: FC<{
   regressionAdjustmentEnabled,
   metricRegressionAdjustmentStatuses,
   sequentialTestingEnabled,
+  showTitle = true,
 }) => {
   const { getMetricById, ready } = useDefinitions();
 
@@ -116,22 +118,24 @@ const CompactResults: FC<{
             multipleExposures={multipleExposures}
           />
         )}
-        <h3 className="mb-3">
-          Metrics
-          {editMetrics && (
-            <a
-              href="#"
-              onClick={(e) => {
-                e.preventDefault();
-                editMetrics();
-              }}
-              className="ml-2"
-              style={{ fontSize: "0.8rem" }}
-            >
-              Adjust Metrics
-            </a>
-          )}
-        </h3>
+        {showTitle && (
+          <h3 className="mb-3">
+            Metrics
+            {editMetrics && (
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  editMetrics();
+                }}
+                className="ml-2"
+                style={{ fontSize: "0.8rem" }}
+              >
+                Adjust Metrics
+              </a>
+            )}
+          </h3>
+        )}
       </div>
       <div className="mb-1 experiment-compact-holder">
         <ResultsTable

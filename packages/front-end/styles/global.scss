@@ -953,6 +953,46 @@ pre {
   }
 }
 
+.toggle-viewer {
+  & > div,
+  & > a {
+    display: inline-block;
+    vertical-align: middle;
+    position: relative;
+    font-size: 1.2rem;
+    padding: 0 7px;
+    cursor: pointer;
+    border: 1px solid var(--border-color-300);
+    background: var(--surface-background-color);
+    color: var(--text-color-muted);
+
+    &:first-child {
+      border-radius: 6px 0 0 6px;
+    }
+
+    &:last-child {
+      border-radius: 0 6px 6px 0;
+    }
+
+    svg {
+      position: relative;
+      top: -2px;
+    }
+
+    &.selected {
+      background: var(--background-primary-light);
+      color: var(--text-color-primary);
+    }
+
+    &:hover {
+      cursor: pointer;
+      border-color: var(--text-color-primary);
+      background: var(--text-color-primary);
+      color: var(--background-primary-light);
+    }
+  }
+}
+
 // To make non-password fields look like password fields.
 .password-presentation {
   -webkit-text-security: disc;

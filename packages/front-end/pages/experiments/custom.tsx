@@ -2,6 +2,11 @@ import React, { Fragment, useEffect, useMemo, useState } from "react";
 import { datetime } from "shared/dates";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
+import { BsFlag } from "react-icons/bs";
+import { RxDesktop } from "react-icons/rx";
+import router from "next/router";
+import { MdOutlineViewStream } from "react-icons/md";
+import { HiOutlineViewList } from "react-icons/hi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -17,6 +22,9 @@ import TagsInput from "@/components/Tags/TagsInput";
 import ProjectsInput from "@/components/Projects/ProjectsInput";
 import ProjectBadges from "@/components/ProjectBadges";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import Tooltip from "@/components/Tooltip/Tooltip";
+import Markdown from "@/components/Markdown/Markdown";
+import ShowLatestResults from "@/components/Experiment/ShowLatestResults";
 
 const NUM_PER_PAGE = 20;
 
@@ -35,9 +43,10 @@ const CustomExperimentsPage = (): React.ReactElement => {
     mutateExperiments,
     loading,
   } = useExperiments(project);
-  console.log(allExperiments);
+
   const { getUserDisplay } = useUser();
   const [currentPage, setCurrentPage] = useState(1);
+  const [resultsView, setResultsView] = useState("box");
 
   const experiments = useAddComputedFields(
     allExperiments,
@@ -85,6 +94,7 @@ const CustomExperimentsPage = (): React.ReactElement => {
       graphs: true,
       results: true,
       analysis: true,
+      variations: true,
     },
   });
   const filterForm = useForm<{
@@ -111,7 +121,7 @@ const CustomExperimentsPage = (): React.ReactElement => {
     },
   });
   //console.log("showForm", showForm);
-  const { items, searchInputProps } = useSearch({
+  const { items, searchInputProps, SortableTH } = useSearch({
     items: experiments,
     localStorageKey: "experiments",
     defaultSortField: "date",
@@ -132,11 +142,9 @@ const CustomExperimentsPage = (): React.ReactElement => {
   });
 
   const filterValues = filterForm.getValues();
-  console.log("filterValues", filterValues);
 
   const filtered = useMemo(() => {
     let filteredItems = items;
-    console.log("filtering items...");
     const {
       results,
       status,
@@ -220,7 +228,7 @@ const CustomExperimentsPage = (): React.ReactElement => {
       </div>
     );
   }
-
+  console.log(filtered);
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
 
@@ -477,6 +485,21 @@ const CustomExperimentsPage = (): React.ReactElement => {
                       style={{ top: "2px" }}
                       type="checkbox"
                       id={"results"}
+                      checked={!!showForm.watch("variations")}
+                      onChange={(e) => {
+                        showForm.setValue("variations", e.target.checked);
+                      }}
+                    />
+                    Variations
+                  </label>
+                </div>
+                <div className="form-check">
+                  <label>
+                    <input
+                      className="form-check-input position-relative mr-2"
+                      style={{ top: "2px" }}
+                      type="checkbox"
+                      id={"results"}
                       checked={!!showForm.watch("results")}
                       onChange={(e) => {
                         showForm.setValue("results", e.target.checked);
@@ -520,113 +543,420 @@ const CustomExperimentsPage = (): React.ReactElement => {
           </div>
 
           <div className="results-area">
-            <div className="">
-              <h3>
-                Showing {filtered.length} Experiment
-                {filtered.length === 1 ? "" : "s"}
-              </h3>
+            <div className="row justify-content-between mb-2">
+              <div className="col">
+                <h3 className="mb-0">
+                  Showing {filtered.length} Experiment
+                  {filtered.length === 1 ? "" : "s"}
+                </h3>
+              </div>
+              <div className="col-auto">
+                <div className="toggle-viewer">
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setResultsView("table");
+                    }}
+                    className={`${resultsView === "table" ? "selected" : ""}`}
+                  >
+                    <HiOutlineViewList />
+                  </a>
+                  <a
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setResultsView("box");
+                    }}
+                    className={`${resultsView === "box" ? "selected" : ""}`}
+                  >
+                    <MdOutlineViewStream />
+                  </a>
+                </div>
+              </div>
             </div>
-            {filtered.slice(start, end).map((e) => {
-              //const phase = e.phases?.[e.phases.length - 1];
-              return (
-                <Fragment key={e.id}>
-                  <div className="appbox mb-3 p-3">
-                    <h3>
-                      <Link href={`/experiment/${e.id}`}>{e.name}</Link>
-                    </h3>
-                    <div className="row">
-                      <div className="col-6">
+          </div>
+          {resultsView === "box" ? (
+            <>
+              {filtered.slice(start, end).map((e) => {
+                const phase = e.phases?.[e.phases.length - 1];
+                return (
+                  <Fragment key={e.id}>
+                    <div className="appbox mb-3 p-3">
+                      <h3>
+                        <Link href={`/experiment/${e.id}`}>{e.name}</Link>
+                      </h3>
+                      <div className="row">
+                        <div className="col-6">
+                          {showForm.watch("description") && (
+                            <p>{e.description}</p>
+                          )}
+                          {showForm.watch("hypothesis") && (
+                            <div className="mb-2">
+                              <strong>Hypothesis:</strong>
+                              {e?.hypothesis}
+                            </div>
+                          )}
+                          {showForm.watch("trackingkey") && (
+                            <div className="mb-2">
+                              <strong>Experiment key:</strong>{" "}
+                              <i>{e.trackingKey}</i>
+                            </div>
+                          )}
+                          {showForm.watch("variations") && (
+                            <div className="mb-2">
+                              <strong>Variations:</strong>{" "}
+                              {e?.variations.length > 0 &&
+                              phase?.variationWeights.length > 0 ? (
+                                <ul>
+                                  {e?.variations?.map(
+                                    ({ description, name }, i) => (
+                                      <li key={i}>
+                                        {name}{" "}
+                                        {phase?.variationWeights.length > 0 && (
+                                          <>
+                                            {" - "}
+                                            {phase?.variationWeights?.[i] *
+                                              100 ?? "-"}
+                                            %
+                                          </>
+                                        )}
+                                        {description ? " - " + description : ""}
+                                      </li>
+                                    )
+                                  )}
+                                </ul>
+                              ) : (
+                                <>None</>
+                              )}
+                            </div>
+                          )}
+                          {showForm.watch("owner") && (
+                            <div className="mb-2">
+                              <strong>Owner:</strong> {e.ownerName}
+                            </div>
+                          )}
+                          {showForm.watch("dates") && (
+                            <div className="mb-2">
+                              <strong>Created:</strong>{" "}
+                              {datetime(e.dateCreated)}
+                            </div>
+                          )}
+                          {showForm.watch("projects") && (
+                            <div className="mb-2">
+                              <strong>Project:</strong>
+                              {e?.project ? (
+                                <ProjectBadges
+                                  projectIds={[e.project]}
+                                  className="badge-ellipsis align-middle"
+                                />
+                              ) : (
+                                <ProjectBadges className="badge-ellipsis align-middle" />
+                              )}
+                            </div>
+                          )}
+                          {showForm.watch("tags") && (
+                            <div className="mb-2">
+                              <strong>Tags:</strong>
+                              <SortedTags tags={e.tags} />
+                            </div>
+                          )}
+                        </div>
+                        <div className="col-6">
+                          {showForm.watch("results") && (
+                            <p>
+                              <strong>Status:</strong> {e.status}
+                            </p>
+                          )}
+                          {showForm.watch("results") && (
+                            <div>
+                              <strong>Result:</strong>{" "}
+                              {e.results ? (
+                                <div className="d-inline-block">
+                                  <ResultsIndicator
+                                    results={e?.results ?? null}
+                                  />
+                                </div>
+                              ) : (
+                                <>N/A</>
+                              )}
+                            </div>
+                          )}
+                          {showForm.watch("analysis") && (
+                            <p>
+                              <strong>Analysis:</strong> {e.analysis}
+                            </p>
+                          )}
+                          {showForm.watch("metrics") && (
+                            <div>
+                              <strong>Metric:</strong>
+                              {e?.metrics.length > 0 ? (
+                                <ul>
+                                  {e?.metrics?.map((m, i) => (
+                                    <li key={i}>
+                                      {getMetricById(m)?.name ?? m}
+                                    </li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <>None</>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      {showForm.watch("graphs") && (
+                        <div className="row">
+                          <div className="col">
+                            <ShowLatestResults experiment={e} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </Fragment>
+                );
+              })}
+            </>
+          ) : (
+            <div className="">
+              <table className="appbox table experiment-table gbtable responsive-table mb-0">
+                <thead
+                  className="sticky-top bg-white shadow-sm"
+                  style={{ top: "55px", zIndex: 900 }}
+                >
+                  <tr>
+                    <SortableTH field={"name"} key={"name"} className={""}>
+                      Name
+                    </SortableTH>
+                    {showForm.watch("description") && (
+                      <SortableTH
+                        field={"description"}
+                        key={"description"}
+                        className={""}
+                      >
+                        Description
+                      </SortableTH>
+                    )}
+                    {showForm.watch("hypothesis") && (
+                      <SortableTH
+                        field={"hypothesis"}
+                        key={"hypothesis"}
+                        className={""}
+                      >
+                        Hypothesis
+                      </SortableTH>
+                    )}
+                    {showForm.watch("owner") && (
+                      <SortableTH field={"owner"} key={"owner"} className={""}>
+                        Owner
+                      </SortableTH>
+                    )}
+                    {showForm.watch("dates") && (
+                      <SortableTH field={"date"} key={"date"} className={""}>
+                        Started
+                      </SortableTH>
+                    )}
+                    {showForm.watch("projects") && (
+                      <SortableTH
+                        field={"project"}
+                        key={"project"}
+                        className={""}
+                      >
+                        Project
+                      </SortableTH>
+                    )}
+                    {showForm.watch("tags") && (
+                      <SortableTH field={"tags"} key={"tags"} className={""}>
+                        Tags
+                      </SortableTH>
+                    )}
+                    {showForm.watch("status") && (
+                      <SortableTH
+                        field={"status"}
+                        key={"status"}
+                        className={""}
+                      >
+                        Status
+                      </SortableTH>
+                    )}
+                    {showForm.watch("variations") && (
+                      <SortableTH
+                        field={"variations"}
+                        key={"variations"}
+                        className={""}
+                      >
+                        Variations
+                      </SortableTH>
+                    )}
+                    {showForm.watch("results") && (
+                      <SortableTH
+                        field={"results"}
+                        key={"results"}
+                        className={""}
+                      >
+                        Results
+                      </SortableTH>
+                    )}
+                    {showForm.watch("analysis") && (
+                      <SortableTH
+                        field={"analysis"}
+                        key={"analysis"}
+                        className={""}
+                      >
+                        Analysis
+                      </SortableTH>
+                    )}
+                    {showForm.watch("metrics") && (
+                      <SortableTH
+                        field={"metrics"}
+                        key={"metrics"}
+                        className={""}
+                      >
+                        Metrics
+                      </SortableTH>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.slice(start, end).map((e) => {
+                    const phase = e.phases?.[e.phases.length - 1];
+                    return (
+                      <tr key={e.id} className="hover-highlight">
+                        <td
+                          onClick={() => {
+                            router.push(`/experiment/${e.id}`);
+                          }}
+                          className="cursor-pointer"
+                          data-title="Experiment name:"
+                        >
+                          <div className="d-flex flex-column">
+                            <div className="d-flex">
+                              <Link href={`/experiment/${e.id}`}>
+                                <a className="testname">{e.name}</a>
+                              </Link>
+                              {e.hasVisualChangesets ? (
+                                <Tooltip
+                                  className="d-flex align-items-center ml-2"
+                                  body="Visual experiment"
+                                >
+                                  <RxDesktop className="text-blue" />
+                                </Tooltip>
+                              ) : null}
+                              {(e.linkedFeatures || []).length > 0 ? (
+                                <Tooltip
+                                  className="d-flex align-items-center ml-2"
+                                  body="Linked Feature Flag"
+                                >
+                                  <BsFlag className="text-blue" />
+                                </Tooltip>
+                              ) : null}
+                            </div>
+                            {showForm.watch("trackingkey") && e.trackingKey && (
+                              <span
+                                className="testid text-muted small"
+                                title="Experiment Id"
+                              >
+                                {e.trackingKey}
+                              </span>
+                            )}
+                          </div>
+                        </td>
                         {showForm.watch("description") && (
-                          <p>{e.description}</p>
+                          <td>
+                            <div className="" style={{ minWidth: 400 }}>
+                              <Markdown className="">
+                                {e.description || ""}
+                              </Markdown>
+                            </div>
+                          </td>
                         )}
                         {showForm.watch("hypothesis") && (
-                          <p>
-                            <strong>Hypothesis:</strong>
-                            {e?.hypothesis}
-                          </p>
+                          <td>
+                            <div className="" style={{ minWidth: 400 }}>
+                              <Markdown className="">
+                                {e.hypothesis || ""}
+                              </Markdown>
+                            </div>
+                          </td>
                         )}
-                        {showForm.watch("trackingkey") && (
-                          <p className="">
-                            <strong>Experiment key:</strong>{" "}
-                            <i>{e.trackingKey}</i>
-                          </p>
-                        )}
-                        {showForm.watch("owner") && (
-                          <p>
-                            <strong>Owner:</strong> {getUserDisplay(e.owner)}
-                          </p>
-                        )}
+                        {showForm.watch("owner") && <td>{e.ownerName}</td>}
                         {showForm.watch("dates") && (
-                          <p>
-                            <strong>Created:</strong> {datetime(e.dateCreated)}
-                          </p>
+                          <td>{datetime(e.dateCreated)}</td>
                         )}
-                        {showForm.watch("projects") && (
-                          <p>
-                            <strong>Project:</strong>
-                            {e?.project ? (
-                              <ProjectBadges
-                                projectIds={[e.project]}
-                                className="badge-ellipsis align-middle"
-                              />
-                            ) : (
-                              <ProjectBadges className="badge-ellipsis align-middle" />
-                            )}
-                          </p>
-                        )}
+                        {showForm.watch("projects") && <td>{e.projectName}</td>}
                         {showForm.watch("tags") && (
-                          <p>
-                            <strong>Tags:</strong>
+                          <td>
                             <SortedTags tags={e.tags} />
-                          </p>
+                          </td>
                         )}
-                      </div>
-                      <div className="col-6">
-                        {showForm.watch("results") && (
-                          <p>
-                            <strong>Status:</strong> {e.status}
-                          </p>
-                        )}
-                        {showForm.watch("results") && (
-                          <p>
-                            <strong>Result:</strong>{" "}
-                            {e.results ? (
-                              <div className="d-inline-block">
-                                <ResultsIndicator
-                                  results={e?.results ?? null}
-                                />
+                        {showForm.watch("status") && <td>{e.status}</td>}
+                        {showForm.watch("variations") && (
+                          <td>
+                            {e?.variations.length > 0 &&
+                            phase?.variationWeights.length > 0 ? (
+                              <div style={{ minWidth: 300 }}>
+                                {e?.variations?.map(
+                                  ({ description, name }, i) => (
+                                    <div key={i}>
+                                      {name}{" "}
+                                      {phase?.variationWeights.length > 0 && (
+                                        <>
+                                          {" - "}
+                                          {phase?.variationWeights?.[i] * 100 ??
+                                            "-"}
+                                          %
+                                        </>
+                                      )}
+                                      {description ? " - " + description : ""}
+                                    </div>
+                                  )
+                                )}
                               </div>
-                            ) : (
-                              <>N/A</>
-                            )}
-                          </p>
-                        )}
-                        {showForm.watch("analysis") && (
-                          <p>
-                            <strong>Analysis:</strong> {e.analysis}
-                          </p>
-                        )}
-                        {showForm.watch("metrics") && (
-                          <p>
-                            <strong>Metric:</strong>
-                            {e?.metrics.length > 0 ? (
-                              <ul>
-                                {e?.metrics?.map((m, i) => (
-                                  <li key={i}>{getMetricById(m)?.name ?? m}</li>
-                                ))}
-                              </ul>
                             ) : (
                               <>None</>
                             )}
-                          </p>
+                          </td>
                         )}
-                      </div>
-                    </div>
-                  </div>
-                </Fragment>
-              );
-            })}
-          </div>
+                        {showForm.watch("results") && (
+                          <td>
+                            {e?.results ? (
+                              <ResultsIndicator results={e.results} />
+                            ) : (
+                              <></>
+                            )}
+                          </td>
+                        )}
+                        {showForm.watch("analysis") && (
+                          <td>
+                            <div className="" style={{ minWidth: 400 }}>
+                              <Markdown className="">
+                                {e.analysis || ""}
+                              </Markdown>
+                            </div>
+                          </td>
+                        )}
+                        {showForm.watch("metrics") && (
+                          <td>
+                            {e?.metrics.length > 0 && (
+                              <>
+                                {e?.metrics?.map((m, i) => (
+                                  <div key={i} className="d-inline-block mr-2">
+                                    <Link href={`/metric/${m}`}>
+                                      {getMetricById(m)?.name ?? m}
+                                    </Link>
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {filtered.length > NUM_PER_PAGE && (
             <Pagination
