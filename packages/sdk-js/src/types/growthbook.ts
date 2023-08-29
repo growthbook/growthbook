@@ -149,6 +149,7 @@ export interface Context {
   forcedVariations?: Record<string, number>;
   log?: (msg: string, ctx: any) => void;
   qaMode?: boolean;
+  enableStreaming?: boolean;
   enableDevMode?: boolean;
   /* @deprecated */
   disableDevTools?: boolean;
@@ -217,10 +218,6 @@ export type FeatureApiResponse = {
   encryptedFeatures?: string;
   experiments?: AutoExperiment[];
   encryptedExperiments?: string;
-};
-
-export type FeatureApiResponseWithSSE = FeatureApiResponse & {
-  sse?: boolean;
 };
 
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)

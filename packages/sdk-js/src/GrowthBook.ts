@@ -145,7 +145,8 @@ export class GrowthBook<
       options.timeout,
       options.skipCache || this._ctx.enableDevMode,
       allowStale,
-      updateInstance
+      updateInstance,
+      this._ctx.enableStreaming !== false
     );
   }
 

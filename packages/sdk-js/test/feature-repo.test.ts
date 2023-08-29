@@ -67,6 +67,7 @@ function mockApi(
 }
 
 async function seedLocalStorage(
+  sse: boolean = false,
   apiHost: ApiHost = "https://fakeapi.sample.io",
   clientKey: ClientKey = "qwerty1234",
   feature: string = "foo",
@@ -88,6 +89,7 @@ async function seedLocalStorage(
               },
             },
           },
+          sse,
         },
       ],
     ])
@@ -309,6 +311,67 @@ describe("feature-repo", () => {
     cleanup();
   });
 
+  it("restores SSE state from cache", async () => {
+    await clearCache();
+    await seedLocalStorage(true);
+
+    const [f, cleanup] = mockApi(
+      {
+        features: {
+          foo: {
+            defaultValue: "initial",
+          },
+        },
+      },
+      true
+    );
+
+    // Simulate SSE data
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      setInterval: 50,
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify({
+            features: {
+              foo: {
+                defaultValue: "changed",
+              },
+            },
+          }),
+        },
+      ],
+    });
+
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+
+    expect(growthbook.evalFeature("foo").value).toEqual(null);
+
+    await growthbook.loadFeatures({ autoRefresh: true });
+
+    // Should not hit API
+    expect(f.mock.calls.length).toEqual(0);
+
+    // Initial value from cache
+    expect(growthbook.evalFeature("foo").value).toEqual("localstorage");
+
+    // Should start SSE connection based on cache
+    await sleep(100);
+    expect(growthbook.evalFeature("foo").value).toEqual("changed");
+
+    // Should still not hit the API
+    expect(f.mock.calls.length).toEqual(0);
+
+    await clearCache();
+    growthbook.destroy();
+    cleanup();
+    event.clear();
+  });
+
   it("updates features based on SSE", async () => {
     await clearCache();
 
@@ -370,6 +433,14 @@ describe("feature-repo", () => {
     expect(growthbook2.evalFeature("foo").value).toEqual("changed");
 
     expect(f.mock.calls.length).toEqual(1);
+
+    // Cache SSE value
+    const lsValue = JSON.parse(
+      localStorage.getItem(localStorageCacheKey) || "[]"
+    );
+    expect(lsValue.length).toEqual(1);
+    expect(lsValue[0][0]).toEqual("https://fakeapi.sample.io||qwerty1234");
+    expect(lsValue[0][1].sse).toEqual(true);
 
     await clearCache();
     growthbook.destroy();
@@ -720,6 +791,77 @@ describe("feature-repo", () => {
     configureCache({
       backgroundSync: true,
     });
+  });
+
+  it("doesn't do background sync when enableStreaming is set to false", async () => {
+    await clearCache();
+
+    const [f, cleanup] = mockApi(
+      {
+        features: {
+          foo: {
+            defaultValue: "initial",
+          },
+        },
+      },
+      true
+    );
+
+    // Simulate SSE data
+    const event = new MockEvent({
+      url: "https://fakeapi.sample.io/sub/qwerty1234",
+      setInterval: 50,
+      responses: [
+        {
+          type: "features",
+          data: JSON.stringify({
+            features: {
+              foo: {
+                defaultValue: "changed",
+              },
+            },
+          }),
+        },
+      ],
+    });
+
+    // At least one instance needs to set `enableStreaming` to false for it to disable all SSE
+    const growthbook = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+      enableStreaming: false,
+    });
+    const growthbook2 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+
+    expect(growthbook.evalFeature("foo").value).toEqual(null);
+    expect(growthbook2.evalFeature("foo").value).toEqual(null);
+
+    await Promise.all([
+      growthbook.loadFeatures(),
+      growthbook2.loadFeatures({ autoRefresh: true }),
+    ]);
+
+    expect(f.mock.calls.length).toEqual(1);
+
+    // Initial value from API
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+    expect(growthbook2.evalFeature("foo").value).toEqual("initial");
+
+    // SSE update is ignored
+    await sleep(100);
+    expect(growthbook.evalFeature("foo").value).toEqual("initial");
+    expect(growthbook2.evalFeature("foo").value).toEqual("initial");
+
+    expect(f.mock.calls.length).toEqual(1);
+
+    await clearCache();
+    growthbook.destroy();
+    growthbook2.destroy();
+    cleanup();
+    event.clear();
   });
 
   it("decrypts features correctly", async () => {
