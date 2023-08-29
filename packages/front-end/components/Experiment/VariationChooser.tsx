@@ -20,7 +20,6 @@ export default function VariationChooser({
   baselineRow,
 }: Props) {
   const [open, setOpen] = useState(false);
-  console.log({ open });
   const filteredVariations = variations
     .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
     .filter((_, i) => !variationFilter.includes(i));
@@ -95,6 +94,7 @@ export default function VariationChooser({
           </div>
         }
         caret={requiresDropdown}
+        enabled={requiresDropdown}
         open={open}
         setOpen={(b: boolean) => setOpen(b)}
       >

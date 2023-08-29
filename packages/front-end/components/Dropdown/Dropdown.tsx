@@ -23,6 +23,7 @@ const Dropdown: FC<{
   toggleClassName?: string;
   open?: boolean;
   setOpen?: (open: boolean) => void;
+  enabled?: boolean;
   children: ReactNode;
 }> = ({
   uuid,
@@ -36,6 +37,7 @@ const Dropdown: FC<{
   toggleClassName = "",
   open,
   setOpen,
+  enabled = true,
 }) => {
   // If uncontrolled, use local state
   const [_open, _setOpen] = useState(false);
@@ -69,24 +71,30 @@ const Dropdown: FC<{
     >
       <div
         className={clsx({ "dropdown-toggle": caret })}
-        onClick={(e) => {
-          e.preventDefault();
-          setOpen?.(!open);
-        }}
-        style={{ cursor: "pointer" }}
+        onClick={
+          enabled
+            ? (e) => {
+                e.preventDefault();
+                setOpen?.(!open);
+              }
+            : undefined
+        }
+        style={enabled ? { cursor: "pointer" } : {}}
       >
         {toggle}
       </div>
-      <div
-        className={clsx("dropdown-menu", styles.dropdownmenu, className, {
-          "dropdown-menu-right": right,
-          show: open,
-        })}
-        style={{ width }}
-      >
-        {header && <div className="dropdown-header">{header}</div>}
-        {content}
-      </div>
+      {enabled && (
+        <div
+          className={clsx("dropdown-menu", styles.dropdownmenu, className, {
+            "dropdown-menu-right": right,
+            show: open,
+          })}
+          style={{ width }}
+        >
+          {header && <div className="dropdown-header">{header}</div>}
+          {content}
+        </div>
+      )}
     </div>
   );
 };
