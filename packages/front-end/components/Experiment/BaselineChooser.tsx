@@ -42,7 +42,7 @@ export default function BaselineChooser({
           {baselineVariation.index}
         </span>
         <span
-          className="d-inline-block text-ellipsis font-weight-bold hover"
+          className="d-inline-block text-ellipsis hover"
           style={{
             maxWidth: 150,
           }}

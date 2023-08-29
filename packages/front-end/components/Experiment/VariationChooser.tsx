@@ -33,15 +33,13 @@ export default function VariationChooser({
 
   let title = (
     <div className="d-inline-block">
-      <span className="font-weight-bold hover">All variations</span>
+      <span className="hover">All variations</span>
     </div>
   );
   if (filteredVariations.length < validVariations.length) {
     title = (
       <div className="d-inline-block">
-        <span className="font-weight-bold hover">
-          {filteredVariations.length} Variations
-        </span>
+        <span className="hover">{filteredVariations.length} Variations</span>
       </div>
     );
   }
@@ -50,17 +48,17 @@ export default function VariationChooser({
       <div className="d-inline-flex align-items-center">
         <div
           className={`variation variation${
-            filteredVariations[filteredVariations.length - 1].index
+            filteredVariations[filteredVariations.length - 1]?.index
           } with-variation-label d-flex align-items-center`}
         >
           <span className="label" style={{ width: 20, height: 20 }}>
-            {filteredVariations[filteredVariations.length - 1].index}
+            {filteredVariations[filteredVariations.length - 1]?.index}
           </span>
           <span
-            className="d-inline-block text-ellipsis font-weight-bold hover"
+            className="d-inline-block text-ellipsis hover"
             style={{ maxWidth: 150 }}
           >
-            {filteredVariations[filteredVariations.length - 1].name}
+            {filteredVariations[filteredVariations.length - 1]?.name}
           </span>
         </div>
       </div>
@@ -132,7 +130,7 @@ export default function VariationChooser({
         {indexedVariations.map((variation) => {
           if (variation.index === baselineRow) return null;
           const canClick =
-            validVariations.length > 1 ||
+            filteredVariations.length > 1 ||
             !filteredVariations.map((v) => v.index).includes(variation.index);
 
           const toggleVariation = () => {
