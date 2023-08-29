@@ -7,6 +7,7 @@ import {
 } from "../../types/query";
 import {
   createNewQuery,
+  createNewQueryFromCached,
   getQueriesByIds,
   getRecentQuery,
   updateQuery,
@@ -38,6 +39,14 @@ export type QueryStatusEndpointResponse = {
 export type RowsType = Record<string, string | boolean | number>[];
 // eslint-disable-next-line
 export type ProcessedRowsType = Record<string, any>;
+
+export type StartQueryParams<Rows, ProcessedRows> = {
+  name: string;
+  query: string;
+  dependencies: string[];
+  run: (query: string) => Promise<QueryResponse<Rows>>;
+  process: (rows: Rows) => ProcessedRows;
+};
 
 const FINISH_EVENT = "finish";
 
@@ -324,9 +333,9 @@ export abstract class QueryRunner<
   public async cancelQueries(): Promise<void> {
     // Only cancel if it's currently running or queued
     if (
-      this.model.queries.filter(
+      this.model.queries.some(
         (q) => q.status === "running" || q.status === "queued"
-      ).length > 0
+      )
     ) {
       const newModel = await this.updateModel({
         queries: [],
@@ -357,10 +366,12 @@ export abstract class QueryRunner<
 
     // Run the query in the background
     logger.debug(`Start executing query in background: ${doc.id}`);
-    await updateQuery(doc, {
-      startedAt: new Date(),
-      status: "running",
-    });
+    if (doc.status !== "running") {
+      await updateQuery(doc, {
+        startedAt: new Date(),
+        status: "running",
+      });
+    }
 
     run(doc.query)
       .then(async ({ rows, statistics }) => {
@@ -393,23 +404,8 @@ export abstract class QueryRunner<
   public async startQuery<
     Rows extends RowsType,
     ProcessedRows extends ProcessedRowsType
-  >(
-    name: string,
-    query: string,
-    dependencies: string[],
-    run: (query: string) => Promise<QueryResponse<Rows>>,
-    process: (rows: Rows) => ProcessedRows
-  ): Promise<QueryPointer> {
-    logger.debug("Creating query: " + name);
-    // Create a new query in mongo;
-    const doc = await createNewQuery({
-      query,
-      datasource: this.integration.datasource,
-      organization: this.integration.organization,
-      language: this.integration.getSourceProperties().queryLanguage,
-      dependencies: dependencies,
-    });
-
+  >(params: StartQueryParams<Rows, ProcessedRows>): Promise<QueryPointer> {
+    const { name, query, dependencies, run, process } = params;
     // Re-use recent identical query if it exists
     if (this.useCache) {
       logger.debug("Trying to reuse existing query");
@@ -451,20 +447,15 @@ export abstract class QueryRunner<
             logger.debug("Reusing previous query. Already finished");
             this.onQueryFinish();
           }
-          logger.debug("Updating query to copy cached query");
-          const updatedDoc = await updateQuery(doc, {
-            rawResult: existing.rawResult,
-            result: existing.result,
-            status: existing.status,
-            cachedQueryUsed: existing.id,
-            statistics: existing.statistics,
-            startedAt: existing.startedAt,
-            finishedAt: existing.finishedAt,
+          logger.debug("Creating query with cached values");
+          const copiedCachedDoc = await createNewQueryFromCached({
+            existing: existing,
+            dependencies: dependencies,
           });
           return {
             name,
-            query: updatedDoc.id,
-            status: updatedDoc.status,
+            query: copiedCachedDoc.id,
+            status: copiedCachedDoc.status,
           };
         }
       } catch (e) {
@@ -472,9 +463,19 @@ export abstract class QueryRunner<
       }
     }
 
-    logger.debug("Created new query object in Mongo: " + doc.id);
-
+    // Create a new query in mongo
+    logger.debug("Creating query: " + name);
     const readyToRun = dependencies.length === 0;
+    const doc = await createNewQuery({
+      query,
+      datasource: this.integration.datasource,
+      organization: this.integration.organization,
+      language: this.integration.getSourceProperties().queryLanguage,
+      dependencies: dependencies,
+      running: readyToRun,
+    });
+
+    logger.debug("Created new query object in Mongo: " + doc.id);
     if (readyToRun) {
       this.executeQuery(doc, run, process);
     } else {

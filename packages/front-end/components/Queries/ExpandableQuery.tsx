@@ -27,13 +27,17 @@ const ExpandableQuery: FC<{
   return (
     <div className="mb-4">
       <h4>
-        {query.status === "running" && <FaCircle className="text-info mr-2" />}
-        {query.status === "queued" && <FaSquare className="text-info mr-2" />}
+        {query.status === "running" && (
+          <FaCircle className="text-info mr-2" title="Running" />
+        )}
+        {query.status === "queued" && (
+          <FaSquare className="text-secondary mr-2" title="Queued" />
+        )}
         {query.status === "failed" && (
-          <FaExclamationTriangle className="text-danger mr-2" />
+          <FaExclamationTriangle className="text-danger mr-2" title="Failed" />
         )}
         {query.status === "succeeded" && (
-          <FaCheck className="text-success mr-2" />
+          <FaCheck className="text-success mr-2" title="Succeeded" />
         )}
         {title}
         <span style={{ fontWeight: "normal" }}>
@@ -104,11 +108,31 @@ const ExpandableQuery: FC<{
           </em>
         </small>
       )}
-      {(query.status === "running" || query.status === "queued") && (
-        <div className="alert alert-info">
+      {query.status === "running" && (
+        <>
+          <div className="alert alert-info">
+            <em>
+              Running for{" "}
+              {formatDistanceStrict(getValidDate(query.startedAt), new Date())}
+            </em>
+          </div>
+          {query.dependencies?.length ? (
+            <div className="alert alert-info">
+              <em>
+                Was queued for{" "}
+                {formatDistanceStrict(
+                  getValidDate(query.createdAt),
+                  getValidDate(query.startedAt)
+                )}
+              </em>
+            </div>
+          ) : null}
+        </>
+      )}
+      {query.status === "queued" && (
+        <div className="alert alert-secondary">
           <em>
-            Running{query.dependencies?.length ? " or queued" : ""}
-            {" for "}
+            Queued for{" "}
             {formatDistanceStrict(getValidDate(query.createdAt), new Date())}
           </em>
         </div>
