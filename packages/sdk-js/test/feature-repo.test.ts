@@ -178,19 +178,29 @@ describe("feature-repo", () => {
     const growthbook2 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
+      subscribeToChanges: true,
     });
     expect(growthbook2.evalFeature("foo").value).toEqual(null);
-    await growthbook2.loadFeatures({ autoRefresh: true });
+    await growthbook2.loadFeatures();
     expect(growthbook2.evalFeature("foo").value).toEqual("initial");
 
-    // Instance without autoRefresh
+    // Instance with `autoRefresh`
     const growthbook3 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
     });
     expect(growthbook3.evalFeature("foo").value).toEqual(null);
-    await growthbook3.loadFeatures();
+    await growthbook3.loadFeatures({ autoRefresh: true });
     expect(growthbook3.evalFeature("foo").value).toEqual("initial");
+
+    // Instance without autoRefresh or subscribeToChanges
+    const growthbook4 = new GrowthBook({
+      apiHost: "https://fakeapi.sample.io",
+      clientKey: "qwerty1234",
+    });
+    expect(growthbook4.evalFeature("foo").value).toEqual(null);
+    await growthbook4.loadFeatures();
+    expect(growthbook4.evalFeature("foo").value).toEqual("initial");
 
     expect(f.mock.calls.length).toEqual(1);
 
@@ -209,20 +219,23 @@ describe("feature-repo", () => {
     // The instance being updated should get the new value
     expect(growthbook.evalFeature("foo").value).toEqual("changed");
 
-    // The instance with `autoRefresh` should now have the new value
+    // The instance with `subscribeToChanges` should now have the new value
     expect(growthbook2.evalFeature("foo").value).toEqual("changed");
 
-    // The instance without `autoRefresh` should continue to have the old value
-    expect(growthbook3.evalFeature("foo").value).toEqual("initial");
+    // The instance with `autoRefresh` should now have the new value
+    expect(growthbook3.evalFeature("foo").value).toEqual("changed");
+
+    // The instance without `autoRefresh` or `subscribeToChanges` should still have the old value
+    expect(growthbook4.evalFeature("foo").value).toEqual("initial");
 
     // New instances should get the new value
-    const growthbook4 = new GrowthBook({
+    const growthbook5 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
     });
-    expect(growthbook4.evalFeature("foo").value).toEqual(null);
-    await growthbook4.loadFeatures();
-    expect(growthbook4.evalFeature("foo").value).toEqual("changed");
+    expect(growthbook5.evalFeature("foo").value).toEqual(null);
+    await growthbook5.loadFeatures();
+    expect(growthbook5.evalFeature("foo").value).toEqual("changed");
 
     expect(f.mock.calls.length).toEqual(2);
 
@@ -231,6 +244,7 @@ describe("feature-repo", () => {
     growthbook2.destroy();
     growthbook3.destroy();
     growthbook4.destroy();
+    growthbook5.destroy();
 
     cleanup();
   });
@@ -793,7 +807,7 @@ describe("feature-repo", () => {
     });
   });
 
-  it("doesn't do background sync when enableStreaming is set to false", async () => {
+  it("doesn't do background sync when backgroundSync is set to false", async () => {
     await clearCache();
 
     const [f, cleanup] = mockApi(
@@ -825,11 +839,11 @@ describe("feature-repo", () => {
       ],
     });
 
-    // At least one instance needs to set `enableStreaming` to false for it to disable all SSE
+    // At least one instance needs to set `backgroundSync` to false for it to disable all SSE
     const growthbook = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",
       clientKey: "qwerty1234",
-      enableStreaming: false,
+      backgroundSync: false,
     });
     const growthbook2 = new GrowthBook({
       apiHost: "https://fakeapi.sample.io",

@@ -76,9 +76,9 @@ export async function refreshFeatures(
   skipCache?: boolean,
   allowStale?: boolean,
   updateInstance?: boolean,
-  enableStreaming?: boolean
+  backgroundSync?: boolean
 ): Promise<void> {
-  if (!enableStreaming) {
+  if (!backgroundSync) {
     cacheSettings.backgroundSync = false;
   }
 
