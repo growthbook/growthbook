@@ -20,10 +20,16 @@ export default function VariationChooser({
   baselineRow,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const filteredVariations = variations
-    .map<ExperimentReportVariationWithIndex>((v, i) => ({ ...v, index: i }))
-    .filter((_, i) => !variationFilter.includes(i));
-  const requiresDropdown = variations.length > 2;
+  const indexedVariations = variations.map<ExperimentReportVariationWithIndex>(
+    (v, i) => ({ ...v, index: i })
+  );
+  const validVariations = indexedVariations.filter(
+    (v) => v.index !== baselineRow
+  );
+  const filteredVariations = validVariations.filter(
+    (v) => !variationFilter.includes(v.index)
+  );
+  const requiresDropdown = validVariations.length > 1;
 
   let title = (
     <div
@@ -34,7 +40,7 @@ export default function VariationChooser({
       <span className="font-weight-bold ">All variations</span>
     </div>
   );
-  if (filteredVariations.length <= variations.length - 1) {
+  if (filteredVariations.length < validVariations.length) {
     title = (
       <div
         className={clsx("d-inline-block btn-link", {
@@ -42,12 +48,12 @@ export default function VariationChooser({
         })}
       >
         <span className="font-weight-bold">
-          {filteredVariations.length - 1} Variations
+          {filteredVariations.length} Variations
         </span>
       </div>
     );
   }
-  if (filteredVariations.length <= 2) {
+  if (filteredVariations.length <= 1) {
     title = (
       <div
         className={clsx("d-inline-flex align-items-center", {
@@ -98,7 +104,7 @@ export default function VariationChooser({
         open={open}
         setOpen={(b: boolean) => setOpen(b)}
       >
-        {variations.length <= 2 ? null : (
+        {validVariations.length <= 1 ? null : (
           <div className="d-flex align-items-center px-3 py-1 cursor-pointer">
             <div
               className={clsx("d-flex flex-1 align-items-center py-1", {
@@ -134,32 +140,27 @@ export default function VariationChooser({
           </div>
         )}
 
-        {variations.map((variation, i) => {
-          if (i === baselineRow) return null;
+        {indexedVariations.map((variation) => {
+          if (variation.index === baselineRow) return null;
           const canClick =
-            filteredVariations.length > 2 ||
-            !filteredVariations.map((v) => v.index).includes(i);
+            validVariations.length > 1 ||
+            !filteredVariations.map((v) => v.index).includes(variation.index);
 
           const toggleVariation = () => {
-            if (variationFilter.includes(i)) {
-              setVariationFilter(variationFilter.filter((v) => v !== i));
+            if (!canClick) return;
+            if (variationFilter.includes(variation.index)) {
+              setVariationFilter(
+                variationFilter.filter((v) => v !== variation.index)
+              );
             } else {
-              const newFilter = [...variationFilter, i];
-              if (newFilter.length >= variations.length - 1) {
-                return;
-              }
-              setVariationFilter(newFilter);
+              setVariationFilter([...variationFilter, variation.index]);
             }
           };
 
           const selectVariation = () => {
             setVariationFilter(
-              variations
-                .map<ExperimentReportVariationWithIndex>((v, i) => ({
-                  ...v,
-                  index: i,
-                }))
-                .filter((_, j) => j !== i && j !== baselineRow)
+              validVariations
+                .filter((v) => v.index !== variation.index)
                 .map((v) => v.index)
             );
           };
@@ -175,7 +176,7 @@ export default function VariationChooser({
               >
                 <input
                   readOnly
-                  id={`variation-filter-checkbox-${i}`}
+                  id={`variation-filter-checkbox-${variation.index}`}
                   type="checkbox"
                   style={{
                     pointerEvents: "none",
@@ -184,7 +185,7 @@ export default function VariationChooser({
                     height: 16,
                     opacity: canClick ? 1 : 0.5,
                   }}
-                  checked={!variationFilter.includes(i)}
+                  checked={!variationFilter.includes(variation.index)}
                 />
               </div>
               <div
@@ -196,13 +197,13 @@ export default function VariationChooser({
               >
                 <div className="mr-2">
                   <div
-                    className={`variation variation${i} with-variation-label d-flex align-items-center`}
+                    className={`variation variation${variation.index} with-variation-label d-flex align-items-center`}
                   >
                     <span
                       className="label skip-underline"
                       style={{ width: 16, height: 16 }}
                     >
-                      {i}
+                      {variation.index}
                     </span>
                     <span
                       className="d-inline-block text-ellipsis font-weight-bold"
@@ -210,7 +211,7 @@ export default function VariationChooser({
                         maxWidth: 200,
                       }}
                     >
-                      {variations[i].name}
+                      {variation.name}
                     </span>
                   </div>
                 </div>
