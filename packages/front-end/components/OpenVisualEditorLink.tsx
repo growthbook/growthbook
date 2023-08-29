@@ -42,7 +42,6 @@ export async function openVisualEditor(
     "vc-id": vc.id,
     "v-idx": 1,
     "exp-url": encodeURIComponent(window.location.href),
-    "api-host": encodeURIComponent(apiHost),
   });
 
   if (!bypassChecks) {
