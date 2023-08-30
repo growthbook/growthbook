@@ -1,6 +1,6 @@
 import React, { DetailedHTMLProps, HTMLAttributes, useEffect } from "react";
 import { MetricInterface } from "back-end/types/metric";
-import { ExperimentReportVariation } from "back-end/types/report";
+import { ExperimentReportVariationWithIndex } from "back-end/types/report";
 import { SnapshotMetric } from "back-end/types/experiment-snapshot";
 import { PValueCorrection, StatsEngine } from "back-end/types/stats";
 import { BsXCircle, BsHourglassSplit } from "react-icons/bs";
@@ -41,13 +41,11 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export interface TooltipData {
   metricRow: number;
-  variationRow: number;
   metric: MetricInterface;
-  variation: ExperimentReportVariation;
+  variation: ExperimentReportVariationWithIndex;
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
-  baselineVariation: ExperimentReportVariation;
-  baselineRow: number;
+  baselineVariation: ExperimentReportVariationWithIndex;
   rowResults: RowResults;
   statsEngine: StatsEngine;
   pValueCorrection?: PValueCorrection;
@@ -232,11 +230,11 @@ export default function ResultsTableTooltip({
             style={{ gap: 8 }}
           >
             <div
-              className={`variation variation${data.variationRow} with-variation-label d-inline-flex align-items-center`}
+              className={`variation variation${data.variation.index} with-variation-label d-inline-flex align-items-center`}
               style={{ maxWidth: 300 }}
             >
               <span className="label" style={{ width: 16, height: 16 }}>
-                {data.variationRow}
+                {data.variation.index}
               </span>
               <span className="d-inline-block text-ellipsis font-weight-bold">
                 {data.variation.name}
@@ -503,12 +501,14 @@ export default function ResultsTableTooltip({
               <tbody>
                 {rows.map((row, i) => {
                   const rowNumber =
-                    i === 0 ? data.baselineRow : data.variationRow;
+                    i === 0
+                      ? data?.baselineVariation.index
+                      : data.variation.index;
                   const rowName =
                     i === 0 ? data.baselineVariation.name : data.variation.name;
                   return (
                     <tr key={i}>
-                      <td style={{ width: 130 }}>
+                      <td style={{ width: 130, height: 40 }}>
                         <div
                           className={`variation variation${rowNumber} with-variation-label d-inline-flex align-items-center`}
                         >
@@ -525,6 +525,18 @@ export default function ResultsTableTooltip({
                             {rowName}
                           </span>
                         </div>
+                        {i === 0 ? (
+                          <div
+                            className="text-muted text-uppercase"
+                            style={{
+                              fontSize: "10px",
+                              marginTop: -4,
+                              marginLeft: 20,
+                            }}
+                          >
+                            baseline
+                          </div>
+                        ) : null}
                       </td>
                       <td>{numberFormatter.format(row.users)}</td>
                       <MetricValueColumn

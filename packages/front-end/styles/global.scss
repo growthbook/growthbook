@@ -2443,27 +2443,93 @@ html {
 .bg-impact {
   background-color: colors.$bg-impact;
 }
-.dropdownmenu {
-  position: absolute;
-  background-color: var(--surface-background-color);
-  z-index: 1200;
-  right: 10px;
-  top: 2rem;
-  width: 160px;
-  border: var(--border-color-300);
-  box-shadow: 1px 1px 4px var(--border-color-100);
+.dropdown-underline {
+  position: relative;
+  border-radius: 0 !important;
+  height: 24px;
+  padding: 0 1px;
+  border-bottom: 1px solid var(--border-color-300);
+  top: 1px;
+  span.hover {
+    color: var(--text-link-color);
+  }
+  &:hover {
+    border-bottom: 1px solid var(--text-link-hover-color);
+    span.hover {
+      color: var(--text-link-hover-color);
+    }
+  }
+  .sub {
+    position: absolute;
+    right: 1px;
+    bottom: -13px;
+    font-size: 10px;
+  }
+}
+.dropdown-underline-disabled {
+  position: relative;
+  border-radius: 0 !important;
+  height: 24px;
+  border-bottom: 1px transparent;
+  top: 1px;
+  .sub {
+    position: absolute;
+    right: 0;
+    bottom: -7px;
+    font-size: 10px;
+  }
+}
+.select-dropdown-underline {
+  position: relative !important;
+  top: 1px !important;
 
-  a {
-    padding: 4px 10px;
-    display: block;
-    cursor: pointer;
-  }
-  a:hover {
-    background-color: colors.$blue;
-    color: #fff;
-  }
-  &.closed {
-    display: none;
+  .gb-select__control {
+    border-radius: 0 !important;
+    border: 0 transparent !important;
+    border-bottom: 1px solid var(--border-color-300) !important;
+    height: 24px !important;
+    min-height: initial !important;
+    cursor: pointer !important;
+    .gb-select__value-container {
+      position: relative !important;
+      top: -1px !important;
+      padding: 0 !important;
+      .gb-select__input-container {
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .gb-select__single-value {
+        margin: 0 !important;
+        padding: 0 1px !important;
+        color: var(--text-link-color) !important;
+        &:after {
+          display: inline-block;
+          margin-left: 0.255em;
+          vertical-align: 0.255em;
+          content: "";
+          border-top: 0.3em solid;
+          border-right: 0.3em solid transparent;
+          border-bottom: 0;
+          border-left: 0.3em solid transparent;
+          color: var(--text-color-main) !important;
+        }
+      }
+    }
+    .gb-select__indicators {
+      display: none;
+    }
+    &:hover {
+      border-bottom: 1px solid var(--text-link-hover-color) !important;
+      .gb-select__value-container .gb-select__single-value {
+        color: var(--text-link-hover-color) !important;
+        &:after {
+          color: var(--text-color-main) !important;
+        }
+      }
+    }
+    &.gb-select__control--is-focused {
+      box-shadow: none !important;
+    }
   }
 }
 

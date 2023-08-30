@@ -60,6 +60,10 @@ const Results: FC<{
   onRegressionAdjustmentChange,
   isTabActive = true,
 }) => {
+  // todo: give these a proper home
+  const [baselineRow, setBaselineRow] = React.useState<number>(0);
+  const [variationFilter, setVariationFilter] = React.useState<number[]>([]);
+
   const { apiCall } = useAuth();
 
   // todo: move to snapshot property
@@ -149,6 +153,11 @@ const Results: FC<{
           onRegressionAdjustmentChange={onRegressionAdjustmentChange}
           newUi={true}
           showMoreMenu={false}
+          showCompactResults={showCompactResults}
+          variationFilter={variationFilter}
+          setVariationFilter={(v: number[]) => setVariationFilter(v)}
+          baselineRow={baselineRow}
+          setBaselineRow={(b: number) => setBaselineRow(b)}
         />
       ) : (
         <StatusBanner
@@ -294,6 +303,8 @@ const Results: FC<{
           <CompactResults
             editMetrics={editMetrics}
             variations={variations}
+            variationFilter={variationFilter}
+            baselineRow={baselineRow}
             multipleExposures={snapshot.multipleExposures || 0}
             results={analysis.results[0]}
             queryStatusData={queryStatusData}
