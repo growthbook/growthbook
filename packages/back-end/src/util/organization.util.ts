@@ -44,6 +44,7 @@ export const GLOBAL_PERMISSIONS = [
   "manageTargetingAttributes",
   "manageNamespaces",
   "manageSavedGroups",
+  "manageSlack",
   "viewEvents",
 ] as const;
 

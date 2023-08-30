@@ -190,6 +190,7 @@ const navlinks: SidebarLinkProps[] = [
         href: "/integrations/slack",
         path: /^integrations\/slack/,
         feature: "slack-integration",
+        permissions: ["manageSlack"],
       },
       {
         name: "Import your data",
