@@ -368,7 +368,7 @@ app.get(
 app.get("/experiment/:id", experimentsController.getExperiment);
 app.get("/experiment/:id/reports", reportsController.getReportsOnExperiment);
 app.post("/snapshot/:id/cancel", experimentsController.cancelSnapshot);
-app.post("/snapshot/:id/analysis", experimentsController.postSnapshotAnalyses);
+app.post("/snapshot/:id/analysis", experimentsController.postSnapshotAnalysis);
 app.get("/experiment/:id/snapshot/:phase", experimentsController.getSnapshot);
 app.get(
   "/experiment/:id/snapshot/:phase/:dimension",

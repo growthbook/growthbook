@@ -1875,7 +1875,7 @@ export async function postSnapshot(
     });
   }
 }
-export async function postSnapshotAnalyses(
+export async function postSnapshotAnalysis(
   req: AuthRequest<
     {
       analysisSettings: ExperimentSnapshotAnalysisSettings;

@@ -166,6 +166,7 @@ export async function addOrUpdateSnapshotAnalysis(
   id: string,
   analysis: ExperimentSnapshotAnalysis
 ) {
+  // looks for snapshots with this ID but WITHOUT these analysis settings
   const experimentSnapshotModel = await ExperimentSnapshotModel.updateOne(
     {
       organization,
@@ -176,8 +177,8 @@ export async function addOrUpdateSnapshotAnalysis(
       $push: { analyses: analysis },
     }
   );
-  // if analysis already exist, no matches will be found, so instead
-  // overwrite existing analysis in DB
+  // if analysis already exist, no documents will be returned by above query
+  // so instead find and update existing analysis in DB
   if (experimentSnapshotModel.matchedCount === 0) {
     await updateSnapshotAnalysis(organization, id, analysis);
   }
