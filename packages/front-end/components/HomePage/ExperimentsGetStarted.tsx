@@ -14,6 +14,7 @@ import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import { useAuth } from "@/services/auth";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
+import Button from "../Button";
 
 const ExperimentsGetStarted = (): React.ReactElement => {
   const { metrics, datasources, mutateDefinitions, project } = useDefinitions();
@@ -41,6 +42,21 @@ const ExperimentsGetStarted = (): React.ReactElement => {
   } = useDemoDataSourceProject();
 
   const { apiCall } = useAuth();
+
+  const openSampleExperiment = async () => {
+    if (demoDataSourceProjectId && demoExperimentId) {
+      router.push(`/experiment/${demoExperimentId}`);
+    } else {
+      const res = await apiCall<{
+        project: ProjectInterface;
+        experimentId: string;
+      }>("/demo-datasource-project", {
+        method: "POST",
+      });
+      await mutateDefinitions();
+      router.push(`/experiment/${res.experimentId}`);
+    }
+  };
 
   return (
     <>
@@ -91,7 +107,7 @@ const ExperimentsGetStarted = (): React.ReactElement => {
         )}
 
         {showAnalysisSteps ? (
-          <>
+          <div style={{ maxWidth: 900 }} className="mx-auto">
             <div className="mb-2">
               <a
                 href="#"
@@ -108,142 +124,135 @@ const ExperimentsGetStarted = (): React.ReactElement => {
               There are a few setup steps before you can analyze an existing
               experiment.
             </p>
-            <div className="row">
-              <div className="col-12 col-lg-8">
-                {hasFileConfig() && (
-                  <div className="alert alert-info">
-                    It looks like you have a <code>config.yml</code> file. Use
-                    that to define data sources and metrics.{" "}
-                    <DocLink docSection="config_yml">
-                      View Documentation
-                    </DocLink>
-                  </div>
-                )}
-                <div className="row mb-3">
-                  <div className="col">
-                    <div
-                      className={`card gsbox`}
-                      style={{ overflow: "hidden" }}
-                    >
-                      <GetStartedStep
-                        current={currentStep === 1}
-                        finished={hasDataSource}
-                        image="/images/getstarted-step1.svg"
-                        title="1. Connect to your data warehouse"
-                        text={
-                          <>
-                            GrowthBook needs read access to where your
-                            experiment and metric data lives. We support
-                            Snowflake, Redshift, BigQuery, Databricks, Postgres,
-                            and more. If you don&apos;t see yours,{" "}
-                            <a
-                              className={``}
-                              href="https://www.growthbook.io/contact"
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              let us know
-                            </a>{" "}
-                            or{" "}
-                            <a
-                              href="https://github.com/growthbook/growthbook/issues/new"
-                              target="_blank"
-                              rel="noreferrer"
-                            >
-                              open a GitHub issue
-                            </a>
-                            .
-                          </>
-                        }
-                        hideCTA={hasFileConfig()}
-                        permissionsError={
-                          // If data sources are managed in the UI
-                          // If there's already a data source, you only need edit access to be able to view it
-                          // Otherwise, you need full create access
-                          !hasFileConfig() &&
-                          !(hasDataSource
-                            ? permissions.check(
-                                "editDatasourceSettings",
-                                project
-                              )
-                            : permissions.check("createDatasources", project))
-                        }
-                        cta="Add data source"
-                        finishedCTA="View data sources"
-                        imageLeft={true}
-                        onClick={(finished) => {
-                          if (finished) {
-                            router.push("/datasources");
-                          } else {
-                            setDataSourceOpen(true);
-                          }
-                        }}
-                      />
-                      <GetStartedStep
-                        current={currentStep === 2}
-                        finished={hasMetrics}
-                        className="border-top"
-                        image="/images/getstarted-step2.svg"
-                        title="2. Define a metric"
-                        text={
-                          <p>
-                            Create your first metric definition. Use this as a
-                            goal or guardrail when analyzing your experiment
-                            results. With GrowthBook, you can build out an
-                            entire metric library to represent all of the KPIs
-                            for your business
-                          </p>
-                        }
-                        hideCTA={hasFileConfig()}
-                        cta="Add metric"
-                        finishedCTA="View metrics"
-                        permissionsError={
-                          !hasFileConfig() &&
-                          !permissions.check("createMetrics", project) &&
-                          !hasMetrics
-                        }
-                        imageLeft={false}
-                        onClick={(finished) => {
-                          if (finished) {
-                            router.push("/metrics");
-                          } else {
-                            setMetricsOpen(true);
-                          }
-                        }}
-                      />
-                      <GetStartedStep
-                        current={currentStep === 3}
-                        finished={false}
-                        className="border-top"
-                        image="/images/getstarted-step3.svg"
-                        title="3. Import an experiment"
-                        text={
-                          <p>
-                            We&apos;ll scan your data warehouse looking for past
-                            experiments that already have some data collected.
-                            Choose one to import and start analyzing results.
-                          </p>
-                        }
-                        hideCTA={false}
-                        cta={"Import Experiment"}
-                        finishedCTA="Import Experiment"
-                        permissionsError={
-                          !permissions.check("createAnalyses", project)
-                        }
-                        imageLeft={true}
-                        onClick={() => {
-                          setImportExperimentsOpen(true);
-                        }}
-                      />
-                    </div>
-                  </div>
+            {hasFileConfig() && (
+              <div className="alert alert-info">
+                It looks like you have a <code>config.yml</code> file. Use that
+                to define data sources and metrics.{" "}
+                <DocLink docSection="config_yml">View Documentation</DocLink>
+              </div>
+            )}
+            <div className="row mb-3">
+              <div className="col">
+                <div className={`card gsbox`} style={{ overflow: "hidden" }}>
+                  <GetStartedStep
+                    current={currentStep === 1}
+                    finished={hasDataSource}
+                    image="/images/getstarted-step1.svg"
+                    title="1. Connect to your data warehouse"
+                    text={
+                      <>
+                        GrowthBook needs read access to where your experiment
+                        and metric data lives. We support Snowflake, Redshift,
+                        BigQuery, Databricks, Postgres, and more. If you
+                        don&apos;t see yours,{" "}
+                        <a
+                          className={``}
+                          href="https://www.growthbook.io/contact"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          let us know
+                        </a>{" "}
+                        or{" "}
+                        <a
+                          href="https://github.com/growthbook/growthbook/issues/new"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          open a GitHub issue
+                        </a>
+                        .
+                      </>
+                    }
+                    hideCTA={hasFileConfig()}
+                    permissionsError={
+                      // If data sources are managed in the UI
+                      // If there's already a data source, you only need edit access to be able to view it
+                      // Otherwise, you need full create access
+                      !hasFileConfig() &&
+                      !(hasDataSource
+                        ? permissions.check("editDatasourceSettings", project)
+                        : permissions.check("createDatasources", project))
+                    }
+                    cta="Add data source"
+                    finishedCTA="View data sources"
+                    imageLeft={true}
+                    onClick={(finished) => {
+                      if (finished) {
+                        router.push("/datasources");
+                      } else {
+                        setDataSourceOpen(true);
+                      }
+                    }}
+                  />
+                  <GetStartedStep
+                    current={currentStep === 2}
+                    finished={hasMetrics}
+                    className="border-top"
+                    image="/images/getstarted-step2.svg"
+                    title="2. Define a metric"
+                    text={
+                      <p>
+                        Create your first metric definition. Use this as a goal
+                        or guardrail when analyzing your experiment results.
+                        With GrowthBook, you can build out an entire metric
+                        library to represent all of the KPIs for your business
+                      </p>
+                    }
+                    hideCTA={hasFileConfig()}
+                    cta="Add metric"
+                    finishedCTA="View metrics"
+                    permissionsError={
+                      !hasFileConfig() &&
+                      !permissions.check("createMetrics", project) &&
+                      !hasMetrics
+                    }
+                    imageLeft={false}
+                    onClick={(finished) => {
+                      if (finished) {
+                        router.push("/metrics");
+                      } else {
+                        setMetricsOpen(true);
+                      }
+                    }}
+                  />
+                  <GetStartedStep
+                    current={currentStep === 3}
+                    finished={false}
+                    className="border-top"
+                    image="/images/getstarted-step3.svg"
+                    title="3. Import an experiment"
+                    text={
+                      <p>
+                        We&apos;ll scan your data warehouse looking for past
+                        experiments that already have some data collected.
+                        Choose one to import and start analyzing results.
+                      </p>
+                    }
+                    hideCTA={false}
+                    cta={"Import Experiment"}
+                    finishedCTA="Import Experiment"
+                    permissionsError={
+                      !permissions.check("createAnalyses", project)
+                    }
+                    imageLeft={true}
+                    onClick={() => {
+                      setImportExperimentsOpen(true);
+                    }}
+                  />
                 </div>
               </div>
-              <div className="col-12 col-lg-4">
-                <DocumentationLinksSidebar />
-              </div>
             </div>
-          </>
+            <div className="alert alert-info text-center">
+              <p>
+                Not ready to connect to your data warehouse? Explore a sample
+                experiment first to get a feel for the GrowthBook platform.
+              </p>
+              <Button color="outline-primary" onClick={openSampleExperiment}>
+                View Sample Experiment
+              </Button>
+            </div>
+          </div>
         ) : (
           <div>
             <h1>Experiments</h1>
@@ -254,14 +263,16 @@ const ExperimentsGetStarted = (): React.ReactElement => {
 
             <div className="row mb-3">
               <div className="col">
-                <div className={`card gsbox`} style={{ overflow: "hidden" }}>
+                <div
+                  className={`card gsbox mb-3`}
+                  style={{ overflow: "hidden" }}
+                >
                   <GetStartedStep
                     current={true}
                     finished={false}
                     noActiveBorder={true}
-                    className="border-top-0"
                     image="/images/sample-data-illustration.svg"
-                    title="Option 1: Explore a Sample Experiment"
+                    title="Explore a Sample Experiment"
                     text={
                       <p>
                         Running an actual A/B test on your application and
@@ -277,28 +288,19 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                       !permissions.check("createAnalyses", project)
                     }
                     imageLeft={false}
-                    onClick={async () => {
-                      if (demoDataSourceProjectId && demoExperimentId) {
-                        router.push(`/experiment/${demoExperimentId}`);
-                      } else {
-                        const res = await apiCall<{
-                          project: ProjectInterface;
-                          experimentId: string;
-                        }>("/demo-datasource-project", {
-                          method: "POST",
-                        });
-                        await mutateDefinitions();
-                        router.push(`/experiment/${res.experimentId}`);
-                      }
-                    }}
+                    onClick={openSampleExperiment}
                   />
+                </div>
+                <div
+                  className={`card gsbox mb-3`}
+                  style={{ overflow: "hidden" }}
+                >
                   <GetStartedStep
                     current={true}
                     finished={false}
                     noActiveBorder={true}
-                    className="border-top"
                     image="/images/design-experiment-illustration.svg"
-                    title="Option 2: Design and Run a New Experiment"
+                    title="Design and Run a New Experiment"
                     text={
                       <p>
                         Design a new A/B test from scratch using either{" "}
@@ -314,18 +316,19 @@ const ExperimentsGetStarted = (): React.ReactElement => {
                     permissionsError={
                       !permissions.check("createAnalyses", project)
                     }
-                    imageLeft={true}
+                    imageLeft={false}
                     onClick={() => {
                       setDesignExperimentOpen(true);
                     }}
                   />
+                </div>
+                <div className={`card gsbox`} style={{ overflow: "hidden" }}>
                   <GetStartedStep
                     current={true}
                     finished={false}
                     noActiveBorder={true}
-                    className="border-top"
                     image="/images/analyze-results-illustration.svg"
-                    title="Option 3: Analyze an Existing Experiment"
+                    title="Analyze an Existing Experiment"
                     text={
                       <p>
                         Have you already been running A/B tests with another
