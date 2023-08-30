@@ -1525,8 +1525,8 @@ export default abstract class SqlIntegration
           getDateLimitClause: (start: Date, end: Date) =>
             `received_at BETWEEN '${formatDate(
               start,
-              "yyyyMMdd"
-            )}' AND'${formatDate(end, "yyyyMMdd")}'`,
+              "yyyy-MM-dd"
+            )}' AND'${formatDate(end, "yyyy-MM-dd")}'`,
           getAdditionalEvents: () => [
             { eventName: "pages", displayName: "Page Viewed" },
             { eventName: "screens", displayName: "Screen Viewed" },
@@ -1671,10 +1671,9 @@ export default abstract class SqlIntegration
       getDateLimitClause
     );
 
-    const trackedResults = await this.runQuery(
+    const { rows: resultRows } = await this.runQuery(
       format(sql, this.getFormatDialect())
     );
-    const resultRows = trackedResults.rows;
 
     const additionalEvents = getAdditionalEvents();
 
