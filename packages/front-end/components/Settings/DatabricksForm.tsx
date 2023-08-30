@@ -69,7 +69,7 @@ const DatabricksForm: FC<{
       <div className="form-group col-md-12">
         <Field
           label="Default Catalog (Recommended)"
-          helpText="Selecting a default catalog unlocks access to GrowthBook's Schema Browser."
+          helpText="This will help GrowthBook generate the initial SQL queries used to define things like Metrics and Experiment Assignments."
           value={params.catalog || ""}
           onChange={onParamChange}
           name="catalog"

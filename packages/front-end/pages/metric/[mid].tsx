@@ -150,7 +150,7 @@ const MetricPage: FC = () => {
   const customzeTimestamp = supportsSQL;
   const customizeUserIds = supportsSQL;
 
-  const status = getQueryStatus(metric.queries || [], metric.analysisError);
+  const { status } = getQueryStatus(metric.queries || [], metric.analysisError);
   const hasQueries = metric.queries?.length > 0;
 
   let regressionAdjustmentAvailableForMetric = true;

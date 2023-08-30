@@ -2,6 +2,7 @@ import { FC, useMemo, useState } from "react";
 import { SegmentInterface } from "back-end/types/segment";
 import { useForm } from "react-hook-form";
 import { FaExternalLinkAlt } from "react-icons/fa";
+import { isProjectListValidForProject } from "shared/util";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { validateSQL } from "@/services/datasources";
@@ -28,8 +29,15 @@ const SegmentForm: FC<{
     datasources,
     getDatasourceById,
     mutateDefinitions,
+    project,
   } = useDefinitions();
-  const filteredDatasources = datasources.filter((d) => d.properties?.segments);
+  const filteredDatasources = datasources
+    .filter((d) => d.properties?.segments)
+    .filter(
+      (d) =>
+        d.id === current.datasource ||
+        isProjectListValidForProject(d.projects, project)
+    );
   const form = useForm({
     defaultValues: {
       name: current.name || "",

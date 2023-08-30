@@ -130,7 +130,7 @@ const BigQueryForm: FC<{
       </div>
       <div className="form-group col-md-12">
         <label>
-          Dataset{" "}
+          Dataset (Recommended){" "}
           <Tooltip body="Specifying a dataset here allows GrowthBook to create working assignment and metric queries, and enables the automatic discovery metrics. You can find this from your BigQuery console SQL workspace. This value can be edited later if needed." />
         </label>
         <Field
@@ -140,7 +140,7 @@ const BigQueryForm: FC<{
           value={params.defaultDataset || ""}
           onChange={onParamChange}
           placeholder=""
-          helpText="The default dataset GrowthBook will use when building queries and discovering metrics for this data source."
+          helpText="This will be help GrowthBook generate the initial SQL queries used to define things like Metrics and Experiment Assignments."
         />
       </div>
     </div>

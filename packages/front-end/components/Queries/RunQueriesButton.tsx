@@ -26,20 +26,33 @@ function getTimeoutLength(seconds: number): number {
   return 0;
 }
 
-export function getQueryStatus(queries: Queries, error?: string): QueryStatus {
-  if (error) return "failed";
-
-  let running = false;
+export interface QueryStatusData {
+  status: QueryStatus;
+  numFailed?: number;
+  failedNames?: string[];
+}
+export function getQueryStatus(
+  queries: Queries,
+  error?: string
+): QueryStatusData {
+  let status: QueryStatus = "succeeded";
   let numFailed = 0;
+  const failedNames: string[] = [];
+
+  if (error) status = "failed";
+  let running = false;
   for (let i = 0; i < queries.length; i++) {
-    if (queries[i].status === "failed") numFailed++;
+    if (queries[i].status === "failed") {
+      failedNames.push(queries[i].name);
+      numFailed++;
+    }
     if (queries[i].status === "running") running = true;
   }
 
-  if (numFailed >= queries.length / 2) return "failed";
-  if (running) return "running";
-  if (numFailed > 0) return "partially-succeeded";
-  return "succeeded";
+  if (numFailed > 0) status = "partially-succeeded";
+  if (numFailed >= queries.length / 2) status = "failed";
+  if (running) status = "running";
+  return { status, numFailed, failedNames };
 }
 
 const RunQueriesButton: FC<{
@@ -76,7 +89,7 @@ const RunQueriesButton: FC<{
     .length;
   const numQueries = model.queries.length;
 
-  const status = getQueryStatus(model.queries || []);
+  const { status } = getQueryStatus(model.queries || []);
   const timeoutLength = getTimeoutLength(elapsed);
 
   // Mutate periodically to check for updates

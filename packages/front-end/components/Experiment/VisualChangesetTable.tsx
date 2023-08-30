@@ -28,7 +28,6 @@ import LinkedChange from "@/components/Experiment/LinkedChange";
 type Props = {
   experiment: ExperimentInterfaceStringDates;
   visualChangesets: VisualChangesetInterface[];
-  newlyCreatedChangesetId: string | null;
   mutate: () => void;
   canEditVisualChangesets: boolean;
   setVisualEditorModal: (v: boolean) => void;
@@ -50,7 +49,6 @@ const drawChange = ({
   simpleUrlPatterns,
   onlySimpleRules,
   regexUrlPatterns,
-  newlyCreatedChangesetId,
 }: {
   i: number;
   vc: VisualChangesetInterface;
@@ -68,7 +66,6 @@ const drawChange = ({
   simpleUrlPatterns: VisualChangesetURLPattern[];
   onlySimpleRules: boolean;
   regexUrlPatterns: VisualChangesetURLPattern[];
-  newlyCreatedChangesetId: string | null;
 }) => {
   return (
     <div className={clsx("pb-3", { "mt-2": i !== 0 })}>
@@ -119,10 +116,7 @@ const drawChange = ({
           {canEditVisualChangesets && experiment.status === "draft" && (
             <div className="col-auto">
               {hasVisualEditorFeature && (
-                <OpenVisualEditorLink
-                  visualChangeset={vc}
-                  newlyCreatedChangesetId={newlyCreatedChangesetId}
-                />
+                <OpenVisualEditorLink visualChangeset={vc} />
               )}
               <DeleteButton
                 className="btn-sm ml-4"
@@ -242,7 +236,6 @@ const drawUrlPattern = (
 export const VisualChangesetTable: FC<Props> = ({
   experiment,
   visualChangesets = [],
-  newlyCreatedChangesetId,
   mutate,
   canEditVisualChangesets,
   setVisualEditorModal,
@@ -333,7 +326,6 @@ export const VisualChangesetTable: FC<Props> = ({
           simpleUrlPatterns,
           onlySimpleRules,
           regexUrlPatterns,
-          newlyCreatedChangesetId,
         });
 
         const visualChangeTypesSet: Set<string> = new Set();

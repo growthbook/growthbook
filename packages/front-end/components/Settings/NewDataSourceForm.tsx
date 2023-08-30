@@ -13,6 +13,7 @@ import { useForm } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import { MetricType } from "@/../back-end/types/metric";
 import { TrackedEventData } from "@/../back-end/src/types/Integration";
+import clsx from "clsx";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import Link from "next/link";
 import { useAuth } from "@/services/auth";
@@ -37,6 +38,7 @@ import Tooltip from "../Tooltip/Tooltip";
 import EventSourceList from "./EventSourceList";
 import ConnectionSettings from "./ConnectionSettings";
 import AutoMetricCard from "./AutoMetricCard";
+import styles from "./NewDataSourceForm.module.scss";
 
 const NewDataSourceForm: FC<{
   data: Partial<DataSourceInterfaceWithParams>;
@@ -130,6 +132,8 @@ const NewDataSourceForm: FC<{
   const selectedSchema = schemasMap.get(schema) || {
     value: "custom",
     label: "Custom",
+    intro:
+      "To create a custom data source select the data warehouse where your events are stored and enter the necessary credentials to grant GrowthBook read-only access.",
   };
   useEffect(() => {
     track("View Datasource Form", {
@@ -298,6 +302,22 @@ const NewDataSourceForm: FC<{
     });
   };
 
+  const handleCustomSetup = () => {
+    setSchema("custom");
+    setDatasource({
+      name: "My Datasource",
+      settings: {},
+      projects: project ? [project] : [],
+    });
+    // no options for custom:
+    form.setValue(`settings.schemaOptions`, {});
+
+    // set to all possible types:
+    setPossibleTypes(dataSourceConnections.map((o) => o.type));
+    // jump to next step
+    setStep(2);
+  };
+
   const setSchemaSettings = (s: eventSchema) => {
     setSchema(s.value);
     form.setValue("settings.schemaFormat", s.value);
@@ -336,15 +356,15 @@ const NewDataSourceForm: FC<{
   };
 
   const hasStep2 = !!selectedSchema?.options;
-  const isFinalStep = step === 2 || (!hasStep2 && step === 1);
-  const updateSettingsRequired = isFinalStep && dataSourceId && step !== 1;
+  const isFinalStep = step === 3 || (!hasStep2 && step === 2);
+  const updateSettingsRequired = isFinalStep && dataSourceId && step !== 2;
 
   const submit =
     step === 0
       ? null
       : form.handleSubmit(async (data) => {
           let newDataId = dataSourceId;
-          if (step === 1) {
+          if (step === 2) {
             // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
             newDataId = await saveDataConnection();
           }
@@ -380,67 +400,68 @@ const NewDataSourceForm: FC<{
   if (step === 0) {
     stepContents = (
       <div>
-        <h4>Popular Event Sources</h4>
         <p>
-          GrowthBook does not store a copy of your data, and instead queries
-          your existing analytics infrastructure. GrowthBook has built-in
-          support for a number of popular event sources.
+          GrowthBook is warehouse native, which means we don&apos;t store a copy
+          of your data and instead run <code>read-only</code> SELECT queries on
+          your existing analytics infrastructure. These queries return the
+          aggregated statistics necessary to analyze experiments, ensuring your
+          data remains securely stored and unmodified.
         </p>
-        <EventSourceList
-          onSelect={(s) => {
-            setSchemaSettings(s);
-            // jump to next step
-            setStep(1);
-          }}
-        />
-        <div className="my-2">
-          <strong style={{ fontSize: "1.2em" }}>Don&apos;t see yours?</strong>
-        </div>
-        <div className={`row`}>
-          <div className="col-4">
-            <a
-              className={`btn btn-light-hover btn-outline-${
-                "custom" === schema ? "selected" : "primary"
-              } mb-3 py-3`}
+        <div>
+          <h4>Choose Your Setup</h4>
+          <div className="d-flex flex-wrap">
+            <div
+              className={clsx(
+                styles.ctaContainer,
+                !showImportSampleData && "w-50"
+              )}
+              onClick={() => setStep(1)}
+            >
+              <div className={styles.ctaButton}>
+                <div>
+                  <h3 className={styles.ctaText}>Guided Setup</h3>
+                  <p>
+                    Tell us what tool you use for event tracking in your app and
+                    we&apos;ll guide you through the rest
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div
+              className={clsx(
+                styles.ctaContainer,
+                !showImportSampleData && "w-50"
+              )}
               onClick={(e) => {
                 e.preventDefault();
-                setSchema("custom");
-                setDatasource({
-                  name: "My Datasource",
-                  settings: {},
-                  projects: project ? [project] : [],
-                });
-                // no options for custom:
-                form.setValue(`settings.schemaOptions`, {});
-
-                // set to all possible types:
-                setPossibleTypes(dataSourceConnections.map((o) => o.type));
-                // jump to next step
-                setStep(1);
+                handleCustomSetup();
               }}
             >
-              <h4>Use Custom Source</h4>
-              <p className="mb-0 text-dark">
-                Manually configure your data schema and analytics queries.
-              </p>
-            </a>
-          </div>
-          {showImportSampleData && (
-            <div className="col-4">
-              <Link href="/demo-datasource-project">
-                <a
-                  className={`btn btn-light-hover btn-outline-${
-                    "custom" === schema ? "selected" : "primary"
-                  } mb-3 py-3 ml-auto`}
-                >
-                  <h4>Use Sample Dataset</h4>
-                  <p className="mb-0 text-dark">
-                    Explore GrowthBook with a pre-loaded sample dataset.
+              <div className={styles.ctaButton}>
+                <div>
+                  <h3 className={styles.ctaText}>Manual Setup</h3>
+                  <p>
+                    Connect to your data warehouse and manually configure
+                    GrowthBook with SQL queries
                   </p>
-                </a>
-              </Link>
+                </div>
+              </div>
             </div>
-          )}
+            {showImportSampleData && (
+              <Link href="/demo-datasource-project">
+                <div className={styles.ctaContainer}>
+                  <div className={styles.ctaButton}>
+                    <a>
+                      <h3 className={styles.ctaText}>Use Sample Dataset</h3>
+                      <p className="mb-0 text-dark">
+                        Explore GrowthBook with a pre-loaded sample dataset.
+                      </p>
+                    </a>
+                  </div>
+                </div>
+              </Link>
+            )}
+          </div>
         </div>
         {secondaryCTA && (
           <div className="col-12 text-center">{secondaryCTA}</div>
@@ -450,13 +471,50 @@ const NewDataSourceForm: FC<{
   } else if (step === 1) {
     stepContents = (
       <div>
-        <div className="mb-2">
+        <div className="mb-3">
           <a
             href="#"
             onClick={(e) => {
               e.preventDefault();
               setLastError("");
-              setStep(0);
+              setStep(step - 1);
+            }}
+          >
+            <span style={{ position: "relative", top: "-1px" }}>
+              <GBCircleArrowLeft />
+            </span>{" "}
+            Back
+          </a>
+        </div>
+        <h4>Select Your Event Tracker</h4>
+        <p>
+          GrowthBook has built-in support for a number of popular event tracking
+          systems. Don&apos;t see yours listed? GrowthBook can work with
+          virtually any type of data with a custom integration.
+        </p>
+        <EventSourceList
+          onSelect={(s) => {
+            if (s.value === "custom") {
+              handleCustomSetup();
+            } else {
+              setSchemaSettings(s);
+              // jump to next step
+              setStep(2);
+            }
+          }}
+        />
+      </div>
+    );
+  } else if (step === 2) {
+    stepContents = (
+      <div>
+        <div className="mb-3">
+          <a
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              setLastError("");
+              selectedSchema.value === "custom" ? setStep(0) : setStep(1);
             }}
           >
             <span style={{ position: "relative", top: "-1px" }}>
@@ -469,8 +527,19 @@ const NewDataSourceForm: FC<{
         {selectedSchema && selectedSchema.intro && (
           <div className="mb-4">{selectedSchema.intro}</div>
         )}
+        <div className="form-group">
+          <label>Name</label>
+          <input
+            type="text"
+            className="form-control"
+            name="name"
+            required
+            onChange={onChange}
+            value={datasource.name}
+          />
+        </div>
         <SelectField
-          label="Data Source Type"
+          label="Select the data warehouse where your event data is stored"
           // @ts-expect-error TS(2322) If you come across this, please fix it!: Type 'string | undefined' is not assignable to typ... Remove this comment to see the full error message
           value={datasource.type}
           onChange={(value) => {
@@ -507,17 +576,6 @@ const NewDataSourceForm: FC<{
               };
             })}
         />
-        <div className="form-group">
-          <label>Display Name</label>
-          <input
-            type="text"
-            className="form-control"
-            name="name"
-            required
-            onChange={onChange}
-            value={datasource.name}
-          />
-        </div>
         <div className="form-group">
           <label>Description</label>
           <textarea
@@ -557,7 +615,7 @@ const NewDataSourceForm: FC<{
             href="#"
             onClick={(e) => {
               e.preventDefault();
-              setStep(1);
+              setStep(2);
             }}
           >
             <span style={{ position: "relative", top: "-1px" }}>
@@ -780,7 +838,7 @@ const NewDataSourceForm: FC<{
       // @ts-expect-error TS(2322) If you come across this, please fix it!: Type '(() => Promise<void>) | null' is not assigna... Remove this comment to see the full error message
       submit={submit}
       autoCloseOnSubmit={false}
-      cta={isFinalStep ? (step === 2 ? "Finish" : "Save") : "Next"}
+      cta={isFinalStep ? (step === 3 ? "Finish" : "Save") : "Next"}
       closeCta="Cancel"
       size="lg"
       error={lastError}

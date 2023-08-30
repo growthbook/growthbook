@@ -4,7 +4,7 @@ import { Queries, QueryStatus } from "../../types/query";
 import { getMetricById, updateMetric } from "../models/MetricModel";
 import {
   MetricValueParams,
-  MetricValueQueryResponse,
+  MetricValueQueryResponseRows,
   MetricValueResult,
 } from "../types/Integration";
 import { meanVarianceFromSums } from "../util/stats";
@@ -107,7 +107,7 @@ export class MetricAnalysisQueryRunner extends QueryRunner<
 }
 
 export function processMetricValueQueryResponse(
-  rows: MetricValueQueryResponse
+  rows: MetricValueQueryResponseRows
 ): MetricValueResult {
   const ret: MetricValueResult = { count: 0, mean: 0, stddev: 0 };
 

@@ -1,5 +1,6 @@
 import { Snowflake } from "snowflake-promise";
 import { SnowflakeConnectionParams } from "../../types/integrations/snowflake";
+import { QueryResponse } from "../types/Integration";
 
 type ProxyOptions = {
   proxyHost?: string;
@@ -26,7 +27,7 @@ export async function runSnowflakeQuery<T>(
   conn: SnowflakeConnectionParams,
   sql: string,
   values: string[] = []
-): Promise<T[]> {
+): Promise<QueryResponse<T[]>> {
   const snowflake = new Snowflake({
     account: conn.account,
     username: conn.username,
@@ -53,5 +54,5 @@ export async function runSnowflakeQuery<T>(
     lowercase.push(o);
   });
 
-  return lowercase;
+  return { rows: lowercase };
 }
