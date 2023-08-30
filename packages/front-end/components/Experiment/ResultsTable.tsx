@@ -515,7 +515,7 @@ export default function ResultsTable({
                     </th>
                     <th
                       style={{ width: 120 * tableCellScale }}
-                      className="axis-col label text-right"
+                      className="axis-col label"
                     >
                       {statsEngine === "bayesian" ? (
                         <div
