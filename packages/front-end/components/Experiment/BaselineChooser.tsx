@@ -96,13 +96,17 @@ export default function BaselineChooser({
                 <div
                   className={`variation variation${variation.index} with-variation-label d-flex align-items-center`}
                 >
-                  <span className="label" style={{ width: 20, height: 20 }}>
+                  <span
+                    className="label"
+                    style={{ width: 20, height: 20, flex: "none" }}
+                  >
                     {variation.index}
                   </span>
                   <span
-                    className="d-inline-block text-ellipsis"
+                    className="d-inline-block"
                     style={{
-                      maxWidth: 200,
+                      maxWidth: 150,
+                      lineHeight: "14px",
                     }}
                   >
                     {variation.name}
