@@ -37,6 +37,7 @@ const querySchema = new mongoose.Schema({
   result: {},
   rawResult: [],
   error: String,
+  statistics: {},
   dependencies: [],
   cachedQueryUsed: String,
 });

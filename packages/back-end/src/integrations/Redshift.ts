@@ -1,8 +1,9 @@
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import { decryptDataSourceParams } from "../services/datasource";
 import { runPostgresQuery } from "../services/postgres";
+import { QueryResponse } from "../types/Integration";
 import { FormatDialect } from "../util/sql";
-import SqlIntegration, { QueryResponse } from "./SqlIntegration";
+import SqlIntegration from "./SqlIntegration";
 
 export default class Redshift extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment

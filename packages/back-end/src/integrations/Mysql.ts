@@ -3,7 +3,8 @@ import { ConnectionOptions } from "mysql2";
 import { MysqlConnectionParams } from "../../types/integrations/mysql";
 import { decryptDataSourceParams } from "../services/datasource";
 import { FormatDialect } from "../util/sql";
-import SqlIntegration, { QueryResponse } from "./SqlIntegration";
+import { QueryResponse } from "../types/Integration";
+import SqlIntegration from "./SqlIntegration";
 
 export default class Mysql extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -40,7 +41,7 @@ export default class Mysql extends SqlIntegration {
     const conn = await mysql.createConnection(config);
 
     const [rows] = await conn.query(sql);
-    return {rows: rows as RowDataPacket[]};
+    return { rows: rows as RowDataPacket[] };
   }
   dateDiff(startCol: string, endCol: string) {
     return `DATEDIFF(${endCol}, ${startCol})`;

@@ -15,7 +15,7 @@ const DataSourcePipelineField: FC<{
 }> = ({ children, title = "", titleClassName = "", style }) => {
   return (
     <div className={`mb-2 ma-5 ${titleClassName}`} style={style}>
-      <strong>{title}</strong>
+      {title}
       {children}
     </div>
   );
@@ -66,7 +66,10 @@ export default function DataSourcePipeline({
         queries.
       </div>
       <div>
-        <DataSourcePipelineField title="Pipeline Mode: ">
+        <DataSourcePipelineField
+          title="Pipeline Mode: "
+          titleClassName="font-weight-bold"
+        >
           {dataSource.settings.pipelineSettings?.allowWriting
             ? "Enabled"
             : "Disabled"}
@@ -80,10 +83,8 @@ export default function DataSourcePipeline({
                 <em className="text-muted">not specified</em>
               )}
             </DataSourcePipelineField>
-            <DataSourcePipelineField title="Delete temporary tables as soon as finished? ">
-              {dataSource.settings.pipelineSettings?.deleteTablesWhenCompleted
-                ? "Yes"
-                : "No, keep for 6 hours"}
+            <DataSourcePipelineField title="Retention of temporary units table (hours): ">
+              {dataSource.settings.pipelineSettings?.unitsTableRetentionHours}
             </DataSourcePipelineField>
           </>
         )}

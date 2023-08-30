@@ -4,7 +4,8 @@ import { decryptDataSourceParams } from "../services/datasource";
 import { BigQueryConnectionParams } from "../../types/integrations/bigquery";
 import { IS_CLOUD } from "../util/secrets";
 import { FormatDialect } from "../util/sql";
-import SqlIntegration, { QueryResponse } from "./SqlIntegration";
+import { QueryResponse } from "../types/Integration";
+import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -50,21 +51,32 @@ export default class BigQuery extends SqlIntegration {
       useLegacySql: false,
     });
     const [rows] = await job.getQueryResults();
-    console.log(job);
-    console.log(job.metadata.statistics.query);
-    return {
-      rows: rows,
-      statistics: {
-        executionDurationMs: job.metadata.statistics.finalExecutionDurationMs,
-        totalSlotMs: job.metadata.statistics.totalSlotMs,
-        bytesProcessed: job.metadata.statistics.totalBytesProcessed,
-        bytesBilled: job.metadata.statistics.query.totalBytesBilled,
-      }
+    const [metadata] = await job.getMetadata();
+    const statistics = {
+      executionDurationMs: Number(
+        metadata?.statistics?.finalExecutionDurationMs
+      ),
+      totalSlotMs: Number(metadata?.statistics?.totalSlotMs),
+      bytesProcessed: Number(metadata?.statistics?.totalBytesProcessed),
+      bytesBilled: Number(metadata?.statistics?.query?.totalBytesBilled),
+      warehouseCachedResult: metadata?.statistics?.query?.cacheHit,
+      partitionsUsed:
+        metadata?.statistics?.query?.totalPartitionsProcessed !== undefined
+          ? metadata.statistics.query.totalPartitionsProcessed > 0
+          : undefined,
     };
+    return { rows, statistics };
   }
 
   createUnitsTableOptions() {
-    return `OPTIONS(expiration_timestamp=TIMESTAMP_ADD(CURRENT_TIMESTAMP(), INTERVAL 6 HOUR))`;
+    return `OPTIONS(
+      expiration_timestamp=TIMESTAMP_ADD(
+        CURRENT_TIMESTAMP(), 
+        INTERVAL ${
+          this.settings.pipelineSettings?.unitsTableRetentionHours ?? 24
+        } HOUR
+      )
+    )`;
   }
 
   addTime(

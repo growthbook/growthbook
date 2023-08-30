@@ -1,7 +1,8 @@
 import { ClickHouse as ClickHouseClient } from "clickhouse";
 import { decryptDataSourceParams } from "../services/datasource";
 import { ClickHouseConnectionParams } from "../../types/integrations/clickhouse";
-import SqlIntegration, { QueryResponse } from "./SqlIntegration";
+import { QueryResponse } from "../types/Integration";
+import SqlIntegration from "./SqlIntegration";
 
 export default class ClickHouse extends SqlIntegration {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
@@ -48,10 +49,13 @@ export default class ClickHouse extends SqlIntegration {
         },
       },
     });
-    return {rows: Array.from(await client.query(sql).toPromise())};
+    return { rows: Array.from(await client.query(sql).toPromise()) };
   }
   toTimestamp(date: Date) {
-    return `toDateTime('${this.toDateTimeString(date)}')`;
+    return `toDateTime('${date
+      .toISOString()
+      .substr(0, 19)
+      .replace("T", " ")}')`;
   }
   addTime(
     col: string,

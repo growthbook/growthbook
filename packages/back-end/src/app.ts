@@ -96,6 +96,7 @@ import { slackIntegrationRouter } from "./routers/slack-integration/slack-integr
 import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
+import { teamRouter } from "./routers/teams/teams.router";
 
 const app = express();
 
@@ -440,6 +441,12 @@ app.delete(
   experimentsController.deleteVisualChangeset
 );
 
+// Visual editor auth
+app.get(
+  "/visual-editor/key",
+  experimentsController.findOrCreateVisualEditorToken
+);
+
 // Reports
 app.get("/report/:id", reportsController.getReport);
 app.put("/report/:id", reportsController.putReport);
@@ -556,6 +563,9 @@ app.delete(
 );
 app.get("/discussions/recent/:num", discussionsController.getRecentDiscussions);
 app.post("/file/upload/:filetype", discussionsController.postImageUploadUrl);
+
+// Teams
+app.use("/teams", teamRouter);
 
 // Admin
 app.get("/admin/organizations", adminController.getOrganizations);

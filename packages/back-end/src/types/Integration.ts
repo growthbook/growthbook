@@ -1,3 +1,4 @@
+import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import {
   DataSourceProperties,
   DataSourceSettings,
@@ -6,8 +7,10 @@ import {
 import { DimensionInterface } from "../../types/dimension";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
 import { MetricInterface, MetricType } from "../../types/metric";
+import { QueryStatistics } from "../../types/query";
 import { SegmentInterface } from "../../types/segment";
 import { FormatDialect } from "../util/sql";
+import { TemplateVariables } from "../../types/sql";
 
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
@@ -146,11 +149,19 @@ export type PastExperimentResult = {
   }[];
 };
 
+export type TrackedEventResponseRow = {
+  event: string;
+  displayName: string;
+  hasUserId: boolean;
+  count: number;
+  lastTrackedAt: Date | BigQueryTimestamp;
+};
+
 export type TrackedEventData = {
   event: string;
   displayName: string;
-  count: number;
   hasUserId: boolean;
+  count: number;
   lastTrackedAt: Date;
   metricsToCreate: {
     name: string;
@@ -167,8 +178,9 @@ export type MetricValueQueryResponseRow = {
   main_sum: number;
   main_sum_squares: number;
 };
-export type MetricValueQueryResponse = MetricValueQueryResponseRow[];
-export type PastExperimentResponse = {
+export type MetricValueQueryResponseRows = MetricValueQueryResponseRow[];
+
+export type PastExperimentResponseRows = {
   exposure_query: string;
   experiment_id: string;
   experiment_name?: string;
@@ -178,7 +190,8 @@ export type PastExperimentResponse = {
   end_date: string;
   users: number;
 }[];
-export type ExperimentMetricQueryResponse = {
+
+export type ExperimentMetricQueryResponseRows = {
   dimension: string;
   variation: string;
   users: number;
@@ -198,6 +211,18 @@ export type ExperimentMetricQueryResponse = {
   covariate_sum_squares?: number;
   main_covariate_sum_product?: number;
 }[];
+
+// eslint-disable-next-line
+export type QueryResponse<Rows = Record<string, any>[]> = {
+  rows: Rows;
+  statistics?: QueryStatistics;
+};
+
+export type MetricValueQueryResponse = QueryResponse<MetricValueQueryResponseRows>;
+export type PastExperimentQueryResponse = QueryResponse<PastExperimentResponseRows>;
+export type ExperimentMetricQueryResponse = QueryResponse<ExperimentMetricQueryResponseRows>;
+export type ExperimentUnitsQueryResponse = QueryResponse;
+
 export interface SourceIntegrationConstructor {
   new (
     encryptedParams: string,
@@ -313,21 +338,22 @@ export interface SourceIntegrationInterface {
     tableName: string
   ): Promise<{ tableData: null | unknown[] }>;
   getInformationSchema?(): Promise<InformationSchema[]>;
-  getTestValidityQuery?(query: string): string;
-  getTestQuery?(query: string): string;
+  getTestValidityQuery?(
+    query: string,
+    templateVariables?: TemplateVariables
+  ): string;
+  getTestQuery?(query: string, templateVariables?: TemplateVariables): string;
   runTestQuery?(sql: string): Promise<TestQueryResult>;
   getMetricValueQuery(params: MetricValueParams): string;
   getExperimentMetricQuery(params: ExperimentMetricQueryParams): string;
   getExperimentUnitsTableQuery(params: ExperimentUnitsQueryParams): string;
-  getDropTableQuery(fullTableName: string): string;
   getPastExperimentQuery(params: PastExperimentParams): string;
   runMetricValueQuery(query: string): Promise<MetricValueQueryResponse>;
   runExperimentMetricQuery(
     query: string
   ): Promise<ExperimentMetricQueryResponse>;
-  runExperimentUnitsQuery(query: string): Promise<[]>;
-  runPastExperimentQuery(query: string): Promise<PastExperimentResponse>;
-  runDropTableQuery(query: string): Promise<[]>;
+  runExperimentUnitsQuery(query: string): Promise<ExperimentUnitsQueryResponse>;
+  runPastExperimentQuery(query: string): Promise<PastExperimentQueryResponse>;
   getEventsTrackedByDatasource?: (
     schemaFormat: SchemaFormat,
     existingMetrics: MetricInterface[]

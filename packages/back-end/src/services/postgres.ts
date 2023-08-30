@@ -1,9 +1,9 @@
 import { Client, ClientConfig } from "pg";
 import { PostgresConnectionParams } from "../../types/integrations/postgres";
 import { logger } from "../util/logger";
-import { QueryResponse } from "../integrations/SqlIntegration";
+import { QueryResponse } from "../types/Integration";
 
-export function runPostgresQuery<T>(
+export function runPostgresQuery(
   conn: PostgresConnectionParams,
   sql: string,
   values: string[] = []
@@ -46,7 +46,7 @@ export function runPostgresQuery<T>(
         } catch (e) {
           logger.warn(e, "Postgres query failed");
         }
-        resolve({rows: res.rows});
+        resolve({ rows: res.rows });
       })
       .catch((e) => {
         reject(e);

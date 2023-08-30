@@ -3,7 +3,7 @@ import { ResultSet } from "aws-sdk/clients/athena";
 import { AthenaConnectionParams } from "../../types/integrations/athena";
 import { logger } from "../util/logger";
 import { IS_CLOUD } from "../util/secrets";
-import { QueryResponse } from "../integrations/SqlIntegration";
+import { QueryResponse } from "../types/Integration";
 
 function getAthenaInstance(params: AthenaConnectionParams) {
   if (!IS_CLOUD && params.authType === "auto") {
@@ -19,7 +19,7 @@ function getAthenaInstance(params: AthenaConnectionParams) {
   });
 }
 
-export async function runAthenaQuery<T>(
+export async function runAthenaQuery(
   conn: AthenaConnectionParams,
   sql: string
 ): Promise<QueryResponse> {
@@ -96,16 +96,18 @@ export async function runAthenaQuery<T>(
     const result = await waitAndCheck(500 * Math.pow(1.1, i));
     if (result && result.Rows && result.ResultSetMetadata?.ColumnInfo) {
       const keys = result.ResultSetMetadata.ColumnInfo.map((info) => info.Name);
-      return {rows: result.Rows.slice(1).map((row) => {
-        // eslint-disable-next-line
+      return {
+        rows: result.Rows.slice(1).map((row) => {
+          // eslint-disable-next-line
         const obj: any = {};
-        if (row.Data) {
-          row.Data.forEach((value, i) => {
-            obj[keys[i]] = value.VarCharValue || null;
-          });
-        }
-        return obj;
-      })};
+          if (row.Data) {
+            row.Data.forEach((value, i) => {
+              obj[keys[i]] = value.VarCharValue || null;
+            });
+          }
+          return obj;
+        }),
+      };
     }
   }
 

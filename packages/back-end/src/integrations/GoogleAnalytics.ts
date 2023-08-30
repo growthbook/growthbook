@@ -5,9 +5,11 @@ import {
   SourceIntegrationInterface,
   MetricValueParams,
   ExperimentMetricQueryResponse,
-  PastExperimentResponse,
   MetricValueQueryResponse,
   ExperimentQueryResponses,
+  MetricValueQueryResponseRows,
+  PastExperimentQueryResponse,
+  ExperimentUnitsQueryResponse,
 } from "../types/Integration";
 import { GoogleAnalyticsParams } from "../../types/integrations/googleanalytics";
 import { decryptDataSourceParams } from "../services/datasource";
@@ -77,19 +79,13 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
   getExperimentUnitsTableQuery(): string {
     throw new Error("Method not implemented.");
   }
-  getDropTableQuery(): string {
-    throw new Error("Method not implemented.");
-  }
-  runExperimentUnitsQuery(): Promise<[]> {
+  runExperimentUnitsQuery(): Promise<ExperimentUnitsQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getPastExperimentQuery(): string {
     throw new Error("Method not implemented.");
   }
-  runPastExperimentQuery(): Promise<PastExperimentResponse> {
-    throw new Error("Method not implemented.");
-  }
-  runDropTableQuery(): Promise<[]> {
+  runPastExperimentQuery(): Promise<PastExperimentQueryResponse> {
     throw new Error("Method not implemented.");
   }
   getMetricValueQuery(params: MetricValueParams): string {
@@ -123,7 +119,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
   }
   async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
     const { rows, metrics } = await this.runQuery(query);
-    const dates: MetricValueQueryResponse = [];
+    const dates: MetricValueQueryResponseRows = [];
     if (rows) {
       const metric = metrics[0];
       const isTotal =
@@ -181,7 +177,7 @@ const GoogleAnalytics: SourceIntegrationConstructor = class
       });
     }
 
-    return dates;
+    return { rows: dates };
   }
 
   async runQuery(query: string) {

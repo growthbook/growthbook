@@ -20,10 +20,16 @@ import {
   ExperimentQueryResponses,
   ExperimentResults,
   ExperimentUnitsQueryParams,
+  QueryResponse,
   SourceIntegrationInterface,
 } from "../types/Integration";
 import { expandDenominatorMetrics } from "../util/sql";
-import { QueryRunner, QueryMap } from "./QueryRunner";
+import {
+  QueryRunner,
+  QueryMap,
+  ProcessedRowsType,
+  RowsType,
+} from "./QueryRunner";
 
 export type SnapshotResult = {
   unknownVariations: string[];
@@ -47,10 +53,8 @@ export const startExperimentResultQueries = async (
     name: string,
     query: string,
     dependencies: string[],
-    // eslint-disable-next-line
-    run: (query: string) => Promise<any[]>,
-    // eslint-disable-next-line
-    process: (rows: any[]) => any,
+    run: (query: string) => Promise<QueryResponse<RowsType>>,
+    process: (rows: RowsType) => ProcessedRowsType,
     useExisting?: boolean
   ) => Promise<QueryPointer>
 ): Promise<Queries> => {
@@ -136,16 +140,16 @@ export const startExperimentResultQueries = async (
       useUnitsTable: useUnitsTable,
       unitsTableFullName: unitsTableFullName,
     };
-    const metricQuery = await startQuery(
-      m.id,
-      integration.getExperimentMetricQuery(params),
-      useUnitsTable ? [unitQuery.query] : [],
-      (query) => integration.runExperimentMetricQuery(query),
-      (rows) => rows
+    queries.push(
+      await startQuery(
+        m.id,
+        integration.getExperimentMetricQuery(params),
+        useUnitsTable ? [unitQuery.query] : [],
+        (query) => integration.runExperimentMetricQuery(query),
+        (rows) => rows
+      )
     );
-    queries.push(metricQuery);
   });
-
   await Promise.all(promises);
 
   return queries;
@@ -299,14 +303,16 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         "results",
         query,
         [],
-        () =>
-          this.integration.getExperimentResults(
+        async () => {
+          const rows = (await this.integration.getExperimentResults(
             snapshotSettings,
             selectedMetrics,
             activationMetrics[0],
             dimension
             // eslint-disable-next-line
-            ) as Promise<any[]>,
+          )) as any[];
+          return { rows: rows };
+        },
         (rows: ExperimentQueryResponses) =>
           this.processLegacyExperimentResultsResponse(snapshotSettings, rows)
       ),

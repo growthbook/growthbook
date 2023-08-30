@@ -1,7 +1,12 @@
 import { FC } from "react";
 import { QueryInterface } from "back-end/types/query";
 import { formatDistanceStrict } from "date-fns";
-import { FaCircle, FaExclamationTriangle, FaCheck } from "react-icons/fa";
+import {
+  FaCircle,
+  FaExclamationTriangle,
+  FaCheck,
+  FaSquare,
+} from "react-icons/fa";
 import clsx from "clsx";
 import { getValidDate } from "shared/dates";
 import Code from "../SyntaxHighlighting/Code";
@@ -23,6 +28,7 @@ const ExpandableQuery: FC<{
     <div className="mb-4">
       <h4>
         {query.status === "running" && <FaCircle className="text-info mr-2" />}
+        {query.status === "queued" && <FaSquare className="text-info mr-2" />}
         {query.status === "failed" && (
           <FaExclamationTriangle className="text-danger mr-2" />
         )}
@@ -93,21 +99,17 @@ const ExpandableQuery: FC<{
             Took{" "}
             {formatDistanceStrict(
               getValidDate(query.startedAt),
-              // @ts-expect-error TS(2345) If you come across this, please fix it!: Argument of type 'Date | undefined' is not assigna... Remove this comment to see the full error message
               getValidDate(query.finishedAt)
             )}
           </em>
         </small>
       )}
-      {query.status === "running" && (
+      {(query.status === "running" || query.status === "queued") && (
         <div className="alert alert-info">
           <em>
-            Running
-            {query.dependencies?.length
-              ? " or waiting for parent queries"
-              : ""}{" "}
-            for{" "}
-            {formatDistanceStrict(getValidDate(query.startedAt), new Date())}
+            Running{query.dependencies?.length ? " or queued" : ""}
+            {" for "}
+            {formatDistanceStrict(getValidDate(query.createdAt), new Date())}
           </em>
         </div>
       )}

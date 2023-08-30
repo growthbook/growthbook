@@ -1,7 +1,7 @@
 import { getValidDate } from "shared/dates";
 import {
   PastExperimentParams,
-  PastExperimentResponse,
+  PastExperimentResponseRows,
   PastExperimentResult,
 } from "../types/Integration";
 import {
@@ -155,7 +155,7 @@ export class PastExperimentsQueryRunner extends QueryRunner<
     });
   }
   private processPastExperimentQueryResponse(
-    rows: PastExperimentResponse
+    rows: PastExperimentResponseRows
   ): PastExperimentResult {
     return {
       experiments: rows.map((row) => {

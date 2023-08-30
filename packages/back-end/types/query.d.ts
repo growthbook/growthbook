@@ -12,7 +12,9 @@ export type QueryStatistics = {
   totalSlotMs?: number;
   bytesProcessed?: number;
   bytesBilled?: number;
-}
+  warehouseCachedResult?: boolean;
+  partitionsUsed?: boolean;
+};
 
 export type QueryPointer = {
   query: string;

@@ -22,8 +22,8 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
     defaultValues: {
       allowWriting: dataSource.settings.pipelineSettings?.allowWriting ?? false,
       writeDataset: dataSource.settings.pipelineSettings?.writeDataset,
-      deleteTablesWhenCompleted:
-        dataSource.settings.pipelineSettings?.deleteTablesWhenCompleted ?? true,
+      unitsTableRetentionHours:
+        dataSource.settings.pipelineSettings?.unitsTableRetentionHours ?? 24,
     },
   });
 
@@ -63,18 +63,14 @@ export const EditDataSourcePipeline: FC<EditDataSourcePipelineProps> = ({
             type="text"
             {...form.register("writeDataset")}
           />
-          <div className="form-group">
-            <label className="mr-2">
-              Delete temporary tables when done using them?
-            </label>
-            <Toggle
-              id={"toggle-deleteTables"}
-              value={!!form.watch("deleteTablesWhenCompleted")}
-              setValue={(value) => {
-                form.setValue("deleteTablesWhenCompleted", value);
-              }}
-            />
-          </div>
+          <Field
+            label="Retention of temporary units table (hours)"
+            className="ml-2"
+            containerClassName="mb-2"
+            type="number"
+            min={1}
+            {...form.register("unitsTableRetentionHours")}
+          />
         </div>
       ) : null}
     </Modal>

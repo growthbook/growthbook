@@ -15,7 +15,7 @@ import {
   SourceIntegrationInterface,
   ExperimentMetricQueryParams,
   PastExperimentParams,
-  PastExperimentResponse,
+  PastExperimentQueryResponse,
   ExperimentMetricQueryResponse,
   MetricValueQueryResponse,
   MetricValueQueryResponseRow,
@@ -26,6 +26,10 @@ import {
   RawInformationSchema,
   MissingDatasourceParamsError,
   ExperimentUnitsQueryParams,
+  QueryResponse,
+  TrackedEventData,
+  TrackedEventResponseRow,
+  ExperimentUnitsQueryResponse,
 } from "../types/Integration";
 import { DimensionInterface } from "../../types/dimension";
 import {
@@ -35,20 +39,14 @@ import {
 import { SegmentInterface } from "../../types/segment";
 import {
   getBaseIdTypeAndJoins,
-  replaceSQLVars,
+  compileSqlTemplate,
   format,
   FormatDialect,
   replaceCountStar,
 } from "../util/sql";
 import { formatInformationSchema } from "../util/informationSchemas";
 import { ExperimentSnapshotSettings } from "../../types/experiment-snapshot";
-import { QueryStatistics } from "../../types/query";
-
-export type QueryResponse = {
-  // eslint-disable-next-line
-  rows: any[];
-  statistics?: QueryStatistics;
-}
+import { TemplateVariables } from "../../types/sql";
 
 export default abstract class SqlIntegration
   implements SourceIntegrationInterface {
@@ -242,7 +240,7 @@ export default abstract class SqlIntegration
     return match;
   }
 
-  getPastExperimentQuery(params: PastExperimentParams) {
+  getPastExperimentQuery(params: PastExperimentParams): string {
     // TODO: for past experiments, UNION all exposure queries together
     const experimentQueries = (
       this.settings.queries?.exposure || []
@@ -272,7 +270,7 @@ export default abstract class SqlIntegration
             count(distinct ${q.userIdType}) as users
           FROM
             (
-              ${replaceSQLVars(q.query, { startDate: params.from })}
+              ${compileSqlTemplate(q.query, { startDate: params.from })}
             ) e${i}
           WHERE
             timestamp > ${this.toTimestamp(params.from)}
@@ -343,21 +341,26 @@ export default abstract class SqlIntegration
       this.getFormatDialect()
     );
   }
-  async runPastExperimentQuery(query: string): Promise<PastExperimentResponse> {
-    const { rows } = await this.runQuery(query);
+  async runPastExperimentQuery(
+    query: string
+  ): Promise<PastExperimentQueryResponse> {
+    const { rows, statistics } = await this.runQuery(query);
 
-    return rows.map((row) => {
-      return {
-        exposure_query: row.exposure_query,
-        experiment_id: row.experiment_id,
-        experiment_name: row.experiment_name,
-        variation_id: row.variation_id ?? "",
-        variation_name: row.variation_name,
-        users: parseInt(row.users) || 0,
-        end_date: this.convertDate(row.end_date).toISOString(),
-        start_date: this.convertDate(row.start_date).toISOString(),
-      };
-    });
+    return {
+      rows: rows.map((row) => {
+        return {
+          exposure_query: row.exposure_query,
+          experiment_id: row.experiment_id,
+          experiment_name: row.experiment_name,
+          variation_id: row.variation_id ?? "",
+          variation_name: row.variation_name,
+          users: parseInt(row.users) || 0,
+          end_date: this.convertDate(row.end_date).toISOString(),
+          start_date: this.convertDate(row.start_date).toISOString(),
+        };
+      }),
+      statistics: statistics,
+    };
   }
 
   getMetricValueQuery(params: MetricValueParams): string {
@@ -492,81 +495,92 @@ export default abstract class SqlIntegration
   async runExperimentMetricQuery(
     query: string
   ): Promise<ExperimentMetricQueryResponse> {
-    const { rows } = await this.runQuery(query);
-    return rows.map((row) => {
-      return {
-        variation: row.variation ?? "",
-        dimension: row.dimension || "",
-        users: parseInt(row.users) || 0,
-        count: parseInt(row.users) || 0,
-        statistic_type: row.statistic_type ?? "",
-        main_metric_type: row.main_metric_type ?? "",
-        main_sum: parseFloat(row.main_sum) || 0,
-        main_sum_squares: parseFloat(row.main_sum_squares) || 0,
-        ...(row.denominator_metric_type && {
-          denominator_metric_type: row.denominator_metric_type ?? "",
-          denominator_sum: parseFloat(row.denominator_sum) || 0,
-          denominator_sum_squares: parseFloat(row.denominator_sum_squares) || 0,
-          main_denominator_sum_product:
-            parseFloat(row.main_denominator_sum_product) || 0,
-        }),
-        ...(row.covariate_metric_type && {
-          covariate_metric_type: row.covariate_metric_type ?? "",
-          covariate_sum: parseFloat(row.covariate_sum) || 0,
-          covariate_sum_squares: parseFloat(row.covariate_sum_squares) || 0,
-          main_covariate_sum_product:
-            parseFloat(row.main_covariate_sum_product) || 0,
-        }),
-        ...(row.main_cap_value && { main_cap_value: row.main_cap_value }),
-        ...(row.denominator_cap_value && {
-          denominator_cap_value: row.denominator_cap_value,
-        }),
-      };
-    });
+    const { rows, statistics } = await this.runQuery(query);
+    return {
+      rows: rows.map((row) => {
+        return {
+          variation: row.variation ?? "",
+          dimension: row.dimension || "",
+          users: parseInt(row.users) || 0,
+          count: parseInt(row.users) || 0,
+          statistic_type: row.statistic_type ?? "",
+          main_metric_type: row.main_metric_type ?? "",
+          main_sum: parseFloat(row.main_sum) || 0,
+          main_sum_squares: parseFloat(row.main_sum_squares) || 0,
+          ...(row.denominator_metric_type && {
+            denominator_metric_type: row.denominator_metric_type ?? "",
+            denominator_sum: parseFloat(row.denominator_sum) || 0,
+            denominator_sum_squares:
+              parseFloat(row.denominator_sum_squares) || 0,
+            main_denominator_sum_product:
+              parseFloat(row.main_denominator_sum_product) || 0,
+          }),
+          ...(row.covariate_metric_type && {
+            covariate_metric_type: row.covariate_metric_type ?? "",
+            covariate_sum: parseFloat(row.covariate_sum) || 0,
+            covariate_sum_squares: parseFloat(row.covariate_sum_squares) || 0,
+            main_covariate_sum_product:
+              parseFloat(row.main_covariate_sum_product) || 0,
+          }),
+          ...(row.main_cap_value && { main_cap_value: row.main_cap_value }),
+          ...(row.denominator_cap_value && {
+            denominator_cap_value: row.denominator_cap_value,
+          }),
+        };
+      }),
+      statistics: statistics,
+    };
   }
 
-  async runExperimentUnitsQuery(query: string): Promise<[]> {
-    await this.runQuery(query);
-    return [];
-  }
-
-  async runDropTableQuery(query: string): Promise<[]> {
-    await this.runQuery(query);
-    return [];
+  async runExperimentUnitsQuery(
+    query: string
+  ): Promise<ExperimentUnitsQueryResponse> {
+    return await this.runQuery(query);
   }
 
   async runMetricValueQuery(query: string): Promise<MetricValueQueryResponse> {
-    const { rows } = await this.runQuery(query);
+    const { rows, statistics } = await this.runQuery(query);
 
-    return rows.map((row) => {
-      const { date, count, main_sum, main_sum_squares } = row;
+    return {
+      rows: rows.map((row) => {
+        const { date, count, main_sum, main_sum_squares } = row;
 
-      const ret: MetricValueQueryResponseRow = {
-        date: date ? this.convertDate(date).toISOString() : "",
-        count: parseFloat(count) || 0,
-        main_sum: parseFloat(main_sum) || 0,
-        main_sum_squares: parseFloat(main_sum_squares) || 0,
-      };
+        const ret: MetricValueQueryResponseRow = {
+          date: date ? this.convertDate(date).toISOString() : "",
+          count: parseFloat(count) || 0,
+          main_sum: parseFloat(main_sum) || 0,
+          main_sum_squares: parseFloat(main_sum_squares) || 0,
+        };
 
-      return ret;
-    });
+        return ret;
+      }),
+      statistics: statistics,
+    };
   }
 
   //Test the validity of a query as cheaply as possible
-  getTestValidityQuery(query: string): string {
-    return this.getTestQuery(query, 1);
+  getTestValidityQuery(
+    query: string,
+    templateVariables?: TemplateVariables
+  ): string {
+    return this.getTestQuery(query, templateVariables, 1);
   }
 
-  getTestQuery(query: string, limit: number = 5): string {
+  getTestQuery(
+    query: string,
+    templateVariables?: TemplateVariables,
+    limit: number = 5
+  ): string {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - IMPORT_LIMIT_DAYS);
-    const limitedQuery = replaceSQLVars(
+    const limitedQuery = compileSqlTemplate(
       `WITH __table as (
         ${query}
       )
       ${this.selectSampleRows("__table", limit)}`,
       {
         startDate,
+        templateVariables,
       }
     );
     return format(limitedQuery, this.getFormatDialect());
@@ -575,10 +589,10 @@ export default abstract class SqlIntegration
   async runTestQuery(sql: string): Promise<TestQueryResult> {
     // Calculate the run time of the query
     const queryStartTime = Date.now();
-    const { rows } = await this.runQuery(sql);
+    const results = await this.runQuery(sql);
     const queryEndTime = Date.now();
     const duration = queryEndTime - queryStartTime;
-    return { results: rows, duration };
+    return { results: results.rows, duration };
   }
 
   private getIdentitiesCTE(
@@ -815,17 +829,13 @@ export default abstract class SqlIntegration
     );
   }
 
-  getDropTableQuery(fullTableName: string): string {
-    return format(`DROP TABLE ${fullTableName};`, this.getFormatDialect());
-  }
-
   getExperimentUnitsQuery(params: ExperimentUnitsQueryParams): string {
     const { settings, segment } = params;
 
     const dimension = params.dimension;
     // Replace any placeholders in the user defined dimension SQL
     if (dimension?.type === "user") {
-      dimension.dimension.sql = replaceSQLVars(dimension.dimension.sql, {
+      dimension.dimension.sql = compileSqlTemplate(dimension.dimension.sql, {
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
@@ -833,7 +843,7 @@ export default abstract class SqlIntegration
     }
     // Replace any placeholders in the segment SQL
     if (segment?.sql) {
-      segment.sql = replaceSQLVars(segment.sql, {
+      segment.sql = compileSqlTemplate(segment.sql, {
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
@@ -870,7 +880,7 @@ export default abstract class SqlIntegration
     return `
     ${params.includeIdJoins ? idJoinSQL : ""}
     __rawExperiment AS (
-      ${replaceSQLVars(exposureQuery.query, {
+      ${compileSqlTemplate(exposureQuery.query, {
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
@@ -881,7 +891,7 @@ export default abstract class SqlIntegration
       SELECT
         e.${baseIdType} as ${baseIdType},
         ${this.castToString("e.variation_id")} as variation,
-        ${timestampColumn} as timestamp,
+        ${timestampColumn} as timestamp
         ${experimentDimension ? `, e.${experimentDimension} as dimension` : ""}
       FROM
           __rawExperiment e
@@ -970,18 +980,20 @@ export default abstract class SqlIntegration
     }
     // Replace any placeholders in the user defined dimension SQL
     if (dimension?.type === "user") {
-      dimension.dimension.sql = replaceSQLVars(dimension.dimension.sql, {
+      dimension.dimension.sql = compileSqlTemplate(dimension.dimension.sql, {
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
+        templateVariables: metric.templateVariables,
       });
     }
     // Replace any placeholders in the segment SQL
     if (segment?.sql) {
-      segment.sql = replaceSQLVars(segment.sql, {
+      segment.sql = compileSqlTemplate(segment.sql, {
         startDate: settings.startDate,
         endDate: settings.endDate,
         experimentId: settings.experimentId,
+        templateVariables: metric.templateVariables,
       });
     }
 
@@ -1567,14 +1579,14 @@ export default abstract class SqlIntegration
     WHERE ${this.getInformationSchemaWhereClause()}
     GROUP BY table_name, table_schema, table_catalog`;
 
-    const { rows } = await this.runQuery(format(sql, this.getFormatDialect()));
+    const results = await this.runQuery(format(sql, this.getFormatDialect()));
 
-    if (!rows.length) {
+    if (!results.rows.length) {
       throw new Error(`No tables found.`);
     }
 
     return formatInformationSchema(
-      rows as RawInformationSchema[],
+      results.rows as RawInformationSchema[],
       this.type
     );
   }
@@ -1594,9 +1606,9 @@ export default abstract class SqlIntegration
     AND table_schema = '${tableSchema}'
     AND table_catalog = '${databaseName}'`;
 
-    const { rows } = await this.runQuery(format(sql, this.getFormatDialect()));
+    const results = await this.runQuery(format(sql, this.getFormatDialect()));
 
-    return { tableData: rows };
+    return { tableData: results.rows };
   }
   getSchemaFormatConfig(schemaFormat: SchemaFormat): SchemaFormatConfig {
     switch (schemaFormat) {
@@ -1671,13 +1683,7 @@ export default abstract class SqlIntegration
     );
   }
   getMetricsToCreate(
-    result: {
-      event: string;
-      displayName: string;
-      hasUserId: boolean;
-      count: number;
-      lastTrackedAt: Date;
-    },
+    result: TrackedEventResponseRow,
     schemaFormat: SchemaFormat,
     existingMetrics: MetricInterface[]
   ): {
@@ -1730,16 +1736,7 @@ export default abstract class SqlIntegration
   async getEventsTrackedByDatasource(
     schemaFormat: SchemaFormat,
     existingMetrics: MetricInterface[]
-  ): Promise<
-    {
-      event: string;
-      displayName: string;
-      count: number;
-      hasUserId: boolean;
-      lastTrackedAt: Date;
-      metricsToCreate: { name: string; sql: string; type: MetricType }[];
-    }[]
-  > {
+  ): Promise<TrackedEventData[]> {
     const {
       trackedEventTableName,
       eventColumn,
@@ -1774,8 +1771,11 @@ export default abstract class SqlIntegration
         GROUP BY ${groupByColumns.join(", ")}
     `;
 
-    const trackedResponse = await this.runQuery(format(sql, this.getFormatDialect()));
-    const results = trackedResponse.rows;
+    const trackedResults = await this.runQuery(
+      format(sql, this.getFormatDialect())
+    );
+    const resultRows = trackedResults.rows;
+
     if (includesPagesTable) {
       const pageViewedSql = `
         SELECT
@@ -1789,13 +1789,13 @@ export default abstract class SqlIntegration
         WHERE received_at < '${today}' AND received_at > '${sevenDaysAgo}'`;
 
       try {
-        const pageViewedResponse = await this.runQuery(
+        const pageViewedResults = await this.runQuery(
           format(pageViewedSql, this.getFormatDialect())
         );
 
-        pageViewedResponse.rows.forEach((result) => {
-          if (result.count > 0) {
-            results.push(result);
+        pageViewedResults.rows.forEach((row) => {
+          if (row.count > 0) {
+            resultRows.push(row);
           }
         });
       } catch (e) {
@@ -1820,9 +1820,9 @@ export default abstract class SqlIntegration
           format(screenViewedSql, this.getFormatDialect())
         );
 
-        screenViewedResults.rows.forEach((result) => {
-          if (result.count > 0) {
-            results.push(result);
+        screenViewedResults.rows.forEach((row) => {
+          if (row.count > 0) {
+            resultRows.push(row);
           }
         });
       } catch (e) {
@@ -1830,21 +1830,24 @@ export default abstract class SqlIntegration
       }
     }
 
-    if (!results) {
+    if (!resultRows) {
       throw new Error(`No events found.`);
     }
 
-    return results.map((result) => {
-      // Normalize the lastTrackedAt field - BigQuery stores it as an object
-      result.lastTrackedAt = result.lastTrackedAt.value
-        ? new Date(result.lastTrackedAt.value)
-        : new Date(result.lastTrackedAt);
-      result.metricsToCreate = this.getMetricsToCreate(
-        result,
-        schemaFormat,
-        existingMetrics
-      );
-      return result;
+    return resultRows.map((result) => {
+      const row = result as TrackedEventResponseRow;
+      const processedEventData: TrackedEventData = {
+        ...row,
+        lastTrackedAt: result.lastTrackedAt.value
+          ? new Date(result.lastTrackedAt.value)
+          : new Date(result.lastTrackedAt),
+        metricsToCreate: this.getMetricsToCreate(
+          row,
+          schemaFormat,
+          existingMetrics
+        ),
+      };
+      return processedEventData;
     });
   }
 
@@ -1957,10 +1960,11 @@ export default abstract class SqlIntegration
         ${
           queryFormat === "sql"
             ? `(
-              ${replaceSQLVars(metric.sql || "", {
+              ${compileSqlTemplate(metric.sql || "", {
                 startDate,
                 endDate: endDate || undefined,
                 experimentId,
+                templateVariables: metric.templateVariables,
               })}
               )`
             : (schema && !metric.table?.match(/\./) ? schema + "." : "") +
@@ -2178,7 +2182,7 @@ export default abstract class SqlIntegration
             ${id2}
           FROM
             (
-              ${replaceSQLVars(join.query, {
+              ${compileSqlTemplate(join.query, {
                 startDate: from,
                 endDate: to,
                 experimentId,
@@ -2202,7 +2206,7 @@ export default abstract class SqlIntegration
           user_id,
           anonymous_id
         FROM
-          (${replaceSQLVars(settings.queries.pageviewsQuery, {
+          (${compileSqlTemplate(settings.queries.pageviewsQuery, {
             startDate: from,
             endDate: to,
             experimentId,

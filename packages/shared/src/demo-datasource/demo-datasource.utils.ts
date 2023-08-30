@@ -34,3 +34,9 @@ export function isDemoDatasourceProject({
 
   return projectId === demoId;
 }
+
+/**
+ * Feature ID for the demo project
+ */
+export const getDemoDataSourceFeatureId = (): string =>
+  "gbdemo-checkout-layout";

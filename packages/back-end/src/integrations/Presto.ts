@@ -3,7 +3,8 @@ import { Client, IPrestoClientOptions } from "presto-client";
 import { decryptDataSourceParams } from "../services/datasource";
 import { PrestoConnectionParams } from "../../types/integrations/presto";
 import { FormatDialect } from "../util/sql";
-import SqlIntegration, { QueryResponse } from "./SqlIntegration";
+import { QueryResponse } from "../types/Integration";
+import SqlIntegration from "./SqlIntegration";
 
 // eslint-disable-next-line
 type Row = any;
@@ -78,7 +79,7 @@ export default class Presto extends SqlIntegration {
           });
         },
         success: () => {
-          resolve({rows: rows});
+          resolve({ rows: rows });
         },
       });
     });

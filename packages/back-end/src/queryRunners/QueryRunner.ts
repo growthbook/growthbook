@@ -11,7 +11,10 @@ import {
   getRecentQuery,
   updateQuery,
 } from "../models/QueryModel";
-import { SourceIntegrationInterface } from "../types/Integration";
+import {
+  QueryResponse,
+  SourceIntegrationInterface,
+} from "../types/Integration";
 import { logger } from "../util/logger";
 
 export type QueryMap = Map<string, QueryInterface>;
@@ -32,6 +35,10 @@ export type QueryStatusEndpointResponse = {
   total: number;
 };
 
+export type RowsType = Record<string, string | boolean | number>[];
+// eslint-disable-next-line
+export type ProcessedRowsType = Record<string, any>;
+
 const FINISH_EVENT = "finish";
 
 export abstract class QueryRunner<
@@ -46,6 +53,12 @@ export abstract class QueryRunner<
   public status: RunnerStatus = "pending";
   public result: Result | null = null;
   public error = "";
+  public runCallbacks: {
+    [key: string]: {
+      run: (query: string) => Promise<QueryResponse<RowsType>>;
+      process: (rows: RowsType) => ProcessedRowsType;
+    };
+  } = {};
   private useCache: boolean;
 
   public constructor(
@@ -75,19 +88,20 @@ export abstract class QueryRunner<
 
   async onQueryFinish() {
     if (!this.timer) {
-      console.log("Query finished, refreshing in 1 second");
+      logger.debug("Query finished, refreshing in 1 second");
       this.timer = setTimeout(async () => {
         this.timer = null;
         try {
-          console.log("Getting latest model");
+          logger.debug("Getting latest model");
           this.model = await this.getLatestModel();
           await this.refreshQueryStatuses();
+          await this.startReadyQueries();
         } catch (e) {
           logger.error(e);
         }
       }, 1000);
     } else {
-      console.log("Query finished, timer already started");
+      logger.debug("Query finished, timer already started");
     }
   }
 
@@ -109,7 +123,7 @@ export abstract class QueryRunner<
   }
 
   public async startAnalysis(params: Params): Promise<Model> {
-    console.log("Starting queries");
+    logger.debug("Starting queries");
     const queries = await this.startQueries(params);
     this.model.queries = queries;
 
@@ -119,17 +133,17 @@ export abstract class QueryRunner<
 
     const queryStatus = this.getOverallQueryStatus();
     if (queryStatus === "succeeded") {
-      console.log("Query already succeeded (cached)");
+      logger.debug("Query already succeeded (cached)");
       const queryMap = await this.getQueryMap(queries);
       try {
         result = await this.runAnalysis(queryMap);
-        console.log("Ran analysis successfully");
+        logger.debug("Ran analysis successfully");
       } catch (e) {
-        console.log("Error running analysis");
+        logger.debug("Error running analysis");
         error = "Error running analysis: " + e.message;
       }
     } else if (queryStatus === "failed") {
-      console.log("Query failed immediately");
+      logger.debug("Query failed immediately");
       error = "Error running one or more database queries";
     }
 
@@ -190,13 +204,77 @@ export abstract class QueryRunner<
     });
   }
 
+  public async startReadyQueries(): Promise<void> {
+    const queuedQueries = await getQueriesByIds(
+      this.model.organization,
+      this.model.queries
+        .filter((q) => q.status === "queued")
+        .map((q) => q.query)
+    );
+    logger.debug(
+      `Starting any queued queries that are ready: ${queuedQueries.map(
+        (q) => q.id
+      )}`
+    );
+    queuedQueries.map(async (query) => {
+      // check if all dependencies are finished
+      // assumes all dependencies are within the model; if any are not, query will hang
+      // in queued state
+
+      const failedDependencies: QueryPointer[] = [];
+      const succeededDependencies: QueryPointer[] = [];
+      const pendingDependencies: QueryPointer[] = [];
+
+      const dependencyIds: string[] = query.dependencies ?? [];
+      dependencyIds.forEach((dependencyId) => {
+        const dependencyQuery = this.model.queries.find(
+          (q) => q.query == dependencyId
+        );
+        if (dependencyQuery === undefined) {
+          throw new Error(`Dependency ${dependencyId} not found in model`);
+        } else if (dependencyQuery.status === "succeeded") {
+          succeededDependencies.push(dependencyQuery);
+        } else if (dependencyQuery.status === "failed") {
+          failedDependencies.push(dependencyQuery);
+        } else {
+          pendingDependencies.push(dependencyQuery);
+        }
+      });
+
+      if (failedDependencies.length) {
+        logger.debug(`${query.id}: Dependency failed...`);
+        updateQuery(query, {
+          finishedAt: new Date(),
+          status: "failed",
+          error: `Dependencies failed: ${failedDependencies.map(
+            (q) => q.query
+          )}`,
+        });
+        return;
+      }
+      if (pendingDependencies.length) {
+        logger.debug(`${query.id}: Dependencies pending...`);
+        return;
+      }
+      if (succeededDependencies.length === dependencyIds.length) {
+        logger.debug(`${query.id}: Dependencies completed, running...`);
+        const { run, process } = this.runCallbacks[query.id];
+        this.executeQuery(query, run, process);
+      }
+    });
+  }
+
   public async refreshQueryStatuses(): Promise<void> {
     const oldStatus = this.getOverallQueryStatus();
-    console.log("Refreshing query statuses");
+    logger.debug("Refreshing query statuses");
 
     // If there are no running or queued queries, return immediately
-    if (!this.model.queries.some((q) => q.status === "running" || q.status === "queued")) {
-      console.log("No running or queued queries, return");
+    if (
+      !this.model.queries.some(
+        (q) => q.status === "running" || q.status === "queued"
+      )
+    ) {
+      logger.debug("No running or queued queries, return");
       return;
     }
 
@@ -204,7 +282,7 @@ export abstract class QueryRunner<
 
     const newStatus = this.getOverallQueryStatus();
 
-    console.log("Has changes? " + hasChanges + ", New Status: " + newStatus);
+    logger.debug("Has changes? " + hasChanges + ", New Status: " + newStatus);
 
     if (!hasChanges) return;
 
@@ -213,7 +291,7 @@ export abstract class QueryRunner<
 
     if (oldStatus === "running" && newStatus === "failed") {
       error = "Failed to run a majority of the database queries";
-      console.log("Query failed, transitioning to error state");
+      logger.debug("Query failed, transitioning to error state");
     }
     if (
       oldStatus === "running" &&
@@ -221,10 +299,10 @@ export abstract class QueryRunner<
     ) {
       try {
         result = await this.runAnalysis(queryMap);
-        console.log(`Queries ${newStatus}, ran analysis successfully`);
+        logger.debug(`Queries ${newStatus}, ran analysis successfully`);
       } catch (e) {
         error = "Error running analysis: " + e.message;
-        console.log(
+        logger.debug(
           `Queries ${newStatus}, failed running analysis: ` + e.message
         );
       }
@@ -244,8 +322,12 @@ export abstract class QueryRunner<
   }
 
   public async cancelQueries(): Promise<void> {
-    // Only cancel if it's currently running
-    if (this.model.queries.filter((q) => q.status === "running").length > 0) {
+    // Only cancel if it's currently running or queued
+    if (
+      this.model.queries.filter(
+        (q) => q.status === "running" || q.status === "queued"
+      ).length > 0
+    ) {
       const newModel = await this.updateModel({
         queries: [],
         status: "failed",
@@ -258,33 +340,44 @@ export abstract class QueryRunner<
   }
 
   public async executeQuery<
-    Rows extends Record<string, string | boolean | number>[],
-    // eslint-disable-next-line
-    ProcessedRows extends Record<string, any>
+    Rows extends RowsType,
+    ProcessedRows extends ProcessedRowsType
   >(
-    query: string,
-    timer: NodeJS.Timer,
     doc: QueryInterface,
-    run: (query: string) => Promise<Rows>,
+    run: (query: string) => Promise<QueryResponse<Rows>>,
     process: (rows: Rows) => ProcessedRows
   ): Promise<void> {
+    // Update heartbeat for the query once every 30 seconds
+    // This lets us detect orphaned queries where the thread died
+    const timer = setInterval(() => {
+      updateQuery(doc, { heartbeat: new Date() }).catch((e) => {
+        logger.error(e);
+      });
+    }, 30000);
+
     // Run the query in the background
-    console.log("Start executing query in background");
-    run(query)
-      .then(async (rows) => {
+    logger.debug(`Start executing query in background: ${doc.id}`);
+    await updateQuery(doc, {
+      startedAt: new Date(),
+      status: "running",
+    });
+
+    run(doc.query)
+      .then(async ({ rows, statistics }) => {
         clearInterval(timer);
-        console.log("Query succeeded");
+        logger.debug("Query succeeded");
         await updateQuery(doc, {
           finishedAt: new Date(),
           status: "succeeded",
           rawResult: rows,
           result: process(rows),
+          statistics: statistics,
         });
         this.onQueryFinish();
       })
       .catch(async (e) => {
         clearInterval(timer);
-        console.log("Query failed: " + e.message);
+        logger.debug("Query failed: " + e.message);
         updateQuery(doc, {
           finishedAt: new Date(),
           status: "failed",
@@ -295,21 +388,19 @@ export abstract class QueryRunner<
           })
           .catch((e) => logger.error(e));
       });
-    return;
   }
 
   public async startQuery<
-    Rows extends Record<string, string | boolean | number>[],
-    // eslint-disable-next-line
-    ProcessedRows extends Record<string, any>
+    Rows extends RowsType,
+    ProcessedRows extends ProcessedRowsType
   >(
     name: string,
     query: string,
     dependencies: string[],
-    run: (query: string) => Promise<Rows>,
+    run: (query: string) => Promise<QueryResponse<Rows>>,
     process: (rows: Rows) => ProcessedRows
   ): Promise<QueryPointer> {
-    console.log("Creating query: " + name);
+    logger.debug("Creating query: " + name);
     // Create a new query in mongo;
     const doc = await createNewQuery({
       query,
@@ -318,10 +409,9 @@ export abstract class QueryRunner<
       language: this.integration.getSourceProperties().queryLanguage,
       dependencies: dependencies,
     });
-    
     // Re-use recent identical query if it exists
     if (this.useCache) {
-      console.log("Trying to reuse existing query");
+      logger.debug("Trying to reuse existing query");
       try {
         const existing = await getRecentQuery(
           this.integration.organization,
@@ -331,7 +421,7 @@ export abstract class QueryRunner<
         if (existing) {
           // Query still running, periodically check the status
           if (existing.status === "running") {
-            console.log(
+            logger.debug(
               "Reusing previous query. Currently running, checking every 3 seconds for changes"
             );
             const check = () => {
@@ -357,19 +447,19 @@ export abstract class QueryRunner<
           }
           // Query already finished
           else {
-            console.log("Reusing previous query. Already finished");
+            logger.debug("Reusing previous query. Already finished");
             this.onQueryFinish();
           }
-          console.log("Updating query to copy cached query")
-          const updatedDoc = await updateQuery(
-            doc,
-            {
-              rawResult: existing.rawResult,
-              result: existing.result,
-              status: existing.status,
-              cachedQueryUsed: existing.id
-            }
-          );
+          logger.debug("Updating query to copy cached query");
+          const updatedDoc = await updateQuery(doc, {
+            rawResult: existing.rawResult,
+            result: existing.result,
+            status: existing.status,
+            cachedQueryUsed: existing.id,
+            statistics: existing.statistics,
+            startedAt: existing.startedAt,
+            finishedAt: existing.finishedAt,
+          });
           return {
             name,
             query: updatedDoc.id,
@@ -381,20 +471,14 @@ export abstract class QueryRunner<
       }
     }
 
-    // Otherwise, 
-    console.log("Created new query object in Mongo: " + doc.id);
+    logger.debug("Created new query object in Mongo: " + doc.id);
 
-    // Update heartbeat for the query once every 30 seconds
-    // This lets us detect orphaned queries where the thread died
-    const timer = setInterval(() => {
-      updateQuery(doc, { heartbeat: new Date() }).catch((e) => {
-        logger.error(e);
-      });
-    }, 30000);
-
-    // if no dependencies, kick off right away
-    if (!dependencies.length) {
-      this.executeQuery(query, timer, doc, run, process);
+    const readyToRun = dependencies.length === 0;
+    if (readyToRun) {
+      this.executeQuery(doc, run, process);
+    } else {
+      // save callback methods for execution later
+      this.runCallbacks[doc.id] = { run, process };
     }
 
     return {
@@ -419,7 +503,7 @@ export abstract class QueryRunner<
 
     if (failedQueries.length >= totalQueries / 2) return "failed";
 
-    if ((queuedQueries.length + runningQueries.length) > 0) return "running";
+    if (queuedQueries.length + runningQueries.length > 0) return "running";
 
     if (failedQueries.length > 0) return "partially-succeeded";
 

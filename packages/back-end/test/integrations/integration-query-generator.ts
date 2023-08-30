@@ -97,6 +97,7 @@ const baseExperiment: ExperimentInterface = {
   metrics: metricConfigs.map((m) => m.id),
   exposureQueryId: USER_ID_TYPE,
   hashAttribute: "",
+  hashVersion: 2,
   releasedVariationId: "",
   trackingKey: "checkout-layout",
   datasource: "",
@@ -349,6 +350,7 @@ engines.forEach((engine) => {
         metricMap,
       });
 
+      // non-pipeline version
       const sql = integration.getExperimentMetricQuery({
         settings: snapshotSettings,
         metric: metric,
@@ -356,6 +358,7 @@ engines.forEach((engine) => {
         denominatorMetrics: denominatorMetrics,
         dimension: dimension,
         segment: segment,
+        useUnitsTable: false,
       });
 
       testCases.push({
@@ -363,6 +366,38 @@ engines.forEach((engine) => {
         engine: engine,
         sql: sql,
       });
+
+      // pipeline version
+      const pipelineEnabled = ["bigquery"];
+      if (pipelineEnabled.includes(engine)) {
+        const unitsTableFullName = `${
+          engine === "bigquery" ? "sample." : ""
+        }growthbook_tmp_units_${experiment.id}_${metric.id}`;
+        const unitsSql = integration.getExperimentUnitsTableQuery({
+          settings: snapshotSettings,
+          dimension: dimension,
+          segment: segment,
+          unitsTableFullName: unitsTableFullName,
+          includeIdJoins: true,
+        });
+        const metricSql = integration.getExperimentMetricQuery({
+          settings: snapshotSettings,
+          metric: metric,
+          activationMetrics: activationMetrics,
+          denominatorMetrics: denominatorMetrics,
+          dimension: dimension,
+          segment: segment,
+          useUnitsTable: true,
+          unitsTableFullName: unitsTableFullName,
+        });
+
+        // just prepend units table creation (rather than queueing jobs)
+        testCases.push({
+          name: `${engine} > ${experiment.id}_pipeline > ${metric.id}`,
+          engine: engine,
+          sql: unitsSql.concat(metricSql),
+        });
+      }
     });
   });
 });
