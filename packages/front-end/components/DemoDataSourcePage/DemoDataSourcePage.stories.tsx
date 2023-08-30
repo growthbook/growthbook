@@ -8,7 +8,7 @@ export default {
 
 export const DoesNotExist = () => {
   const onDelete = action("onDelete");
-  const onCreate = action("onCreate");
+  const onCreate = async () => action("onCreate")();
 
   return (
     <>
@@ -29,7 +29,7 @@ export const DoesNotExist = () => {
 
 export const WasCreatedSuccessfully = () => {
   const onDelete = action("onDelete");
-  const onCreate = action("onCreate");
+  const onCreate = async () => action("onCreate")();
 
   return (
     <>
@@ -50,7 +50,7 @@ export const WasCreatedSuccessfully = () => {
 
 export const AlreadyExists = () => {
   const onDelete = action("onDelete");
-  const onCreate = action("onCreate");
+  const onCreate = async () => action("onCreate")();
 
   return (
     <>
@@ -71,7 +71,7 @@ export const AlreadyExists = () => {
 
 export const Loading = () => {
   const onDelete = action("onDelete");
-  const onCreate = action("onCreate");
+  const onCreate = async () => action("onCreate")();
 
   return (
     <>
@@ -92,7 +92,7 @@ export const Loading = () => {
 
 export const WithError = () => {
   const onDelete = action("onDelete");
-  const onCreate = action("onCreate");
+  const onCreate = async () => action("onCreate")();
 
   return (
     <>

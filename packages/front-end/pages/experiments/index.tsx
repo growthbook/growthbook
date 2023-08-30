@@ -5,6 +5,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { datetime, ago } from "shared/dates";
 import Link from "next/link";
 import { BsFlag } from "react-icons/bs";
+import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { phaseSummary } from "@/services/utils";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
@@ -27,6 +28,7 @@ import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal
 import { AppFeatures } from "@/types/app-features";
 import { useExperiments } from "@/hooks/useExperiments";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import { useAuth } from "@/services/auth";
 
 const NUM_PER_PAGE = 20;
 
@@ -35,12 +37,11 @@ const ExperimentsPage = (): React.ReactElement => {
 
   const { ready, project, getMetricById, getProjectById } = useDefinitions();
 
-  const {
-    experiments: allExperiments,
-    error,
-    mutateExperiments,
-    loading,
-  } = useExperiments(project);
+  const { orgId } = useAuth();
+
+  const { experiments: allExperiments, error, loading } = useExperiments(
+    project
+  );
 
   const [tab, setTab] = useAnchor(["running", "drafts", "stopped", "archived"]);
 
@@ -82,6 +83,11 @@ const ExperimentsPage = (): React.ReactElement => {
     },
     [getMetricById, getProjectById]
   );
+
+  const demoExperimentId = useMemo(() => {
+    const projectId = getDemoDatasourceProjectIdForOrganization(orgId || "");
+    return experiments.find((e) => e.project === projectId)?.id || "";
+  }, [orgId, experiments]);
 
   const filterResults = useCallback(
     (items: typeof experiments) => {
@@ -146,17 +152,15 @@ const ExperimentsPage = (): React.ReactElement => {
     return <LoadingOverlay />;
   }
 
-  const hasExperiments =
-    experiments.filter((m) => !m.id.match(/^exp_sample/)).length > 0;
+  const hasExperiments = experiments.some(
+    (e) => !e.id.match(/^exp_sample/) && e.id !== demoExperimentId
+  );
 
   if (!hasExperiments) {
     return (
       <div className="contents container pagecontents getstarted">
         <NewFeatureExperiments />
-        <ExperimentsGetStarted
-          experiments={experiments}
-          mutate={mutateExperiments}
-        />
+        <ExperimentsGetStarted />
       </div>
     );
   }

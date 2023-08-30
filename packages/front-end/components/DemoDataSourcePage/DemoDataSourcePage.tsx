@@ -5,14 +5,15 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import Button from "../Button";
 
 type DemoDataSourcePageProps = {
   error: string | null;
   success: string | null;
   ready: boolean;
   exists: boolean;
-  onCreate: () => void;
-  onDelete: () => void;
+  onCreate: () => Promise<void>;
+  onDelete: () => void | Promise<void>;
   demoFeatureId: string | null;
   demoExperimentId: string | null;
   demoDataSourceId: string | null;
@@ -25,55 +26,28 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
   error,
   ready,
   exists,
-  demoFeatureId,
-  demoDataSourceId,
   demoExperimentId,
 }) => {
   return (
     <div className="container-fluid pagecontents">
-      <h1>Demo Datasource</h1>
+      <h1>Demo Project</h1>
 
       <div className="card p-4">
         {/* Intro section */}
-        <p>Create a demo datasource project or delete the existing one.</p>
+        <p>This is a demo project with a fully working sample experiment.</p>
         <p>
-          There are some restrictions when creating resources in this project.
-        </p>
-        <p>
-          All created resources will be deleted when the project is deleted.
-        </p>
-        <p>
-          If you accidentally delete one of our sample metrics, experiments or
-          features in the demo project and would like to restore it, you can
-          delete the whole project and recreate it.
+          If you are done with this project, you can delete it here and all of
+          the associated features, metrics, data sources, and experiments will
+          be deleted as well.
         </p>
         {exists ? (
           <>
             <div className="d-flex mb-2">
-              {demoFeatureId && (
-                <Link href={`/features/${demoFeatureId}`}>
-                  <a className="btn btn-outline-primary mr-2">
-                    See demo feature
-                  </a>
-                </Link>
-              )}
-              {demoDataSourceId && (
-                <Link href={`/datasources/${demoDataSourceId}`}>
-                  <a className="btn btn-outline-primary mr-2">
-                    See demo datasource
-                  </a>
-                </Link>
-              )}
               {demoExperimentId && (
                 <Link href={`/experiment/${demoExperimentId}`}>
-                  <a className="btn btn-outline-primary mr-2">
-                    See demo experiment
-                  </a>
+                  <a className="btn btn-primary mr-2">View Sample Experiment</a>
                 </Link>
               )}
-              <Link href="/metrics">
-                <a className="btn btn-outline-primary mr-2">See metrics</a>
-              </Link>
             </div>
           </>
         ) : null}
@@ -105,9 +79,9 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
             {/* Create button */}
             {!exists && (
               <>
-                <button onClick={onCreate} className="btn btn-primary">
-                  Create Demo Datasource Project
-                </button>
+                <Button color="primary" onClick={onCreate}>
+                  Create Demo Project
+                </Button>
               </>
             )}
 
@@ -123,9 +97,9 @@ export const DemoDataSourcePage: FC<DemoDataSourcePageProps> = ({
                 )}
 
                 <DeleteButton
-                  displayName="Demo Datasource Project"
-                  title="Demo Datasource Project"
-                  text="Delete Demo Datasource Project"
+                  displayName="Sample Data"
+                  title="Sample Data"
+                  text="Delete Sample Data"
                   outline={false}
                   onClick={onDelete}
                 />

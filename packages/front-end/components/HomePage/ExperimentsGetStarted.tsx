@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import { ExperimentInterfaceStringDates } from "back-end/types/experiment";
 import { useRouter } from "next/router";
 import { FaArrowLeft } from "react-icons/fa";
+import { ProjectInterface } from "back-end/types/project";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
 import usePermissions from "@/hooks/usePermissions";
@@ -12,14 +12,10 @@ import DocumentationLinksSidebar from "@/components/HomePage/DocumentationLinksS
 import GetStartedStep from "@/components/HomePage/GetStartedStep";
 import ImportExperimentModal from "@/components/Experiment/ImportExperimentModal";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
+import { useAuth } from "@/services/auth";
 import NewExperimentForm from "../Experiment/NewExperimentForm";
 
-const ExperimentsGetStarted = ({
-  experiments,
-}: {
-  experiments: ExperimentInterfaceStringDates[];
-  mutate: () => void;
-}): React.ReactElement => {
+const ExperimentsGetStarted = (): React.ReactElement => {
   const { metrics, datasources, mutateDefinitions, project } = useDefinitions();
 
   const permissions = usePermissions();
@@ -36,16 +32,15 @@ const ExperimentsGetStarted = ({
   const hasDataSource = datasources.length > 0;
   const hasMetrics =
     metrics.filter((m) => !m.id.match(/^met_sample/)).length > 0;
-  const hasExperiments =
-    experiments.filter((m) => !m.id.match(/^exp_sample/)).length > 0;
-  const currentStep = hasExperiments
-    ? 4
-    : hasMetrics
-    ? 3
-    : hasDataSource
-    ? 2
-    : 1;
-  const { exists: demoProjectExists } = useDemoDataSourceProject();
+  const currentStep = hasMetrics ? 3 : hasDataSource ? 2 : 1;
+
+  const {
+    projectId: demoDataSourceProjectId,
+    exists: demoProjectExists,
+    demoExperimentId,
+  } = useDemoDataSourceProject();
+
+  const { apiCall } = useAuth();
 
   return (
     <>
@@ -218,7 +213,7 @@ const ExperimentsGetStarted = ({
                       />
                       <GetStartedStep
                         current={currentStep === 3}
-                        finished={hasExperiments}
+                        finished={false}
                         className="border-top"
                         image="/images/getstarted-step3.svg"
                         title="3. Import an experiment"
@@ -282,8 +277,19 @@ const ExperimentsGetStarted = ({
                       !permissions.check("createAnalyses", project)
                     }
                     imageLeft={false}
-                    onClick={() => {
-                      router.push("/demo-datasource-project");
+                    onClick={async () => {
+                      if (demoDataSourceProjectId && demoExperimentId) {
+                        router.push(`/experiment/${demoExperimentId}`);
+                      } else {
+                        const res = await apiCall<{
+                          project: ProjectInterface;
+                          experimentId: string;
+                        }>("/demo-datasource-project", {
+                          method: "POST",
+                        });
+                        await mutateDefinitions();
+                        router.push(`/experiment/${res.experimentId}`);
+                      }
                     }}
                   />
                   <GetStartedStep

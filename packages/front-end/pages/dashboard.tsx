@@ -12,7 +12,6 @@ export default function Analysis(): React.ReactElement {
   const {
     experiments,
     error: experimentsError,
-    mutateExperiments,
     loading: experimentsLoading,
   } = useExperiments(project);
 
@@ -43,10 +42,7 @@ export default function Analysis(): React.ReactElement {
           <Dashboard experiments={experiments} />
         ) : (
           <div className="getstarted">
-            <ExperimentsGetStarted
-              experiments={experiments}
-              mutate={mutateExperiments}
-            />
+            <ExperimentsGetStarted />
           </div>
         )}
       </div>
