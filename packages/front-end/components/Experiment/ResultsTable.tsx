@@ -522,7 +522,6 @@ export default function ResultsTable({
                           style={{
                             lineHeight: "15px",
                             marginBottom: 2,
-                            marginLeft: -20,
                           }}
                         >
                           <span className="nowrap">Chance</span>{" "}
