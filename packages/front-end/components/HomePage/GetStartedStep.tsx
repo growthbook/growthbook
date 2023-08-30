@@ -16,6 +16,7 @@ export type Props = {
   className?: string;
   imageLeft: boolean;
   permissionsError?: boolean;
+  noActiveBorder?: boolean;
 };
 
 export default function GetStartedStep({
@@ -30,6 +31,7 @@ export default function GetStartedStep({
   finishedCTA,
   imageLeft,
   className = "",
+  noActiveBorder = false,
   permissionsError = false,
 }: Props) {
   const imgEl = (
@@ -46,7 +48,7 @@ export default function GetStartedStep({
   return (
     <div
       className={clsx("card-body extra-padding", className, {
-        "active-step": current,
+        "active-step": current && !noActiveBorder,
         "step-done": finished,
       })}
     >

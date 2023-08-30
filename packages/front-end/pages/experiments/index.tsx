@@ -152,12 +152,6 @@ const ExperimentsPage = (): React.ReactElement => {
   if (!hasExperiments) {
     return (
       <div className="contents container pagecontents getstarted">
-        <h1>Experiment Analysis</h1>
-        <p>
-          GrowthBook can pull experiment results directly from your data source
-          and analyze it with our statistics engine. Start by connecting to your
-          data source and defining metrics.
-        </p>
         <NewFeatureExperiments />
         <ExperimentsGetStarted
           experiments={experiments}
